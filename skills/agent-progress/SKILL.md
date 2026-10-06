@@ -21,8 +21,8 @@ You drive it entirely through commands. There is no file to edit by hand and no 
 beyond a ticket's body.
 
 **Running the board yourself — taking ticket requests, running the dispatcher workflow that builds
-and reviews them, and keeping the chart current — is the `agent-progress-orchestrate` skill.** This one is what any session needs in
-order to file a ticket, move one, and stay out of the tool's way.
+and reviews them, and keeping the chart current — is the `agent-progress-orchestrate` skill.** This one is what any
+session needs in order to file a ticket, move one, and stay out of the tool's way.
 
 ## The mental model
 

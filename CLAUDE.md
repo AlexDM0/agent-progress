@@ -8,7 +8,8 @@ dispatcher its sessions run on.
 
 `bun run typecheck && bun test && bun run lint`: all three after any TypeScript change, before calling it done.
 Never ad-hoc `tsc` flags; never edit `package.json` to make a check pass.
-`.githooks/pre-commit` (wired by `setup.sh`) refuses a commit failing lint or typecheck; never bypass it with `--no-verify`.
+`.githooks/pre-commit` (wired by `setup.sh`) refuses a commit failing lint or typecheck; never bypass it with
+`--no-verify`.
 
 ## Rules
 
@@ -20,15 +21,17 @@ guard spec holds is one line naming the guard: the spec is the full statement.
 - One purpose per file, explainable from its path and exports. A file is `PascalCase.ts`, named after its main
   export; folders are lower case. No barrel files.
 - A util is one pure, frozen object grouping a domain (`LocalTimeUtil.formatLocalIso(…)`), tested against its own
-  contract; never a util holding one function. A one-line type or constant lives in its consumer's folder file. An
-  app-wide list is one global object, such as `LIMITS`.
+  contract. A one-line type or constant lives in its consumer's folder file. An app-wide list is one global object,
+  such as `LIMITS`.
+- `src/UtilShape.spec.ts` holds that no exported `*Util` has fewer than two members.
 - Code starts beside its only consumer and moves, generalised, on a second one; never in anticipation.
-- Full, descriptive names, no abbreviations; only a loop `i` and a comparator `(a, b)` are one letter. Name a thing
-  for what it is or does, never its layer or history, never shadowing a global (`CorpusMap.ts`, not `Map.ts`): a
-  question as the question (`sourceIsReachable`), a producer for its product (`fullTextOf`), a boolean as a
-  predicate phrase.
-- Design constants are `SCREAMING_CASE`, named for what they bound, with the unit, no magic number inline;
-  arithmetic identities (a percent, a radix, halving) stay inline.
+- Full, descriptive names, no abbreviations. Name a thing for what it is or does, never its layer or history, never
+  shadowing a global (`CorpusMap.ts`, not `Map.ts`): a question as the question (`sourceIsReachable`), a producer
+  for its product (`fullTextOf`), a boolean as a predicate phrase.
+- Design constants are `SCREAMING_CASE`, named for what they bound, with the unit.
+- `eslint.config.js` holds one-letter names (`id-length`: only `i`, `a`, `b`) and inline magic numbers
+  (`@typescript-eslint/no-magic-numbers`, its ignore list the arithmetic identities, off in specs, `testing/` and
+  `constants/` folders); `src/LintRules.spec.ts` plants each mechanised rule's forms and exceptions.
 - Everything is English. Example data is obviously synthetic: `Alex Example`, `Example Agency`.
 
 ### Imports
@@ -79,13 +82,15 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   mismatch is its one detail). Every printed refusal is worded by the one refusal-wording util in `src/adapters/`,
   which no service imports.
 - Exit codes: 0 done or nothing to do; 1 an actionable refusal or unknown command; 2 `unrepaired` or any other
-  throw. An adapter maps them, `cli/Main.ts` applies the mapping, `agent-progress.ts` holds the only `process.exit`.
-  Three deliberate exit-0 failures are under Deviations.
+  throw. An adapter maps them, `cli/Main.ts` applies the mapping, `agent-progress.ts` exits. Three deliberate exit-0
+  failures are under Deviations.
 
 ### Runtime
 
-- `process.env` is read only in `src/shared/Environment.ts`, through documented getters; specs set it in a child
-  process (one exception, Deviations).
+- `eslint.config.js` (`CONFINED_REACHES`, the clock selectors) holds `process.env` to `src/shared/Environment.ts`,
+  `process.exit` to `agent-progress.ts`, `process.cwd`, `homedir()` and the clock in `src/` and `cli/` to
+  `cli/CommandContext.ts`, and `process.chdir` to nowhere. The environment is read through documented getters; specs
+  set it in a child process (one exception, Deviations).
 - No work at module load (entry points excepted, Deviations). The render service keeps no module state: the page
   bundle and configured Marked live in the render state the command context carries.
 - Factories of closures over classes, except for state carried across calls, domain and ingestion classes. A
@@ -115,14 +120,16 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 
 - The code explains itself. A file header (one to three sentences) only when path and export do not; a docblock only
   for a non-obvious contract edge; an inline comment only for a why.
+- `src/CommentRuns.spec.ts` holds that no inline comment outside a docblock runs past two lines.
 - Never restate code, narrate history or carry a measurement: those go in the commit message. Name files
-  repo-rooted in backticks. No TODOs: agreed-and-not-done work lives in `docs/backlog.md`.
+  repo-rooted in backticks. Agreed-and-not-done work lives in `docs/backlog.md`; `no-warning-comments` in
+  `eslint.config.js` holds that no TODO does.
 
 ### TypeScript and lint
 
 - Bun runs the TypeScript; `tsc` only type-checks, under `tsconfig.json`'s strict options. Write for them:
-  `process.env['NAME']`, a written fallback instead of `!`, conditional objects instead of spreading `undefined`,
-  `import type` for types.
+  `process.env['NAME']`, a written fallback, conditional objects instead of spreading `undefined`.
+- `eslint.config.js` holds no `!` non-null assertion and type-only imports as `type`.
 - The page is its own DOM-only project (`page/tsconfig.json`, specs under `page/tsconfig.spec.json`); `dispatcher/`
   is the Workflow-runtime project (`dispatcher/tsconfig.json`, specs under `dispatcher/tsconfig.spec.json`), and only
   `dispatcher/DispatchFromWorkflowGlobals.ts` names the Workflow globals. Their `include` lists are held both ways by
@@ -134,8 +141,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 
 ### Tests
 
-- A spec sits beside its module as `<Module>.spec.ts` (a second suite `<Module>.<aspect>.spec.ts`, never `.test.ts`), opening
-  with a docblock of which cases matter and why; test names are claims. A frozen expected-output table comes from the
+- A spec sits beside its module as `<Module>.spec.ts` (a second suite `<Module>.<aspect>.spec.ts`), opening with a
+  docblock of which cases matter and why; test names are claims. A frozen expected-output table comes from the
   previous implementation (two exceptions, Deviations) and says how to retake it.
 - A test needing a tool the machine may lack skips through `src/testing/ToolGuard.ts`, its title saying what is
   missing; the preload `src/testing/TestRunReport.ts` counts and names every skip, and
@@ -143,8 +150,9 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - A guard proves its scan found something and is watched failing on each form it claims; an allowlist is exact both
   ways.
 - Tests never touch live data: every spec works under the scratch root, checked by `src/testing/TrackerIsolation.ts`;
-  no spec creates the real process context; the binary is spawned only through `cli/testing/CliProcess.ts`; never
-  `process.chdir`.
+  the binary is spawned only through `cli/testing/CliProcess.ts`.
+- `src/TestFileConventions.spec.ts` holds that no `.test.ts` file exists and no spec or test helper creates the real
+  process context.
 - Each dispatcher decision in the `dispatcher/Dispatcher.*.spec.ts` suites must hold on the built bundle and fail on
   a SourceMutant of its module; a mutant whose text is not in its module exactly once fails the build.
 
@@ -155,6 +163,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   change the template, never the block.
 - `docs/backlog.md` is agreed and not started, with why it waits. `docs/cli.md` is the one reference for commands,
   flags, exit codes and file formats.
+- `src/ProseWrap.spec.ts` holds the 120-column wrap of this file, `docs/cli.md`, `docs/backlog.md`, the skills and the
+  templates under `resources/templates/`.
 - A commit is one plain, human-written subject line, with no AI attribution.
 
 ### Deviations
@@ -207,7 +217,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - The page script clears every container it owns before filling it; a failed bundle renders an error banner.
 - The template's bootstrap owns theme and tab selection, reached only through `window.agentProgressTemplate`. No ticket
   open state is kept: `agent-progress:open-tickets` is retired, and a ticket body shows only in the detail panel.
-- Browser storage is touched only in `page/preferences/ViewerPreferences.ts`, and a key string never changes.
+- `eslint.config.js` holds browser storage to `page/preferences/ViewerPreferences.ts`. A key string never changes.
 - The render service writes `boardFacts` from the same Board queries `status --json` prints; the page keeps no copy
   of the rules.
 - The detail panel claims a log line by its `taskIds` or `ticketIds`, never a number in free text; a note is matched

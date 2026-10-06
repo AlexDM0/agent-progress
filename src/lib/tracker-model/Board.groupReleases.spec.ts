@@ -203,7 +203,7 @@ describe('moving a settled release ticket back open', () => {
 });
 
 describe('the release bundle', () => {
-  /*
+  /**
    * 005 is the release ticket and depends on 003 and 004; 003 depends on 001 and on 008 (another group), 004 on 001 and 002.
    * 008 depends on 007, in the group, reached only through 008. 006 depends on 005, so it waits on the release rather than being in it.
    */

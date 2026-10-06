@@ -87,8 +87,8 @@ cost less to raise now than one agent that guessed wrong.
 
 **Split a large request at filing, not later.** A request that touches more than one mechanism — say
 a drop rule, a layout change and a migration — is filed as halves, one mechanism each, joined with
-`ticket depends <later> --add <earlier>`. Splitting is what keeps an agent inside its call budget. Shaving the budget instead
-does the opposite: it produces six to eight agents on one ticket, each paying for its own start and
+`ticket depends <later> --add <earlier>`. Splitting is what keeps an agent inside its call budget. Shaving the budget
+instead does the opposite: it produces six to eight agents on one ticket, each paying for its own start and
 its own rediscovery again. Splitting is for what is too big for one budget, never a reflex: a small
 request stays one ticket, and small requests that edit the same files are filed as one ticket, since
 the dispatcher gives every ticket an agent of its own and starting one costs more than a small
@@ -253,11 +253,13 @@ a review bar still in progress. Set the board to `stopped` (step 1 below), and a
 AskUserQuestion (Intake) whether to relaunch; on the user's go, `agent-progress dispatcher running`
 and the launch. The rest of its summary is handled as below.
 
-**When it returns**, its summary is `{ delivered, parked, findingsFiled, agentsRun, stoppedByBoard?, stoppedByFailures?, lowPriorityWaiting?, held?, pausedBuilds?, reviewsLeft?, dirtyMainCheckoutFiles? }`.
+**When it returns**, its summary is
+`{ delivered, parked, findingsFiled, agentsRun, stoppedByBoard?, stoppedByFailures?, lowPriorityWaiting?, held?, pausedBuilds?, reviewsLeft?, dirtyMainCheckoutFiles? }`.
 `dirtyMainCheckoutFiles` means it started nothing: run `agent-progress dispatcher stopped` in place
 of step 1, ask the user with AskUserQuestion (Intake) to commit or stash those files in the main
-checkout, naming them, and relaunch on their go; never commit or stash them yourself. `lowPriorityWaiting` is yours to triage (Low-priority work, below). `pausedBuilds` and `reviewsLeft`
-wait for the next whole-board launch, a low paused build for the one with `includeLowPriority: true`.
+checkout, naming them, and relaunch on their go; never commit or stash them yourself. `lowPriorityWaiting` is yours
+to triage (Low-priority work, below). `pausedBuilds` and `reviewsLeft` wait for the next whole-board launch, a low
+paused build for the one with `includeLowPriority: true`.
 `held`, each `{ id, waitingFor: 'build' | 'review' }`, you list to the user, and relaunch for only
 after an unhold. Then:
 

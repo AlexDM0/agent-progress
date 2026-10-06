@@ -46,9 +46,11 @@ function inMemoryStorage(): InMemoryStorage {
 type StoredChoiceName = 'range override' | 'work visibility' | 'finished since a day' | 'name column' | 'review rows' | 'Abandoned lane'
   | 'Done lane count' | 'Abandoned lane count' | 'folded epic groups' | 'To do order';
 
-// Frozen from the key functions before they moved here: retake by checking out bc42604 and calling the key functions in lib/render/page/.
-// The review rows, folded epic groups and To do order entries are newer than that commit and frozen from their first release.
-// Columns: the choice, its key for tracker `tracker-a`, a stored value in its encoding, and the value at which the key is removed.
+/**
+ * Frozen from the key functions before they moved here: retake by checking out bc42604 and calling the key functions in lib/render/page/.
+ * The review rows, folded epic groups and To do order entries are newer than that commit and frozen from their first release.
+ * Columns: the choice, its key for tracker `tracker-a`, a stored value in its encoding, and the value at which the key is removed.
+ */
 const FROZEN_STORED_CHOICES: readonly (readonly [StoredChoiceName, string, string, string])[] = [
   [
     'range override',

@@ -10,8 +10,8 @@ orchestrator writes the Ticket brief block below into every ticket it files, as 
 the builder reads as its scope and contract. By hand, while the dispatcher is stopped, fill in the
 placeholders and paste the fenced blocks, in order, as the agent's whole prompt — the Scope and
 Contract blocks below and every block of the builder brief for an implementing agent, the review
-brief's block for a reviewer. Both run on {{modelDisplayName}} at {{effort}} effort unless their ticket names another model or effort:
-the dispatcher passes each agent its ticket's pair, and by hand the `agent-progress-worker` agent
+brief's block for a reviewer. Both run on {{modelDisplayName}} at {{effort}} effort unless their ticket names another
+model or effort: the dispatcher passes each agent its ticket's pair, and by hand the `agent-progress-worker` agent
 definition carries the defaults, so a ticket that overrides them goes through the dispatcher.
 
 ## Scope

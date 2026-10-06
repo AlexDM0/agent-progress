@@ -82,11 +82,12 @@ line moves below the CLI's block once and never again.
 
 The body is preserved byte for byte from the ticket template (Report, Wanted, Acceptance, Handoff),
 `--body` or `--body-file`; an empty body falls back to the template. `ticket edit` replaces the body or
-appends to it and leaves the frontmatter's bytes as they are, a hand-written layout included; `ticket edit --title` rewrites
-only the `title` line, and a first body line still reading `# <id> — <old title>`, never the file name; on a claimed ticket whose body
-is unchanged since the claim it moves `claimedBodyHash` along. Past `pending`, `ticket edit` needs `--force`. A malformed ticket file is listed
-as ignored rather than failing `status` or `render`. A new ticket id is one past the highest of every
-file name, every parsed id and every ticket a row names; gaps are tolerated, never filled.
+appends to it and leaves the frontmatter's bytes as they are, a hand-written layout included; `ticket edit --title`
+rewrites only the `title` line, and a first body line still reading `# <id> — <old title>`, never the file name; on a
+claimed ticket whose body is unchanged since the claim it moves `claimedBodyHash` along. Past `pending`, `ticket edit`
+needs `--force`. A malformed ticket file is listed as ignored rather than failing `status` or `render`. A new ticket
+id is one past the highest of every file name, every parsed id and every ticket a row names;
+gaps are tolerated, never filled.
 
 ## What each move does to the Gantt row
 

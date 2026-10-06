@@ -5,8 +5,8 @@ every command and flag, the exit codes, what the dashboard shows, the files on d
 ticket move does to its Gantt row. The code wins every disagreement: `agent-progress help` prints the
 command reference from `cli/HelpText.ts` and is never out of step with the tool. `skills/agent-progress/Reference.md`
 carries a word-for-word copy of three sections of this file, the ticket file format, the ticket moves
-and the exit codes, and follows it everywhere else. The overview is in the [README](../README.md); working on this repository yourself
-is in [development.md](development.md).
+and the exit codes, and follows it everywhere else. The overview is in the [README](../README.md); working on this
+repository yourself is in [development.md](development.md).
 
 - [Conventions](#conventions)
 - [Adopting a repository](#adopting-a-repository)
@@ -35,9 +35,9 @@ chart.
 **Locking.** Every mutating command (`init`, `task`, `ticket`, `epic`, `log`, `concurrency`, `dispatcher`,
 `range`, `release`, `clear`, `hook subagent-stop`) takes the tracker's lock, reads, changes, writes
 `progress.json` atomically, writes any ticket file after it, then `log.jsonl` when it logged something,
-and regenerates `progress.html` from disk, then its `progress.stamp.js` — all before releasing the lock, so the page never describes
-a state the store did not hold, a ticket file is never ahead of the progress file, and a log line never
-describes a change that was not stored.
+and regenerates `progress.html` from disk, then its `progress.stamp.js` — all before releasing the lock, so the page
+never describes a state the store did not hold, a ticket file is never ahead of the progress file, and a log line
+never describes a change that was not stored.
 `render` and `open` take the lock only to render. `status`, `ticket list`, `ticket show`, `epic list`, `epic show`,
 `concurrency` and `dispatcher` without an argument, `usage` and `rework` take none: every file they
 read is written atomically. `update`, and `init` on an existing tracker, never touch the tracker's
@@ -499,11 +499,11 @@ adds its `input` figure — every token it processed — to that row, divided ov
 the remainder to the first. An unset count plus an amount is the amount, so a row two agents worked on
 carries both. A resumed agent stops again with the same agent id and a transcript that still holds its
 earlier calls, so a stop whose agent id the log already records adds only what its `input` grew by
-since the largest total logged for that id; a stop whose input names no agent id is added whole. The hook reads the line only from the agent's brief, its first message. A workflow
-agent's first message is the harness relaying the session user's request, beginning
-`[Workflow harness — user request]`; its brief is then the message right after it, the one beginning
-`[Workflow harness — computed task]`, and a relay followed by anything else has no brief at all. The
-orchestrator then passes no `--tokens`, which would replace the sum. Without the hook, `--tokens`
+since the largest total logged for that id; a stop whose input names no agent id is added whole. The hook
+reads the line only from the agent's brief, its first message. A workflow agent's first message is the harness
+relaying the session user's request, beginning `[Workflow harness — user request]`; its brief is then the message
+right after it, the one beginning `[Workflow harness — computed task]`, and a relay followed by anything else has no
+brief at all. The orchestrator then passes no `--tokens`, which would replace the sum. Without the hook, `--tokens`
 stores the harness's own `subagent_tokens`, which reports roughly the agent's end context rather than
 everything it read to reach it. A row without a figure (`null`) is not a row that cost nothing; it is
 a row nobody measured.
@@ -854,11 +854,12 @@ line moves below the CLI's block once and never again.
 
 The body is preserved byte for byte from the ticket template (Report, Wanted, Acceptance, Handoff),
 `--body` or `--body-file`; an empty body falls back to the template. `ticket edit` replaces the body or
-appends to it and leaves the frontmatter's bytes as they are, a hand-written layout included; `ticket edit --title` rewrites
-only the `title` line, and a first body line still reading `# <id> — <old title>`, never the file name; on a claimed ticket whose body
-is unchanged since the claim it moves `claimedBodyHash` along. Past `pending`, `ticket edit` needs `--force`. A malformed ticket file is listed
-as ignored rather than failing `status` or `render`. A new ticket id is one past the highest of every
-file name, every parsed id and every ticket a row names; gaps are tolerated, never filled.
+appends to it and leaves the frontmatter's bytes as they are, a hand-written layout included; `ticket edit --title`
+rewrites only the `title` line, and a first body line still reading `# <id> — <old title>`, never the file name; on a
+claimed ticket whose body is unchanged since the claim it moves `claimedBodyHash` along. Past `pending`, `ticket edit`
+needs `--force`. A malformed ticket file is listed as ignored rather than failing `status` or `render`. A new ticket
+id is one past the highest of every file name, every parsed id and every ticket a row names;
+gaps are tolerated, never filled.
 
 ### `.agent-progress/epics/checkout-redesign.md`
 
