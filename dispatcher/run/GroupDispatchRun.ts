@@ -293,6 +293,7 @@ export class GroupDispatchRun {
     const finishing = this.collaborators.startAgent(work.kind === 'park' ? { key, work } : {
       key,
       work,
+      pass:                        this.recordOf(work.ticketId).failedPasses + 1,
       agentModelAndEffort:         this.recordOf(work.ticketId).agentModelAndEffort,
       pausedBuildWasFoundBySurvey: false,
       groupPlacement:              this.placementOf(work.ticketId),

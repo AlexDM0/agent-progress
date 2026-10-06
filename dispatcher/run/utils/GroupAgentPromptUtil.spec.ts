@@ -68,7 +68,7 @@ describe('the group builder prompt', () => {
   });
 
   test('waits for a free slot by a background poll rather than failing', () => {
-    expect(prompt).toContain('as a background command (Bash with run_in_background, or the Monitor tool), never as a foreground sleep');
+    expect(prompt).toContain('as a background command and wait on it, never as a foreground sleep');
   });
 });
 

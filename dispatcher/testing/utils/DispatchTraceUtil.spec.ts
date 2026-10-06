@@ -16,6 +16,7 @@ const BUILDER_CALL: RecordedAgentCall = {
   kind:                       'build',
   ticketId:                   '001',
   ordinal:                    1,
+  generation:                 1,
   model:                      'opus',
   effort:                     undefined,
   agentType:                  'agent-progress-worker',

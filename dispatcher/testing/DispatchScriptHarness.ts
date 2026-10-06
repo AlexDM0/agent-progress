@@ -492,6 +492,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       kind,
       ticketId,
       ordinal,
+      generation:                 callGeneration,
       model:                      options['model'],
       effort:                     options['effort'],
       agentType:                  options['agentType'],

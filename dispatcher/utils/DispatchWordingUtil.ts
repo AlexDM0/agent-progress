@@ -8,9 +8,9 @@ import type {
   PassFailure,
   RoundRefusal
 } from '../@types/DispatchOutcome.ts';
-import type { DispatchSettingsRefusal }  from '../@types/DispatchSettings.ts';
-import type { AgentSubject, RowRelease } from '../@types/DispatchWork.ts';
-import { DISPATCH_ARGUMENTS }            from '../constants/DispatchArguments.ts';
+import type { DispatchSettingsRefusal }             from '../@types/DispatchSettings.ts';
+import type { AgentSubject, AgentWork, RowRelease } from '../@types/DispatchWork.ts';
+import { DISPATCH_ARGUMENTS }                       from '../constants/DispatchArguments.ts';
 
 function settingsRefusalText(refusal: DispatchSettingsRefusal): string {
   if (refusal.reason === 'missing-argument') return `The dispatcher needs args.${refusal.argumentName}: args are ${DISPATCH_ARGUMENTS.SUMMARY_TEXT}.`;
@@ -36,6 +36,12 @@ function agentLabelOf(subject: AgentSubject): string {
     case 'park':
       return `park #${subject.ticketId}`;
   }
+}
+
+// A host may answer an agent call alike in prompt and options from its first answer, so a rebuild's label names its pass; a review's names its round.
+function workerLabelOf(work: AgentWork, pass: number): string {
+  const label = agentLabelOf(work);
+  return work.kind === 'build' && pass > 1 ? `${label} pass ${pass}` : label;
 }
 
 function ticketListText(ticketIds: readonly string[]): string {
@@ -200,6 +206,7 @@ function summaryOf(outcome: DispatchOutcome): DispatchSummary {
 export const DispatchWordingUtil = {
   settingsRefusalText,
   agentLabelOf,
+  workerLabelOf,
   passFailureText,
   parkReasonText,
   boardLogLineOf,

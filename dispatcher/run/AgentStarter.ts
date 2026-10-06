@@ -28,7 +28,7 @@ export interface AgentStarter {
 export function createAgentStarter(runtime: WorkflowRuntime, settings: DispatchSettings, logger: DispatchLogger): AgentStarter {
   async function runAgent(prompt: string, options: AgentOptions, subject: AgentSubject): Promise<unknown> {
     try {
-      return await runtime.agent(prompt, options);
+      return await runtime.agent(AgentPromptUtil.promptWithPreambleOf(prompt), options);
     } catch (error) {
       logger.agentFailed(subject, error instanceof Error ? error.message : String(error));
       return null;
@@ -70,11 +70,13 @@ export function createAgentStarter(runtime: WorkflowRuntime, settings: DispatchS
   // worker type, whose narrow tool list leaves out the skill listing and the unrelated tools a default workflow subagent carries on every call.
   function workerRunFor(
     work: AgentWork,
+    pass: number,
     agentModelAndEffort: AgentModelAndEffort,
     pausedBuildWasFoundBySurvey: boolean,
     groupPlacement: GroupPlacement | undefined,
   ): Promise<unknown> {
     const { model, effort } = agentModelAndEffort;
+    const label = DispatchWordingUtil.workerLabelOf(work, pass);
     if (work.kind === 'build') {
       const request = {
         ticketId:     work.ticketId,
@@ -84,7 +86,7 @@ export function createAgentStarter(runtime: WorkflowRuntime, settings: DispatchS
       };
       const prompt = groupPlacement === undefined ? AgentPromptUtil.builderPrompt(settings, request) : GroupAgentPromptUtil.groupBuilderPrompt(settings, groupPlacement, request);
       return runAgent(prompt, {
-        label:     DispatchWordingUtil.agentLabelOf(work),
+        label,
         phase:     'Build',
         schema:    AGENT_REPLY_SCHEMAS.BUILDER,
         model,
@@ -102,7 +104,7 @@ export function createAgentStarter(runtime: WorkflowRuntime, settings: DispatchS
     const prompt = groupPlacement === undefined ? AgentPromptUtil.reviewerPrompt(settings, request) : GroupAgentPromptUtil.groupReviewerPrompt(settings, groupPlacement, request);
     const bundleReviewerIsIntegrating = groupPlacement !== undefined && !GroupAgentPromptUtil.reviewsTheRelease(groupPlacement, work.ticketId);
     return runAgent(prompt, {
-      label:     DispatchWordingUtil.agentLabelOf(work),
+      label,
       phase:     'Review',
       schema:    bundleReviewerIsIntegrating ? AGENT_REPLY_SCHEMAS.GROUP_REVIEWER : AGENT_REPLY_SCHEMAS.REVIEWER,
       model,
@@ -116,7 +118,7 @@ export function createAgentStarter(runtime: WorkflowRuntime, settings: DispatchS
   function startAgent(launch: AgentLaunch): Promise<FinishedAgent> {
     const { key, work } = launch;
     const agentRun = 'agentModelAndEffort' in launch
-      ? workerRunFor(launch.work, launch.agentModelAndEffort, launch.pausedBuildWasFoundBySurvey, launch.groupPlacement)
+      ? workerRunFor(launch.work, launch.pass, launch.agentModelAndEffort, launch.pausedBuildWasFoundBySurvey, launch.groupPlacement)
       : parkingAgentRunFor(launch.work);
     return agentRun.then((reply) => ({ key, work, reading: WorkflowInputUtil.finishedReadingOf(work, reply) }));
   }

@@ -10,6 +10,8 @@ export interface RecordedAgentCall {
   ticketId:                   string | null;
   /** The builder's pass, the reviewer's round or the parking agent's call for this ticket, counted by the harness from 1; `null` for the survey. */
   ordinal:                    number | null;
+  /** 1 for the run as first started, 2 for the main run resumed after `killedAtFirstCommandOf`, which repeats the calls the kill left unanswered. */
+  generation:                 number;
   model:                      unknown;
   effort:                     unknown;
   agentType:                  unknown;

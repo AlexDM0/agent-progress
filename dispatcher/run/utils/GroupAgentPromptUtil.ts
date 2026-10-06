@@ -64,7 +64,7 @@ function slotWaitText(): string {
     + '[ "$(agent-progress status --json | jq \'.concurrency.freeSlots\')" -gt 0 ] && break; '
     + `sleep ${DISPATCH_POLICY.SLOT_POLL_INTERVAL_SECONDS}; done`;
   return 'A group builder waits for a slot rather than failing: when `agent-progress status --json` shows `concurrency.freeSlots` of 0 before your claim, '
-    + `run \`${pollCommand}\` as a background command (Bash with run_in_background, or the Monitor tool), never as a foreground sleep, and claim once it ends; `
+    + `run \`${pollCommand}\` as a background command and wait on it, never as a foreground sleep, and claim once it ends; `
     + `it gives up by itself after ${DISPATCH_POLICY.SLOT_WAIT_LIMIT_MINUTES} minutes.`;
 }
 
@@ -173,7 +173,7 @@ function pipelineStepText(settings: DispatchSettings, placement: GroupPlacement,
     + 'otherwise change nothing more, close your bar, and return `not-released` with releaseReason `predecessor-not-integrated`. Then ';
   return `P. ${predecessorGate}bring the branch onto ${groupBranch}: record \`git -C ${worktree} rev-parse HEAD\` as <pipeline tip>, `
     + `run \`git -C ${worktree} rebase ${groupBranch}\` `
-    + '(resolve a conflict with Edit, `git add`, `GIT_EDITOR=true git rebase --continue`, never `--abort`), then '
+    + '(resolve a conflict by editing the file, `git add`, `GIT_EDITOR=true git rebase --continue`, never `--abort`), then '
     + `\`agent-progress rework --rebased-from <pipeline tip> --main ${groupBranch} --worktree ${worktree}\`, whose count joins your total and your \`## Review\`.`;
 }
 
@@ -266,7 +266,7 @@ function releaseReviewerPrompt(settings: DispatchSettings, placement: GroupPlace
     `R1. \`agent-progress ticket list\`: each of ${earlierTicketsText} must be \`reviewed\`, \`delivered\` or \`abandoned\`. Otherwise change nothing more, close your bar, `
       + 'and return `not-released` with releaseReason `group-incomplete`, naming the ids that are not in your report.',
     `R2. From here on you work in ${groupWorktree}. ${installText}Record \`git -C ${groupWorktree} rev-parse HEAD\` as <pre-rebase tip>, then `
-      + `\`git -C ${groupWorktree} rebase ${mainLine}\`, never \`-i\`: resolve with Edit, \`git add\`, \`GIT_EDITOR=true git rebase --continue\`, never \`--abort\`. `
+      + `\`git -C ${groupWorktree} rebase ${mainLine}\`, never \`-i\`: resolve by editing the file, \`git add\`, \`GIT_EDITOR=true git rebase --continue\`, never \`--abort\`. `
       + `Run \`${checkCommand} 2>&1 | tail -20\` in ${groupWorktree} until green, committing what is uncommitted; review every hunk you resolved by hand as step 3 says. `
       + `Count it: \`agent-progress rework --rebased-from <pre-rebase tip> --main ${mainLine} --worktree ${groupWorktree}\`, add it to your total and to your \`## Review\`, `
       + 'and apply step 7 again: a gap you could not close is `does-not-hold`, over the threshold requests the next round, and otherwise R3.',

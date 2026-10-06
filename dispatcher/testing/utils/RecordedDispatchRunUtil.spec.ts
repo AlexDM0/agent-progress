@@ -35,6 +35,7 @@ function recordedCall(
     kind,
     ticketId,
     ordinal:                    ticketId === null ? null : 1,
+    generation:                 1,
     model:                      overrides.model ?? 'example-model',
     effort:                     overrides.effort ?? 'medium',
     agentType:                  undefined,

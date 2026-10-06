@@ -44,9 +44,10 @@ export interface GroupPlacement {
   predecessorId:    string | null;
 }
 
+/** `pass` is the ticket's pass in this run, one more than its failed passes so far, which keeps a rebuild's agent call apart from the build before it. */
 export type AgentLaunch =
   | { key: number; work: ParkWork }
-  | { key: number; work: AgentWork; agentModelAndEffort: AgentModelAndEffort; pausedBuildWasFoundBySurvey: boolean; groupPlacement?: GroupPlacement };
+  | { key: number; work: AgentWork; pass: number; agentModelAndEffort: AgentModelAndEffort; pausedBuildWasFoundBySurvey: boolean; groupPlacement?: GroupPlacement };
 
 export interface FinishedAgent {
   key:     number;

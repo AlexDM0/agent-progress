@@ -10,6 +10,7 @@ import type { DispatchSummary }                      from '../../@types/Dispatch
 import type { DispatchScenario }                     from '../@types/DispatchScenario.ts';
 import type { RecordedDispatchRun }                  from '../@types/RecordedDispatchRun.ts';
 import type { SourceMutant }                         from '../SourceMutant.ts';
+import { AGENT_PROMPT_SENTENCES }                    from '../constants/AgentPromptSentences.ts';
 import { DISPATCHER_MODULE_PATHS }                   from '../constants/DispatcherModulePaths.ts';
 import { RecordedDispatchRunUtil }                   from '../utils/RecordedDispatchRunUtil.ts';
 import type { DispatchClaim }                        from './DispatchClaim.ts';
@@ -1309,6 +1310,19 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       find:       'return [...this.settings.readyTickets, ...this.lookedUpTicketSettings];',
       replace:    'return [...this.lookedUpTicketSettings];',
     },
+  },
+  {
+    name:        'every agent\'s prompt opens with the paragraph saying a relayed user message is not addressed to it',
+    scenarioFor: () => EVERY_KIND_OF_AGENT,
+    holds:       (run) => run.calls.length > 0 && run.calls.every((call) => call.prompt.startsWith(AGENT_PROMPT_SENTENCES.RELAYED_MESSAGE_PREAMBLE_OPENING)),
+    mutant:      { modulePath: AGENT_STARTER, find: 'runtime.agent(AgentPromptUtil.promptWithPreambleOf(prompt), options)', replace: 'runtime.agent(prompt, options)' },
+  },
+  {
+    // A host may answer a call alike in prompt and options from the first one's answer, so a rebuild labelled as the build before it could get that back.
+    name:        'a rebuild after a review that does not hold is labelled apart from the ticket\'s first build',
+    scenarioFor: () => DECISION_SCENARIOS['a review that does not hold sends a rebuild'](),
+    holds:       (run) => JSON.stringify(run.calls.filter((call) => call.kind === 'build').map((call) => call.label)) === '["build #001","build #001 pass 2"]',
+    mutant:      { modulePath: DISPATCH_WORDING_UTIL, find: 'work.kind === \'build\' && pass > 1 ?', replace: 'false ?' },
   },
 ];
 

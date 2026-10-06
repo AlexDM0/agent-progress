@@ -20,4 +20,6 @@ export const AGENT_PROMPT_SENTENCES = {
   GROUP_SURVEY_NAMES_ITS_GROUP:                 'whose `group` is `',
   /** The main line moves whenever a reviewer runs it; a group ticket's reviewer moves it only by returning `released`. */
   RELEASE_COMMAND:                              'agent-progress release',
+  /** Every prompt opens with the paragraph saying a relayed user message is not addressed to the agent, which starts with this sentence. */
+  RELAYED_MESSAGE_PREAMBLE_OPENING:             'The user is talking to the orchestrator session that runs this board, not to you.',
 } as const;

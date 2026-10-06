@@ -538,6 +538,7 @@ export class DispatchRun {
     return {
       key,
       work,
+      pass:                        this.ticketRecordFor(work.ticketId).failedPasses + 1,
       agentModelAndEffort:         this.ticketRecordFor(work.ticketId).agentModelAndEffort,
       pausedBuildWasFoundBySurvey: this.pausedBuildTicketIds.has(work.ticketId),
     };
