@@ -5,8 +5,8 @@
 # repository's `core.hooksPath` at its tracked `.githooks/`.
 #
 # It edits nothing outside $HOME/.claude, this repository's git config and, on the offer, one shell rc
-# file, and it deletes nothing
-# that is not a symlink it wrote. Per-repository setup is `agent-progress init`'s job, not this one's.
+# file, and it deletes nothing that is not a symlink it wrote. Per-repository setup is
+# `agent-progress init`'s job, not this one's.
 #
 # Usage: ./setup.sh [--instruct-only]
 #   --instruct-only  changes nothing: every offer declines and every write is reported as "would".
