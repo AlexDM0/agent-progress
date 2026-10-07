@@ -115,7 +115,7 @@ testWhenCopilotLiveRunIsPresent('a live dispatcher run credits each row exactly 
   await requireAgentProgress(['init', '--host', 'copilot-cli'], repositoryDirectory, environment);
   gitOutputIn(repositoryDirectory, ['add', '-A']);
   gitOutputIn(repositoryDirectory, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'commit', '-q', '-m', 'Adopt agent-progress']);
-  const ticketAddArguments = ['ticket', 'add', 'Add hello.txt', '--type', 'change', '--model', 'haiku', '--effort', 'low', '--body', TICKET_BODY];
+  const ticketAddArguments = ['ticket', 'add', 'Add hello.txt', '--type', 'ticket', '--model', 'haiku', '--effort', 'low', '--body', TICKET_BODY];
   await requireAgentProgress(ticketAddArguments, repositoryDirectory, environment);
   await requireAgentProgress(['dispatcher', 'running'], repositoryDirectory, environment);
 
