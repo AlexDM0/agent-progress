@@ -236,13 +236,19 @@ session events the extension receives through `session.on`.
    `dynamic_workflows_manage` (`guide`, `list`, `inspect`, `runs`, `inspect-run`, `author`). It has no stop or
    cancel operation. Completion is announced to the session unprompted, with a result preview. An "Asking user"
    tool shows a multiple-choice picker and waits. A `/workflows` slash command exists. Open: whether `/workflows`
-   stops a run, and whether workflow agents stall on a permission prompt without `COPILOT_ALLOW_ALL` (#235).
+   stops a run.
 6. Without `--experimental` (`q6-usage-without-experimental`): the extension loads and `copilot workflow run`
    runs its agent to a result. Project extensions load only in a trusted folder: untrusted, the CLI says so and
    reports the workflow not found.
 7. Agent folders (`q4-q7-worker-no-model`): with `agent-progress-worker` in both `.claude/agents` and
    `.github/agents`, the `.github/agents` one runs (its prompt marker, its description); the other is ignored with
    no warning event.
+8. Permissions (#235, `copilot workflow run agent-progress-dispatch` in an `init --host copilot-cli` scratch
+   repository, no `COPILOT_ALLOW_ALL`): agents do not stall. Each shell call is denied at once
+   (`permission.completed` `denied-no-approval-rule-and-could-not-request-from-user`, `unattended_fallback`), and
+   the status agent, denied `agent-progress status --json`, replied an all-zero status, so the dispatcher read
+   the board as stopped and ended with nothing built. Untrusted, the CLI excludes project extensions unless
+   `GITHUB_COPILOT_PROMPT_MODE_EXTENSIONS=true` is set for the invocation.
 
 Also seen: a `ctx.agent` given `reasoningEffort` a model rejects fails in about 85 ms
 (`Reasoning effort 'low' is not supported for model 'claude-haiku-4.5'.`); gpt-5-mini with no effort runs at
