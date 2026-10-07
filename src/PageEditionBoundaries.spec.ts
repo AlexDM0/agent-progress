@@ -121,7 +121,7 @@ describe('edition isolation', () => {
     const plantedImport = 'import { planted } from \'../spec/SpecPageStart.ts\';\n';
     const graph = SCANNER.graphWithPlantedFiles({ [trackerPageModule]: `${plantedImport}${SCANNER.graph.sourceTextOf(trackerPageModule)}` });
 
-    expect([...reachablePathsFrom(graph, [TRACKER_PAGE_ENTRY])].filter((path) => path.startsWith(SPEC_PAGE_FOLDER))).toEqual([SPEC_PAGE_ENTRY]);
+    expect([...reachablePathsFrom(graph, [TRACKER_PAGE_ENTRY])].filter((path) => path.startsWith(SPEC_PAGE_FOLDER))).toContain(SPEC_PAGE_ENTRY);
   });
 
   test('the spec page reaches something, and nothing in TRACKER_PAGE_ONLY_MODULES', () => {

@@ -233,7 +233,7 @@ describe('the spec template', () => {
   }
 
   test('holds no colour literal in its own rules or its markup', () => {
-    expect(styleSheetTextOf(specTemplateText())).toContain('.ap-spec-main');
+    expect(styleSheetTextOf(specTemplateText())).toContain('.ap-spec-edition');
     expect(scanTemplateColours(specTemplateText()).offences).toEqual([]);
   });
 

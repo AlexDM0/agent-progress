@@ -21,28 +21,68 @@
 ===============================================================================
  agent-progress — spec page template
 ===============================================================================
- The spec view of a spec-kit repository, a snapshot. Replaced by the CLI, which
- splits this file on all four tokens at once and swaps each piece, so injected
- content is never searched again. Each token must occur exactly ONCE or the
- render refuses — the names are written here without their leading and trailing
- underscores, and the title without its tags, on purpose:
+ The spec view of a spec-kit repository, a snapshot: it never polls a stamp and
+ never reloads. Replaced by the CLI, which splits this file on all four tokens at
+ once and swaps each piece, so injected content is never searched again. Each
+ token must occur exactly ONCE or the render refuses — the names are written
+ here without their leading and trailing underscores, and the title without its
+ tags, on purpose:
    DESIGN_STYLES  the text of template.html's one style element, so both pages
-                  share the design; this file carries only spec-specific CSS
+                  share the design; this file carries only spec-specific CSS,
+                  on the design's tokens (--warn-tint, --warn-edge, --warn-ink,
+                  --line, --ink, --ink-muted, --r-pill, --sp-*, --fs-*)
    SPEC           JSON island   -> <script type="application/json" id="ap-spec-data">,
                                    holding { snapshot, limits }
    PAGE_SCRIPT    layout script -> last <script> in <body>
    title          the <title> element in <head>, "agent-progress spec" -> "<project> spec"
 
+ The page script clears every container below that it fills before filling it.
+
  ---------------------------------------------------------------- containers ---
  #ap-error / #ap-error-text   the error banner, hidden until the page script, or
                               the banner-only script standing in for a failed
                               bundle, shows it with the reason
- main#ap-spec-main            the spec view; the page script replaces its contents
+ #ap-spec-unreadable          warn banner, [hidden] unless an entry could not be
+                              read; #ap-spec-unreadable-list holds one item per
+                              entry: its path and its reason
+ #ap-status                   the status line, data-freshness="snapshot" always;
+                              #ap-status-label "Snapshot", #ap-generated
+                              "generated <time> · <age>", the full stamp as title
+ #ap-spec-edition             the edition badge, "spec-kit <version> · constitution
+                              v<version>", each part omitted when unknown, [hidden]
+                              when both are
+ #ap-project                  the project title
+ #ap-theme                    the theme radios, the bootstrap's
+ #ap-summary                  the statistics: specs, implementing, tasks ticked of
+                              total, open clarifications
+ #ap-tabs                     Kanban · Progress · Tickets · Specs · Dependencies,
+                              each button #ap-tab-<name> with data-tab="<name>"
+ section[data-panel=<name>]   #ap-panel-<name>, one per tab, [hidden] unless selected
+   #ap-kanban-frame > #ap-kanban   the Kanban's frame and board, the ids the design
+                                   and the detail panel's room key on
+   #ap-chart                  the Progress chart's container
+   #ap-spec-tickets           the Tickets view's container
+   #ap-spec-specs             the Specs view's container
+   #ap-spec-dependencies      the Dependencies view's container
+   #ap-spec-<name>-empty      each panel's empty state, [hidden] while the
+                              snapshot holds a spec
+
+ ----------------------------------------------------------- bootstrap hooks ---
+ window.agentProgressTemplate = { selectTab(name), onBeforeReload(callback) },
+ the second a no-op, since the page never reloads.
+ localStorage keys: "agent-progress:theme" (shared with the tracker page) and
+ "agent-progress:spec-tab", the selected tab, Kanban when the saved value is not
+ one of the five. The arrow keys, Home and End move between the tabs.
 ===============================================================================
 -->
 <style>__DESIGN_STYLES__</style>
 <style>
-.ap-spec-main { padding: 24px; }
+.ap-banner.ap-spec-warn { flex-direction: column; align-items: flex-start; gap: var(--sp-1); border-color: var(--warn-edge); background: var(--warn-tint); color: var(--warn-ink); }
+.ap-spec-unreadable-list { margin: 0; padding-left: var(--sp-4); }
+.ap-spec-unreadable-list code { font-family: var(--font-mono); }
+.ap-spec-edition { display: inline-flex; align-items: center; gap: 6px; font: 500 var(--fs-micro)/1 var(--font-mono); color: var(--ink-muted); border: 1px solid var(--line); border-radius: var(--r-pill); padding: 3px 8px; white-space: nowrap; }
+.ap-spec-edition[hidden] { display: none; }
+.ap-spec-edition b { color: var(--ink); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -53,13 +93,210 @@
   <span id="ap-error-text">The page script could not build the spec view; the data island below is intact.</span>
 </div>
 
-<main class="ap-spec-main" id="ap-spec-main">
-  <p>The spec view shows here once the page script runs.</p>
-</main>
+<div class="ap-banner ap-spec-warn" id="ap-spec-unreadable" role="status" hidden>
+  <strong>Some spec-kit files could not be read, so the view leaves them out.</strong>
+  <ul class="ap-spec-unreadable-list" id="ap-spec-unreadable-list">
+    <li><code>specs/009-example/tasks.md</code> the frontmatter is never closed (line 3)</li>
+  </ul>
+</div>
+
+<header class="ap-head">
+  <div class="ap-head-title-row">
+    <div class="ap-head-identity">
+      <div class="ap-status-line" id="ap-status" data-freshness="snapshot">
+        <span class="ap-status-dot" aria-hidden="true"></span>
+        <span class="ap-status-label" id="ap-status-label">Snapshot</span>
+        <span id="ap-generated" title="generated 2026-10-06 14:20">generated 14:20 · 3 min ago</span>
+        <span class="ap-spec-edition" id="ap-spec-edition">spec-kit <b>1.1.0</b> · constitution <b>v1.2.0</b></span>
+      </div>
+      <h1 class="ap-title" id="ap-project">Example Storefront</h1>
+    </div>
+    <div class="ap-head-stats">
+      <div class="ap-theme" id="ap-theme" role="radiogroup" aria-label="Theme">
+        <button type="button" role="radio" data-theme="auto" aria-checked="true" tabindex="0">Auto</button>
+        <button type="button" role="radio" data-theme="light" aria-checked="false" tabindex="-1">Light</button>
+        <button type="button" role="radio" data-theme="dark" aria-checked="false" tabindex="-1">Dark</button>
+      </div>
+      <div class="ap-summary" id="ap-summary">
+        <span class="ap-stat"><span class="ap-stat-n">8</span><span class="ap-stat-label">specs</span></span>
+        <span class="ap-stat"><span class="ap-stat-n">1</span><span class="ap-stat-label">implementing</span></span>
+        <span class="ap-stat"><span class="ap-stat-n">69 / 122</span><span class="ap-stat-label">tasks</span></span>
+        <span class="ap-stat"><span class="ap-stat-n">2</span><span class="ap-stat-label">open clarifications</span></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="ap-tab-bar">
+    <div class="ap-tabs" id="ap-tabs" role="tablist" aria-label="Views">
+      <button type="button" role="tab" id="ap-tab-kanban" aria-controls="ap-panel-kanban" data-tab="kanban" aria-selected="true">Kanban</button>
+      <button type="button" role="tab" id="ap-tab-progress" aria-controls="ap-panel-progress" data-tab="progress" aria-selected="false">Progress</button>
+      <button type="button" role="tab" id="ap-tab-tickets" aria-controls="ap-panel-tickets" data-tab="tickets" aria-selected="false">Tickets</button>
+      <button type="button" role="tab" id="ap-tab-specs" aria-controls="ap-panel-specs" data-tab="specs" aria-selected="false">Specs</button>
+      <button type="button" role="tab" id="ap-tab-dependencies" aria-controls="ap-panel-dependencies" data-tab="dependencies" aria-selected="false">Dependencies</button>
+    </div>
+  </div>
+</header>
+
+<section data-panel="kanban" role="tabpanel" id="ap-panel-kanban" aria-labelledby="ap-tab-kanban">
+  <div class="ap-kanban-frame" id="ap-kanban-frame">
+    <div class="ap-kanban" id="ap-kanban"></div>
+  </div>
+  <div class="ap-empty" id="ap-spec-kanban-empty" hidden>No specs yet: run /speckit.specify to start one.</div>
+</section>
+
+<section data-panel="progress" role="tabpanel" id="ap-panel-progress" aria-labelledby="ap-tab-progress" hidden>
+  <div class="ap-card">
+    <div id="ap-chart"></div>
+    <div class="ap-empty" id="ap-spec-progress-empty" hidden>No specs yet, so no stages to chart.</div>
+  </div>
+</section>
+
+<section data-panel="tickets" role="tabpanel" id="ap-panel-tickets" aria-labelledby="ap-tab-tickets" hidden>
+  <div class="ap-card">
+    <div id="ap-spec-tickets"></div>
+    <div class="ap-empty" id="ap-spec-tickets-empty" hidden>No specs yet, so no work items.</div>
+  </div>
+</section>
+
+<section data-panel="specs" role="tabpanel" id="ap-panel-specs" aria-labelledby="ap-tab-specs" hidden>
+  <div id="ap-spec-specs"></div>
+  <div class="ap-empty" id="ap-spec-specs-empty" hidden>No specs yet.</div>
+</section>
+
+<section data-panel="dependencies" role="tabpanel" id="ap-panel-dependencies" aria-labelledby="ap-tab-dependencies" hidden>
+  <div class="ap-card">
+    <div id="ap-spec-dependencies"></div>
+    <div class="ap-empty" id="ap-spec-dependencies-empty" hidden>No specs yet, so no dependencies.</div>
+  </div>
+</section>
 
 </div>
 
 <script type="application/json" id="ap-spec-data">__SPEC__</script>
+
+<!-- Template-owned behaviour: the theme and tab selection, both restored from
+     localStorage before paint so a reload looks identical. A snapshot never
+     reloads, so there is no stamp poll and no idle reload. Everything
+     data-driven belongs to the page script below. -->
+<script>
+(function () {
+  /* The token below is injected as the last script; define it so a template
+     opened before injection does not throw. Split so the CLI's single literal
+     replace never touches this line. */
+  window["__PAGE" + "_SCRIPT__"] = 0;
+
+  var TAB_KEY = "agent-progress:spec-tab";
+  var THEME_KEY = "agent-progress:theme";
+  var DEFAULT_TAB = "kanban";
+  var root = document.documentElement;
+  var themeBar = document.getElementById("ap-theme");
+  var systemDark = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+
+  function applyTheme(choice) {
+    var dark = choice === "dark" || (choice === "auto" && systemDark && systemDark.matches);
+    root.setAttribute("data-theme", dark ? "dark" : "light");
+    root.setAttribute("data-theme-choice", choice);
+    var buttons = themeBar.querySelectorAll("[data-theme]");
+    for (var i = 0; i < buttons.length; i++) {
+      var isChecked = buttons[i].dataset.theme === choice;
+      buttons[i].setAttribute("aria-checked", String(isChecked));
+      buttons[i].tabIndex = isChecked ? 0 : -1;
+    }
+  }
+  applyTheme(root.getAttribute("data-theme-choice") || "auto");
+  themeBar.addEventListener("click", function (event) {
+    var button = event.target.closest("[data-theme]");
+    if (!button) { return; }
+    applyTheme(button.dataset.theme);
+    try { localStorage.setItem(THEME_KEY, button.dataset.theme); } catch (e) {}
+  });
+  /* The radio pattern: one tab stop on the checked radio, and every arrow key moves to the next
+     or previous choice and checks it through its click. */
+  themeBar.addEventListener("keydown", function (event) {
+    var buttons = Array.prototype.slice.call(themeBar.querySelectorAll("[data-theme]"));
+    var current = buttons.indexOf(event.target);
+    if (current < 0) { return; }
+    var targetIndexByKey = { ArrowRight: current + 1, ArrowDown: current + 1, ArrowLeft: current - 1, ArrowUp: current - 1 };
+    if (!Object.hasOwn(targetIndexByKey, event.key)) { return; }
+    var next = targetIndexByKey[event.key];
+    event.preventDefault();
+    var target = buttons[(next + buttons.length) % buttons.length];
+    target.focus();
+    target.click();
+  });
+  if (systemDark && systemDark.addEventListener) {
+    systemDark.addEventListener("change", function () {
+      if ((root.getAttribute("data-theme-choice") || "auto") === "auto") { applyTheme("auto"); }
+    });
+  }
+  var tabs = document.getElementById("ap-tabs");
+
+  function tabExists(name) {
+    var buttons = tabs.querySelectorAll("[data-tab]");
+    for (var i = 0; i < buttons.length; i++) {
+      if (buttons[i].dataset.tab === name) { return true; }
+    }
+    return false;
+  }
+
+  /* A name that is not one of this page's tabs, such as a tracker tab, selects the Kanban. */
+  function select(name) {
+    var shownName = tabExists(name) ? name : DEFAULT_TAB;
+    var buttons = tabs.querySelectorAll("[data-tab]");
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].setAttribute("aria-selected", String(buttons[i].dataset.tab === shownName));
+    }
+    var motionIsReady = root.getAttribute("data-motion") === "ready";
+    var panels = document.querySelectorAll("[data-panel]");
+    for (var j = 0; j < panels.length; j++) {
+      var isShown = panels[j].dataset.panel === shownName;
+      if (isShown && panels[j].hidden && motionIsReady) { panels[j].setAttribute("data-entering", ""); }
+      if (!isShown) { panels[j].removeAttribute("data-entering"); }
+      panels[j].hidden = !isShown;
+    }
+  }
+  document.addEventListener("animationend", function (event) {
+    if (event.animationName === "ap-panel-enter") { event.target.removeAttribute("data-entering"); }
+  });
+  /* Motion tokens stay 0ms until the first frames have painted, so a first render shows its final state at once. */
+  window.addEventListener("load", function () {
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { root.setAttribute("data-motion", "ready"); });
+    });
+  });
+  try {
+    var saved = localStorage.getItem(TAB_KEY);
+    if (saved) { select(saved); }
+  } catch (e) {}
+  tabs.addEventListener("click", function (event) {
+    var button = event.target.closest("[data-tab]");
+    if (!button) { return; }
+    select(button.dataset.tab);
+    try { localStorage.setItem(TAB_KEY, button.dataset.tab); } catch (e) {}
+  });
+  /* The arrow keys, Home and End move to a tab and select it through its click, so every click listener sees the change. */
+  tabs.addEventListener("keydown", function (event) {
+    var buttons = Array.prototype.slice.call(tabs.querySelectorAll("[data-tab]:not([hidden])"));
+    var current = buttons.indexOf(event.target);
+    if (current < 0) { return; }
+    var targetIndexByKey = { ArrowRight: current + 1, ArrowLeft: current - 1, Home: 0, End: buttons.length - 1 };
+    if (!Object.hasOwn(targetIndexByKey, event.key)) { return; }
+    var next = targetIndexByKey[event.key];
+    event.preventDefault();
+    var target = buttons[(next + buttons.length) % buttons.length];
+    target.focus();
+    target.click();
+  });
+
+  /* A snapshot never reloads, so a callback for the moment before one is never called. */
+  function onBeforeReload() {}
+
+  /* The template-owned behaviour the page script has to reach, and the only ones: a tab's
+     fragment has to be able to select its tab without the page script owning a second copy of
+     the tab logic. onBeforeReload is kept so the page script finds the same shape on both pages. */
+  window.agentProgressTemplate = { selectTab: select, onBeforeReload: onBeforeReload };
+})();
+</script>
 
 <script>
 __PAGE_SCRIPT__

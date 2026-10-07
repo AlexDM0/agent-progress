@@ -8,6 +8,7 @@ import { describe, expect, test }                                from 'bun:test'
 import { MILLISECONDS_PER_MINUTE }                               from '../../src/lib/local-time/LocalTimeUtil.ts';
 import { TimeUtil }                                              from '../utils/TimeUtil.ts';
 import { freshnessLabel, freshnessText, headerStatisticsMarkup } from './HeaderMarkup.ts';
+import { trackerHeaderStatisticsOf }                             from './TrackerHeaderModel.ts';
 import type { HeaderStatistics }                                 from './utils/HeaderFigureUtil.ts';
 
 const EXAMPLE_STATISTICS: HeaderStatistics = {
@@ -21,7 +22,7 @@ const EXAMPLE_STATISTICS: HeaderStatistics = {
 
 describe('headerStatisticsMarkup', () => {
   test('prints agents working, done today, tokens today and waiting in queue, in that order', () => {
-    const markup = headerStatisticsMarkup(EXAMPLE_STATISTICS);
+    const markup = headerStatisticsMarkup(trackerHeaderStatisticsOf(EXAMPLE_STATISTICS));
     const labels = [...markup.matchAll(/<span class="ap-stat-label">([^<]*)<\/span>/g)].map((match) => match[1]);
 
     expect(labels).toEqual(['agents working', 'done today', 'tokens today', 'waiting in queue']);
@@ -32,7 +33,7 @@ describe('headerStatisticsMarkup', () => {
 
   // The statistics are navigation: each state figure opens its lane and says so to a screen reader, while the token total has no lane.
   test('makes each state figure a button for its Kanban lane and leaves the token figure plain text', () => {
-    const markup = headerStatisticsMarkup(EXAMPLE_STATISTICS);
+    const markup = headerStatisticsMarkup(trackerHeaderStatisticsOf(EXAMPLE_STATISTICS));
 
     expect(markup).toContain('<button type="button" class="ap-stat" data-kanban-lane="progress" aria-label="Show 1 / 6 agents working on Kanban">');
     expect(markup).toContain('<button type="button" class="ap-stat" data-kanban-lane="done" aria-label="Show 34 done today on Kanban">');
@@ -42,16 +43,17 @@ describe('headerStatisticsMarkup', () => {
   });
 
   test('adds a paused figure after agents working, opening the In progress lane, only while a build is paused', () => {
-    const markup = headerStatisticsMarkup({ ...EXAMPLE_STATISTICS, pausedBuildCount: 1 });
+    const markup = headerStatisticsMarkup(trackerHeaderStatisticsOf({ ...EXAMPLE_STATISTICS, pausedBuildCount: 1 }));
     const labels = [...markup.matchAll(/<span class="ap-stat-label">([^<]*)<\/span>/g)].map((match) => match[1]);
 
     expect(labels).toEqual(['agents working', 'paused', 'done today', 'tokens today', 'waiting in queue']);
     expect(markup).toContain('<button type="button" class="ap-stat" data-state="paused" data-kanban-lane="progress" aria-label="Show 1 paused on Kanban">');
-    expect(headerStatisticsMarkup(EXAMPLE_STATISTICS)).not.toContain('paused');
+    expect(headerStatisticsMarkup(trackerHeaderStatisticsOf(EXAMPLE_STATISTICS))).not.toContain('paused');
   });
 
   test('prints the running count alone when the limit is missing', () => {
-    expect(headerStatisticsMarkup({ ...EXAMPLE_STATISTICS, agentLimit: null })).toContain('<span class="ap-stat-n">1</span><span class="ap-stat-label">agents working</span>');
+    expect(headerStatisticsMarkup(trackerHeaderStatisticsOf({ ...EXAMPLE_STATISTICS, agentLimit: null })))
+      .toContain('<span class="ap-stat-n">1</span><span class="ap-stat-label">agents working</span>');
   });
 });
 

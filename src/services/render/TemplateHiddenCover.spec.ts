@@ -43,12 +43,16 @@ const TRACKER_ENTRY_PATH = PAGE_ENTRY_POINTS.TRACKER.join('/');
 
 const SPEC_ENTRY_PATH = PAGE_ENTRY_POINTS.SPEC.join('/');
 
-/** `DomUtil.setHidden` itself, whose callers are collected, and the epic column's header cell, reached by a selector and checked by hand. */
-const UNRESOLVED_HIDING_SITES = ['page/tickets/TicketsController.ts: epicHeader', 'page/utils/DomUtil.ts: element'];
+/**
+ * `DomUtil.setHidden` and `PageShell.showTabButton` themselves, whose callers are collected, and the epic column's header cell, reached by a
+ * selector and checked by hand.
+ */
+const UNRESOLVED_HIDING_SITES = ['page/shell/PageShell.ts: tabElement', 'page/tickets/TicketsController.ts: epicHeader', 'page/utils/DomUtil.ts: element'];
 
-const SPEC_UNRESOLVED_HIDING_SITES: string[] = [];
+const SPEC_UNRESOLVED_HIDING_SITES = ['page/shell/PageShell.ts: tabElement', 'page/utils/DomUtil.ts: element'];
 
-const SET_HIDDEN_CALL       = /DomUtil\.setHidden\(\s*('[^']*'|\w+)/g;
+/** `DomUtil.setHidden` and `PageShell.showTabButton` hide the element their first argument names, so their callers are collected. */
+const SET_HIDDEN_CALL       = /(?:DomUtil\.setHidden|(?<!function )\bshowTabButton)\(\s*('[^']*'|\w+)/g;
 const HIDDEN_PROPERTY_WRITE = /(\w+)\.hidden\s*=(?!=)/g;
 const HIDDEN_TOGGLE_CALL    = /(\w+)\.toggleAttribute\(\s*['"]hidden['"]/g;
 const STRING_CONSTANT       = /const\s+([A-Z][A-Z0-9_]*)\s*=\s*'([^']*)'/g;
@@ -437,6 +441,7 @@ describe('every element the spec page hides is display: none while hidden in the
       'page/kanban/KanbanMarkup.ts': `${SCANNER.graph.sourceTextOf('page/kanban/KanbanMarkup.ts')}\nconst PLANTED_ELEMENT_ID = 'ap-error';\n`,
       [SPEC_ENTRY_PATH]:             `${SCANNER.graph.sourceTextOf(SPEC_ENTRY_PATH)}\nDomUtil.setHidden(PLANTED_ELEMENT_ID, true);\n`,
     });
-    expect(hidingSitesOf(pageSourcesReachedFrom(withTrackerConstant, SPEC_ENTRY_PATH)).unresolvedSites).toEqual([`${SPEC_ENTRY_PATH}: PLANTED_ELEMENT_ID`]);
+    expect(hidingSitesOf(pageSourcesReachedFrom(withTrackerConstant, SPEC_ENTRY_PATH)).unresolvedSites.sort())
+      .toEqual([...SPEC_UNRESOLVED_HIDING_SITES, `${SPEC_ENTRY_PATH}: PLANTED_ELEMENT_ID`].sort());
   });
 });

@@ -222,8 +222,10 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - The spec template takes `template.html`'s one `<style>` block in at render and carries only spec-specific CSS, so
   both pages share one design.
 - The page script clears every container it owns before filling it; a failed bundle renders an error banner.
-- The template's bootstrap owns theme and tab selection, reached only through `window.agentProgressTemplate`. No ticket
-  open state is kept: `agent-progress:open-tickets` is retired, and a ticket body shows only in the detail panel.
+- Each template's bootstrap owns theme and tab selection, reached only through `window.agentProgressTemplate`. No ticket
+  open state is kept: `agent-progress:open-tickets` is retired, and a ticket body shows only in the detail panel. The
+  spec template's bootstrap shares the theme key `agent-progress:theme`, keeps its tab under `agent-progress:spec-tab`
+  (Kanban when the saved value is not one of its tabs), never reloads, and gives `onBeforeReload` as a no-op.
 - The spec page (`page/spec/SpecPageStart.ts`) reuses the tracker page's views by composition. A shared module reads a
   structural type of exactly the fields it uses, or a view model; tracker types satisfy it unchanged, and no mapper
   invents a tracker value (owner, token, ticket number, row or task id).

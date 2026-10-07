@@ -38,6 +38,7 @@ import { hiddenWorkNoteText }                                 from './progress/G
 import { highlightChangesSince }                              from './reload/ChangeHighlight.ts';
 import { createReloadSnapshotController }                     from './reload/ReloadSnapshotController.ts';
 import { ScreenSignatureUtil }                                from './reload/utils/ScreenSignatureUtil.ts';
+import { createFragmentRouter }                               from './shell/FragmentRouter.ts';
 import { PageShell }                                          from './shell/PageShell.ts';
 import { createTicketsController }                            from './tickets/TicketsController.ts';
 import { DependencyGraphUtil }                                from './utils/DependencyGraphUtil.ts';
@@ -83,72 +84,17 @@ const OWNED_TEXT_CONTAINER_IDS = [
   HIDDEN_WORK_NOTE_ELEMENT_ID,
 ];
 
-const { showLayoutFailure, islandContentsOf } = PageShell;
+const { showLayoutFailure, islandContentsOf, showTabButton } = PageShell;
 
 /** A ticket's fragment names no element: it selects the Tickets tab and opens that ticket's detail. */
-function applyFragment(fragment: string, openTicketDetail: (ticketId: string) => boolean): void {
-  const target = fragment.replace(/^#/, '');
-  if (target === '') {
-    return;
-  }
-  const behaviour = DomUtil.templateBehaviour();
-  if (TAB_NAMES.includes(target)) {
-    behaviour?.selectTab(target);
-    return;
-  }
+function openTicketFragment(target: string, openTicketDetail: (ticketId: string) => boolean): boolean {
   const ticketId = TemplateIdUtil.ticketIdOfFragment(target);
-  if (ticketId !== null) {
-    behaviour?.selectTab(TICKETS_TAB_NAME);
-    openTicketDetail(ticketId);
-    return;
+  if (ticketId === null) {
+    return false;
   }
-  const element = document.getElementById(target);
-  if (element === null) {
-    return;
-  }
-  const panel = element.closest('[data-panel]');
-  if (panel instanceof HTMLElement) {
-    behaviour?.selectTab(panel.dataset['panel'] ?? 'progress');
-  }
-  for (const disclosure of [element.closest('details'), element.querySelector('details')]) {
-    if (disclosure instanceof HTMLDetailsElement) {
-      disclosure.open = true;
-    }
-  }
-  element.scrollIntoView();
-}
-
-function clearPlaceholderContent(): void {
-  for (const elementId of OWNED_MARKUP_CONTAINER_IDS) {
-    DomUtil.setMarkup(elementId, '');
-  }
-  for (const elementId of OWNED_TEXT_CONTAINER_IDS) {
-    DomUtil.setText(elementId, '');
-  }
-}
-
-/** A board without epics has no Epics tab; a viewer whose stored tab was it lands on the Kanban instead. */
-function showEpicsTabButton(boardHasEpics: boolean): void {
-  const epicsTab = document.getElementById(EPICS_TAB_ELEMENT_ID);
-  if (epicsTab === null) {
-    return;
-  }
-  epicsTab.hidden = !boardHasEpics;
-  if (!boardHasEpics && epicsTab.getAttribute('aria-selected') === 'true') {
-    DomUtil.templateBehaviour()?.selectTab(KANBAN_TAB_NAME);
-  }
-}
-
-/** A board where no ticket depends on another has no Dependencies tab, and a viewer whose stored tab was it lands on the Kanban. */
-function showDependenciesTabButton(boardHasDependencies: boolean): void {
-  const dependenciesTab = document.getElementById(DEPENDENCIES_TAB_ELEMENT_ID);
-  if (dependenciesTab === null) {
-    return;
-  }
-  dependenciesTab.hidden = !boardHasDependencies;
-  if (!boardHasDependencies && dependenciesTab.getAttribute('aria-selected') === 'true') {
-    DomUtil.templateBehaviour()?.selectTab(KANBAN_TAB_NAME);
-  }
+  DomUtil.templateBehaviour()?.selectTab(TICKETS_TAB_NAME);
+  openTicketDetail(ticketId);
+  return true;
 }
 
 function waitingOnByTicketIdOf(tickets: readonly BoardTicket[]): Map<string, readonly string[]> {
@@ -286,31 +232,28 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   kanbanController.wire();
   kanbanEpicFilter.wire();
   ticketsController.wire();
-  showEpicsTabButton(board.epics.length > 0);
+  showTabButton(EPICS_TAB_ELEMENT_ID, board.epics.length > 0, KANBAN_TAB_NAME);
 
   if (boardHasDependencies) {
     DomUtil.setMarkup(DEPENDENCIES_CARD_ELEMENT_ID, DependencyMarkup.dependencyGraphMarkup(dependencyGraph, ticketById, board.readyTicketIds));
   }
   createDependencyLineageController({ containerElementId: DEPENDENCIES_CARD_ELEMENT_ID, readGraph: () => dependencyGraph }).wire();
-  showDependenciesTabButton(boardHasDependencies);
+  showTabButton(DEPENDENCIES_TAB_ELEMENT_ID, boardHasDependencies, KANBAN_TAB_NAME);
 
   const openTicketDetail = (ticketId: string): boolean => detailDialogController.openTicketDetail(ticketId);
+  const fragmentRouter   = createFragmentRouter({
+    tabNames:         TAB_NAMES,
+    openItemFragment: (target) => openTicketFragment(target, openTicketDetail),
+  });
   window.addEventListener('resize', () => {
     kanbanController.updateOverflow();
   });
   window.addEventListener('hashchange', () => {
-    applyFragment(window.location.hash, openTicketDetail);
+    fragmentRouter.applyFragment(window.location.hash);
     kanbanController.updateOverflow();
     finishedWorkSwitch.render();
   });
-  // A link to the ticket fragment already in the address bar fires no hashchange, so its detail, closed since, would not reopen.
-  document.addEventListener('click', (event) => {
-    const link = event.target instanceof Element ? event.target.closest('a[href^="#"]') : null;
-    const href = link?.getAttribute('href') ?? '';
-    if (href === window.location.hash && TemplateIdUtil.ticketIdOfFragment(href.slice(1)) !== null) {
-      applyFragment(href, openTicketDetail);
-    }
-  });
+  fragmentRouter.wireSameFragmentReclick();
 
   const screenSignature          = ScreenSignatureUtil.screenSignatureOf(board);
   const reloadSnapshotController = createReloadSnapshotController({
@@ -330,7 +273,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
 
   showVisibleWork();
   progressController.layOut(true);
-  applyFragment(window.location.hash, openTicketDetail);
+  fragmentRouter.applyFragment(window.location.hash);
   reloadSnapshotController.restorePlace();
   // After the fragment and the snapshot chose the tab, whose items the pills count.
   finishedWorkSwitch.render();
@@ -338,7 +281,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
 }
 
 function startPage(): void {
-  clearPlaceholderContent();
+  PageShell.clearOwnedContainers(OWNED_MARKUP_CONTAINER_IDS, OWNED_TEXT_CONTAINER_IDS);
   const payload = IslandUtil.pagePayloadFrom(islandContentsOf(PROGRESS_ISLAND_ELEMENT_ID));
   if (payload === null) {
     showLayoutFailure('The progress data island is missing or could not be read, so the chart could not be built.');

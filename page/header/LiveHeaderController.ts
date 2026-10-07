@@ -4,18 +4,16 @@
  * the tab is hidden. The ticks dispatch no input event, so the template's idle reload never mistakes them for the viewer's activity.
  */
 
-import type { PagePayload, PageTicket }                        from '../../src/shared/@types/PagePayload.ts';
-import { GENERATED_STAMP_ELEMENT_ID, STATUS_LABEL_ELEMENT_ID } from '../constants/TemplateIds.ts';
-import { DomUtil }                                             from '../utils/DomUtil.ts';
-import { TimeUtil }                                            from '../utils/TimeUtil.ts';
-import { activityBannerMarkup }                                from './ActivityBannerMarkup.ts';
-import { freshnessLabel, freshnessText }                       from './HeaderMarkup.ts';
-import { ActivityBannerUtil }                                  from './utils/ActivityBannerUtil.ts';
-import type { PageFreshness }                                  from './utils/HeaderFigureUtil.ts';
-import { HeaderFigureUtil }                                    from './utils/HeaderFigureUtil.ts';
+import type { PagePayload, PageTicket } from '../../src/shared/@types/PagePayload.ts';
+import { DomUtil }                      from '../utils/DomUtil.ts';
+import { TimeUtil }                     from '../utils/TimeUtil.ts';
+import { activityBannerMarkup }         from './ActivityBannerMarkup.ts';
+import { showStatusLine }               from './StatusLine.ts';
+import { ActivityBannerUtil }           from './utils/ActivityBannerUtil.ts';
+import type { PageFreshness }           from './utils/HeaderFigureUtil.ts';
+import { HeaderFigureUtil }             from './utils/HeaderFigureUtil.ts';
 
-const STATUS_LINE_ELEMENT_ID = 'ap-status';
-const ACTIVITY_ELEMENT_ID    = 'ap-activity';
+const ACTIVITY_ELEMENT_ID = 'ap-activity';
 
 const ELAPSED_TICK_INTERVAL_MILLISECONDS    = 1000;
 const FRESHNESS_CHECK_INTERVAL_MILLISECONDS = 60_000;
@@ -34,12 +32,9 @@ export function createLiveHeaderController(payload: PagePayload, tickets: readon
   const elapsedReferenceOf = (freshness: PageFreshness, nowEpochMilliseconds: number): number => (freshness.isLive ? nowEpochMilliseconds : generatedAt);
 
   const showFreshness = (nowEpochMilliseconds: number): PageFreshness => {
-    const freshness      = HeaderFigureUtil.freshnessOf(generatedAt, nowEpochMilliseconds, payload.limits);
-    const freshnessValue = freshness.isLive ? 'live' : 'snapshot';
-    document.getElementById(STATUS_LINE_ELEMENT_ID)?.setAttribute('data-freshness', freshnessValue);
-    document.getElementById(ACTIVITY_ELEMENT_ID)?.setAttribute('data-freshness', freshnessValue);
-    DomUtil.setText(STATUS_LABEL_ELEMENT_ID, freshnessLabel(freshness));
-    DomUtil.setShortenedText(GENERATED_STAMP_ELEMENT_ID, freshnessText(generatedAt, freshness, TimeUtil.calendarDateOf(nowEpochMilliseconds)));
+    const freshness = HeaderFigureUtil.freshnessOf(generatedAt, nowEpochMilliseconds, payload.limits);
+    showStatusLine(generatedAt, freshness, TimeUtil.calendarDateOf(nowEpochMilliseconds));
+    document.getElementById(ACTIVITY_ELEMENT_ID)?.setAttribute('data-freshness', freshness.isLive ? 'live' : 'snapshot');
     return freshness;
   };
 

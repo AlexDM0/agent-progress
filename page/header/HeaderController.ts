@@ -6,6 +6,7 @@ import { PROJECT_NAME_ELEMENT_ID, SUMMARY_ELEMENT_ID } from '../constants/Templa
 import { DomUtil }                                     from '../utils/DomUtil.ts';
 import { TimeUtil }                                    from '../utils/TimeUtil.ts';
 import { headerStatisticsMarkup }                      from './HeaderMarkup.ts';
+import { trackerHeaderModelOf }                        from './TrackerHeaderModel.ts';
 import { HeaderFigureUtil }                            from './utils/HeaderFigureUtil.ts';
 
 export interface HeaderController {
@@ -14,14 +15,15 @@ export interface HeaderController {
 
 export function createHeaderController(payload: PagePayload, tickets: readonly BoardTicket[]): HeaderController {
   const show = (nowEpochMilliseconds: number): void => {
-    DomUtil.setText(PROJECT_NAME_ELEMENT_ID, payload.progress.project);
-    DomUtil.setMarkup(SUMMARY_ELEMENT_ID, headerStatisticsMarkup(HeaderFigureUtil.statisticsOf({
+    const headerModel = trackerHeaderModelOf(payload.progress.project, HeaderFigureUtil.statisticsOf({
       tasks:             payload.progress.tasks,
       tickets,
       agentLimit:        payload.concurrency.limit,
       todayCalendarDate: TimeUtil.calendarDateOf(nowEpochMilliseconds),
       slices:            payload.limits,
-    })));
+    }));
+    DomUtil.setText(PROJECT_NAME_ELEMENT_ID, headerModel.projectTitle);
+    DomUtil.setMarkup(SUMMARY_ELEMENT_ID, headerStatisticsMarkup(headerModel.statistics));
   };
 
   return { show };
