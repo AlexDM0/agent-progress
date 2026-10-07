@@ -120,9 +120,17 @@ describe('the release ticket\'s reviewer prompt', () => {
 
 describe('the group survey prompt', () => {
   // No decision reads an earlier integration off the survey: each group reviewer's first step finds it itself.
-  test('lists the group\'s tickets from the status document and runs no integrated-line check', () => {
-    const prompt = GroupAgentPromptUtil.groupSurveyPrompt(GROUP_SETTINGS, 'example-group');
-    expect(prompt).toContain('top-level `tickets` list whose `group` is `example-group`');
-    expect(prompt).not.toContain('Integrated:');
+  test('runs no integrated-line check', () => {
+    expect(GroupAgentPromptUtil.groupSurveyPrompt(GROUP_SETTINGS)).not.toContain('Integrated:');
+  });
+
+  // An agent narrowing the list misread a worktree condition as a ticket filter and emptied a run; the run picks the group and the statuses in code.
+  test('copies every ticket, ticket row and worktree name of the board, naming no group and no status to narrow them by', () => {
+    const prompt = GroupAgentPromptUtil.groupSurveyPrompt(GROUP_SETTINGS);
+    expect(prompt).toContain('- `tickets`: every entry of the status document\'s top-level `tickets` list, each with its `id`, `status`');
+    expect(prompt).toContain('- `ticketRows`: every entry of the document\'s top-level `ticketRows` list');
+    expect(prompt).toContain('`ls -1 /scratch/example-repository/.claude/worktrees` once');
+    expect(prompt).toContain('Judge nothing and leave out no entry');
+    for (const narrowingWord of ['whose', 'example-group', '`pending`', '`in-progress`', '`in-review`', 'test -d']) expect(prompt).not.toContain(narrowingWord);
   });
 });

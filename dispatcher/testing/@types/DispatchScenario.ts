@@ -94,7 +94,7 @@ export interface DispatchScenario {
   pausedBuildNotesByTicketId?:    Record<string, string>;
   /** The main checkout's uncommitted tracked files, as the survey's `git status` lists them; none by default. */
   dirtyMainCheckoutFiles?:        string[];
-  /** Paused builds among those whose worktree is gone, as the survey's `test -d` finds it. */
+  /** Paused builds among those whose worktree is gone, as the survey's `ls` of the worktrees folder finds it. */
   pausedBuildIdsWithoutWorktree?: string[];
   /** Once the run returns, the user's go sets the board running and a fresh whole-board run starts on the board it left; its calls are `relaunch`. */
   relaunchedAfterTheRun?:         boolean;
@@ -120,6 +120,6 @@ export interface GroupScenario {
   firstTicketDependsOn?:              string[];
   /** Pending tickets of the group, depending on nothing, that no bundle ticket depends on: outside the release bundle. */
   ticketIdsOutsideTheBundle?:         string[];
-  /** The settings lookup answers with an empty `groupTickets` list, as an agent that skipped `status --json` would. */
+  /** The settings lookup answers with an empty `boardTickets` list, as an agent that skipped `status --json` would. */
   settingsLookupListsNoGroupTickets?: boolean;
 }

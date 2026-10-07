@@ -247,25 +247,16 @@ describe('the survey', () => {
     expect(surveyReadingOf({ ...survey, reviewWaitingTickets: [{ id: '007' }, null] })).toMatchObject({ reviewWaitingTickets: 'unlisted' });
   });
 
-  test('paused builds keep only object entries whose worktree exists, with a missing note read as empty', () => {
+  // The survey copies the list verbatim beside the worktrees folder's listing; the join is the edge's, so no agent decides which build is resumable.
+  test('paused builds keep only object entries whose worktree the listing names, with a missing note read as empty', () => {
     const reading = surveyReadingOf({
       ...survey,
       pausedBuilds: [
         null,
-        {
-          id:             '004',
-          note:           'Paused by Alex Example',
-          worktreeExists: false,
-          priority:       'high',
-        },
-        { id: '005', note: 'Paused by Alex Example', priority: 'high' },
-        {
-          id:             '006',
-          worktreeExists: true,
-          priority:       'urgent',
-          effort:         'high',
-        },
+        { id: '004', note: 'Paused by Alex Example', priority: 'high' },
+        { id: '006', priority: 'urgent', effort: 'high' },
       ],
+      worktreeNames: ['ticket-006', 'group-example-group', 'ticket-0045'],
     });
     expect(reading?.pausedBuilds).toEqual([{
       id:                  '006',
@@ -275,22 +266,22 @@ describe('the survey', () => {
     }]);
   });
 
+  test('a worktree listing that is not a list names no worktree, so no paused build is read', () => {
+    expect(surveyReadingOf({ ...survey, pausedBuilds: [{ id: '004', note: '', priority: 'normal' }], worktreeNames: 'ticket-004' })?.pausedBuilds).toEqual([]);
+  });
+
   // The claim-note filter is a decision of the run, which a mutant of the run must be able to break, so the edge passes every note on.
   test('a paused build with a person\'s note is still read, since telling claims apart is the run\'s decision', () => {
     const reading = surveyReadingOf({
       ...survey,
-      pausedBuilds: [{
-        id:             '004',
-        note:           'Paused by Alex Example',
-        worktreeExists: true,
-        priority:       'normal',
-      }]
+      pausedBuilds:  [{ id: '004', note: 'Paused by Alex Example', priority: 'normal' }],
+      worktreeNames: ['ticket-004'],
     });
     expect(reading?.pausedBuilds).toMatchObject([{ id: '004', note: 'Paused by Alex Example', priority: 'normal' }]);
   });
 
   test('paused builds that are not a list read as none', () => {
-    expect(surveyReadingOf({ ...survey, pausedBuilds: 'none' })?.pausedBuilds).toEqual([]);
+    expect(surveyReadingOf({ ...survey, pausedBuilds: 'none', worktreeNames: ['ticket-004'] })?.pausedBuilds).toEqual([]);
   });
 
   test('a survey without a readable status block says so, beside its other lists', () => {
@@ -299,14 +290,23 @@ describe('the survey', () => {
 });
 
 describe('the group survey', () => {
+  const GROUP_NAME = 'example-group';
+
+  function groupTicketOf(id: string, status: string): Record<string, unknown> {
+    return {
+      id, status, dependsOn: [], releasesGroup: false, group: GROUP_NAME,
+    };
+  }
+
   test('a group survey that returned nothing reads as nothing, and tickets that are not a list as unlisted', () => {
-    expect(groupSurveyReadingOf(null)).toBeNull();
-    expect(groupSurveyReadingOf({ status: STATUS_BLOCK, tickets: 'none' })).toMatchObject({ tickets: 'unlisted' });
+    expect(groupSurveyReadingOf(null, GROUP_NAME)).toBeNull();
+    expect(groupSurveyReadingOf({ status: STATUS_BLOCK, tickets: 'none' }, GROUP_NAME)).toMatchObject({ tickets: 'unlisted' });
   });
 
   // A field the survey left out reads as its safe side: no release mark, no claim of this run's, no worktree, no bar, not integrated.
   test('ticket entries without a string id are dropped, and every missing field reads as its safe side', () => {
-    expect(groupSurveyReadingOf({ status: STATUS_BLOCK, tickets: [null, { id: 5 }, { id: '001', dependsOn: ['000', 3] }] })?.tickets).toEqual([{
+    const tickets = [null, { id: 5, group: GROUP_NAME }, { id: '001', dependsOn: ['000', 3], group: GROUP_NAME }];
+    expect(groupSurveyReadingOf({ status: STATUS_BLOCK, tickets }, GROUP_NAME)?.tickets).toEqual([{
       id:                  '001',
       status:              '',
       dependsOn:           ['000'],
@@ -316,6 +316,46 @@ describe('the group survey', () => {
       worktreeExists:      false,
       openReviewBar:       false,
     }]);
+  });
+
+  // The survey copies the whole board, so the group is picked here, by its name alone: no status narrows it, or an all-pending group reads as empty.
+  test('the group\'s tickets are picked whatever their status, and another group\'s or an ungrouped ticket is left out', () => {
+    const tickets = [
+      groupTicketOf('101', 'pending'),
+      { ...groupTicketOf('102', 'pending'), group: 'other-group' },
+      {
+        id: '103', status: 'pending', dependsOn: [], releasesGroup: false
+      },
+      groupTicketOf('104', 'delivered'),
+      groupTicketOf('105', 'in-review'),
+    ];
+    expect(groupSurveyReadingOf({ status: STATUS_BLOCK, tickets }, GROUP_NAME)?.tickets).toMatchObject([{ id: '101' }, { id: '104' }, { id: '105' }]);
+  });
+
+  test('each ticket takes its row\'s note and whether a review bar of it is in progress from its own ticketRows entry', () => {
+    const ticketRows = [
+      { id: '101', row: { note: 'Built by Example Agency' }, reviewBars: [{ status: 'delivered' }] },
+      { id: '102', reviewBars: [{ status: 'delivered' }, { status: 'in-progress' }] },
+    ];
+    const tickets = [groupTicketOf('101', 'in-progress'), groupTicketOf('102', 'in-review'), groupTicketOf('103', 'pending')];
+    expect(groupSurveyReadingOf({ status: STATUS_BLOCK, tickets, ticketRows }, GROUP_NAME)?.tickets).toMatchObject([
+      { id: '101', rowNote: 'Built by Example Agency', openReviewBar: false },
+      { id: '102', rowNote: '', openReviewBar: true },
+      { id: '103', rowNote: '', openReviewBar: false },
+    ]);
+  });
+
+  // Only a ticket a builder claimed may have a worktree of its own, as the survey's `test -d` once ran for those alone.
+  test('a listed worktree counts only for an in-progress or in-review ticket, never for a pending or settled one', () => {
+    const tickets = ['in-progress', 'in-review', 'pending', 'reviewed', 'delivered'].map((status, i) => groupTicketOf(`10${i}`, status));
+    const worktreeNames = tickets.map((ticket) => `ticket-${String(ticket['id'])}`);
+    const reading = groupSurveyReadingOf({ status: STATUS_BLOCK, tickets, worktreeNames }, GROUP_NAME);
+    expect(reading?.tickets === 'unlisted' ? 'unlisted' : reading?.tickets.map((ticket) => ticket.worktreeExists)).toEqual([true, true, false, false, false]);
+  });
+
+  test('an unlisted worktree reads as missing even for an in-progress ticket', () => {
+    const reading = groupSurveyReadingOf({ status: STATUS_BLOCK, tickets: [groupTicketOf('101', 'in-progress')], worktreeNames: ['ticket-1010'] }, GROUP_NAME);
+    expect(reading?.tickets).toMatchObject([{ id: '101', worktreeExists: false }]);
   });
 });
 
@@ -342,11 +382,11 @@ describe('the ticket settings lookup', () => {
   });
 
   // An unlisted group refuses every looked-up ticket of it, so a missing list must never read as an empty one.
-  test('group tickets map with their group, an entry without an id or group is dropped, and a missing list is unlisted', () => {
-    const groupTickets = [null, { id: '101' }, {
+  test('the board\'s tickets map with their group, an entry without an id or group is dropped, and a missing list is unlisted', () => {
+    const boardTickets = [null, { id: '101' }, {
       id: '102', group: 'example-group', dependsOn: ['101', 7], releasesGroup: true, status: 'pending'
     }];
-    expect(ticketSettingsLookupOf({ tickets: [], groupTickets })).toEqual({
+    expect(ticketSettingsLookupOf({ tickets: [], boardTickets })).toEqual({
       tickets:      [],
       groupTickets: [{
         id: '102', status: 'pending', dependsOn: ['101'], releasesGroup: true, groupName: 'example-group'

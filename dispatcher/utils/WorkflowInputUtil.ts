@@ -25,6 +25,7 @@ import type { AgentModelAndEffort, DispatchSettingsVerdict, ReadyTicketEntry } f
 import type { DispatchWork }                                                   from '../@types/DispatchWork.ts';
 import { DISPATCH_ARGUMENTS }                                                  from '../constants/DispatchArguments.ts';
 import { DISPATCH_POLICY }                                                     from '../constants/DispatchPolicy.ts';
+import { AgentPromptUtil }                                                     from '../run/utils/AgentPromptUtil.ts';
 
 const BUILDER_OUTCOMES_OTHER_THAN_IN_REVIEW = ['claim-refused', 'failed'] as const satisfies readonly Exclude<BuilderOutcome, 'in-review'>[];
 
@@ -32,6 +33,8 @@ const REVIEWER_VERDICTS_OTHER_THAN_ROUND_REQUESTED = ['released', 'integrated', 
   ReviewerVerdict,
   'round-requested'
 >[];
+
+const WORKTREE_HOLDING_STATUSES: readonly string[] = ['in-progress', 'in-review'];
 
 function valueIsAnObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -145,11 +148,20 @@ function reviewWaitingTicketsOf(value: unknown): ReviewWaitingTicket[] | 'unlist
   return value.map((entry) => ({ id: String(entry['id']), agentModelAndEffort: agentModelAndEffortOf(entry) }));
 }
 
-function pausedBuildsOf(value: unknown): PausedBuild[] {
+// A listing the run cannot walk names no worktree, which reads every worktree as missing: the safe side.
+function worktreeNamesOf(value: unknown): string[] {
+  return Array.isArray(value) ? stringsIn(value) : [];
+}
+
+function worktreeIsListed(ticketId: unknown, worktreeNames: readonly string[]): boolean {
+  return typeof ticketId === 'string' && worktreeNames.includes(AgentPromptUtil.branchOf(ticketId));
+}
+
+function pausedBuildsOf(value: unknown, worktreeNames: readonly string[]): PausedBuild[] {
   if (!Array.isArray(value)) return [];
   const pausedBuilds: PausedBuild[] = [];
   for (const pausedBuild of value) {
-    if (!valueIsAnObject(pausedBuild) || pausedBuild['worktreeExists'] !== true) continue;
+    if (!valueIsAnObject(pausedBuild) || !worktreeIsListed(pausedBuild['id'], worktreeNames)) continue;
     pausedBuilds.push({
       id:                  String(pausedBuild['id']),
       note:                textOrEmpty(pausedBuild['note']),
@@ -166,23 +178,54 @@ function surveyReadingOf(value: unknown): SurveyReading | null {
   return {
     status:                 statusReadingOf(survey['status']),
     reviewWaitingTickets:   reviewWaitingTicketsOf(survey['reviewWaitingTickets']),
-    pausedBuilds:           pausedBuildsOf(survey['pausedBuilds']),
+    pausedBuilds:           pausedBuildsOf(survey['pausedBuilds'], worktreeNamesOf(survey['worktreeNames'])),
     dirtyMainCheckoutFiles: listOrUnlisted(survey['dirtyMainCheckoutFiles']),
   };
 }
 
-// An entry without a string id could never be placed in the bundle, so it is dropped; any other field the survey left out reads as its safe side.
-function groupTicketReadingsOf(value: unknown): GroupTicketReading[] | 'unlisted' {
-  if (!Array.isArray(value)) return 'unlisted';
-  const tickets: GroupTicketReading[] = [];
+interface TicketRowFacts {
+  rowNote:       string;
+  openReviewBar: boolean;
+}
+
+function ticketRowFactsById(value: unknown): Map<string, TicketRowFacts> {
+  const factsById = new Map<string, TicketRowFacts>();
+  if (!Array.isArray(value)) return factsById;
   for (const entry of value) {
     if (!valueIsAnObject(entry) || typeof entry['id'] !== 'string') continue;
+    const { row, reviewBars } = entry;
+    factsById.set(entry['id'], {
+      rowNote:       valueIsAnObject(row) ? textOrEmpty(row['note']) : '',
+      openReviewBar: Array.isArray(reviewBars) && reviewBars.some((reviewBar) => valueIsAnObject(reviewBar) && reviewBar['status'] === 'in-progress'),
+    });
+  }
+  return factsById;
+}
+
+// Only a ticket a builder claimed may have a worktree of its own; any other's leftover folder is not read as its.
+function groupWorktreeExists(ticket: ReleaseBundleTicket, worktreeNames: readonly string[]): boolean {
+  return WORKTREE_HOLDING_STATUSES.includes(ticket.status) && worktreeIsListed(ticket.id, worktreeNames);
+}
+
+// The survey copies the whole board: the group's tickets are picked here, and joined to their rows and worktrees. An entry without a string id
+// could never be placed in the bundle, so it is dropped; any other field the survey left out reads as its safe side.
+function groupTicketReadingsOf(survey: Record<string, unknown>, groupName: string): GroupTicketReading[] | 'unlisted' {
+  const boardTickets = survey['tickets'];
+  if (!Array.isArray(boardTickets)) return 'unlisted';
+  const rowFactsById = ticketRowFactsById(survey['ticketRows']);
+  const worktreeNames = worktreeNamesOf(survey['worktreeNames']);
+  const tickets: GroupTicketReading[] = [];
+  for (const entry of boardTickets) {
+    if (!valueIsAnObject(entry) || typeof entry['id'] !== 'string') continue;
+    if (entry['group'] !== groupName) continue;
+    const ticket = releaseBundleTicketOf(entry, entry['id']);
+    const rowFacts = rowFactsById.get(ticket.id);
     tickets.push({
-      ...releaseBundleTicketOf(entry, entry['id']),
+      ...ticket,
       agentModelAndEffort: agentModelAndEffortOf(entry),
-      rowNote:             textOrEmpty(entry['rowNote']),
-      worktreeExists:      entry['worktreeExists'] === true,
-      openReviewBar:       entry['openReviewBar'] === true,
+      rowNote:             rowFacts?.rowNote ?? '',
+      worktreeExists:      groupWorktreeExists(ticket, worktreeNames),
+      openReviewBar:       rowFacts?.openReviewBar ?? false,
     });
   }
   return tickets;
@@ -208,15 +251,15 @@ function lookedUpGroupTicketsOf(value: unknown): LookedUpGroupTicket[] | 'unlist
   return tickets;
 }
 
-function groupSurveyReadingOf(value: unknown): GroupSurveyReading | null {
+function groupSurveyReadingOf(value: unknown, groupName: string): GroupSurveyReading | null {
   if (value === null) return null;
   const survey: Record<string, unknown> = valueIsAnObject(value) ? value : {};
-  return { status: statusReadingOf(survey['status']), tickets: groupTicketReadingsOf(survey['tickets']) };
+  return { status: statusReadingOf(survey['status']), tickets: groupTicketReadingsOf(survey, groupName) };
 }
 
 function ticketSettingsLookupOf(lookup: unknown): TicketSettingsLookup | 'unread' {
   if (!valueIsAnObject(lookup) || !Array.isArray(lookup['tickets'])) return 'unread';
-  return { tickets: readyTicketEntriesOf(lookup['tickets']), groupTickets: lookedUpGroupTicketsOf(lookup['groupTickets']) };
+  return { tickets: readyTicketEntriesOf(lookup['tickets']), groupTickets: lookedUpGroupTicketsOf(lookup['boardTickets']) };
 }
 
 function findingsOf(value: unknown): ReviewFinding[] {

@@ -36,7 +36,7 @@ export function createAgentStarter(runtime: WorkflowRuntime, settings: DispatchS
   }
 
   function surveyPromptOf(request: SurveyAgentRequest): string {
-    if (request.kind === 'group-survey') return GroupAgentPromptUtil.groupSurveyPrompt(settings, request.groupName);
+    if (request.kind === 'group-survey') return GroupAgentPromptUtil.groupSurveyPrompt(settings);
     return request.kind === 'survey' ? AgentPromptUtil.surveyPrompt(settings) : AgentPromptUtil.ticketSettingsLookupPrompt(settings, request.ticketIds);
   }
 

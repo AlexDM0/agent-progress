@@ -133,16 +133,14 @@ const TWO_PAUSED_BUILDS_ONE_WITHOUT_ITS_WORKTREE: DispatchScenario = {
 
 const PAUSED_BUILDS_AS_THE_SURVEY_STATES_THEM = [
   {
-    id:             '004',
-    note:           EXAMPLE_PAUSED_BUILD_NOTE,
-    worktreeExists: true,
-    priority:       'normal',
+    id:       '004',
+    note:     EXAMPLE_PAUSED_BUILD_NOTE,
+    priority: 'normal',
   },
   {
-    id:             '005',
-    note:           'Built by the whole-board dispatcher run on ticket-005',
-    worktreeExists: false,
-    priority:       'normal',
+    id:       '005',
+    note:     'Built by the whole-board dispatcher run on ticket-005',
+    priority: 'normal',
   },
 ];
 

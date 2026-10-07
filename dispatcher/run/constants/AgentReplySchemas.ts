@@ -1,6 +1,6 @@
 /**
  * The reply schema of each agent the dispatcher starts. Key and array orders are part of the wire contract the frozen table hashes, and the
- * field names mirror the `status --json` fields the prompts ask the agents to copy, with `worktreeExists` the survey's own `test -d`.
+ * field names mirror the `status --json` fields the prompts ask the agents to copy, with `worktreeNames` the survey's own `ls`.
  */
 import type { DispatcherState }                 from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import type { BuilderOutcome, ReviewerVerdict } from '../../@types/AgentReadings.ts';
@@ -44,15 +44,16 @@ const TICKET_AGENT_SETTINGS_SCHEMA: JsonSchema = {
 const PAUSED_BUILD_SCHEMA: JsonSchema = {
   type:       'object',
   properties: {
-    id:             { type: 'string' },
-    note:           { type: 'string' },
-    worktreeExists: { type: 'boolean' },
-    priority:       { type: 'string' },
-    model:          { type: 'string' },
-    effort:         { type: 'string' },
+    id:       { type: 'string' },
+    note:     { type: 'string' },
+    priority: { type: 'string' },
+    model:    { type: 'string' },
+    effort:   { type: 'string' },
   },
-  required: ['id', 'note', 'worktreeExists', 'priority'],
+  required: ['id', 'note', 'priority'],
 };
+
+const WORKTREE_NAMES_SCHEMA: JsonSchema = { type: 'array', items: { type: 'string' } };
 
 const FINDING_SCHEMA: JsonSchema = {
   type:       'object',
@@ -66,9 +67,10 @@ const SURVEY: JsonSchema = {
     status:                 STATUS_BLOCK_SCHEMA,
     reviewWaitingTickets:   { type: 'array', items: TICKET_AGENT_SETTINGS_SCHEMA },
     pausedBuilds:           { type: 'array', items: PAUSED_BUILD_SCHEMA },
+    worktreeNames:          WORKTREE_NAMES_SCHEMA,
     dirtyMainCheckoutFiles: { type: 'array', items: { type: 'string' } },
   },
-  required: ['status', 'reviewWaitingTickets', 'pausedBuilds', 'dirtyMainCheckoutFiles'],
+  required: ['status', 'reviewWaitingTickets', 'pausedBuilds', 'worktreeNames', 'dirtyMainCheckoutFiles'],
 };
 
 const LOOKED_UP_TICKET_SCHEMA: JsonSchema = {
@@ -82,47 +84,48 @@ const LOOKED_UP_TICKET_SCHEMA: JsonSchema = {
   required: ['id'],
 };
 
-const LOOKED_UP_GROUP_TICKET_SCHEMA: JsonSchema = {
+const BOARD_TICKET_SCHEMA: JsonSchema = {
   type:       'object',
   properties: {
     id:            { type: 'string' },
-    group:         { type: 'string' },
     status:        { type: 'string' },
     dependsOn:     { type: 'array', items: { type: 'string' } },
     releasesGroup: { type: 'boolean' },
+    group:         { type: 'string' },
+    model:         { type: 'string' },
+    effort:        { type: 'string' },
   },
-  required: ['id', 'group', 'status', 'dependsOn', 'releasesGroup'],
+  required: ['id', 'status', 'dependsOn', 'releasesGroup'],
 };
 
 const TICKET_SETTINGS_LOOKUP: JsonSchema = {
   type:       'object',
   properties: {
     tickets:      { type: 'array', items: LOOKED_UP_TICKET_SCHEMA },
-    groupTickets: { type: 'array', items: LOOKED_UP_GROUP_TICKET_SCHEMA },
+    boardTickets: { type: 'array', items: BOARD_TICKET_SCHEMA },
   },
-  required: ['tickets', 'groupTickets'],
+  required: ['tickets', 'boardTickets'],
 };
 
-const GROUP_TICKET_SCHEMA: JsonSchema = {
+const TICKET_ROW_SCHEMA: JsonSchema = {
   type:       'object',
   properties: {
-    id:             { type: 'string' },
-    status:         { type: 'string' },
-    dependsOn:      { type: 'array', items: { type: 'string' } },
-    releasesGroup:  { type: 'boolean' },
-    model:          { type: 'string' },
-    effort:         { type: 'string' },
-    rowNote:        { type: 'string' },
-    worktreeExists: { type: 'boolean' },
-    openReviewBar:  { type: 'boolean' },
+    id:         { type: 'string' },
+    row:        { type: 'object', properties: { note: { type: 'string' } } },
+    reviewBars: { type: 'array', items: { type: 'object', properties: { status: { type: 'string' } }, required: ['status'] } },
   },
-  required: ['id', 'status', 'dependsOn', 'releasesGroup', 'rowNote', 'worktreeExists', 'openReviewBar'],
+  required: ['id', 'reviewBars'],
 };
 
 const GROUP_SURVEY: JsonSchema = {
   type:       'object',
-  properties: { status: STATUS_BLOCK_SCHEMA, tickets: { type: 'array', items: GROUP_TICKET_SCHEMA } },
-  required:   ['status', 'tickets'],
+  properties: {
+    status:        STATUS_BLOCK_SCHEMA,
+    tickets:       { type: 'array', items: BOARD_TICKET_SCHEMA },
+    ticketRows:    { type: 'array', items: TICKET_ROW_SCHEMA },
+    worktreeNames: WORKTREE_NAMES_SCHEMA,
+  },
+  required: ['status', 'tickets', 'ticketRows', 'worktreeNames'],
 };
 
 const BUILDER: JsonSchema = {

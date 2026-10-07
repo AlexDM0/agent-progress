@@ -37,7 +37,7 @@ async function runGroupDispatcher(
   runtime.phase('Survey');
   run.recordSurveyAgentStarted();
   const survey = await starter.runSurveyAgent({ kind: 'group-survey', groupName });
-  if (run.adoptGroupSurvey(WorkflowInputUtil.groupSurveyReadingOf(survey)) === 'nothing-dispatched') return DispatchWordingUtil.summaryOf(run.outcome());
+  if (run.adoptGroupSurvey(WorkflowInputUtil.groupSurveyReadingOf(survey, groupName)) === 'nothing-dispatched') return DispatchWordingUtil.summaryOf(run.outcome());
 
   runtime.phase('Build');
   for (;;) {

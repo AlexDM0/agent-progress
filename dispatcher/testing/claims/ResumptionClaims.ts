@@ -334,7 +334,7 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
     holds:       (run) => RecordedDispatchRunUtil.callsOf(run, { run: 'main', kind: 'build', ticketId: PAUSED_TICKET_ID }).length === 0
       && run.rowsPaused.join() === `build ${PAUSED_TICKET_ID}`
       && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.join() === '002',
-    mutant: { modulePath: WORKFLOW_INPUT_UTIL, find: ' || pausedBuild[\'worktreeExists\'] !== true', replace: '' },
+    mutant: { modulePath: WORKFLOW_INPUT_UTIL, find: ' || !worktreeIsListed(pausedBuild[\'id\'], worktreeNames)', replace: '' },
   },
   {
     // A restart or a resume of a first pass finds its own claim running, never a paused row, so the resumption clause only lengthens its prompt.

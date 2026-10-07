@@ -23,7 +23,6 @@ const {
   REVIEWER_LEAVES_ITS_BAR_FOR_THE_NEXT_ROUND,
   REVIEWER_SKIPS_A_REREVIEW_ALREADY_RUN,
   SURVEY_LISTS_THE_GROUP_TICKETS,
-  GROUP_SURVEY_NAMES_ITS_GROUP,
   RELEASE_COMMAND,
 } = AGENT_PROMPT_SENTENCES;
 
@@ -356,16 +355,21 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     effort: statedAgentSettingsOf(reviewWaitingTicketId)?.effort ?? DEFAULT_AGENT_EFFORT,
   }));
 
-  // As `status --json` lists them, the defaults resolved. Every paused build row is an in-progress ticket's own, and its worktree exists unless the
-  // scenario removed it, as a parking agent leaves one.
-  const pausedBuildsOnBoard = (): Record<string, unknown>[] => [...pausedRows.values()].filter((row) => row.kind === 'build').map((row) => ({
-    id:             row.ticketId,
-    note:           row.note,
-    worktreeExists: !(scenario.pausedBuildIdsWithoutWorktree ?? []).includes(row.ticketId),
-    priority:       priorityOf(row.ticketId),
-    model:          statedAgentSettingsOf(row.ticketId)?.model ?? DEFAULT_AGENT_MODEL,
-    effort:         statedAgentSettingsOf(row.ticketId)?.effort ?? DEFAULT_AGENT_EFFORT,
+  // As `status --json` lists them, the defaults resolved.
+  const pausedBuildRowsOnBoard = (): RunningRow[] => [...pausedRows.values()].filter((row) => row.kind === 'build');
+  const pausedBuildsOnBoard = (): Record<string, unknown>[] => pausedBuildRowsOnBoard().map((row) => ({
+    id:       row.ticketId,
+    note:     row.note,
+    priority: priorityOf(row.ticketId),
+    model:    statedAgentSettingsOf(row.ticketId)?.model ?? DEFAULT_AGENT_MODEL,
+    effort:   statedAgentSettingsOf(row.ticketId)?.effort ?? DEFAULT_AGENT_EFFORT,
   }));
+
+  // As `ls` lists the worktrees folder: a worktree for each ticket a builder claimed, unless the scenario removed it as a parking agent leaves one.
+  const worktreeNamesOnDisk = (): string[] => [
+    ...pausedBuildRowsOnBoard().map((row) => row.ticketId),
+    ...groupTicketIds.filter((groupTicketId) => ['in-progress', 'in-review'].includes(groupTicketStatuses.get(groupTicketId) ?? 'pending')),
+  ].filter((ticketId) => !(scenario.pausedBuildIdsWithoutWorktree ?? []).includes(ticketId)).map((ticketId) => `ticket-${ticketId}`);
 
   const statusBlock = (): Record<string, unknown> => {
     const agentsInFlight = agentsOnBoard();
@@ -387,49 +391,33 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     return statusBlock();
   };
 
-  // As the group survey copies the status document's `tickets` and `ticketRows`, and finds a worktree for each ticket a builder claimed.
-  const groupTicketsOnBoard = (): Record<string, unknown>[] => [
-    ...groupTicketIds.map((groupTicketId, position) => {
-      const status = groupTicketStatuses.get(groupTicketId) ?? 'pending';
-      return {
-        id:             groupTicketId,
-        status,
-        dependsOn:      position === 0 ? [...scenario.group?.firstTicketDependsOn ?? []] : [groupTicketIds[position - 1]],
-        releasesGroup:  position === groupTicketIds.length - 1,
-        rowNote:        runningRowOf(`build:${groupTicketId}`)?.note ?? pausedRows.get(`build:${groupTicketId}`)?.note ?? '',
-        worktreeExists: status === 'in-progress' || status === 'in-review',
-        openReviewBar:  runningRowOf(`review:${groupTicketId}`) !== undefined,
-      };
-    }),
+  // As `status --json` lists the board's tickets: the group's bundle, the group's tickets outside it, and the ungrouped ones the scenario files for
+  // the whole-board run.
+  const ticketsOnBoard = (): Record<string, unknown>[] => [
+    ...groupTicketIds.map((groupTicketId, position) => ({
+      id:            groupTicketId,
+      status:        groupTicketStatuses.get(groupTicketId) ?? 'pending',
+      dependsOn:     position === 0 ? [...scenario.group?.firstTicketDependsOn ?? []] : [groupTicketIds[position - 1]],
+      releasesGroup: position === groupTicketIds.length - 1,
+      group:         scenario.group?.name,
+    })),
     ...ticketIdsOutsideTheBundle.map((looseTicketId) => ({
-      id:             looseTicketId,
-      status:         'pending',
-      dependsOn:      [],
-      releasesGroup:  false,
-      rowNote:        '',
-      worktreeExists: false,
-      openReviewBar:  false,
+      id: looseTicketId, status: 'pending', dependsOn: [], releasesGroup: false, group: scenario.group?.name
     })),
-  ];
-
-  // As an agent copies the list when its prompt names no group: the ungrouped tickets the scenario files for the whole-board run come too.
-  const everyTicketOnBoard = (): Record<string, unknown>[] => [
-    ...groupTicketsOnBoard(),
     ...scenario.readyTicketIds.map((readyTicketId) => ({
-      id:             readyTicketId,
-      status:         'pending',
-      dependsOn:      [],
-      releasesGroup:  false,
-      rowNote:        '',
-      worktreeExists: false,
-      openReviewBar:  false,
+      id: readyTicketId, status: 'pending', dependsOn: [], releasesGroup: false
     })),
   ];
 
-  const ticketsListedBy = (prompt: string): Record<string, unknown>[] => {
-    const namesTheGroup = scenario.group !== undefined && prompt.includes(`${GROUP_SURVEY_NAMES_ITS_GROUP}${scenario.group.name}\``);
-    return namesTheGroup ? groupTicketsOnBoard() : everyTicketOnBoard();
-  };
+  // As `status --json` lists the group tickets' rows: a build row's note, and each review bar running.
+  const ticketRowsOnBoard = (): Record<string, unknown>[] => groupTicketIds.map((groupTicketId) => {
+    const buildRow = runningRowOf(`build:${groupTicketId}`) ?? pausedRows.get(`build:${groupTicketId}`);
+    return {
+      id:         groupTicketId,
+      ...(buildRow === undefined ? {} : { row: { note: buildRow.note } }),
+      reviewBars: runningRowOf(`review:${groupTicketId}`) === undefined ? [] : [{ status: 'in-progress' }],
+    };
+  });
 
   // A group ticket's fake reviewer releases when its prompt tells it to, and integrates otherwise.
   const defaultReviewVerdictOf = (ticketId: string, prompt: string): ReviewerReply['verdict'] => {
@@ -438,26 +426,30 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   };
 
   const replyFor = (call: RecordedAgentCall): Record<string, unknown> | null => {
-    if (call.kind === 'survey' && call.prompt.includes(SURVEY_LISTS_THE_GROUP_TICKETS)) return { status: statusBlock(), tickets: ticketsListedBy(call.prompt) };
+    if (call.kind === 'survey' && call.prompt.includes(SURVEY_LISTS_THE_GROUP_TICKETS)) {
+      return {
+        status: statusBlock(), tickets: ticketsOnBoard(), ticketRows: ticketRowsOnBoard(), worktreeNames: worktreeNamesOnDisk()
+      };
+    }
     if (call.kind === 'survey') {
       return {
         status:                 statusBlock(),
         reviewWaitingTickets:   reviewWaitingTicketsOnBoard(),
         pausedBuilds:           pausedBuildsOnBoard(),
+        worktreeNames:          worktreeNamesOnDisk(),
         dirtyMainCheckoutFiles: [...scenario.dirtyMainCheckoutFiles ?? []],
       };
     }
     // As `ticket show --json` states a ticket: its model and effort only where it names them.
     if (call.kind === 'settings') {
       const lookedUpTicketIds = (call.ticketId ?? '').split(',');
-      const anyNamesTheGroup = lookedUpTicketIds.some(ticketIsOfTheGroup) && scenario.group?.settingsLookupListsNoGroupTickets !== true;
       return {
         tickets: lookedUpTicketIds.map((lookedUpTicketId) => ({
           id: lookedUpTicketId,
           ...statedAgentSettingsOf(lookedUpTicketId),
           ...(ticketIsOfTheGroup(lookedUpTicketId) ? { group: scenario.group?.name } : {}),
         })),
-        groupTickets: anyNamesTheGroup ? groupTicketsOnBoard().map((groupTicket) => ({ ...groupTicket, group: scenario.group?.name })) : [],
+        boardTickets: scenario.group?.settingsLookupListsNoGroupTickets === true ? [] : ticketsOnBoard(),
       };
     }
     if (call.kind === 'park') return { status: statusBlock() };

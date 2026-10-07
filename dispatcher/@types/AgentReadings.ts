@@ -53,7 +53,7 @@ export interface ReleaseBundleTicket {
   releasesGroup: boolean;
 }
 
-/** One ticket of the group as the group survey copied it from the board. */
+/** One ticket of the group, picked from the group survey's copy of the board and joined to its row and worktree. */
 export interface GroupTicketReading extends ReleaseBundleTicket {
   agentModelAndEffort: AgentModelAndEffort;
   rowNote:             string;

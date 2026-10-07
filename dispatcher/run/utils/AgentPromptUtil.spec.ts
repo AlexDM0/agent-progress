@@ -159,7 +159,15 @@ describe('the reviewer prompt', () => {
 
 describe('the helper prompts', () => {
   test('the survey runs in the main checkout', () => {
-    expect(surveyPrompt(WHOLE_BOARD_SETTINGS)).toContain('once, in /scratch/example-repository, then `test -d` once per entry of its `pausedBuilds`');
+    expect(surveyPrompt(WHOLE_BOARD_SETTINGS)).toContain('once, in /scratch/example-repository, then `ls -1 /scratch/example-repository/.claude/worktrees` once');
+  });
+
+  // Whichever paused build has its worktree, and whichever board ticket is a group's, the run reads in code: an agent selecting entries can empty a run.
+  test('the survey and the settings lookup copy their lists whole, naming no condition to select entries by', () => {
+    for (const prompt of [surveyPrompt(WHOLE_BOARD_SETTINGS), ticketSettingsLookupPrompt(WHOLE_BOARD_SETTINGS, ['001'])]) {
+      expect(prompt).toContain('Judge nothing and leave out no entry');
+      for (const narrowingWord of ['whose', 'when any', '`in-progress`', '`pending`', 'test -d', 'worktreeExists']) expect(prompt).not.toContain(narrowingWord);
+    }
   });
 
   test('the survey copies the concurrency block as printed and the two top-level lists, and works none of them out from the rows', () => {
@@ -167,7 +175,8 @@ describe('the helper prompts', () => {
     expect(survey).toContain('its `concurrency` block as printed (limit, agentsInFlight, freeSlots, readyTicketIds, dispatcherState, heldTicketIds, '
       + 'inProgressTicketIds, inProgressReviewOfIds)');
     expect(survey).toContain('`reviewWaitingTickets`: the document\'s top-level `reviewWaitingTickets` list, verbatim');
-    expect(survey).toContain('`pausedBuilds`: each entry of the document\'s top-level `pausedBuilds` list, verbatim, with `worktreeExists` added');
+    expect(survey).toContain('`pausedBuilds`: the document\'s top-level `pausedBuilds` list, verbatim;');
+    expect(survey).toContain('`worktreeNames`: each line `ls` printed, verbatim');
     expect(survey).not.toContain('task that has one');
     expect(survey).not.toContain('names in its `reviewOf`');
     expect(survey).not.toContain('copied from its entry in `tickets`');
@@ -207,10 +216,10 @@ describe('the helper prompts', () => {
     expect(request).toContain('For each of the tickets 001, 002,');
   });
 
-  test('the settings lookup asks for the tickets of every group its tickets name, from the status document', () => {
+  test('the settings lookup copies every ticket of the status document, which the run narrows to the groups its tickets name', () => {
     const prompt = ticketSettingsLookupPrompt(WHOLE_BOARD_SETTINGS, ['001']);
-    expect(prompt).toContain('run `agent-progress status --json` once');
-    expect(prompt).toContain('`groupTickets`: every entry of the status document\'s top-level `tickets` list whose `group` is one those tickets name');
+    expect(prompt).toContain('then `agent-progress status --json` once there');
+    expect(prompt).toContain('`boardTickets`: every entry of the status document\'s top-level `tickets` list, each with its `id`');
   });
 
   // The line sits inside a double-quoted shell argument, so a quote, a backtick, a dollar or a backslash would end it or expand.

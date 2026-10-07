@@ -155,6 +155,17 @@ function neitherRunNamesTheOthersTickets(run: RecordedDispatchRun): boolean {
 
 export const GROUP_CLAIMS: readonly DispatchClaim[] = [
   {
+    name:        'a group survey over a group whose tickets are all pending reads the whole bundle and starts its first ticket',
+    scenarioFor: () => groupScenarioWith({}),
+    holds:       (run) => run.calls.find((call) => call.kind === 'build')?.ticketId === EXAMPLE_GROUP.ticketIds[0]
+      && summaryField(run.summary, 'bundleUnread') === undefined,
+    mutant: {
+      modulePath: DISPATCHER_MODULE_PATHS.WORKFLOW_INPUT_UTIL,
+      find:       'if (entry[\'group\'] !== groupName) continue;',
+      replace:    'if (entry[\'group\'] !== groupName || !WORKTREE_HOLDING_STATUSES.includes(textOrEmpty(entry[\'status\']))) continue;',
+    },
+  },
+  {
     name:        'a group run integrates its bundle in order, and only the release ticket\'s reviewer moves the main line, once, at the end',
     scenarioFor: () => groupScenarioWith({}),
     holds:       (run) => bundleIsReleasedOnce(run, run.summary)
@@ -247,8 +258,8 @@ export const GROUP_CLAIMS: readonly DispatchClaim[] = [
     holds:       (run) => run.calls.length > 0 && run.calls.every((call) => !/agent-progress dispatcher (running|finished|stopped)|--run /.test(call.prompt)),
     mutant:      {
       modulePath: DISPATCHER_MODULE_PATHS.GROUP_AGENT_PROMPT_UTIL,
-      find:       'Make no other call. Judge nothing; return:',
-      replace:    'Then run `agent-progress dispatcher running`. Judge nothing; return:',
+      find:       'and make no other call. Judge nothing and leave out no entry; return:',
+      replace:    'then `agent-progress dispatcher running`. Judge nothing and leave out no entry; return:',
     },
   },
   {
@@ -384,9 +395,9 @@ export const GROUP_CLAIMS: readonly DispatchClaim[] = [
       && bundleIsReleasedOnce(run, run.racingSummary)
       && JSON.stringify(summaryField(run.summary, 'delivered')) === JSON.stringify(WHOLE_BOARD_TICKET_IDS),
     mutant: {
-      modulePath: DISPATCHER_MODULE_PATHS.GROUP_AGENT_PROMPT_UTIL,
-      find:       'list whose \\`group\\` is \\`${groupName}\\`, each with',
-      replace:    'list, each with',
+      modulePath: DISPATCHER_MODULE_PATHS.WORKFLOW_INPUT_UTIL,
+      find:       'if (entry[\'group\'] !== groupName) continue;',
+      replace:    '',
     },
   },
 ];

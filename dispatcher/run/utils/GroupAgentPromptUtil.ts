@@ -299,17 +299,17 @@ function groupReviewerPrompt(settings: DispatchSettings, placement: GroupPlaceme
   return bundleReviewerPrompt(settings, placement, request);
 }
 
-function groupSurveyPrompt(settings: DispatchSettings, groupName: string): string {
+// The survey copies the whole board and names no group: which tickets are the group's, and whose worktree counts, the run reads in code.
+function groupSurveyPrompt(settings: DispatchSettings): string {
   return [
-    `Run \`agent-progress status --json\` once, in ${settings.mainCheckout}; then \`test -d ${worktreeOf(settings, '<id>')}\` once for each ticket of the group `
-      + `\`${groupName}\` whose status is \`in-progress\` or \`in-review\`. `
-      + 'Make no other call. Judge nothing; return:',
+    `Run \`agent-progress status --json\` once, in ${settings.mainCheckout}, then ${AgentPromptUtil.worktreeListingCommandOf(settings)} once, `
+      + 'and make no other call. Judge nothing and leave out no entry; return:',
     '- `status`: its `concurrency` block as printed (limit, agentsInFlight, freeSlots, readyTicketIds, dispatcherState, heldTicketIds, inProgressTicketIds, '
       + `inProgressReviewOfIds), ${AgentPromptUtil.readyTicketsAdditionText()};`,
-    `- \`tickets\`: every entry of the status document's top-level \`tickets\` list whose \`group\` is \`${groupName}\`, each with its \`id\`, \`status\`, `
-      + '`dependsOn` (the ids it names, an empty list without any), `releasesGroup` (false when absent), and `model` and `effort` where it names them; '
-      + '`rowNote`, the `note` of the `row` in that ticket\'s `ticketRows` entry (empty when there is none); `openReviewBar`, whether any of that entry\'s '
-      + '`reviewBars` is `in-progress`; and `worktreeExists`, whether its `test -d` succeeded (false when not run).',
+    `- \`tickets\`: ${AgentPromptUtil.boardTicketCopyText()};`,
+    '- `ticketRows`: every entry of the document\'s top-level `ticketRows` list, each with its `id`, its `row` holding only that row\'s `note` '
+      + '(left out where the entry\'s `row` is null), and its `reviewBars` each holding only that bar\'s `status`;',
+    `${AgentPromptUtil.worktreeNamesReturnText()}.`,
   ].join('\n');
 }
 
