@@ -46,6 +46,21 @@ test('no tracker found above the start directory is worded naming that directory
   );
 });
 
+test('no spec-kit project found above the start directory is worded naming that directory, `.specify/` and `specify init`', () => {
+  const refusal = new OperationRefusal('refused', { kind: 'no-spec-kit-found', searchedFrom: '/example/plain', searchedFromIsTheOverride: false });
+  expect(OperationRefusalWordingUtil.messageOf(refusal)).toBe(
+    'No spec-kit project (a .specify/ folder) was found in /example/plain or any directory above it, so nothing was written. '
+    + 'Run `specify init` in the repository you want shown, then run this command inside it.',
+  );
+});
+
+test('no spec-kit project at the AGENT_PROGRESS_ROOT directory is worded naming that directory and the variable, never a search above it', () => {
+  const refusal = new OperationRefusal('refused', { kind: 'no-spec-kit-found', searchedFrom: '/example/plain', searchedFromIsTheOverride: true });
+  const message = OperationRefusalWordingUtil.messageOf(refusal);
+  expect(message).toContain('found in /example/plain, which AGENT_PROGRESS_ROOT names, so nothing was written.');
+  expect(message).not.toContain('above it');
+});
+
 test('a held lock is worded naming the lock directory as a path to remove, never as a file', () => {
   const refusal = new OperationRefusal('unrepaired', { kind: 'tracker-lock-held', lockDirectoryPath: '/example/.agent-progress/.lock' });
   const message = OperationRefusalWordingUtil.messageOf(refusal);

@@ -14,8 +14,11 @@ const HELP_OPTION_NAME = 'help';
 const HELP_SHORT_ALIAS = '-h';
 const HELP_ALIASES     = new Set([`--${HELP_OPTION_NAME}`, HELP_SHORT_ALIAS]);
 
-/** `init` and `update` repair a mismatch, and `status` output is a contract that stays silent about one. */
-const COMMANDS_THE_INSTALL_CHECK_SPARES = new Set(['init', 'update', 'help', 'status']);
+/**
+ * `init` and `update` repair a mismatch, `status` output is a contract that stays silent about one, and `view-spec` runs without a tracker
+ * and reads nothing a stale install could make wrong.
+ */
+const COMMANDS_THE_INSTALL_CHECK_SPARES = new Set(['init', 'update', 'help', 'status', 'view-spec']);
 /** `release --json` words the refusal as its own document, and the hook reports it at exit 0, so each runs the check inside its own handling. */
 const COMMANDS_THAT_CHECK_THEIR_OWN_INSTALL = new Set(['hook', 'release']);
 

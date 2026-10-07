@@ -191,13 +191,15 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   in a scratch repository: nobody runs the checkout's source here, and only the owner runs `init`, `update` or
   `clear`.
 - Help is one screen, no per-command help; to stdout when asked, to stderr after an unknown command.
-- Every command but `init`, `update`, `help` and `status` checks the install version first (`cli/Main.spec.ts`);
-  `release` reports a mismatch as its `--json` refusal, `hook subagent-stop` at exit 0.
+- Every command but `init`, `update`, `help`, `status` and `view-spec` checks the install version first
+  (`cli/Main.spec.ts`); `release` reports a mismatch as its `--json` refusal, `hook subagent-stop` at exit 0.
 - A new command is an entry in `cli/CommandTable.ts`, a block in `cli/HelpText.ts` and a folder in its set, held by
   `cli/CommandTable.spec.ts` and `cli/HelpText.spec.ts`.
 - Every mutating command writes through `writeTracker` in `src/services/tracker/TrackerPipeline.ts` (lock, read into
   a Board, change, writes in `docs/cli.md`'s order, render from disk, one lock hold). `init` creates a tracker;
   `update`, and `init` on an existing one, never touch its files. `status` takes no lock and renders nothing.
+  `view-spec` writes only `progress-spec.json` then `progress-spec.html`, atomically, takes no lock, runs without a
+  tracker, and reads or writes no tracker file.
 
 ### Tickets
 

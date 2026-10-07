@@ -18,7 +18,7 @@ decimal with a \`k\`/\`m\`/\`b\` suffix: \`12000\`, \`12k\`, \`12.3k\`, \`1.2m\`
 the command word; a \`-h\` further on is refused at exit 1, since it may be text (put text behind a
 bare \`--\`). An option taking a value, given twice, is refused at exit 1. AGENT_PROGRESS_ROOT names
 the repository to use instead of walking up from the current directory. --json, accepted by every
-command but init, update, render, open, hook and help, prints one JSON document on standard output
+command but init, update, render, open, view-spec, hook and help, prints one JSON document on standard output
 in place of the human output.
 
 \`status\`, \`ticket add\`, every ticket or task move (\`ticket claim\` and \`task add --start\` among
@@ -71,7 +71,7 @@ output never carries either.
                               --no-claude-md, --no-hooks, --no-workflow and --no-agent-definition
                               as \`init\`, and refuses --no-agent-definition without --no-workflow,
                               or with it over a dispatcher lacking its definition, the same way.
-                              Every command but init, update, help and status refuses, with exit
+                              Every command but init, update, help, status and view-spec refuses, with exit
                               1, while the files installed here are of another install version
                               than this agent-progress (the SubagentStop hook reports it and exits
                               0); update rewrites them, and it and \`init\` refuse files a newer
@@ -539,6 +539,13 @@ output never carries either.
   open                        Open \`progress.html\` in the default browser, rendering it first when
                               it is missing; a page that cannot be rendered is exit 2, as for
                               \`render\`.
+
+  view-spec [--open]          Write a snapshot of the spec-kit project at or above the current
+                              directory (the nearest holding \`.specify/\`) as a standalone page,
+                              \`.agent-progress/progress-spec.html\` beside \`progress-spec.json\`,
+                              and print its path. It needs no tracker, takes no lock and touches no
+                              tracker file. --open then opens the page as \`open\` does. Refused at
+                              exit 1 where no spec-kit project is found, writing nothing.
 
   clear [--all] [--yes]       Throw away every task row and the log and restart the clock, keeping
                               the tickets: each surviving ticket is given a fresh row seeded from

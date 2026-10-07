@@ -2,8 +2,8 @@ import { existsSync } from 'node:fs';
 
 import { requireWorkspace }        from '../../../src/services/tracker/Workspace.ts';
 import type { CommandHandler }     from '../../CommandHandler.ts';
+import { openerFor }               from '../../OpenerFor.ts';
 import { renderDashboardOrRefuse } from '../RenderDashboardOrRefuse.ts';
-import { openerFor }               from './OpenerFor.ts';
 
 const USAGE = 'agent-progress open';
 

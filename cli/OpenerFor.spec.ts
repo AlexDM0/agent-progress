@@ -1,6 +1,6 @@
 /**
- * The launcher `open` hands the page to is chosen from the context's platform, never the test runner's, so both branches are pinned on any
- * machine: macOS has `open`, and every other platform is sent to `xdg-open`.
+ * The launcher `open` and `view-spec --open` hand the page to is chosen from the context's platform, never the test runner's, so both
+ * branches are pinned on any machine: macOS has `open`, and every other platform is sent to `xdg-open`.
  */
 import { describe, expect, test } from 'bun:test';
 

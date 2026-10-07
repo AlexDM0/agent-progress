@@ -181,6 +181,14 @@ function noTrackerFoundText(searchedFrom: string): string {
   return `No agent-progress tracker was found in ${searchedFrom} or any directory above it. Run \`agent-progress init\` in the repository you want tracked.`;
 }
 
+function noSpecKitFoundText(searchedFrom: string, searchedFromIsTheOverride: boolean): string {
+  const whereItLooked = searchedFromIsTheOverride
+    ? `${searchedFrom}, which AGENT_PROGRESS_ROOT names`
+    : `${searchedFrom} or any directory above it`;
+  return `No spec-kit project (a .specify/ folder) was found in ${whereItLooked}, so nothing was written. `
+    + 'Run `specify init` in the repository you want shown, then run this command inside it.';
+}
+
 function trackerLockHeldText(lockDirectoryPath: string): string {
   return `Another agent-progress command is holding ${lockDirectoryPath} and did not release it. If nothing else is running, remove that path and try again.`;
 }
@@ -201,6 +209,8 @@ function messageOf(refusal: OperationRefusal): string {
       return noTrackerAtOverrideText(detail.overrideDirectory);
     case 'no-tracker-found':
       return noTrackerFoundText(detail.searchedFrom);
+    case 'no-spec-kit-found':
+      return noSpecKitFoundText(detail.searchedFrom, detail.searchedFromIsTheOverride);
     case 'tracker-lock-held':
       return trackerLockHeldText(detail.lockDirectoryPath);
     case 'template-token-not-unique':

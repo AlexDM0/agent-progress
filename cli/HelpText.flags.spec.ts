@@ -226,7 +226,7 @@ describe('the options each command accepts', () => {
   test('include --json on every command but the ones each text says refuse it', () => {
     const refusingInHelp      = commandsRefusingJsonIn(HELP_TEXT);
     const refusingInReference = commandsRefusingJsonIn(REFERENCE_TEXT);
-    expect(refusingInHelp, 'the help\'s --json sentence').toEqual(['init', 'update', 'render', 'open', 'hook', 'help']);
+    expect(refusingInHelp, 'the help\'s --json sentence').toEqual(['init', 'update', 'render', 'open', 'view-spec', 'hook', 'help']);
     expect(refusingInReference, 'docs/cli.md\'s --json convention').toEqual(refusingInHelp);
     const contradicting = [...accepted].filter(([entryKey, names]) => names.has(JSON_OPTION_NAME) === refusingInHelp.includes(entryKey.split(' ')[0] ?? ''));
     expect(contradicting.map(([entryKey]) => entryKey)).toEqual([]);
