@@ -33,7 +33,8 @@ with `git rev-parse --git-common-dir`, so every worktree of a repository shares 
 chart.
 
 **Locking.** Every mutating command (`init`, `task`, `ticket`, `epic`, `log`, `concurrency`, `dispatcher`,
-`checks`, `range`, `release`, `clear`, `hook subagent-stop`, `hook copilot-agent-settled`) takes the tracker's lock, reads, changes, writes
+`checks`, `range`, `release`, `clear`, `hook subagent-stop`, `hook copilot-agent-settled`) takes the tracker's
+lock, reads, changes, writes
 `progress.json` atomically, writes any ticket file after it, then `log.jsonl` when it logged something,
 and regenerates `progress.html` from disk, then its `progress.stamp.js` — all before releasing the lock, so the page
 never describes a state the store did not hold, a ticket file is never ahead of the progress file, and a log line
