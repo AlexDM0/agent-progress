@@ -7,30 +7,14 @@ import { renderSpecPage }            from '../../../src/services/render/SpecPage
 import { workspacePathsFor }         from '../../../src/services/tracker/Workspace.ts';
 import { agentProgressRootOverride } from '../../../src/shared/Environment.ts';
 import { OperationRefusal }          from '../../../src/shared/OperationRefusal.ts';
-import type { CommandContext }       from '../../CommandContext.ts';
 import type { CommandHandler }       from '../../CommandHandler.ts';
-import { openerFor }                 from '../../OpenerFor.ts';
+import { openInTheDefaultBrowser }   from '../../OpenInTheDefaultBrowser.ts';
 
 const USAGE = 'agent-progress view-spec [--open]';
 
 const OPEN_OPTION_NAME = 'open';
 
 const KNOWN_OPTION_NAMES: readonly string[] = [OPEN_OPTION_NAME];
-
-function openInTheDefaultBrowser(context: CommandContext, pageFilePath: string): void {
-  const opener = openerFor(context.platform);
-  try {
-    // Detached with its streams dropped, as `open` does: a browser launched cold would otherwise inherit the pipes and keep this process alive.
-    const spawned = Bun.spawn([opener, pageFilePath], {
-      stdin:  'ignore',
-      stdout: 'ignore',
-      stderr: 'ignore',
-    });
-    spawned.unref();
-  } catch (problem) {
-    context.standardError(`\`${opener}\` could not be run (${problem instanceof Error ? problem.message : String(problem)}); open the path below yourself.`);
-  }
-}
 
 export const viewSpecCommand: CommandHandler = async (commandArguments, context) => {
   commandArguments.rejectUnknownOptions(KNOWN_OPTION_NAMES, USAGE);
