@@ -34,11 +34,10 @@ chart.
 
 **Locking.** Every mutating command (`init`, `task`, `ticket`, `epic`, `log`, `concurrency`, `dispatcher`,
 `checks`, `range`, `release`, `clear`, `hook subagent-stop`, `hook copilot-agent-settled`) takes the tracker's
-lock, reads, changes, writes
-`progress.json` atomically, writes any ticket file after it, then `log.jsonl` when it logged something,
-and regenerates `progress.html` from disk, then its `progress.stamp.js` — all before releasing the lock, so the page
-never describes a state the store did not hold, a ticket file is never ahead of the progress file, and a log line
-never describes a change that was not stored.
+lock, reads, changes, writes `progress.json` atomically, writes any ticket file after it, then `log.jsonl` when it
+logged something, and regenerates `progress.html` from disk, then its `progress.stamp.js` — all before releasing
+the lock, so the page never describes a state the store did not hold, a ticket file is never ahead of the progress
+file, and a log line never describes a change that was not stored.
 `render` and `open` take the lock only to render. `status`, `ticket list`, `ticket show`, `epic list`, `epic show`,
 `concurrency`, `dispatcher` and `checks` without an argument, `usage` and `rework` take none: every file
 they read is written atomically. `release` runs a stored check command before it takes the lock, so a
