@@ -93,8 +93,9 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   `process.exit` to `agent-progress.ts`, `process.cwd`, `homedir()` and the clock in `src/` and `cli/` to
   `cli/CommandContext.ts`, and `process.chdir` to nowhere. The environment is read through documented getters; specs
   set it in a child process (one exception, Deviations).
-- No work at module load (entry points excepted, Deviations). The render service keeps no module state: the page
-  bundle and configured Marked live in the render state the command context carries.
+- No work at module load (entry points excepted, Deviations). The render service keeps no module state: the tracker
+  page bundle, the spec page bundle (built only when a spec page is rendered) and configured Marked live in the render
+  state the command context carries.
 - Factories of closures over classes, except for state carried across calls, domain and ingestion classes. A
   constructor does no work.
 - A record keyed by outside text is indexed through `Object.hasOwn`.
@@ -174,7 +175,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 | Rule | Done instead | Why |
 | --- | --- | --- |
 | Ingestion reads, validates and maps in separate steps. | The ticket parse is one line-oriented pass. | A second walk would risk the unowned lines kept byte for byte. |
-| No work at module load. | `agent-progress.ts` runs the command on import, `page/PageStart.ts` starts the page, the preload `src/testing/TestRunReport.ts` registers its report. | They are entry points. |
+| No work at module load. | `agent-progress.ts` runs the command on import, `page/PageStart.ts` and `page/spec/SpecPageStart.ts` start their pages, the preload `src/testing/TestRunReport.ts` registers its report. | They are entry points. |
 | Specs never set the environment in-process. | `src/shared/Environment.spec.ts` does, once. | It tests the getters themselves. |
 | A frozen table comes from the previous implementation. | `dispatcher/testing/FrozenDispatchTraces.json` is retaken from the bundle, only in a commit meant to change what agents are told, its diff showing prompt text or wire names and no decision; `cli/FrozenInstalledSurface.json` is taken from the installed files. | No previous implementation holds them. |
 | A `src/lib/` package leaves a refusal as a verdict. | The tracker model's `Board` throws `BoardRefusal`. | A domain class throws a typed domain error. |
@@ -213,9 +214,11 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 
 ### The page
 
-- `resources/template.html` is designer-owned, never generated. Its placeholder markup is the contract with the page
-  modules: a one-sided change is a bug, a new mark reuses a styled class, and its header comment (tokens, containers,
-  axis box) stays in step.
+- `resources/template.html` and `resources/spec-template.html` are designer-owned, never generated. Each one's
+  placeholder markup is the contract with its page modules: a one-sided change is a bug, a new mark reuses a styled
+  class, and its header comment (tokens, containers, axis box) stays in step.
+- The spec template takes `template.html`'s one `<style>` block in at render and carries only spec-specific CSS, so
+  both pages share one design.
 - The page script clears every container it owns before filling it; a failed bundle renders an error banner.
 - The template's bootstrap owns theme and tab selection, reached only through `window.agentProgressTemplate`. No ticket
   open state is kept: `agent-progress:open-tickets` is retired, and a ticket body shows only in the detail panel.

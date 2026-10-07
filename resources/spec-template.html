@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>agent-progress spec</title>
+<script>
+/* Resolve the theme before first paint so a reload looks identical: the saved
+   choice wins, otherwise the OS preference. */
+(function () {
+  var choice = null;
+  try { choice = localStorage.getItem("agent-progress:theme"); } catch (e) {}
+  if (choice !== "light" && choice !== "dark") { choice = "auto"; }
+  var dark = choice === "dark" || (choice === "auto" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+  document.documentElement.setAttribute("data-theme-choice", choice);
+})();
+</script>
+
+<!--
+===============================================================================
+ agent-progress — spec page template
+===============================================================================
+ The spec view of a spec-kit repository, a snapshot. Replaced by the CLI, which
+ splits this file on all four tokens at once and swaps each piece, so injected
+ content is never searched again. Each token must occur exactly ONCE or the
+ render refuses — the names are written here without their leading and trailing
+ underscores, and the title without its tags, on purpose:
+   DESIGN_STYLES  the text of template.html's one style element, so both pages
+                  share the design; this file carries only spec-specific CSS
+   SPEC           JSON island   -> <script type="application/json" id="ap-spec-data">,
+                                   holding { snapshot, limits }
+   PAGE_SCRIPT    layout script -> last <script> in <body>
+   title          the <title> element in <head>, "agent-progress spec" -> "<project> spec"
+
+ ---------------------------------------------------------------- containers ---
+ #ap-error / #ap-error-text   the error banner, hidden until the page script, or
+                              the banner-only script standing in for a failed
+                              bundle, shows it with the reason
+ main#ap-spec-main            the spec view; the page script replaces its contents
+===============================================================================
+-->
+<style>__DESIGN_STYLES__</style>
+<style>
+.ap-spec-main { padding: 24px; }
+</style>
+</head>
+<body>
+<div class="ap-page">
+
+<div class="ap-banner is-error" id="ap-error" hidden>
+  <strong>Layout failed.</strong>
+  <span id="ap-error-text">The page script could not build the spec view; the data island below is intact.</span>
+</div>
+
+<main class="ap-spec-main" id="ap-spec-main">
+  <p>The spec view shows here once the page script runs.</p>
+</main>
+
+</div>
+
+<script type="application/json" id="ap-spec-data">__SPEC__</script>
+
+<script>
+__PAGE_SCRIPT__
+</script>
+</body>
+</html>

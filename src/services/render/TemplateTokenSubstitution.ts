@@ -1,23 +1,28 @@
-import { OperationRefusal }                    from '../../shared/OperationRefusal.ts';
-import { TEMPLATE_FILE_NAME, TEMPLATE_TOKENS } from './constants/TemplateFile.ts';
+import { OperationRefusal } from '../../shared/OperationRefusal.ts';
 
 const REGULAR_EXPRESSION_SPECIAL_CHARACTERS = /[.*+?^${}()|[\]\\]/g;
 
+/** A template under `resources/` and every placeholder it holds, named by the path a refusal reports. */
+export interface TemplateDescription {
+  templateFilePath: string;
+  tokens:           readonly string[];
+}
+
 /** Splitting on every token at once keeps injected content out of the search: a task named `__TICKETS__` would be found by a later replacement. */
-function templateTokenPattern(): RegExp {
-  const alternatives = Object.values(TEMPLATE_TOKENS).map((token) => token.replace(REGULAR_EXPRESSION_SPECIAL_CHARACTERS, '\\$&'));
+function templateTokenPattern(tokens: readonly string[]): RegExp {
+  const alternatives = tokens.map((token) => token.replace(REGULAR_EXPRESSION_SPECIAL_CHARACTERS, '\\$&'));
   return new RegExp(`(${alternatives.join('|')})`);
 }
 
 /** Refuses, as unrepaired, a template in which any token of `values` does not occur exactly once. */
-export function substituteTemplateTokens(template: string, values: Readonly<Record<string, string>>): string {
-  const pieces = template.split(templateTokenPattern());
+export function substituteTemplateTokens(template: string, description: TemplateDescription, values: Readonly<Record<string, string>>): string {
+  const pieces = template.split(templateTokenPattern(description.tokens));
   for (const token of Object.keys(values)) {
     const occurrences = pieces.filter((piece) => piece === token).length;
     if (occurrences !== 1) {
       throw new OperationRefusal('unrepaired', {
         kind:             'template-token-not-unique',
-        templateFilePath: `resources/${TEMPLATE_FILE_NAME}`,
+        templateFilePath: description.templateFilePath,
         token,
         occurrenceCount:  occurrences,
       });

@@ -1,6 +1,6 @@
 /**
- * Bundles `page/PageStart.ts` into the single minified script `src/services/render/PageTemplateFill.ts` inlines, resolved from `import.meta.dir`
- * because the binary is installed with `bun link` and run from whatever repository the orchestrator is in.
+ * Bundles a page entry, `page/PageStart.ts` or `page/spec/SpecPageStart.ts`, into the single minified script its template fill inlines,
+ * resolved from `import.meta.dir` because the binary is installed with `bun link` and run from whatever repository the orchestrator is in.
  */
 
 import { join } from 'node:path';
@@ -16,9 +16,9 @@ export interface PageBundler {
   bundlePageScript(): Promise<PageBundleOutcome>;
 }
 
-async function buildPageScript(): Promise<PageBundleOutcome> {
+async function buildPageScript(entryPointSegments: readonly string[]): Promise<PageBundleOutcome> {
   const result = await Bun.build({
-    entrypoints: [join(import.meta.dir, '..', '..', '..', 'page', 'PageStart.ts')],
+    entrypoints: [join(import.meta.dir, '..', '..', '..', ...entryPointSegments)],
     target:      'browser',
     minify:      true,
     throw:       false,
@@ -37,12 +37,15 @@ async function buildPageScript(): Promise<PageBundleOutcome> {
   return { verdict: 'built', script };
 }
 
-/** Builds on the first call and hands every later or concurrent caller that same promise, so one bundler builds the page script once. */
-export function createPageBundler(): PageBundler {
+/**
+ * Bundles the entry at `entryPointSegments`, path segments from the repository root such as `PAGE_ENTRY_POINTS.TRACKER`. Builds on the first
+ * call and hands every later or concurrent caller that same promise, so one bundler builds its page script once, and never before it is asked.
+ */
+export function createPageBundler(entryPointSegments: readonly string[]): PageBundler {
   let firstBuild: Promise<PageBundleOutcome> | null = null;
   return {
     bundlePageScript(): Promise<PageBundleOutcome> {
-      firstBuild ??= buildPageScript();
+      firstBuild ??= buildPageScript(entryPointSegments);
       return firstBuild;
     },
   };

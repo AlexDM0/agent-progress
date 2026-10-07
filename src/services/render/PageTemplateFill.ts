@@ -19,6 +19,7 @@ import { TIME_UNITS }                                    from '../../shared/cons
 import { TIMESTAMP_SLICES }                              from '../../shared/constants/TimestampSlices.ts';
 import { substituteTemplateTokens }                      from './TemplateTokenSubstitution.ts';
 import { TEMPLATE_FILE_NAME, TEMPLATE_TOKENS }           from './constants/TemplateFile.ts';
+import { PageScriptTextUtil }                            from './utils/PageScriptTextUtil.ts';
 
 interface PageTemplateFillInput {
   progress:          TrackerProgress;
@@ -33,7 +34,8 @@ interface PageTemplateFillInput {
   renderMarkdown:    (markdown: string) => string;
 }
 
-function pageLimits(): PagePayload['limits'] {
+/** Both page editions write these into their island, so the spec page lays out time as the tracker page does. */
+export function pageLimits(): PagePayload['limits'] {
   return {
     tickStepLadderMinutes:      LIMITS.TICK_STEP_LADDER_MINUTES,
     maximumTicksPerAxis:        LIMITS.MAXIMUM_TICKS_PER_AXIS,
@@ -59,18 +61,6 @@ function pageTicketsFor(tickets: readonly Ticket[], renderMarkdown: (markdown: s
     filePath: ticket.filePath,
     bodyHtml: renderMarkdown(ticket.body),
   }));
-}
-
-function bannerOnlyScript(reason: string): string {
-  const message = HtmlEscapeUtil.escapeJsonForScriptTag(JSON.stringify(reason));
-  return [
-    '(function(){',
-    'var banner=document.getElementById("ap-error");',
-    'var text=document.getElementById("ap-error-text");',
-    `if(text){text.textContent=${message};}`,
-    'if(banner){banner.hidden=false;}',
-    '})();',
-  ].join('');
 }
 
 export function fillPageTemplate(input: PageTemplateFillInput): string {
@@ -100,10 +90,11 @@ export function fillPageTemplate(input: PageTemplateFillInput): string {
     boardFacts,
   };
 
-  return substituteTemplateTokens(template, {
+  const description = { templateFilePath: `resources/${TEMPLATE_FILE_NAME}`, tokens: Object.values(TEMPLATE_TOKENS) };
+  return substituteTemplateTokens(template, description, {
     [TEMPLATE_TOKENS.TITLE]:       `<title>${HtmlEscapeUtil.escapeHtml(progress.project)} progress</title>`,
     [TEMPLATE_TOKENS.PROGRESS]:    HtmlEscapeUtil.escapeJsonForScriptTag(JSON.stringify(payload)),
     [TEMPLATE_TOKENS.TICKETS]:     HtmlEscapeUtil.escapeJsonForScriptTag(JSON.stringify(pageTicketsFor(tickets, renderMarkdown))),
-    [TEMPLATE_TOKENS.PAGE_SCRIPT]: pageScript ?? bannerOnlyScript(pageScriptFailure ?? 'the page script could not be built'),
+    [TEMPLATE_TOKENS.PAGE_SCRIPT]: pageScript ?? PageScriptTextUtil.bannerOnlyScriptOf(pageScriptFailure),
   });
 }

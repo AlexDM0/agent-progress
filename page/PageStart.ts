@@ -37,6 +37,7 @@ import { hiddenWorkNoteText }                                                   
 import { highlightChangesSince }                                                     from './reload/ChangeHighlight.ts';
 import { createReloadSnapshotController }                                            from './reload/ReloadSnapshotController.ts';
 import { ScreenSignatureUtil }                                                       from './reload/utils/ScreenSignatureUtil.ts';
+import { PageShell }                                                                 from './shell/PageShell.ts';
 import { createTicketsController }                                                   from './tickets/TicketsController.ts';
 import { DependencyGraphUtil }                                                       from './utils/DependencyGraphUtil.ts';
 import { DomUtil }                                                                   from './utils/DomUtil.ts';
@@ -81,28 +82,7 @@ const OWNED_TEXT_CONTAINER_IDS = [
   HIDDEN_WORK_NOTE_ELEMENT_ID,
 ];
 
-function showLayoutFailure(message: string): void {
-  const banner = document.getElementById('ap-error');
-  const text   = document.getElementById('ap-error-text');
-  if (text !== null) {
-    text.textContent = message;
-  }
-  if (banner !== null) {
-    banner.hidden = false;
-  }
-}
-
-function islandContentsOf(elementId: string): unknown {
-  const island = document.getElementById(elementId);
-  if (island === null) {
-    return null;
-  }
-  try {
-    return JSON.parse(island.textContent ?? '') as unknown;
-  } catch {
-    return null;
-  }
-}
+const { showLayoutFailure, islandContentsOf } = PageShell;
 
 /** A ticket's fragment names no element: it selects the Tickets tab and opens that ticket's detail. */
 function applyFragment(fragment: string, openTicketDetail: (ticketId: string) => boolean): void {
@@ -366,17 +346,5 @@ function startPage(): void {
   renderPage(payload, IslandUtil.pageTicketsFrom(islandContentsOf(TICKETS_ISLAND_ELEMENT_ID)));
 }
 
-function startPageSafely(): void {
-  try {
-    startPage();
-  } catch (failure) {
-    showLayoutFailure(failure instanceof Error ? failure.message : String(failure));
-  }
-}
-
 // The one deliberate exception to "no work at module load": a browser entry has no caller.
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', startPageSafely);
-} else {
-  startPageSafely();
-}
+PageShell.startWhenReady(startPage);
