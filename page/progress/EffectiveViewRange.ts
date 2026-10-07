@@ -3,11 +3,18 @@
  * tracker's own range holds when the `range` command set one, and otherwise Fit spans the rows the page hands in.
  */
 
-import type { TrackerProgress, ViewRange } from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
-import type { StoredViewOverride }         from '../@types/ViewerChoices.ts';
-import { FitRangeUtil }                    from './utils/FitRangeUtil.ts';
+import type { ViewRange }          from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
+import type { StoredViewOverride } from '../@types/ViewerChoices.ts';
+import type { StartedRow }         from './utils/FitRangeUtil.ts';
+import { FitRangeUtil }            from './utils/FitRangeUtil.ts';
 
-export function effectiveViewRangeFor(progress: TrackerProgress, override: StoredViewOverride, nowEpochMilliseconds: number): ViewRange {
+/** The tracker's own range and the rows Fit spans. */
+export interface ViewedRows {
+  view:  ViewRange;
+  tasks: readonly StartedRow[];
+}
+
+export function effectiveViewRangeFor(progress: ViewedRows, override: StoredViewOverride, nowEpochMilliseconds: number): ViewRange {
   if (override.fromText !== null && override.toText !== null) {
     return {
       kind:        'relative',

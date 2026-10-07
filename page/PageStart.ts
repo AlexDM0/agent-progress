@@ -108,12 +108,15 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   const waitingOnById        = waitingOnByTicketIdOf(board.tickets);
   const preferences          = createViewerPreferences(progress.trackerId, BROWSER_STORAGE_AREAS.local);
   const progressController   = createGanttChartController({
-    payload,
-    rows:    board.rows,
-    tickets: board.tickets,
-    epics:   board.epics,
-    waitingOnById,
+    progress,
+    limits,
+    rows:                 board.rows,
+    tickets:              board.tickets,
+    epics:                board.epics,
+    waitingOnOf:          (row) => (row.ticket === null ? [] : waitingOnById.get(row.ticket) ?? []),
+    nowEpochMilliseconds: Date.now,
     preferences,
+    reviewRows:           preferences,
   });
 
   if (payload.pageScriptFailure !== null) {

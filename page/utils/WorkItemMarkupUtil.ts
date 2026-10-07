@@ -88,7 +88,7 @@ function priorityMarkMarkup(ticket: PageTicket): string {
   return priorityLevelMarkMarkup(TicketDefaultsUtil.ticketPriorityOf(ticket));
 }
 
-function reviewedTitleOf(task: Task, slices: TimestampSlices): string {
+function reviewedTitleOf(task: Pick<Task, 'reviewed'>, slices: TimestampSlices): string {
   return task.reviewed === undefined ? 'Reviewed before it was done' : `Reviewed ${TimeUtil.fullStampText(task.reviewed, slices)} before it was done`;
 }
 
@@ -96,7 +96,7 @@ function titledReviewedMarkMarkup(title: string): string {
   return `<span class="ap-reviewed-mark" data-state="reviewed" ${MarkupUtil.attribute('title', title)} role="img" aria-label="reviewed">✓</span>`;
 }
 
-function reviewedMarkMarkup(task: Task, slices: TimestampSlices): string {
+function reviewedMarkMarkup(task: Pick<Task, 'reviewed'>, slices: TimestampSlices): string {
   return titledReviewedMarkMarkup(reviewedTitleOf(task, slices));
 }
 

@@ -1,9 +1,9 @@
 /** The Progress tab: the chart's layout, the range bar with its Fit preset, and the name column. */
 
 import type { ViewRange }                                              from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
-import type { PagePayload }                                            from '../../src/shared/@types/PagePayload.ts';
-import type { BoardEpic, BoardRow, BoardTicket }                       from '../@types/PageBoard.ts';
-import type { Timeline }                                               from '../@types/Timeline.ts';
+import type { PageLimits }                                             from '../../src/shared/@types/PagePayload.ts';
+import type { BoardEpic, BoardTicket }                                 from '../@types/PageBoard.ts';
+import type { Timeline, TimelineRowSource }                            from '../@types/Timeline.ts';
 import type { NameColumnWidth, StoredViewOverride, ViewerPreferences } from '../@types/ViewerChoices.ts';
 import { NO_EPIC_CHIP }                                                from '../constants/EpicChips.ts';
 import {
@@ -13,14 +13,18 @@ import {
   RANGE_NOTE_ELEMENT_ID,
   TASK_ROWS_ELEMENT_ID,
 } from '../constants/TemplateIds.ts';
-import { EpicMarkup }                             from '../epics/EpicMarkup.ts';
-import { ViewerPreferenceUtil }                   from '../preferences/utils/ViewerPreferenceUtil.ts';
-import { DomUtil }                                from '../utils/DomUtil.ts';
-import { GeometryUtil }                           from '../utils/GeometryUtil.ts';
-import { TimeUtil }                               from '../utils/TimeUtil.ts';
-import { createCustomRangePopover }               from './CustomRangePopover.ts';
-import { effectiveViewRangeFor }                  from './EffectiveViewRange.ts';
-import type { EpicGrouping, PlacedTick, TaskRow } from './GanttChartMarkup.ts';
+import { EpicGroupMarks }           from '../epics/EpicGroupMarks.ts';
+import { DomUtil }                  from '../utils/DomUtil.ts';
+import { GeometryUtil }             from '../utils/GeometryUtil.ts';
+import { TimeUtil }                 from '../utils/TimeUtil.ts';
+import { createCustomRangePopover } from './CustomRangePopover.ts';
+import { effectiveViewRangeFor }    from './EffectiveViewRange.ts';
+import type {
+  ChartRowSource,
+  EpicGrouping,
+  PlacedTick,
+  TaskRow
+} from './GanttChartMarkup.ts';
 import {
   overlayMarkup,
   rangeNoteMarkup,
@@ -30,21 +34,40 @@ import {
 } from './GanttChartMarkup.ts';
 import { FIT_RANGE_PRESET, NAME_COLUMN_WIDTH_ATTRIBUTE, RANGE_PRESET_BOUNDS } from './constants/ProgressChart.ts';
 import { AxisFitUtil }                                                        from './utils/AxisFitUtil.ts';
+import { ChartPreferenceUtil }                                                from './utils/ChartPreferenceUtil.ts';
 import { RangePresetUtil }                                                    from './utils/RangePresetUtil.ts';
 
-export interface GanttChartControllerSources {
-  payload:       PagePayload;
-  rows:          readonly BoardRow[];
-  tickets:       readonly BoardTicket[];
-  /** Ordered by key; a board without epics draws its rows ungrouped. */
-  epics:         readonly BoardEpic[];
-  waitingOnById: ReadonlyMap<string, readonly string[]>;
-  preferences:   ViewerPreferences;
+/** The chart's range, its rows and the moment its work started; the rows drawn are the visible ones handed in later. */
+export interface ChartProgress {
+  startedAt: string;
+  view:      ViewRange;
+  tasks:     readonly TimelineRowSource[];
 }
 
-export interface GanttChartController {
+export type GanttChartPreferences = Pick<ViewerPreferences,
+  'readRangeOverride' | 'writeRangeOverride' | 'readNameColumnWidth' | 'writeNameColumnWidth' | 'readFoldedEpicGroups' | 'writeFoldedEpicGroups'>;
+
+export type ReviewRowsPreference = Pick<ViewerPreferences, 'readReviewRowsAreShown' | 'writeReviewRowsAreShown'>;
+
+export interface GanttChartControllerSources<Row extends ChartRowSource> {
+  progress:              ChartProgress;
+  limits:                PageLimits;
+  rows:                  readonly Row[];
+  tickets:               readonly BoardTicket[];
+  /** Ordered by key; a board without epics draws its rows ungrouped. */
+  epics:                 readonly BoardEpic[];
+  waitingOnOf:           (row: Row) => readonly string[];
+  trailingNameMarkupOf?: (row: Row) => string;
+  /** A parameter, never the clock read here: the live page draws the present, a snapshot the moment it was taken. */
+  nowEpochMilliseconds:  () => number;
+  preferences:           GanttChartPreferences;
+  /** Absent, review passes are always drawn as segments and the control is never wired. */
+  reviewRows?:           ReviewRowsPreference;
+}
+
+export interface GanttChartController<Row extends ChartRowSource> {
   applyNameColumnWidth(): void;
-  setVisibleRows(visibleRows: readonly BoardRow[]): void;
+  setVisibleRows(visibleRows: readonly Row[]): void;
   layOut(bringNowIntoView: boolean): void;
   wireRangeBar(): void;
   rangePopoverIsOpen(): boolean;
@@ -96,17 +119,19 @@ function markCoveredAxisLabels(chartIsOnScreen: boolean): void {
   });
 }
 
-function taskRowsFor(visibleRows: readonly BoardRow[], timeline: Timeline, waitingOnById: ReadonlyMap<string, readonly string[]>): TaskRow[] {
+function taskRowsFor<Row extends ChartRowSource>(
+  visibleRows: readonly Row[],
+  timeline: Timeline,
+  sources: Pick<GanttChartControllerSources<Row>, 'waitingOnOf' | 'trailingNameMarkupOf'>,
+): TaskRow[] {
+  const { waitingOnOf, trailingNameMarkupOf } = sources;
   return visibleRows.flatMap((task, index) => {
     const bar = timeline.bars[index];
     if (bar === undefined) {
       return [];
     }
-    return [{
-      task,
-      bar,
-      waitingOn: task.ticket === null ? [] : waitingOnById.get(task.ticket) ?? [],
-    }];
+    const row: TaskRow = { task, bar, waitingOn: waitingOnOf(task) };
+    return [trailingNameMarkupOf === undefined ? row : { ...row, trailingNameMarkup: trailingNameMarkupOf(task) }];
   });
 }
 
@@ -137,35 +162,36 @@ function wireRangePresets(readOverride: () => StoredViewOverride, applyOverride:
   });
 }
 
-function rowIdsOf(rows: readonly BoardRow[]): string {
-  return rows.map((row) => row.id).join(',');
+function rowIdsOf(rows: readonly ChartRowSource[]): string {
+  return rows.map((row) => row.id ?? row.name).join(',');
 }
 
-export function createGanttChartController(sources: GanttChartControllerSources): GanttChartController {
+export function createGanttChartController<Row extends ChartRowSource>(sources: GanttChartControllerSources<Row>): GanttChartController<Row> {
   const {
-    payload,
+    progress,
+    limits,
     rows,
     tickets,
     epics,
-    waitingOnById,
+    nowEpochMilliseconds: readNow,
     preferences,
+    reviewRows,
   } = sources;
-  const { progress, limits } = payload;
   const chart                = document.getElementById(CHART_ELEMENT_ID);
-  const epicsInShownOrder    = EpicMarkup.epicsInShownOrder(epics);
+  const epicsInShownOrder    = EpicGroupMarks.epicsInShownOrder(epics);
   const epicsOfTicket        = new Map(tickets.map((ticket) => [ticket.id, ticket.memberOfEpics]));
   const knownGroupKeys       = new Set([...epics.map((epic) => epic.key), NO_EPIC_CHIP]);
   let foldedGroupKeys        = new Set(preferences.readFoldedEpicGroups().filter((groupKey) => knownGroupKeys.has(groupKey)));
   let override               = preferences.readRangeOverride();
   let nameColumnWidth        = preferences.readNameColumnWidth();
-  let reviewRowsAreShown     = preferences.readReviewRowsAreShown();
+  let reviewRowsAreShown     = reviewRows?.readReviewRowsAreShown() ?? false;
   let visibleRows            = rows;
   let visibleProgress        = { ...progress, tasks: [...visibleRows] };
   let rowsChangedUnderHeldRange = false;
   let visibleRowsWereSet        = false;
 
   const layOut = (bringNowIntoView: boolean): void => {
-    const nowEpochMilliseconds = Date.now();
+    const nowEpochMilliseconds = readNow();
     const range: ViewRange     = effectiveViewRangeFor(visibleProgress, override, nowEpochMilliseconds);
     const timeline             = GeometryUtil.computeTimeline({
       progress: visibleProgress,
@@ -198,7 +224,7 @@ export function createGanttChartController(sources: GanttChartControllerSources)
       nowEpochMilliseconds,
       minimumSpanWidthPercent: limits.minimumBarWidthPercent,
     };
-    DomUtil.setMarkup(TASK_ROWS_ELEMENT_ID, taskRowsMarkup(taskRowsFor(visibleRows, timeline, waitingOnById), {
+    DomUtil.setMarkup(TASK_ROWS_ELEMENT_ID, taskRowsMarkup(taskRowsFor(visibleRows, timeline, sources), {
       slices:            limits,
       todayCalendarDate: TimeUtil.calendarDateOf(nowEpochMilliseconds),
       reviewRowsAreShown,
@@ -225,8 +251,8 @@ export function createGanttChartController(sources: GanttChartControllerSources)
     layOut(true);
   };
   const rangePopover = createCustomRangePopover({
-    resolveBound:      (text) => GeometryUtil.resolveRangeBound(text, visibleProgress, Date.now(), limits),
-    todayCalendarDate: () => TimeUtil.calendarDateOf(Date.now()),
+    resolveBound:      (text) => GeometryUtil.resolveRangeBound(text, visibleProgress, readNow(), limits),
+    todayCalendarDate: () => TimeUtil.calendarDateOf(readNow()),
     readOverride:      () => override,
     applyOverride,
   });
@@ -255,7 +281,7 @@ export function createGanttChartController(sources: GanttChartControllerSources)
     },
     wireNameColumn: () => {
       document.getElementById('ap-name-column')?.addEventListener('click', () => {
-        nameColumnWidth = ViewerPreferenceUtil.toggledNameColumnWidth(nameColumnWidth);
+        nameColumnWidth = ChartPreferenceUtil.toggledNameColumnWidth(nameColumnWidth);
         preferences.writeNameColumnWidth(nameColumnWidth);
         reflectNameColumnWidth(nameColumnWidth);
         layOut(false);
@@ -282,11 +308,14 @@ export function createGanttChartController(sources: GanttChartControllerSources)
       widthObserver.observe(chart);
     },
     wireReviewRows: () => {
+      if (reviewRows === undefined) {
+        return;
+      }
       const control = document.getElementById(REVIEW_ROWS_CONTROL_ELEMENT_ID);
       control?.setAttribute('aria-pressed', String(reviewRowsAreShown));
       control?.addEventListener('click', () => {
         reviewRowsAreShown = !reviewRowsAreShown;
-        preferences.writeReviewRowsAreShown(reviewRowsAreShown);
+        reviewRows.writeReviewRowsAreShown(reviewRowsAreShown);
         control.setAttribute('aria-pressed', String(reviewRowsAreShown));
         layOut(false);
       });

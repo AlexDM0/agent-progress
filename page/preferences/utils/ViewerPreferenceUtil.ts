@@ -7,31 +7,17 @@ import type {
   DetailTarget,
   DetailTargetKind,
   FinishedWorkChoice,
-  NameColumnWidth,
   ReloadSnapshot,
-  StoredViewOverride,
 } from '../../@types/ViewerChoices.ts';
-import { CAPPED_LANE_FIRST_PAGE_CARDS }                             from '../../kanban/constants/KanbanBoardLayout.ts';
-import { ScreenSignatureUtil }                                      from '../../reload/utils/ScreenSignatureUtil.ts';
-import { TicketViewUtil }                                           from '../../tickets/utils/TicketViewUtil.ts';
-import { DEFAULT_FINISHED_WORK_CHOICE, FinishedWorkUtil }           from '../../utils/FinishedWorkUtil.ts';
-import { JsonValueUtil }                                            from '../../utils/JsonValueUtil.ts';
-import { DEFAULT_ABANDONED_LANE_CHOICE, DEFAULT_NAME_COLUMN_WIDTH } from '../constants/PreferenceDefaults.ts';
-import { EMPTY_VIEW_OVERRIDE }                                      from '../constants/ViewOverride.ts';
+import { CAPPED_LANE_FIRST_PAGE_CARDS }                   from '../../kanban/constants/KanbanBoardLayout.ts';
+import { ChartPreferenceUtil }                            from '../../progress/utils/ChartPreferenceUtil.ts';
+import { ScreenSignatureUtil }                            from '../../reload/utils/ScreenSignatureUtil.ts';
+import { TicketViewUtil }                                 from '../../tickets/utils/TicketViewUtil.ts';
+import { DEFAULT_FINISHED_WORK_CHOICE, FinishedWorkUtil } from '../../utils/FinishedWorkUtil.ts';
+import { JsonValueUtil }                                  from '../../utils/JsonValueUtil.ts';
+import { DEFAULT_ABANDONED_LANE_CHOICE }                  from '../constants/PreferenceDefaults.ts';
 
 const ABANDONED_LANE_OPEN_CHOICE = 'open';
-
-function storedOverrideFrom(value: unknown): StoredViewOverride {
-  if (!JsonValueUtil.valueIsRecord(value)) {
-    return EMPTY_VIEW_OVERRIDE;
-  }
-  return {
-    presetKey:   JsonValueUtil.textOrNull(value['presetKey']),
-    fromText:    JsonValueUtil.textOrNull(value['fromText']),
-    toText:      JsonValueUtil.textOrNull(value['toText']),
-    tickMinutes: JsonValueUtil.finiteNumberOrNull(value['tickMinutes']),
-  };
-}
 
 const DETAIL_TARGET_KINDS: readonly DetailTargetKind[] = ['task', 'ticket', 'kanban-card', 'epic'];
 
@@ -67,10 +53,6 @@ function reloadSnapshotFrom(value: unknown, trackerId: string): ReloadSnapshot |
   };
 }
 
-function overrideIsEmpty(override: StoredViewOverride): boolean {
-  return override.fromText === null && override.toText === null && override.tickMinutes === null;
-}
-
 // The hide-finished checkbox stored `recent` for its last-day window; its `all` is the custom all, stored in the same word.
 const RETIRED_RECENT_VISIBILITY = 'recent';
 
@@ -79,14 +61,6 @@ function finishedWorkChoiceFrom(value: unknown): FinishedWorkChoice {
     return DEFAULT_FINISHED_WORK_CHOICE;
   }
   return FinishedWorkUtil.choiceFrom(value) ?? DEFAULT_FINISHED_WORK_CHOICE;
-}
-
-function nameColumnWidthFrom(value: unknown): NameColumnWidth {
-  return value === 'wide' ? 'wide' : DEFAULT_NAME_COLUMN_WIDTH;
-}
-
-function toggledNameColumnWidth(width: NameColumnWidth): NameColumnWidth {
-  return width === 'wide' ? 'normal' : 'wide';
 }
 
 function abandonedLaneIsOpenFrom(stored: string | null): boolean {
@@ -102,13 +76,14 @@ function shownCountFrom(stored: string | null): number {
   return stored === null ? CAPPED_LANE_FIRST_PAGE_CARDS : Number(stored);
 }
 
+// The chart's own choices live beside the chart, so the spec page reads them without this module; they are kept here as delegates.
 export const ViewerPreferenceUtil = {
-  storedOverrideFrom,
+  storedOverrideFrom:     ChartPreferenceUtil.storedOverrideFrom,
   reloadSnapshotFrom,
-  overrideIsEmpty,
+  overrideIsEmpty:        ChartPreferenceUtil.overrideIsEmpty,
   finishedWorkChoiceFrom,
-  nameColumnWidthFrom,
-  toggledNameColumnWidth,
+  nameColumnWidthFrom:    ChartPreferenceUtil.nameColumnWidthFrom,
+  toggledNameColumnWidth: ChartPreferenceUtil.toggledNameColumnWidth,
   abandonedLaneIsOpenFrom,
   abandonedLaneChoiceFor,
   shownCountFrom,

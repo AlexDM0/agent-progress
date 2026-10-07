@@ -4,9 +4,8 @@
  * `src/services/render/PageTemplateFill.ts` put in the progress island.
  */
 
-import { MILLISECONDS_PER_MINUTE }         from '../../src/lib/local-time/LocalTimeUtil.ts';
-import type { Task }                       from '../../src/lib/tracker-model/@types/Task.ts';
-import type { TrackerProgress, ViewRange } from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
+import { MILLISECONDS_PER_MINUTE } from '../../src/lib/local-time/LocalTimeUtil.ts';
+import type { ViewRange }          from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import type {
   HorizontalExtent,
   ResolvedSpan,
@@ -15,6 +14,8 @@ import type {
   TimelineBarPhase,
   TimelineInput,
   TimelineLimits,
+  TimelineRowSource,
+  TimelineSource,
   TimelineTick,
 } from '../@types/Timeline.ts';
 import type { BarPhaseSpan } from './BarPhaseUtil.ts';
@@ -42,7 +43,7 @@ function parseOffsetMinutes(text: string, limits: TimelineLimits): number | null
 }
 
 /** The page hands in only the visible rows, so `startedAt` is the answer only when none of them has started. */
-function earliestRecordedMoment(progress: TrackerProgress, startedAtEpochMilliseconds: number): number {
+function earliestRecordedMoment(progress: TimelineSource, startedAtEpochMilliseconds: number): number {
   let earliestEpochMilliseconds: number | null = null;
   for (const task of progress.tasks) {
     const startEpochMilliseconds = TimeUtil.epochMillisecondsOf(task.start);
@@ -74,12 +75,12 @@ function resolveEndpoint(text: string, earliestEpochMilliseconds: number, nowEpo
 }
 
 /** One typed range bound as the axis would resolve it, or null when the axis could not read it; the custom range popover previews with it. */
-function resolveRangeBound(text: string, progress: TrackerProgress, nowEpochMilliseconds: number, limits: TimelineLimits): number | null {
+function resolveRangeBound(text: string, progress: TimelineSource, nowEpochMilliseconds: number, limits: TimelineLimits): number | null {
   const startedAtEpochMilliseconds = TimeUtil.epochMillisecondsOf(progress.startedAt) ?? nowEpochMilliseconds;
   return resolveEndpoint(text, earliestRecordedMoment(progress, startedAtEpochMilliseconds), nowEpochMilliseconds, limits);
 }
 
-function resolveAutomaticSpan(progress: TrackerProgress, earliestEpochMilliseconds: number, nowEpochMilliseconds: number, limits: TimelineLimits): ResolvedSpan {
+function resolveAutomaticSpan(progress: TimelineSource, earliestEpochMilliseconds: number, nowEpochMilliseconds: number, limits: TimelineLimits): ResolvedSpan {
   let horizonEpochMilliseconds = nowEpochMilliseconds;
   for (const task of progress.tasks) {
     const startEpochMilliseconds = TimeUtil.epochMillisecondsOf(task.start);
@@ -99,7 +100,7 @@ function resolveAutomaticSpan(progress: TrackerProgress, earliestEpochMillisecon
   };
 }
 
-function resolveSpan(progress: TrackerProgress, range: ViewRange, nowEpochMilliseconds: number, limits: TimelineLimits): ResolvedSpan {
+function resolveSpan(progress: TimelineSource, range: ViewRange, nowEpochMilliseconds: number, limits: TimelineLimits): ResolvedSpan {
   const startedAtEpochMilliseconds = TimeUtil.epochMillisecondsOf(progress.startedAt) ?? nowEpochMilliseconds;
   const earliestEpochMilliseconds  = earliestRecordedMoment(progress, startedAtEpochMilliseconds);
   if (range.kind === 'auto') {
@@ -210,11 +211,11 @@ function phasesOnBar(
 }
 
 /** Every bar is a percentage of the axis box and never narrower than `minimumBarWidthPercent`, so a zero-length task is still visible. */
-function barForTask(task: Task, span: ResolvedSpan, nowEpochMilliseconds: number, limits: TimelineLimits): TimelineBar {
+function barForTask(task: TimelineRowSource, span: ResolvedSpan, nowEpochMilliseconds: number, limits: TimelineLimits): TimelineBar {
   const startEpochMilliseconds = TimeUtil.epochMillisecondsOf(task.start);
   if (startEpochMilliseconds === null) {
     return {
-      taskId:       task.id,
+      taskId:       task.id ?? null,
       leftPercent:  0,
       widthPercent: 0,
       clippedLeft:  false,
@@ -231,7 +232,7 @@ function barForTask(task: Task, span: ResolvedSpan, nowEpochMilliseconds: number
   const leftPercent          = Math.max(0, Math.min(clampPercent(rawLeftPercent), 100 - widthPercent));
   const percentOf            = (epochMilliseconds: number): number => clampPercent((epochMilliseconds - span.fromEpochMilliseconds) / spanMilliseconds * 100);
   return {
-    taskId:       task.id,
+    taskId:       task.id ?? null,
     leftPercent,
     widthPercent,
     clippedLeft:  rawLeftPercent < 0,

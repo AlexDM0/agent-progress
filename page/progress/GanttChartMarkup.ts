@@ -5,12 +5,16 @@
 
 import { HtmlEscapeUtil }                               from '../../src/lib/html-escape/HtmlEscapeUtil.ts';
 import { TokenCountUtil }                               from '../../src/lib/token-count/TokenCountUtil.ts';
+import type { DisplayState }                            from '../../src/lib/tracker-model/@types/Task.ts';
 import { FIRST_REPEAT_REVIEW_ROUND }                    from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
 import type { PageLimits }                              from '../../src/shared/@types/PagePayload.ts';
-import type { BoardEpic, BoardRow }                     from '../@types/PageBoard.ts';
+import type { BoardEpic }                               from '../@types/PageBoard.ts';
 import type { ResolvedSpan, TimelineBar, TimelineTick } from '../@types/Timeline.ts';
+import type { TimelineRowSource }                       from '../@types/Timeline.ts';
 import { NO_EPIC_CHIP }                                 from '../constants/EpicChips.ts';
-import { EpicMarkup }                                   from '../epics/EpicMarkup.ts';
+import { EpicGroupMarks }                               from '../epics/EpicGroupMarks.ts';
+import { EPIC_MARK_VOCABULARY }                         from '../epics/EpicMarkVocabulary.ts';
+import { GroupMarkup }                                  from '../epics/GroupMarkup.ts';
 import { BarPhaseUtil }                                 from '../utils/BarPhaseUtil.ts';
 import type { ShortenedText }                           from '../utils/MarkupUtil.ts';
 import { MarkupUtil }                                   from '../utils/MarkupUtil.ts';
@@ -20,10 +24,33 @@ import { TimeUtil }                                     from '../utils/TimeUtil.
 import { WorkItemMarkupUtil }                           from '../utils/WorkItemMarkupUtil.ts';
 import { TICK_LABEL_GUTTER_PIXELS }                     from './constants/ProgressChart.ts';
 
+/**
+ * What a chart row reads: a name, a state and a span, which any row has, and the tracker's features, each optional and leaving its markup
+ * out when absent.
+ */
+export interface ChartRowSource extends TimelineRowSource {
+  name:                          string;
+  displayState:                  DisplayState;
+  /** The element id, `data-task-id` and the number cell. */
+  id?:                           number;
+  /** The ticket badge, and the `#NNN` the name drops beside it. */
+  ticket?:                       string | null;
+  tokens?:                       number | null;
+  reviewRound?:                  number;
+  reviewed?:                     string;
+  deliveredRowCountsAsReviewed?: boolean;
+  reviewOf?:                     string;
+  reviewBarRound?:               number;
+  /** For a review bar, its ticket's own row; absent or null for every other row. */
+  ownRowOfReviewedTicket?:       ChartRowSource | null;
+}
+
 export interface TaskRow {
-  task:      BoardRow;
-  bar:       TimelineBar;
-  waitingOn: readonly string[];
+  task:                ChartRowSource;
+  bar:                 TimelineBar;
+  waitingOn:           readonly string[];
+  /** Markup closing the name cell, after every tracker mark. */
+  trailingNameMarkup?: string;
 }
 
 export interface PlacedTick extends TimelineTick {
@@ -73,8 +100,17 @@ function startedReviewsNumbered(reviews: readonly TaskRow[]): NumberedReview[] {
 }
 
 /** A review whose ticket's row is not drawn takes the round it was filed as. */
-function roundOfUnnestedRow(task: BoardRow): number | null {
-  return task.reviewOf === undefined && task.ownRowOfReviewedTicket === null ? null : task.reviewBarRound ?? 1;
+function roundOfUnnestedRow(task: ChartRowSource): number | null {
+  return task.reviewOf === undefined && ownRowOfReviewedTicketOf(task) === null ? null : task.reviewBarRound ?? 1;
+}
+
+/** Left out, a row is no review bar: a row of another page never names one. */
+function ownRowOfReviewedTicketOf(task: ChartRowSource): ChartRowSource | null {
+  return task.ownRowOfReviewedTicket ?? null;
+}
+
+function ticketOf(task: ChartRowSource): string | null {
+  return task.ticket ?? null;
 }
 
 const LEADING_TICKET_NUMBER_PATTERN = /^#(\d+)\s+/;
@@ -85,7 +121,7 @@ const FOLD_CARET = '▾';
 const REVIEW_BAR_NAME_PATTERN = /^Review (\d+) #\d+/;
 
 /** A name that gives no round sorts above every numbered round. */
-function reviewRoundNamedBy(task: BoardRow): number {
+function reviewRoundNamedBy(task: ChartRowSource): number {
   const round = Number(REVIEW_BAR_NAME_PATTERN.exec(task.name)?.[1]);
   return Number.isSafeInteger(round) ? round : Number.MAX_SAFE_INTEGER;
 }
@@ -101,7 +137,8 @@ function taskRowsInDisplayOrder(rows: readonly TaskRow[], reviewRowsAreShown: bo
 
   const reviewsByParent = new Map<TaskRow, TaskRow[]>();
   for (const row of rows) {
-    const parent = row.task.ownRowOfReviewedTicket === null ? undefined : rowByTask.get(row.task.ownRowOfReviewedTicket);
+    const ownRowOfReviewedTicket = ownRowOfReviewedTicketOf(row.task);
+    const parent = ownRowOfReviewedTicket === null ? undefined : rowByTask.get(ownRowOfReviewedTicket);
     if (parent !== undefined) reviewsByParent.set(parent, [...reviewsByParent.get(parent) ?? [], row]);
   }
   const nestedRows = new Set([...reviewsByParent.values()].flat());
@@ -113,11 +150,11 @@ function taskRowsInDisplayOrder(rows: readonly TaskRow[], reviewRowsAreShown: bo
     if (!reviewRowsAreShown) return [{ ...ownRow, reviewSegments: numberedReviews }];
     const roundByReview           = new Map(numberedReviews.map(({ review, round }) => [review, round]));
     const reviews                 = reviewsByParent.get(row) ?? [];
-    const reviewsLatestRoundFirst = reviews.toSorted((a, b) => reviewRoundNamedBy(b.task) - reviewRoundNamedBy(a.task) || b.task.id - a.task.id);
+    const reviewsLatestRoundFirst = reviews.toSorted((a, b) => reviewRoundNamedBy(b.task) - reviewRoundNamedBy(a.task) || (b.task.id ?? 0) - (a.task.id ?? 0));
     return [
       ...reviewsLatestRoundFirst.map((review) => ({
         row:              review,
-        nestedWithTicket: row.task.ticket,
+        nestedWithTicket: ticketOf(row.task),
         reviewPassRound:  roundByReview.get(review) ?? 1,
         reviewSegments:   [],
       })),
@@ -127,9 +164,9 @@ function taskRowsInDisplayOrder(rows: readonly TaskRow[], reviewRowsAreShown: bo
 }
 
 /** The badge already shows the ticket, so a name opening with the same `#NNN` drops it; the title keeps the full name. */
-function displayedNameOf(task: BoardRow): string {
+function displayedNameOf(task: ChartRowSource): string {
   const leadingNumber = LEADING_TICKET_NUMBER_PATTERN.exec(task.name);
-  if (task.ticket === null || leadingNumber === null || Number(leadingNumber[1]) !== Number(task.ticket)) {
+  if (task.ticket === undefined || task.ticket === null || leadingNumber === null || Number(leadingNumber[1]) !== Number(task.ticket)) {
     return task.name;
   }
   return task.name.slice(leadingNumber[0].length);
@@ -148,7 +185,7 @@ function reviewSegmentsMarkup(reviews: readonly NumberedReview[], drawing: TaskR
     const endText = task.end === null ? 'now' : TimeUtil.shortStampText(task.end, drawing.todayCalendarDate, drawing.slices);
     const title   = `Review ${round} · ${TimeUtil.shortStampText(task.start, drawing.todayCalendarDate, drawing.slices)} → ${endText}`;
     return [
-      `<div class="ap-bar ap-bar-review" ${MarkupUtil.attribute('data-state', BarPhaseUtil.segmentStateOf(task.status, round))}${task.end === null ? ' data-live' : ''}`,
+      `<div class="ap-bar ap-bar-review" ${MarkupUtil.attribute('data-state', BarPhaseUtil.reviewPassStateOf(round))}${task.end === null ? ' data-live' : ''}`,
       ` ${placementStyle(bar)} ${MarkupUtil.attribute('title', title)}></div>`,
     ].join('');
   }).join('');
@@ -158,9 +195,9 @@ function reviewSegmentsMarkup(reviews: readonly NumberedReview[], drawing: TaskR
  * Each stretch of the row's own bar in the state of the phase it shows, never the row's current one: a review pass in its round's fill, a
  * build in its recorded phases. A row with no recorded phase keeps the one bar in the row's state.
  */
-function ownBarMarkup(task: BoardRow, bar: TimelineBar, reviewPassRound: number | null): string {
+function ownBarMarkup(task: ChartRowSource, bar: TimelineBar, reviewPassRound: number | null): string {
   if (bar.visible && reviewPassRound !== null) {
-    const state = BarPhaseUtil.segmentStateOf(task.status, reviewPassRound);
+    const state = BarPhaseUtil.reviewPassStateOf(reviewPassRound);
     return `<div class="ap-bar ap-bar-segment" ${MarkupUtil.attribute('data-state', state)}${task.end === null ? ' data-live' : ''} ${placementStyle(bar)}></div>`;
   }
   if (bar.phases.length === 0) {
@@ -183,21 +220,25 @@ function taskRowMarkup(placed: PlacedTaskRow, drawing: TaskRowsDrawing, otherEpi
   const { slices }                                 = drawing;
   const state         = task.displayState;
   const pillLabel     = WorkItemMarkupUtil.stateLabelOf(state, task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND);
-  const ticketBadge   = task.ticket === null ? '' : WorkItemMarkupUtil.ticketBadgeMarkup(task.ticket);
-  const reviewedMark = task.deliveredRowCountsAsReviewed ? WorkItemMarkupUtil.reviewedMarkMarkup(task, slices) : '';
-  const tokens = task.tokens === null
+  const ticket        = ticketOf(task);
+  const ticketBadge   = ticket === null ? '' : WorkItemMarkupUtil.ticketBadgeMarkup(ticket);
+  const reviewedMark = task.deliveredRowCountsAsReviewed === true ? WorkItemMarkupUtil.reviewedMarkMarkup(task, slices) : '';
+  const tokens = task.tokens === undefined || task.tokens === null
     ? ''
     : `<span class="ap-tokens">${HtmlEscapeUtil.escapeHtml(TokenCountUtil.formatTokenCount(task.tokens))} tokens</span>`;
   const nesting    = nestedWithTicket === null ? '' : ` ${MarkupUtil.attribute('data-review-of', nestedWithTicket)}`;
-  const identities = `${MarkupUtil.attribute('id', TemplateIdUtil.taskRowElementIdOf(task.id))} ${MarkupUtil.attribute('data-task-id', String(task.id))}`;
+  const identities = task.id === undefined
+    ? ''
+    : ` ${MarkupUtil.attribute('id', TemplateIdUtil.taskRowElementIdOf(task.id))} ${MarkupUtil.attribute('data-task-id', String(task.id))}`;
+  const numberCell = task.id === undefined ? '' : `<span class="ap-num">${HtmlEscapeUtil.escapeHtml(String(task.id))}</span>`;
   const drawnBars    = [bar, ...reviewSegments.map(({ review }) => review.bar)].filter((drawnBar) => drawnBar.visible);
   const clippedLeft  = drawnBars.some((drawnBar) => drawnBar.clippedLeft);
   const clippedRight = drawnBars.some((drawnBar) => drawnBar.clippedRight);
   return [
-    `<div class="ap-grid-row ap-row" tabindex="0" ${identities} ${MarkupUtil.attribute('data-state', state)}${nesting}>`,
-    `<div class="ap-cell-name"><span class="ap-num">${HtmlEscapeUtil.escapeHtml(String(task.id))}</span>`,
+    `<div class="ap-grid-row ap-row" tabindex="0"${identities} ${MarkupUtil.attribute('data-state', state)}${nesting}>`,
+    `<div class="ap-cell-name">${numberCell}`,
     `<span class="ap-name" ${MarkupUtil.attribute('title', task.name)}>${HtmlEscapeUtil.escapeHtml(displayedNameOf(task))}</span>`,
-    `${ticketBadge}${WorkItemMarkupUtil.waitingOnMarkup(row.waitingOn)}${tokens}${otherEpicSquares}</div>`,
+    `${ticketBadge}${WorkItemMarkupUtil.waitingOnMarkup(row.waitingOn)}${tokens}${otherEpicSquares}${row.trailingNameMarkup ?? ''}</div>`,
     `<div class="ap-cell-pill"><span class="ap-pill">${HtmlEscapeUtil.escapeHtml(pillLabel)}</span>${reviewedMark}</div>`,
     `<div class="ap-cell-track"><span class="ap-clip-l"${clippedLeft ? '' : ' hidden'}></span>`,
     ownBarMarkup(task, bar, reviewPassRound),
@@ -207,11 +248,11 @@ function taskRowMarkup(placed: PlacedTaskRow, drawing: TaskRowsDrawing, otherEpi
 }
 
 /** A review row goes with the ticket it reviews; a free-standing row has no ticket. */
-function ticketIdOfRow(task: BoardRow): string | null {
+function ticketIdOfRow(task: ChartRowSource): string | null {
   return task.ticket ?? task.ownRowOfReviewedTicket?.ticket ?? task.reviewOf ?? null;
 }
 
-function groupKeyOf(task: BoardRow, grouping: EpicGrouping): string {
+function groupKeyOf(task: ChartRowSource, grouping: EpicGrouping): string {
   const ticketId = ticketIdOfRow(task);
   const primary  = ticketId === null ? undefined : grouping.epicsOfTicket.get(ticketId)?.[0];
   return primary?.key ?? NO_EPIC_CHIP;
@@ -239,7 +280,7 @@ function epicSpanMarkup(epic: BoardEpic, grouping: EpicGrouping, drawing: TaskRo
   const leftPercent  = Math.max(0, Math.min(Math.max(rawLeftPercent, 0), 100 - widthPercent));
   const endText      = span.end === null ? 'now' : TimeUtil.shortStampText(span.end, drawing.todayCalendarDate, drawing.slices);
   const title        = `${epic.title} · ${TimeUtil.shortStampText(span.start, drawing.todayCalendarDate, drawing.slices)} → ${endText}`;
-  const openMark     = EpicMarkup.openTicketCountOf(epic) > 0 ? ' data-open' : '';
+  const openMark     = EpicGroupMarks.openTicketCountOf(epic) > 0 ? ' data-open' : '';
   return `<div class="ap-epic-span"${openMark} ${placementStyle({ leftPercent, widthPercent })} ${MarkupUtil.attribute('title', title)}></div>`;
 }
 
@@ -257,8 +298,8 @@ function epicHeadRowMarkup(epic: BoardEpic, grouping: EpicGrouping, drawing: Tas
     : ` <span class="ap-epic-head-count" ${MarkupUtil.attribute('title', `${sharedCount} of its tickets show under another epic`)}>+${sharedCount} shared</span>`;
   return [
     headRowOpeningMarkup(epic.key, grouping.foldedGroupKeys.has(epic.key), ` ${MarkupUtil.attribute('data-epic-slot', String(epic.slot))}`),
-    `${EpicMarkup.epicChipsMarkup([epic])}${sharedNote}</div>`,
-    `<div class="ap-cell-pill">${EpicMarkup.doneTicketCountOf(epic)} / ${epic.ticketIds.length} done</div>`,
+    `${GroupMarkup.groupChipsMarkup([epic], EPIC_MARK_VOCABULARY)}${sharedNote}</div>`,
+    `<div class="ap-cell-pill">${EpicGroupMarks.doneTicketCountOf(epic)} / ${epic.ticketIds.length} done</div>`,
     `<div class="ap-cell-track">${epicSpanMarkup(epic, grouping, drawing)}</div>`,
     '</div>',
   ].join('');
@@ -272,8 +313,9 @@ function noEpicHeadRowMarkup(memberCount: number, grouping: EpicGrouping): strin
 /** A member row of a ticket in more than one epic carries the squares of the epics it is not drawn under; a review row leaves them to its ticket's. */
 function memberRowMarkup(placed: PlacedTaskRow, grouping: EpicGrouping, drawing: TaskRowsDrawing): string {
   const { task }    = placed.row;
-  const otherEpics  = task.ticket === null ? [] : grouping.epicsOfTicket.get(task.ticket)?.slice(1) ?? [];
-  return taskRowMarkup(placed, drawing, EpicMarkup.otherEpicSquaresMarkup(otherEpics));
+  const ticket      = ticketOf(task);
+  const otherEpics  = ticket === null ? [] : grouping.epicsOfTicket.get(ticket)?.slice(1) ?? [];
+  return taskRowMarkup(placed, drawing, GroupMarkup.otherGroupSquaresMarkup(otherEpics, '+'));
 }
 
 function groupedTaskRowsMarkup(placedRows: readonly PlacedTaskRow[], grouping: EpicGrouping, drawing: TaskRowsDrawing): string {

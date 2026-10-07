@@ -1,4 +1,4 @@
-import type { TaskStatus }                 from '../../src/lib/tracker-model/@types/Task.ts';
+import type { TaskPhase, TaskStatus }      from '../../src/lib/tracker-model/@types/Task.ts';
 import type { TrackerProgress, ViewRange } from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import type { PageLimits }                 from '../../src/shared/@types/PagePayload.ts';
 
@@ -19,7 +19,8 @@ export interface TimelineBarPhase {
 }
 
 export interface TimelineBar {
-  taskId:       number;
+  /** The row's task id, null for a row that has none. */
+  taskId:       number | null;
   leftPercent:  number;
   widthPercent: number;
   clippedLeft:  boolean;
@@ -43,8 +44,23 @@ export interface ResolvedSpan {
   toEpochMilliseconds:   number;
 }
 
+/** What the geometry reads of one chart row: a tracker task, or any row with a start and an end. */
+export interface TimelineRowSource {
+  id?:      number;
+  start:    string | null;
+  end:      string | null;
+  history?: readonly TaskPhase[];
+}
+
+/** What the geometry reads of the chart: the moment the work started, and its rows. */
+export interface TimelineSource {
+  startedAt: string;
+  tasks:     readonly TimelineRowSource[];
+}
+
 export interface TimelineInput {
-  progress:             TrackerProgress;
+  /** A tracker's progress is named beside the source it satisfies, so a literal one is not refused for its other keys. */
+  progress:             TimelineSource | TrackerProgress;
   range:                ViewRange;
   nowEpochMilliseconds: number;
   limits:               TimelineLimits;
