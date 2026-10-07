@@ -60,7 +60,7 @@
     "../src/lib/spec-snapshot/@types/SpecSnapshot.ts",
     "../src/lib/spec-snapshot/@types/SpecSnapshotSource.ts",
     "../src/lib/spec-snapshot/SpecSnapshotDerivation.ts",
-    "../src/lib/spec-snapshot/constants/SpecLanes.ts",
+    "../src/lib/spec-snapshot/constants/SpecSnapshotVocabulary.ts",
     "../src/lib/spec-snapshot/utils/SpecArtefactUtil.ts",
     "../src/lib/spec-snapshot/utils/SpecDateUtil.ts",
     "../src/lib/spec-snapshot/utils/SpecStageUtil.ts",

@@ -1,7 +1,7 @@
 import type { SpecStepper, StageSpan } from '../@types/SpecSnapshot.ts';
 import type { SourceFeature }          from '../@types/SpecSnapshotSource.ts';
-import type { SpecLane }               from '../constants/SpecLanes.ts';
-import { SPEC_LANES }                  from '../constants/SpecLanes.ts';
+import type { SpecLane }               from '../constants/SpecSnapshotVocabulary.ts';
+import { SPEC_LANES }                  from '../constants/SpecSnapshotVocabulary.ts';
 import { SpecArtefactUtil }            from './SpecArtefactUtil.ts';
 import { SpecDateUtil }                from './SpecDateUtil.ts';
 

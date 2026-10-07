@@ -6,8 +6,8 @@ import { LocalTimeUtil }                                       from '../local-ti
 import { TicketBodyHashUtil }                                  from '../tracker-model/utils/TicketBodyHashUtil.ts';
 import type { SnapshotOpenMarker, SnapshotSpec, SpecSnapshot } from './@types/SpecSnapshot.ts';
 import type { SourceFeature, SpecSnapshotSource }              from './@types/SpecSnapshotSource.ts';
-import type { SpecLane }                                       from './constants/SpecLanes.ts';
-import { SPEC_COLOUR_SLOT_COUNT, SPEC_LANES }                  from './constants/SpecLanes.ts';
+import type { SpecLane }                                       from './constants/SpecSnapshotVocabulary.ts';
+import { SPEC_COLOUR_SLOT_COUNT, SPEC_LANES }                  from './constants/SpecSnapshotVocabulary.ts';
 import { SpecArtefactUtil }                                    from './utils/SpecArtefactUtil.ts';
 import { SpecStageUtil }                                       from './utils/SpecStageUtil.ts';
 import { SpecWorkItemUtil }                                    from './utils/SpecWorkItemUtil.ts';

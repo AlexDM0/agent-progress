@@ -1,4 +1,4 @@
-import type { SpecLane, SpecStage, WorkItemState }     from '../constants/SpecLanes.ts';
+import type { SpecLane, SpecStage, WorkItemState }     from '../constants/SpecSnapshotVocabulary.ts';
 import type { SourcePhaseKind, SourceUnreadableEntry } from './SpecSnapshotSource.ts';
 
 export type SpecArtefactKind = 'spec' | 'plan' | 'research' | 'data-model' | 'quickstart' | 'contracts' | 'tasks' | 'checklist';

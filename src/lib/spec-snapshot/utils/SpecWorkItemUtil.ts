@@ -5,7 +5,7 @@ import type {
   SourceTask,
   SourceTaskPhase
 } from '../@types/SpecSnapshotSource.ts';
-import type { WorkItemState } from '../constants/SpecLanes.ts';
+import type { WorkItemState } from '../constants/SpecSnapshotVocabulary.ts';
 import { SpecArtefactUtil }   from './SpecArtefactUtil.ts';
 
 const ORDINAL_DIGITS = 2;
