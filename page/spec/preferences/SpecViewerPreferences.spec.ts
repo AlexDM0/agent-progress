@@ -1,7 +1,8 @@
 /**
  * The spec page's stored choices. The cases that matter: the strip's choice is kept under `agent-progress-spec:<repositoryKey>:kanban-specs`,
  * a key string that must never change, so two repositories' pages keep their own choice and nothing lands under a tracker page's prefix;
- * releasing every chip removes the key; and blocked storage reads as no choice.
+ * releasing every chip removes the key; blocked storage reads as no choice; and the Tickets tab's view keeps its own keys, a gone spec
+ * pressing nothing on read.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -46,5 +47,27 @@ describe('createSpecViewerPreferences', () => {
     });
     expect(() => preferences.writeKanbanSpecFilter(['002-product-search'])).not.toThrow();
     expect(preferences.readKanbanSpecFilter()).toEqual([]);
+  });
+
+  test('keeps the Tickets tab’s search and chips under their own keys, a gone spec or unknown state pressing nothing on read', () => {
+    const storage     = inMemoryStorage();
+    const preferences = createSpecViewerPreferences('1c76f5bfd7605ed0', () => storage);
+    preferences.writeTicketsView({ searchText: 'wish', specChips: ['003-wish-list', '009-gone'], stateChips: ['done'] });
+    storage.entries.set('agent-progress-spec:1c76f5bfd7605ed0:tickets-states', '["done","stale"]');
+
+    expect([...storage.entries.keys()].toSorted()).toEqual([
+      'agent-progress-spec:1c76f5bfd7605ed0:tickets-search',
+      'agent-progress-spec:1c76f5bfd7605ed0:tickets-specs',
+      'agent-progress-spec:1c76f5bfd7605ed0:tickets-states',
+    ]);
+    expect(preferences.readTicketsView(new Set(['003-wish-list']))).toEqual({ searchText: 'wish', specChips: ['003-wish-list'], stateChips: ['done'] });
+  });
+
+  test('an unnarrowed Tickets view removes its keys', () => {
+    const storage     = inMemoryStorage();
+    const preferences = createSpecViewerPreferences('1c76f5bfd7605ed0', () => storage);
+    preferences.writeTicketsView({ searchText: 'wish', specChips: ['003-wish-list'], stateChips: ['done'] });
+    preferences.writeTicketsView({ searchText: '', specChips: [], stateChips: [] });
+    expect(storage.entries.size).toBe(0);
   });
 });

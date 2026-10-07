@@ -19,6 +19,7 @@ import { MarkupUtil }                        from '../utils/MarkupUtil.ts';
 import type { PauseTextFormat }              from '../utils/PauseTextUtil.ts';
 import { PauseTextUtil }                     from '../utils/PauseTextUtil.ts';
 import { WorkItemMarkupUtil }                from '../utils/WorkItemMarkupUtil.ts';
+import { SearchMarkUtil }                    from './utils/SearchMarkUtil.ts';
 import { TicketViewUtil }                    from './utils/TicketViewUtil.ts';
 
 /** The Tickets tab sets the quiet low badge one space off the title before it; the amber high mark carries its own margin. */
@@ -27,31 +28,8 @@ function ticketsTabPriorityMarkMarkup(ticket: PageTicket): string {
   return TicketDefaultsUtil.ticketPriorityOf(ticket) === 'low' ? ` ${mark}` : mark;
 }
 
-/**
- * The text escaped, with each case-insensitive occurrence of the query wrapped in a mark. The text is split before it is escaped, so a
- * query can never match inside an entity; a text whose lower case changes its length is left unmarked rather than marked off by one.
- */
-export function matchMarkedMarkup(text: string, query: string): string {
-  const lowerText = text.toLowerCase();
-  if (query === '' || lowerText.length !== text.length) {
-    return HtmlEscapeUtil.escapeHtml(text);
-  }
-  const pieces: string[] = [];
-  let position           = 0;
-  let matchStart         = lowerText.indexOf(query);
-  while (matchStart !== -1) {
-    pieces.push(HtmlEscapeUtil.escapeHtml(text.slice(position, matchStart)));
-    pieces.push(`<mark class="ap-match">${HtmlEscapeUtil.escapeHtml(text.slice(matchStart, matchStart + query.length))}</mark>`);
-    position   = matchStart + query.length;
-    matchStart = lowerText.indexOf(query, position);
-  }
-  pieces.push(HtmlEscapeUtil.escapeHtml(text.slice(position)));
-  return pieces.join('');
-}
-
 function displayStateBadgeMarkup(ticket: BoardTicket): string {
-  const label = WorkItemMarkupUtil.stateLabelOf(ticket.displayState, ticket.ownRow?.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND);
-  return `<span class="ap-badge" ${MarkupUtil.attribute('data-state', ticket.displayState)}>${HtmlEscapeUtil.escapeHtml(label)}</span>`;
+  return WorkItemMarkupUtil.stateBadgeMarkup(ticket.displayState, WorkItemMarkupUtil.stateLabelOf(ticket.displayState, ticket.ownRow?.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND));
 }
 
 /** A paused build's since and duration beside its badge, the row's note on hover. */
@@ -80,18 +58,18 @@ export interface TicketTableRowsOptions {
 
 /** An id query marks nothing: the digits it looks for are the whole id column's. */
 export function ticketTableRowsMarkup(tickets: readonly BoardTicket[], searchText: string, options: TicketTableRowsOptions): string {
-  const query       = TicketViewUtil.normalisedQueryOf(searchText);
+  const query       = SearchMarkUtil.normalisedQueryOf(searchText);
   const markedQuery = TicketViewUtil.queryNamesATicketId(query) ? '' : query;
   return tickets.map((ticket) => [
     `<tr ${MarkupUtil.attribute('data-ticket-id', ticket.id)} ${MarkupUtil.attribute('data-state', ticket.displayState)} tabindex="0">`,
     `<td class="mono">${WorkItemMarkupUtil.ticketLinksMarkup([ticket.id])}</td>`,
-    `<td>${matchMarkedMarkup(ticket.title, markedQuery)}${ticketsTabPriorityMarkMarkup(ticket)}`,
-    `${IntegrationMarkupUtil.integrationMarkMarkup(ticket, options.allTickets, matchMarkedMarkup(ticket.group ?? '', markedQuery))}`,
+    `<td>${SearchMarkUtil.matchMarkedMarkup(ticket.title, markedQuery)}${ticketsTabPriorityMarkMarkup(ticket)}`,
+    `${IntegrationMarkupUtil.integrationMarkMarkup(ticket, options.allTickets, SearchMarkUtil.matchMarkedMarkup(ticket.group ?? '', markedQuery))}`,
     `${WorkItemMarkupUtil.waitingOnMarkup(ticket.waitingOn)}</td>`,
     options.showsEpicColumn ? `<td><span class="ap-epic-chips">${EpicMarkup.epicChipsMarkup(ticket.memberOfEpics, CARD_EPIC_CHIP_LIMIT)}</span></td>` : '',
     `<td>${HtmlEscapeUtil.escapeHtml(ticket.type)}</td>`,
     `<td>${displayStateBadgeMarkup(ticket)}${pauseGapMarkup(ticket, options.format)}</td>`,
-    `<td class="mono">${matchMarkedMarkup(ticket.branch ?? '', markedQuery)}</td>`,
+    `<td class="mono">${SearchMarkUtil.matchMarkedMarkup(ticket.branch ?? '', markedQuery)}</td>`,
     `<td class="mono">${WorkItemMarkupUtil.taskLinkMarkup(ticket.task)}</td>`,
     '</tr>',
   ].join('')).join('');
@@ -117,10 +95,8 @@ function activeFiltersPhrase(view: TicketView, epicChipLabelOf: (chip: string) =
 
 /** The one row a table shows when nothing matches: what was asked, and the way back. */
 export function emptyTicketTableMarkup(view: TicketView, columnCount: number, epicChipLabelOf: (chip: string) => string): string {
-  const asked = TicketViewUtil.viewNarrows(view) ? activeFiltersPhrase(view, epicChipLabelOf) : 'the view';
-  return `<tr class="ap-table-empty"><td colspan="${columnCount}"><p><strong>No ticket matches ${asked}.</strong></p>`
-    + (TicketViewUtil.viewNarrows(view) ? '<p><button type="button" class="ap-link-button" data-clear-filters>Clear search and filters</button></p>' : '')
-    + '</td></tr>';
+  const narrows = TicketViewUtil.viewNarrows(view);
+  return WorkItemMarkupUtil.emptyTableRowMarkup('ticket', narrows ? activeFiltersPhrase(view, epicChipLabelOf) : 'the view', columnCount, narrows);
 }
 
 export function statusChipsMarkup(chips: readonly TicketStatusChip[]): string {

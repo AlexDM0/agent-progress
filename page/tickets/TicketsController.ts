@@ -12,6 +12,7 @@ import { EPIC_MARK_VOCABULARY }                              from '../epics/Epic
 import type { EpicMarkupFormat }                             from '../epics/EpicMarkup.ts';
 import { EpicMarkup }                                        from '../epics/EpicMarkup.ts';
 import { DomUtil }                                           from '../utils/DomUtil.ts';
+import { createSearchInputController }                       from './SearchInputController.ts';
 import type { TicketTableRowsOptions }                       from './TicketsMarkup.ts';
 import {
   emptyTicketTableMarkup,
@@ -37,8 +38,6 @@ const TICKET_TABLE_ELEMENT_ID        = 'ap-ticket-table';
 const TICKET_EPIC_CHIPS_ELEMENT_ID   = 'ap-ticket-epic';
 const TICKET_EPIC_FILTER_ELEMENT_ID  = 'ap-ticket-epic-filter';
 const TICKET_GROUPING_ELEMENT_ID     = 'ap-ticket-group-by-epic';
-
-const TICKET_SEARCH_DEBOUNCE_MILLISECONDS = 150;
 
 interface TicketsControllerSources {
   allTickets:            readonly BoardTicket[];
@@ -69,11 +68,6 @@ function reflectSortedColumn(view: TicketView): void {
   }
 }
 
-function searchInput(): HTMLInputElement | null {
-  const input = document.getElementById(TICKET_SEARCH_ELEMENT_ID);
-  return input instanceof HTMLInputElement ? input : null;
-}
-
 export function createTicketsController(sources: TicketsControllerSources): TicketsController {
   const { allTickets, epics, limits } = sources;
   const searchableTextById   = new Map(allTickets.map((ticket) => [ticket.id, TicketViewUtil.searchableTextOf(ticket)]));
@@ -87,8 +81,8 @@ export function createTicketsController(sources: TicketsControllerSources): Tick
   const epicChipGroup        = createChipGroupController({ containerId: TICKET_EPIC_CHIPS_ELEMENT_ID, attributeName: EPIC_MARK_VOCABULARY.filterChipAttribute });
   let view                   = DEFAULT_TICKET_VIEW;
   let visibleTickets         = allTickets;
+  const searchInput          = createSearchInputController(TICKET_SEARCH_ELEMENT_ID);
   let ticketsAreGrouped      = showsEpics && sources.preferences.readTicketsGroupedByEpic();
-  let pendingSearch: ReturnType<typeof setTimeout> | null = null;
 
   /** Each epic's shown tickets under its head row, a ticket under its primary epic only, then the tickets in none. */
   const groupedRowsMarkup = (shown: readonly BoardTicket[], rowOptions: TicketTableRowsOptions, epicFormat: EpicMarkupFormat): string => (
@@ -124,10 +118,7 @@ export function createTicketsController(sources: TicketsControllerSources): Tick
     document.getElementById(TICKET_GROUPING_ELEMENT_ID)?.setAttribute('aria-pressed', String(ticketsAreGrouped));
     reflectSortedColumn(view);
     DomUtil.setHidden(TICKET_CLEAR_ELEMENT_ID, !TicketViewUtil.viewNarrows(view));
-    const input = searchInput();
-    if (input !== null && input.value !== view.searchText) {
-      input.value = view.searchText;
-    }
+    searchInput.reflect(view.searchText);
   };
 
   const changeView = (changedView: TicketView): void => {
@@ -139,22 +130,7 @@ export function createTicketsController(sources: TicketsControllerSources): Tick
     changeView({
       ...view, searchText: '', statusChips: [], typeChips: [], epicChips: []
     });
-    searchInput()?.focus();
-  };
-
-  const wireSearch = (): void => {
-    searchInput()?.addEventListener('input', (event) => {
-      const input = event.currentTarget;
-      if (pendingSearch !== null) {
-        clearTimeout(pendingSearch);
-      }
-      pendingSearch = setTimeout(() => {
-        pendingSearch = null;
-        if (input instanceof HTMLInputElement) {
-          changeView({ ...view, searchText: input.value });
-        }
-      }, TICKET_SEARCH_DEBOUNCE_MILLISECONDS);
-    });
+    searchInput.focus();
   };
 
   const wireChips = (): void => {
@@ -207,7 +183,7 @@ export function createTicketsController(sources: TicketsControllerSources): Tick
 
   return {
     wire: () => {
-      wireSearch();
+      searchInput.wire((searchText) => changeView({ ...view, searchText }));
       wireChips();
       wireEpics();
       wireSort();

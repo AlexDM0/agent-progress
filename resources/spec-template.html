@@ -82,7 +82,19 @@
                               --panel-room and --frozen-lane-w, its frame
                               --panel-cover
    #ap-chart                  the Progress chart's container
-   #ap-spec-tickets           the Tickets view's container
+   #ap-panel-tickets          the Tickets tab, on the tracker table's frame: the count
+                              #ap-spec-ticket-count; the search #ap-spec-ticket-search,
+                              marking matches with mark.ap-match; the spec chips
+                              #ap-spec-ticket-specs (data-spec-chip, the folder name)
+                              and state chips #ap-spec-ticket-states (data-work-state);
+                              #ap-spec-ticket-clear; the rows #ap-spec-tickets, a
+                              tbody: one tr.ap-epic-group-row per spec with its title
+                              button and roll-up, then one tr[data-work-item-id]
+                              [data-state] per tasks.md phase (phase tag, title,
+                              ticked of total, badge, the phases it waits on as
+                              button.ap-spec-waiting-tag[data-open-work-item]); one
+                              tr.ap-table-empty when nothing matches. The search and
+                              chips are remembered per repository
    #ap-spec-constitution      the Specs tab's constitution card, an article.ap-card
                               on the epic card's head: the version, the path
                               .specify/memory/constitution.md, the ratified and
@@ -124,7 +136,8 @@
  "agent-progress:spec-tab", the selected tab, Kanban when the saved value is not
  one of the five. The arrow keys, Home and End move between the tabs. The page
  script keeps its own choices under "agent-progress-spec:<repositoryKey>:<name>":
- "kanban-specs", the strip's pressed specs.
+ "kanban-specs", the strip's pressed specs; "tickets-search", "tickets-specs" and
+"tickets-states", the Tickets tab's search and pressed chips.
 ===============================================================================
 -->
 <style>__DESIGN_STYLES__</style>
@@ -187,6 +200,15 @@
 .ap-spec-task-bar > span { display: block; height: 100%; background: var(--s-fill); }
 .ap-spec-stage-name { display: inline-block; min-width: 70px; font-weight: 600; }
 .ap-spec-stage-source { color: var(--ink-muted); font-size: var(--fs-micro); }
+#ap-spec-tickets > tr[data-work-item-id] { cursor: pointer; }
+#ap-spec-tickets > tr[data-work-item-id]:hover > td { background: var(--surface-2); }
+#ap-spec-tickets > tr[data-selected] > td { background: var(--surface-2); }
+#ap-spec-tickets > tr[data-selected] > td:first-child { box-shadow: inset 3px 0 0 var(--link); }
+.ap-spec-group-done { font-size: var(--fs-small); color: var(--ink-muted); }
+.ap-spec-waiting-tags { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.ap-spec-waiting-tag { background: none; cursor: pointer; }
+.ap-spec-waiting-tag:hover { border-color: var(--link); color: var(--link); }
+.ap-spec-ticket-table td:nth-child(3) { white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -282,7 +304,34 @@
 
 <section data-panel="tickets" role="tabpanel" id="ap-panel-tickets" aria-labelledby="ap-tab-tickets" hidden>
   <div class="ap-card">
-    <div id="ap-spec-tickets"></div>
+    <div class="ap-card-head"><span class="ap-card-title">Work items</span><span class="ap-card-note" id="ap-spec-ticket-count" aria-live="polite"></span></div>
+    <div class="ap-ticket-toolbar" role="search">
+      <div class="ap-search">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10.6 10.6 14 14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <input id="ap-spec-ticket-search" type="search" placeholder="Search title, phase, spec" aria-label="Search work items" spellcheck="false" autocomplete="off">
+      </div>
+      <div class="ap-toolbar-group">
+        <span class="ap-range-label" id="ap-spec-ticket-specs-label">Spec</span>
+        <div class="ap-chips" id="ap-spec-ticket-specs" role="group" aria-labelledby="ap-spec-ticket-specs-label"></div>
+      </div>
+      <button type="button" class="ap-link-button" id="ap-spec-ticket-clear" hidden>Clear search and filters</button>
+      <div class="ap-toolbar-group ap-toolbar-group-status">
+        <span class="ap-range-label" id="ap-spec-ticket-states-label">State</span>
+        <div class="ap-chips" id="ap-spec-ticket-states" role="group" aria-labelledby="ap-spec-ticket-states-label"></div>
+      </div>
+    </div>
+    <div class="ap-table-scroll">
+      <table class="ap-table ap-spec-ticket-table">
+        <thead><tr>
+          <th class="mono">phase</th>
+          <th class="ap-col-title">title</th>
+          <th class="mono">tasks</th>
+          <th>state</th>
+          <th>waits on</th>
+        </tr></thead>
+        <tbody id="ap-spec-tickets"></tbody>
+      </table>
+    </div>
     <div class="ap-empty" id="ap-spec-tickets-empty" hidden>No specs yet, so no work items.</div>
   </div>
 </section>

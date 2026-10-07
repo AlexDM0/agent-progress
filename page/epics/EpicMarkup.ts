@@ -117,11 +117,10 @@ function epicCardsMarkup(
 /** The Tickets table's head row of one epic's tickets, or of the tickets in none when `epic` is null. */
 function epicGroupRowMarkup(epic: BoardEpic | null, columnCount: number, format: EpicMarkupFormat): string {
   if (epic === null) {
-    return `<tr class="ap-epic-group-row"><td colspan="${columnCount}"><div class="ap-epic-group-line"><span class="ap-epic-title">No epic</span></div></td></tr>`;
+    return GroupMarkup.groupRowMarkup(null, columnCount, '<span class="ap-epic-title">No epic</span>');
   }
-  return `<tr class="ap-epic-group-row" ${slotAttribute(epic)}><td colspan="${columnCount}"><div class="ap-epic-group-line">`
-    + `${epicTitleButtonMarkup(epic)}${epicProgressMarkup(epic)}<span class="ap-card-note">${HtmlEscapeUtil.escapeHtml(doneTextOf(epic))}</span>`
-    + `${epicRollupFactsMarkup(epic, format)}</div></td></tr>`;
+  return GroupMarkup.groupRowMarkup(epic.slot, columnCount, `${epicTitleButtonMarkup(epic)}${epicProgressMarkup(epic)}`
+    + `<span class="ap-card-note">${HtmlEscapeUtil.escapeHtml(doneTextOf(epic))}</span>${epicRollupFactsMarkup(epic, format)}`);
 }
 
 /** One chip per epic in shown order, then the no-epic chip; the counts and pressed states are the controller's to set. */

@@ -13,8 +13,11 @@ import type {
   TicketStatusChip,
   TicketView
 } from '../../@types/ViewerChoices.ts';
-import { EpicChipUtil }  from '../../utils/EpicChipUtil.ts';
-import { JsonValueUtil } from '../../utils/JsonValueUtil.ts';
+import type { ChipFilter } from '../../chips/ChipFilterUtil.ts';
+import { ChipFilterUtil }  from '../../chips/ChipFilterUtil.ts';
+import { EpicChipUtil }    from '../../utils/EpicChipUtil.ts';
+import { JsonValueUtil }   from '../../utils/JsonValueUtil.ts';
+import { SearchMarkUtil }  from './SearchMarkUtil.ts';
 
 export const TICKET_STATUS_CHIPS: readonly TicketStatusChip[] = ['pending', 'in-progress', 'paused', 'in-review', 'reviewing', 'reviewed', 'delivered', 'abandoned'];
 
@@ -60,24 +63,15 @@ function characterOfReference(reference: string, name: string): string {
   return Object.hasOwn(NAMED_CHARACTERS, lowerName) ? NAMED_CHARACTERS[lowerName] ?? reference : reference;
 }
 
-/** Every run of white space as one space, so a phrase matches across a line break or the tag a body put inside it. */
-function collapsedWhiteSpaceOf(text: string): string {
-  return text.replace(/\s+/g, ' ').trim();
-}
-
 /** The words a reader sees in a rendered body: every tag and its attributes dropped, then the escaped characters read back. */
 function bodyPlainTextOf(bodyHtml: string): string {
-  return collapsedWhiteSpaceOf(bodyHtml.replace(MARKUP_TAG_PATTERN, ' ').replace(CHARACTER_REFERENCE_PATTERN, characterOfReference));
+  return SearchMarkUtil.collapsedWhiteSpaceOf(bodyHtml.replace(MARKUP_TAG_PATTERN, ' ').replace(CHARACTER_REFERENCE_PATTERN, characterOfReference));
 }
 
 /** Built once per ticket, since a search re-reads it on every keystroke. */
 function searchableTextOf(ticket: BoardTicket): string {
   const epicWords = ticket.memberOfEpics.flatMap((epic) => [epic.key, epic.title]);
   return [ticket.title, ...epicWords, ticket.branch ?? '', ticket.group ?? '', bodyPlainTextOf(ticket.bodyHtml)].join('\n').toLowerCase();
-}
-
-function normalisedQueryOf(searchText: string): string {
-  return collapsedWhiteSpaceOf(searchText).toLowerCase();
 }
 
 function queryNamesATicketId(query: string): boolean {
@@ -99,27 +93,34 @@ function statusChipOf(state: DisplayState): TicketStatusChip {
 }
 
 function viewNarrows(view: TicketView): boolean {
-  return normalisedQueryOf(view.searchText) !== '' || view.statusChips.length > 0 || view.typeChips.length > 0 || view.epicChips.length > 0;
+  return SearchMarkUtil.normalisedQueryOf(view.searchText) !== '' || view.statusChips.length > 0 || view.typeChips.length > 0 || view.epicChips.length > 0;
 }
 
-interface MatchOptions {
-  ignoresStatus?: boolean;
-  ignoresType?:   boolean;
-  ignoresEpic?:   boolean;
+interface TicketChipFilters {
+  status: ChipFilter<BoardTicket, TicketStatusChip>;
+  type:   ChipFilter<BoardTicket, TicketType>;
+  epic:   ChipFilter<BoardTicket>;
+  all:    ReadonlyArray<ChipFilter<BoardTicket>>;
+}
+
+function ticketChipFiltersOf(view: TicketView): TicketChipFilters {
+  const status: ChipFilter<BoardTicket, TicketStatusChip> = { pressed: view.statusChips, chipsOf: (ticket) => [statusChipOf(ticket.displayState)] };
+  const type: ChipFilter<BoardTicket, TicketType>         = { pressed: view.typeChips, chipsOf: (ticket) => [ticket.type] };
+  const epic: ChipFilter<BoardTicket>                     = { pressed: view.epicChips, chipsOf: EpicChipUtil.epicChipsOf };
+  return {
+    status, type, epic, all: [status, type, epic]
+  };
+}
+
+function searchMatcherOf(view: TicketView, searchableTextById: ReadonlyMap<string, string>): (ticket: BoardTicket) => boolean {
+  const query = SearchMarkUtil.normalisedQueryOf(view.searchText);
+  return (ticket) => searchMatches(ticket, searchableTextById.get(ticket.id) ?? '', query);
 }
 
 /** OR inside a chip group, AND across the search and the groups. */
-function ticketMatches(ticket: BoardTicket, searchableText: string, view: TicketView, options: MatchOptions = {}): boolean {
-  if (!searchMatches(ticket, searchableText, normalisedQueryOf(view.searchText))) {
-    return false;
-  }
-  if (options.ignoresStatus !== true && view.statusChips.length > 0 && !view.statusChips.includes(statusChipOf(ticket.displayState))) {
-    return false;
-  }
-  if (options.ignoresEpic !== true && !EpicChipUtil.pressedChipsKeep(ticket, view.epicChips)) {
-    return false;
-  }
-  return options.ignoresType === true || view.typeChips.length === 0 || view.typeChips.includes(ticket.type);
+function ticketMatches(ticket: BoardTicket, searchableText: string, view: TicketView): boolean {
+  const query = SearchMarkUtil.normalisedQueryOf(view.searchText);
+  return ChipFilterUtil.itemMatches(ticket, (candidate) => searchMatches(candidate, searchableText, query), ticketChipFiltersOf(view).all);
 }
 
 function sortValueOf(ticket: BoardTicket, sortKey: TicketSortKey): number | string {
@@ -166,36 +167,20 @@ function ticketsShownBy(
     .toSorted(ticketComparatorFor(view));
 }
 
-/** What pressing each chip would show: every ticket of its value that passes the search and the other group, hidden work included. */
+/** What pressing each chip would show: every ticket of its value that passes the search and the other groups, hidden work included. */
 function statusChipCountsOf(view: TicketView, allTickets: readonly BoardTicket[], searchableTextById: ReadonlyMap<string, string>): Map<TicketStatusChip, number> {
-  const counts = new Map<TicketStatusChip, number>(TICKET_STATUS_CHIPS.map((chip) => [chip, 0]));
-  for (const ticket of allTickets) {
-    if (ticketMatches(ticket, searchableTextById.get(ticket.id) ?? '', view, { ignoresStatus: true })) {
-      const chip = statusChipOf(ticket.displayState);
-      counts.set(chip, (counts.get(chip) ?? 0) + 1);
-    }
-  }
-  return counts;
+  const filters = ticketChipFiltersOf(view);
+  return ChipFilterUtil.chipCountsOf(allTickets, searchMatcherOf(view, searchableTextById), filters.all, filters.status, TICKET_STATUS_CHIPS);
 }
 
 function typeChipCountsOf(view: TicketView, allTickets: readonly BoardTicket[], searchableTextById: ReadonlyMap<string, string>): Map<TicketType, number> {
-  const counts = new Map<TicketType, number>(TICKET_TYPES.map((type) => [type, 0]));
-  for (const ticket of allTickets) {
-    if (ticketMatches(ticket, searchableTextById.get(ticket.id) ?? '', view, { ignoresType: true })) {
-      counts.set(ticket.type, (counts.get(ticket.type) ?? 0) + 1);
-    }
-  }
-  return counts;
+  const filters = ticketChipFiltersOf(view);
+  return ChipFilterUtil.chipCountsOf(allTickets, searchMatcherOf(view, searchableTextById), filters.all, filters.type, TICKET_TYPES);
 }
 
 function epicChipCountsOf(view: TicketView, allTickets: readonly BoardTicket[], searchableTextById: ReadonlyMap<string, string>): Map<string, number> {
-  const counts = new Map<string, number>();
-  for (const ticket of allTickets) {
-    if (ticketMatches(ticket, searchableTextById.get(ticket.id) ?? '', view, { ignoresEpic: true })) {
-      for (const chip of EpicChipUtil.epicChipsOf(ticket)) counts.set(chip, (counts.get(chip) ?? 0) + 1);
-    }
-  }
-  return counts;
+  const filters = ticketChipFiltersOf(view);
+  return ChipFilterUtil.chipCountsOf(allTickets, searchMatcherOf(view, searchableTextById), filters.all, filters.epic);
 }
 
 /** A second press on the sorted column reverses it; a new column starts ascending, except the id, which starts newest first. */
@@ -237,7 +222,6 @@ function ticketViewFrom(value: unknown): TicketView {
 export const TicketViewUtil = {
   bodyPlainTextOf,
   searchableTextOf,
-  normalisedQueryOf,
   queryNamesATicketId,
   statusChipOf,
   viewNarrows,

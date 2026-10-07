@@ -65,6 +65,13 @@ function stateBadgeMarkup(stateToken: string, label: string): string {
   return `<span class="ap-badge" ${MarkupUtil.attribute('data-state', stateToken)}>${HtmlEscapeUtil.escapeHtml(label)}</span>`;
 }
 
+/** The one row a table shows when nothing matches: what was asked, already markup, and the way back when something narrowed the table. */
+function emptyTableRowMarkup(itemNoun: string, askedPhraseMarkup: string, columnCount: number, offersClearing: boolean): string {
+  return `<tr class="ap-table-empty"><td colspan="${columnCount}"><p><strong>No ${HtmlEscapeUtil.escapeHtml(itemNoun)} matches ${askedPhraseMarkup}.</strong></p>`
+    + (offersClearing ? '<p><button type="button" class="ap-link-button" data-clear-filters>Clear search and filters</button></p>' : '')
+    + '</td></tr>';
+}
+
 function markedPriorityMarkup(className: string, priority: 'low' | 'high'): string {
   const title = MarkupUtil.attribute('title', HtmlLabelUtil.priorityMarkTitleOf(priority));
   return `<span class="${className}" data-priority="${priority}" ${title}>${HtmlEscapeUtil.escapeHtml(priority)}</span>`;
@@ -130,6 +137,7 @@ export const WorkItemMarkupUtil = {
   ticketBadgeMarkup,
   ticketStatusBadgeMarkup,
   stateBadgeMarkup,
+  emptyTableRowMarkup,
   priorityLevelMarkMarkup,
   priorityMarkMarkup,
   reviewedTitleOf,

@@ -13,7 +13,6 @@ import { pageBoardFixture }       from '../testing/PageBoardFixture.ts';
 import { EXAMPLE_PAGE_LIMITS }    from '../testing/PageLimitsFixture.ts';
 import {
   emptyTicketTableMarkup,
-  matchMarkedMarkup,
   statusChipsMarkup,
   ticketCountText,
   ticketTableRowsMarkup,
@@ -118,22 +117,6 @@ describe('ticketTableRowsMarkup', () => {
 
   test('escapes a hostile ticket title', () => {
     expect(rowsMarkup(boardTicketsOf([exampleTicket({ title: '<b>bold</b>' })]), '')).toContain('&lt;b&gt;bold&lt;/b&gt;');
-  });
-});
-
-describe('matchMarkedMarkup', () => {
-  test('marks every occurrence, whatever its case', () => {
-    expect(matchMarkedMarkup('Dark mode, darker', 'dark')).toBe('<mark class="ap-match">Dark</mark> mode, <mark class="ap-match">dark</mark>er');
-  });
-
-  // Marking after escaping would let "amp" match inside "&amp;" and break the entity.
-  test('never matches inside an escaped character', () => {
-    expect(matchMarkedMarkup('Q&A', 'amp')).toBe('Q&amp;A');
-    expect(matchMarkedMarkup('a <b> c', '<b>')).toBe('a <mark class="ap-match">&lt;b&gt;</mark> c');
-  });
-
-  test('escapes the text when there is nothing to mark', () => {
-    expect(matchMarkedMarkup('<i>', '')).toBe('&lt;i&gt;');
   });
 });
 

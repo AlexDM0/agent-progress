@@ -97,6 +97,12 @@ function groupTitleButtonMarkup(group: GroupMark, vocabulary: GroupMarkVocabular
   return `<button type="button" class="ap-epic-title" ${opener}>${swatchMarkup()}${HtmlEscapeUtil.escapeHtml(group.title)}</button>`;
 }
 
+/** A table's head row for a group, spanning every column; a row of no group takes no colour slot. */
+function groupRowMarkup(slot: number | null, columnCount: number, lineMarkup: string): string {
+  const slotPart = slot === null ? '' : ` ${MarkupUtil.attribute('data-epic-slot', String(slot))}`;
+  return `<tr class="ap-epic-group-row"${slotPart}><td colspan="${columnCount}"><div class="ap-epic-group-line">${lineMarkup}</div></td></tr>`;
+}
+
 function groupCardMarkup(card: GroupCardModel): string {
   const { head } = card;
   const slot      = card.slot === null ? '' : `${MarkupUtil.attribute('data-epic-slot', String(card.slot))} `;
@@ -131,6 +137,7 @@ export const GroupMarkup = {
   factsLineMarkup,
   groupItemListMarkup,
   groupTitleButtonMarkup,
+  groupRowMarkup,
   groupCardMarkup,
   groupDetailMarkup,
 } as const;

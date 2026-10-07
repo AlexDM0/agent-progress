@@ -36,6 +36,7 @@ const TRACKER_PAGE_ONLY_MODULES = [
   'page/kanban/KanbanDependencyArrowController.ts',
   'page/kanban/KanbanEpicFilterController.ts',
   'page/epics/EpicDependencyMarkup.ts',
+  'page/tickets/TicketsController.ts',
 ];
 
 /** Attributes tracker-page controllers read and write, which a spec view's markup must not wake. */
@@ -221,5 +222,13 @@ describe('shared hooks', () => {
     expect(sharedHookAttributesNamedIn(planted)).toContainEqual({ path: kanbanModel, token: 'data-epic-slot' });
     expect(foreignMarkupTokensOf(SCANNER.graph, specTemplateIds())).toEqual([]);
     expect(sharedHookAttributesNamedIn(SCANNER.graph)).toEqual([]);
+  });
+
+  test('a spec tickets module writing a badge class itself is caught, and passes once it is gone', () => {
+    const ticketsMarkup = 'page/spec/tickets/SpecTicketsMarkup.ts';
+    const planted       = SCANNER.graphWithPlantedFiles({ [ticketsMarkup]: `${SCANNER.graph.sourceTextOf(ticketsMarkup)}export const planted = '<span class="ap-badge">';\n`, });
+
+    expect(foreignMarkupTokensOf(planted, specTemplateIds())).toEqual([{ path: ticketsMarkup, token: 'ap-badge' }]);
+    expect(foreignMarkupTokensOf(SCANNER.graph, specTemplateIds())).toEqual([]);
   });
 });

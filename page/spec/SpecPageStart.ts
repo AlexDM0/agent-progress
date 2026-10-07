@@ -1,7 +1,7 @@
 /**
  * The spec page's browser entry: it reads the spec island of `resources/spec-template.html` and fills the frame through the shared shell, the
  * status line as a snapshot's, the header from the spec header model, the edition badge, the unreadable entries' banner, the Kanban's two
- * bands with their behaviour and the Specs tab's cards, and wires the detail panel on the spec page's own targets.
+ * bands with their behaviour, the Tickets tab's table and the Specs tab's cards, and wires the detail panel on the spec page's own targets.
  */
 
 import type { SpecSnapshot } from '../../src/lib/spec-snapshot/@types/SpecSnapshot.ts';
@@ -34,9 +34,10 @@ import {
   SPEC_KANBAN_SCROLLERS,
   SPEC_KANBAN_TEXT_CONTAINER_IDS,
 } from './kanban/SpecKanbanController.ts';
-import { createSpecViewerPreferences } from './preferences/SpecViewerPreferences.ts';
-import { constitutionCardMarkup }      from './specs/ConstitutionCardMarkup.ts';
-import { SpecCardMarkup }              from './specs/SpecCardMarkup.ts';
+import { createSpecViewerPreferences }                                                                     from './preferences/SpecViewerPreferences.ts';
+import { constitutionCardMarkup }                                                                          from './specs/ConstitutionCardMarkup.ts';
+import { SpecCardMarkup }                                                                                  from './specs/SpecCardMarkup.ts';
+import { createSpecTicketsController, SPEC_TICKETS_MARKUP_CONTAINER_IDS, SPEC_TICKETS_TEXT_CONTAINER_IDS } from './tickets/SpecTicketsController.ts';
 
 interface SpecPagePayload {
   readonly snapshot: SpecSnapshot;
@@ -61,14 +62,14 @@ const CONSTITUTION_ELEMENT_ID = 'ap-spec-constitution';
 const SPEC_CARDS_ELEMENT_ID   = 'ap-spec-specs';
 
 const VIEW_CONTAINER_IDS = [
-  ...SPEC_KANBAN_MARKUP_CONTAINER_IDS, CHART_ELEMENT_ID, 'ap-spec-tickets', CONSTITUTION_ELEMENT_ID, SPEC_CARDS_ELEMENT_ID, 'ap-spec-dependencies',
+  ...SPEC_KANBAN_MARKUP_CONTAINER_IDS, CHART_ELEMENT_ID, ...SPEC_TICKETS_MARKUP_CONTAINER_IDS, CONSTITUTION_ELEMENT_ID, SPEC_CARDS_ELEMENT_ID, 'ap-spec-dependencies',
 ];
 
 const OWNED_MARKUP_CONTAINER_IDS = [
   SUMMARY_ELEMENT_ID, EDITION_BADGE_ELEMENT_ID, UNREADABLE_LIST_ELEMENT_ID, DETAIL_BODY_ELEMENT_ID, ...VIEW_CONTAINER_IDS,
 ];
 const OWNED_TEXT_CONTAINER_IDS   = [
-  PROJECT_NAME_ELEMENT_ID, STATUS_LABEL_ELEMENT_ID, GENERATED_STAMP_ELEMENT_ID, ...SPEC_KANBAN_TEXT_CONTAINER_IDS,
+  PROJECT_NAME_ELEMENT_ID, STATUS_LABEL_ELEMENT_ID, GENERATED_STAMP_ELEMENT_ID, ...SPEC_KANBAN_TEXT_CONTAINER_IDS, ...SPEC_TICKETS_TEXT_CONTAINER_IDS,
 ];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -118,12 +119,10 @@ function startSpecPage(): void {
   }
   const { snapshot, limits } = payload;
   showHeader(snapshot, limits);
-  const kanbanController = createSpecKanbanController({
-    snapshot,
-    limits,
-    preferences: createSpecViewerPreferences(snapshot.repositoryKey, BROWSER_STORAGE_AREAS.local),
-  });
+  const preferences      = createSpecViewerPreferences(snapshot.repositoryKey, BROWSER_STORAGE_AREAS.local);
+  const kanbanController = createSpecKanbanController({ snapshot, limits, preferences });
   kanbanController.wire();
+  createSpecTicketsController({ snapshot, preferences }).wire();
 
   const nowEpochMilliseconds = Date.now();
   const format               = { limits, todayCalendarDate: TimeUtil.calendarDateOf(nowEpochMilliseconds), nowEpochMilliseconds };
