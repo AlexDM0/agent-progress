@@ -68,7 +68,7 @@ afterEach(() => {
 
 describeWhenGitIsPresent('filing a ticket', () => {
   test('writes the file, files a pending row and logs the line, and prints the path', async () => {
-    const context = await run(['ticket', 'add', 'Double-click a role to edit it', '--type', 'change', '--group', 'role-editor']);
+    const context = await run(['ticket', 'add', 'Double-click a role to edit it', '--type', 'ticket', '--group', 'role-editor']);
 
     const ticketText = storedTicketText();
     expect(ticketText).toContain('id: "001"');
@@ -96,19 +96,66 @@ describeWhenGitIsPresent('filing a ticket', () => {
 
   test('--body beside --body-file is refused at exit 1 and files nothing, rather than dropping the file', async () => {
     const context  = contextHere();
-    const exitCode = await runCommandLine(['ticket', 'add', 'Fix the axis', '--body', 'a', '--body-file', 'b'], context);
+    const exitCode = await runCommandLine(['ticket', 'add', '--type', 'ticket', 'Fix the axis', '--body', 'a', '--body-file', 'b'], context);
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('takes --body or --body-file, not both');
     expect(JSON.parse((await run(['ticket', 'list', '--json'])).outputText())).toEqual([]);
   });
 
-  test('a type that is not one of the three is refused rather than filed as a change', async () => {
+  test('a type that is not one of the three, a retired one included, is refused at exit 1 naming the three and files nothing', async () => {
+    for (const writtenType of ['defect', 'change', 'feature']) {
+      const context  = contextHere();
+      const exitCode = await runCommandLine(['ticket', 'add', 'Fix the axis', '--type', writtenType], context);
+
+      expect(exitCode, writtenType).toBe(1);
+      expect(context.errorText()).toContain(`"${writtenType}" is not a ticket type. The types are ticket, bug, research.`);
+    }
+    expect(JSON.parse((await run(['ticket', 'list', '--json'])).outputText())).toEqual([]);
+  });
+
+  test('an add without --type is refused at exit 1 with the usage line and files nothing', async () => {
     const context  = contextHere();
-    const exitCode = await runCommandLine(['ticket', 'add', 'Fix the axis', '--type', 'defect'], context);
+    const exitCode = await runCommandLine(['ticket', 'add', 'Fix the axis'], context);
 
     expect(exitCode).toBe(1);
-    expect(context.errorText()).toContain('is not a ticket type');
+    expect(context.errorText()).toContain('agent-progress ticket add needs --type ticket|bug|research.');
+    expect(context.errorText()).toContain('Usage: agent-progress ticket add "<title>" --type ticket|bug|research');
+    expect(JSON.parse((await run(['ticket', 'list', '--json'])).outputText())).toEqual([]);
+  });
+
+  // Stored tickets are never rewritten to the current types: a retired type reads as `ticket` and survives every move byte for byte.
+  test('a ticket stored as change or feature reads as ticket everywhere and keeps its stored type line through start and finish', async () => {
+    const keysAMoveSets = /^(status|updated|started|finished|branch|commit|claimedBodyHash|task): /;
+    const linesAMoveLeaves = (text: string): string[] => text.split('\n').filter((line) => !keysAMoveSets.test(line));
+    for (const [index, retiredType] of ['change', 'feature'].entries()) {
+      const ticketId = `00${index + 1}`;
+      const fileName = `${ticketId}-example-${retiredType}.md`;
+      await run(['ticket', 'add', `Example ${retiredType}`, '--type', 'ticket']);
+      writeFileSync(join(repositoryDirectory, '.agent-progress', 'tickets', fileName), storedTicketText(fileName).replace('type: "ticket"', `type: "${retiredType}"`));
+      const storedBeforeMoves = storedTicketText(fileName);
+
+      expect(JSON.parse((await run(['ticket', 'show', ticketId, '--json'])).outputText()).type).toBe('ticket');
+      await run(['ticket', 'start', ticketId]);
+      await run(['ticket', 'finish', ticketId]);
+
+      const storedAfterMoves = storedTicketText(fileName);
+      expect(storedAfterMoves).toContain(`type: "${retiredType}"`);
+      expect(linesAMoveLeaves(storedAfterMoves)).toEqual(linesAMoveLeaves(storedBeforeMoves));
+    }
+    const status = JSON.parse((await run(['status', '--json'])).outputText()) as { tickets: Array<{ type: string }> };
+    expect(status.tickets.map((ticket) => ticket.type)).toEqual(['ticket', 'ticket']);
+    const page = readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.html'), 'utf8');
+    expect(page).not.toMatch(/"type":"(change|feature)"/);
+    expect(page).toMatch(/"type":"ticket"/);
+  });
+
+  test('each of the three types files a ticket of that type', async () => {
+    const fileNameByType = { ticket: '001-example-ticket.md', bug: '002-example-bug.md', research: '003-example-research.md' };
+    for (const [writtenType, fileName] of Object.entries(fileNameByType)) {
+      await run(['ticket', 'add', `Example ${writtenType}`, '--type', writtenType]);
+      expect(storedTicketText(fileName)).toContain(`type: "${writtenType}"`);
+    }
   });
 
   // Two adds queued behind one lock hold is how two agents filing at once meet; a heading with another ticket's number misleads its reader.
@@ -117,8 +164,8 @@ describeWhenGitIsPresent('filing a ticket', () => {
 
     await withLock(workspacePathsFor(repositoryDirectory), async () => {
       queuedAdds = [
-        runCommandLine(['ticket', 'add', 'Held A'], contextHere()),
-        runCommandLine(['ticket', 'add', 'Held B'], contextHere()),
+        runCommandLine(['ticket', 'add', '--type', 'ticket', 'Held A'], contextHere()),
+        runCommandLine(['ticket', 'add', '--type', 'ticket', 'Held B'], contextHere()),
       ];
       await Bun.sleep(LOCK_HELD_WHILE_ADDS_QUEUE_MILLISECONDS);
     }, () => new Date());
@@ -134,7 +181,7 @@ describeWhenGitIsPresent('filing a ticket', () => {
 
   // The progress file is never behind a ticket file, and a first write without `dependsOn` is a ticket a concurrent reader sees as ready.
   test('the new ticket file is written once, after the progress file, with its dependencies on that one write', async () => {
-    await run(['ticket', 'add', 'Double-click a role to edit it']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
     // The command writes through the resolved root, and the scratch directory's own path may pass through a symlink such as `/var`.
     const trackerDirectory = join(realpathSync(repositoryDirectory), '.agent-progress');
     const progressFilePath = join(trackerDirectory, 'progress.json');
@@ -143,7 +190,7 @@ describeWhenGitIsPresent('filing a ticket', () => {
     let recordedWrites: Array<[string, string]> = [];
 
     try {
-      await run(['ticket', 'add', 'Show the role history', '--depends-on', '1']);
+      await run(['ticket', 'add', '--type', 'ticket', 'Show the role history', '--depends-on', '1']);
       recordedWrites = [...atomicWrites.mock.calls];
     } finally {
       atomicWrites.mockRestore();
@@ -159,7 +206,7 @@ describeWhenGitIsPresent('filing a ticket', () => {
 
 describeWhenGitIsPresent('moving a ticket', () => {
   beforeEach(async () => {
-    await run(['ticket', 'add', 'Double-click a role to edit it']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
   });
 
   test('every transition moves the row and stamps the frontmatter it belongs to', async () => {
@@ -261,7 +308,7 @@ describeWhenGitIsPresent('moving a ticket', () => {
 
 describeWhenGitIsPresent('a second review pass', () => {
   beforeEach(async () => {
-    await run(['ticket', 'add', 'Double-click a role to edit it']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
     await run(['ticket', 'start', '1']);
     await run(['ticket', 'finish', '1']);
   });
@@ -333,7 +380,7 @@ describeWhenGitIsPresent('a second review pass', () => {
 
 describeWhenGitIsPresent('reading tickets back', () => {
   beforeEach(async () => {
-    await run(['ticket', 'add', 'Double-click a role to edit it']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
     await run(['ticket', 'add', 'Fix the axis', '--type', 'bug']);
     await run(['ticket', 'start', '2']);
     await run(['ticket', 'approve', '2']);
@@ -380,7 +427,7 @@ describeWhenGitIsPresent('reading tickets back', () => {
 
 describeWhenGitIsPresent('linking a ticket to a row', () => {
   test('link points the ticket at another row and clears the row it left', async () => {
-    await run(['ticket', 'add', 'Double-click a role to edit it']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
     await run(['task', 'add', 'Role editor rewrite']);
 
     await run(['ticket', 'link', '1', '2']);
@@ -392,7 +439,7 @@ describeWhenGitIsPresent('linking a ticket to a row', () => {
   });
 
   test('link is refused when the row belongs to another ticket, unless --force', async () => {
-    await run(['ticket', 'add', 'Double-click a role to edit it']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
     await run(['ticket', 'add', 'Fix the axis', '--type', 'bug']);
 
     const refused = contextHere();
@@ -408,7 +455,7 @@ describeWhenGitIsPresent('linking a ticket to a row', () => {
 
 describeWhenGitIsPresent('the transition matrix', () => {
   beforeEach(async () => {
-    await run(['ticket', 'add', 'Double-click a role to edit it']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
   });
 
   test('a verb refuses a ticket that is not in a status it moves from, naming the override', async () => {
@@ -486,7 +533,7 @@ describeWhenGitIsPresent('the transition matrix', () => {
 
 describeWhenGitIsPresent('token counts on a ticket move', () => {
   test('--tokens lands on the row the ticket owns', async () => {
-    await run(['ticket', 'add', 'Double-click a role to edit it']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
     await run(['ticket', 'start', '1']);
 
     await run(['ticket', 'finish', '1', '--tokens', '48k']);
@@ -496,7 +543,7 @@ describeWhenGitIsPresent('token counts on a ticket move', () => {
 
   // A low ticket that was never started has no row, so the figure would otherwise vanish at exit 0.
   test('--tokens on a ticket with no row is refused with nothing written', async () => {
-    await run(['ticket', 'add', 'Double-click a role to edit it', '--priority', 'low']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it', '--priority', 'low']);
     const progressBefore = readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8');
     const ticketBefore   = storedTicketText();
 
@@ -517,7 +564,7 @@ describeWhenGitIsPresent('where --body-file reads from', () => {
       now:               () => FROZEN_NOW,
       standardInputText: '## Report\nPiped by Alex Example.\n',
     });
-    expect(await runCommandLine(['ticket', 'add', 'Double-click a role to edit it', '--body-file', '-'], context)).toBe(0);
+    expect(await runCommandLine(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it', '--body-file', '-'], context)).toBe(0);
 
     expect(storedTicketText()).toContain('Piped by Alex Example.');
   });
@@ -526,7 +573,7 @@ describeWhenGitIsPresent('where --body-file reads from', () => {
     mkdirSync(join(repositoryDirectory, 'notes'));
     writeFileSync(join(repositoryDirectory, 'notes', 'body.md'), '## Report\nWritten by Alex Example.\n');
 
-    await run(['ticket', 'add', 'Double-click a role to edit it', '--body-file', 'notes/body.md']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it', '--body-file', 'notes/body.md']);
 
     expect(storedTicketText()).toContain('Written by Alex Example.');
   });
@@ -535,20 +582,20 @@ describeWhenGitIsPresent('where --body-file reads from', () => {
 describeWhenGitIsPresent('what ticket add refuses and what it falls back to', () => {
   test('a title that is nothing but whitespace is refused', async () => {
     const context  = contextHere();
-    const exitCode = await runCommandLine(['ticket', 'add', '  '], context);
+    const exitCode = await runCommandLine(['ticket', 'add', '--type', 'ticket', '  '], context);
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('needs a title');
   });
 
   test('an empty --body falls back to the template rather than filing a ticket that says nothing', async () => {
-    await run(['ticket', 'add', 'Double-click a role to edit it', '--body', '   ']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it', '--body', '   ']);
 
     expect(storedTicketText()).toContain('## Report');
   });
 
   test('ticket list --json carries no bodies, since a listing is about statuses', async () => {
-    await run(['ticket', 'add', 'Double-click a role to edit it']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
 
     const listed = JSON.parse((await run(['ticket', 'list', '--json'])).outputText()) as Array<Record<string, unknown>>;
     expect(listed[0]).not.toHaveProperty('body');
@@ -561,8 +608,8 @@ describeWhenGitIsPresent('what ticket add refuses and what it falls back to', ()
 
 describeWhenGitIsPresent('ticket dependencies', () => {
   beforeEach(async () => {
-    await run(['ticket', 'add', 'Split the importer']);
-    await run(['ticket', 'add', 'Validate the rows']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Split the importer']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Validate the rows']);
   });
 
   async function refusalOf(commandLineArguments: readonly string[]): Promise<string> {
@@ -573,7 +620,7 @@ describeWhenGitIsPresent('ticket dependencies', () => {
   }
 
   test('--depends-on files the ticket already waiting, and list and show say on what', async () => {
-    await run(['ticket', 'add', 'Report the import', '--depends-on', '1,#2']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Report the import', '--depends-on', '1,#2']);
 
     expect(storedTicketText('003-report-the-import.md')).toContain('dependsOn: "001, 002"');
     expect((await run(['ticket', 'list'])).outputText()).toContain('Report the import  (waiting on #001, #002)');
@@ -608,14 +655,14 @@ describeWhenGitIsPresent('ticket dependencies', () => {
   });
 
   test('the warning names every dependency still owed, in the plural', async () => {
-    await run(['ticket', 'add', 'Report the import', '--depends-on', '1,2']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Report the import', '--depends-on', '1,2']);
 
     expect((await run(['ticket', 'start', '3'])).errorText()).toContain('which are not reviewed yet.');
   });
 
   test('a dependency on a ticket that does not exist is refused', async () => {
     expect(await refusalOf(['ticket', 'depends', '2', '9'])).toContain('There is no ticket #009');
-    expect(await refusalOf(['ticket', 'add', 'Report the import', '--depends-on', '9'])).toContain('There is no ticket #009');
+    expect(await refusalOf(['ticket', 'add', '--type', 'ticket', 'Report the import', '--depends-on', '9'])).toContain('There is no ticket #009');
   });
 
   test('a ticket waiting on itself, or on a ticket that waits on it, is refused and the file is unchanged', async () => {
@@ -631,7 +678,7 @@ describeWhenGitIsPresent('ticket dependencies', () => {
   });
 
   test('--add appends to the list and --remove takes an id out', async () => {
-    await run(['ticket', 'add', 'Report the import', '--depends-on', '1']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Report the import', '--depends-on', '1']);
 
     expect((await run(['ticket', 'depends', '3', '--add', '2'])).outputText()).toContain('Ticket #003 waits on #001, #002\n');
     expect(storedTicketText('003-report-the-import.md')).toContain('dependsOn: "001, 002"');
@@ -652,7 +699,7 @@ describeWhenGitIsPresent('ticket dependencies', () => {
 
   // The replace that dropped a dependency without a word is how a ticket got built ahead of the work it waited on.
   test('a replace names what it dropped, warns about a dropped ticket still open, and --json carries added and dropped', async () => {
-    await run(['ticket', 'add', 'Report the import', '--depends-on', '1']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Report the import', '--depends-on', '1']);
 
     const replaced = (await run(['ticket', 'depends', '3', '2'])).outputText();
     expect(replaced).toContain('Ticket #003 waits on #002 (dropped #001)\n#001 is still open: #003 may now start before it');
@@ -683,7 +730,7 @@ describeWhenGitIsPresent('ticket dependencies', () => {
 describeWhenGitIsPresent('a ticket file that will not parse', () => {
   /** A broken hand edit is a state the tool will not repair, so it is exit 2; exit 1 would tell a script the id was its own mistake. */
   test('show and claim exit 2 naming the file and why, while an id with no file at all stays exit 1', async () => {
-    await run(['ticket', 'add', 'Double-click a role to edit it']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
     writeFileSync(join(repositoryDirectory, '.agent-progress', 'tickets', FIRST_TICKET_FILE_NAME), 'no frontmatter here\n');
 
     for (const commandLine of [['ticket', 'show', '1'], ['ticket', 'claim', '1', '--owner', 'opus']]) {

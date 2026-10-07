@@ -27,8 +27,8 @@ in separate checkouts all write to the same chart.
   outside that, however small, is filed unfixed as a low-priority ticket. A second review is only for
   a pass that reworked over {{reworkThresholdLines}} lines of code (comments and documentation not counted) in its fixes
   and rebase, and is asked for, never scheduled by the reviewer.
-- File every bug, change or feature the user reports as a ticket (`agent-progress ticket add
-  "<title>" --type bug|change|feature`) and move it with `agent-progress ticket start|finish|approve|deliver <id>`.
+- File every bug, change, feature or research question the user reports as a ticket (`agent-progress ticket add
+  "<title>" --type ticket|bug|research`) and move it with `agent-progress ticket start|finish|approve|deliver <id>`.
 - Record milestones with `agent-progress log "<what happened>"`; `--at -5m` backfills a stamp nobody
   registered at the time.
 - Never edit `.agent-progress/progress.json` by hand, and edit a ticket only below its frontmatter —

@@ -30,7 +30,7 @@ interface IntakeCase {
 
 /** Each case starts from two pending tickets, #001 and #002. */
 const INTAKE_CASES: IntakeCase[] = [
-  { command: ['ticket', 'add', 'Import the roles'], setup: [] },
+  { command: ['ticket', 'add', '--type', 'ticket', 'Import the roles'], setup: [] },
   { command: ['ticket', 'priority', '1', 'high'], setup: [] },
   { command: ['ticket', 'agent', '1', '--model', 'sonnet'], setup: [] },
   { command: ['ticket', 'depends', '2', '1'], setup: [] },
@@ -54,8 +54,8 @@ async function runCaseWithTheDispatcher(intakeCase: IntakeCase, dispatcherState:
 
 beforeEach(async () => {
   repositoryDirectory = await createInitializedScratchRepository('running-dispatcher-notice', ['--project', 'Example Agency'], () => FROZEN_NOW);
-  await run(['ticket', 'add', 'Double-click a role to edit it']);
-  await run(['ticket', 'add', 'Show the role history']);
+  await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
+  await run(['ticket', 'add', '--type', 'ticket', 'Show the role history']);
 });
 
 afterEach(() => {

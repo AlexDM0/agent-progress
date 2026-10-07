@@ -180,7 +180,7 @@ describeWhenGitIsPresent('a log.jsonl that cannot be read', () => {
 
 describeWhenGitIsPresent('a Board refusal', () => {
   test('holding a ticket that is already held exits 1 with the refusal in words and nothing else', async () => {
-    await runSucceeding(['ticket', 'add', 'Example ticket']);
+    await runSucceeding(['ticket', 'add', '--type', 'ticket', 'Example ticket']);
     await runSucceeding(['ticket', 'hold', '1', '--reason', 'Example reason']);
 
     const finished = await runWith(['ticket', 'hold', '1', '--reason', 'Example reason']);

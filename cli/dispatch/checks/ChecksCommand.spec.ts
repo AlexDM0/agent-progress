@@ -133,7 +133,7 @@ describeWhenGitIsPresent('changing the line with tickets in flight', () => {
   async function ticketsInProgressAndInReview(): Promise<string[]> {
     const ticketIds: string[] = [];
     for (const title of ['Example checkout page', 'Example cart']) {
-      const added = JSON.parse((await run(['ticket', 'add', title, '--json'])).outputText()) as { id: string };
+      const added = JSON.parse((await run(['ticket', 'add', '--type', 'ticket', title, '--json'])).outputText()) as { id: string };
       await run(['ticket', 'start', added.id]);
       ticketIds.push(added.id);
     }

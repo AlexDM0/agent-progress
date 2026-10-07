@@ -5,6 +5,7 @@ import { HtmlEscapeUtil }                from '../../src/lib/html-escape/HtmlEsc
 import type { DisplayState, Task }       from '../../src/lib/tracker-model/@types/Task.ts';
 import type { TicketPriority }           from '../../src/lib/tracker-model/@types/Ticket.ts';
 import type { TicketStatus }             from '../../src/lib/tracker-model/@types/Ticket.ts';
+import type { TicketType }               from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { TicketDefaultsUtil }            from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
 import type { PageTicket }               from '../../src/shared/@types/PagePayload.ts';
 import type { WorkItemLink }             from '../@types/WorkItemLink.ts';
@@ -54,6 +55,10 @@ function taskLinkMarkup(taskId: number | null): string {
 
 function ticketBadgeMarkup(ticketId: string): string {
   return `<a class="ap-ticket-badge" ${MarkupUtil.attribute('href', `#${TemplateIdUtil.ticketFragmentIdOf(ticketId)}`)}>#${HtmlEscapeUtil.escapeHtml(ticketId)}</a>`;
+}
+
+function ticketTypeMarkMarkup(type: TicketType): string {
+  return `<span class="ap-detail-type" ${MarkupUtil.attribute('data-type', type)}>${HtmlEscapeUtil.escapeHtml(type)}</span>`;
 }
 
 function ticketStatusBadgeMarkup(status: TicketStatus): string {
@@ -138,6 +143,7 @@ export const WorkItemMarkupUtil = {
   ticketStatusBadgeMarkup,
   stateBadgeMarkup,
   emptyTableRowMarkup,
+  ticketTypeMarkMarkup,
   priorityLevelMarkMarkup,
   priorityMarkMarkup,
   reviewedTitleOf,

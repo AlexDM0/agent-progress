@@ -11,6 +11,6 @@ const REPOSITORY_DIRECTORY = join(import.meta.dir, '..', '..');
 
 describe('the refusal before a command runs', () => {
   test('refuses the repository under test before any command can run', async () => {
-    await expect(runAgentProgress(['ticket', 'add', 'Isolation probe'], { currentDirectory: REPOSITORY_DIRECTORY })).rejects.toThrow('which is not isolated');
+    await expect(runAgentProgress(['ticket', 'add', '--type', 'ticket', 'Isolation probe'], { currentDirectory: REPOSITORY_DIRECTORY })).rejects.toThrow('which is not isolated');
   });
 });

@@ -67,7 +67,7 @@ export function ticketTableRowsMarkup(tickets: readonly BoardTicket[], searchTex
     `${IntegrationMarkupUtil.integrationMarkMarkup(ticket, options.allTickets, SearchMarkUtil.matchMarkedMarkup(ticket.group ?? '', markedQuery))}`,
     `${WorkItemMarkupUtil.waitingOnMarkup(ticket.waitingOn)}</td>`,
     options.showsEpicColumn ? `<td><span class="ap-epic-chips">${EpicMarkup.epicChipsMarkup(ticket.memberOfEpics, CARD_EPIC_CHIP_LIMIT)}</span></td>` : '',
-    `<td>${HtmlEscapeUtil.escapeHtml(ticket.type)}</td>`,
+    `<td>${WorkItemMarkupUtil.ticketTypeMarkMarkup(ticket.type)}</td>`,
     `<td>${displayStateBadgeMarkup(ticket)}${pauseGapMarkup(ticket, options.format)}</td>`,
     `<td class="mono">${SearchMarkUtil.matchMarkedMarkup(ticket.branch ?? '', markedQuery)}</td>`,
     `<td class="mono">${WorkItemMarkupUtil.taskLinkMarkup(ticket.task)}</td>`,

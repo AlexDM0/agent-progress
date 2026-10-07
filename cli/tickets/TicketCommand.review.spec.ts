@@ -58,8 +58,8 @@ async function agentsInFlightNow(): Promise<number> {
 
 beforeEach(async () => {
   repositoryDirectory = await createInitializedScratchRepository('ticket-start-review', ['--project', 'Example Agency'], () => FROZEN_NOW);
-  await run(['ticket', 'add', REVIEWED_TICKET_TITLE]);
-  await run(['ticket', 'add', 'Show the role history']);
+  await run(['ticket', 'add', '--type', 'ticket', REVIEWED_TICKET_TITLE]);
+  await run(['ticket', 'add', '--type', 'ticket', 'Show the role history']);
   await run(['concurrency', '1']);
   await run(['ticket', 'claim', '1', '--owner', 'opus']);
 });

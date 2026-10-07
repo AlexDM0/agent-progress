@@ -103,7 +103,7 @@ function withoutClaimedBodyHash(ticketText: string): string {
 
 beforeEach(async () => {
   repositoryDirectory = await createInitializedScratchRepository('ticket-edit', ['--project', 'Example Agency'], () => FROZEN_NOW);
-  await run(['ticket', 'add', 'Example checkout page']);
+  await run(['ticket', 'add', '--type', 'ticket', 'Example checkout page']);
 });
 
 afterEach(() => {
@@ -227,7 +227,7 @@ describeWhenGitIsPresent('editing a ticket past pending', () => {
     const rounds = 4;
     for (let i = 0; i < rounds; i++) {
       const reference = String(i + 2);
-      await run(['ticket', 'add', `Example race ${reference}`]);
+      await run(['ticket', 'add', '--type', 'ticket', `Example race ${reference}`]);
       const editedText = `Edited in round ${reference}.\n`;
 
       const [claimExit, editExit] = await Promise.all([

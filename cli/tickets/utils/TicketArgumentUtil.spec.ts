@@ -36,7 +36,7 @@ describe('TicketArgumentUtil vocabulary readers', () => {
   test.each([
     ['priority', () => requirePriority('urgent'), '"urgent" is not a ticket priority. The priorities are low, normal, high.'],
     ['priority option', () => priorityFrom('urgent'), '"urgent" is not a ticket priority. The priorities are low, normal, high.'],
-    ['type', () => ticketTypeFrom('chore'), '"chore" is not a ticket type. The types are bug, change, feature.'],
+    ['type', () => ticketTypeFrom('chore'), '"chore" is not a ticket type. The types are ticket, bug, research.'],
     ['model', () => agentModelFrom('gpt'), '"gpt" is not an agent model. The models are haiku, sonnet, opus, fable.'],
     ['effort', () => agentEffortFrom('huge'), '"huge" is not an agent effort. The efforts are low, medium, high, xhigh, max.'],
   ])('an unknown %s is refused naming the vocabulary', (_description, action, expectedMessage) => {

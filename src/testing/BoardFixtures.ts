@@ -44,7 +44,7 @@ export function ticketFixture(overrides: Partial<TicketFrontmatter> = {}): Ticke
   const frontmatter: TicketFrontmatter = {
     id:          '001',
     title:       'Example checkout page',
-    type:        'feature',
+    type:        'ticket',
     status:      'pending',
     filed:       FIXTURE_STARTED_AT,
     updated:     FIXTURE_STARTED_AT,

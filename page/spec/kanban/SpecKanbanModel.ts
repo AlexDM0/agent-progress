@@ -79,7 +79,7 @@ export function cardElementIdOf(band: SpecKanbanBandName, identity: string): str
 
 function plainHead(idText: string, slotMarkup: string): LaneCardHead {
   return {
-    idText, priority: 'normal', tag: '', slotMarkup, hasNeededFirst: false, heldCount: null, tokenCount: null
+    idText, priority: 'normal', ticketType: null, slotMarkup, hasNeededFirst: false, heldCount: null, tokenCount: null
   };
 }
 

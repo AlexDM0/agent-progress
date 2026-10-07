@@ -17,7 +17,7 @@ function exampleTicket(changes: Partial<PageTicket> = {}): PageTicket {
   return {
     id:          '001',
     title:       'Example ticket',
-    type:        'change',
+    type:        'ticket',
     status:      'pending',
     filed:       '2026-09-18T20:44:00+02:00',
     updated:     '2026-09-18T20:44:00+02:00',
@@ -39,13 +39,13 @@ const TICKETS: readonly BoardTicket[] = pageBoardFixture({
   tasks:   [],
   tickets: [
     exampleTicket({
-      id: '001', title: 'Dark mode for the account pages', type: 'feature', group: 'theme', epics: ['theming']
+      id: '001', title: 'Dark mode for the account pages', type: 'research', group: 'theme', epics: ['theming']
     }),
     exampleTicket({
       id: '002', title: 'Checkout double-submits', type: 'bug', branch: 'ticket/dark-checkout', epics: ['checkout-redesign', 'theming']
     }),
     exampleTicket({
-      id: '003', title: 'Rename basket to cart', type: 'change', status: 'reviewed', bodyHtml: ACCEPTANCE_BODY_HTML
+      id: '003', title: 'Rename basket to cart', type: 'ticket', status: 'reviewed', bodyHtml: ACCEPTANCE_BODY_HTML
     }),
     exampleTicket({
       id: '004', title: 'Old idea', type: 'bug', status: 'abandoned', bodyHtml: '<p class="shadowed" title="nightfall">Plain words only.</p>'
@@ -94,7 +94,7 @@ describe('ticketsShownBy', () => {
   test('keeps a ticket in any pressed epic, and the tickets in none under the no-epic chip', () => {
     expect(shownIds({ epicChips: ['theming'] })).toEqual(['002', '001']);
     expect(shownIds({ epicChips: ['checkout-redesign', NO_EPIC_CHIP] })).toEqual(['010', '004', '003', '002']);
-    expect(shownIds({ epicChips: ['theming'], typeChips: ['feature'] })).toEqual(['001']);
+    expect(shownIds({ epicChips: ['theming'], typeChips: ['research'] })).toEqual(['001']);
   });
 
   test('finds a phrase that occurs only in a ticket body, with its escaped characters read back', () => {
@@ -135,8 +135,8 @@ describe('the chip counts', () => {
     expect(statusCounts.get('reviewed')).toBe(1);
     expect(statusCounts.get('abandoned')).toBe(0);
     expect(typeCounts.get('bug')).toBe(1);
-    expect(typeCounts.get('feature')).toBe(1);
-    expect(typeCounts.get('change')).toBe(0);
+    expect(typeCounts.get('research')).toBe(1);
+    expect(typeCounts.get('ticket')).toBe(0);
   });
 
   test('count a ticket under each of its epics, and a ticket in none under the no-epic chip', () => {
@@ -157,7 +157,7 @@ describe('the sort', () => {
   test.each([
     ['id', 'ascending', ['001', '002', '003', '004', '010']],
     ['title', 'ascending', ['002', '010', '001', '004', '003']],
-    ['type', 'descending', ['001', '003', '010', '004', '002']],
+    ['type', 'descending', ['003', '001', '010', '004', '002']],
     ['status', 'ascending', ['002', '001', '010', '003', '004']],
     ['epic', 'ascending', ['002', '001', '010', '004', '003']],
     ['epic', 'descending', ['001', '002', '010', '004', '003']],

@@ -112,7 +112,7 @@ export function kanbanCardModelOf(card: KanbanCard, lane: KanbanLane, format: Ka
     head:       {
       idText:         `#${ticket.id}`,
       priority,
-      tag:            ticket.type,
+      ticketType:     ticket.type,
       slotMarkup:     null,
       hasNeededFirst: format.dependedOnTicketIds.has(ticket.id),
       heldCount:      heldCountOf(card, lane, format),

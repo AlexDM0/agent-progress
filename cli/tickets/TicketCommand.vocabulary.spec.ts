@@ -41,7 +41,7 @@ async function run(commandLineArguments: readonly string[]): Promise<ReturnType<
 
 beforeEach(async () => {
   repositoryDirectory = await createInitializedScratchRepository('ticket-command-vocabulary', ['--project', 'Example Agency'], () => FROZEN_NOW);
-  await run(['ticket', 'add', 'Double-click a role to edit it']);
+  await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
 });
 
 afterEach(() => {

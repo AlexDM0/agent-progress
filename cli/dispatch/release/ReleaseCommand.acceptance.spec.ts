@@ -84,7 +84,7 @@ function editTicketBody(identifier: string, passage: string, replacement: string
 }
 
 async function startedTicket(title: string, body: string): Promise<string> {
-  const added = JSON.parse(await agentProgressOrFail(['ticket', 'add', title, '--body', body, '--json'])) as { id: string };
+  const added = JSON.parse(await agentProgressOrFail(['ticket', 'add', '--type', 'ticket', title, '--body', body, '--json'])) as { id: string };
   await agentProgressOrFail(['ticket', 'start', added.id]);
   return added.id;
 }

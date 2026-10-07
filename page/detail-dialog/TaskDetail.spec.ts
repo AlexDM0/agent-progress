@@ -41,7 +41,7 @@ function exampleTicket(changes: Partial<PageTicket> = {}): PageTicket {
   return {
     id:          '001',
     title:       'Double-click a role to edit it',
-    type:        'change',
+    type:        'ticket',
     status:      'in-progress',
     filed:       FILED_AT,
     updated:     STARTED_AT,
@@ -329,7 +329,7 @@ describe('the ticket', () => {
     }));
 
     expect(markup).toContain('<span class="ap-badge in-progress">In progress</span>');
-    expect(markup).toContain('<span class="ap-detail-type">change</span>');
+    expect(markup).toContain('<span class="ap-detail-type" data-type="ticket">ticket</span>');
     expect(markup).toContain('<div><b>integration</b><span class="ap-integration">lands together on <span class="ap-integration-branch">group-role-editor</span>, no release');
     expect(markup).toContain('<div><b>commit</b><span>abc1234</span></div>');
     expect(markup).toContain('<div><b>filed</b><span title="2026-09-18 20:26">20:26</span></div>');

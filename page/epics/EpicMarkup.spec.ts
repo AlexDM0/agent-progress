@@ -25,7 +25,7 @@ function exampleTicket(changes: Partial<PageTicket>): PageTicket {
   return {
     id:          '001',
     title:       'Single-page checkout',
-    type:        'feature',
+    type:        'ticket',
     status:      'pending',
     filed:       '2026-09-18T20:00:00+02:00',
     updated:     '2026-09-18T20:00:00+02:00',

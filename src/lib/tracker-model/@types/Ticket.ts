@@ -1,6 +1,7 @@
 import type { TaskStatus } from './Task.ts';
 
-export type TicketType     = 'bug' | 'change' | 'feature';
+export type TicketType     = 'ticket' | 'bug' | 'research';
+export type RetiredTicketType = 'change' | 'feature';
 /** The task ladder without the two states only a row reaches. */
 export type TicketStatus   = Exclude<TaskStatus, 'paused' | 're-review'>;
 export type TicketPriority = 'low' | 'normal' | 'high';
@@ -57,6 +58,8 @@ export interface Ticket {
   filePath:    string;
   /** The frontmatter's line ending as read, which a rewrite keeps; absent for a ticket not read from a file, which is written with `\n`. */
   lineEnding?: LineEnding;
+  /** A retired type the file holds, which reads as `ticket` and every rewrite keeps; absent on a ticket stored with a current type. */
+  storedType?: RetiredTicketType;
 }
 
 /** A ready ticket with its priority and agents resolved to their defaults where the ticket names none. */

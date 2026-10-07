@@ -81,7 +81,7 @@ describeWhenGitIsPresent('filing and moving a low ticket', () => {
   test('ticket add --priority low writes low and adds no row, leaving nextTaskId unconsumed', async () => {
     const before = storedProgressOf(repositoryDirectory);
 
-    const context = await run(['ticket', 'add', 'Reword the empty-log note', '--priority', 'low']);
+    const context = await run(['ticket', 'add', '--type', 'ticket', 'Reword the empty-log note', '--priority', 'low']);
 
     expect(storedTicketText('001')).toContain('priority: "low"');
     expect(storedTicketText('001')).toContain('task: null');
@@ -91,14 +91,14 @@ describeWhenGitIsPresent('filing and moving a low ticket', () => {
   });
 
   test('a priority that is not one of the three is refused and files nothing', async () => {
-    const context = await runExpectingRefusal(['ticket', 'add', 'Reword the empty-log note', '--priority', 'urgent']);
+    const context = await runExpectingRefusal(['ticket', 'add', '--type', 'ticket', 'Reword the empty-log note', '--priority', 'urgent']);
 
     expect(context.errorText()).toContain('is not a ticket priority');
     expect(readdirSync(join(repositoryDirectory, '.agent-progress', 'tickets'))).toHaveLength(0);
   });
 
   test('ticket start on a low ticket gives it an in-progress row, and the ticket stays low', async () => {
-    await run(['ticket', 'add', 'Reword the empty-log note', '--priority', 'low']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Reword the empty-log note', '--priority', 'low']);
 
     await run(['ticket', 'start', '1']);
 
@@ -111,7 +111,7 @@ describeWhenGitIsPresent('filing and moving a low ticket', () => {
 
   // Once started, the row is the record of work that happened, so reopening the ticket does not take it off the chart.
   test('a started low ticket keeps its row when it is reopened', async () => {
-    await run(['ticket', 'add', 'Reword the empty-log note', '--priority', 'low']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Reword the empty-log note', '--priority', 'low']);
     await run(['ticket', 'start', '1']);
 
     await run(['ticket', 'reopen', '1']);
@@ -120,7 +120,7 @@ describeWhenGitIsPresent('filing and moving a low ticket', () => {
   });
 
   test('ticket abandon on a low ticket without a row exits 0 and adds no row', async () => {
-    await run(['ticket', 'add', 'Reword the empty-log note', '--priority', 'low']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Reword the empty-log note', '--priority', 'low']);
     const nextTaskIdBefore = storedProgressOf(repositoryDirectory).nextTaskId;
 
     await run(['ticket', 'abandon', '1', '--reason', 'x']);
@@ -132,8 +132,8 @@ describeWhenGitIsPresent('filing and moving a low ticket', () => {
   });
 
   test('clear re-seeds no row for a low ticket that was never started', async () => {
-    await run(['ticket', 'add', 'Reword the empty-log note', '--priority', 'low']);
-    await run(['ticket', 'add', 'Fix the axis']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Reword the empty-log note', '--priority', 'low']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Fix the axis']);
 
     await run(['clear', '--yes']);
 
@@ -143,7 +143,7 @@ describeWhenGitIsPresent('filing and moving a low ticket', () => {
 
   // `reopen` clears the `started` stamp, so the row a started low ticket keeps is the only sign left that it was worked.
   test('clear re-seeds the row a started low ticket kept through a reopen', async () => {
-    await run(['ticket', 'add', 'Reword the empty-log note', '--priority', 'low']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Reword the empty-log note', '--priority', 'low']);
     await run(['ticket', 'start', '1']);
     await run(['ticket', 'reopen', '1']);
 
@@ -156,7 +156,7 @@ describeWhenGitIsPresent('filing and moving a low ticket', () => {
 
 describeWhenGitIsPresent('ticket priority', () => {
   test('lowering a pending normal ticket removes its row, and raising it again files a new one, each with one log line', async () => {
-    await run(['ticket', 'add', 'Fix the axis']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Fix the axis']);
     expect(storedProgressOf(repositoryDirectory).tasks).toHaveLength(1);
 
     await run(['ticket', 'priority', '1', 'low']);
@@ -174,7 +174,7 @@ describeWhenGitIsPresent('ticket priority', () => {
   });
 
   test('raising an abandoned low ticket gives it an abandoned row, not a pending one', async () => {
-    await run(['ticket', 'add', 'Reword the empty-log note', '--priority', 'low']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Reword the empty-log note', '--priority', 'low']);
     await run(['ticket', 'abandon', '1', '--reason', 'superseded']);
 
     await run(['ticket', 'priority', '1', 'high']);
@@ -183,7 +183,7 @@ describeWhenGitIsPresent('ticket priority', () => {
   });
 
   test('normal to high changes only the priority and logs it', async () => {
-    await run(['ticket', 'add', 'Fix the axis']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Fix the axis']);
     const rowsBefore = storedProgressOf(repositoryDirectory).tasks;
 
     await run(['ticket', 'priority', '1', 'high']);
@@ -194,7 +194,7 @@ describeWhenGitIsPresent('ticket priority', () => {
   });
 
   test('lowering a ticket that is not pending is refused at exit 1 with both files unchanged', async () => {
-    await run(['ticket', 'add', 'Fix the axis']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Fix the axis']);
     await run(['ticket', 'start', '1']);
     const progressBefore = readFileSync(progressFilePath(), 'utf8');
     const ticketBefore   = storedTicketText('001');
@@ -207,7 +207,7 @@ describeWhenGitIsPresent('ticket priority', () => {
   });
 
   test('setting the priority a ticket already has is refused, and an unknown priority is too', async () => {
-    await run(['ticket', 'add', 'Fix the axis']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Fix the axis']);
 
     expect((await runExpectingRefusal(['ticket', 'priority', '1', 'normal'])).errorText()).toContain('already normal priority');
     expect((await runExpectingRefusal(['ticket', 'priority', '1', 'urgent'])).errorText()).toContain('is not a ticket priority');
@@ -217,8 +217,8 @@ describeWhenGitIsPresent('ticket priority', () => {
 describeWhenGitIsPresent('readiness and claiming', () => {
   // The acceptance pair: low work waits for the normal ticket to be delivered, both in what the dispatcher is told and in what claim allows.
   test('a low ticket is neither listed nor claimable while a normal ticket is owed, and is both once it is delivered', async () => {
-    await run(['ticket', 'add', 'Fix the axis']);
-    await run(['ticket', 'add', 'Reword the empty-log note', '--priority', 'low']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Fix the axis']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Reword the empty-log note', '--priority', 'low']);
 
     expect(await readyTicketIds()).toEqual(['001']);
     const refusal = await runExpectingRefusal(['ticket', 'claim', '2']);
@@ -236,16 +236,16 @@ describeWhenGitIsPresent('readiness and claiming', () => {
   });
 
   test('a high ticket filed after a normal one is listed first', async () => {
-    await run(['ticket', 'add', 'Fix the axis']);
-    await run(['ticket', 'add', 'Stop the page crashing', '--priority', 'high']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Fix the axis']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Stop the page crashing', '--priority', 'high']);
 
     expect(await readyTicketIds()).toEqual(['002', '001']);
     expect((await run(['status'])).outputText()).toContain('ready: #002, #001');
   });
 
   test('ticket start on a held-back low ticket warns and still moves it', async () => {
-    await run(['ticket', 'add', 'Fix the axis']);
-    await run(['ticket', 'add', 'Reword the empty-log note', '--priority', 'low']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Fix the axis']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Reword the empty-log note', '--priority', 'low']);
 
     const context = await run(['ticket', 'start', '2']);
 
@@ -257,7 +257,7 @@ describeWhenGitIsPresent('readiness and claiming', () => {
 describeWhenGitIsPresent('reading priorities', () => {
   // Every tracker in use today was written before the key existed: reading it must neither fail nor touch the file.
   test('a ticket file with no priority key reads as normal everywhere and is not rewritten by being read', async () => {
-    await run(['ticket', 'add', 'Fix the axis']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Fix the axis']);
     const ticketBefore = storedTicketText('001');
     expect(ticketBefore).not.toContain('priority');
 
@@ -272,8 +272,8 @@ describeWhenGitIsPresent('reading priorities', () => {
   });
 
   test('list and show print the priority, and list --priority narrows to it', async () => {
-    await run(['ticket', 'add', 'Fix the axis']);
-    await run(['ticket', 'add', 'Reword the empty-log note', '--priority', 'low']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Fix the axis']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Reword the empty-log note', '--priority', 'low']);
 
     expect((await run(['ticket', 'show', '2'])).outputText()).toContain('priority: low');
     const everything = (await run(['ticket', 'list'])).outputText();

@@ -3,10 +3,10 @@
  * a byte order mark, `---` inside the body — and the verdicts a malformed ticket comes back as.
  */
 
-import { describe, expect, test }             from 'bun:test';
-import type { LineEnding, TicketFrontmatter } from '../../../lib/tracker-model/@types/Ticket.ts';
-import { OLDER_FORMAT_ADVICE }                from '../../constants/OlderFormatAdvice.ts';
-import { TicketDocumentUtil }                 from './TicketDocumentUtil.ts';
+import { describe, expect, test }                                from 'bun:test';
+import type { LineEnding, RetiredTicketType, TicketFrontmatter } from '../../../lib/tracker-model/@types/Ticket.ts';
+import { OLDER_FORMAT_ADVICE }                                   from '../../constants/OlderFormatAdvice.ts';
+import { TicketDocumentUtil }                                    from './TicketDocumentUtil.ts';
 
 const FULL_TICKET = [
   '---',
@@ -32,7 +32,7 @@ const FULL_TICKET = [
   '',
 ].join('\n');
 
-function parsedDocument(text: string): { frontmatter: TicketFrontmatter; body: string; lineEnding: LineEnding } {
+function parsedDocument(text: string): { frontmatter: TicketFrontmatter; body: string; lineEnding: LineEnding; storedType?: RetiredTicketType } {
   const parsed = TicketDocumentUtil.parsedTicketDocumentOf(text);
   if (parsed.verdict !== 'parsed') {
     throw new Error(`expected a parsed ticket document, got "${parsed.reason}" at line ${parsed.line}`);
@@ -438,9 +438,21 @@ describe('ticketDocumentTextOf', () => {
       '---',
       'body\n',
     ].join('\n');
-    const { frontmatter, body } = parsedDocument(handEdited);
+    const { frontmatter, body, storedType } = parsedDocument(handEdited);
 
-    expect(TicketDocumentUtil.ticketDocumentTextOf(frontmatter, body)).toBe(handEdited);
+    expect(TicketDocumentUtil.ticketDocumentTextOf(frontmatter, body, '\n', storedType)).toBe(handEdited);
+  });
+
+  test('a retired stored type reads as ticket and is written back as stored, while a current type carries no stored type', () => {
+    for (const retiredType of ['change', 'feature'] as const) {
+      const stored = FULL_TICKET.replace(/^type: ".*"$/m, `type: "${retiredType}"`);
+      const { frontmatter, body, storedType } = parsedDocument(stored);
+
+      expect(frontmatter.type).toBe('ticket');
+      expect(storedType).toBe(retiredType);
+      expect(TicketDocumentUtil.ticketDocumentTextOf(frontmatter, body, '\n', storedType)).toBe(stored);
+    }
+    expect(parsedDocument(FULL_TICKET).storedType).toBeUndefined();
   });
 
   test('a CRLF document is written back with CRLF', () => {

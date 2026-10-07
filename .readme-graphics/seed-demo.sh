@@ -83,11 +83,11 @@ at 09:01
 tracker epic add checkout-redesign "Checkout redesign" --body "One page from basket to payment, with saved cards and an express button."
 tracker epic add customer-account "Customer account" --body "Account pages customers come back to: dark mode, safer resets, order history."
 at 09:02; tracker ticket add "Gift card ignored" --type bug --priority high --group checkout --epic checkout-redesign --body-file "$BODIES/001.md"
-at 09:04; tracker ticket add "Orders CSV export" --type feature --group admin --body-file "$BODIES/002.md"
+at 09:04; tracker ticket add "Orders CSV export" --type ticket --group admin --body-file "$BODIES/002.md"
 at 09:06; tracker ticket add "Accent-blind search" --type bug --group search --body-file "$BODIES/003.md"
-at 09:08; tracker ticket add "Account pages dark mode" --type feature --group account --epic customer-account --body-file "$BODIES/004.md"
-at 09:09; tracker ticket add "Delivery ETA" --type feature --group product --depends-on 4 --body-file "$BODIES/005.md"
-at 09:10; tracker ticket add "Replace carousel" --type change --group product --body-file "$BODIES/006.md"
+at 09:08; tracker ticket add "Account pages dark mode" --type ticket --group account --epic customer-account --body-file "$BODIES/004.md"
+at 09:09; tracker ticket add "Delivery ETA" --type ticket --group product --depends-on 4 --body-file "$BODIES/005.md"
+at 09:10; tracker ticket add "Replace carousel" --type ticket --group product --body-file "$BODIES/006.md"
 snapshot
 at 09:12; tracker concurrency 3
 at 09:13; tracker dispatcher running --run wf_example-0001
@@ -127,7 +127,7 @@ at 11:00; tracker ticket claim 4 --owner opus --note "Built by the dispatcher on
 snapshot
 at 11:15; tracker ticket abandon 6 --reason "The redesign removes the carousel; nothing left to replace"
 snapshot
-at 11:30; tracker ticket add "Rate-limit resets" --type change --priority high --group auth --epic customer-account --body-file "$BODIES/008.md"
+at 11:30; tracker ticket add "Rate-limit resets" --type ticket --priority high --group auth --epic customer-account --body-file "$BODIES/008.md"
 snapshot
 
 at 11:34
@@ -181,12 +181,12 @@ snapshot
 # two chains (#004 and #008 → #011) meeting in a one-ticket wave (#012), which frees a ticket in each epic,
 # and #016 ready beside them (the low tickets wait while normal work is pending).
 at 13:31
-tracker ticket add "Saved payment methods" --type feature --group checkout --epic checkout-redesign --depends-on 8 --body-file "$BODIES/011.md"
-tracker ticket add "One-page checkout" --type change --group checkout --epic checkout-redesign --depends-on 1,4,11 --body-file "$BODIES/012.md"
-tracker ticket add "Express checkout button" --type feature --priority low --group checkout --epic checkout-redesign --depends-on 12 --body-file "$BODIES/013.md"
-tracker ticket add "Reorder from order history" --type feature --priority low --group account --epic customer-account --depends-on 12 --body-file "$BODIES/014.md"
-tracker ticket add "Search suggestions" --type feature --priority low --group search --depends-on 3 --body-file "$BODIES/015.md"
-tracker ticket add "Size guide on product pages" --type feature --group product --body-file "$BODIES/016.md"
+tracker ticket add "Saved payment methods" --type ticket --group checkout --epic checkout-redesign --depends-on 8 --body-file "$BODIES/011.md"
+tracker ticket add "One-page checkout" --type ticket --group checkout --epic checkout-redesign --depends-on 1,4,11 --body-file "$BODIES/012.md"
+tracker ticket add "Express checkout button" --type ticket --priority low --group checkout --epic checkout-redesign --depends-on 12 --body-file "$BODIES/013.md"
+tracker ticket add "Reorder from order history" --type ticket --priority low --group account --epic customer-account --depends-on 12 --body-file "$BODIES/014.md"
+tracker ticket add "Search suggestions" --type ticket --priority low --group search --depends-on 3 --body-file "$BODIES/015.md"
+tracker ticket add "Size guide on product pages" --type ticket --group product --body-file "$BODIES/016.md"
 snapshot
 at 13:36; tracker log "Release of #003 waits: main moved, the reviewer is rebasing ticket-003"
 snapshot

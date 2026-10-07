@@ -181,7 +181,8 @@ function reviewDisciplineLines(): string[] {
   return [
     `You may use up to about ${DISPATCH_PROTOCOL.REVIEWER_API_CALL_BUDGET} API calls for the review; the rebase and the integration steps are exempt.`,
     'Every finding you would hand on instead of fixing, you file yourself: '
-      + '`agent-progress ticket add "<what and where>" --priority low --body "<what you saw and what you would do>"`; return the ids it printed as `filedTicketIds`.',
+      + '`agent-progress ticket add "<what and where>" --type ticket|bug --priority low --body "<what you saw and what you would do>"`; '
+      + 'return the ids it printed as `filedTicketIds`.',
     `Step 7b is a count: request the next round only when over ${DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES} lines of code were reworked. `
       + 'Whether that round runs is the dispatcher\'s decision.',
   ];

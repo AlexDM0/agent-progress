@@ -41,7 +41,7 @@ function exampleTicket(id: string, changes: Partial<PageTicket> = {}): PageTicke
   return {
     id,
     title:       `Example ticket ${id}`,
-    type:        'feature',
+    type:        'ticket',
     status:      'pending',
     filed:       at('08:00'),
     updated:     at('08:00'),
@@ -136,7 +136,7 @@ const TODO_TICKETS: PageTicket[] = [
   }),
   exampleTicket('066', {
     title: 'Rename basket to cart in order e-mails',
-    type:  'change',
+    type:  'ticket',
     filed: at('09:50'),
     task:  16,
     hold:  'Waiting for copy from marketing',
@@ -327,7 +327,7 @@ describe('the Abandoned lane', () => {
   test('matches the placeholder lane’s head', () => {
     const ticket = exampleTicket('046', {
       title:       'Replace the home carousel',
-      type:        'change',
+      type:        'ticket',
       status:      'abandoned',
       filed:       at('18:20', '2026-09-24'),
       abandonedAt: at('09:40'),
@@ -483,6 +483,6 @@ describe('a card’s dependency head', () => {
   });
 
   test('keeps the head of a card on a board without dependencies as it was', () => {
-    expect(cardMarkupOf('001', 'todo', [exampleTicket('001')])).toContain('<span class="ap-detail-type">feature</span></div>');
+    expect(cardMarkupOf('001', 'todo', [exampleTicket('001')])).toContain('<span class="ap-detail-type" data-type="ticket">ticket</span></div>');
   });
 });

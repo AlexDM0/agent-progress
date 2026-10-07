@@ -36,7 +36,7 @@ function examplePageTicket(id: string, dependsOn: string[]): PageTicket {
   return {
     id,
     title:       `Example ${id}`,
-    type:        'change',
+    type:        'ticket',
     status:      'pending',
     filed:       '2026-09-18T20:00:00+02:00',
     updated:     '2026-09-18T20:00:00+02:00',

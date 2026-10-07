@@ -134,7 +134,7 @@ holding them apart out of topical caution wastes a slot.
 Then file it, with the body written from what the user actually said:
 
 ```
-agent-progress ticket add "<title>" --type bug|change|feature --depends-on <ids> --body-file - <<'BODY'
+agent-progress ticket add "<title>" --type ticket|bug|research --depends-on <ids> --body-file - <<'BODY'
 ## Report
 What the user reported, in their words.
 

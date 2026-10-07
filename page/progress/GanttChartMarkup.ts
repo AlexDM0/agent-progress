@@ -6,6 +6,7 @@
 import { HtmlEscapeUtil }                               from '../../src/lib/html-escape/HtmlEscapeUtil.ts';
 import { TokenCountUtil }                               from '../../src/lib/token-count/TokenCountUtil.ts';
 import type { DisplayState }                            from '../../src/lib/tracker-model/@types/Task.ts';
+import type { TicketType }                              from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { FIRST_REPEAT_REVIEW_ROUND }                    from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
 import type { PageLimits }                              from '../../src/shared/@types/PagePayload.ts';
 import type { BoardEpic }                               from '../@types/PageBoard.ts';
@@ -34,6 +35,8 @@ export interface ChartRowSource extends TimelineRowSource {
   id?:                           number;
   /** The ticket badge, and the `#NNN` the name drops beside it. */
   ticket?:                       string | null;
+  /** The type mark after the ticket badge, on a ticket's own row only. */
+  ticketType?:                   TicketType;
   tokens?:                       number | null;
   reviewRound?:                  number;
   reviewed?:                     string;
@@ -223,6 +226,7 @@ function taskRowMarkup(placed: PlacedTaskRow, drawing: TaskRowsDrawing, otherEpi
   const pillLabel     = WorkItemMarkupUtil.stateLabelOf(state, task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND);
   const ticket        = ticketOf(task);
   const ticketBadge   = ticket === null ? '' : WorkItemMarkupUtil.ticketBadgeMarkup(ticket);
+  const typeMark      = task.ticketType === undefined ? '' : WorkItemMarkupUtil.ticketTypeMarkMarkup(task.ticketType);
   const reviewedMark = task.deliveredRowCountsAsReviewed === true ? WorkItemMarkupUtil.reviewedMarkMarkup(task, slices) : '';
   const tokens = task.tokens === undefined || task.tokens === null
     ? ''
@@ -239,7 +243,7 @@ function taskRowMarkup(placed: PlacedTaskRow, drawing: TaskRowsDrawing, otherEpi
     `<div class="ap-grid-row ap-row" tabindex="0"${identities} ${MarkupUtil.attribute('data-state', state)}${nesting}>`,
     `<div class="ap-cell-name">${numberCell}`,
     `<span class="ap-name" ${MarkupUtil.attribute('title', task.name)}>${HtmlEscapeUtil.escapeHtml(displayedNameOf(task))}</span>`,
-    `${ticketBadge}${WorkItemMarkupUtil.waitingOnMarkup(row.waitingOn)}${tokens}${otherEpicSquares}${row.trailingNameMarkup ?? ''}</div>`,
+    `${ticketBadge}${typeMark}${WorkItemMarkupUtil.waitingOnMarkup(row.waitingOn)}${tokens}${otherEpicSquares}${row.trailingNameMarkup ?? ''}</div>`,
     `<div class="ap-cell-pill"><span class="ap-pill">${HtmlEscapeUtil.escapeHtml(pillLabel)}</span>${reviewedMark}</div>`,
     `<div class="ap-cell-track"><span class="ap-clip-l"${clippedLeft ? '' : ' hidden'}></span>`,
     ownBarMarkup(task, bar, reviewPassRound),

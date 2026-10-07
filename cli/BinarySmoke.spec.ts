@@ -72,7 +72,7 @@ describeWhenGitIsPresent('a whole session through the binary', () => {
       };
 
       await run(['init', '--project', 'Example Agency']);
-      expect(await run(['ticket', 'add', 'Double-click a role to edit it', '--type', 'change'])).toContain('Ticket #001 filed');
+      expect(await run(['ticket', 'add', 'Double-click a role to edit it', '--type', 'ticket'])).toContain('Ticket #001 filed');
       await run(['ticket', 'start', '1', '--at', '-2h']);
       expect(await run(['task', 'add', 'Review pass', '--start', '--owner', 'Alex Example'])).toContain('Task #2 added');
       expect(await run(['task', 'pause', '2'])).toContain('Task #2 paused');
@@ -116,7 +116,7 @@ describeWhenGitIsPresent('a whole session through the binary', () => {
       expect(document.tickets[0]).toMatchObject({
         id:     '001',
         status: 'delivered',
-        type:   'change',
+        type:   'ticket',
         task:   1,
         commit: 'abc1234',
       });
@@ -153,7 +153,7 @@ describeWhenGitIsPresent('unholding a ticket whose build was left paused, throug
       };
 
       await run(['init', '--project', 'Example Agency']);
-      await run(['ticket', 'add', 'Show the role history']);
+      await run(['ticket', 'add', 'Show the role history', '--type', 'ticket']);
       await run(['ticket', 'claim', '1', '--note', 'Built by the whole-board dispatcher run on ticket-001']);
       await run(['ticket', 'hold', '1']);
       expect(await run(['ticket', 'unhold', '1'])).not.toContain(resumeBuildHint);

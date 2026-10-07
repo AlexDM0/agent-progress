@@ -29,6 +29,7 @@ export class TicketFileIngestion {
       body:        parsed.body,
       filePath:    this.ticketFilePath,
       lineEnding:  parsed.lineEnding,
+      ...(parsed.storedType === undefined ? {} : { storedType: parsed.storedType }),
     };
     return {
       verdict:        'parsed',

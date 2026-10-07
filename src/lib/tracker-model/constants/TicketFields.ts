@@ -1,7 +1,10 @@
 /** The vocabularies of a ticket's own fields, the priority an absent key reads as, the lowest ticket number and the width a ticket id is padded to. */
 import type { TicketPriority } from '../@types/Ticket.ts';
 
-export const TICKET_TYPES = ['bug', 'change', 'feature'] as const;
+export const TICKET_TYPES = ['ticket', 'bug', 'research'] as const;
+
+/** Types a stored ticket may still hold, each read as `ticket` and written back as stored. */
+export const RETIRED_TICKET_TYPES = ['change', 'feature'] as const;
 
 export const TICKET_PRIORITIES = ['low', 'normal', 'high'] as const;
 

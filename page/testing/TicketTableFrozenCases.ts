@@ -27,7 +27,7 @@ function exampleTicket(id: string, changes: Partial<PageTicket>): PageTicket {
   return {
     id,
     title:       `Example ticket ${id}`,
-    type:        'feature',
+    type:        'ticket',
     status:      'pending',
     filed:       '2026-09-18T08:00:00+02:00',
     updated:     '2026-09-18T08:00:00+02:00',
@@ -60,7 +60,7 @@ const TICKETS: PageTicket[] = [
     title: 'Address form & mail', type: 'bug', status: 'in-review', task: 2, epics: ['checkout'], dependsOn: ['001'], group: 'mail-group', branch: 'ticket/mail-form'
   }),
   exampleTicket('003', {
-    title: 'Receipt mail', type: 'change', status: 'delivered', delivered: '2026-09-18T21:00:00+02:00', epics: ['emails'], priority: 'high'
+    title: 'Receipt mail', type: 'research', status: 'delivered', delivered: '2026-09-18T21:00:00+02:00', epics: ['emails'], priority: 'high'
   }),
   exampleTicket('004', {
     title: 'Paused <work>', status: 'in-progress', started: '2026-09-18T10:00:00+02:00', task: 4, priority: 'low'

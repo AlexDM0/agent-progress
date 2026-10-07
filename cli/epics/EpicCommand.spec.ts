@@ -60,8 +60,8 @@ const epicsDirectory = (): string => join(repositoryDirectory, '.agent-progress'
 
 beforeEach(async () => {
   repositoryDirectory = await createInitializedScratchRepository('epic-command', ['--project', 'Example Agency'], () => FROZEN_NOW);
-  await run(['ticket', 'add', 'Example cart']);
-  await run(['ticket', 'add', 'Example search']);
+  await run(['ticket', 'add', '--type', 'ticket', 'Example cart']);
+  await run(['ticket', 'add', '--type', 'ticket', 'Example search']);
 });
 
 afterEach(() => {
@@ -104,7 +104,7 @@ describeWhenGitIsPresent('epic', () => {
       ['epic', 'show', 'search'],
       ['ticket', 'epic', '2', 'search'],
       ['ticket', 'epic', '2', 'checkout-redesign', '--add', 'search'],
-      ['ticket', 'add', 'Example loyalty card', '--epic', 'search'],
+      ['ticket', 'add', '--type', 'ticket', 'Example loyalty card', '--epic', 'search'],
     ];
     for (const refusal of refusals) await runExpectingExit(1, refusal);
 
@@ -115,7 +115,7 @@ describeWhenGitIsPresent('epic', () => {
     await run(['epic', 'add', 'checkout-redesign', 'Checkout redesign']);
     await run(['epic', 'add', 'loyalty-programme', 'Loyalty programme']);
     await run(['ticket', 'epic', '1', 'loyalty-programme', 'checkout-redesign']);
-    await run(['ticket', 'add', 'Example loyalty card', '--epic', 'loyalty-programme']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Example loyalty card', '--epic', 'loyalty-programme']);
     // The stamps are written in the zone the test run keeps, so they come back as typed.
     await run(['ticket', 'start', '1', '--at', '2026-10-01T07:00:00+00:00']);
     await run(['ticket', 'finish', '1', '--tokens', '100k', '--at', '2026-10-01T08:00:00+00:00']);

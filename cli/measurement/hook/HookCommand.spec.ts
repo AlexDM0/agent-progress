@@ -360,7 +360,7 @@ describeWhenGitIsPresent('the row the brief names', () => {
  */
 describeWhenGitIsPresent('the tickets the brief names', () => {
   async function filedLowTicket(title: string): Promise<void> {
-    expect(await runCommandLine(['ticket', 'add', title, '--priority', 'low'], contextWith(''))).toBe(0);
+    expect(await runCommandLine(['ticket', 'add', '--type', 'ticket', title, '--priority', 'low'], contextWith(''))).toBe(0);
   }
 
   async function startedTicket(reference: string): Promise<void> {
@@ -464,7 +464,7 @@ describeWhenGitIsPresent('a workflow agent\'s brief after the harness\'s relay',
 
   beforeEach(async () => {
     for (let i = 1; i <= BUILT_TICKET_NUMBER; i++) {
-      expect(await runCommandLine(['ticket', 'add', `Example work ${i}`], contextWith(''))).toBe(0);
+      expect(await runCommandLine(['ticket', 'add', '--type', 'ticket', `Example work ${i}`], contextWith(''))).toBe(0);
     }
     expect(storedTokensOfBuiltTicketRow()).toBeNull();
   });
@@ -533,7 +533,7 @@ describeWhenGitIsPresent('the ticket a reviewer\'s brief names', () => {
 
   beforeEach(async () => {
     for (let i = 1; i <= REVIEWED_TICKET_NUMBER; i++) {
-      expect(await runCommandLine(['ticket', 'add', `Example work ${i}`], contextWith(''))).toBe(0);
+      expect(await runCommandLine(['ticket', 'add', '--type', 'ticket', `Example work ${i}`], contextWith(''))).toBe(0);
     }
   });
 

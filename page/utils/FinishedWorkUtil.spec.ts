@@ -61,7 +61,7 @@ function exampleTicket(id: string, changes: Partial<PageTicket>): PageTicket {
   return {
     id,
     title:       `Example ticket ${id}`,
-    type:        'change',
+    type:        'ticket',
     status:      'delivered',
     filed:       stampBefore(10 * DAY_MILLISECONDS),
     updated:     stampBefore(10 * DAY_MILLISECONDS),

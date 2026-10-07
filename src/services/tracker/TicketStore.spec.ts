@@ -66,8 +66,8 @@ describe('createTicket and listTickets', () => {
     const workspace = scratchWorkspace();
 
     fileTicket(workspace, 'Fix the export dialog', 'bug');
-    fileTicket(workspace, 'Add a keyboard shortcut', 'feature');
-    fileTicket(workspace, 'Tidy the seed data', 'change');
+    fileTicket(workspace, 'Add a keyboard shortcut', 'research');
+    fileTicket(workspace, 'Tidy the seed data', 'ticket');
 
     const listing = listTickets(workspace);
 
@@ -107,7 +107,7 @@ describe('createTicket and listTickets', () => {
 
     const ticket = createTicket(workspace, {
       title:   'Add a keyboard shortcut',
-      type:    'feature',
+      type:    'research',
       bodyFor: (ticketId) => `# ${ticketId} — Add a keyboard shortcut\n`,
       at:      FILED_AT,
     });
@@ -152,7 +152,7 @@ describe('readTicket', () => {
   test('resolves 2, 002, #2 and #002 to the same file', () => {
     const workspace = scratchWorkspace();
     fileTicket(workspace, 'Fix the export dialog', 'bug');
-    fileTicket(workspace, 'Add a keyboard shortcut', 'feature');
+    fileTicket(workspace, 'Add a keyboard shortcut', 'research');
     const expectedPath = join(workspace.ticketsDirectory, '002-add-a-keyboard-shortcut.md');
 
     for (const reference of ['2', '002', '#2', '#002']) {
@@ -178,7 +178,7 @@ describe('readTicket', () => {
   test('every ticket stored in the current format is listed in id order', () => {
     const workspace = scratchWorkspace();
     fileTicket(workspace, 'Fix the export dialog', 'bug');
-    fileTicket(workspace, 'Add a keyboard shortcut', 'feature');
+    fileTicket(workspace, 'Add a keyboard shortcut', 'research');
 
     const listing = listTickets(workspace);
 
@@ -191,8 +191,8 @@ describe('nextTicketId', () => {
   test('a gap left by a ticket deleted by hand is tolerated and never filled', () => {
     const workspace = scratchWorkspace();
     fileTicket(workspace, 'Fix the export dialog', 'bug');
-    const second = fileTicket(workspace, 'Add a keyboard shortcut', 'feature');
-    fileTicket(workspace, 'Tidy the seed data', 'change');
+    const second = fileTicket(workspace, 'Add a keyboard shortcut', 'research');
+    fileTicket(workspace, 'Tidy the seed data', 'ticket');
     unlinkSync(second.filePath);
 
     expect(nextTicketId(workspace)).toBe('004');
@@ -281,7 +281,7 @@ describe('deleteAllTickets', () => {
   test('deletes every ticket file and answers how many there were', () => {
     const workspace = scratchWorkspace();
     fileTicket(workspace, 'Fix the export dialog', 'bug');
-    fileTicket(workspace, 'Add a keyboard shortcut', 'feature');
+    fileTicket(workspace, 'Add a keyboard shortcut', 'research');
 
     expect(deleteAllTickets(workspace)).toBe(2);
     expect(listTickets(workspace).tickets).toEqual([]);

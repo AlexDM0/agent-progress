@@ -1,5 +1,5 @@
 export const TICKET_USAGE = [
-  'agent-progress ticket add "<title>" [--type bug|change|feature] [--priority low|normal|high] [--model <m>] [--effort <e>] [--group <name>] '
+  'agent-progress ticket add "<title>" --type ticket|bug|research [--priority low|normal|high] [--model <m>] [--effort <e>] [--group <name>] '
   + '[--depends-on <ids>] [--epic <keys>] [--body <markdown> | --body-file <path|->] [--at <when>]',
   'agent-progress ticket list [--status <s>] [--priority <p>] [--json]',
   'agent-progress ticket show <id> [--json]',

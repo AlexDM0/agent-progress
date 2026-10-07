@@ -248,7 +248,7 @@ function exampleTicket(id: string): PageTicket {
   return {
     id,
     title:       `Example ticket ${id}`,
-    type:        'feature',
+    type:        'ticket',
     status:      'in-review',
     filed:       new Date(EXAMPLE_START_EPOCH_MILLISECONDS).toISOString(),
     updated:     new Date(EXAMPLE_START_EPOCH_MILLISECONDS).toISOString(),

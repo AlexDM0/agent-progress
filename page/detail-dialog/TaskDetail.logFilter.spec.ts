@@ -39,7 +39,7 @@ function exampleTicket(id: string, task: number | null): PageTicket {
   return {
     id,
     title:       'Example ticket',
-    type:        'change',
+    type:        'ticket',
     status:      'in-progress',
     filed:       EXAMPLE_AT,
     updated:     EXAMPLE_AT,

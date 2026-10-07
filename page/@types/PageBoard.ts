@@ -1,5 +1,6 @@
 import type { EpicRollup }         from '../../src/lib/tracker-model/@types/Epic.ts';
 import type { DisplayState, Task } from '../../src/lib/tracker-model/@types/Task.ts';
+import type { TicketType }         from '../../src/lib/tracker-model/@types/Ticket.ts';
 import type { PageTicket }         from '../../src/shared/@types/PagePayload.ts';
 
 /** A task of the progress island with the Board's facts about it, zipped on by position when the island is read. */
@@ -8,6 +9,8 @@ export interface BoardRow extends Task {
   deliveredRowCountsAsReviewed: boolean;
   /** For a review bar, its ticket's own row; null for every other row. */
   ownRowOfReviewedTicket:       BoardRow | null;
+  /** The type of the ticket this is the own row of; absent on every other row. */
+  ticketType?:                  TicketType;
 }
 
 /** An epic's roll-up with its rendered description, empty when the island carries none for it. */

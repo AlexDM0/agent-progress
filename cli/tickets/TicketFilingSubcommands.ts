@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 
 import { TicketJsonUtil }                        from '../../src/adapters/utils/TicketJsonUtil.ts';
-import type { TicketType }                       from '../../src/lib/tracker-model/@types/Ticket.ts';
+import { TICKET_TYPES }                          from '../../src/lib/tracker-model/constants/TicketFields.ts';
 import { createTicket }                          from '../../src/services/tracker/TicketStore.ts';
 import { requireWorkspace }                      from '../../src/services/tracker/Workspace.ts';
 import { OperationRefusal }                      from '../../src/shared/OperationRefusal.ts';
@@ -18,8 +18,6 @@ import { TICKET_USAGE }                          from './constants/TicketUsage.t
 import { TicketArgumentUtil }                    from './utils/TicketArgumentUtil.ts';
 
 const ADD_OPTION_NAMES = ['type', 'priority', 'model', 'effort', 'group', 'depends-on', 'epic', 'body', 'body-file', 'at', 'json'];
-
-const DEFAULT_TICKET_TYPE: TicketType = 'change';
 
 const TICKET_BODY_TEMPLATE_PATH = ['templates', 'TicketBody.md'];
 
@@ -42,7 +40,10 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
   if (commandArguments.option('body') !== undefined && commandArguments.option('body-file') !== undefined) {
     throw new OperationRefusal('refused', `agent-progress ticket add takes --body or --body-file, not both.\n  Usage: ${TICKET_USAGE}`);
   }
-  const type      = TicketArgumentUtil.ticketTypeFrom(commandArguments.option('type')) ?? DEFAULT_TICKET_TYPE;
+  const type      = TicketArgumentUtil.ticketTypeFrom(commandArguments.option('type'));
+  if (type === undefined) {
+    throw new OperationRefusal('refused', `agent-progress ticket add needs --type ${TICKET_TYPES.join('|')}.\n  Usage: ${TICKET_USAGE}`);
+  }
   const priority  = TicketArgumentUtil.priorityFrom(commandArguments.option('priority'));
   const model     = TicketArgumentUtil.agentModelFrom(commandArguments.option('model'));
   const effort    = TicketArgumentUtil.agentEffortFrom(commandArguments.option('effort'));

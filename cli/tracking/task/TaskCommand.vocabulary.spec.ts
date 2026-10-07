@@ -58,7 +58,7 @@ describeWhenGitIsPresent('the task command with current words only', () => {
   });
 
   test('a plain name, a review-shaped name, and one filed with --ticket, are all stored with no review link', async () => {
-    await run(['ticket', 'add', 'Example work']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Example work']);
     await run(['task', 'add', 'Draft the example page']);
     await run(['task', 'add', 'Review 2 #001 — Example work']);
     await run(['task', 'add', 'Review 1 #1 — Example work', '--ticket', '1', '--force']);
@@ -70,8 +70,8 @@ describeWhenGitIsPresent('the task command with current words only', () => {
   });
 
   test('a rename never moves or drops a stored review link, whatever the new name', async () => {
-    await run(['ticket', 'add', 'Example work']);
-    await run(['ticket', 'add', 'Other work']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Example work']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Other work']);
     await run(['task', 'add', 'Review 1 #001', '--review-of', '1']);
     const reviewRowId = storedProgressOf(repositoryDirectory).tasks.find((task) => task.name === 'Review 1 #001')?.id;
 

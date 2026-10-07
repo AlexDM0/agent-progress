@@ -117,7 +117,7 @@ describe('the ticket body', () => {
     const head = delivered.slice(0, delivered.indexOf('<div class="ap-ticket-meta">'));
     expect(head.startsWith('<div class="ap-detail-head" data-state="delivered"><span class="ap-detail-id">#055</span>')).toBe(true);
     expect(head).toMatch(/<h2 class="ap-detail-title">Example ticket 055<\/h2><span class="ap-pill">Done<\/span><span class="ap-reviewed-mark"[^>]*>✓<\/span>/);
-    expect(head).toMatch(/<span class="ap-waiting" data-priority="high"[^>]*>high<\/span><span class="ap-detail-type">bug<\/span><\/div>$/);
+    expect(head).toMatch(/<span class="ap-waiting" data-priority="high"[^>]*>high<\/span><span class="ap-detail-type" data-type="bug">bug<\/span><\/div>$/);
   });
 
   test('its facts are the present ones in their fixed order, the reviewed stamp read off the own row', () => {

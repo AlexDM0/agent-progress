@@ -52,7 +52,7 @@ function ticketFileNames(): string[] {
 
 beforeEach(async () => {
   repositoryDirectory = await createInitializedScratchRepository('clear-command', ['--project', 'Example Agency'], () => FROZEN_NOW);
-  await run(['ticket', 'add', 'Double-click a role to edit it']);
+  await run(['ticket', 'add', 'Double-click a role to edit it', '--type', 'ticket']);
   await run(['ticket', 'start', '1', '--at', '-2h']);
   await run(['ticket', 'approve', '1', '--at', '-1h']);
   await run(['task', 'add', 'Review pass', '--start']);

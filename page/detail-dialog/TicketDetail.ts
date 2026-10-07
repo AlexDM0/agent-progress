@@ -42,7 +42,7 @@ function headMarkup(input: TicketDetailInput): string {
     `<span class="ap-pill">${HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.stateLabelOf(card.state, ownRow?.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND))}</span>`,
     reviewedMark,
     WorkItemMarkupUtil.priorityMarkMarkup(ticket),
-    `<span class="ap-detail-type">${HtmlEscapeUtil.escapeHtml(ticket.type)}</span>`,
+    WorkItemMarkupUtil.ticketTypeMarkMarkup(ticket.type),
     '</div>',
   ].join('');
 }

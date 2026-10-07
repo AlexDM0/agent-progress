@@ -194,7 +194,7 @@ function reviewerPrompt(settings: DispatchSettings, request: ReviewerPromptReque
       + `steps 0 to 8, ${briefPlaceholdersText(settings, ticketId)}. Step 0 reads the diff first; you fix only what you review.`,
     `You may use up to about ${DISPATCH_PROTOCOL.REVIEWER_API_CALL_BUDGET} API calls.`,
     'Every finding you would hand on instead of fixing, you file yourself: '
-      + '`agent-progress ticket add "<what and where>" --priority low --body "<what you saw and what you would do>"`; '
+      + '`agent-progress ticket add "<what and where>" --type ticket|bug --priority low --body "<what you saw and what you would do>"`; '
       + 'return the ids it printed as `filedTicketIds`.',
     `Step 7b is a count: request the next round only when over ${DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES} lines of code were reworked. `
       + 'Whether that round runs is the dispatcher\'s decision.',

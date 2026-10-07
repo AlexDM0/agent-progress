@@ -36,7 +36,7 @@ const NEXT_LINE_CASES: NextLineCase[] = [
     expectedNextLine: 'Next: 2 of 2 slots free; ready: #001, #002, #003',
   },
   {
-    command:          ['ticket', 'add', 'Import the roles'],
+    command:          ['ticket', 'add', '--type', 'ticket', 'Import the roles'],
     setup:            [],
     expectedNextLine: 'Next: 2 of 2 slots free; ready: #001, #002, #003, #004',
   },
@@ -100,9 +100,9 @@ async function runSetup(setup: readonly string[][]): Promise<void> {
 
 beforeEach(async () => {
   repositoryDirectory = await createInitializedScratchRepository('next-line', ['--project', 'Example Agency'], () => FROZEN_NOW);
-  await run(['ticket', 'add', 'Double-click a role to edit it']);
-  await run(['ticket', 'add', 'Show the role history']);
-  await run(['ticket', 'add', 'Export the roles']);
+  await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
+  await run(['ticket', 'add', '--type', 'ticket', 'Show the role history']);
+  await run(['ticket', 'add', '--type', 'ticket', 'Export the roles']);
   await run(['task', 'add', 'Review pass']);
   // A running dispatcher adds no advice, so these lines pin slots and queue alone; `cli/dispatch/dispatcher/DispatcherCommand.spec.ts` pins the advice.
   await run(['dispatcher', 'running']);

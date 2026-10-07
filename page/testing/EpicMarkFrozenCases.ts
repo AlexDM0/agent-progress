@@ -20,7 +20,7 @@ function exampleTicket(id: string, changes: Partial<PageTicket>): PageTicket {
   return {
     id,
     title:       `Example ticket ${id}`,
-    type:        'feature',
+    type:        'ticket',
     status:      'pending',
     filed:       '2026-09-18T08:00:00+02:00',
     updated:     '2026-09-18T08:00:00+02:00',

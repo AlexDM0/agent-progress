@@ -4,14 +4,15 @@
  * half-applied. The subset it accepts is stated in `docs/cli.md`.
  */
 
-import type { LineEnding, TicketFrontmatter } from '../../../lib/tracker-model/@types/Ticket.ts';
-import { EpicUtil }                           from '../../../lib/tracker-model/utils/EpicUtil.ts';
-import { TicketIdUtil }                       from '../../../lib/tracker-model/utils/TicketIdUtil.ts';
-import { VocabularyUtil }                     from '../../../lib/tracker-model/utils/VocabularyUtil.ts';
-import { OLDER_FORMAT_ADVICE }                from '../../constants/OlderFormatAdvice.ts';
+import type { LineEnding, RetiredTicketType, TicketFrontmatter } from '../../../lib/tracker-model/@types/Ticket.ts';
+import { EpicUtil }                                              from '../../../lib/tracker-model/utils/EpicUtil.ts';
+import { TicketIdUtil }                                          from '../../../lib/tracker-model/utils/TicketIdUtil.ts';
+import { VocabularyUtil }                                        from '../../../lib/tracker-model/utils/VocabularyUtil.ts';
+import { OLDER_FORMAT_ADVICE }                                   from '../../constants/OlderFormatAdvice.ts';
 
+/** `storedType` is present only when the file holds a retired type, which the frontmatter reads as `ticket`. */
 export type ParsedTicketDocument =
-  | { verdict: 'parsed'; frontmatter: TicketFrontmatter; body: string; lineEnding: LineEnding }
+  | { verdict: 'parsed'; frontmatter: TicketFrontmatter; body: string; lineEnding: LineEnding; storedType?: RetiredTicketType }
   | { verdict: 'malformed'; reason: string; line: number };
 
 type FrontmatterValue = string | number | null;
@@ -139,11 +140,14 @@ function parsedTicketDocumentOf(text: string): ParsedTicketDocument {
       knownValues.set(key, { value: scalarOf(rawValue, key, lineNumber), line: lineNumber });
     }
 
+    const frontmatter = frontmatterFrom(knownValues, extra, closingFenceIndex + 1);
+    const typeText    = knownValues.get('type')?.value;
     return {
-      verdict:     'parsed',
-      frontmatter: frontmatterFrom(knownValues, extra, closingFenceIndex + 1),
-      body:        bodyAfter(withoutByteOrderMark, lines, closingFenceIndex),
-      lineEnding:  (lines[0] ?? '').endsWith(CARRIAGE_RETURN) ? '\r\n' : '\n',
+      verdict:    'parsed',
+      frontmatter,
+      body:       bodyAfter(withoutByteOrderMark, lines, closingFenceIndex),
+      lineEnding: (lines[0] ?? '').endsWith(CARRIAGE_RETURN) ? '\r\n' : '\n',
+      ...(typeof typeText === 'string' && VocabularyUtil.retiredTicketTypeIsKnown(typeText) ? { storedType: typeText } : {}),
     };
   } catch (problem) {
     if (problem instanceof FrontmatterProblem) {
@@ -155,13 +159,15 @@ function parsedTicketDocumentOf(text: string): ParsedTicketDocument {
 
 /**
  * An unknown line is copied back with its raw value untouched, and an absent optional key is omitted rather than written as `null`.
- * The line ending is the one the frontmatter was read with; the body is kept byte for byte whatever it holds.
+ * The line ending is the one the frontmatter was read with; the body is kept byte for byte whatever it holds. A retired stored type is
+ * written back as it was stored while the ticket reads as `ticket`.
  */
-function ticketDocumentTextOf(frontmatter: TicketFrontmatter, body: string, lineEnding: LineEnding = '\n'): string {
+function ticketDocumentTextOf(frontmatter: TicketFrontmatter, body: string, lineEnding: LineEnding = '\n', storedType?: RetiredTicketType): string {
+  const writtenType = storedType !== undefined && frontmatter.type === 'ticket' ? storedType : frontmatter.type;
   const lines: string[] = [
     `id: ${JSON.stringify(frontmatter.id)}`,
     `title: ${JSON.stringify(frontmatter.title)}`,
-    `type: ${JSON.stringify(frontmatter.type)}`,
+    `type: ${JSON.stringify(writtenType)}`,
     ...(frontmatter.priority === undefined ? [] : [`priority: ${JSON.stringify(frontmatter.priority)}`]),
     ...(frontmatter.model === undefined ? [] : [`model: ${JSON.stringify(frontmatter.model)}`]),
     ...(frontmatter.effort === undefined ? [] : [`effort: ${JSON.stringify(frontmatter.effort)}`]),
@@ -329,7 +335,8 @@ function frontmatterFrom(
   const typeText   = requiredText(knownValues, 'type', closingFenceLine);
   const statusText = requiredText(knownValues, 'status', closingFenceLine);
 
-  if (!VocabularyUtil.ticketTypeIsKnown(typeText)) {
+  const typeIsRetired = VocabularyUtil.retiredTicketTypeIsKnown(typeText);
+  if (!typeIsRetired && !VocabularyUtil.ticketTypeIsKnown(typeText)) {
     throw new FrontmatterProblem(`\`type\` is not a known ticket type: ${typeText}`, lineOf(knownValues, 'type', closingFenceLine));
   }
   if (!VocabularyUtil.ticketStatusIsKnown(statusText)) {
@@ -342,7 +349,7 @@ function frontmatterFrom(
   const frontmatter: TicketFrontmatter = {
     id:          identifierFrom(knownValues, closingFenceLine),
     title:       requiredText(knownValues, 'title', closingFenceLine),
-    type:        typeText,
+    type:        typeIsRetired ? 'ticket' : typeText,
     ...priorityField(knownValues),
     ...agentFields(knownValues),
     ...holdField(knownValues),

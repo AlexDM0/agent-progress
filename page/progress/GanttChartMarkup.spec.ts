@@ -64,7 +64,7 @@ function exampleTicket(id: string, status: TicketStatus): PageTicket {
   return {
     id,
     title:       'Split the exporter into two passes',
-    type:        'feature',
+    type:        'ticket',
     status,
     filed:       '2026-09-18T20:00:00+02:00',
     updated:     '2026-09-18T20:00:00+02:00',

@@ -1,5 +1,6 @@
 import type { DisplayState }        from '../../../src/lib/tracker-model/@types/Task.ts';
 import type { TicketPriority }      from '../../../src/lib/tracker-model/@types/Ticket.ts';
+import type { TicketType }          from '../../../src/lib/tracker-model/@types/Ticket.ts';
 import type { GroupMark }           from '../../@types/GroupMarks.ts';
 import type { GroupMarkVocabulary } from '../../@types/GroupMarks.ts';
 import type { WorkItemLink }        from '../../@types/WorkItemLink.ts';
@@ -65,8 +66,9 @@ export interface LaneCardHeldCount {
 export interface LaneCardHead {
   idText:         string;
   priority:       TicketPriority;
-  tag:            string;
-  /** Spec-only markup after the tag, already escaped by its producer. */
+  /** Null on a card that is not a ticket's, which shows no type mark. */
+  ticketType:     TicketType | null;
+  /** Spec-only markup after the type mark, already escaped by its producer. */
   slotMarkup:     string | null;
   /** Holds the "needed first" slot that hovering a dependent fades in. */
   hasNeededFirst: boolean;

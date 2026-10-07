@@ -57,7 +57,7 @@ function exampleTicket(id: string, task: number | null, epics: readonly string[]
   return {
     id,
     title:       `Example ticket ${id}`,
-    type:        'feature',
+    type:        'ticket',
     status:      'in-progress',
     filed:       '2026-09-18T20:00:00+02:00',
     updated:     '2026-09-18T20:00:00+02:00',

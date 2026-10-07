@@ -74,7 +74,7 @@ describe('asking for the reference', () => {
 
   test('a help alias after a bare -- is a positional, not a request for the reference', async () => {
     const context = capturingContext();
-    expect(await runCommandLine(['ticket', 'add', '--', '--help'], context)).toBe(1);
+    expect(await runCommandLine(['ticket', 'add', '--type', 'ticket', '--', '--help'], context)).toBe(1);
     expect(context.outputText()).not.toContain('Usage: agent-progress <command>');
     expect(context.errorText(), 'the command itself ran, and found no tracker to file `--help` into').toContain('No agent-progress tracker was found');
   });
@@ -88,7 +88,7 @@ describe('-h that is not a request for the reference', () => {
     trackedDirectory = createScratchDirectory('main-short-help');
     const initialisingContext = createCapturedCommandContext({ currentDirectory: trackedDirectory });
     expect(await runCommandLine(['init', '--project', 'Example Agency', '--no-claude-md', '--no-hooks'], initialisingContext)).toBe(0);
-    expect(await runCommandLine(['ticket', 'add', 'Example ticket'], createCapturedCommandContext({ currentDirectory: trackedDirectory }))).toBe(0);
+    expect(await runCommandLine(['ticket', 'add', '--type', 'ticket', 'Example ticket'], createCapturedCommandContext({ currentDirectory: trackedDirectory }))).toBe(0);
   });
 
   afterAll(() => {

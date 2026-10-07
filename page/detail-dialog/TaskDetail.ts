@@ -231,7 +231,7 @@ function ticketMarkup(ticket: PageTicket, format: TaskDetailInput): string {
     '<div class="ap-detail-ticket-head">',
     `<span class="ap-ticket-id">#${HtmlEscapeUtil.escapeHtml(ticket.id)}</span>`,
     `<h4 class="ap-ticket-title">${HtmlEscapeUtil.escapeHtml(ticket.title)}</h4>`,
-    `<span class="ap-detail-type">${HtmlEscapeUtil.escapeHtml(ticket.type)}</span>`,
+    WorkItemMarkupUtil.ticketTypeMarkMarkup(ticket.type),
     WorkItemMarkupUtil.ticketStatusBadgeMarkup(ticket.status),
     '</div>',
   ].join('');

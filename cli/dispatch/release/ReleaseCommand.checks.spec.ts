@@ -99,7 +99,9 @@ function storeCheckCommand(checkCommand: string): void {
 
 /** A ticket in review whose work is one commit on a fresh linked worktree, with its review bar running as a reviewer leaves it. */
 async function reviewedTicketOnAWorktree(worktreeName: string): Promise<ReviewedWork> {
-  const added = JSON.parse(await agentProgressOrFail(['ticket', 'add', 'Show the role history', ...ACCOUNTED_TICKET_BODY_ARGUMENTS, '--json'])) as { id: string };
+  const added = JSON.parse(await agentProgressOrFail([
+    'ticket', 'add', '--type', 'ticket', 'Show the role history', ...ACCOUNTED_TICKET_BODY_ARGUMENTS, '--json',
+  ])) as { id: string };
   await agentProgressOrFail(['ticket', 'start', added.id]);
   await agentProgressOrFail(['ticket', 'finish', added.id, '--start-review', '--owner', 'opus']);
   const worktree = addWorktree(repositoryDirectory, worktreeName);
@@ -217,7 +219,7 @@ describeWhenGitIsPresent('a release with a check command stored', () => {
   test('a ticket that is not releasable is refused before the command runs', async () => {
     storeCheckCommand(MARKER_COMMAND);
     const work = await reviewedTicketOnAWorktree('role-history');
-    const pending = JSON.parse(await agentProgressOrFail(['ticket', 'add', 'Not started', '--json'])) as { id: string };
+    const pending = JSON.parse(await agentProgressOrFail(['ticket', 'add', '--type', 'ticket', 'Not started', '--json'])) as { id: string };
 
     await expectRefusedChangingNothing(work, 'ticket-not-releasable', ['release', pending.id, '--branch', work.branch, '--worktree', work.worktree, '--json']);
 
@@ -399,7 +401,9 @@ describeWhenGitIsPresent('a ticket stamped with the check command it started und
     storeCheckCommand('true');
     const matching = await reviewedTicketOnAWorktree('role-history');
     storeCheckCommand('bun test');
-    const differing = JSON.parse(await agentProgressOrFail(['ticket', 'add', 'Show the role audit', ...ACCOUNTED_TICKET_BODY_ARGUMENTS, '--json'])) as { id: string };
+    const differing = JSON.parse(await agentProgressOrFail([
+      'ticket', 'add', '--type', 'ticket', 'Show the role audit', ...ACCOUNTED_TICKET_BODY_ARGUMENTS, '--json',
+    ])) as { id: string };
     await agentProgressOrFail(['ticket', 'start', differing.id]);
     await agentProgressOrFail(['ticket', 'finish', differing.id]);
     storeCheckCommand('true');

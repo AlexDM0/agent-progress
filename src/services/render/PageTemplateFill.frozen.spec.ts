@@ -15,8 +15,8 @@ import { createMarkdownRenderer } from './MarkdownRenderer.ts';
 import { fillPageTemplate }       from './PageTemplateFill.ts';
 
 const FROZEN_PAGE_DIGESTS = {
-  withPageScript: '11399767752f29ed264b5c383e05d596dbd060c3085bb2dbbb1b8969cce9ac60',
-  bannerOnly:     '1f6b4deaecc8fec8c1c2fd0ef5b571ffe5ce9fae8590603459cd5502cd3d3081',
+  withPageScript: '5623b5cea350f9b44ae30120b52e4d6f21e18d561cc2e229a6c8bebce9a9e3ea',
+  bannerOnly:     '8604025c6e100ee54dcc58a4bca93834849b948afb3cb9ca6e3fa4e788fc9e59',
 } as const;
 
 const FROZEN_PROGRESS: TrackerProgress = {
@@ -44,7 +44,7 @@ const FROZEN_TICKET: Ticket = {
   frontmatter: {
     id:          '003',
     title:       'Split the exporter into two passes',
-    type:        'change',
+    type:        'ticket',
     status:      'in-progress',
     filed:       '2026-09-18T20:00:00+02:00',
     updated:     '2026-09-18T20:05:00+02:00',

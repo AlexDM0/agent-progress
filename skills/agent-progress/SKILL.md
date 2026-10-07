@@ -52,11 +52,12 @@ session needs in order to file a ticket, move one, and stay out of the tool's wa
    delivered or abandoned, the last 10 log entries, and an `omitted` count of what it left out.
    `--full` when you need a settled row or the whole log. Exit 1 saying there is no tracker means
    this repository has not adopted one; **do not create it uninvited**.
-2. **File a ticket for every bug, change or feature the user reports**, whether or not you fix it in
-   the same breath — a ticket is how the work is still there tomorrow:
+2. **File a ticket for every bug, change, feature or research question the user reports**, whether or
+   not you fix it in the same breath — a ticket is how the work is still there tomorrow. `--type` is
+   required: `bug` for a defect, `research` for a question to settle, `ticket` for everything else:
 
    ```
-   agent-progress ticket add "Double-click a role to edit it" --type change --body-file - <<'BODY'
+   agent-progress ticket add "Double-click a role to edit it" --type ticket --body-file - <<'BODY'
    ## Report
    What the user saw, in their words.
 

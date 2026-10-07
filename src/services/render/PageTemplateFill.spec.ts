@@ -51,7 +51,7 @@ function exampleTicket(changes: { title?: string; body?: string } = {}): Ticket 
     frontmatter: {
       id:          '003',
       title:       changes.title ?? 'Split the exporter into two passes',
-      type:        'change',
+      type:        'ticket',
       status:      'in-review',
       filed:       '2026-09-18T20:44:00+02:00',
       updated:     '2026-09-18T21:49:00+02:00',

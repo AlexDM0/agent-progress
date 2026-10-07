@@ -197,6 +197,10 @@ function pageBoardFrom(
     }];
   });
 
+  for (const boardTicket of boardTickets) {
+    if (boardTicket.ownRow !== null) boardTicket.ownRow.ticketType = boardTicket.type;
+  }
+
   const readyTicketIds = new Set(boardFacts.readyTickets.filter((entry) => entry.held !== true).map((entry) => entry.id));
   return {
     rows, tickets: boardTickets, epics, readyTicketIds

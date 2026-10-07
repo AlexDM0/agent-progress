@@ -473,7 +473,7 @@ describeWhenGitIsPresent('what update never touches', () => {
   test('the progress file, the tickets and the log are byte-identical afterwards', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
     const seeding = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    await runCommandLine(['ticket', 'add', 'Rename the export button', '--type', 'change'], seeding);
+    await runCommandLine(['ticket', 'add', 'Rename the export button', '--type', 'ticket'], seeding);
     await runCommandLine(['log', 'The orchestrator started the board'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }));
 
     const progressFilePath = join(repositoryDirectory, '.agent-progress', 'progress.json');

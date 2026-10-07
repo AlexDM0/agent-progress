@@ -24,7 +24,7 @@ function headTailMarkup(head: LaneCardHead): string {
 function headMarkup(head: LaneCardHead): string {
   return [
     `<div class="ap-kanban-card-head"><span class="ap-ticket-id">${HtmlEscapeUtil.escapeHtml(head.idText)}</span>${WorkItemMarkupUtil.priorityLevelMarkMarkup(head.priority)}`,
-    `<span class="ap-detail-type">${HtmlEscapeUtil.escapeHtml(head.tag)}</span>${head.slotMarkup ?? ''}${headTailMarkup(head)}</div>`,
+    `${head.ticketType === null ? '' : WorkItemMarkupUtil.ticketTypeMarkMarkup(head.ticketType)}${head.slotMarkup ?? ''}${headTailMarkup(head)}</div>`,
   ].join('');
 }
 

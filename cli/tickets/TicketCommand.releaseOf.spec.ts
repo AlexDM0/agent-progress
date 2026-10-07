@@ -60,9 +60,9 @@ function trackerBytes(): string {
 }
 
 async function fileGroupedTickets(): Promise<void> {
-  await run(['ticket', 'add', 'Example cart', '--group', GROUP]);
-  await run(['ticket', 'add', 'Example checkout', '--group', GROUP, '--depends-on', '1']);
-  await run(['ticket', 'add', 'Example search page']);
+  await run(['ticket', 'add', '--type', 'ticket', 'Example cart', '--group', GROUP]);
+  await run(['ticket', 'add', '--type', 'ticket', 'Example checkout', '--group', GROUP, '--depends-on', '1']);
+  await run(['ticket', 'add', '--type', 'ticket', 'Example search page']);
 }
 
 beforeEach(async () => {
@@ -121,7 +121,7 @@ describeWhenGitIsPresent('marking a group\'s release ticket', () => {
 
   test('an ungrouped ticket and a delivered or abandoned one each exit 1 and write nothing', async () => {
     await fileGroupedTickets();
-    await run(['ticket', 'add', 'Example wish list', '--group', GROUP]);
+    await run(['ticket', 'add', '--type', 'ticket', 'Example wish list', '--group', GROUP]);
     await run(['ticket', 'abandon', '4', '--reason', 'superseded by #002']);
     await run(['ticket', 'claim', '1']);
     await run(['ticket', 'finish', '1']);

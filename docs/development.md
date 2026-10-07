@@ -84,7 +84,7 @@ bun agent-progress.ts init --root "$SCRATCH" --project "Example Agency"
 export AGENT_PROGRESS_ROOT="$SCRATCH"
 
 bun agent-progress.ts task add "Draft the example page" --start
-bun agent-progress.ts ticket add "Fix the example header"
+bun agent-progress.ts ticket add "Fix the example header" --type bug
 bun agent-progress.ts log "Scratch session started"
 bun agent-progress.ts task finish 1
 bun agent-progress.ts status

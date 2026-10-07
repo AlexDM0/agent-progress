@@ -64,7 +64,7 @@ async function run(commandLineArguments: readonly string[]): Promise<ReturnType<
 
 beforeEach(async () => {
   repositoryDirectory = await createInitializedScratchRepository('status-command', ['--project', 'Example Agency'], () => FROZEN_NOW);
-  await run(['ticket', 'add', 'Double-click a role to edit it']);
+  await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
   await run(['ticket', 'start', '1']);
   await run(['task', 'add', 'Review pass', '--start', '--owner', 'Alex Example']);
   await run(['log', 'Halfway through the role editor']);
@@ -144,7 +144,7 @@ describeWhenGitIsPresent('the --json --full document', () => {
 describeWhenGitIsPresent('the --json working view', () => {
   // The document an agent reads at every session start; it has to stay small however long the project runs.
   test('leaves delivered and abandoned rows and tickets out, and counts them', async () => {
-    await run(['ticket', 'add', 'Rename the export button']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Rename the export button']);
     await run(['ticket', 'abandon', '2', '--reason', 'Out of scope']);
     await run(['task', 'deliver', '2']);
 
@@ -328,9 +328,9 @@ describeWhenGitIsPresent('the log listing', () => {
 describeWhenGitIsPresent('the concurrency block both --json documents carry', () => {
   // A dispatcher reads this to decide whether to start an agent and on what: the review bar counts, and a ticket waiting on unfinished work is not ready.
   test('counts every running row against the limit and lists the ready tickets lowest first', async () => {
-    await run(['ticket', 'add', 'Show the role history']);
-    await run(['ticket', 'add', 'Export the roles', '--depends-on', '1']);
-    await run(['ticket', 'add', 'Import the roles']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Show the role history']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Export the roles', '--depends-on', '1']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Import the roles']);
 
     const working = JSON.parse((await run(['status', '--json'])).outputText()) as StatusDocument;
     const full    = JSON.parse((await run(['status', '--json', '--full'])).outputText()) as StatusDocument;
@@ -367,10 +367,10 @@ describeWhenGitIsPresent('the concurrency block both --json documents carry', ()
 
   // A dispatcher starts each ready ticket's agents on what this list says, so it must name the same tickets in the same order as `readyTicketIds`.
   test('readyTickets resolves each ready ticket to its priority, model and effort, in the ready order', async () => {
-    await run(['ticket', 'add', 'Show the role history', '--model', 'sonnet', '--effort', 'high']);
-    await run(['ticket', 'add', 'Export the roles', '--depends-on', '1']);
-    await run(['ticket', 'add', 'Import the roles', '--priority', 'high', '--effort', 'low']);
-    await run(['ticket', 'add', 'Rename the roles', '--priority', 'low']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Show the role history', '--model', 'sonnet', '--effort', 'high']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Export the roles', '--depends-on', '1']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Import the roles', '--priority', 'high', '--effort', 'low']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Rename the roles', '--priority', 'low']);
 
     const working = JSON.parse((await run(['status', '--json'])).outputText()) as StatusDocument;
     const full    = JSON.parse((await run(['status', '--json', '--full'])).outputText()) as StatusDocument;
@@ -396,9 +396,9 @@ describeWhenGitIsPresent('the concurrency block both --json documents carry', ()
 
   // The group run reads the group off the entry; a whole-board run must not take a ticket of a group awaiting its release.
   test('readyTickets carries a grouped ticket\'s group, and leaves a group out while it has a release ticket', async () => {
-    await run(['ticket', 'add', 'Show the role history', '--group', 'example-group']);
-    await run(['ticket', 'add', 'Export the roles', '--group', 'example-group']);
-    await run(['ticket', 'add', 'Import the roles']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Show the role history', '--group', 'example-group']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Export the roles', '--group', 'example-group']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Import the roles']);
 
     const beforeTheMark = JSON.parse((await run(['status', '--json'])).outputText()) as StatusDocument;
     await run(['ticket', 'release-of', '3']);
@@ -457,7 +457,7 @@ describeWhenGitIsPresent('the dispatch fields both --json documents carry', () =
 
   test('a claimed ticket is in flight', async () => {
     await run(['concurrency', '5']);
-    await run(['ticket', 'add', 'Show the role history']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Show the role history']);
     await run(['ticket', 'claim', '2', '--owner', 'Alex Example']);
 
     const { working, full } = await bothDocuments();
@@ -469,7 +469,7 @@ describeWhenGitIsPresent('the dispatch fields both --json documents carry', () =
   // A review started with the move is a reviewer at work; one finished without it waits for a reviewer the dispatcher starts on these settings.
   test('finish --start-review puts the ticket\'s review in flight, while a plain finish leaves it waiting with its agents resolved', async () => {
     await run(['concurrency', '5']);
-    await run(['ticket', 'add', 'Show the role history', '--model', 'sonnet']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Show the role history', '--model', 'sonnet']);
     await run(['ticket', 'claim', '2']);
     await run(['ticket', 'finish', '1', '--start-review', '--owner', 'Alex Example']);
     await run(['ticket', 'finish', '2']);
@@ -484,7 +484,7 @@ describeWhenGitIsPresent('the dispatch fields both --json documents carry', () =
 
   test('a claimed ticket whose row was paused is a paused build, with the row\'s note', async () => {
     await run(['concurrency', '5']);
-    await run(['ticket', 'add', 'Show the role history', '--priority', 'high']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Show the role history', '--priority', 'high']);
     await run(['ticket', 'claim', '2', '--note', 'Claimed by Alex Example']);
     await run(['task', 'pause', '3', '--note', 'Waiting on Example Agency']);
 
@@ -502,7 +502,7 @@ describeWhenGitIsPresent('the dispatch fields both --json documents carry', () =
   });
 
   test('ticketRows covers the tickets each document lists, with the ticket\'s row and its review bar\'s round', async () => {
-    await run(['ticket', 'add', 'Rename the export button']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Rename the export button']);
     await run(['ticket', 'abandon', '2', '--reason', 'Out of scope']);
     await run(['ticket', 'finish', '1', '--start-review', '--owner', 'Alex Example']);
 

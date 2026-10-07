@@ -279,7 +279,7 @@ output never carries either.
                               runs \`git merge\` itself.
 
   ticket add "<title>"        File a ticket: a markdown file under \`.agent-progress/tickets/\` with
-      [--type bug|change|feature]
+      --type ticket|bug|research
       [--priority low|normal|high]
       [--model <m>]
       [--effort <e>]

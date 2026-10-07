@@ -179,7 +179,7 @@ describeWhenGitIsPresent('the stored run id', () => {
 
 describeWhenGitIsPresent('the advice the Next line gives', () => {
   beforeEach(async () => {
-    await run(['ticket', 'add', 'Double-click a role to edit it']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
   });
 
   test('a finished dispatcher with a ticket ready is to be launched', async () => {

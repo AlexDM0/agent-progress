@@ -13,7 +13,7 @@ export function createTicketFileWriter(): { write(ticket: Readonly<Ticket>): voi
     writeFileAtomically(
       ticket.filePath,
       storedFrontmatterText === null
-        ? TicketDocumentUtil.ticketDocumentTextOf(ticket.frontmatter, ticket.body, ticket.lineEnding)
+        ? TicketDocumentUtil.ticketDocumentTextOf(ticket.frontmatter, ticket.body, ticket.lineEnding, ticket.storedType)
         : `${storedFrontmatterText}${ticket.body}`,
     );
   }
@@ -37,7 +37,7 @@ function unchangedStoredFrontmatterTextOf(ticket: Readonly<Ticket>): string | nu
   const stored = TicketDocumentUtil.parsedTicketDocumentOf(storedText);
   if (stored.verdict !== 'parsed') return null;
 
-  const frontmatterTextOf = (frontmatter: Ticket['frontmatter']): string => TicketDocumentUtil.ticketDocumentTextOf(frontmatter, '', stored.lineEnding);
+  const frontmatterTextOf = (frontmatter: Ticket['frontmatter']): string => TicketDocumentUtil.ticketDocumentTextOf(frontmatter, '', stored.lineEnding, stored.storedType);
   const storedFrontmatterText = storedText.slice(0, storedText.length - stored.body.length);
   const { title, claimedBodyHash } = ticket.frontmatter;
   const splicesClaimedBodyHash = stored.frontmatter.claimedBodyHash !== undefined && claimedBodyHash !== undefined;

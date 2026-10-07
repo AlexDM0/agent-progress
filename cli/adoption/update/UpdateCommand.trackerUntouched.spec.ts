@@ -38,7 +38,7 @@ async function run(commandLineArguments: readonly string[]): Promise<ReturnType<
 beforeEach(async () => {
   repositoryDirectory = createScratchGitRepository('update-command-tracker-untouched');
   await run(['init', '--project', 'Example Agency']);
-  await run(['ticket', 'add', 'Example importer', '--type', 'change', '--at', '2026-09-18T09:00:00+02:00']);
+  await run(['ticket', 'add', 'Example importer', '--type', 'ticket', '--at', '2026-09-18T09:00:00+02:00']);
   await run(['task', 'add', 'Example page', '--at', '2026-09-18T09:05:00+02:00']);
   await run(['log', 'Example note', '--at', '2026-09-18T09:10:00+02:00']);
 });
