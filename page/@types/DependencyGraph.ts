@@ -26,39 +26,39 @@ export interface DependencyGraphTicket extends DependencyGraphItem {
 
 export interface DependencyWave {
   /** 0 is the wave nothing open stands in front of. */
-  index:     number;
-  label:     string;
-  /** Exactly one ticket: the bottleneck signal. */
-  isNarrow:  boolean;
-  /** Pace-path ticket first, then most held first, then lowest id first. */
-  ticketIds: readonly string[];
+  index:    number;
+  label:    string;
+  /** Exactly one node: the bottleneck signal. */
+  isNarrow: boolean;
+  /** Pace-path node first, then most held first, then lowest id first. */
+  nodeIds:  readonly string[];
 }
 
-/** A dependency edge whose two ends have different primary epics. */
-export interface CrossEpicLink {
-  dependentTicketId:  string;
-  dependentEpicKey:   string;
-  dependencyTicketId: string;
-  dependencyEpicKey:  string;
+/** A dependency edge whose two ends have different primary groups. */
+export interface CrossGroupLink {
+  dependentNodeId:    string;
+  dependentGroupKey:  string;
+  dependencyNodeId:   string;
+  dependencyGroupKey: string;
 }
 
 export interface DependencyGraph {
   /** Lowest id first. */
-  settledTicketIds:  readonly string[];
+  settledNodeIds:  readonly string[];
   /** Lowest id first, only those entering the waves: a pending low-priority ticket is in neither list. */
-  openTicketIds:     readonly string[];
-  /** Only open tickets have a wave. */
-  waveOfTicket:      ReadonlyMap<string, number>;
-  /** A wave can be empty, its tickets all waiting on one left out of the waves. */
-  waves:             readonly DependencyWave[];
-  /** The open tickets in the waves waiting on a ticket directly or further down the chain, for every ticket that is not abandoned. */
-  heldOfTicket:      ReadonlyMap<string, ReadonlySet<string>>;
-  /** Every ticket a ticket depends on directly or further up the chain, for every ticket that is not abandoned. */
-  upstreamOfTicket:  ReadonlyMap<string, ReadonlySet<string>>;
+  openNodeIds:     readonly string[];
+  /** Only open nodes have a wave. */
+  waveOfNode:      ReadonlyMap<string, number>;
+  /** A wave can be empty, its nodes all waiting on one left out of the waves. */
+  waves:           readonly DependencyWave[];
+  /** The open nodes in the waves waiting on a node directly or further down the chain, for every node in the graph. */
+  heldOfNode:      ReadonlyMap<string, ReadonlySet<string>>;
+  /** Every node a node depends on directly or further up the chain, for every node in the graph. */
+  upstreamOfNode:  ReadonlyMap<string, ReadonlySet<string>>;
   /** From the first wave to the last. */
-  pacePathTicketIds: readonly string[];
-  /** The direct dependents that can start the moment a ticket finishes, lowest id first. */
-  unlocksOfTicket:   ReadonlyMap<string, readonly string[]>;
-  crossEpicLinks:    readonly CrossEpicLink[];
-  boardSlots:        number;
+  pacePathNodeIds: readonly string[];
+  /** The direct dependents that can start the moment a node finishes, lowest id first. */
+  unlocksOfNode:   ReadonlyMap<string, readonly string[]>;
+  crossGroupLinks: readonly CrossGroupLink[];
+  boardSlots:      number;
 }

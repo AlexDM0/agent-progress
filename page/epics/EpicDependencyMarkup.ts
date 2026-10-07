@@ -39,9 +39,9 @@ function linkRowMarkup(label: string, itemsMarkup: readonly string[], emptyText:
 }
 
 function waitsOnMarkup(epic: BoardEpic, graph: DependencyGraph, ticketById: ReadonlyMap<string, BoardTicket>): string {
-  const dependencyTicketIds = [...new Set(graph.crossEpicLinks
-    .filter((link) => link.dependentEpicKey === epic.key)
-    .map((link) => link.dependencyTicketId))].sort(byLowestId);
+  const dependencyTicketIds = [...new Set(graph.crossGroupLinks
+    .filter((link) => link.dependentGroupKey === epic.key)
+    .map((link) => link.dependencyNodeId))].sort(byLowestId);
   const chips = dependencyTicketIds.flatMap((ticketId) => {
     const ticket      = ticketById.get(ticketId);
     const primaryEpic = primaryEpicOf(ticketId, ticketById);
@@ -59,13 +59,13 @@ function waitsOnMarkup(epic: BoardEpic, graph: DependencyGraph, ticketById: Read
 /** One chip per waiting epic, in the order its first link appears; "via" names this epic's tickets that epic waits on. */
 function freesMarkup(epic: BoardEpic, graph: DependencyGraph, ticketById: ReadonlyMap<string, BoardTicket>): string {
   const waitingEpicByKey = new Map<string, { waitingEpic: BoardEpic; viaTicketIds: Set<string> }>();
-  for (const link of graph.crossEpicLinks) {
-    const waitingEpic = primaryEpicOf(link.dependentTicketId, ticketById);
-    if (link.dependencyEpicKey !== epic.key || waitingEpic === null) {
+  for (const link of graph.crossGroupLinks) {
+    const waitingEpic = primaryEpicOf(link.dependentNodeId, ticketById);
+    if (link.dependencyGroupKey !== epic.key || waitingEpic === null) {
       continue;
     }
     const waiting = waitingEpicByKey.get(waitingEpic.key) ?? { waitingEpic, viaTicketIds: new Set<string>() };
-    waiting.viaTicketIds.add(link.dependencyTicketId);
+    waiting.viaTicketIds.add(link.dependencyNodeId);
     waitingEpicByKey.set(waitingEpic.key, waiting);
   }
   const chips = [...waitingEpicByKey.values()].map(({ waitingEpic, viaTicketIds }) => {
@@ -82,10 +82,10 @@ function freesMarkup(epic: BoardEpic, graph: DependencyGraph, ticketById: Readon
 function waveColumnsOf(epic: BoardEpic, graph: DependencyGraph, ticketById: ReadonlyMap<string, BoardTicket>): EpicWaveColumn[] {
   const ownTicketIds = (ticketIds: readonly string[]): string[] => ticketIds.filter((ticketId) => primaryEpicOf(ticketId, ticketById)?.key === epic.key);
   const doneColumn: EpicWaveColumn = {
-    label: DONE_COLUMN_LABEL, isDone: true, isNarrow: false, ticketIds: ownTicketIds(graph.settledTicketIds)
+    label: DONE_COLUMN_LABEL, isDone: true, isNarrow: false, ticketIds: ownTicketIds(graph.settledNodeIds)
   };
   const waveColumns = graph.waves.map((wave): EpicWaveColumn => ({
-    label: wave.label, isDone: false, isNarrow: wave.isNarrow, ticketIds: ownTicketIds(wave.ticketIds)
+    label: wave.label, isDone: false, isNarrow: wave.isNarrow, ticketIds: ownTicketIds(wave.nodeIds)
   }));
   return [doneColumn, ...waveColumns].filter((column) => column.ticketIds.length > 0);
 }

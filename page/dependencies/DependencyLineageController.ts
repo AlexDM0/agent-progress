@@ -23,7 +23,7 @@ export interface DependencyLineageControllerOptions {
 }
 
 function lineageOf(graph: DependencyGraph, ticketId: string): Set<string> {
-  return new Set([ticketId, ...(graph.upstreamOfTicket.get(ticketId) ?? []), ...(graph.heldOfTicket.get(ticketId) ?? [])]);
+  return new Set([ticketId, ...(graph.upstreamOfNode.get(ticketId) ?? []), ...(graph.heldOfNode.get(ticketId) ?? [])]);
 }
 
 function clearLineage(canvas: Element): void {

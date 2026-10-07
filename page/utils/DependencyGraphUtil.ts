@@ -6,7 +6,7 @@
 import { TICKET_STATUSES_THAT_SETTLE_A_DEPENDENCY } from '../../src/lib/tracker-model/constants/Statuses.ts';
 import { TicketDefaultsUtil }                       from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
 import type {
-  CrossEpicLink,
+  CrossGroupLink,
   DependencyGraph,
   DependencyGraphItem,
   DependencyGraphReaders,
@@ -22,42 +22,42 @@ function waveLabelOf(waveIndex: number): string {
   return waveIndex === 0 ? 'Now' : `Wave ${waveIndex + 1}`;
 }
 
-/** Every id reachable from `startId` through `nextIdsOf`, never `startId` itself, so a cycle neither loops nor holds a ticket on itself. */
-function reachableFrom(startId: string, nextIdsOf: (ticketId: string) => readonly string[]): Set<string> {
+/** Every id reachable from `startId` through `nextIdsOf`, never `startId` itself, so a cycle neither loops nor holds a node on itself. */
+function reachableFrom(startId: string, nextIdsOf: (nodeId: string) => readonly string[]): Set<string> {
   const reached = new Set<string>();
   const toVisit = [...nextIdsOf(startId)];
   while (toVisit.length > 0) {
-    const ticketId = toVisit.pop() ?? startId;
-    if (ticketId === startId || reached.has(ticketId)) continue;
-    reached.add(ticketId);
-    toVisit.push(...nextIdsOf(ticketId));
+    const nodeId = toVisit.pop() ?? startId;
+    if (nodeId === startId || reached.has(nodeId)) continue;
+    reached.add(nodeId);
+    toVisit.push(...nextIdsOf(nodeId));
   }
   return reached;
 }
 
 /**
- * Each open ticket's wave and the open dependencies it was measured through. A dependency still being measured when it is reached again
+ * Each open node's wave and the open dependencies it was measured through. A dependency still being measured when it is reached again
  * closes a cycle, and that edge is cut.
  */
-function wavesMeasured(openTicketIds: readonly string[], openDependenciesOf: (ticketId: string) => readonly string[]) {
-  const waveOfTicket                = new Map<string, number>();
-  const measuredDependenciesOfTicket = new Map<string, readonly string[]>();
-  const beingMeasured               = new Set<string>();
+function wavesMeasured(openNodeIds: readonly string[], openDependenciesOf: (nodeId: string) => readonly string[]) {
+  const waveOfNode                 = new Map<string, number>();
+  const measuredDependenciesOfNode = new Map<string, readonly string[]>();
+  const beingMeasured              = new Set<string>();
 
-  const measure = (ticketId: string): number => {
-    const knownWave = waveOfTicket.get(ticketId);
+  const measure = (nodeId: string): number => {
+    const knownWave = waveOfNode.get(nodeId);
     if (knownWave !== undefined) return knownWave;
-    beingMeasured.add(ticketId);
-    const measuredDependencies = openDependenciesOf(ticketId).filter((dependencyId) => !beingMeasured.has(dependencyId));
+    beingMeasured.add(nodeId);
+    const measuredDependencies = openDependenciesOf(nodeId).filter((dependencyId) => !beingMeasured.has(dependencyId));
     const wave = measuredDependencies.reduce((deepest, dependencyId) => Math.max(deepest, 1 + measure(dependencyId)), 0);
-    beingMeasured.delete(ticketId);
-    waveOfTicket.set(ticketId, wave);
-    measuredDependenciesOfTicket.set(ticketId, measuredDependencies);
+    beingMeasured.delete(nodeId);
+    waveOfNode.set(nodeId, wave);
+    measuredDependenciesOfNode.set(nodeId, measuredDependencies);
     return wave;
   };
 
-  for (const ticketId of openTicketIds) measure(ticketId);
-  return { waveOfTicket, measuredDependenciesOfTicket };
+  for (const nodeId of openNodeIds) measure(nodeId);
+  return { waveOfNode, measuredDependenciesOfNode };
 }
 
 const TICKET_READERS: DependencyGraphReaders<DependencyGraphTicket> = {
@@ -83,92 +83,92 @@ function dependencyGraphOf<Item extends DependencyGraphItem>(items: readonly Ite
 }
 
 function graphOf<Item extends DependencyGraphItem>(items: readonly Item[], concurrencyLimit: number, readers: DependencyGraphReaders<Item>): DependencyGraph {
-  const ticketById = new Map(items.map((item) => [item.id, item] as const));
-  const ticketIds  = [...ticketById.keys()].sort(byLowestId);
-  const isSettled  = (ticketId: string): boolean => {
-    const ticket = ticketById.get(ticketId);
-    return ticket !== undefined && readers.settlesDependents(ticket);
+  const nodeById  = new Map(items.map((item) => [item.id, item] as const));
+  const nodeIds   = [...nodeById.keys()].sort(byLowestId);
+  const isSettled = (nodeId: string): boolean => {
+    const node = nodeById.get(nodeId);
+    return node !== undefined && readers.settlesDependents(node);
   };
-  const isOpen = (ticketId: string): boolean => ticketById.has(ticketId) && !isSettled(ticketId);
-  const isInWaves = (ticketId: string): boolean => {
-    const ticket = ticketById.get(ticketId);
-    return ticket !== undefined && isOpen(ticketId) && (readers.entersWaves?.(ticket) ?? true);
+  const isOpen = (nodeId: string): boolean => nodeById.has(nodeId) && !isSettled(nodeId);
+  const isInWaves = (nodeId: string): boolean => {
+    const node = nodeById.get(nodeId);
+    return node !== undefined && isOpen(nodeId) && (readers.entersWaves?.(node) ?? true);
   };
 
-  const settledTicketIds = ticketIds.filter(isSettled);
-  const openTicketIds    = ticketIds.filter(isInWaves);
+  const settledNodeIds = nodeIds.filter(isSettled);
+  const openNodeIds    = nodeIds.filter(isInWaves);
 
-  const knownDependenciesOf = (ticketId: string): string[] => (
-    [...new Set(ticketById.get(ticketId)?.dependsOn ?? [])].filter((dependencyId) => ticketById.has(dependencyId)).sort(byLowestId)
+  const knownDependenciesOf = (nodeId: string): string[] => (
+    [...new Set(nodeById.get(nodeId)?.dependsOn ?? [])].filter((dependencyId) => nodeById.has(dependencyId)).sort(byLowestId)
   );
-  const dependentsById = new Map<string, string[]>(ticketIds.map((ticketId) => [ticketId, []]));
-  for (const ticketId of ticketIds) {
-    for (const dependencyId of knownDependenciesOf(ticketId)) dependentsById.get(dependencyId)?.push(ticketId);
+  const dependentsById = new Map<string, string[]>(nodeIds.map((nodeId) => [nodeId, []]));
+  for (const nodeId of nodeIds) {
+    for (const dependencyId of knownDependenciesOf(nodeId)) dependentsById.get(dependencyId)?.push(nodeId);
   }
-  const dependentsOf        = (ticketId: string): readonly string[] => dependentsById.get(ticketId) ?? [];
-  const openDependenciesOf  = (ticketId: string): string[] => knownDependenciesOf(ticketId).filter(isOpen);
+  const dependentsOf       = (nodeId: string): readonly string[] => dependentsById.get(nodeId) ?? [];
+  const openDependenciesOf = (nodeId: string): string[] => knownDependenciesOf(nodeId).filter(isOpen);
 
-  const heldOfTicket     = new Map(ticketIds.map((ticketId) => [ticketId, new Set([...reachableFrom(ticketId, dependentsOf)].filter(isInWaves))] as const));
-  const upstreamOfTicket = new Map(ticketIds.map((ticketId) => [ticketId, reachableFrom(ticketId, knownDependenciesOf)] as const));
-  const heldCountOf      = (ticketId: string): number => heldOfTicket.get(ticketId)?.size ?? 0;
-  const byMostHeld       = (a: string, b: string): number => heldCountOf(b) - heldCountOf(a) || byLowestId(a, b);
+  const heldOfNode     = new Map(nodeIds.map((nodeId) => [nodeId, new Set([...reachableFrom(nodeId, dependentsOf)].filter(isInWaves))] as const));
+  const upstreamOfNode = new Map(nodeIds.map((nodeId) => [nodeId, reachableFrom(nodeId, knownDependenciesOf)] as const));
+  const heldCountOf    = (nodeId: string): number => heldOfNode.get(nodeId)?.size ?? 0;
+  const byMostHeld     = (a: string, b: string): number => heldCountOf(b) - heldCountOf(a) || byLowestId(a, b);
 
-  // Measured over every open ticket, so one left out of the waves still pushes its dependents past "Now".
-  const { waveOfTicket: measuredWaveOfTicket, measuredDependenciesOfTicket } = wavesMeasured(ticketIds.filter(isOpen), openDependenciesOf);
-  const waveOfTicket = new Map(openTicketIds.map((ticketId) => [ticketId, measuredWaveOfTicket.get(ticketId) ?? 0] as const));
-  const waveCount = openTicketIds.reduce((count, ticketId) => Math.max(count, (waveOfTicket.get(ticketId) ?? 0) + 1), 0);
-  const ticketIdsInWave = (waveIndex: number): string[] => openTicketIds.filter((ticketId) => waveOfTicket.get(ticketId) === waveIndex);
+  // Measured over every open node, so one left out of the waves still pushes its dependents past "Now".
+  const { waveOfNode: measuredWaveOfNode, measuredDependenciesOfNode } = wavesMeasured(nodeIds.filter(isOpen), openDependenciesOf);
+  const waveOfNode = new Map(openNodeIds.map((nodeId) => [nodeId, measuredWaveOfNode.get(nodeId) ?? 0] as const));
+  const waveCount = openNodeIds.reduce((count, nodeId) => Math.max(count, (waveOfNode.get(nodeId) ?? 0) + 1), 0);
+  const nodeIdsInWave = (waveIndex: number): string[] => openNodeIds.filter((nodeId) => waveOfNode.get(nodeId) === waveIndex);
 
-  const pacePathTicketIds: string[] = [];
-  let pacingTicketId = ticketIdsInWave(waveCount - 1).sort(byMostHeld)[0];
-  while (pacingTicketId !== undefined) {
-    pacePathTicketIds.unshift(pacingTicketId);
-    const previousWave = (waveOfTicket.get(pacingTicketId) ?? 0) - 1;
-    pacingTicketId = (measuredDependenciesOfTicket.get(pacingTicketId) ?? [])
-      .filter((dependencyId) => waveOfTicket.get(dependencyId) === previousWave)
+  const pacePathNodeIds: string[] = [];
+  let pacingNodeId = nodeIdsInWave(waveCount - 1).sort(byMostHeld)[0];
+  while (pacingNodeId !== undefined) {
+    pacePathNodeIds.unshift(pacingNodeId);
+    const previousWave = (waveOfNode.get(pacingNodeId) ?? 0) - 1;
+    pacingNodeId = (measuredDependenciesOfNode.get(pacingNodeId) ?? [])
+      .filter((dependencyId) => waveOfNode.get(dependencyId) === previousWave)
       .sort(byMostHeld)[0];
   }
 
   const waves = Array.from({ length: waveCount }, (_wave, waveIndex): DependencyWave => {
-    const waveTicketIds = ticketIdsInWave(waveIndex).sort((a, b) => (
-      Number(pacePathTicketIds.includes(b)) - Number(pacePathTicketIds.includes(a)) || byMostHeld(a, b)
+    const waveNodeIds = nodeIdsInWave(waveIndex).sort((a, b) => (
+      Number(pacePathNodeIds.includes(b)) - Number(pacePathNodeIds.includes(a)) || byMostHeld(a, b)
     ));
     return {
-      index: waveIndex, label: waveLabelOf(waveIndex), isNarrow: waveTicketIds.length === 1, ticketIds: waveTicketIds
+      index: waveIndex, label: waveLabelOf(waveIndex), isNarrow: waveNodeIds.length === 1, nodeIds: waveNodeIds
     };
   });
 
-  const unlocksOfTicket = new Map(ticketIds.map((ticketId) => {
-    const upstream = upstreamOfTicket.get(ticketId) ?? new Set<string>();
-    const unlocked = dependentsOf(ticketId).filter((dependentId) => dependentId !== ticketId && isInWaves(dependentId) && openDependenciesOf(dependentId).every((dependencyId) => (
-      dependencyId === ticketId || upstream.has(dependencyId)
+  const unlocksOfNode = new Map(nodeIds.map((nodeId) => {
+    const upstream = upstreamOfNode.get(nodeId) ?? new Set<string>();
+    const unlocked = dependentsOf(nodeId).filter((dependentId) => dependentId !== nodeId && isInWaves(dependentId) && openDependenciesOf(dependentId).every((dependencyId) => (
+      dependencyId === nodeId || upstream.has(dependencyId)
     )));
-    return [ticketId, unlocked] as const;
+    return [nodeId, unlocked] as const;
   }));
 
-  const primaryEpicKeyOf = (ticketId: string): string | null => {
-    const ticket = ticketById.get(ticketId);
-    return ticket === undefined ? null : readers.primaryGroupKeyOf(ticket);
+  const primaryGroupKeyOf = (nodeId: string): string | null => {
+    const node = nodeById.get(nodeId);
+    return node === undefined ? null : readers.primaryGroupKeyOf(node);
   };
-  const crossEpicLinks = ticketIds.flatMap((dependentTicketId) => knownDependenciesOf(dependentTicketId).flatMap((dependencyTicketId): CrossEpicLink[] => {
-    const dependentEpicKey  = primaryEpicKeyOf(dependentTicketId);
-    const dependencyEpicKey = primaryEpicKeyOf(dependencyTicketId);
-    if (dependentEpicKey === null || dependencyEpicKey === null || dependentEpicKey === dependencyEpicKey) return [];
+  const crossGroupLinks = nodeIds.flatMap((dependentNodeId) => knownDependenciesOf(dependentNodeId).flatMap((dependencyNodeId): CrossGroupLink[] => {
+    const dependentGroupKey  = primaryGroupKeyOf(dependentNodeId);
+    const dependencyGroupKey = primaryGroupKeyOf(dependencyNodeId);
+    if (dependentGroupKey === null || dependencyGroupKey === null || dependentGroupKey === dependencyGroupKey) return [];
     return [{
-      dependentTicketId, dependentEpicKey, dependencyTicketId, dependencyEpicKey
+      dependentNodeId, dependentGroupKey, dependencyNodeId, dependencyGroupKey
     }];
   }));
 
   return {
-    settledTicketIds,
-    openTicketIds,
-    waveOfTicket,
+    settledNodeIds,
+    openNodeIds,
+    waveOfNode,
     waves,
-    heldOfTicket,
-    upstreamOfTicket,
-    pacePathTicketIds,
-    unlocksOfTicket,
-    crossEpicLinks,
+    heldOfNode,
+    upstreamOfNode,
+    pacePathNodeIds,
+    unlocksOfNode,
+    crossGroupLinks,
     boardSlots: concurrencyLimit,
   };
 }

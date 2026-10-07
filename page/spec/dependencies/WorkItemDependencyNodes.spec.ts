@@ -32,7 +32,7 @@ const MARKUP = waveGraphMarkup(GRAPH, WorkItemDependencyNodes.nodeByIdOf(EXAMPLE
 afterAll(() => removeScratchDirectory(scratchDirectory));
 
 function waveOf(workItemId: string): number {
-  return GRAPH.waveOfTicket.get(workItemId) ?? Number.NaN;
+  return GRAPH.waveOfNode.get(workItemId) ?? Number.NaN;
 }
 
 describe('the spec Dependencies graph', () => {
@@ -40,7 +40,7 @@ describe('the spec Dependencies graph', () => {
     expect(waveOf('002-product-search-p04')).toBe(0);
     expect(waveOf('002-product-search-p05')).toBe(0);
     expect(waveOf('002-product-search-p06')).toBe(1);
-    expect(GRAPH.settledTicketIds).toContain('003-wishlist-p05');
+    expect(GRAPH.settledNodeIds).toContain('003-wishlist-p05');
     expect(waveOf('003-wishlist-p06')).toBe(0);
   });
 

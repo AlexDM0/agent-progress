@@ -89,7 +89,7 @@ function pillLabelOf(card: KanbanCard): string {
 
 /** `↦ N` for an unfinished ticket others wait on; a board without dependencies gets none, so its cards stay as they were. */
 function heldCountOf(card: KanbanCard, lane: KanbanLane, format: KanbanCardFormat): LaneCardHeldCount | null {
-  const count = KanbanLaneUtil.laneIsClosed(lane) ? 0 : format.dependencyGraph.heldOfTicket.get(card.ticket.id)?.size ?? 0;
+  const count = KanbanLaneUtil.laneIsClosed(lane) ? 0 : format.dependencyGraph.heldOfNode.get(card.ticket.id)?.size ?? 0;
   return count === 0
     ? null
     : { count, isHeavy: count >= HEAVY_HELD_COUNT, title: `${count} ${count === 1 ? 'ticket waits' : 'tickets wait'} on this one, directly or further down the chain` };
@@ -153,12 +153,12 @@ function todoWaveGroupsOf(members: readonly KanbanCard[], format: KanbanCardForm
   const cardById = new Map(members.map((card) => [card.ticket.id, card]));
   const placed   = new Set<string>();
   const groups   = format.dependencyGraph.waves.flatMap((wave): LaneCardGroup[] => {
-    const cards = wave.ticketIds.flatMap((ticketId) => cardById.get(ticketId) ?? []);
+    const cards = wave.nodeIds.flatMap((ticketId) => cardById.get(ticketId) ?? []);
     if (cards.length === 0) {
       return [];
     }
     cards.forEach((card) => placed.add(card.ticket.id));
-    const width      = wave.isNarrow ? 'one at a time' : `${wave.ticketIds.length} side by side`;
+    const width      = wave.isNarrow ? 'one at a time' : `${wave.nodeIds.length} side by side`;
     const readyCount = cards.filter((card) => readyTicketIds.has(card.ticket.id)).length;
     return [{
       kind:     'wave',

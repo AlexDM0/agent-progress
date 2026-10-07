@@ -134,7 +134,7 @@ describe('columns', () => {
 
 describe('rows', () => {
   test('the pace-path ticket leads its column', () => {
-    expect(GRAPH.pacePathTicketIds).toEqual(['011', '013', '014', '016']);
+    expect(GRAPH.pacePathNodeIds).toEqual(['011', '013', '014', '016']);
     expect(nodeTopOf(MARKUP, '011')).toBeLessThan(nodeTopOf(MARKUP, '012'));
   });
 
@@ -168,7 +168,7 @@ describe('nodes', () => {
 
   test('a held ticket stays in Now without the Ready chip, marked Held, and a pending low one is no node, as the Board lists only the normal one', () => {
     expect([...HELD_AND_LOW_BOARD.readyTicketIds]).toEqual(['023']);
-    expect(HELD_AND_LOW_GRAPH.waves[0]?.ticketIds.toSorted()).toEqual(['021', '023']);
+    expect(HELD_AND_LOW_GRAPH.waves[0]?.nodeIds.toSorted()).toEqual(['021', '023']);
     expect(nodeOf(HELD_AND_LOW_MARKUP, '021')).toContain('<span class="ap-kanban-held" title="Held: not before 2026-10-05">Held</span>');
     expect(nodeOf(HELD_AND_LOW_MARKUP, '021')).not.toContain('data-ready');
     expect(HELD_AND_LOW_MARKUP).not.toContain('data-open-ticket="022"');

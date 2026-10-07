@@ -85,8 +85,8 @@ function nodeTopOf(rowIndex: number): number {
 
 /** The settled nodes an open node depends on directly, lowest id first as the graph lists them. */
 function builtOnNodeIdsOf(graph: DependencyGraph, nodeById: ReadonlyMap<string, DependencyNodeModel>): string[] {
-  const builtOn = new Set(graph.openTicketIds.flatMap((nodeId) => nodeById.get(nodeId)?.dependsOn ?? []));
-  return graph.settledTicketIds.filter((nodeId) => builtOn.has(nodeId));
+  const builtOn = new Set(graph.openNodeIds.flatMap((nodeId) => nodeById.get(nodeId)?.dependsOn ?? []));
+  return graph.settledNodeIds.filter((nodeId) => builtOn.has(nodeId));
 }
 
 /**
@@ -102,8 +102,8 @@ function columnsInRowOrder(graph: DependencyGraph, nodeById: ReadonlyMap<string,
     const parentRows = (nodeById.get(nodeId)?.dependsOn ?? []).flatMap((dependencyId) => rowIndexOfNode.get(dependencyId) ?? []);
     return parentRows.length === 0 ? Number.POSITIVE_INFINITY : parentRows.reduce((sum, row) => sum + row, 0) / parentRows.length;
   };
-  const heldCountOf  = (nodeId: string): number => graph.heldOfTicket.get(nodeId)?.size ?? 0;
-  const isOnPacePath = (nodeId: string): number => Number(graph.pacePathTicketIds.includes(nodeId));
+  const heldCountOf  = (nodeId: string): number => graph.heldOfNode.get(nodeId)?.size ?? 0;
+  const isOnPacePath = (nodeId: string): number => Number(graph.pacePathNodeIds.includes(nodeId));
   const byParentRows = (a: string, b: string): number => {
     const meanA = parentRowMeanOf(a);
     const meanB = parentRowMeanOf(b);
@@ -111,7 +111,7 @@ function columnsInRowOrder(graph: DependencyGraph, nodeById: ReadonlyMap<string,
   };
 
   const waveColumns = graph.waves.map((wave): DependencyColumn => {
-    const nodeIds = wave.ticketIds.toSorted((a, b) => isOnPacePath(b) - isOnPacePath(a) || byParentRows(a, b) || heldCountOf(b) - heldCountOf(a));
+    const nodeIds = wave.nodeIds.toSorted((a, b) => isOnPacePath(b) - isOnPacePath(a) || byParentRows(a, b) || heldCountOf(b) - heldCountOf(a));
     nodeIds.forEach((nodeId, rowIndex) => rowIndexOfNode.set(nodeId, rowIndex));
     return {
       label: wave.label, isDone: false, isNarrow: wave.isNarrow, nodeIds
@@ -182,7 +182,7 @@ interface NodeContext {
 }
 
 function nodeMarkup(node: DependencyNodeModel, place: NodePlace, isDone: boolean, { graph, options, largestHeldCount }: NodeContext): string {
-  const heldCount   = isDone ? 0 : graph.heldOfTicket.get(node.id)?.size ?? 0;
+  const heldCount   = isDone ? 0 : graph.heldOfNode.get(node.id)?.size ?? 0;
   const weightWidth = largestHeldCount === 0 ? 0 : (NODE_WIDTH_PIXELS - WEIGHT_BAR_INSET_PIXELS) * heldCount / largestHeldCount;
   const chips       = isDone ? '' : node.chips.map(chipMarkup).join('');
   const extraChip   = options.extraChipMarkupOf?.(node.id) ?? '';
@@ -206,7 +206,7 @@ function edgePathOf(from: NodePlace, to: NodePlace): string {
 }
 
 function pacePathEdgeKeysOf(graph: DependencyGraph): Set<string> {
-  return new Set(graph.pacePathTicketIds.slice(1).map((nodeId, i) => `${graph.pacePathTicketIds[i] ?? ''}>${nodeId}`));
+  return new Set(graph.pacePathNodeIds.slice(1).map((nodeId, i) => `${graph.pacePathNodeIds[i] ?? ''}>${nodeId}`));
 }
 
 function edgesMarkup(
@@ -216,7 +216,7 @@ function edgesMarkup(
   width: number,
   height: number
 ): string {
-  const settled   = new Set(graph.settledTicketIds);
+  const settled   = new Set(graph.settledNodeIds);
   const paceEdges = pacePathEdgeKeysOf(graph);
   const paths     = [...placeOfNode.entries()].flatMap(([dependentId, dependentPlace]) => (
     [...new Set(nodeById.get(dependentId)?.dependsOn ?? [])].flatMap((dependencyId) => {
@@ -250,7 +250,7 @@ export function waveGraphMarkup(graph: DependencyGraph, nodeById: ReadonlyMap<st
   if (columns.length === 0) {
     return `<p class="ap-dependency-empty">${HtmlEscapeUtil.escapeHtml(options.emptyText)}</p>`;
   }
-  const largestHeldCount = graph.openTicketIds.reduce((largest, nodeId) => Math.max(largest, graph.heldOfTicket.get(nodeId)?.size ?? 0), 0);
+  const largestHeldCount = graph.openNodeIds.reduce((largest, nodeId) => Math.max(largest, graph.heldOfNode.get(nodeId)?.size ?? 0), 0);
   const placeOfNode      = new Map<string, NodePlace>();
   const nodes: string[]  = [];
   columns.forEach((column, columnIndex) => {
