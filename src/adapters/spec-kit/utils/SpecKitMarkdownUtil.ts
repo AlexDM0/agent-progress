@@ -86,7 +86,7 @@ function titledDocumentOf(text: string, templateTitle: string, frontmatterMayOpe
 
   const lines      = visibleLinesOf(text);
   const startIndex = frontmatterMayOpen ? indexAfterFrontmatterOf(lines) : 0;
-  if (startIndex === null) return { verdict: 'malformed', reason: 'the frontmatter has no closing `---` fence', line: Math.max(lines.length, 1) };
+  if (startIndex === null) return { verdict: 'malformed', reason: 'the frontmatter has no closing `---` fence', line: lines.at(-1)?.line ?? 1 };
 
   const titleIndex = lines.findIndex((line, index) => index >= startIndex && line.text.startsWith(TITLE_HEADING_PREFIX));
   const titleLine  = lines[titleIndex];

@@ -139,6 +139,11 @@ describe('tasks.md', () => {
     expect(tasksReadingOf('---\ndescription: "Task list"\n# Tasks: Example Checkout\n')).toMatchObject({ verdict: 'malformed' });
   });
 
+  test('an unclosed frontmatter is reported at the file\'s last line, even past fenced code', () => {
+    const text = '---\ndescription: "Task list"\n```\nexample\n```\n# Tasks: Example Checkout\n';
+    expect(tasksReadingOf(text)).toMatchObject({ verdict: 'malformed', line: 7 });
+  });
+
   for (const [description, text] of HOSTILE_TEXTS) {
     test(`${description} is a verdict, never a throw`, () => {
       expect(tasksReadingOf(text).verdict).toBe('malformed');
