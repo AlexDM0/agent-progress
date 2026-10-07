@@ -99,8 +99,8 @@ const CLAUDE_CODE_HOST_SENTENCES: Readonly<Record<string, string>> = {
   dispatcherLaunch: '`Workflow({ scriptPath: \'<mainCheckout>/.agent-progress/agent-progress-dispatch.js\',\n'
     + '  args: <the args> })`, by this path only: it has no name to launch it by. The result names the run\'s `runId`.\n'
     + '  The session\'s guideline of 10 agents per workflow does not bound this one.',
-  dispatcherRunEnd: 'the Workflow call runs as a background task; a task notification says when it returns, with its\n'
-    + '  summary, or that it was stopped or died.',
+  dispatcherRunEnd: 'the Workflow call runs as a background task; a task notification says when it\n'
+    + '  returns, with its summary, or that it was stopped or died.',
   dispatcherResume: '`Workflow({ scriptPath: \'<mainCheckout>/.agent-progress/agent-progress-dispatch.js\',\n'
     + '  resumeFromRunId: \'<the stored run id>\', args: <the launch\'s args> })`, its result naming the new `runId`.',
   dispatcherStop: 'stop the Workflow task itself.',
@@ -126,11 +126,11 @@ const COPILOT_CLI_HOST_SENTENCES: Readonly<Record<string, string>> = {
     + '  `agent-progress-dispatch` workflow, the folder is not trusted: ask the user to trust it and restart the session.',
   askingTheUser: 'the "Asking user" tool, which shows the user a multiple-choice picker and waits for the\n'
     + '  answer; ask one question per call.',
-  dispatcherLaunch: '`run_dynamic_workflow` with the workflow `agent-progress-dispatch` and the args. It starts the\n'
-    + '  run in the background and returns its run id at once.',
-  dispatcherRunEnd: 'the session is told unprompted when the run completes, with a preview of its result. To read\n'
-    + '  a run before then, or its whole summary, `dynamic_workflows_manage` lists them with `runs` and reads one with\n'
-    + '  `inspect-run`.',
+  dispatcherLaunch: '`run_dynamic_workflow` with the workflow `agent-progress-dispatch` and the args.\n'
+    + '  It starts the run in the background and returns its run id at once.',
+  dispatcherRunEnd: 'the session is told unprompted when the run completes, with a preview of its\n'
+    + '  result. To read a run before then, or its whole summary, `dynamic_workflows_manage` lists them with `runs`\n'
+    + '  and reads one with `inspect-run`.',
   dispatcherResume: '`run_dynamic_workflow` again, with `agent-progress-dispatch`, the launch\'s args and the\n'
     + '  stored run id to resume; it returns the run id at once.',
   dispatcherStop: 'you have no operation that stops a run: ask the user to stop it from their session\n'
