@@ -1,6 +1,6 @@
 import base from '@reliquary/eslint-config';
 
-const STORAGE_MESSAGE = 'Browser storage is reached only in page/preferences/ViewerPreferences.ts.';
+const STORAGE_MESSAGE = 'Browser storage is reached only in page/preferences/PreferenceStore.ts.';
 
 /** Each process or browser reach CLAUDE.md confines, with the exact files allowed to make it. */
 const CONFINED_REACHES = [
@@ -18,8 +18,8 @@ const CONFINED_REACHES = [
   },
   { allowedIn: ['cli/CommandContext.ts'], importName: { name: 'node:os', importNames: ['homedir'], message: 'Take the home directory from the CommandContext.' } },
   ...['localStorage', 'sessionStorage'].flatMap((storageName) => [
-    { allowedIn: ['page/preferences/ViewerPreferences.ts'], property: { object: 'window', property: storageName, message: STORAGE_MESSAGE } },
-    { allowedIn: ['page/preferences/ViewerPreferences.ts'], global: { name: storageName, message: STORAGE_MESSAGE } },
+    { allowedIn: ['page/preferences/PreferenceStore.ts'], property: { object: 'window', property: storageName, message: STORAGE_MESSAGE } },
+    { allowedIn: ['page/preferences/PreferenceStore.ts'], global: { name: storageName, message: STORAGE_MESSAGE } },
   ]),
 ];
 

@@ -224,7 +224,24 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - The page script clears every container it owns before filling it; a failed bundle renders an error banner.
 - The template's bootstrap owns theme and tab selection, reached only through `window.agentProgressTemplate`. No ticket
   open state is kept: `agent-progress:open-tickets` is retired, and a ticket body shows only in the detail panel.
-- `eslint.config.js` holds browser storage to `page/preferences/ViewerPreferences.ts`. A key string never changes.
+- The spec page (`page/spec/SpecPageStart.ts`) reuses the tracker page's views by composition. A shared module reads a
+  structural type of exactly the fields it uses, or a view model; tracker types satisfy it unchanged, and no mapper
+  invents a tracker value (owner, token, ticket number, row or task id).
+- Tracker-only concepts reach shared code as parameters: lane sets, card anatomy, detail target kinds, opener
+  attributes, header statistics and the preference prefix. The tracker page passes today's values, and a
+  generalisation keeps its output byte for byte, proved by the existing specs passing unchanged and by a frozen table
+  taken before it.
+- A shared module stays in its view's folder; what both entries start with lives in `page/shell/`, types several
+  views use in `page/@types/`, chip parts in `page/chips/`. Tracker-page mappers sit beside the module they feed;
+  spec mappers and spec-only views go in `page/spec/<view>/`. A tracker-page view moves onto a shared renderer in the
+  same change that adds its spec consumer.
+- `src/PageEditionBoundaries.spec.ts` holds the editions apart: the tracker-page entry never reaches `page/spec/`, the
+  spec entry reaches no module in `TRACKER_PAGE_ONLY_MODULES`, every `ap-` token in a `page/spec/` literal is an
+  `ap-spec-*` class or id or an id declared in `resources/spec-template.html`, and no `page/spec/` literal names a
+  `SHARED_HOOK_ATTRIBUTES` entry.
+- `eslint.config.js` holds browser storage to `page/preferences/PreferenceStore.ts`. Tracker-page keys stay under
+  `agent-progress:<trackerId>`, spec keys go under `agent-progress-spec:<repositoryKey>`, and a key string never
+  changes.
 - The render service writes `boardFacts` from the same Board queries `status --json` prints; the page keeps no copy
   of the rules.
 - The detail panel claims a log line by its `taskIds` or `ticketIds`, never a number in free text; a note is matched

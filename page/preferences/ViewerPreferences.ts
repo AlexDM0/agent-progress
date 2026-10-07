@@ -1,6 +1,6 @@
 /**
- * The viewer's stored page choices and the reload snapshot: the key strings and the reads and writes. The one module where the page script
- * touches browser storage; the template's bootstrap keeps its own theme and tab keys.
+ * The tracker page's stored choices and the reload snapshot: their key strings and what each reads and writes, over the preference store.
+ * The template's bootstrap keeps its own theme and tab keys.
  */
 
 import type {
@@ -12,7 +12,7 @@ import type {
 import type { ClosedKanbanLane }        from '../kanban/constants/KanbanBoardLayout.ts';
 import { CAPPED_LANE_FIRST_PAGE_CARDS } from '../kanban/constants/KanbanBoardLayout.ts';
 import { DEFAULT_FINISHED_WORK_CHOICE } from '../utils/FinishedWorkUtil.ts';
-import { JsonValueUtil }                from '../utils/JsonValueUtil.ts';
+import { createPreferenceStore }        from './PreferenceStore.ts';
 import {
   DEFAULT_ABANDONED_LANE_CHOICE,
   DEFAULT_NAME_COLUMN_WIDTH,
@@ -38,101 +38,27 @@ const CAPPED_LANE_KEY_SUFFIX: Readonly<Record<ClosedKanbanLane, string>> = {
 // Session storage is one tab's, so it needs no tracker id: the snapshot carries it instead, for a tab that opens another dashboard.
 const RELOAD_SNAPSHOT_STORAGE_KEY = 'agent-progress:snapshot';
 
-/** `file://` is one origin in Chrome, so the tracker id is what keeps two dashboards' ranges apart. */
-function rangeOverrideStorageKeyFor(trackerId: string): string {
+/** `file://` is one origin in Chrome, so the tracker id is what keeps two dashboards' ranges apart; the range is stored under the bare prefix. */
+function preferenceKeyPrefixFor(trackerId: string): string {
   return `agent-progress:${trackerId}`;
 }
 
-/** Every other choice's key is the range key plus the choice's own name. */
-function choiceStorageKeyFor(trackerId: string, choiceName: string): string {
-  return `${rangeOverrideStorageKeyFor(trackerId)}:${choiceName}`;
-}
+// Every other choice's key is the prefix plus one of these names; the finished-work choice keeps the hide-finished checkbox's key,
+// so a viewer's `recent` and `all` still read.
+const FINISHED_WORK_CHOICE_NAME      = 'visibility';
+const NAME_COLUMN_WIDTH_CHOICE_NAME  = 'name-column';
+const REVIEW_ROWS_CHOICE_NAME        = 'review-rows';
+const ABANDONED_LANE_CHOICE_NAME     = 'kanban-abandoned';
+const TICKET_GROUPING_CHOICE_NAME    = 'ticket-grouping';
+const KANBAN_EPIC_FILTER_CHOICE_NAME = 'kanban-epics';
+const TODO_ORDER_CHOICE_NAME         = 'kanban-todo-order';
+const FOLDED_EPIC_GROUPS_CHOICE_NAME = 'progress-folded-epics';
 
-// The hide-finished checkbox's key, kept so a viewer's `recent` and `all` still read.
-function finishedWorkChoiceStorageKeyFor(trackerId: string): string {
-  return choiceStorageKeyFor(trackerId, 'visibility');
-}
-
-function nameColumnWidthStorageKeyFor(trackerId: string): string {
-  return choiceStorageKeyFor(trackerId, 'name-column');
-}
-
-function reviewRowsStorageKeyFor(trackerId: string): string {
-  return choiceStorageKeyFor(trackerId, 'review-rows');
-}
-
-function abandonedLaneStorageKeyFor(trackerId: string): string {
-  return choiceStorageKeyFor(trackerId, 'kanban-abandoned');
-}
-
-function cappedLaneStorageKeyFor(trackerId: string, lane: ClosedKanbanLane): string {
-  return choiceStorageKeyFor(trackerId, CAPPED_LANE_KEY_SUFFIX[lane]);
-}
-
-function ticketGroupingStorageKeyFor(trackerId: string): string {
-  return choiceStorageKeyFor(trackerId, 'ticket-grouping');
-}
-
-function kanbanEpicFilterStorageKeyFor(trackerId: string): string {
-  return choiceStorageKeyFor(trackerId, 'kanban-epics');
-}
-
-function todoOrderStorageKeyFor(trackerId: string): string {
-  return choiceStorageKeyFor(trackerId, 'kanban-todo-order');
-}
-
-function foldedEpicGroupsStorageKeyFor(trackerId: string): string {
-  return choiceStorageKeyFor(trackerId, 'progress-folded-epics');
-}
-
-/** The browser's storage areas, reached only here; each is a function, because merely reaching one throws where storage is blocked. */
-export const BROWSER_STORAGE_AREAS = Object.freeze({
-  local:   (): PreferenceStorage => window.localStorage,
-  session: (): PreferenceStorage => window.sessionStorage,
-});
-
-/** `storageOf` is called inside each read and write, because merely reaching `window.localStorage` throws where storage is blocked. */
 export function createViewerPreferences(trackerId: string, storageOf: () => PreferenceStorage): ViewerPreferences {
-  const readStoredChoice = (storageKey: string): string | null => {
-    try {
-      return storageOf().getItem(storageKey);
-    } catch {
-      return null;
-    }
-  };
-
-  /** `null` removes the key, so a viewer who never departs from a default leaves nothing behind. */
-  const writeStoredText = (storageKey: string, text: string | null): void => {
-    try {
-      if (text === null) {
-        storageOf().removeItem(storageKey);
-        return;
-      }
-      storageOf().setItem(storageKey, text);
-    } catch {
-      // The page works without persistence.
-    }
-  };
-
-  const writeStoredChoice = (storageKey: string, choice: string, defaultChoice: string): void => {
-    writeStoredText(storageKey, choice === defaultChoice ? null : choice);
-  };
-
-  const readStoredTextList = (storageKey: string): string[] => {
-    try {
-      return JsonValueUtil.textListOf(JSON.parse(readStoredChoice(storageKey) ?? '[]'));
-    } catch {
-      return [];
-    }
-  };
-
-  /** An empty list removes the key. */
-  const writeStoredTextList = (storageKey: string, texts: readonly string[]): void => {
-    writeStoredText(storageKey, texts.length === 0 ? null : JSON.stringify(texts));
-  };
+  const store = createPreferenceStore(preferenceKeyPrefixFor(trackerId), storageOf);
 
   const readStoredOverride = (): StoredViewOverride => {
-    const stored = readStoredChoice(rangeOverrideStorageKeyFor(trackerId));
+    const stored = store.readText();
     try {
       return stored === null ? EMPTY_VIEW_OVERRIDE : ViewerPreferenceUtil.storedOverrideFrom(JSON.parse(stored));
     } catch {
@@ -141,66 +67,61 @@ export function createViewerPreferences(trackerId: string, storageOf: () => Pref
   };
 
   const writeStoredOverride = (override: StoredViewOverride): void => {
-    writeStoredText(rangeOverrideStorageKeyFor(trackerId), ViewerPreferenceUtil.overrideIsEmpty(override) ? null : JSON.stringify(override));
+    store.writeText(ViewerPreferenceUtil.overrideIsEmpty(override) ? null : JSON.stringify(override));
   };
 
   return {
     readRangeOverride:       readStoredOverride,
     writeRangeOverride:      writeStoredOverride,
-    readFinishedWorkChoice:  () => ViewerPreferenceUtil.finishedWorkChoiceFrom(readStoredChoice(finishedWorkChoiceStorageKeyFor(trackerId))),
-    writeFinishedWorkChoice: (choice) => writeStoredChoice(finishedWorkChoiceStorageKeyFor(trackerId), choice, DEFAULT_FINISHED_WORK_CHOICE),
-    readNameColumnWidth:     () => ViewerPreferenceUtil.nameColumnWidthFrom(readStoredChoice(nameColumnWidthStorageKeyFor(trackerId))),
-    writeNameColumnWidth:    (width) => writeStoredChoice(nameColumnWidthStorageKeyFor(trackerId), width, DEFAULT_NAME_COLUMN_WIDTH),
-    readReviewRowsAreShown:  () => readStoredChoice(reviewRowsStorageKeyFor(trackerId)) === REVIEW_ROWS_SHOWN_CHOICE,
-    writeReviewRowsAreShown: (reviewRowsAreShown) => writeStoredChoice(
-      reviewRowsStorageKeyFor(trackerId),
+    readFinishedWorkChoice:  () => ViewerPreferenceUtil.finishedWorkChoiceFrom(store.readChoice(FINISHED_WORK_CHOICE_NAME)),
+    writeFinishedWorkChoice: (choice) => store.writeChoice(FINISHED_WORK_CHOICE_NAME, choice, DEFAULT_FINISHED_WORK_CHOICE),
+    readNameColumnWidth:     () => ViewerPreferenceUtil.nameColumnWidthFrom(store.readChoice(NAME_COLUMN_WIDTH_CHOICE_NAME)),
+    writeNameColumnWidth:    (width) => store.writeChoice(NAME_COLUMN_WIDTH_CHOICE_NAME, width, DEFAULT_NAME_COLUMN_WIDTH),
+    readReviewRowsAreShown:  () => store.readChoice(REVIEW_ROWS_CHOICE_NAME) === REVIEW_ROWS_SHOWN_CHOICE,
+    writeReviewRowsAreShown: (reviewRowsAreShown) => store.writeChoice(
+      REVIEW_ROWS_CHOICE_NAME,
       reviewRowsAreShown ? REVIEW_ROWS_SHOWN_CHOICE : DEFAULT_REVIEW_ROWS_CHOICE,
       DEFAULT_REVIEW_ROWS_CHOICE,
     ),
-    readAbandonedLaneIsOpen:  () => ViewerPreferenceUtil.abandonedLaneIsOpenFrom(readStoredChoice(abandonedLaneStorageKeyFor(trackerId))),
-    writeAbandonedLaneIsOpen: (laneIsOpen) => writeStoredChoice(
-      abandonedLaneStorageKeyFor(trackerId),
+    readAbandonedLaneIsOpen:  () => ViewerPreferenceUtil.abandonedLaneIsOpenFrom(store.readChoice(ABANDONED_LANE_CHOICE_NAME)),
+    writeAbandonedLaneIsOpen: (laneIsOpen) => store.writeChoice(
+      ABANDONED_LANE_CHOICE_NAME,
       ViewerPreferenceUtil.abandonedLaneChoiceFor(laneIsOpen),
       DEFAULT_ABANDONED_LANE_CHOICE,
     ),
-    readCappedLaneShownCount:  (lane) => ViewerPreferenceUtil.shownCountFrom(readStoredChoice(cappedLaneStorageKeyFor(trackerId, lane))),
-    writeCappedLaneShownCount: (lane, shownCount) => writeStoredChoice(
-      cappedLaneStorageKeyFor(trackerId, lane),
+    readCappedLaneShownCount:  (lane) => ViewerPreferenceUtil.shownCountFrom(store.readChoice(CAPPED_LANE_KEY_SUFFIX[lane])),
+    writeCappedLaneShownCount: (lane, shownCount) => store.writeChoice(
+      CAPPED_LANE_KEY_SUFFIX[lane],
       String(shownCount),
       String(CAPPED_LANE_FIRST_PAGE_CARDS),
     ),
-    readTicketsGroupedByEpic:  () => readStoredChoice(ticketGroupingStorageKeyFor(trackerId)) === TICKETS_GROUPED_BY_EPIC_CHOICE,
-    writeTicketsGroupedByEpic: (ticketsAreGrouped) => writeStoredChoice(
-      ticketGroupingStorageKeyFor(trackerId),
+    readTicketsGroupedByEpic:  () => store.readChoice(TICKET_GROUPING_CHOICE_NAME) === TICKETS_GROUPED_BY_EPIC_CHOICE,
+    writeTicketsGroupedByEpic: (ticketsAreGrouped) => store.writeChoice(
+      TICKET_GROUPING_CHOICE_NAME,
       ticketsAreGrouped ? TICKETS_GROUPED_BY_EPIC_CHOICE : DEFAULT_TICKET_GROUPING_CHOICE,
       DEFAULT_TICKET_GROUPING_CHOICE,
     ),
-    readKanbanEpicFilter:  () => readStoredTextList(kanbanEpicFilterStorageKeyFor(trackerId)),
-    writeKanbanEpicFilter: (pressedChips) => writeStoredTextList(kanbanEpicFilterStorageKeyFor(trackerId), pressedChips),
-    readTodoOrder:         () => (readStoredChoice(todoOrderStorageKeyFor(trackerId)) === TODO_ORDER_BY_WAVE_CHOICE ? 'by-wave' : DEFAULT_TODO_ORDER_CHOICE),
-    writeTodoOrder:        (order) => writeStoredChoice(todoOrderStorageKeyFor(trackerId), order, DEFAULT_TODO_ORDER_CHOICE),
-    readFoldedEpicGroups:  () => readStoredTextList(foldedEpicGroupsStorageKeyFor(trackerId)),
-    writeFoldedEpicGroups: (foldedGroupKeys) => writeStoredTextList(foldedEpicGroupsStorageKeyFor(trackerId), foldedGroupKeys),
+    readKanbanEpicFilter:  () => store.readTextList(KANBAN_EPIC_FILTER_CHOICE_NAME),
+    writeKanbanEpicFilter: (pressedChips) => store.writeTextList(KANBAN_EPIC_FILTER_CHOICE_NAME, pressedChips),
+    readTodoOrder:         () => (store.readChoice(TODO_ORDER_CHOICE_NAME) === TODO_ORDER_BY_WAVE_CHOICE ? 'by-wave' : DEFAULT_TODO_ORDER_CHOICE),
+    writeTodoOrder:        (order) => store.writeChoice(TODO_ORDER_CHOICE_NAME, order, DEFAULT_TODO_ORDER_CHOICE),
+    readFoldedEpicGroups:  () => store.readTextList(FOLDED_EPIC_GROUPS_CHOICE_NAME),
+    writeFoldedEpicGroups: (foldedGroupKeys) => store.writeTextList(FOLDED_EPIC_GROUPS_CHOICE_NAME, foldedGroupKeys),
   };
 }
 
 /** The place kept across one idle reload, in the tab's session storage; `take` deletes it, so it is restored once and never outlives the reload. */
 export function createReloadSnapshotStore(trackerId: string, storageOf: () => PreferenceStorage): ReloadSnapshotStore {
+  const store = createPreferenceStore(RELOAD_SNAPSHOT_STORAGE_KEY, storageOf);
   return {
-    write: (snapshot) => {
-      try {
-        storageOf().setItem(RELOAD_SNAPSHOT_STORAGE_KEY, JSON.stringify(snapshot));
-      } catch {
-        // The reload still happens, only without the place.
+    write: (snapshot) => store.writeText(JSON.stringify(snapshot)),
+    take:  () => {
+      const stored = store.readText();
+      if (stored === null) {
+        return null;
       }
-    },
-    take: () => {
+      store.writeText(null);
       try {
-        const stored = storageOf().getItem(RELOAD_SNAPSHOT_STORAGE_KEY);
-        if (stored === null) {
-          return null;
-        }
-        storageOf().removeItem(RELOAD_SNAPSHOT_STORAGE_KEY);
         return ViewerPreferenceUtil.reloadSnapshotFrom(JSON.parse(stored), trackerId);
       } catch {
         return null;
