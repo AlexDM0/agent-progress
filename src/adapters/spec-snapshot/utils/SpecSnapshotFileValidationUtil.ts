@@ -2,7 +2,7 @@
 import { JsonRecordUtil }                               from '../../../lib/json-record/JsonRecordUtil.ts';
 import type { SpecArtefactKind }                        from '../../../lib/spec-snapshot/@types/SpecSnapshot.ts';
 import type { SourcePhaseKind }                         from '../../../lib/spec-snapshot/@types/SpecSnapshotSource.ts';
-import { SPEC_LANES, WORK_ITEM_STATES, type SpecStage } from '../../../lib/spec-snapshot/constants/SpecLanes.ts';
+import { SPEC_LANES, WORK_ITEM_STATES, type SpecStage } from '../../../lib/spec-snapshot/constants/SpecSnapshotVocabulary.ts';
 import { StoredValueUtil }                              from '../../utils/StoredValueUtil.ts';
 import type { StoredSpecSnapshotFile }                  from '../@types/StoredSpecSnapshotFile.ts';
 import { CURRENT_SPEC_SNAPSHOT_FILE_VERSION }           from '../constants/SpecSnapshotFile.ts';
