@@ -1,10 +1,22 @@
 import type { TicketStatus } from '../../src/lib/tracker-model/@types/Ticket.ts';
 
+/** What the graph needs of any item it lays out. */
+export interface DependencyGraphItem {
+  id:         string;
+  dependsOn?: readonly string[];
+}
+
+/** How the graph reads an item that is not a ticket. */
+export interface DependencyGraphReaders<Item extends DependencyGraphItem> {
+  /** A settled item no longer holds its dependents back. */
+  settlesDependents: (item: Item) => boolean;
+  /** Links between items of different primary groups become cross-group links. */
+  primaryGroupKeyOf: (item: Item) => string | null;
+}
+
 /** What the dependency views need of a ticket; a `BoardTicket` is one. */
-export interface DependencyGraphTicket {
-  id:            string;
+export interface DependencyGraphTicket extends DependencyGraphItem {
   status:        TicketStatus;
-  dependsOn?:    readonly string[];
   /** Primary epic first. */
   memberOfEpics: readonly { key: string }[];
 }

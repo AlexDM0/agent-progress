@@ -117,7 +117,14 @@
                               .ap-spec-task-bar, .ap-spec-task-count) and
                               ul.ap-spec-stage-dates (.ap-spec-stage-name, each
                               boundary's time and .ap-spec-stage-source)
-   #ap-spec-dependencies      the Dependencies view's container
+   #ap-spec-dependencies      the Dependencies view's container, in a scrolling
+                              .ap-card.ap-dependencies: the tracker template's
+                              waves canvas without slot meters or the legend's
+                              slot line, nodes button.ap-dependency-node
+                              [data-open-work-item] led by the phase tag, a state
+                              .ap-badge and .ap-spec-dependency-chip (the spec's
+                              swatch and number); empty, it holds
+                              p.ap-dependency-empty
    #ap-spec-<name>-empty      each panel's empty state, [hidden] while the
                               snapshot holds a spec
  #ap-detail                   the detail panel, a non-modal <dialog> with the
@@ -209,6 +216,8 @@
 .ap-spec-waiting-tag { background: none; cursor: pointer; }
 .ap-spec-waiting-tag:hover { border-color: var(--link); color: var(--link); }
 .ap-spec-ticket-table td:nth-child(3) { white-space: nowrap; }
+.ap-spec-dependency-chip { flex: none; display: inline-flex; align-items: center; gap: 4px; font: var(--fs-micro)/1 var(--font-mono); color: var(--ink-muted); white-space: nowrap; }
+.ap-dependency-node-head .ap-ticket-id { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -343,7 +352,7 @@
 </section>
 
 <section data-panel="dependencies" role="tabpanel" id="ap-panel-dependencies" aria-labelledby="ap-tab-dependencies" hidden>
-  <div class="ap-card">
+  <div class="ap-card ap-dependencies">
     <div id="ap-spec-dependencies"></div>
     <div class="ap-empty" id="ap-spec-dependencies-empty" hidden>No specs yet, so no dependencies.</div>
   </div>

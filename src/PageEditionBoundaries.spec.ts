@@ -37,6 +37,7 @@ const TRACKER_PAGE_ONLY_MODULES = [
   'page/kanban/KanbanEpicFilterController.ts',
   'page/epics/EpicDependencyMarkup.ts',
   'page/tickets/TicketsController.ts',
+  'page/dependencies/DependencyMarkup.ts',
 ];
 
 /** Attributes tracker-page controllers read and write, which a spec view's markup must not wake. */
@@ -57,6 +58,8 @@ const SHARED_HOOK_ATTRIBUTES = [
   'data-lane-more',
   'data-lane-reset',
   'data-epic-chip',
+  'data-ready',
+  'data-in-review',
 ];
 
 const MARKUP_TOKEN_PATTERN = /(?<![a-z0-9-])ap-[a-z0-9-]+/g;
@@ -166,6 +169,15 @@ describe('edition isolation', () => {
     const graph = specPageEntryWith('import { createDetailDialogController } from \'../detail-dialog/DetailDialogController.ts\';\n');
 
     expect(trackerPageOnlyModulesReachedFrom(graph, SPEC_PAGE_ENTRY, TRACKER_PAGE_ONLY_MODULES)).toContain('page/detail-dialog/DetailDialogController.ts');
+  });
+
+  test('the spec dependency nodes importing the tracker page dependency mapper are caught, and pass without it', () => {
+    const specDependencyNodes = 'page/spec/dependencies/WorkItemDependencyNodes.ts';
+    const plant               = 'import { DependencyMarkup } from \'../../dependencies/DependencyMarkup.ts\';\n';
+    const planted             = SCANNER.graphWithPlantedFiles({ [specDependencyNodes]: `${plant}${SCANNER.graph.sourceTextOf(specDependencyNodes)}` });
+
+    expect(trackerPageOnlyModulesReachedFrom(planted, SPEC_PAGE_ENTRY, TRACKER_PAGE_ONLY_MODULES)).toEqual(['page/dependencies/DependencyMarkup.ts']);
+    expect(trackerPageOnlyModulesReachedFrom(SCANNER.graph, SPEC_PAGE_ENTRY, TRACKER_PAGE_ONLY_MODULES)).toEqual([]);
   });
 
   test('every TRACKER_PAGE_ONLY_MODULES entry names a module the tracker page reaches', () => {

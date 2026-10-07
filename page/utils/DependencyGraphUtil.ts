@@ -7,6 +7,8 @@ import { TICKET_STATUSES_THAT_SETTLE_A_DEPENDENCY } from '../../src/lib/tracker-
 import type {
   CrossEpicLink,
   DependencyGraph,
+  DependencyGraphItem,
+  DependencyGraphReaders,
   DependencyGraphTicket,
   DependencyWave
 } from '../@types/DependencyGraph.ts';
@@ -57,12 +59,30 @@ function wavesMeasured(openTicketIds: readonly string[], openDependenciesOf: (ti
   return { waveOfTicket, measuredDependenciesOfTicket };
 }
 
-function dependencyGraphOf(tickets: readonly DependencyGraphTicket[], concurrencyLimit: number): DependencyGraph {
-  const ticketById = new Map(tickets.filter((ticket) => ticket.status !== 'abandoned').map((ticket) => [ticket.id, ticket] as const));
+const TICKET_READERS: DependencyGraphReaders<DependencyGraphTicket> = {
+  settlesDependents: (ticket) => TICKET_STATUSES_THAT_SETTLE_A_DEPENDENCY.includes(ticket.status),
+  primaryGroupKeyOf: (ticket) => ticket.memberOfEpics[0]?.key ?? null,
+};
+
+/** Tickets are read by their status and primary epic, abandoned ones leaving the graph; any other item needs its readers. */
+function dependencyGraphOf(tickets: readonly DependencyGraphTicket[], concurrencyLimit: number): DependencyGraph;
+function dependencyGraphOf<Item extends DependencyGraphItem>(items: readonly Item[], concurrencyLimit: number, readers: DependencyGraphReaders<Item>): DependencyGraph;
+
+function dependencyGraphOf<Item extends DependencyGraphItem>(items: readonly Item[], concurrencyLimit: number, readers?: DependencyGraphReaders<Item>): DependencyGraph {
+  if (readers === undefined) {
+    // The first overload is the only one without readers, so the items are tickets.
+    const tickets = items as readonly DependencyGraphItem[] as readonly DependencyGraphTicket[];
+    return graphOf(tickets.filter((ticket) => ticket.status !== 'abandoned'), concurrencyLimit, TICKET_READERS);
+  }
+  return graphOf(items, concurrencyLimit, readers);
+}
+
+function graphOf<Item extends DependencyGraphItem>(items: readonly Item[], concurrencyLimit: number, readers: DependencyGraphReaders<Item>): DependencyGraph {
+  const ticketById = new Map(items.map((item) => [item.id, item] as const));
   const ticketIds  = [...ticketById.keys()].sort(byLowestId);
   const isSettled  = (ticketId: string): boolean => {
     const ticket = ticketById.get(ticketId);
-    return ticket !== undefined && TICKET_STATUSES_THAT_SETTLE_A_DEPENDENCY.includes(ticket.status);
+    return ticket !== undefined && readers.settlesDependents(ticket);
   };
   const isOpen = (ticketId: string): boolean => ticketById.has(ticketId) && !isSettled(ticketId);
 
@@ -115,7 +135,10 @@ function dependencyGraphOf(tickets: readonly DependencyGraphTicket[], concurrenc
     return [ticketId, unlocked] as const;
   }));
 
-  const primaryEpicKeyOf = (ticketId: string): string | null => ticketById.get(ticketId)?.memberOfEpics[0]?.key ?? null;
+  const primaryEpicKeyOf = (ticketId: string): string | null => {
+    const ticket = ticketById.get(ticketId);
+    return ticket === undefined ? null : readers.primaryGroupKeyOf(ticket);
+  };
   const crossEpicLinks = ticketIds.flatMap((dependentTicketId) => knownDependenciesOf(dependentTicketId).flatMap((dependencyTicketId): CrossEpicLink[] => {
     const dependentEpicKey  = primaryEpicKeyOf(dependentTicketId);
     const dependencyEpicKey = primaryEpicKeyOf(dependencyTicketId);

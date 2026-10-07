@@ -1,7 +1,8 @@
 /**
  * The spec page's browser entry: it reads the spec island of `resources/spec-template.html` and fills the frame through the shared shell, the
  * status line as a snapshot's, the header from the spec header model, the edition badge, the unreadable entries' banner, the Kanban's two
- * bands with their behaviour, the Tickets tab's table and the Specs tab's cards, and wires the detail panel on the spec page's own targets.
+ * bands with their behaviour, the Tickets tab's table, the Specs tab's cards and the Dependencies tab's wave graph with its lineage, and
+ * wires the detail panel on the spec page's own targets.
  */
 
 import type { SpecSnapshot } from '../../src/lib/spec-snapshot/@types/SpecSnapshot.ts';
@@ -14,20 +15,25 @@ import {
   STATUS_LABEL_ELEMENT_ID,
   SUMMARY_ELEMENT_ID,
 } from '../constants/TemplateIds.ts';
-import { createDetailPanelController } from '../detail-dialog/DetailPanelController.ts';
-import { headerStatisticsMarkup }      from '../header/HeaderMarkup.ts';
-import { showStatusLine }              from '../header/StatusLine.ts';
-import { HeaderFigureUtil }            from '../header/utils/HeaderFigureUtil.ts';
-import { BROWSER_STORAGE_AREAS }       from '../preferences/PreferenceStore.ts';
-import { createFragmentRouter }        from '../shell/FragmentRouter.ts';
-import { PageShell }                   from '../shell/PageShell.ts';
-import { DomUtil }                     from '../utils/DomUtil.ts';
-import { TimeUtil }                    from '../utils/TimeUtil.ts';
-import { unreadableEntriesMarkup }     from './UnreadableEntriesMarkup.ts';
-import { SPEC_DETAIL_LINK_OPENERS }    from './detail-dialog/SpecDetailTargets.ts';
-import { specDetailTargetsOf }         from './detail-dialog/SpecDetailTargets.ts';
-import { specEditionBadgeMarkup }      from './header/SpecEditionBadgeMarkup.ts';
-import { specHeaderModelOf }           from './header/SpecHeaderModel.ts';
+import { createDependencyLineageController } from '../dependencies/DependencyLineageController.ts';
+import { waveGraphMarkup }                   from '../dependencies/WaveGraphMarkup.ts';
+import { createDetailPanelController }       from '../detail-dialog/DetailPanelController.ts';
+import { headerStatisticsMarkup }            from '../header/HeaderMarkup.ts';
+import { showStatusLine }                    from '../header/StatusLine.ts';
+import { HeaderFigureUtil }                  from '../header/utils/HeaderFigureUtil.ts';
+import { BROWSER_STORAGE_AREAS }             from '../preferences/PreferenceStore.ts';
+import { createFragmentRouter }              from '../shell/FragmentRouter.ts';
+import { PageShell }                         from '../shell/PageShell.ts';
+import { DependencyGraphUtil }               from '../utils/DependencyGraphUtil.ts';
+import { DomUtil }                           from '../utils/DomUtil.ts';
+import { TimeUtil }                          from '../utils/TimeUtil.ts';
+import { unreadableEntriesMarkup }           from './UnreadableEntriesMarkup.ts';
+import { SPEC_MARK_VOCABULARY }              from './constants/SpecMarkVocabulary.ts';
+import { WorkItemDependencyNodes }           from './dependencies/WorkItemDependencyNodes.ts';
+import { SPEC_DETAIL_LINK_OPENERS }          from './detail-dialog/SpecDetailTargets.ts';
+import { specDetailTargetsOf }               from './detail-dialog/SpecDetailTargets.ts';
+import { specEditionBadgeMarkup }            from './header/SpecEditionBadgeMarkup.ts';
+import { specHeaderModelOf }                 from './header/SpecHeaderModel.ts';
 import {
   createSpecKanbanController,
   SPEC_KANBAN_MARKUP_CONTAINER_IDS,
@@ -60,9 +66,10 @@ const DEPENDENCIES_EMPTY_ELEMENT_ID = 'ap-spec-dependencies-empty';
 
 const CONSTITUTION_ELEMENT_ID = 'ap-spec-constitution';
 const SPEC_CARDS_ELEMENT_ID   = 'ap-spec-specs';
+const DEPENDENCIES_ELEMENT_ID = 'ap-spec-dependencies';
 
 const VIEW_CONTAINER_IDS = [
-  ...SPEC_KANBAN_MARKUP_CONTAINER_IDS, CHART_ELEMENT_ID, ...SPEC_TICKETS_MARKUP_CONTAINER_IDS, CONSTITUTION_ELEMENT_ID, SPEC_CARDS_ELEMENT_ID, 'ap-spec-dependencies',
+  ...SPEC_KANBAN_MARKUP_CONTAINER_IDS, CHART_ELEMENT_ID, ...SPEC_TICKETS_MARKUP_CONTAINER_IDS, CONSTITUTION_ELEMENT_ID, SPEC_CARDS_ELEMENT_ID, DEPENDENCIES_ELEMENT_ID,
 ];
 
 const OWNED_MARKUP_CONTAINER_IDS = [
@@ -110,6 +117,21 @@ function showHeader(snapshot: SpecSnapshot, limits: PageLimits): void {
   DomUtil.setHidden(EDITION_BADGE_ELEMENT_ID, badgeMarkup === null);
 }
 
+/** With no spec the panel's own empty state speaks, so the graph is drawn only over a snapshot holding one. */
+function showDependencies(snapshot: SpecSnapshot): void {
+  if (snapshot.specs.length === 0) {
+    return;
+  }
+  // A slot count of 0 is never shown: the spec graph has no slot meter.
+  const graph = DependencyGraphUtil.dependencyGraphOf(WorkItemDependencyNodes.graphItemsOf(snapshot), 0, WorkItemDependencyNodes.WORK_ITEM_GRAPH_READERS);
+  DomUtil.setMarkup(DEPENDENCIES_ELEMENT_ID, waveGraphMarkup(graph, WorkItemDependencyNodes.nodeByIdOf(snapshot), WorkItemDependencyNodes.graphOptionsOf(snapshot)));
+  createDependencyLineageController({
+    containerElementId: DEPENDENCIES_ELEMENT_ID,
+    readGraph:          () => graph,
+    nodeIdAttribute:    SPEC_MARK_VOCABULARY.itemOpenerAttribute,
+  }).wire();
+}
+
 function startSpecPage(): void {
   PageShell.clearOwnedContainers(OWNED_MARKUP_CONTAINER_IDS, OWNED_TEXT_CONTAINER_IDS);
   const payload = specPagePayloadFrom(PageShell.islandContentsOf(SPEC_ISLAND_ELEMENT_ID));
@@ -128,6 +150,8 @@ function startSpecPage(): void {
   const format               = { limits, todayCalendarDate: TimeUtil.calendarDateOf(nowEpochMilliseconds), nowEpochMilliseconds };
   DomUtil.setMarkup(CONSTITUTION_ELEMENT_ID, constitutionCardMarkup(snapshot.constitution));
   DomUtil.setMarkup(SPEC_CARDS_ELEMENT_ID, SpecCardMarkup.specCardsMarkup(snapshot.specs, format));
+
+  showDependencies(snapshot);
 
   DomUtil.setMarkup(UNREADABLE_LIST_ELEMENT_ID, unreadableEntriesMarkup(snapshot.unreadable));
   DomUtil.setHidden(UNREADABLE_BANNER_ELEMENT_ID, snapshot.unreadable.length === 0);
