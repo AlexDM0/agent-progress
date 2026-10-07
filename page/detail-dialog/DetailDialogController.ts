@@ -11,6 +11,7 @@ import {
   TASK_ROWS_ELEMENT_ID,
   TICKET_ROWS_ELEMENT_ID,
 } from '../constants/TemplateIds.ts';
+import { EPIC_MARK_VOCABULARY }                            from '../epics/EpicMarkVocabulary.ts';
 import { EpicMarkup }                                      from '../epics/EpicMarkup.ts';
 import { GeometryUtil }                                    from '../utils/GeometryUtil.ts';
 import type { DetailLinkOpener, DetailTargetRegistration } from './@types/DetailTargetRegistration.ts';
@@ -25,6 +26,8 @@ const TASK_ROW_SELECTOR    = `#${TASK_ROWS_ELEMENT_ID} > .ap-row[data-task-id]`;
 const TICKET_ROW_SELECTOR  = `#${TICKET_ROWS_ELEMENT_ID} > tr[data-ticket-id]`;
 const KANBAN_CARD_SELECTOR = `#${KANBAN_BOARD_ELEMENT_ID} .ap-kanban-card`;
 
+const { chipOpenerAttribute, titleOpenerAttribute, itemOpenerAttribute } = EPIC_MARK_VOCABULARY;
+
 export interface DetailDialogSources {
   rows:                  readonly BoardRow[];
   tickets:               readonly BoardTicket[];
@@ -38,8 +41,12 @@ export interface DetailDialogSources {
 
 /** An epic chip or title anywhere opens its epic; a ticket line inside an epic's list opens that ticket. */
 export const TRACKER_DETAIL_LINK_OPENERS: readonly DetailLinkOpener<DetailTargetKind>[] = [
-  { kind: 'epic',   selector: '.ap-epic-chip[data-epic], [data-open-epic]', idOf: (link) => link.dataset['epic'] ?? link.dataset['openEpic'] ?? '' },
-  { kind: 'ticket', selector: '[data-open-ticket]',                          idOf: (link) => link.dataset['openTicket'] ?? '' },
+  {
+    kind:     'epic',
+    selector: `.ap-epic-chip[${chipOpenerAttribute}], [${titleOpenerAttribute}]`,
+    idOf:     (link) => link.getAttribute(chipOpenerAttribute) ?? link.getAttribute(titleOpenerAttribute) ?? '',
+  },
+  { kind: 'ticket', selector: `[${itemOpenerAttribute}]`, idOf: (link) => link.getAttribute(itemOpenerAttribute) ?? '' },
 ];
 
 function markCoveredTickLabels(): void {
@@ -109,8 +116,8 @@ export function trackerDetailTargetsOf(sources: DetailDialogSources): Readonly<R
     },
     'epic': {
       openerSelector: null,
-      idOf:           (opener) => opener.dataset['openEpic'] ?? '',
-      selectorFor:    (escapedId) => `#${EPICS_BOARD_ELEMENT_ID} [data-open-epic="${escapedId}"]`,
+      idOf:           (opener) => opener.getAttribute(titleOpenerAttribute) ?? '',
+      selectorFor:    (escapedId) => `#${EPICS_BOARD_ELEMENT_ID} [${titleOpenerAttribute}="${escapedId}"]`,
       markupOf:       (epicKey) => {
         const epic = sources.epics.find((candidate) => candidate.key === epicKey);
         return epic === undefined ? '' : EpicMarkup.epicDetailMarkup(epic, ticketById, {

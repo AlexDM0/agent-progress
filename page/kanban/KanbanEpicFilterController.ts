@@ -3,6 +3,7 @@
 import type { BoardEpic, BoardTicket } from '../@types/PageBoard.ts';
 import type { ViewerPreferences }      from '../@types/ViewerChoices.ts';
 import { NO_EPIC_CHIP }                from '../constants/EpicChips.ts';
+import { EPIC_MARK_VOCABULARY }        from '../epics/EpicMarkVocabulary.ts';
 import { EpicMarkup }                  from '../epics/EpicMarkup.ts';
 import { DomUtil }                     from '../utils/DomUtil.ts';
 import { EpicChipUtil }                from '../utils/EpicChipUtil.ts';
@@ -10,6 +11,8 @@ import { EpicChipUtil }                from '../utils/EpicChipUtil.ts';
 const EPIC_STRIP_ELEMENT_ID   = 'ap-kanban-epics';
 const EPIC_CHIPS_ELEMENT_ID   = 'ap-kanban-epic';
 const EPIC_ROLLUPS_ELEMENT_ID = 'ap-kanban-epic-rollups';
+
+const { filterChipAttribute } = EPIC_MARK_VOCABULARY;
 
 interface KanbanEpicFilterSources {
   epics:       readonly BoardEpic[];
@@ -37,8 +40,8 @@ export function createKanbanEpicFilterController(sources: KanbanEpicFilterSource
   }
 
   const render = (): void => {
-    for (const button of document.querySelectorAll<HTMLElement>(`#${EPIC_CHIPS_ELEMENT_ID} [data-epic-chip]`)) {
-      const chip  = button.dataset['epicChip'] ?? '';
+    for (const button of document.querySelectorAll<HTMLElement>(`#${EPIC_CHIPS_ELEMENT_ID} [${filterChipAttribute}]`)) {
+      const chip  = button.getAttribute(filterChipAttribute) ?? '';
       const count = ticketCountByChip.get(chip) ?? 0;
       button.setAttribute('aria-pressed', String(pressedChips.includes(chip)));
       button.toggleAttribute('data-empty', count === 0);
@@ -60,11 +63,11 @@ export function createKanbanEpicFilterController(sources: KanbanEpicFilterSource
       DomUtil.setMarkup(EPIC_CHIPS_ELEMENT_ID, EpicMarkup.epicFilterChipsMarkup(epics));
       render();
       document.getElementById(EPIC_CHIPS_ELEMENT_ID)?.addEventListener('click', (event) => {
-        const button = event.target instanceof Element ? event.target.closest('[data-epic-chip]') : null;
+        const button = event.target instanceof Element ? event.target.closest(`[${filterChipAttribute}]`) : null;
         if (!(button instanceof HTMLElement)) {
           return;
         }
-        const chip   = button.dataset['epicChip'] ?? '';
+        const chip   = button.getAttribute(filterChipAttribute) ?? '';
         pressedChips = pressedChips.includes(chip) ? pressedChips.filter((pressed) => pressed !== chip) : [...pressedChips, chip];
         preferences.writeKanbanEpicFilter(pressedChips);
         render();

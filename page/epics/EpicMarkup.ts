@@ -4,20 +4,21 @@
  * passes `escapeHtml` once, except an epic's `descriptionHtml`, already escaped by `src/services/render/MarkdownRenderer.ts`.
  */
 
-import { HtmlEscapeUtil }                from '../../src/lib/html-escape/HtmlEscapeUtil.ts';
-import { TokenCountUtil }                from '../../src/lib/token-count/TokenCountUtil.ts';
-import type { TicketStatus }             from '../../src/lib/tracker-model/@types/Ticket.ts';
-import { FIRST_REPEAT_REVIEW_ROUND }     from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
-import type { PageLimits }               from '../../src/shared/@types/PagePayload.ts';
-import type { DependencyGraph }          from '../@types/DependencyGraph.ts';
-import type { BoardEpic, BoardTicket }   from '../@types/PageBoard.ts';
-import { NO_EPIC_CHIP }                  from '../constants/EpicChips.ts';
-import { STATE_LABEL_FOR_DISPLAY_STATE } from '../constants/StateLabels.ts';
-import { DetailMarkupUtil }              from '../detail-dialog/utils/DetailMarkupUtil.ts';
-import { MarkupUtil }                    from '../utils/MarkupUtil.ts';
-import { TimeUtil }                      from '../utils/TimeUtil.ts';
-import { WorkItemMarkupUtil }            from '../utils/WorkItemMarkupUtil.ts';
-import { EpicDependencyMarkup }          from './EpicDependencyMarkup.ts';
+import { HtmlEscapeUtil }              from '../../src/lib/html-escape/HtmlEscapeUtil.ts';
+import { TokenCountUtil }              from '../../src/lib/token-count/TokenCountUtil.ts';
+import type { TicketStatus }           from '../../src/lib/tracker-model/@types/Ticket.ts';
+import { FIRST_REPEAT_REVIEW_ROUND }   from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
+import type { PageLimits }             from '../../src/shared/@types/PagePayload.ts';
+import type { DependencyGraph }        from '../@types/DependencyGraph.ts';
+import type { GroupRollupModel }       from '../@types/GroupMarks.ts';
+import type { BoardEpic, BoardTicket } from '../@types/PageBoard.ts';
+import { DetailMarkupUtil }            from '../detail-dialog/utils/DetailMarkupUtil.ts';
+import { MarkupUtil }                  from '../utils/MarkupUtil.ts';
+import { TimeUtil }                    from '../utils/TimeUtil.ts';
+import { WorkItemMarkupUtil }          from '../utils/WorkItemMarkupUtil.ts';
+import { EpicDependencyMarkup }        from './EpicDependencyMarkup.ts';
+import { EPIC_MARK_VOCABULARY }        from './EpicMarkVocabulary.ts';
+import { GroupMarkup }                 from './GroupMarkup.ts';
 
 /** A Kanban card and a table line show this many epic chips, then "+N" for the rest. */
 export const CARD_EPIC_CHIP_LIMIT = 2;
@@ -25,7 +26,6 @@ export const CARD_EPIC_CHIP_LIMIT = 2;
 /** The roll-up bar's segments, settled work first. */
 const ROLLUP_STATUS_ORDER: readonly TicketStatus[] = ['delivered', 'reviewed', 'in-review', 'in-progress', 'pending', 'abandoned'];
 
-const SWATCH_MARKUP = '<span class="ap-epic-swatch"></span>';
 /** The first paragraph of a rendered description, which the Epics tab's card shows as its summary. */
 const FIRST_PARAGRAPH_PATTERN = /<p>([\s\S]*?)<\/p>/;
 
@@ -56,35 +56,24 @@ function doneTextOf(epic: BoardEpic): string {
   return `${doneTicketCountOf(epic)} of ${epic.ticketIds.length} done`;
 }
 
-function epicChipMarkup(epic: BoardEpic): string {
-  return `<button type="button" class="ap-epic-chip" ${MarkupUtil.attribute('data-epic', epic.key)} ${slotAttribute(epic)} ${MarkupUtil.attribute('title', `Epic: ${epic.title}`)}>`
-    + `${SWATCH_MARKUP}<span class="ap-epic-chip-text">${HtmlEscapeUtil.escapeHtml(epic.title)}</span></button>`;
-}
-
 /** Up to `limit` chips, then a "+N" naming the rest on hover. */
 function epicChipsMarkup(epics: readonly BoardEpic[], limit = Number.POSITIVE_INFINITY): string {
-  const chips = epics.slice(0, limit).map(epicChipMarkup);
-  const rest  = epics.slice(limit);
-  if (rest.length > 0) {
-    chips.push(`<span class="ap-epic-more" ${MarkupUtil.attribute('title', `Also in ${rest.map((epic) => epic.title).join(', ')}`)}>+${rest.length}</span>`);
-  }
-  return chips.join('');
+  return GroupMarkup.groupChipsMarkup(epics, EPIC_MARK_VOCABULARY, limit);
+}
+
+function epicRollupOf(epic: BoardEpic): GroupRollupModel {
+  return {
+    segments:  ROLLUP_STATUS_ORDER.filter((status) => countOf(epic, status) > 0).map((status) => ({ state: status, count: countOf(epic, status) })),
+    ariaLabel: `${doneTextOf(epic)} tickets`,
+  };
 }
 
 function epicProgressMarkup(epic: BoardEpic): string {
-  const segments = ROLLUP_STATUS_ORDER.filter((status) => countOf(epic, status) > 0).map((status) => (
-    `<span ${MarkupUtil.attribute('data-state', status)} style="flex-grow:${countOf(epic, status)}" `
-    + `${MarkupUtil.attribute('title', `${STATE_LABEL_FOR_DISPLAY_STATE[status]}: ${countOf(epic, status)}`)}></span>`
-  ));
-  return `<div class="ap-epic-progress" role="img" ${MarkupUtil.attribute('aria-label', `${doneTextOf(epic)} tickets`)}>${segments.join('')}</div>`;
+  return GroupMarkup.rollupBarMarkup(epicRollupOf(epic));
 }
 
 function epicLegendMarkup(epic: BoardEpic): string {
-  const items = ROLLUP_STATUS_ORDER.filter((status) => countOf(epic, status) > 0).map((status) => (
-    `<li><span class="ap-lane-dot" ${MarkupUtil.attribute('data-state', status)}></span>`
-    + `${HtmlEscapeUtil.escapeHtml(STATE_LABEL_FOR_DISPLAY_STATE[status])} <b>${countOf(epic, status)}</b></li>`
-  ));
-  return `<ul class="ap-epic-legend">${items.join('')}</ul>`;
+  return GroupMarkup.rollupLegendMarkup(epicRollupOf(epic));
 }
 
 function spanMarkup(epic: BoardEpic, format: EpicMarkupFormat): string {
@@ -120,16 +109,12 @@ function epicRollupFactsMarkup(epic: BoardEpic, format: EpicMarkupFormat): strin
 }
 
 /** The ticket's other epics as squares, led by "also in", or by "+" where the squares stand alone. */
-function alsoInMarkup(epics: readonly BoardEpic[], leadText = 'also in '): string {
-  if (epics.length === 0) {
-    return '';
-  }
-  const swatches = epics.map((epic) => `<span class="ap-epic-swatch" ${slotAttribute(epic)}></span>`).join('');
-  return `<span class="ap-epic-also" ${MarkupUtil.attribute('title', `Also in ${epics.map((epic) => epic.title).join(', ')}`)}>${leadText}${swatches}</span>`;
+function alsoInMarkup(epics: readonly BoardEpic[]): string {
+  return GroupMarkup.otherGroupSquaresMarkup(epics, 'also in ');
 }
 
 function otherEpicSquaresMarkup(epics: readonly BoardEpic[]): string {
-  return alsoInMarkup(epics, '+');
+  return GroupMarkup.otherGroupSquaresMarkup(epics, '+');
 }
 
 /** Newest first; each line opens its ticket's own detail. */
@@ -139,7 +124,7 @@ function epicTicketListMarkup(epic: BoardEpic, ticketById: ReadonlyMap<string, B
     .toSorted((a, b) => Number(b.id) - Number(a.id))
     .map((ticket) => {
       const label = WorkItemMarkupUtil.stateLabelOf(ticket.displayState, ticket.ownRow?.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND);
-      return `<li><button type="button" class="ap-epic-ticket" ${MarkupUtil.attribute('data-open-ticket', ticket.id)}>`
+      return `<li><button type="button" class="ap-epic-ticket" ${MarkupUtil.attribute(EPIC_MARK_VOCABULARY.itemOpenerAttribute, ticket.id)}>`
         + `<span class="ap-ticket-id">#${HtmlEscapeUtil.escapeHtml(ticket.id)}</span>`
         + `<span class="ap-epic-ticket-title">${HtmlEscapeUtil.escapeHtml(ticket.title)}${alsoInMarkup(ticket.memberOfEpics.filter((other) => other.key !== epic.key))}</span>`
         + `<span class="ap-badge" ${MarkupUtil.attribute('data-state', ticket.displayState)}>${HtmlEscapeUtil.escapeHtml(label)}</span></button></li>`;
@@ -158,7 +143,7 @@ function settledTextOf(epic: BoardEpic): string {
 function epicDetailMarkup(epic: BoardEpic, ticketById: ReadonlyMap<string, BoardTicket>, format: EpicMarkupFormat): string {
   return [
     `<div class="ap-epic-detail" ${slotAttribute(epic)}>`,
-    `<div class="ap-detail-head">${SWATCH_MARKUP}<h2 class="ap-detail-title">${HtmlEscapeUtil.escapeHtml(epic.title)}</h2>`,
+    `<div class="ap-detail-head">${GroupMarkup.swatchMarkup()}<h2 class="ap-detail-title">${HtmlEscapeUtil.escapeHtml(epic.title)}</h2>`,
     `<span class="ap-detail-type">epic</span><span class="ap-detail-type">${HtmlEscapeUtil.escapeHtml(settledTextOf(epic))}</span></div>`,
     `<div class="ap-ticket-meta">${plainFactMarkup('key', epic.key)}${plainFactMarkup('tickets', String(epic.ticketIds.length))}</div>`,
     DetailMarkupUtil.sectionMarkup('Progress', `${epicProgressMarkup(epic)}${epicLegendMarkup(epic)}${epicRollupFactsMarkup(epic, format)}`),
@@ -174,7 +159,8 @@ function epicsInShownOrder(epics: readonly BoardEpic[]): BoardEpic[] {
 }
 
 function epicTitleButtonMarkup(epic: BoardEpic): string {
-  return `<button type="button" class="ap-epic-title" ${MarkupUtil.attribute('data-open-epic', epic.key)}>${SWATCH_MARKUP}${HtmlEscapeUtil.escapeHtml(epic.title)}</button>`;
+  const opener = MarkupUtil.attribute(EPIC_MARK_VOCABULARY.titleOpenerAttribute, epic.key);
+  return `<button type="button" class="ap-epic-title" ${opener}>${GroupMarkup.swatchMarkup()}${HtmlEscapeUtil.escapeHtml(epic.title)}</button>`;
 }
 
 function epicCardMarkup(epic: BoardEpic, ticketById: ReadonlyMap<string, BoardTicket>, graph: DependencyGraph, format: EpicMarkupFormat): string {
@@ -215,20 +201,24 @@ function epicGroupRowMarkup(epic: BoardEpic | null, columnCount: number, format:
 
 /** One chip per epic in shown order, then the no-epic chip; the counts and pressed states are the controller's to set. */
 function epicFilterChipsMarkup(epics: readonly BoardEpic[]): string {
+  const { filterChipAttribute, noGroupChip } = EPIC_MARK_VOCABULARY;
   const chips = epicsInShownOrder(epics).map((epic) => (
-    `<button type="button" class="ap-chip" ${MarkupUtil.attribute('data-epic-chip', epic.key)} ${slotAttribute(epic)} aria-pressed="false">`
-    + `${SWATCH_MARKUP}${HtmlEscapeUtil.escapeHtml(epic.title)} <span class="ap-chip-count"></span></button>`
+    `<button type="button" class="ap-chip" ${MarkupUtil.attribute(filterChipAttribute, epic.key)} ${slotAttribute(epic)} aria-pressed="false">`
+    + `${GroupMarkup.swatchMarkup()}${HtmlEscapeUtil.escapeHtml(epic.title)} <span class="ap-chip-count"></span></button>`
   ));
-  chips.push(`<button type="button" class="ap-chip" ${MarkupUtil.attribute('data-epic-chip', NO_EPIC_CHIP)} aria-pressed="false">`
-    + 'no epic <span class="ap-chip-count"></span></button>');
+  if (noGroupChip !== null) {
+    chips.push(`<button type="button" class="ap-chip" ${MarkupUtil.attribute(filterChipAttribute, noGroupChip.key)} aria-pressed="false">`
+      + `${HtmlEscapeUtil.escapeHtml(noGroupChip.label)} <span class="ap-chip-count"></span></button>`);
+  }
   return chips.join('');
 }
 
 /** The Kanban strip's roll-up of one pressed epic. */
 function epicStripRollupMarkup(epic: BoardEpic): string {
+  const opener = MarkupUtil.attribute(EPIC_MARK_VOCABULARY.titleOpenerAttribute, epic.key);
   return `<div class="ap-epic-strip-rollup" ${slotAttribute(epic)}>${epicProgressMarkup(epic)}`
     + `<span>${HtmlEscapeUtil.escapeHtml(`${doneTextOf(epic)} · ${TokenCountUtil.formatTokenCount(epic.tokens)} tokens`)}</span>`
-    + `<button type="button" class="ap-link-button" ${MarkupUtil.attribute('data-open-epic', epic.key)}>${HtmlEscapeUtil.escapeHtml(epic.title)} details</button></div>`;
+    + `<button type="button" class="ap-link-button" ${opener}>${HtmlEscapeUtil.escapeHtml(epic.title)} details</button></div>`;
 }
 
 export const EpicMarkup = {

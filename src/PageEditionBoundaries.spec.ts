@@ -34,7 +34,23 @@ const TRACKER_PAGE_ONLY_MODULES = [
 ];
 
 /** Attributes tracker-page controllers read and write, which a spec view's markup must not wake. */
-const SHARED_HOOK_ATTRIBUTES = ['data-kanban-lane', 'data-selected', 'data-motion', 'data-swapped', 'data-panel-room'];
+const SHARED_HOOK_ATTRIBUTES = [
+  'data-kanban-lane',
+  'data-selected',
+  'data-motion',
+  'data-swapped',
+  'data-panel-room',
+  'data-lane',
+  'data-row',
+  'data-ticket-id',
+  'data-ticket-link',
+  'data-epic',
+  'data-epic-slot',
+  'data-open-epic',
+  'data-open-ticket',
+  'data-lane-more',
+  'data-lane-reset',
+];
 
 const MARKUP_TOKEN_PATTERN = /(?<![a-z0-9-])ap-[a-z0-9-]+/g;
 

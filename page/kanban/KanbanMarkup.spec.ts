@@ -12,11 +12,11 @@ import type { PageTicket }        from '../../src/shared/@types/PagePayload.ts';
 import { pageBoardFixture }       from '../testing/PageBoardFixture.ts';
 import { EXAMPLE_PAGE_LIMITS }    from '../testing/PageLimitsFixture.ts';
 import { DependencyGraphUtil }    from '../utils/DependencyGraphUtil.ts';
-import type { KanbanBoardInput }  from './KanbanMarkup.ts';
+import type { KanbanBoardInput }  from './@types/KanbanBoardInput.ts';
+import { kanbanCardFormatOf }     from './KanbanBoardModel.ts';
 import {
   cappedLaneFooterMarkup,
   kanbanBoardMarkup,
-  kanbanCardFormatOf,
   kanbanCardMarkup,
   kanbanLaneMarkup,
 } from './KanbanMarkup.ts';
