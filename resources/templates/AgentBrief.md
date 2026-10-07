@@ -14,6 +14,19 @@ brief's block for a reviewer. Both run on {{modelDisplayName}} at {{effort}} eff
 model or effort: the dispatcher passes each agent its ticket's pair, and by hand the `agent-progress-worker` agent
 definition carries the defaults, so a ticket that overrides them goes through the dispatcher.
 
+## Host mechanics
+
+How this repository's agent host does what the orchestrate skill asks for by name. The skill decides when; these
+say with what. The dispatcher is {{dispatcherWorkflowName}}.
+
+- **Install check**: {{installCheck}}
+- **Asking the user**: {{askingTheUser}}
+- **Launching the dispatcher**: {{dispatcherLaunch}}
+- **Noticing the end of a run**: {{dispatcherRunEnd}}
+- **Resuming a run**: {{dispatcherResume}}
+- **Stopping a run outright**: {{dispatcherStop}}
+- **Starting an agent by hand**: {{agentByHand}}
+
 ## Scope
 
 One large ticket, one half of a ticket that splits by mechanism, or **a bundle of small tickets from

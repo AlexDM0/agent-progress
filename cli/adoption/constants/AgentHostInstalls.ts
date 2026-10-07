@@ -78,13 +78,34 @@ const CLAUDE_CODE_HOST_SENTENCES: Readonly<Record<string, string>> = {
     + 'way. A bundle, and a ticket without a row yet — a low one, whose row the builder\'s own claim creates —\n'
     + 'is named by ticket instead, `agent-progress ticket: 22, 20`, the same ids as the builder\'s one\n'
     + '`ticket claim 22 20`, and the hook divides evenly over their rows, looking each up when the agent\n'
-    + 'stops; keep one of the two lines, since a brief with both is read by its row line alone. The review\n'
+    + 'stops; keep one of the two lines, since a brief with both is read by its row line alone. A workflow\n'
+    + 'agent\'s first message is the harness relaying the session user\'s request, beginning\n'
+    + '`[Workflow harness — user request]`; its brief is then the message right after it, the one beginning\n'
+    + '`[Workflow harness — computed task]`, and a relay followed by anything else has no brief at all. The review\n'
     + 'brief always names the review bar\'s own row. **Where the hook is installed, pass no `--tokens`**: it\n'
     + 'would replace the sum. The harness\'s own `subagent_tokens` is roughly the end context, far below what\n'
     + 'the agent processed and not by a constant factor, so it is the fallback for a repository without the\n'
     + 'hook only, recorded with `--tokens` as the understatement it is.',
   finishTokensNote:       '`--tokens <subagent_tokens>` only without the hook; ',
   dispatcherWorkflowName: '`.agent-progress/agent-progress-dispatch.js`',
+  installCheck:           'read `.claude/settings.local.json` and `.claude/settings.json` for\n'
+    + '  `agent-progress hook subagent-stop`. `init` and `update` write it into the local file by default, so it is\n'
+    + '  normally in one of them and there is nothing to say. If it is in neither — the repository was adopted before the\n'
+    + '  hook existed, or somebody ran `--no-hooks` — say so once and offer `agent-progress update`: it is what puts every\n'
+    + '  agent\'s cost on its row; without it a workflow\'s agents reach no row at all. Then check\n'
+    + '  `.agent-progress/agent-progress-dispatch.js` exists. If not — adopted before the dispatcher, or `--no-workflow` —\n'
+    + '  say so once and offer `agent-progress update` the same way; until then only the manual path is open.',
+  askingTheUser:    'the AskUserQuestion tool, up to four questions per call.',
+  dispatcherLaunch: '`Workflow({ scriptPath: \'<mainCheckout>/.agent-progress/agent-progress-dispatch.js\',\n'
+    + '  args: <the args> })`, by this path only: it has no name to launch it by. The result names the run\'s `runId`.\n'
+    + '  The session\'s guideline of 10 agents per workflow does not bound this one.',
+  dispatcherRunEnd: 'the Workflow call runs as a background task; a task notification says when it returns, with its\n'
+    + '  summary, or that it was stopped or died.',
+  dispatcherResume: '`Workflow({ scriptPath: \'<mainCheckout>/.agent-progress/agent-progress-dispatch.js\',\n'
+    + '  resumeFromRunId: \'<the stored run id>\', args: <the launch\'s args> })`, its result naming the new `runId`.',
+  dispatcherStop: 'stop the Workflow task itself.',
+  agentByHand:    'the Agent tool with `subagent_type: \'agent-progress-worker\'`, the installed definition\n'
+    + '  `.claude/agents/agent-progress-worker.md` that carries the default model and effort.',
 };
 
 const COPILOT_CLI_HOST_SENTENCES: Readonly<Record<string, string>> = {
@@ -99,6 +120,23 @@ const COPILOT_CLI_HOST_SENTENCES: Readonly<Record<string, string>> = {
   finishTokensNote:       '',
   dispatcherWorkflowName: '`agent-progress-dispatch`, a workflow of the extension in\n'
     + '  `.github/extensions/agent-progress/` (Copilot CLI loads it only in a folder the user trusts)',
+  installCheck: 'check `.github/extensions/agent-progress/` holds the extension: it is the dispatcher and what\n'
+    + '  credits its agents\' tokens, and there is no hook to look for. If it is missing — `--no-workflow` — say so once\n'
+    + '  and offer `agent-progress update`; until then only the manual path is open. If the session lists no\n'
+    + '  `agent-progress-dispatch` workflow, the folder is not trusted: ask the user to trust it and restart the session.',
+  askingTheUser: 'the "Asking user" tool, which shows the user a multiple-choice picker and waits for the\n'
+    + '  answer; ask one question per call.',
+  dispatcherLaunch: '`run_dynamic_workflow` with the workflow `agent-progress-dispatch` and the args. It starts the\n'
+    + '  run in the background and returns its run id at once.',
+  dispatcherRunEnd: 'the session is told unprompted when the run completes, with a preview of its result. To read\n'
+    + '  a run before then, or its whole summary, `dynamic_workflows_manage` lists them with `runs` and reads one with\n'
+    + '  `inspect-run`.',
+  dispatcherResume: '`run_dynamic_workflow` again, with `agent-progress-dispatch`, the launch\'s args and the\n'
+    + '  stored run id to resume; it returns the run id at once.',
+  dispatcherStop: 'you have no operation that stops a run: ask the user to stop it from their session\n'
+    + '  (`/workflows`), and wait for its end.',
+  agentByHand: 'delegate to the custom agent `agent-progress-worker`, the installed definition\n'
+    + '  `.github/agents/agent-progress-worker.agent.md` that carries the default model.',
   // The worker's frontmatter names a Copilot model id; the dispatcher's own calls name theirs, which win over it.
   model: 'claude-opus-4.8',
 };

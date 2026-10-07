@@ -5,7 +5,7 @@ itself and therefore never out of step with it. Run it when you need a flag you 
 nothing here repeats it.
 
 What is here is what the tool does not print: the ticket file an agent edits, what each move does to
-the Gantt row, where a review bar is drawn, how the hook credits a row's tokens, what counts as one
+the Gantt row, where a review bar is drawn, how a row's tokens are credited, what counts as one
 agent against the limit, the time axis and the exit codes.
 
 ## The ticket file
@@ -154,13 +154,10 @@ started, or one hidden as long done — is drawn where its filing puts it. `--re
 
 ## A row's tokens
 
-`--tokens` **sets** a row's count; the `SubagentStop` hook **adds** to it, from the marker line the
-help describes. Over several rows it divides the agent's `input` total floored, the remainder to the
+`--tokens` **sets** a row's count; the agent host's token credit **adds** to it, from the marker line
+the help describes, read from the agent's brief alone (`.agent-progress/agent-brief.md` says how this
+host credits). Over several rows it divides the agent's `input` total floored, the remainder to the
 first, and an unset count plus an amount is the amount, so a row two agents worked on carries both.
-The hook reads the line only from the agent's brief, its first message. A workflow agent's first
-message is the harness relaying the session user's request, beginning
-`[Workflow harness — user request]`; its brief is then the message right after it, the one beginning
-`[Workflow harness — computed task]`, and a relay followed by anything else has no brief at all.
 
 ## One agent against the limit
 

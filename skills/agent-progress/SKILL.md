@@ -34,9 +34,10 @@ session needs in order to file a ticket, move one, and stay out of the tool's wa
   naming the directory to adopt, and every other command refuses it.
 - **A task is a row on the Gantt chart** — a name, an owner, a note, a status, two timestamps and an
   optional token count. Row ids are never reused, so a log line naming task #4 means the same work
-  tomorrow. Where the `SubagentStop` hook is installed, a subagent whose brief carries the line
-  `agent-progress row: 4` (or `4, 7` for a bundle) has what it processed **added** to that row when
-  it stops — so a move that ends such a row takes no `--tokens`, which would overwrite the sum.
+  tomorrow. Where the repository's agent host credits tokens (`.agent-progress/agent-brief.md` says
+  how), a subagent whose brief carries the line `agent-progress row: 4` (or `4, 7` for a bundle) has
+  what it processed **added** to that row when it ends — so a move that ends such a row takes no
+  `--tokens`, which would overwrite the sum.
 - **Every ticket owns a row too.** Filing a ticket creates its row as `pending`, except a low one,
   which gets its row when it is started or claimed; moving the ticket moves the row and stamps both.
   You never keep the two in step yourself.
