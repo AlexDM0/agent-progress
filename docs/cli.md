@@ -164,7 +164,8 @@ own hook carries no token counts. Item 6 becomes the Copilot CLI extension
 with its folder git-ignored, which registers the `agent-progress-dispatch` workflow
 (`copilot workflow run agent-progress-dispatch`); Copilot CLI loads it only in a folder the user trusts,
 and untrusted reports the workflow not found, so `init` says to trust the folder. Its agents run
-unattended, so every shell call they make is denied unless the run is started with `COPILOT_ALLOW_ALL=true`. Item 7 becomes
+unattended, so every shell call they make is denied unless the run is started with `COPILOT_ALLOW_ALL=true`.
+Item 7 becomes
 `.github/agents/agent-progress-worker.agent.md`, from `resources/templates/CopilotAgentProgressWorker.md`,
 naming Copilot's tools and the default tier's Copilot model but no reasoning effort: a frontmatter effort
 outlives the dispatcher's model override and fails every agent on a model that rejects one, such as
