@@ -66,6 +66,12 @@
    #ap-spec-dependencies      the Dependencies view's container
    #ap-spec-<name>-empty      each panel's empty state, [hidden] while the
                               snapshot holds a spec
+ #ap-detail                   the detail panel, a non-modal <dialog> with the
+                              tracker template's ids: #ap-detail-close closes it,
+                              #ap-detail-body holds the target's detail; a
+                              [data-open-spec] element with data-spec-key, or a
+                              [data-open-work-item] one with data-work-item-id,
+                              opens it, and the opener shown gets data-selected
 
  ----------------------------------------------------------- bootstrap hooks ---
  window.agentProgressTemplate = { selectTab(name), onBeforeReload(callback) },
@@ -169,6 +175,16 @@
     <div class="ap-empty" id="ap-spec-dependencies-empty" hidden>No specs yet, so no dependencies.</div>
   </div>
 </section>
+
+<dialog class="ap-detail" id="ap-detail">
+  <button type="button" class="ap-detail-close" id="ap-detail-close" aria-label="Close">&times;</button>
+  <div class="ap-detail-scroll" id="ap-detail-body">
+    <section class="ap-detail-section">
+      <h3 class="ap-detail-section-title">Example checkout</h3>
+      <div><b>lane</b><span>implement</span></div>
+    </section>
+  </div>
+</dialog>
 
 </div>
 

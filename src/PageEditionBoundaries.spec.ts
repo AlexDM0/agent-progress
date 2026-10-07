@@ -27,6 +27,10 @@ const TRACKER_PAGE_ONLY_MODULES = [
   'page/header/ActivityBanner*',
   'page/preferences/ViewerPreferences.ts',
   'page/preferences/utils/ViewerPreferenceUtil.ts',
+  'page/detail-dialog/DetailDialogController.ts',
+  'page/detail-dialog/TaskDetail.ts',
+  'page/detail-dialog/TicketDetail.ts',
+  'page/detail-dialog/TicketTimeline*',
 ];
 
 /** Attributes tracker-page controllers read and write, which a spec view's markup must not wake. */
@@ -133,6 +137,12 @@ describe('edition isolation', () => {
     const graph = specPageEntryWith('import { createViewerPreferences } from \'../preferences/ViewerPreferences.ts\';\n');
 
     expect(trackerPageOnlyModulesReachedFrom(graph, SPEC_PAGE_ENTRY, TRACKER_PAGE_ONLY_MODULES)).toContain('page/preferences/ViewerPreferences.ts');
+  });
+
+  test('the spec page importing the tracker page detail table is caught', () => {
+    const graph = specPageEntryWith('import { createDetailDialogController } from \'../detail-dialog/DetailDialogController.ts\';\n');
+
+    expect(trackerPageOnlyModulesReachedFrom(graph, SPEC_PAGE_ENTRY, TRACKER_PAGE_ONLY_MODULES)).toContain('page/detail-dialog/DetailDialogController.ts');
   });
 
   test('every TRACKER_PAGE_ONLY_MODULES entry names a module the tracker page reaches', () => {
