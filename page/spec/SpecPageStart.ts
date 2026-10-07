@@ -20,13 +20,14 @@ import { showStatusLine }              from '../header/StatusLine.ts';
 import { HeaderFigureUtil }            from '../header/utils/HeaderFigureUtil.ts';
 import { BROWSER_STORAGE_AREAS }       from '../preferences/PreferenceStore.ts';
 import { createFragmentRouter }        from '../shell/FragmentRouter.ts';
-import { PageShell }                   from '../shell/PageShell.ts';import { DomUtil } from '../utils/DomUtil.ts';
-import { TimeUtil }                                                                    from '../utils/TimeUtil.ts';
-import { unreadableEntriesMarkup }                                                     from './UnreadableEntriesMarkup.ts';
-import { SPEC_DETAIL_LINK_OPENERS }                                                    from './detail-dialog/SpecDetailTargets.ts';
-import { specDetailTargetsOf }                                                         from './detail-dialog/SpecDetailTargets.ts';
-import { specEditionBadgeMarkup }                                                      from './header/SpecEditionBadgeMarkup.ts';
-import { specHeaderModelOf }                                                           from './header/SpecHeaderModel.ts';
+import { PageShell }                   from '../shell/PageShell.ts';
+import { DomUtil }                     from '../utils/DomUtil.ts';
+import { TimeUtil }                    from '../utils/TimeUtil.ts';
+import { unreadableEntriesMarkup }     from './UnreadableEntriesMarkup.ts';
+import { SPEC_DETAIL_LINK_OPENERS }    from './detail-dialog/SpecDetailTargets.ts';
+import { specDetailTargetsOf }         from './detail-dialog/SpecDetailTargets.ts';
+import { specEditionBadgeMarkup }      from './header/SpecEditionBadgeMarkup.ts';
+import { specHeaderModelOf }           from './header/SpecHeaderModel.ts';
 import {
   createSpecKanbanController,
   SPEC_KANBAN_MARKUP_CONTAINER_IDS,

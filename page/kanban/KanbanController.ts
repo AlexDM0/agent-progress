@@ -68,7 +68,7 @@ export function createKanbanController(sources: KanbanControllerSources): Kanban
     },
   });
 
-  const dependenciesOf  = (ticketId: string): readonly string[] => visibleCards.find((card) => card.ticket.id === ticketId)?.ticket.dependsOn ?? [];
+  const dependenciesOf   = (ticketId: string): readonly string[] => visibleCards.find((card) => card.ticket.id === ticketId)?.ticket.dependsOn ?? [];
   const dependencyArrows = createKanbanDependencyArrowController({ dependenciesOf });
   const todoOrder = createKanbanTodoOrderController({
     preferences,

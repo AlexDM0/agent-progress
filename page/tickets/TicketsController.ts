@@ -56,7 +56,6 @@ export interface TicketsController {
   applyView(view: TicketView): void;
 }
 
-
 function reflectSortedColumn(view: TicketView): void {
   for (const header of document.querySelectorAll(`#${TICKET_TABLE_ELEMENT_ID} th[data-sort]`)) {
     if (!(header instanceof HTMLElement)) {
