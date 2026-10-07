@@ -594,8 +594,9 @@ waits on another.
   column says how many tickets in it can run side by side against the board's slots, and a one-ticket
   wave is marked "one at a time". A ticket shows its state (ready, in progress, in review or held)
   and how many wait on it; an arrow runs from each ticket to the ones waiting on it, dashed from a
-  settled one. Pointing at a ticket lights its whole chain, before and after; a click opens it in the
-  detail panel.
+  settled one. Pointing at a ticket fades in its whole chain, before and after, and dims the rest;
+  pointing off a ticket clears the highlight after a moment, so moving to a neighbour switches it
+  without a flash. A click opens a ticket in the detail panel.
 - **The header** above the tabs: a status line, `LIVE` while the page is under ten minutes old and
   `SNAPSHOT` after, with how long ago it was generated, re-checked every minute so an open page turns
   into a snapshot without a reload; the project name; the Auto · Light · Dark theme switch; and four

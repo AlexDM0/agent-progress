@@ -1,6 +1,8 @@
 /**
  * Lights a hovered node's lineage on the Dependencies canvas: the node, everything it depends on and everything waiting on it, and the
- * edges between them; the rest dims until the pointer leaves the canvas. A node names its id on `nodeIdAttribute`, which a click opens.
+ * edges between them; the rest dims. Pointing at anything else, inside or outside the canvas, clears it after a short grace, so crossing
+ * the gap to a neighbouring node switches the lineage without a frame in which nothing is lit. A node names its id on `nodeIdAttribute`,
+ * which a click opens.
  */
 
 import type { DependencyGraph } from '../@types/DependencyGraph.ts';
@@ -10,6 +12,8 @@ const NODE_SELECTOR   = '.ap-dependency-node';
 const EDGE_SELECTOR   = '.ap-dependency-edge';
 
 const TRACKER_NODE_ID_ATTRIBUTE = 'data-open-ticket';
+
+export const LINEAGE_CLEAR_GRACE_MILLISECONDS = 120;
 
 export interface DependencyLineageControllerOptions {
   containerElementId: string;
@@ -41,6 +45,29 @@ function showLineage(canvas: Element, lineage: ReadonlySet<string>, nodeIdAttrib
 
 export function createDependencyLineageController(options: DependencyLineageControllerOptions) {
   const nodeIdAttribute = options.nodeIdAttribute ?? TRACKER_NODE_ID_ATTRIBUTE;
+  let pendingClear: ReturnType<typeof setTimeout> | null = null;
+
+  function cancelPendingClear(): void {
+    if (pendingClear !== null) {
+      clearTimeout(pendingClear);
+      pendingClear = null;
+    }
+  }
+
+  /** Keeps the first deadline, so wandering over empty canvas never stretches the grace. */
+  function clearAfterGrace(container: Element, canvas: Element): void {
+    if (pendingClear !== null || !canvas.hasAttribute('data-lineage-shown')) {
+      return;
+    }
+    pendingClear = setTimeout(() => {
+      pendingClear = null;
+      // A canvas the page filled again since is no longer in the container, and its replacement shows nothing.
+      if (container.contains(canvas)) {
+        clearLineage(canvas);
+      }
+    }, LINEAGE_CLEAR_GRACE_MILLISECONDS);
+  }
+
   return {
     /** Listens on the container, so a canvas filled again later keeps working. */
     wire(): void {
@@ -49,18 +76,24 @@ export function createDependencyLineageController(options: DependencyLineageCont
         return;
       }
       container.addEventListener('pointerover', (event) => {
-        const node   = event.target instanceof Element ? event.target.closest(NODE_SELECTOR) : null;
-        const canvas = node?.closest(CANVAS_SELECTOR) ?? null;
-        if (node === null || canvas === null) {
+        const target = event.target instanceof Element ? event.target : null;
+        const canvas = target?.closest(CANVAS_SELECTOR) ?? null;
+        if (target === null || canvas === null) {
           return;
         }
+        const node = target.closest(NODE_SELECTOR);
+        if (node === null) {
+          clearAfterGrace(container, canvas);
+          return;
+        }
+        cancelPendingClear();
         showLineage(canvas, lineageOf(options.readGraph(), node.getAttribute(nodeIdAttribute) ?? ''), nodeIdAttribute);
       });
       container.addEventListener('pointerout', (event) => {
         const canvas  = event.target instanceof Element ? event.target.closest(CANVAS_SELECTOR) : null;
         const leaving = !(event.relatedTarget instanceof Node) || canvas === null || !canvas.contains(event.relatedTarget);
         if (canvas !== null && leaving) {
-          clearLineage(canvas);
+          clearAfterGrace(container, canvas);
         }
       });
     },
