@@ -206,6 +206,15 @@ say **go**. The board fills in from there.
 > [!TIP]
 > The board allows two agents at once by default. `agent-progress concurrency <n>` raises it, up to ten.
 
+## A spec-kit repository
+
+In a repository that uses [spec-kit](https://github.com/github/spec-kit), `agent-progress view-spec` draws a second
+page from its own files: every spec in the lane of its phase, each `tasks.md` phase as a work item with what it waits
+on, the stages on a Gantt chart, and the constitution. It needs no tracker and touches none, writing only
+`.agent-progress/progress-spec.json` and `.agent-progress/progress-spec.html`; `--open` opens the page in your browser.
+The page is a snapshot: run the command again for a fresh one. The [CLI reference](docs/cli.md#the-spec-kit-page) has
+the details.
+
 ## Privacy
 
 <table>
@@ -240,7 +249,7 @@ offers its official installer.
   </tr>
   <tr>
     <td width="190"><b>Dashboard</b></td>
-    <td>one self-contained <code>progress.html</code>: Kanban · Progress · Tickets tabs, the Kanban board beside the Tickets tab rather than in place of it, an Epics tab once the board has epics and a Dependencies tab once a ticket waits on another; light, dark or auto</td>
+    <td>one self-contained <code>progress.html</code>: Kanban · Progress · Tickets tabs, the Kanban board beside the Tickets tab rather than in place of it, an Epics tab once the board has epics and a Dependencies tab once a ticket waits on another; light, dark or auto. In a spec-kit repository, a second page, <code>progress-spec.html</code>, from <code>agent-progress view-spec</code></td>
   </tr>
   <tr>
     <td width="190"><b>Agents</b></td>

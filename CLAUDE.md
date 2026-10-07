@@ -273,11 +273,15 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 ```
 agent-progress.ts    the bin shim: runs the command line and exits with its number
 cli/                 feature: the command surface, its commands grouped into sets
-page/                feature: the browser page, its own DOM-only project
+page/                feature: the browser pages, one DOM-only project: the tracker page's entry and views, the
+                     spec page's entry and views under page/spec/, the shell both start with under page/shell/,
+                     and the chip parts both use under page/chips/
 dispatcher/          feature: the dispatcher policy, which init and update bundle into a Workflow script
-resources/           files read at runtime: the page template and the markdown init, update and ticket add fill
+resources/           files read at runtime: the two page templates, template.html and spec-template.html, and the
+                     markdown init, update and ticket add fill
 src/lib/             package-grade building blocks, one folder each
-src/adapters/        the boundary: every stored format read, written and mapped, and the wording
+src/adapters/        the boundary: every stored format read, written and mapped, the wording, and the reading of a
+                     spec-kit repository's files
 src/services/        the tracker and render services
 src/shared/          app-specific code several parts use
 src/testing/         test-only helpers several parts use

@@ -1,8 +1,8 @@
 # agent-progress — command and file-format reference
 
 The complete reference for someone using the tool: what `init` and `update` write into a repository,
-every command and flag, the exit codes, what the dashboard shows, the files on disk and what each
-ticket move does to its Gantt row. The code wins every disagreement: `agent-progress help` prints the
+every command and flag, the exit codes, what the dashboard and the spec-kit page show, the files on disk
+and what each ticket move does to its Gantt row. The code wins every disagreement: `agent-progress help` prints the
 command reference from `cli/HelpText.ts` and is never out of step with the tool. `skills/agent-progress/Reference.md`
 carries a word-for-word copy of three sections of this file, the ticket file format, the ticket moves
 and the exit codes, and follows it everywhere else. The overview is in the [README](../README.md); working on this
@@ -15,6 +15,7 @@ repository yourself is in [development.md](development.md).
 - [Exit codes](#exit-codes)
 - [The Handoff and the token column](#the-handoff-and-the-token-column)
 - [The dashboard](#the-dashboard)
+- [The spec-kit page](#the-spec-kit-page)
 - [Files on disk](#files-on-disk)
 - [Ticket moves and their rows](#ticket-moves-and-their-rows)
 
@@ -655,12 +656,88 @@ A row with nothing to merge — a review pass, a chore — still reaches `Done`,
 orchestrator closes every row left open, and a chart whose rows stop at `Awaiting review` is a chart
 nobody closed.
 
+## The spec-kit page
+
+`agent-progress view-spec` draws a second page, `.agent-progress/progress-spec.html`, from a spec-kit repository's
+own files. It applies where a `.specify/` folder sits in the current directory or one above it, the nearest such
+directory being the project's root; `AGENT_PROGRESS_ROOT` names the root instead, with no walk. It needs no tracker.
+
+**What it reads**, from the root: `.specify/init-options.json` for the spec-kit version,
+`.specify/memory/constitution.md` for the constitution's version, dates and principles, and every folder under
+`specs/` holding a `spec.md`: that file, `plan.md`, `research.md`, `data-model.md`, `quickstart.md`, the
+`contracts/` folder, `tasks.md` and `checklists/*.md`, with each file's creation and modification time. A `plan.md`
+or `tasks.md` still a template copy is shown as one and counts as absent. A folder without `spec.md`, or a file it
+cannot read, is listed in a banner on the page with its reason, and everything else is drawn.
+
+**What it writes**: `progress-spec.json`, the snapshot ([its format](#agent-progressprogress-specjson)), then
+`progress-spec.html`, the page, both into the root's `.agent-progress/`. Without a tracker it creates that folder
+holding only those two files and leaves `.gitignore` alone. With one it touches no tracker file. The page is a
+snapshot: its status line always reads `Snapshot`, it never reloads itself, and a fresh one is another `view-spec`
+run.
+
+The tabs are **Kanban · Progress · Tickets · Specs · Dependencies**, in that order, the chosen one kept in the
+browser. The header shows the spec-kit and constitution versions, the project's folder name and four figures: the
+specs, those implementing (opening the Implement lane), the tasks ticked of their total and the
+`NEEDS CLARIFICATION` markers still open in the `spec.md` files. A spec's or a work item's card, row or link opens it
+in the detail panel.
+
+- **Kanban tab**: two bands. The Specs band holds one card per spec in the lane of its phase, with a stepper through
+  the lanes; pointing at one dims every other spec's work. The Work band holds one card per `tasks.md` phase in To
+  do (ready first, then waiting), In progress and Done; a strip of spec chips above it narrows it to the specs
+  pressed.
+- **Progress tab**: the tracker page's Gantt chart and range bar, one folding head row per spec over a row per stage
+  with a known start, the now line at the moment the snapshot was taken.
+- **Tickets tab**: the work items as a table grouped by spec, searched by text and narrowed by spec and state chips.
+- **Specs tab**: the constitution card, then one card per spec, open specs first and done ones last, with its
+  stepper, stories, files (filled, template or missing), checklists and task roll-up; its detail adds each phase's
+  ticked count and the stage dates.
+- **Dependencies tab**: the open work items' waves, as on the tracker page, with no slot meters.
+
+**The lanes.** A spec's lane comes from its files' contents alone, never a date.
+
+| lane | when |
+|---|---|
+| Specify | no filled `plan.md` and no filled `tasks.md` |
+| Plan | a filled `plan.md`, no filled `tasks.md` |
+| Tasks | a filled `tasks.md` with no task ticked |
+| Implement | some task ticked, and some task outside the Convergence phases not |
+| Converge | every task outside the Convergence phases ticked, a Convergence task not |
+| Done | every task ticked |
+
+**Work items.** Each `## Phase N: <name>` of a filled `tasks.md` is one work item, `<spec folder>-p<NN>`: To do with
+no task ticked, Done with every one, In progress between. Its kind comes from its name: `User Story <n>`, then a name
+starting Setup, Foundational, Polish or Convergence, else other. It waits on phases of its own spec, by kind and
+file order, and is waiting while any of them is not Done:
+
+| kind | waits on |
+|---|---|
+| setup | nothing |
+| foundational | every setup phase |
+| user story | every foundational phase, or every setup phase when there is none |
+| polish | every user story phase |
+| convergence | the convergence phase before it; the first, every polish phase, or the last user story phase when there is none |
+| other | the phase just before it |
+
+**Stage dates.** Specify runs from `spec.md`'s creation to the creation of `plan.md`, or of `tasks.md` without one;
+Plan from `plan.md`'s creation to `tasks.md`'s; Implement from `tasks.md`'s creation to its last modification, once
+every task is ticked. Only filled files count. A creation date is the file's birth time on this machine, its
+modification time standing in where the file system reports none; a stage dated from a modification time is marked
+`~`, and a stage with no known start is not drawn. A fresh clone or checkout writes every file anew, so it resets
+every creation date to that moment; the lanes and work items do not change.
+
+**Browser keys.** The page shares `agent-progress:theme` with the tracker page and keeps its tab under
+`agent-progress:spec-tab`. Its other choices sit under `agent-progress-spec:<repositoryKey>:`, the key a hash of the
+root's path: `kanban-specs` (the strip's pressed specs), `tickets-search`, `tickets-specs` and `tickets-states`
+(the Tickets tab's search and chips), and `progress-range`, `progress-name-column` and `progress-folded-groups`
+(the chart's).
+
 ## Files on disk
 
 ```
 .agent-progress/
   progress.json          the rows, the view, the limits
-  progress-spec.json     the spec-kit snapshot, rewritten whole by every spec view run
+  progress-spec.json     the spec-kit snapshot, rewritten whole by every view-spec run
+  progress-spec.html     the spec-kit page, written by view-spec after the snapshot
   log.jsonl              the log, one record per line
   progress.html          the generated dashboard
   progress.stamp.js      the render stamp the open dashboard polls, written after it
@@ -676,9 +753,10 @@ nobody closed.
 
 A mutating command writes, under one lock hold, the progress file, then the tickets it changed, then
 the epics it added, changed or removed, then `log.jsonl`, then the page, so a log line never describes
-an unstored change. Every file a reader may hold open is written atomically: a temporary file beside the target, fsync,
-rename. Timestamps carry the offset of the machine that wrote them and are displayed as written,
-never re-parsed into a viewer's zone.
+an unstored change. `view-spec` writes outside that pipeline, with no lock: `progress-spec.json`, then
+`progress-spec.html`, so its page never describes a snapshot that was not stored. Every file a reader may hold open
+is written atomically: a temporary file beside the target, fsync, rename. Timestamps carry the offset of the
+machine that wrote them and are displayed as written, never re-parsed into a viewer's zone.
 
 ### `.agent-progress/progress.json`
 
