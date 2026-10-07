@@ -205,4 +205,15 @@ describe('shared hooks', () => {
 
     expect(sharedHookAttributesNamedIn(graph)).toEqual([{ path: SPEC_PAGE_ENTRY, token: 'data-kanban-lane' }]);
   });
+
+  test('a spec page module writing a card class or an epic slot itself is caught, and passes once both are gone', () => {
+    const kanbanModel = 'page/spec/kanban/SpecKanbanModel.ts';
+    const plants      = 'export const planted = [\'<article class="ap-kanban-card">\', \'data-epic-slot="1"\'];\n';
+    const planted     = SCANNER.graphWithPlantedFiles({ [kanbanModel]: `${SCANNER.graph.sourceTextOf(kanbanModel)}${plants}` });
+
+    expect(foreignMarkupTokensOf(planted, specTemplateIds())).toEqual([{ path: kanbanModel, token: 'ap-kanban-card' }]);
+    expect(sharedHookAttributesNamedIn(planted)).toContainEqual({ path: kanbanModel, token: 'data-epic-slot' });
+    expect(foreignMarkupTokensOf(SCANNER.graph, specTemplateIds())).toEqual([]);
+    expect(sharedHookAttributesNamedIn(SCANNER.graph)).toEqual([]);
+  });
 });

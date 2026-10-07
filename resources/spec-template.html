@@ -58,8 +58,15 @@
  #ap-tabs                     Kanban · Progress · Tickets · Specs · Dependencies,
                               each button #ap-tab-<name> with data-tab="<name>"
  section[data-panel=<name>]   #ap-panel-<name>, one per tab, [hidden] unless selected
-   #ap-kanban-frame > #ap-kanban   the Kanban's frame and board, the ids the design
-                                   and the detail panel's room key on
+   .ap-spec-band              one per Kanban band, its head naming it with its
+                              card count: #ap-spec-specs-band-count, then
+                              #ap-spec-work-band-count
+   #ap-kanban-frame > #ap-kanban   the Specs band's frame and board, the ids the
+                                   design and the detail panel's room key on: one
+                                   lane per spec phase and Done
+   .ap-spec-work-frame > #ap-spec-work-kanban   the work band's frame and board:
+                              To do, In progress and Done, one card per tasks.md
+                              phase; each band scrolls inside its own frame
    #ap-chart                  the Progress chart's container
    #ap-spec-tickets           the Tickets view's container
    #ap-spec-specs             the Specs view's container
@@ -68,10 +75,12 @@
                               snapshot holds a spec
  #ap-detail                   the detail panel, a non-modal <dialog> with the
                               tracker template's ids: #ap-detail-close closes it,
-                              #ap-detail-body holds the target's detail; a
-                              [data-open-spec] element with data-spec-key, or a
-                              [data-open-work-item] one with data-work-item-id,
-                              opens it, and the opener shown gets data-selected
+                              #ap-detail-body holds the target's detail; a card
+                              with data-spec-key or data-work-item-id opens its
+                              target and gets data-selected while shown; a
+                              [data-spec] chip or [data-open-spec] link opens the
+                              spec it names, before a [data-open-work-item] link
+                              opens its work item
 
  ----------------------------------------------------------- bootstrap hooks ---
  window.agentProgressTemplate = { selectTab(name), onBeforeReload(callback) },
@@ -89,6 +98,29 @@
 .ap-spec-edition { display: inline-flex; align-items: center; gap: 6px; font: 500 var(--fs-micro)/1 var(--font-mono); color: var(--ink-muted); border: 1px solid var(--line); border-radius: var(--r-pill); padding: 3px 8px; white-space: nowrap; }
 .ap-spec-edition[hidden] { display: none; }
 .ap-spec-edition b { color: var(--ink); font-weight: 600; }
+.ap-spec-band { min-width: 0; margin-bottom: var(--sp-4); }
+.ap-spec-band-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 0 0 var(--sp-2); }
+.ap-spec-band-label { font-size: var(--fs-small); font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink); }
+.ap-spec-band-line { font-size: var(--fs-micro); color: var(--ink-muted); }
+.ap-spec-steps { flex-basis: 100%; display: flex; gap: 2px; list-style: none; margin: 6px 0 2px; padding: 0; min-width: 0; }
+.ap-spec-step { flex: 1 1 0; min-width: 0; padding: 2px 0; border: 1px solid transparent; border-radius: 3px; font-size: var(--fs-micro); line-height: 1.2; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ap-spec-step[data-step="done"] { background: var(--surface-2); color: var(--ink); }
+.ap-spec-step[data-step="current"] { background: var(--s-tint); border-color: var(--s-edge); color: var(--s-ink); font-weight: 600; }
+.ap-spec-step[data-step="next"] { border-style: dashed; border-color: var(--line); color: var(--ink-muted); }
+.ap-spec-steps[data-size="full"] .ap-spec-step { padding: 4px 6px; font-size: var(--fs-small); }
+.ap-spec-card-rollup { flex-basis: 100%; display: flex; margin-top: 4px; }
+.ap-spec-card-rollup > * { flex: 1 1 auto; }
+.ap-spec-phase-tag { font: 500 var(--fs-micro)/1.3 var(--font-mono); color: var(--ink); border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; white-space: nowrap; }
+.ap-spec-mvp { font-size: var(--fs-micro); font-weight: 600; letter-spacing: 0.05em; color: var(--s-ink); background: var(--s-tint); border-radius: 3px; padding: 0 4px; }
+.ap-spec-ticks { flex-basis: 100%; display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: var(--fs-micro); color: var(--ink-muted); white-space: nowrap; }
+.ap-spec-tick-bar { flex: 1 1 auto; height: 4px; min-width: 40px; border-radius: var(--r-pill); background: var(--surface-2); overflow: hidden; }
+.ap-spec-tick-bar > span { display: block; height: 100%; background: var(--s-fill); }
+.ap-spec-task-lines { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: grid; gap: 4px; font-size: var(--fs-small); }
+.ap-spec-task-lines li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+.ap-spec-task-lines code { font-family: var(--font-mono); color: var(--ink-muted); }
+.ap-spec-task-lines li[data-done="true"] > span:last-child { color: var(--ink-muted); }
+.ap-spec-task-done { color: var(--ink-muted); }
+.ap-spec-task-mark { font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--ink-muted); }
 </style>
 </head>
 <body>
@@ -144,8 +176,25 @@
 </header>
 
 <section data-panel="kanban" role="tabpanel" id="ap-panel-kanban" aria-labelledby="ap-tab-kanban">
-  <div class="ap-kanban-frame" id="ap-kanban-frame">
-    <div class="ap-kanban" id="ap-kanban"></div>
+  <div class="ap-spec-band" role="group" aria-labelledby="ap-spec-specs-band-label">
+    <div class="ap-spec-band-head">
+      <span class="ap-spec-band-label" id="ap-spec-specs-band-label">Specs</span>
+      <span class="ap-lane-count" id="ap-spec-specs-band-count">0</span>
+      <span class="ap-spec-band-line">one card per spec, in the lane of its phase</span>
+    </div>
+    <div class="ap-kanban-frame" id="ap-kanban-frame">
+      <div class="ap-kanban" id="ap-kanban"></div>
+    </div>
+  </div>
+  <div class="ap-spec-band" role="group" aria-labelledby="ap-spec-work-band-label">
+    <div class="ap-spec-band-head">
+      <span class="ap-spec-band-label" id="ap-spec-work-band-label">Work</span>
+      <span class="ap-lane-count" id="ap-spec-work-band-count">0</span>
+      <span class="ap-spec-band-line">one card per tasks.md phase · the chip is its spec, the tag its phase</span>
+    </div>
+    <div class="ap-kanban-frame ap-spec-work-frame">
+      <div class="ap-kanban" id="ap-spec-work-kanban"></div>
+    </div>
   </div>
   <div class="ap-empty" id="ap-spec-kanban-empty" hidden>No specs yet: run /speckit.specify to start one.</div>
 </section>
