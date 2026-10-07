@@ -5,17 +5,18 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, sep }       from 'node:path';
 
-import { bundleWorkflowScript, type WorkflowScriptBundle }           from '../../src/lib/claude-code/WorkflowScriptBundle.ts';
-import type { AgentModel }                                           from '../../src/lib/tracker-model/@types/Ticket.ts';
-import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL }                 from '../../src/lib/tracker-model/constants/AgentSettings.ts';
-import { dispatcherDirectoryPath, dispatcherScriptBuildRequestWith } from '../../src/shared/DispatcherScriptBuildRequest.ts';
-import { OperationRefusal }                                          from '../../src/shared/OperationRefusal.ts';
-import { resourceFilePathOf }                                        from '../../src/shared/ResourceFilePath.ts';
-import { DISPATCH_PROTOCOL }                                         from '../../src/shared/constants/DispatchProtocol.ts';
-import { filledTemplateOf }                                          from '../FilledTemplate.ts';
+import { bundleWorkflowScript, type WorkflowScriptBundle }                                             from '../../src/lib/claude-code/WorkflowScriptBundle.ts';
+import { bundleCopilotExtension, type ExtensionBundle }                                                from '../../src/lib/copilot-cli/ExtensionBundle.ts';
+import type { AgentModel }                                                                             from '../../src/lib/tracker-model/@types/Ticket.ts';
+import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL }                                                   from '../../src/lib/tracker-model/constants/AgentSettings.ts';
+import { copilotExtensionBuildRequestWith, dispatcherDirectoryPath, dispatcherScriptBuildRequestWith } from '../../src/shared/DispatcherScriptBuildRequest.ts';
+import { OperationRefusal }                                                                            from '../../src/shared/OperationRefusal.ts';
+import { resourceFilePathOf }                                                                          from '../../src/shared/ResourceFilePath.ts';
+import type { AgentHost }                                                                              from '../../src/shared/constants/AgentHosts.ts';
+import { DISPATCH_PROTOCOL }                                                                           from '../../src/shared/constants/DispatchProtocol.ts';
+import { filledTemplateOf }                                                                            from '../FilledTemplate.ts';
 import {
   AGENT_HOST_INSTALLS,
-  type AgentHost,
   type InstalledFile,
   type InstalledFileName,
   type InstalledPart,
@@ -42,6 +43,16 @@ export function dispatcherScriptTextOf(bundle: WorkflowScriptBundle): string {
     );
   }
   return bundle.scriptText;
+}
+
+function copilotExtensionTextOf(bundle: ExtensionBundle): string {
+  if (bundle.verdict === 'failed') {
+    throw new OperationRefusal(
+      'unrepaired',
+      `The Copilot CLI extension could not be generated from ${dispatcherDirectoryPath()} (${bundle.reason}: ${bundle.detail}), so nothing was written.`,
+    );
+  }
+  return bundle.extensionText;
 }
 
 function templateTextOf(templateFileName: string): string {
@@ -105,6 +116,10 @@ export async function installedFileTextsFor(request: { agentHost: AgentHost; gen
     for (const file of filesOf(part)) {
       if (file.text.kind === 'dispatcher-bundle') {
         if (request.generatesTheDispatcherScript) texts[file.name] = dispatcherScriptTextOf(await bundleWorkflowScript(dispatcherScriptBuildRequestWith([])));
+        continue;
+      }
+      if (file.text.kind === 'copilot-extension-bundle') {
+        if (request.generatesTheDispatcherScript) texts[file.name] = copilotExtensionTextOf(await bundleCopilotExtension(copilotExtensionBuildRequestWith([])));
         continue;
       }
       const filledText = filledTemplateOf(templateTextOf(file.text.templateFileName), templateValues);

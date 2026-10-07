@@ -19,13 +19,13 @@ import {
 import { ensureIgnored }                                                                   from '../../src/lib/git/GitIgnore.ts';
 import type { Workspace }                                                                  from '../../src/services/tracker/Workspace.ts';
 import { OperationRefusal }                                                                from '../../src/shared/OperationRefusal.ts';
+import type { AgentHost }                                                                  from '../../src/shared/constants/AgentHosts.ts';
 import { installedFilePathsIn, installedSkillFolderInRepository, type InstalledFilePaths } from '../InstalledFiles.ts';
 import { INSTALL_VERSION }                                                                 from '../constants/InstallVersion.ts';
 import type { InstalledFileTexts, InstalledSkillFileTexts }                                from './InstalledFileGeneration.ts';
 import {
   AGENT_HOST_INSTALLS,
   INSTALL_OPT_OUT_FLAGS,
-  type AgentHost,
   type InstalledFile,
   type InstalledFileName,
   type InstalledPart,
@@ -240,18 +240,28 @@ export function refuseAnAgentDefinitionOptOutKeepingTheWorkflow(
 /** Checked before the first write: `--no-workflow` leaves an installed dispatcher in place, and it could start no worker without the definition. */
 export function refuseKeepingADispatcherWithoutItsAgentDefinition(
   commandName: string,
-  rootDirectory: string,
+  { rootDirectory, agentHost }: { rootDirectory: string; agentHost: AgentHost },
   { writesTheAgentDefinition, writesTheDispatcherWorkflow }: { writesTheAgentDefinition: boolean; writesTheDispatcherWorkflow: boolean },
 ): void {
   if (writesTheAgentDefinition || writesTheDispatcherWorkflow) return;
-  const installedFilePaths = installedFilePathsIn(rootDirectory);
-  if (!existsSync(installedFilePaths.dispatcherScript) || existsSync(installedFilePaths.agentDefinition)) return;
+  const installedFilePaths   = installedFilePathsIn(rootDirectory);
+  const dispatcherFilePath   = installedFilePaths[lastFileOf(filesOptedOutBy(agentHost, 'no-workflow')).name];
+  const definitionFilePath   = installedFilePaths[lastFileOf(filesOptedOutBy(agentHost, 'no-agent-definition')).name];
+  if (!existsSync(dispatcherFilePath) || existsSync(definitionFilePath)) return;
   throw new OperationRefusal(
     'refused',
-    `agent-progress ${commandName} --no-agent-definition --no-workflow would leave ${installedFilePaths.dispatcherScript} in place without `
-    + `${installedFilePaths.agentDefinition}, the \`agent-progress-worker\` agent it starts every builder and reviewer as, so no worker could start. `
+    `agent-progress ${commandName} --no-agent-definition --no-workflow would leave ${dispatcherFilePath} in place without `
+    + `${definitionFilePath}, the \`agent-progress-worker\` agent it starts every builder and reviewer as, so no worker could start. `
     + 'Nothing was written. Drop --no-agent-definition, or remove that dispatcher script first.',
   );
+}
+
+function filesOptedOutBy(agentHost: AgentHost, optOutFlag: InstallOptOutFlag): readonly InstalledFile[] {
+  return AGENT_HOST_INSTALLS[agentHost].parts.flatMap((part) => {
+    if (part.optOutFlag !== optOutFlag) return [];
+    if (part.writing === 'rewritten-files' || part.writing === 'git-ignored-files') return part.files;
+    return [];
+  });
 }
 
 /** Touches nothing the tracker holds: not `progress.json`, not a ticket, not the log. */
@@ -275,6 +285,11 @@ export function refreshTrackedRepository(request: TrackerRefreshRequest): Tracke
         return refreshBriefs(part.files, installedFilePaths, installedFileTexts);
       case 'rewritten-files':
         return refreshRewrittenFiles(part.files, installedFilePaths, installedFileTexts);
+      case 'git-ignored-files': {
+        const filesLine     = refreshRewrittenFiles(part.files, installedFilePaths, installedFileTexts);
+        const ignoreOutcome = ensureIgnored(workspace.rootDirectory, part.ignoredFolderInRepository);
+        return ignoreOutcome === 'appended' ? `${filesLine}, .gitignore entry added` : filesLine;
+      }
       case 'claude-settings-hooks':
         return refreshClaudeSettingsHooks(part.hooks, workspace.rootDirectory, commandName, standardError);
       case 'skill-folders':
@@ -303,6 +318,6 @@ export function refreshTrackedRepository(request: TrackerRefreshRequest): Tracke
 }
 
 /** Called last by `init` and `update`, after every other write, so a refresh cut short leaves the old version and commands keep asking for `update`. */
-export function recordInstallVersion(rootDirectory: string): void {
-  createInstallManifestWriter(installedFilePathsIn(rootDirectory).installManifest).write(INSTALL_VERSION);
+export function recordInstallVersion(rootDirectory: string, agentHost: AgentHost): void {
+  createInstallManifestWriter(installedFilePathsIn(rootDirectory).installManifest).write({ installVersion: INSTALL_VERSION, agentHost });
 }

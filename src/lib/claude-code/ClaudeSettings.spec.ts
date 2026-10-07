@@ -17,8 +17,13 @@ import {
   test
 } from 'bun:test';
 
-import { createScratchDirectory, removeScratchDirectory }                  from '../../testing/ScratchWorkspace.ts';
-import { claudeSettingsFilePathFor, refreshCommandHook, writeCommandHook } from './ClaudeSettings.ts';
+import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
+import {
+  claudeSettingsFilePathFor,
+  commandHookIsPresent,
+  refreshCommandHook,
+  writeCommandHook
+} from './ClaudeSettings.ts';
 
 const THE_HOOK = {
   event:          'SubagentStop',
@@ -218,5 +223,27 @@ describe('refreshing the hook rather than installing it', () => {
 
     expect(refreshCommandHook(settingsFilePath, THE_HOOK)).toBe('refused-unreadable');
     expect(readFileSync(settingsFilePath, 'utf8')).toBe(malformed);
+  });
+});
+
+describe('asking whether the hook is present', () => {
+  test('finds the command under any matcher, and leaves the file byte for byte', () => {
+    const rootDirectory = scratchRoot('claude-settings-present');
+    const settingsText = '{"hooks":{"SubagentStop":[{"matcher":"Example","hooks":[{"type":"command","command":"example-tool hook stop"}]}]}}';
+    const settingsFilePath = writeSettings(rootDirectory, settingsText);
+
+    expect(commandHookIsPresent(settingsFilePath, THE_HOOK)).toBe(true);
+    expect(readFileSync(settingsFilePath, 'utf8')).toBe(settingsText);
+  });
+
+  test('is false with no file, another event, another command, or a document it cannot read', () => {
+    expect(commandHookIsPresent(claudeSettingsFilePathFor(scratchRoot('claude-settings-none')), THE_HOOK)).toBe(false);
+    for (const settingsText of [
+      '{"hooks":{"PreToolUse":[{"matcher":"","hooks":[{"type":"command","command":"example-tool hook stop"}]}]}}',
+      '{"hooks":{"SubagentStop":[{"matcher":"","hooks":[{"type":"command","command":"example-tool other"}]}]}}',
+      '{ "hooks": ',
+    ]) {
+      expect(commandHookIsPresent(writeSettings(scratchRoot('claude-settings-absent'), settingsText), THE_HOOK), settingsText).toBe(false);
+    }
   });
 });

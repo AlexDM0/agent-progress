@@ -33,8 +33,21 @@ test('a manifest that is not there reads as absent', () => {
   expect(new InstallManifestIngestion(scratchManifestFilePath('manifest-absent')).read()).toEqual({ verdict: 'absent' });
 });
 
-test('a manifest holding a whole install version reads as that version, and a key beside it is ignored', () => {
-  expect(readingOfText('manifest-readable', '{\n  "installVersion": 3,\n  "note": "Example Agency"\n}\n')).toEqual({ verdict: 'readable', installVersion: 3 });
+test('a manifest holding a whole install version reads as that version on Claude Code, and a key beside it is ignored', () => {
+  expect(readingOfText('manifest-readable', '{\n  "installVersion": 3,\n  "note": "Example Agency"\n}\n'))
+    .toEqual({ verdict: 'readable', installVersion: 3, agentHost: 'claude-code' });
+});
+
+test('a manifest naming an agent host reads as that host', () => {
+  expect(readingOfText('manifest-host', '{ "installVersion": 8, "agentHost": "copilot-cli" }')).toEqual({ verdict: 'readable', installVersion: 8, agentHost: 'copilot-cli' });
+});
+
+test('an agent host the CLI does not know is unreadable, and the reason names the value and the hosts', () => {
+  for (const manifestText of ['{ "installVersion": 8, "agentHost": "example-host" }', '{ "installVersion": 8, "agentHost": null }']) {
+    const reading = readingOfText('manifest-unknown-host', manifestText);
+    expect(reading.verdict, manifestText).toBe('unreadable');
+    expect(reading.verdict === 'unreadable' ? reading.reason : '', manifestText).toEndWith(', and it has to be one of claude-code, copilot-cli');
+  }
 });
 
 test('a manifest that is not JSON is unreadable, and the reason says so', () => {

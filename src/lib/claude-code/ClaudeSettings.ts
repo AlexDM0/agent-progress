@@ -164,3 +164,12 @@ export function refreshCommandHook(settingsFilePath: string, hook: CommandHook):
   writeFileAtomically(settingsFilePath, `${JSON.stringify(settings, null, SETTINGS_FILE_JSON_INDENT_SPACES)}\n`);
   return 'updated';
 }
+
+/** Reads only: whether the event runs this command under any matcher. A file that cannot be read holds no entry anyone could run. */
+export function commandHookIsPresent(settingsFilePath: string, hook: Pick<CommandHook, 'event' | 'command'>): boolean {
+  if (!fileExists(settingsFilePath)) return false;
+  const settings = parsedSettings(settingsFilePath);
+  if (settings === 'unreadable') return false;
+  const eventGroups = JsonRecordUtil.recordOf(settings[HOOKS_KEY])?.[hook.event];
+  return Array.isArray(eventGroups) && eventGroups.some((group) => groupAlreadyRunsTheCommand(group, hook.command));
+}

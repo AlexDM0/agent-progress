@@ -25,7 +25,11 @@ export interface CapturedCommandContextOptions {
   platform?:                string;
   /** Checked to be a scratch directory like `currentDirectory`; by default a `spec-home` folder inside it, so no spec reads the real home. */
   homeDirectory?:           string;
+  /** What `copilot --version` answers; by default the oldest version `init --host copilot-cli` takes, so no spec runs the real binary. */
+  copilotVersionOutput?:    string | null;
 }
+
+const DEFAULT_SPEC_COPILOT_VERSION_OUTPUT = 'GitHub Copilot CLI 1.0.92.\nRun \'copilot update\' to check for updates.\n';
 
 const DEFAULT_SPEC_CLOCK_READING = '2026-09-18T20:11:03Z';
 
@@ -69,11 +73,12 @@ export function createCapturedCommandContext(options: CapturedCommandContextOpti
       questions.push(question);
       return Promise.resolve(options.confirmAnswer ?? false);
     },
-    platform:       options.platform ?? DEFAULT_SPEC_PLATFORM,
-    homeDirectory:  options.homeDirectory ?? join(options.currentDirectory, SPEC_HOME_FOLDER_NAME),
-    renderState:    createRenderState(),
-    outputText:     () => outputLines.join('\n'),
-    errorText:      () => errorLines.join('\n'),
-    questionsAsked: () => [...questions],
+    platform:             options.platform ?? DEFAULT_SPEC_PLATFORM,
+    homeDirectory:        options.homeDirectory ?? join(options.currentDirectory, SPEC_HOME_FOLDER_NAME),
+    renderState:          createRenderState(),
+    copilotVersionOutput: () => (options.copilotVersionOutput === undefined ? DEFAULT_SPEC_COPILOT_VERSION_OUTPUT : options.copilotVersionOutput),
+    outputText:           () => outputLines.join('\n'),
+    errorText:            () => errorLines.join('\n'),
+    questionsAsked:       () => [...questions],
   };
 }

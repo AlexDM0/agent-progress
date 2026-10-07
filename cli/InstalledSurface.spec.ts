@@ -49,6 +49,9 @@ const INSTALLED_TEMPLATE_PATHS = [
   'resources/templates/ReviewBrief.md',
   'resources/templates/ClaudeInstructionsBlock.md',
   'resources/templates/AgentProgressWorker.md',
+  'resources/templates/CopilotAgentProgressWorker.md',
+  // Each host's sentences, filled into the block and the brief.
+  'cli/adoption/constants/AgentHostInstalls.ts',
 ];
 
 const INSTALLED_SKILL_FOLDERS = ['skills/agent-progress', 'skills/agent-progress-orchestrate'];

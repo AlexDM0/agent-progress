@@ -130,6 +130,27 @@ no opt-out; the last records which install version all of them are.
    the line `agent-progress checks` prints, stored once in the tracker, which `release` runs itself. It is the tool's
    script, not the project's, so a hand edit is undone. A dispatcher that cannot be generated is
    exit 2, and nothing at all is written.
+
+**Copilot CLI as the host.** `init --host copilot-cli` installs the same tracker, briefs, block (with
+Copilot's sentences: the extension credits each agent's tokens through `hook copilot-agent-settled`)
+and skills — Copilot CLI reads project skills from `.claude/skills/` too — but no hook, since Copilot's
+own hook carries no token counts. Item 6 becomes the Copilot CLI extension
+`.github/extensions/agent-progress/extension.mjs`, bundled from `dispatcher/DispatchFromCopilotWorkflow.ts`
+with its folder git-ignored, which registers the `agent-progress-dispatch` workflow
+(`copilot workflow run agent-progress-dispatch`); Copilot CLI loads it only in a folder the user trusts,
+and untrusted reports the workflow not found, so `init` says to trust the folder. Item 7 becomes
+`.github/agents/agent-progress-worker.agent.md`, from `resources/templates/CopilotAgentProgressWorker.md`,
+naming Copilot's tools and the default tier's Copilot model and reasoning effort. `--no-workflow` and
+`--no-agent-definition` opt out of those two, and `--no-hooks` does nothing. The host goes into
+`version.json` (item 9), and `update` installs for it. `init --host copilot-cli` is refused at exit 1,
+writing nothing, unless `copilot --version` prints 1.0.92 or newer.
+
+Both hosts cannot share a repository: Copilot CLI runs a `.github/agents/` worker over its
+`.claude/agents/` namesake without a word. So `init` and `update` are refused at exit 1, writing
+nothing and deleting nothing, while the other host's files are present, naming each: for a Copilot
+install `.claude/agents/agent-progress-worker.md` and the `SubagentStop` entry running
+`agent-progress hook subagent-stop` in either settings file; for a Claude Code install the Copilot
+worker and extension. Remove them by hand to switch hosts.
 7. **The worker agent definition**, a Claude Code subagent whose frontmatter sets `model: opus` and
    `effort: medium` — the default for every agent that builds or reviews a ticket. The Agent tool
    takes a subagent's effort from its definition alone, so spawning `agent-progress-worker` is how an
@@ -229,8 +250,8 @@ Options in `[brackets]` are optional; `a|b` is a choice of one.
 
 | command | what it does |
 |---|---|
-| `init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]` | Create the tracker here and write the nine items in [Adopting a repository](#adopting-a-repository). `--project` names the project shown on the page (default: the root directory's name); `--root` tracks that directory instead of the discovered repository root. Refused when an ancestor already holds a tracker, when `--root` is not an existing directory, inside a bare repository, for `--no-agent-definition` without `--no-workflow` (the dispatcher starts every worker as that agent), for the two together while a dispatcher is installed without its definition, and when `AGENT_PROGRESS_ROOT` is set to a directory other than the one it would create the tracker in (the message names both, and nothing is written). A re-run refreshes only what `update` refreshes and leaves the tracker's own files alone; like `update`, it is refused at exit 1, writing nothing, over files a newer agent-progress installed ([Install version](#install-version)). |
-| `update [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]` | Refresh what the tool wrote into a repository it already tracks: the managed block, `agent-brief.md`, the hook, the workflow — generated anew into `.agent-progress/` — the agent definition and the two skills, undoing a hand edit to any of the last three; then, last, `version.json`. The tracker's own files are left alone, and the first line says so. A tracker an earlier agent-progress wrote in a format this one no longer reads — a version 1 `progress.json` holding its own log, or a status word the rename retired — is refused at exit 2 by every command that reads it, the reason ending in the advice to run `agent-progress update` with a release that still reads it, which rewrites it in the current format. It creates no tracker, so it takes no `--project` and no `--root`. With no tracker it is refused at exit 1, naming `agent-progress init`; so is `--no-agent-definition` without `--no-workflow`, or with it while a dispatcher is installed without its definition, writing nothing, as for `init`; and over files a newer agent-progress installed at exit 1, writing nothing ([Install version](#install-version)). Every command but `init`, `update`, `help`, `status` and `view-spec` is refused until it has run over files of an older install version, and `hook subagent-stop` reports it at exit 0 ([Install version](#install-version)). |
+| `init [--project <name>] [--root <path>] [--host claude-code\|copilot-cli] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]` | Create the tracker here and write the nine items in [Adopting a repository](#adopting-a-repository). `--project` names the project shown on the page (default: the root directory's name); `--root` tracks that directory instead of the discovered repository root; `--host` names the agent host to install for (default `claude-code`), recorded in `version.json`, and `copilot-cli` is refused unless `copilot --version` is 1.0.92 or newer. Refused, naming each file and deleting none, while the other host's installed files are present. Refused when an ancestor already holds a tracker, when `--root` is not an existing directory, inside a bare repository, for `--no-agent-definition` without `--no-workflow` (the dispatcher starts every worker as that agent), for the two together while a dispatcher is installed without its definition, and when `AGENT_PROGRESS_ROOT` is set to a directory other than the one it would create the tracker in (the message names both, and nothing is written). A re-run refreshes only what `update` refreshes and leaves the tracker's own files alone; like `update`, it is refused at exit 1, writing nothing, over files a newer agent-progress installed ([Install version](#install-version)). |
+| `update [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]` | Refresh what the tool wrote into a repository it already tracks, for the agent host `version.json` records, refusing like `init` while the other host's files are present: the managed block, `agent-brief.md`, the hook, the workflow — generated anew into `.agent-progress/` — the agent definition and the two skills, undoing a hand edit to any of the last three; then, last, `version.json`. The tracker's own files are left alone, and the first line says so. A tracker an earlier agent-progress wrote in a format this one no longer reads — a version 1 `progress.json` holding its own log, or a status word the rename retired — is refused at exit 2 by every command that reads it, the reason ending in the advice to run `agent-progress update` with a release that still reads it, which rewrites it in the current format. It creates no tracker, so it takes no `--project` and no `--root`. With no tracker it is refused at exit 1, naming `agent-progress init`; so is `--no-agent-definition` without `--no-workflow`, or with it while a dispatcher is installed without its definition, writing nothing, as for `init`; and over files a newer agent-progress installed at exit 1, writing nothing ([Install version](#install-version)). Every command but `init`, `update`, `help`, `status` and `view-spec` is refused until it has run over files of an older install version, and `hook subagent-stop` reports it at exit 0 ([Install version](#install-version)). |
 | `help` | The command reference. |
 
 ### Reading the board
@@ -897,7 +918,11 @@ transcript when it has one; each is written only when known, so a plain subagent
 
 The install version of the files `init` and `update` installed, indented two spaces and ending in a
 newline, written atomically by both after every other file they write. It is read as a JSON object
-whose `installVersion` is a whole number of at least 1; any other key is ignored and not written back.
+whose `installVersion` is a whole number of at least 1, and an `agentHost`, `claude-code` or
+`copilot-cli`, written only for `copilot-cli` after `installVersion` (`init --host copilot-cli`); a file
+without it is `claude-code`'s, and any other value is unreadable. `update` installs for the host it
+reads here, and for `claude-code` when the file is absent or unreadable. Any other key is ignored and
+not written back.
 A file recording another version, holding anything else or unreadable is a mismatch, and so is an
 absent file while `agent-brief.md` is installed; an absent file with no brief is none.
 [Install version](#install-version) says what a mismatch does.

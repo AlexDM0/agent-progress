@@ -23,6 +23,8 @@ export interface CommandContext {
   homeDirectory:           string;
   /** Created once per invocation; holds the render service's memos, the page bundle and the configured Marked. */
   renderState:             RenderState;
+  /** What `copilot --version` prints, or `null` when it cannot be run; asked only by `init --host copilot-cli`. */
+  copilotVersionOutput:    () => string | null;
 }
 
 /** A function, never a module constant: a constant would read `process.cwd()` at import time and hand every spec the test runner's directory. */
@@ -38,7 +40,18 @@ export function createProcessContext(): CommandContext {
     platform:                process.platform,
     homeDirectory:           homedir(),
     renderState:             createRenderState(),
+    copilotVersionOutput:    versionOutputOfTheInstalledCopilot,
   };
+}
+
+/** Fails closed: a missing binary, a spawn error and a non-zero exit all read as no Copilot CLI. */
+function versionOutputOfTheInstalledCopilot(): string | null {
+  try {
+    const finished = Bun.spawnSync(['copilot', '--version'], { stdin: 'ignore', stdout: 'pipe', stderr: 'ignore' });
+    return finished.exitCode === 0 ? finished.stdout.toString() : null;
+  } catch {
+    return null;
+  }
 }
 
 /**

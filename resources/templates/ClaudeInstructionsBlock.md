@@ -10,7 +10,7 @@ in separate checkouts all write to the same chart.
   `agent-progress-orchestrate` instead; it loads the other one itself. Filing or editing a ticket
   does not make a session the orchestrator and is never a reason to load that skill.
 - Only the orchestrator runs agents for tickets, and it runs them through the dispatcher workflow,
-  `.agent-progress/agent-progress-dispatch.js`, started only on the user's go. Any other session or
+  {{dispatcherWorkflowName}}, started only on the user's go. Any other session or
   agent files a ticket when it is asked to and stops there: it never dispatches an agent to handle
   one, its own or anybody else's.
 - Every agent's prompt names its row, its ticket or its review on a line of its own, {{tokenHookClause}}

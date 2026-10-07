@@ -10,15 +10,17 @@ import { installVersionVerdictOf } from './InstallVersionVerdict.ts';
 
 describe('installVersionVerdictOf', () => {
   test('a manifest recording the running install version is current', () => {
-    expect(installVersionVerdictOf({ verdict: 'readable', installVersion: 7 }, true, 7)).toEqual({ verdict: 'current' });
+    expect(installVersionVerdictOf({ verdict: 'readable', agentHost: 'claude-code', installVersion: 7 }, true, 7)).toEqual({ verdict: 'current' });
   });
 
   test('a lower recorded version is an older mismatch carrying that version', () => {
-    expect(installVersionVerdictOf({ verdict: 'readable', installVersion: 5 }, true, 7)).toEqual({ verdict: 'mismatch', mismatch: { reason: 'older', installedVersion: 5 } });
+    expect(installVersionVerdictOf({ verdict: 'readable', agentHost: 'claude-code', installVersion: 5 }, true, 7))
+      .toEqual({ verdict: 'mismatch', mismatch: { reason: 'older', installedVersion: 5 } });
   });
 
   test('a higher recorded version is a newer mismatch carrying that version', () => {
-    expect(installVersionVerdictOf({ verdict: 'readable', installVersion: 9 }, true, 7)).toEqual({ verdict: 'mismatch', mismatch: { reason: 'newer', installedVersion: 9 } });
+    expect(installVersionVerdictOf({ verdict: 'readable', agentHost: 'claude-code', installVersion: 9 }, true, 7))
+      .toEqual({ verdict: 'mismatch', mismatch: { reason: 'newer', installedVersion: 9 } });
   });
 
   test('an unreadable manifest is a mismatch carrying the problem, whether or not files are present', () => {

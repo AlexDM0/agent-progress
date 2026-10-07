@@ -40,7 +40,7 @@ output never carries either.
       [--no-hooks]            its work through this tool, the two hooks below, and the
       [--no-workflow]         dispatcher workflow at \`.agent-progress/agent-progress-dispatch.js\`,
       [--no-agent-definition] generated from this tool's dispatcher, and the Claude Code agent
-                              definition \`.claude/agents/agent-progress-worker.md\`, whose
+      [--host <host>]         definition \`.claude/agents/agent-progress-worker.md\`, whose
                               frontmatter sets the default model and effort for builders and
                               reviewers (opus, medium). Refused when an ancestor
                               already holds a tracker, when --root is not an existing directory,
@@ -55,8 +55,16 @@ output never carries either.
                               dispatcher starts every builder and reviewer as that agent; and
                               both together are refused the same way while a dispatcher is
                               installed without its definition, which --no-workflow would keep.
+                              --host claude-code (the default) or copilot-cli: copilot-cli writes
+                              no hook, the workflow as the extension
+                              \`.github/extensions/agent-progress/extension.mjs\` (git-ignored) and
+                              the definition as \`.github/agents/agent-progress-worker.agent.md\`,
+                              records the host in \`version.json\` for update, and is refused
+                              unless \`copilot --version\` is 1.0.92 or newer. init and update
+                              refuse, naming each and removing none, while the other host's
+                              agent definition, SubagentStop hook or extension is present.
 
-  update                      Refresh what the tool wrote into a repository it already tracks: the
+  update                    Refresh what the tool wrote into a repository it already tracks: the
       [--no-claude-md]        managed CLAUDE.md block, \`agent-brief.md\` — guidance shipped with the
       [--no-hooks]            tool rather than a file a project edits — the two hooks and the
       [--no-workflow]         dispatcher workflow, generated anew, and the agent definition, a hand

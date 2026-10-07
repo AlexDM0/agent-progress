@@ -9,30 +9,45 @@ const DISPATCHER_SCRIPT_FILE_NAME = 'agent-progress-dispatch.js';
 
 const INSTALL_MANIFEST_FILE_NAME = 'version.json';
 
+const COPILOT_EXTENSION_NAME = 'agent-progress';
+
+const COPILOT_EXTENSION_FILE_NAME = 'extension.mjs';
+
 export interface InstalledFilePaths {
-  agentBrief:         string;
-  builderBrief:       string;
-  reviewBrief:        string;
-  claudeInstructions: string;
-  dispatcherScript:   string;
+  agentBrief:             string;
+  builderBrief:           string;
+  reviewBrief:            string;
+  claudeInstructions:     string;
+  dispatcherScript:       string;
   /** Claude Code reads a project's subagent definitions from `.claude/agents/`; the file name matches the definition's `name`. */
-  agentDefinition:    string;
-  installManifest:    string;
+  agentDefinition:        string;
+  /** Copilot CLI reads a project's custom agents from `.github/agents/<name>.agent.md`, and runs that one over a `.claude/agents/` namesake. */
+  copilotAgentDefinition: string;
+  /** Copilot CLI loads a project's extensions from `.github/extensions/<name>/extension.mjs`, only in a folder the user trusts. */
+  copilotExtension:       string;
+  installManifest:        string;
 }
 
-/** Claude Code reads a project's skills from `.claude/skills/<name>/`, written with `/` as `.gitignore` takes it. */
+/** Claude Code and Copilot CLI both read a project's skills from `.claude/skills/<name>/`, written with `/` as `.gitignore` takes it. */
 export function installedSkillFolderInRepository(skillName: string): string {
   return `.claude/skills/${skillName}`;
 }
 
+/** Written with `/` as `.gitignore` takes it; the extension is bundled from this checkout, so it is never committed. */
+export function copilotExtensionFolderInRepository(): string {
+  return `.github/extensions/${COPILOT_EXTENSION_NAME}`;
+}
+
 export function installedFilePathsIn(rootDirectory: string): InstalledFilePaths {
   return {
-    agentBrief:         join(rootDirectory, DISPATCH_PROTOCOL.AGENT_BRIEF_PATH_IN_REPOSITORY),
-    builderBrief:       join(rootDirectory, DISPATCH_PROTOCOL.BUILDER_BRIEF_PATH_IN_REPOSITORY),
-    reviewBrief:        join(rootDirectory, DISPATCH_PROTOCOL.REVIEW_BRIEF_PATH_IN_REPOSITORY),
-    claudeInstructions: join(rootDirectory, 'CLAUDE.md'),
-    dispatcherScript:   join(rootDirectory, TRACKER_FILES.TRACKER_DIRECTORY_NAME, DISPATCHER_SCRIPT_FILE_NAME),
-    agentDefinition:    join(rootDirectory, '.claude', 'agents', `${DISPATCH_PROTOCOL.WORKER_AGENT_TYPE}.md`),
-    installManifest:    join(rootDirectory, TRACKER_FILES.TRACKER_DIRECTORY_NAME, INSTALL_MANIFEST_FILE_NAME),
+    agentBrief:             join(rootDirectory, DISPATCH_PROTOCOL.AGENT_BRIEF_PATH_IN_REPOSITORY),
+    builderBrief:           join(rootDirectory, DISPATCH_PROTOCOL.BUILDER_BRIEF_PATH_IN_REPOSITORY),
+    reviewBrief:            join(rootDirectory, DISPATCH_PROTOCOL.REVIEW_BRIEF_PATH_IN_REPOSITORY),
+    claudeInstructions:     join(rootDirectory, 'CLAUDE.md'),
+    dispatcherScript:       join(rootDirectory, TRACKER_FILES.TRACKER_DIRECTORY_NAME, DISPATCHER_SCRIPT_FILE_NAME),
+    agentDefinition:        join(rootDirectory, '.claude', 'agents', `${DISPATCH_PROTOCOL.WORKER_AGENT_TYPE}.md`),
+    copilotAgentDefinition: join(rootDirectory, '.github', 'agents', `${DISPATCH_PROTOCOL.WORKER_AGENT_TYPE}.agent.md`),
+    copilotExtension:       join(rootDirectory, copilotExtensionFolderInRepository(), COPILOT_EXTENSION_FILE_NAME),
+    installManifest:        join(rootDirectory, TRACKER_FILES.TRACKER_DIRECTORY_NAME, INSTALL_MANIFEST_FILE_NAME),
   };
 }

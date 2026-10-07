@@ -7,9 +7,11 @@ import { createTracker }                                     from '../../../src/
 import { findWorkspace, workspacePathsFor }                  from '../../../src/services/tracker/Workspace.ts';
 import { TRACKER_FILES }                                     from '../../../src/services/tracker/constants/TrackerFiles.ts';
 import { OperationRefusal }                                  from '../../../src/shared/OperationRefusal.ts';
+import { AGENT_HOSTS, DEFAULT_AGENT_HOST, type AgentHost }   from '../../../src/shared/constants/AgentHosts.ts';
 import type { CommandHandler }                               from '../../CommandHandler.ts';
 import { requireInstallManifestThisVersionCanReplace }       from '../../InstallVersionCheck.ts';
 import { OutputUtil }                                        from '../../utils/OutputUtil.ts';
+import { refuseAnotherAgentHostsLeftovers }                  from '../AgentHostLeftovers.ts';
 import { installedFileTextsFor, installedSkillFileTextsFor } from '../InstalledFileGeneration.ts';
 import type { InstalledFileTexts }                           from '../InstalledFileGeneration.ts';
 import {
@@ -21,11 +23,23 @@ import {
   refuseAnAgentDefinitionOptOutKeepingTheWorkflow,
   refuseKeepingADispatcherWithoutItsAgentDefinition
 }                                                                             from '../TrackerRefresh.ts';
+import { requireCopilotCliVersion }                                    from './CopilotVersionCheck.ts';
 import { initRootDirectoryOf, refuseAnOverrideNamingAnotherDirectory } from './InitRoot.ts';
 
-const USAGE = 'agent-progress init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]';
+const USAGE = 'agent-progress init [--project <name>] [--root <path>] [--host claude-code|copilot-cli] [--no-claude-md] [--no-hooks] [--no-workflow] '
+  + '[--no-agent-definition]';
 
-const KNOWN_OPTION_NAMES = ['project', 'root', 'no-claude-md', 'no-hooks', 'no-workflow', 'no-agent-definition'];
+const KNOWN_OPTION_NAMES = ['project', 'root', 'host', 'no-claude-md', 'no-hooks', 'no-workflow', 'no-agent-definition'];
+
+const COPILOT_TRUST_LINE = '  Copilot CLI loads the extension only in a folder it trusts: start `copilot` here once and trust this folder, '
+  + 'or the agent-progress-dispatch workflow is reported as not found.';
+
+function agentHostOf(hostOption: string | undefined): AgentHost {
+  if (hostOption === undefined) return DEFAULT_AGENT_HOST;
+  const agentHost = AGENT_HOSTS.find((host) => host === hostOption);
+  if (agentHost === undefined) throw new OperationRefusal('refused', `--host takes ${AGENT_HOSTS.join(' or ')}, not "${hostOption}".\nUsage: ${USAGE}`);
+  return agentHost;
+}
 
 const IGNORE_OUTCOME_WORDS: Record<EnsureIgnoredOutcome, string> = {
   'already-ignored':      'already ignored, so nothing was added',
@@ -45,12 +59,17 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
   refuseAnAgentDefinitionOptOutKeepingTheWorkflow('init', { writesTheAgentDefinition, writesTheDispatcherWorkflow });
 
   refuseAnOverrideNamingAnotherDirectory(context.currentDirectory, rootDirectory);
+  const agentHost = agentHostOf(commandArguments.option('host'));
+  if (agentHost === 'copilot-cli') requireCopilotCliVersion(context.copilotVersionOutput());
+  const reportTheTrustCopilotNeeds = () => {
+    if (agentHost === 'copilot-cli' && writesTheDispatcherWorkflow) context.standardOutput(COPILOT_TRUST_LINE);
+  };
 
-  const installedSkillFileTexts = installedSkillFileTextsFor('claude-code');
+  const installedSkillFileTexts = installedSkillFileTextsFor(agentHost);
   // The brief, the block and the hook are written by the same refresh a second `init` and `update` run, so a fresh tracker and an adopted one never drift.
   const refreshTheRepository = (installedFileTexts: InstalledFileTexts, { writesTheBriefFirst }: { writesTheBriefFirst: boolean }) => refreshTrackedRepository({
     workspace,
-    agentHost:     'claude-code',
+    agentHost,
     installedFileTexts,
     installedSkillFileTexts,
     commandName:   'init',
@@ -63,7 +82,8 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
     context.standardOutput(`agent-progress is already initialised in ${rootDirectory}.`);
     for (const line of refreshReportLinesOf(refresh, workspace.htmlFilePath)) context.standardOutput(line);
     context.standardOutput('  `agent-progress update` is the command for this refresh; `init` only creates a tracker.');
-    recordInstallVersion(workspace.rootDirectory);
+    reportTheTrustCopilotNeeds();
+    recordInstallVersion(workspace.rootDirectory, agentHost);
   };
 
   const existingWorkspace = findWorkspace(rootDirectory);
@@ -75,10 +95,11 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
     );
   }
   requireInstallManifestThisVersionCanReplace(workspace.rootDirectory);
-  refuseKeepingADispatcherWithoutItsAgentDefinition('init', workspace.rootDirectory, { writesTheAgentDefinition, writesTheDispatcherWorkflow });
+  refuseKeepingADispatcherWithoutItsAgentDefinition('init', { rootDirectory: workspace.rootDirectory, agentHost }, { writesTheAgentDefinition, writesTheDispatcherWorkflow });
+  refuseAnotherAgentHostsLeftovers('init', { rootDirectory: workspace.rootDirectory, agentHost });
 
   // Every installed text is computed before the first write, so a dispatcher that will not bundle leaves no tracker and no file behind.
-  const installedFileTexts = await installedFileTextsFor({ agentHost: 'claude-code', generatesTheDispatcherScript: writesTheDispatcherWorkflow });
+  const installedFileTexts = await installedFileTextsFor({ agentHost, generatesTheDispatcherScript: writesTheDispatcherWorkflow });
   if (existingWorkspace !== null) {
     reportTheRefreshOfAnExistingTracker(installedFileTexts);
     return;
@@ -109,5 +130,6 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
   for (const { reportLabel, line, marksTheInstall } of refresh.partLines) {
     if (!marksTheInstall) context.standardOutput(reportLineOf(reportLabel, line));
   }
-  recordInstallVersion(workspace.rootDirectory);
+  reportTheTrustCopilotNeeds();
+  recordInstallVersion(workspace.rootDirectory, agentHost);
 };

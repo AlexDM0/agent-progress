@@ -19,14 +19,22 @@ function scratchManifestFilePath(prefix: string): string {
   return join(directory, 'version.json');
 }
 
-test('the manifest on disk is the install version alone, indented and ending with a newline', () => {
+test('a Claude Code manifest on disk is the install version alone, indented and ending with a newline', () => {
   const manifestFilePath = scratchManifestFilePath('manifest-bytes');
-  createInstallManifestWriter(manifestFilePath).write(1);
+  createInstallManifestWriter(manifestFilePath).write({ installVersion: 1, agentHost: 'claude-code' });
   expect(readFileSync(manifestFilePath, 'utf8')).toBe('{\n  "installVersion": 1\n}\n');
 });
 
-test('a written manifest reads back as the version it was written with', () => {
-  const manifestFilePath = scratchManifestFilePath('manifest-round-trip');
-  createInstallManifestWriter(manifestFilePath).write(7);
-  expect(new InstallManifestIngestion(manifestFilePath).read()).toEqual({ verdict: 'readable', installVersion: 7 });
+test('a Copilot CLI manifest adds the agent host after the version', () => {
+  const manifestFilePath = scratchManifestFilePath('manifest-host-bytes');
+  createInstallManifestWriter(manifestFilePath).write({ installVersion: 8, agentHost: 'copilot-cli' });
+  expect(readFileSync(manifestFilePath, 'utf8')).toBe('{\n  "installVersion": 8,\n  "agentHost": "copilot-cli"\n}\n');
+});
+
+test('a written manifest reads back as the version and host it was written with', () => {
+  for (const agentHost of ['claude-code', 'copilot-cli'] as const) {
+    const manifestFilePath = scratchManifestFilePath('manifest-round-trip');
+    createInstallManifestWriter(manifestFilePath).write({ installVersion: 7, agentHost });
+    expect(new InstallManifestIngestion(manifestFilePath).read()).toEqual({ verdict: 'readable', installVersion: 7, agentHost });
+  }
 });

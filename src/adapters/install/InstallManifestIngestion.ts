@@ -1,14 +1,15 @@
-/** `.agent-progress/version.json` read into the install version it records: read, parse, validate. */
+/** `.agent-progress/version.json` read into the install version and the agent host it records: read, parse, validate. */
 import { lstatSync } from 'node:fs';
 
-import { JsonRecordUtil }   from '../../lib/json-record/JsonRecordUtil.ts';
-import { storedFileTextOf } from '../StoredFileText.ts';
-import { StoredValueUtil }  from '../utils/StoredValueUtil.ts';
+import { JsonRecordUtil }                                  from '../../lib/json-record/JsonRecordUtil.ts';
+import { AGENT_HOSTS, DEFAULT_AGENT_HOST, type AgentHost } from '../../shared/constants/AgentHosts.ts';
+import { storedFileTextOf }                                from '../StoredFileText.ts';
+import { StoredValueUtil }                                 from '../utils/StoredValueUtil.ts';
 
 const LOWEST_INSTALL_VERSION = 1;
 
 export type InstallManifestReading =
-  | { verdict: 'readable'; installVersion: number }
+  | { verdict: 'readable'; installVersion: number; agentHost: AgentHost }
   | { verdict: 'absent' }
   | { verdict: 'directory' }
   | { verdict: 'unreadable'; reason: string };
@@ -16,6 +17,10 @@ export type InstallManifestReading =
 function installVersionProblemOf(installVersion: unknown): string {
   const valueAsWritten = installVersion === undefined ? 'missing' : JSON.stringify(installVersion);
   return `installVersion is ${valueAsWritten}, and it has to be a whole number of at least ${LOWEST_INSTALL_VERSION}`;
+}
+
+function valueIsAnAgentHost(value: unknown): value is AgentHost {
+  return AGENT_HOSTS.some((agentHost) => agentHost === value);
 }
 
 /** Rename replaces any file or link at the manifest's path but fails on a directory, which `update` therefore cannot repair. */
@@ -47,6 +52,9 @@ export class InstallManifestIngestion {
 
     const installVersion = Object.hasOwn(parsed, 'installVersion') ? parsed['installVersion'] : undefined;
     if (!StoredValueUtil.wholeNumberIsAtLeast(installVersion, LOWEST_INSTALL_VERSION)) return { verdict: 'unreadable', reason: installVersionProblemOf(installVersion) };
-    return { verdict: 'readable', installVersion };
+    if (!Object.hasOwn(parsed, 'agentHost')) return { verdict: 'readable', installVersion, agentHost: DEFAULT_AGENT_HOST };
+    const { agentHost } = parsed;
+    if (!valueIsAnAgentHost(agentHost)) return { verdict: 'unreadable', reason: `agentHost is ${JSON.stringify(agentHost)}, and it has to be one of ${AGENT_HOSTS.join(', ')}` };
+    return { verdict: 'readable', installVersion, agentHost };
   }
 }

@@ -12,8 +12,9 @@ import {
 
 import { expect, test } from 'bun:test';
 
-import { TRACKER_FILES }        from '../src/services/tracker/constants/TrackerFiles.ts';
-import { installedFilePathsIn } from './InstalledFiles.ts';
+import { TRACKER_FILES }           from '../src/services/tracker/constants/TrackerFiles.ts';
+import { COPILOT_EXTENSION_BUILD } from '../src/shared/DispatcherScriptBuildRequest.ts';
+import { installedFilePathsIn }    from './InstalledFiles.ts';
 
 const EXAMPLE_ROOT = join(sep, 'scratch', 'example-repository');
 
@@ -32,13 +33,20 @@ test('the agent definition is named for the type the dispatcher starts its worke
   expect(installedFilePathsIn(EXAMPLE_ROOT).agentDefinition).toBe(join(EXAMPLE_ROOT, '.claude', 'agents', 'agent-progress-worker.md'));
 });
 
+test('the Copilot worker and extension sit where Copilot CLI reads them, the extension three folders below the root as its bundle assumes', () => {
+  const { copilotAgentDefinition, copilotExtension } = installedFilePathsIn(EXAMPLE_ROOT);
+  expect(copilotAgentDefinition).toBe(join(EXAMPLE_ROOT, '.github', 'agents', 'agent-progress-worker.agent.md'));
+  expect(copilotExtension).toBe(join(EXAMPLE_ROOT, '.github', 'extensions', 'agent-progress', 'extension.mjs'));
+  expect(join(copilotExtension, '..', COPILOT_EXTENSION_BUILD.REPOSITORY_ROOT_FROM_EXTENSION_FILE)).toBe(EXAMPLE_ROOT);
+});
+
 test('the install manifest sits in the tracker directory, beside what it versions', () => {
   expect(installedFilePathsIn(EXAMPLE_ROOT).installManifest).toBe(join(EXAMPLE_ROOT, TRACKER_FILES.TRACKER_DIRECTORY_NAME, 'version.json'));
 });
 
 test('every path is absolute and under the root it was given', () => {
   const installedFilePaths = Object.values(installedFilePathsIn(EXAMPLE_ROOT));
-  expect(installedFilePaths).toHaveLength(7);
+  expect(installedFilePaths).toHaveLength(9);
   for (const installedFilePath of installedFilePaths) {
     expect(isAbsolute(installedFilePath), installedFilePath).toBe(true);
     expect(installedFilePath).toStartWith(`${EXAMPLE_ROOT}${sep}`);

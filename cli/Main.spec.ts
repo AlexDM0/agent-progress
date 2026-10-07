@@ -204,7 +204,7 @@ describe('a tracker whose installed files are of another install version', () =>
     const statusWithoutTheManifest = trackedContext();
     expect(await runCommandLine(['status', '--json', '--full'], statusWithoutTheManifest)).toBe(0);
     expect(statusWithoutTheManifest.errorText()).toBe('');
-    createInstallManifestWriter(installedFilePathsIn(trackedDirectory).installManifest).write(INSTALL_VERSION);
+    createInstallManifestWriter(installedFilePathsIn(trackedDirectory).installManifest).write({ installVersion: INSTALL_VERSION, agentHost: 'claude-code' });
     const statusWithTheManifest = trackedContext();
     expect(await runCommandLine(['status', '--json', '--full'], statusWithTheManifest)).toBe(0);
     expect(statusWithoutTheManifest.outputText()).toBe(statusWithTheManifest.outputText());
