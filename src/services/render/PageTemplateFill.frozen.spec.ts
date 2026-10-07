@@ -1,7 +1,8 @@
 /**
  * That `resources/template.html` filled with a fixed fixture stays byte for byte the page main rendered before the spec view's second
- * edition, both with a page script and with the banner-only fallback. The expected digests were taken at commit 9802bfd on main. To retake
- * them, check out the commit to compare against, run this spec, and copy each actual digest its failure prints into `FROZEN_PAGE_DIGESTS`.
+ * edition, both with a page script and with the banner-only fallback. The expected digests were retaken on the commit that faded the
+ * Dependencies lineage highlight. To retake them, check out the commit to compare against, run this spec, and copy each actual digest its
+ * failure prints into `FROZEN_PAGE_DIGESTS`.
  */
 import { createHash } from 'node:crypto';
 
@@ -14,8 +15,8 @@ import { createMarkdownRenderer } from './MarkdownRenderer.ts';
 import { fillPageTemplate }       from './PageTemplateFill.ts';
 
 const FROZEN_PAGE_DIGESTS = {
-  withPageScript: 'b5b4c5e3e2a053b37a8d303c8f474a2ebc005e478780bed2e68a04fdbe4bc100',
-  bannerOnly:     '2dabaab51d165ba9a5ddb763656fb2adca1b77ba7db8926895d408998d4de0a6',
+  withPageScript: '11399767752f29ed264b5c383e05d596dbd060c3085bb2dbbb1b8969cce9ac60',
+  bannerOnly:     '1f6b4deaecc8fec8c1c2fd0ef5b571ffe5ce9fae8590603459cd5502cd3d3081',
 } as const;
 
 const FROZEN_PROGRESS: TrackerProgress = {
