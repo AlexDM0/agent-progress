@@ -1,7 +1,6 @@
 /**
  * Hosts one dynamic workflow in a Copilot CLI extension and runs a given command once per settled agent, with the agent's prompt and running
- * token totals on its stdin. As the copilot-cli building block's main module it also stands for its siblings, which keep the per-agent
- * readings and bundle an extension with Bun's bundler. The package depends on no other lib package.
+ * token totals on its stdin. `AgentSettlementLedger.ts` keeps the per-agent readings and `ExtensionBundle.ts` bundles it into an extension.
  */
 import { spawn } from 'node:child_process';
 
