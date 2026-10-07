@@ -17,6 +17,7 @@ const {
   latestMilestoneMarkup,
   priorityMarkMarkup,
   reviewedMarkMarkup,
+  stateBadgeMarkup,
   stateLabelOf,
   taskLinkMarkup,
   ticketBadgeMarkup,
@@ -105,6 +106,13 @@ describe('ticketStatusBadgeMarkup', () => {
     expect(ticketStatusBadgeMarkup('in-review')).toBe('<span class="ap-badge in-review">Awaiting review</span>');
     expect(ticketStatusBadgeMarkup('pending')).toBe('<span class="ap-badge pending">To do</span>');
     expect(ticketStatusBadgeMarkup('delivered')).toBe('<span class="ap-badge delivered">Done</span>');
+  });
+});
+
+describe('stateBadgeMarkup', () => {
+  test('keys the badge on its state token and prints the label it is given, both escaped, as the epic ticket list wrote it', () => {
+    expect(stateBadgeMarkup('re-review', 'Reviewing (round 2)')).toBe('<span class="ap-badge" data-state="re-review">Reviewing (round 2)</span>');
+    expect(stateBadgeMarkup('"x"', '<b>')).toBe('<span class="ap-badge" data-state="&quot;x&quot;">&lt;b&gt;</span>');
   });
 });
 

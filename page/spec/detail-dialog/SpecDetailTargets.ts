@@ -1,15 +1,17 @@
 /**
- * The spec page's detail targets: a spec by its folder name and a work item by its id, each showing its title and its lane or state, a work
- * item its task lines too. A card opens what it carries the key of; a link opener names what it opens by its own value.
+ * The spec page's detail targets: a spec by its folder name, showing the Specs tab's spec detail, and a work item by its id, showing its
+ * title, its state and its task lines. A card opens what it carries the key of; a link opener names what it opens by its own value.
  */
 
 import { HtmlEscapeUtil }                                  from '../../../src/lib/html-escape/HtmlEscapeUtil.ts';
 import type { SpecSnapshot, WorkItem, WorkItemTask }       from '../../../src/lib/spec-snapshot/@types/SpecSnapshot.ts';
+import type { GroupMarkupFormat }                          from '../../@types/GroupMarks.ts';
 import type { DetailLinkOpener, DetailTargetRegistration } from '../../detail-dialog/@types/DetailTargetRegistration.ts';
 import { DetailMarkupUtil }                                from '../../detail-dialog/utils/DetailMarkupUtil.ts';
 import { MarkupUtil }                                      from '../../utils/MarkupUtil.ts';
 import { SPEC_KEY_ATTRIBUTE, WORK_ITEM_ID_ATTRIBUTE }      from '../constants/SpecCardIdentityAttributes.ts';
 import { SPEC_MARK_VOCABULARY }                            from '../constants/SpecMarkVocabulary.ts';
+import { specDetailMarkup }                                from '../specs/SpecDetailMarkup.ts';
 
 export type SpecDetailTargetKind = 'spec' | 'work-item';
 
@@ -48,7 +50,7 @@ export const SPEC_DETAIL_LINK_OPENERS: readonly DetailLinkOpener<SpecDetailTarge
   },
 ]);
 
-export function specDetailTargetsOf(snapshot: SpecSnapshot): Readonly<Record<SpecDetailTargetKind, DetailTargetRegistration>> {
+export function specDetailTargetsOf(snapshot: SpecSnapshot, format: GroupMarkupFormat): Readonly<Record<SpecDetailTargetKind, DetailTargetRegistration>> {
   const specByFolderName   = new Map(snapshot.specs.map((spec) => [spec.folderName, spec]));
   const workItemById       = new Map(snapshot.specs.flatMap((spec) => spec.workItems).map((workItem) => [workItem.id, workItem]));
 
@@ -59,7 +61,7 @@ export function specDetailTargetsOf(snapshot: SpecSnapshot): Readonly<Record<Spe
       selectorFor:    (escapedId) => `[${SPEC_KEY_ATTRIBUTE}="${escapedId}"]`,
       markupOf:       (folderName) => {
         const spec = specByFolderName.get(folderName);
-        return spec === undefined ? '' : titledFactMarkup(spec.title, 'lane', spec.lane);
+        return spec === undefined ? '' : specDetailMarkup(spec, format);
       },
     },
     'work-item': {

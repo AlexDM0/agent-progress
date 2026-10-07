@@ -1,4 +1,5 @@
 import type { DisplayState } from '../../src/lib/tracker-model/@types/Task.ts';
+import type { PageLimits }   from '../../src/shared/@types/PagePayload.ts';
 
 /** Anything a work item can be grouped under and coloured by: an epic on the tracker page. */
 export interface GroupMark {
@@ -32,4 +33,58 @@ export interface GroupRollupSegment {
 export interface GroupRollupModel {
   segments:  readonly GroupRollupSegment[];
   ariaLabel: string;
+}
+
+/** What a group's span and stamps are shortened against. */
+export interface GroupMarkupFormat {
+  limits:               PageLimits;
+  todayCalendarDate:    string;
+  nowEpochMilliseconds: number;
+}
+
+/** One fact of a group's facts line; the value comes as its whole element, already escaped, so a stamp can carry its own title. */
+export interface GroupFactModel {
+  label:       string;
+  valueMarkup: string;
+}
+
+export interface GroupItemBadge {
+  stateToken: string;
+  label:      string;
+}
+
+/** One line of a group's item list. */
+export interface GroupItemRowModel {
+  /** The item opener attribute's value, or `null` for a line that opens nothing. */
+  opener:      string | null;
+  leadText:    string;
+  title:       string;
+  /** The item's other groups, drawn as squares after its title. */
+  otherGroups: readonly GroupMark[];
+  badge:       GroupItemBadge | null;
+  note:        string | null;
+}
+
+export interface GroupCardHeadModel {
+  /** The title element, already escaped: a group's title button, or a plain title. */
+  titleMarkup:   string;
+  keyText:       string;
+  doneText:      string;
+  doneTitleText: string | null;
+}
+
+/** A group's card: its frame coloured by `slot`, its head and its body's parts in order, each already escaped. */
+export interface GroupCardModel {
+  slot:      number | null;
+  ariaLabel: string;
+  head:      GroupCardHeadModel;
+  bodyParts: readonly string[];
+}
+
+/** A group's detail: its head, coloured by `slot`, and its body's parts in order, each already escaped. */
+export interface GroupDetailModel {
+  slot:      number;
+  title:     string;
+  typeTags:  readonly string[];
+  bodyParts: readonly string[];
 }

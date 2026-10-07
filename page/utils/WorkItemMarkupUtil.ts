@@ -60,6 +60,11 @@ function ticketStatusBadgeMarkup(status: TicketStatus): string {
   return `<span class="ap-badge ${HtmlEscapeUtil.escapeHtml(status)}">${HtmlEscapeUtil.escapeHtml(STATE_LABEL_FOR_DISPLAY_STATE[status])}</span>`;
 }
 
+/** A state's badge, coloured by `stateToken`, a display state or a value its stylesheet keys on. */
+function stateBadgeMarkup(stateToken: string, label: string): string {
+  return `<span class="ap-badge" ${MarkupUtil.attribute('data-state', stateToken)}>${HtmlEscapeUtil.escapeHtml(label)}</span>`;
+}
+
 function markedPriorityMarkup(className: string, priority: 'low' | 'high'): string {
   const title = MarkupUtil.attribute('title', HtmlLabelUtil.priorityMarkTitleOf(priority));
   return `<span class="${className}" data-priority="${priority}" ${title}>${HtmlEscapeUtil.escapeHtml(priority)}</span>`;
@@ -124,6 +129,7 @@ export const WorkItemMarkupUtil = {
   taskLinkMarkup,
   ticketBadgeMarkup,
   ticketStatusBadgeMarkup,
+  stateBadgeMarkup,
   priorityLevelMarkMarkup,
   priorityMarkMarkup,
   reviewedTitleOf,

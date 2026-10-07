@@ -1,12 +1,21 @@
-/** The marks any grouping draws: its chips, swatches and squares, and its roll-up bar and legend, worded by the page's vocabulary. */
+/**
+ * The marks any grouping draws, worded by the page's vocabulary: its chips, swatches and squares, its roll-up bar and legend, its facts
+ * line and item list, its title button, and the frames of its card and its detail.
+ */
 
 import { HtmlEscapeUtil }                from '../../src/lib/html-escape/HtmlEscapeUtil.ts';
+import type { GroupCardModel }           from '../@types/GroupMarks.ts';
+import type { GroupDetailModel }         from '../@types/GroupMarks.ts';
+import type { GroupFactModel }           from '../@types/GroupMarks.ts';
+import type { GroupItemRowModel }        from '../@types/GroupMarks.ts';
 import type { GroupMark }                from '../@types/GroupMarks.ts';
 import type { GroupMarkVocabulary }      from '../@types/GroupMarks.ts';
 import type { GroupRollupModel }         from '../@types/GroupMarks.ts';
 import type { GroupRollupSegment }       from '../@types/GroupMarks.ts';
 import { STATE_LABEL_FOR_DISPLAY_STATE } from '../constants/StateLabels.ts';
+import { DetailMarkupUtil }              from '../detail-dialog/utils/DetailMarkupUtil.ts';
 import { MarkupUtil }                    from '../utils/MarkupUtil.ts';
+import { WorkItemMarkupUtil }            from '../utils/WorkItemMarkupUtil.ts';
 
 /** A Kanban card and a table line show this many group chips, then "+N" for the rest. */
 export const CARD_EPIC_CHIP_LIMIT = 2;
@@ -65,10 +74,63 @@ function rollupLegendMarkup(rollup: GroupRollupModel): string {
   return `<ul class="ap-epic-legend">${items.join('')}</ul>`;
 }
 
+function factsLineMarkup(facts: readonly GroupFactModel[]): string {
+  return `<div class="ap-ticket-meta">${facts.map((fact) => DetailMarkupUtil.factMarkup(fact.label, fact.valueMarkup)).join('')}</div>`;
+}
+
+function groupItemRowMarkup(row: GroupItemRowModel, vocabulary: GroupMarkVocabulary): string {
+  const note    = row.note === null ? '' : ` <span class="ap-card-note">${HtmlEscapeUtil.escapeHtml(row.note)}</span>`;
+  const content = `<span class="ap-ticket-id">${HtmlEscapeUtil.escapeHtml(row.leadText)}</span>`
+    + `<span class="ap-epic-ticket-title">${HtmlEscapeUtil.escapeHtml(row.title)}${otherGroupSquaresMarkup(row.otherGroups, 'also in ')}${note}</span>`
+    + (row.badge === null ? '' : WorkItemMarkupUtil.stateBadgeMarkup(row.badge.stateToken, row.badge.label));
+  return row.opener === null
+    ? `<li><span class="ap-epic-ticket">${content}</span></li>`
+    : `<li><button type="button" class="ap-epic-ticket" ${MarkupUtil.attribute(vocabulary.itemOpenerAttribute, row.opener)}>${content}</button></li>`;
+}
+
+function groupItemListMarkup(rows: readonly GroupItemRowModel[], vocabulary: GroupMarkVocabulary): string {
+  return `<ul class="ap-epic-tickets">${rows.map((row) => groupItemRowMarkup(row, vocabulary)).join('')}</ul>`;
+}
+
+function groupTitleButtonMarkup(group: GroupMark, vocabulary: GroupMarkVocabulary): string {
+  const opener = MarkupUtil.attribute(vocabulary.titleOpenerAttribute, group.key);
+  return `<button type="button" class="ap-epic-title" ${opener}>${swatchMarkup()}${HtmlEscapeUtil.escapeHtml(group.title)}</button>`;
+}
+
+function groupCardMarkup(card: GroupCardModel): string {
+  const { head } = card;
+  const slot      = card.slot === null ? '' : `${MarkupUtil.attribute('data-epic-slot', String(card.slot))} `;
+  const doneTitle = head.doneTitleText === null ? '' : ` ${MarkupUtil.attribute('title', head.doneTitleText)}`;
+  return [
+    `<article class="ap-card" ${slot}${MarkupUtil.attribute('aria-label', card.ariaLabel)}>`,
+    `<div class="ap-epic-card-head">${head.titleMarkup}<span class="ap-epic-key">${HtmlEscapeUtil.escapeHtml(head.keyText)}</span>`,
+    `<span class="ap-epic-done-mark"${doneTitle}>${HtmlEscapeUtil.escapeHtml(head.doneText)}</span></div>`,
+    '<div class="ap-epic-card-body">',
+    ...card.bodyParts,
+    '</div></article>',
+  ].join('');
+}
+
+function groupDetailMarkup(detail: GroupDetailModel): string {
+  const typeTags = detail.typeTags.map((typeTag) => `<span class="ap-detail-type">${HtmlEscapeUtil.escapeHtml(typeTag)}</span>`).join('');
+  return [
+    `<div class="ap-epic-detail" ${MarkupUtil.attribute('data-epic-slot', String(detail.slot))}>`,
+    `<div class="ap-detail-head">${swatchMarkup()}<h2 class="ap-detail-title">${HtmlEscapeUtil.escapeHtml(detail.title)}</h2>`,
+    `${typeTags}</div>`,
+    ...detail.bodyParts,
+    '</div>',
+  ].join('');
+}
+
 export const GroupMarkup = {
   groupChipsMarkup,
   swatchMarkup,
   otherGroupSquaresMarkup,
   rollupBarMarkup,
   rollupLegendMarkup,
+  factsLineMarkup,
+  groupItemListMarkup,
+  groupTitleButtonMarkup,
+  groupCardMarkup,
+  groupDetailMarkup,
 } as const;

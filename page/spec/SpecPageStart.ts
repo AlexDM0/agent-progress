@@ -1,7 +1,7 @@
 /**
  * The spec page's browser entry: it reads the spec island of `resources/spec-template.html` and fills the frame through the shared shell, the
- * status line as a snapshot's, the header from the spec header model, the edition badge, the unreadable entries' banner and the Kanban's two
- * bands with their behaviour, and wires the detail panel on the spec page's own targets.
+ * status line as a snapshot's, the header from the spec header model, the edition badge, the unreadable entries' banner, the Kanban's two
+ * bands with their behaviour and the Specs tab's cards, and wires the detail panel on the spec page's own targets.
  */
 
 import type { SpecSnapshot } from '../../src/lib/spec-snapshot/@types/SpecSnapshot.ts';
@@ -35,6 +35,8 @@ import {
   SPEC_KANBAN_TEXT_CONTAINER_IDS,
 } from './kanban/SpecKanbanController.ts';
 import { createSpecViewerPreferences } from './preferences/SpecViewerPreferences.ts';
+import { constitutionCardMarkup }      from './specs/ConstitutionCardMarkup.ts';
+import { SpecCardMarkup }              from './specs/SpecCardMarkup.ts';
 
 interface SpecPagePayload {
   readonly snapshot: SpecSnapshot;
@@ -55,7 +57,12 @@ const TICKETS_EMPTY_ELEMENT_ID      = 'ap-spec-tickets-empty';
 const SPECS_EMPTY_ELEMENT_ID        = 'ap-spec-specs-empty';
 const DEPENDENCIES_EMPTY_ELEMENT_ID = 'ap-spec-dependencies-empty';
 
-const VIEW_CONTAINER_IDS = [...SPEC_KANBAN_MARKUP_CONTAINER_IDS, CHART_ELEMENT_ID, 'ap-spec-tickets', 'ap-spec-specs', 'ap-spec-dependencies'];
+const CONSTITUTION_ELEMENT_ID = 'ap-spec-constitution';
+const SPEC_CARDS_ELEMENT_ID   = 'ap-spec-specs';
+
+const VIEW_CONTAINER_IDS = [
+  ...SPEC_KANBAN_MARKUP_CONTAINER_IDS, CHART_ELEMENT_ID, 'ap-spec-tickets', CONSTITUTION_ELEMENT_ID, SPEC_CARDS_ELEMENT_ID, 'ap-spec-dependencies',
+];
 
 const OWNED_MARKUP_CONTAINER_IDS = [
   SUMMARY_ELEMENT_ID, EDITION_BADGE_ELEMENT_ID, UNREADABLE_LIST_ELEMENT_ID, DETAIL_BODY_ELEMENT_ID, ...VIEW_CONTAINER_IDS,
@@ -118,6 +125,11 @@ function startSpecPage(): void {
   });
   kanbanController.wire();
 
+  const nowEpochMilliseconds = Date.now();
+  const format               = { limits, todayCalendarDate: TimeUtil.calendarDateOf(nowEpochMilliseconds), nowEpochMilliseconds };
+  DomUtil.setMarkup(CONSTITUTION_ELEMENT_ID, constitutionCardMarkup(snapshot.constitution));
+  DomUtil.setMarkup(SPEC_CARDS_ELEMENT_ID, SpecCardMarkup.specCardsMarkup(snapshot.specs, format));
+
   DomUtil.setMarkup(UNREADABLE_LIST_ELEMENT_ID, unreadableEntriesMarkup(snapshot.unreadable));
   DomUtil.setHidden(UNREADABLE_BANNER_ELEMENT_ID, snapshot.unreadable.length === 0);
   // One call per empty state, each naming its id's constant, so the template guards resolve every id the page hides.
@@ -129,7 +141,7 @@ function startSpecPage(): void {
   DomUtil.setHidden(DEPENDENCIES_EMPTY_ELEMENT_ID, snapshotHasSpecs);
 
   createDetailPanelController({
-    targets:              specDetailTargetsOf(snapshot),
+    targets:              specDetailTargetsOf(snapshot, format),
     linkOpeners:          SPEC_DETAIL_LINK_OPENERS,
     observedContainerIds: VIEW_CONTAINER_IDS,
     panelRoomScrollers:   SPEC_KANBAN_SCROLLERS,

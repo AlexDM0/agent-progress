@@ -83,7 +83,28 @@
                               --panel-cover
    #ap-chart                  the Progress chart's container
    #ap-spec-tickets           the Tickets view's container
-   #ap-spec-specs             the Specs view's container
+   #ap-spec-constitution      the Specs tab's constitution card, an article.ap-card
+                              on the epic card's head: the version, the path
+                              .specify/memory/constitution.md, the ratified and
+                              last amended facts and one li.ap-spec-principle per
+                              principle; without one, .ap-spec-constitution-empty
+                              naming /speckit-constitution
+   #ap-spec-specs             .ap-epics, the Specs tab's grid: one article.ap-card
+                              [data-epic-slot] per spec, in-flight specs first and
+                              Done last, on the epic card: button.ap-epic-title
+                              [data-open-spec] with its folder name and done mark,
+                              then .ap-spec-stepper-row[data-state] with the full
+                              stepper, the facts line, the stories as epic ticket
+                              lines (each opening its phase's work item), the
+                              files row ul.ap-spec-files > li.ap-spec-file
+                              [data-file-state=filled|template|missing], the
+                              checklists ul.ap-spec-checklists, the roll-up bar
+                              and legend, and the span; the spec's detail adds
+                              ul.ap-spec-task-phases (one li[data-state] per
+                              tasks.md phase: .ap-spec-task-phase-name,
+                              .ap-spec-task-bar, .ap-spec-task-count) and
+                              ul.ap-spec-stage-dates (.ap-spec-stage-name, each
+                              boundary's time and .ap-spec-stage-source)
    #ap-spec-dependencies      the Dependencies view's container
    #ap-spec-<name>-empty      each panel's empty state, [hidden] while the
                               snapshot holds a spec
@@ -145,6 +166,27 @@
 .ap-spec-task-lines li[data-done="true"] > span:last-child { color: var(--ink-muted); }
 .ap-spec-task-done { color: var(--ink-muted); }
 .ap-spec-task-mark { font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--ink-muted); }
+.ap-spec-constitution { margin-bottom: var(--sp-4); }
+.ap-spec-constitution-title { font-weight: 600; color: var(--ink); }
+.ap-spec-constitution-version { font: 500 var(--fs-micro)/1 var(--font-mono); color: var(--ink-muted); }
+.ap-spec-constitution-empty { margin: 0; color: var(--ink-muted); }
+.ap-spec-constitution-empty code { font-family: var(--font-mono); color: var(--ink); }
+.ap-spec-principles, .ap-spec-files, .ap-spec-checklists { display: flex; flex-wrap: wrap; gap: 4px 6px; list-style: none; margin: 0; padding: 0; min-width: 0; }
+.ap-spec-principle, .ap-spec-file { font-size: var(--fs-micro); line-height: 1.5; color: var(--ink); border: 1px solid var(--line); border-radius: var(--r-pill); padding: 0 8px; overflow-wrap: anywhere; }
+.ap-spec-file { font-family: var(--font-mono); }
+.ap-spec-file[data-file-state="missing"] { color: var(--ink-muted); border-style: dashed; opacity: 0.6; }
+.ap-spec-file[data-file-state="template"] { border-color: var(--warn-edge); background: var(--warn-tint); color: var(--warn-ink); }
+.ap-spec-file-mark { margin-left: 4px; font-family: var(--font-ui); font-style: italic; }
+.ap-spec-checklists li { display: inline-flex; gap: 6px; font-size: var(--fs-small); color: var(--ink); }
+.ap-spec-checklist-count, .ap-spec-task-count { font-family: var(--font-mono); color: var(--ink-muted); }
+.ap-spec-stepper-row { min-width: 0; }
+.ap-spec-task-phases, .ap-spec-stage-dates { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: var(--fs-small); }
+.ap-spec-task-phases li { display: grid; grid-template-columns: minmax(0, 110px) minmax(40px, 1fr) auto; align-items: center; gap: var(--sp-2); }
+.ap-spec-task-phase-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ap-spec-task-bar { height: 4px; border-radius: var(--r-pill); background: var(--surface-2); overflow: hidden; }
+.ap-spec-task-bar > span { display: block; height: 100%; background: var(--s-fill); }
+.ap-spec-stage-name { display: inline-block; min-width: 70px; font-weight: 600; }
+.ap-spec-stage-source { color: var(--ink-muted); font-size: var(--fs-micro); }
 </style>
 </head>
 <body>
@@ -246,8 +288,9 @@
 </section>
 
 <section data-panel="specs" role="tabpanel" id="ap-panel-specs" aria-labelledby="ap-tab-specs" hidden>
-  <div id="ap-spec-specs"></div>
-  <div class="ap-empty" id="ap-spec-specs-empty" hidden>No specs yet.</div>
+  <div class="ap-spec-constitution" id="ap-spec-constitution"></div>
+  <div class="ap-epics" id="ap-spec-specs"></div>
+  <div class="ap-empty" id="ap-spec-specs-empty" hidden>No specs yet: run /speckit.specify to start one.</div>
 </section>
 
 <section data-panel="dependencies" role="tabpanel" id="ap-panel-dependencies" aria-labelledby="ap-tab-dependencies" hidden>

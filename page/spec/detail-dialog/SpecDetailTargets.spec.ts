@@ -1,12 +1,14 @@
 /**
  * The spec page's detail targets. The cases that matter: a card opens what it carries the key of and its selection selector finds it again,
- * a spec chip or spec title link opens the spec and is checked before a work item link, so a chip on a work card opens its spec; a spec shows
- * its title and lane and a work item its title, state and task lines, all escaped; and an id the snapshot does not hold opens nothing.
+ * a spec chip or spec title link opens the spec and is checked before a work item link, so a chip on a work card opens its spec; a
+ * spec shows the Specs tab's detail, its title and lane, and a work item its title, state and task lines, all escaped; and an id
+ * the snapshot does not hold opens nothing.
  */
 
 import { describe, expect, test } from 'bun:test';
 
 import type { SpecSnapshot }                             from '../../../src/lib/spec-snapshot/@types/SpecSnapshot.ts';
+import { EXAMPLE_PAGE_LIMITS }                           from '../../testing/PageLimitsFixture.ts';
 import { SPEC_DETAIL_LINK_OPENERS, specDetailTargetsOf } from './SpecDetailTargets.ts';
 
 const EXAMPLE_SNAPSHOT = {
@@ -14,11 +16,26 @@ const EXAMPLE_SNAPSHOT = {
     folderName: '001-example-checkout',
     title:      'Example <checkout>',
     lane:       'implement',
+    colourSlot: 1,
+    stepper:    { doneLanes: ['specify', 'plan', 'tasks'], currentLane: 'implement' },
+    stories:    [],
+    counts:     {
+      functionalRequirements: 0, successCriteria: 0, openMarkers: 0, clarificationSessions: 0, clarificationAnswers: 0,
+    },
+    artefacts:  [],
+    checklists: [],
+    tasks:      { ticked: 1, total: 2 },
+    stageSpans: [],
     workItems:  [{
-      id:    '001-example-checkout-p03',
-      title: 'Pay by Example Card',
-      state: 'in-progress',
-      tasks: [
+      id:          '001-example-checkout-p03',
+      title:       'Pay by Example Card',
+      state:       'in-progress',
+      kind:        'user-story',
+      storyNumber: 1,
+      tagText:     'US1 · P1',
+      taskCount:   2,
+      tickedCount: 1,
+      tasks:       [
         {
           id: 'T007', isDone: true, isParallel: true, storyNumber: 1, description: 'Write the <card> form',
         },
@@ -30,7 +47,7 @@ const EXAMPLE_SNAPSHOT = {
   }],
 } as unknown as SpecSnapshot;
 
-const TARGETS = specDetailTargetsOf(EXAMPLE_SNAPSHOT);
+const TARGETS = specDetailTargetsOf(EXAMPLE_SNAPSHOT, { limits: EXAMPLE_PAGE_LIMITS, todayCalendarDate: '2026-10-06', nowEpochMilliseconds: 0 });
 
 describe('specDetailTargetsOf', () => {
   test('a spec opens from its card\'s data-spec-key, which also marks it', () => {
@@ -43,11 +60,11 @@ describe('specDetailTargetsOf', () => {
     expect(TARGETS['work-item'].selectorFor('X')).toBe('[data-work-item-id="X"]');
   });
 
-  test('a spec shows its escaped title and its lane', () => {
+  test('a spec shows the Specs tab\'s spec detail: its escaped title and its lane', () => {
     const markup = TARGETS.spec.markupOf('001-example-checkout');
 
-    expect(markup).toContain('Example &lt;checkout&gt;');
-    expect(markup).toContain('<div><b>lane</b><span>implement</span></div>');
+    expect(markup).toContain('<h2 class="ap-detail-title">Example &lt;checkout&gt;</h2>');
+    expect(markup).toContain('<span class="ap-detail-type">Implement</span>');
   });
 
   test('a work item shows its title, its state and its task lines: id, done, [P], story label and escaped description', () => {
