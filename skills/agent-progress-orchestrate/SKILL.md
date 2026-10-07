@@ -376,8 +376,8 @@ request — do not invent work to keep the loop running.
 the one linked binary. **After it was pulled, run `agent-progress update` in the main checkout before
 anything else**, and report its lines: it regenerates the dispatcher and the briefs the new version
 expects, and copies the skills into `.claude/skills/`, which a session reads at its start, so a
-changed skill reaches the next session. Commit what it changed in tracked files — `CLAUDE.md`, the agent definition — before the
-next release.
+changed skill reaches the next session. Commit what it changed in tracked files — `CLAUDE.md`, the
+agent definition — before the next release.
 
 **A command refused naming the install version** means the files installed here are of another
 version than the agent-progress you run: run `agent-progress update` in the main checkout first, then
