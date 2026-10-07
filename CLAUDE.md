@@ -67,6 +67,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - A malformed stored file is a verdict and a report, never a throw that takes down `status` or `render`.
 - `progress.json` keeps unknown keys, top level and on rows, in order. An optional key is written only once set, and
   a read never adds or rewrites one, so a file stays byte-identical.
+- `progress-spec.json` is a regenerated snapshot, versioned on its own, written whole on every run and read back only
+  by the render after its write, never edited by hand: the unknown-key and older-format rules do not bind it.
 - An epic is `.agent-progress/epics/<key>.md`, known by its file name, its description kept byte for byte like a
   ticket body; the folder exists only once an epic was added. Its colour `slot` is stored at `epic add`, never derived.
 - The Board logs ids and values through one `log(record)` over a typed record union (the vocabulary, no method per

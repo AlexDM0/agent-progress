@@ -657,6 +657,7 @@ nobody closed.
 ```
 .agent-progress/
   progress.json          the rows, the view, the limits
+  progress-spec.json     the spec-kit snapshot, rewritten whole by every spec view run
   log.jsonl              the log, one record per line
   progress.html          the generated dashboard
   progress.stamp.js      the render stamp the open dashboard polls, written after it
@@ -814,6 +815,75 @@ whose `installVersion` is a whole number of at least 1; any other key is ignored
 A file recording another version, holding anything else or unreadable is a mismatch, and so is an
 absent file while `agent-brief.md` is installed; an absent file with no brief is none.
 [Install version](#install-version) says what a mismatch does.
+
+### `.agent-progress/progress-spec.json`
+
+```jsonc
+{
+  "version": 1,                                  // this document's own version, apart from progress.json's
+  "project": "example-storefront",               // the spec-kit repository's folder name
+  "repositoryKey": "1c76f5bfd7605ed0",           // the tracker model's body hash of the repository's root path
+  "generatedAt": "2026-10-07T11:30:00+02:00",
+  "specKitVersion": null,                        // or the version .specify/init-options.json names
+  "constitution": null,                          // or { state, version, ratified, lastAmended, principles }
+  "laneCounts": { "specify": 0, "plan": 0, "tasks": 0, "implement": 1, "converge": 0, "done": 0 },
+  "tasks": { "ticked": 3, "total": 5 },
+  "openMarkers": [],                             // { folderName, relativePath, text, line } per spec.md marker
+  "unreadable": [],                              // { relativePath, reason, line (or null) } per file the scan could not read
+  "specs": [
+    {
+      "folderName": "001-example-feature",
+      "number": 1,                               // the folder name's leading digits, or null
+      "title": "Example Feature",
+      "colourSlot": 1,
+      "lane": "implement",                       // specify|plan|tasks|implement|converge|done
+      "stepper": { "doneLanes": ["specify", "plan", "tasks"], "currentLane": "implement" }, // currentLane null once done
+      "stories": [{ "number": 1, "title": "Example story", "priority": 1, "phaseState": "in-progress" }], // phaseState to-do|in-progress|done, or null
+      "counts": { "functionalRequirements": 1, "successCriteria": 1, "openMarkers": 0, "clarificationSessions": 0, "clarificationAnswers": 0 },
+      "artefacts": [
+        { "kind": "spec",                        // spec|plan|research|data-model|quickstart|contracts|tasks|checklist
+          "relativePath": "specs/001-example-feature/spec.md",
+          "state": "filled",                     // or template
+          "created": { "at": "2026-09-01T10:00:00+02:00", "source": "birth-time" }, // each date or null
+          "modified": { "at": "2026-09-02T10:00:00+02:00", "source": "modification-time" } }
+      ],
+      "checklists": [],                          // { relativePath, title, checked, total }
+      "tasks": { "ticked": 3, "total": 5 },
+      "workItems": [
+        {
+          "id": "001-example-feature-p02",       // the folder name, -p and the two-digit phase ordinal
+          "ordinal": 2,
+          "kind": "user-story",                  // setup|foundational|user-story|polish|convergence|other
+          "storyNumber": 1,                      // or null
+          "priority": 1,                         // or null
+          "isMinimumViableProduct": true,
+          "title": "Phase 2: Example user-story",
+          "tagText": "US1 · P1",                 // or null for a phase of no story
+          "state": "in-progress",                // to-do|in-progress|done
+          "taskCount": 3,
+          "tickedCount": 1,
+          "tasks": [{ "id": "T20", "isDone": true, "isParallel": false, "storyNumber": 1, "description": "Example task 0" }],
+          "dependsOn": ["001-example-feature-p01"],
+          "waitingOn": []                        // the work items it depends on that are not done
+        }
+      ],
+      "stageSpans": [
+        { "stage": "implement",                  // specify|plan|implement
+          "start": { "artefact": "tasks", "date": { "at": "2026-09-01T10:00:00+02:00", "source": "birth-time" } },
+          "end": null,                           // or { artefact, date } once the span closed
+          "isOpen": true }
+      ]
+    }
+  ]
+}
+```
+
+A regenerated snapshot, not a store: it is written whole, indented two spaces and ending in a newline,
+atomically, on every run that derives it, and read back only by the render that follows that write.
+It is never edited by hand, so a key the tool does not know is not kept, and an older version is not
+answered with the `update` advice. A document at another version, one that is not JSON, or one with a
+field of the wrong type is unreadable, its reason naming the field by its path
+(`specs[0].workItems[1].waitingOn is not an array`).
 
 ### `.agent-progress/tickets/003-double-click-a-role-to-edit-it.md`
 
