@@ -94,6 +94,37 @@ const PAGE_RENDERER: RendererObject = {
   },
 };
 
+const SECTION_BOUNDARY_PATTERN = /^#{1,2}[ \t]/;
+
+const CODE_FENCE_PATTERN = /^[ \t]*(```|~~~)/;
+
+const ACCEPTANCE_HEADING_PATTERN = /^## Acceptance[ \t]*$/;
+
+const ACCEPTANCE_ITEM_LINE_PATTERN = /^A\d+\.(?:[ \t]|$)/;
+
+/**
+ * A ticket body with a blank line before every `A<number>.` line of its `## Acceptance` section that follows a non-blank one, so marked
+ * renders each item as its own paragraph instead of joining them into one; every other line, and the stored file, stay as written.
+ */
+export function withAcceptanceItemsSeparated(ticketBody: string): string {
+  const lines = ticketBody.split('\n');
+  const separatedLines: string[] = [];
+  let insideAcceptance = false;
+  let insideCodeFence = false;
+  for (const line of lines) {
+    if (CODE_FENCE_PATTERN.test(line)) insideCodeFence = !insideCodeFence;
+    if (!insideCodeFence && SECTION_BOUNDARY_PATTERN.test(line)) {
+      insideAcceptance = ACCEPTANCE_HEADING_PATTERN.test(line.trimEnd());
+    }
+    const previousLine = separatedLines.at(-1);
+    const startsAnItemAfterText = insideAcceptance && !insideCodeFence && ACCEPTANCE_ITEM_LINE_PATTERN.test(line)
+      && previousLine !== undefined && previousLine.trim() !== '';
+    if (startsAnItemAfterText) separatedLines.push('');
+    separatedLines.push(line);
+  }
+  return separatedLines.join('\n');
+}
+
 export interface MarkdownRenderer {
   renderMarkdown(markdown: string): string;
 }

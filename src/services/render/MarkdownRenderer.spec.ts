@@ -1,10 +1,11 @@
 /**
  * Where `src/services/render/MarkdownRenderer.ts` deliberately departs from marked: raw HTML escaped rather than
- * passed through, and only allowlisted link schemes surviving.
+ * passed through, and only allowlisted link schemes surviving; and the Acceptance items of a ticket body split into one block each, while every
+ * other input renders byte-identical.
  */
 
-import { describe, expect, test } from 'bun:test';
-import { createMarkdownRenderer } from './MarkdownRenderer.ts';
+import { describe, expect, test }                               from 'bun:test';
+import { createMarkdownRenderer, withAcceptanceItemsSeparated } from './MarkdownRenderer.ts';
 
 const { renderMarkdown } = createMarkdownRenderer();
 
@@ -133,5 +134,47 @@ describe('renderMarkdown', () => {
     const body = '## Report\n\n- one\n- two\n';
 
     expect(renderMarkdown(body)).toBe(renderMarkdown(body));
+  });
+});
+
+describe('withAcceptanceItemsSeparated', () => {
+  const ticketBodyWithJoinedItems = [
+    '## Report',
+    'Alex Example saw a blob.',
+    '',
+    '## Acceptance',
+    'A1. **First.** The first claim',
+    '    continues on an indented line.',
+    'A2. The second claim',
+    '    - with an indented sub-point.',
+    'A3. The third claim.',
+    '',
+    '## Brief',
+    'Nothing more.',
+    '',
+  ].join('\n');
+
+  test('renders each Acceptance item as its own block, its continuation text in the same block', () => {
+    const html = renderMarkdown(withAcceptanceItemsSeparated(ticketBodyWithJoinedItems));
+
+    expect(html).toContain('<p>A1. <strong>First.</strong> The first claim\n    continues on an indented line.</p>');
+    expect(html).toContain('<p>A2. The second claim\n    - with an indented sub-point.</p>');
+    expect(html).toContain('<p>A3. The third claim.</p>');
+  });
+
+  test('without it the same items render as one joined paragraph, which is the blob it fixes', () => {
+    const html = renderMarkdown(ticketBodyWithJoinedItems);
+
+    expect(html).toContain('    continues on an indented line.\nA2. The second claim');
+  });
+
+  test.each([
+    ['an item line outside the Acceptance section', '## Report\nA1. Not an item here\nA2. Nor this\n'],
+    ['Acceptance prose without numbered items', '## Acceptance\nThe page shows\none block.\n'],
+    ['item lines inside a fenced block in Acceptance', '## Acceptance\n```\nA1. code\nA2. code\n```\n'],
+    ['items already separated by blank lines', '## Acceptance\n\nA1. One.\n\nA2. Two.\n'],
+  ])('leaves %s byte-identical, so it renders exactly as before', (_description, ticketBody) => {
+    expect(withAcceptanceItemsSeparated(ticketBody)).toBe(ticketBody);
+    expect(renderMarkdown(withAcceptanceItemsSeparated(ticketBody))).toBe(renderMarkdown(ticketBody));
   });
 });

@@ -17,6 +17,7 @@ import { resourceFilePathOf }                            from '../../shared/Reso
 import { LIMITS }                                        from '../../shared/constants/Limits.ts';
 import { TIME_UNITS }                                    from '../../shared/constants/TimeUnits.ts';
 import { TIMESTAMP_SLICES }                              from '../../shared/constants/TimestampSlices.ts';
+import { withAcceptanceItemsSeparated }                  from './MarkdownRenderer.ts';
 import { substituteTemplateTokens }                      from './TemplateTokenSubstitution.ts';
 import { TEMPLATE_FILE_NAME, TEMPLATE_TOKENS }           from './constants/TemplateFile.ts';
 import { PageScriptTextUtil }                            from './utils/PageScriptTextUtil.ts';
@@ -59,7 +60,7 @@ function pageTicketsFor(tickets: readonly Ticket[], renderMarkdown: (markdown: s
   return tickets.map((ticket) => ({
     ...ticket.frontmatter,
     filePath: ticket.filePath,
-    bodyHtml: renderMarkdown(ticket.body),
+    bodyHtml: renderMarkdown(withAcceptanceItemsSeparated(ticket.body)),
   }));
 }
 
