@@ -1,14 +1,14 @@
 /** The write that records a stopped agent and credits the rows its brief names, reporting every share it could not place. */
-import { OperationRefusalWordingUtil }  from '../../../src/adapters/utils/OperationRefusalWordingUtil.ts';
-import type { TokenCreditOutcome }      from '../../../src/lib/tracker-model/@types/BoardChanges.ts';
-import type { AgentUsage, LogRecord }   from '../../../src/lib/tracker-model/@types/LogRecord.ts';
-import { refusalIsOperationRefusal }    from '../../../src/shared/OperationRefusal.ts';
-import type { CommandContext }          from '../../CommandContext.ts';
-import { requireCurrentInstall }        from '../../InstallVersionCheck.ts';
-import { openTrackerForWriting }        from '../../OpenTrackerForWriting.ts';
-import type { ArgumentParser }          from '../../arguments/ArgumentParser.ts';
-import { REPORT_PREFIX, UNKNOWN_AGENT } from './HookInput.ts';
-import { SubagentStopUtil }             from './utils/SubagentStopUtil.ts';
+import { OperationRefusalWordingUtil } from '../../../src/adapters/utils/OperationRefusalWordingUtil.ts';
+import type { TokenCreditOutcome }     from '../../../src/lib/tracker-model/@types/BoardChanges.ts';
+import type { AgentUsage, LogRecord }  from '../../../src/lib/tracker-model/@types/LogRecord.ts';
+import { refusalIsOperationRefusal }   from '../../../src/shared/OperationRefusal.ts';
+import type { CommandContext }         from '../../CommandContext.ts';
+import { requireCurrentInstall }       from '../../InstallVersionCheck.ts';
+import { openTrackerForWriting }       from '../../OpenTrackerForWriting.ts';
+import type { ArgumentParser }         from '../../arguments/ArgumentParser.ts';
+import { UNKNOWN_AGENT }               from './HookInput.ts';
+import { SubagentStopUtil }            from './utils/SubagentStopUtil.ts';
 
 const SHARE_NOT_RECORDED = 'so its share of the tokens was not recorded.';
 
@@ -49,31 +49,47 @@ function tokensStillToCreditOf(usage: AgentUsage, storedLogRecords: readonly Log
   return Math.max(0, usage.totalInputTokens - alreadyCreditedTokens);
 }
 
+/** A Copilot agent's settled total arrives again on every reconcile, so its replays are skipped rather than logged a second time. */
+function stopWasAlreadyLogged(usage: AgentUsage, storedLogRecords: readonly LogRecord[]): boolean {
+  return usage.agentId !== UNKNOWN_AGENT && storedLogRecords.some(
+    (record) => record.kind === 'agent-stopped' && record.fields.agentId === usage.agentId && record.fields.totalInputTokens >= usage.totalInputTokens,
+  );
+}
+
+export interface AgentStop {
+  usage:     AgentUsage;
+  briefText: string;
+}
+
+export type ReplayedStopPolicy = 'logged-again' | 'skipped';
+
 /**
- * The tracker is resolved from the hook input's `cwd`, not from this process's: the hook runs wherever
+ * The tracker is resolved from the given working directory, not from this process's: the hook runs wherever
  * the harness happens to be, and the agent that stopped may have been working in a worktree. A
  * worktree still finds the main checkout's tracker, because `src/services/tracker/Workspace.ts` asks git for
- * the common directory — so this only has to hand the walk the right place to start.
+ * the common directory — so this only has to hand the walk the right place to start. Every stop is recorded in one write.
  */
 export async function recordInTheTracker(
   commandArguments: ArgumentParser,
   context: CommandContext,
+  reportPrefix: string,
   workingDirectory: string,
-  usage: AgentUsage,
-  briefText: string,
+  agentStops: readonly AgentStop[],
+  replayedStopPolicy: ReplayedStopPolicy,
 ): Promise<void> {
   const trackerContext: CommandContext = { ...context, currentDirectory: workingDirectory };
   let unrecordedShareSentences: string[] = [];
   try {
     requireCurrentInstall(workingDirectory);
-    unrecordedShareSentences = await openTrackerForWriting(commandArguments, trackerContext, (change) => {
+    unrecordedShareSentences = await openTrackerForWriting(commandArguments, trackerContext, (change) => agentStops.flatMap(({ usage, briefText }) => {
+      if (replayedStopPolicy === 'skipped' && stopWasAlreadyLogged(usage, change.storedLogRecords)) return [];
       const tokensStillToCredit = tokensStillToCreditOf(usage, change.storedLogRecords);
       const briefCredits        = tokensStillToCredit > 0 ? SubagentStopUtil.creditsFor(briefText, tokensStillToCredit) : [];
       const { outcomes }        = change.board.recordAgentStop(usage, briefCredits, change.at);
       return outcomes.flatMap((outcome) => unrecordedSentenceOf(outcome) ?? []);
-    });
+    }));
   } catch (failure) {
-    context.standardError(`${REPORT_PREFIX} the line could not be recorded in ${workingDirectory}: ${failureReasonOf(failure)}`);
+    context.standardError(`${reportPrefix} the line could not be recorded in ${workingDirectory}: ${failureReasonOf(failure)}`);
   }
-  for (const sentence of unrecordedShareSentences) context.standardError(`${REPORT_PREFIX} ${sentence}`);
+  for (const sentence of unrecordedShareSentences) context.standardError(`${reportPrefix} ${sentence}`);
 }

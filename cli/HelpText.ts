@@ -163,6 +163,19 @@ output never carries either.
                               A read (\`checks\`, \`checks --json\`), every other call, and every
                               call from the main session pass at exit 0, unreadable input too.
 
+  hook copilot-agent-settled  Record what a settled Copilot CLI agent cost, as subagent-stop does:
+      [--session <id>]        the Copilot extension runs it. Standard input holds one JSON object
+                              with repositoryRoot, agentId, label, prompt and usage (inputTokens,
+                              outputTokens, cacheReadTokens, cacheWriteTokens, running totals).
+                              The tracker is found from repositoryRoot alone; the prompt's marker
+                              line names the rows; inputTokens alone is the input, as it already
+                              holds the cache reads and writes. An agent is credited only what
+                              its total grew by since it was last logged, so a repeat adds
+                              nothing. With --session it needs only repositoryRoot and credits
+                              each agent of ~/.copilot/session-state/<id>/events.jsonl its
+                              shutdown totals, the same way. Every failure exits 0, writing
+                              nothing and one reason to standard error.
+
   usage [--since <when>]      What this repository's subagents cost, read out of the transcripts the
       [--transcripts <folder>]
       [--json]                harness wrote for them, a workflow's agents under
