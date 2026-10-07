@@ -36,7 +36,7 @@ const MARKUP_TOKEN_PATTERN = /(?<![a-z0-9-])ap-[a-z0-9-]+/g;
 
 const SPEC_MARK_PREFIX = 'ap-spec-';
 
-const TEMPLATE_ID_PATTERN = /\bid="([^"]+)"/g;
+const TEMPLATE_ID_PATTERN = /(?<![\w-])id="([^"]+)"/g;
 
 const SCANNER = createImportGraphScanner(repositoryRootOfThisCheckout());
 
@@ -96,9 +96,12 @@ function sharedHookAttributesNamedIn(graph: ImportGraph): LiteralOffence[] {
     .map((token) => ({ path, token })));
 }
 
-function specTemplateIds(): ReadonlySet<string> {
-  const templateText = readFileSync(join(repositoryRootOfThisCheckout(), SPEC_TEMPLATE_PATH), 'utf8');
+function idsDeclaredIn(templateText: string): ReadonlySet<string> {
   return new Set([...templateText.matchAll(TEMPLATE_ID_PATTERN)].map((match) => match[1] ?? ''));
+}
+
+function specTemplateIds(): ReadonlySet<string> {
+  return idsDeclaredIn(readFileSync(join(repositoryRootOfThisCheckout(), SPEC_TEMPLATE_PATH), 'utf8'));
 }
 
 function specPageEntryWith(appendedSource: string): ImportGraph {
@@ -145,6 +148,10 @@ describe('shared markup', () => {
   test('the spec template declares ids and the scan reads spec page sources', () => {
     expect(specTemplateIds().size).toBeGreaterThan(0);
     expect(specPageSourcePathsOf(SCANNER.graph)).toContain(SPEC_PAGE_ENTRY);
+  });
+
+  test('only an id attribute declares a template id, never a data-id', () => {
+    expect([...idsDeclaredIn('<main id="ap-spec-root"><i data-id="ap-stat"></i></main>')]).toEqual(['ap-spec-root']);
   });
 
   test('every ap- token in a spec page literal is an ap-spec mark or a spec template id', () => {
