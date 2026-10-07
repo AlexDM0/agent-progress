@@ -119,8 +119,9 @@
                               stepper, the facts line, the stories as epic ticket
                               lines (each opening its phase's work item), the
                               files row ul.ap-spec-files > li.ap-spec-file
-                              [data-file-state=filled|template|missing], the
-                              checklists ul.ap-spec-checklists, the roll-up bar
+                              [data-file-state=filled|template|missing], a
+                              present contracts/ counting its files in
+                              .ap-spec-file-mark, the checklists ul.ap-spec-checklists, the roll-up bar
                               and legend, and the span; the spec's detail adds
                               ul.ap-spec-task-phases (one li[data-state] per
                               tasks.md phase: .ap-spec-task-phase-name,
@@ -315,7 +316,7 @@
       <div class="ap-kanban" id="ap-spec-work-kanban"></div>
     </div>
   </div>
-  <div class="ap-empty" id="ap-spec-kanban-empty" hidden>No specs yet: run /speckit.specify to start one.</div>
+  <div class="ap-empty" id="ap-spec-kanban-empty" hidden>No specs yet: run /speckit-specify to start one.</div>
 </section>
 
 <section data-panel="progress" role="tabpanel" id="ap-panel-progress" aria-labelledby="ap-tab-progress" hidden>
@@ -418,7 +419,7 @@
 <section data-panel="specs" role="tabpanel" id="ap-panel-specs" aria-labelledby="ap-tab-specs" hidden>
   <div class="ap-spec-constitution" id="ap-spec-constitution"></div>
   <div class="ap-epics" id="ap-spec-specs"></div>
-  <div class="ap-empty" id="ap-spec-specs-empty" hidden>No specs yet: run /speckit.specify to start one.</div>
+  <div class="ap-empty" id="ap-spec-specs-empty" hidden>No specs yet: run /speckit-specify to start one.</div>
 </section>
 
 <section data-panel="dependencies" role="tabpanel" id="ap-panel-dependencies" aria-labelledby="ap-tab-dependencies" hidden>

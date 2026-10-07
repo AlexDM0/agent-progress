@@ -62,4 +62,10 @@ describe('specDetailMarkup', () => {
     expect(markup).toContain('<div class="ap-epic-progress"');
     expect(markup).toContain('<span class="ap-detail-type">3 of 6 phases done</span>');
   });
+
+  test('shows the bare title and contracts/ with its file count', () => {
+    expect(markup).toContain('Product Search');
+    expect(markup).not.toContain('Feature Specification');
+    expect(markup).toContain('contracts/<span class="ap-spec-file-mark">2</span>');
+  });
 });

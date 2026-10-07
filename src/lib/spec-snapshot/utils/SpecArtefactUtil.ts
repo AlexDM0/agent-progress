@@ -19,10 +19,16 @@ function countedTasksOf(feature: SourceFeature): SourceArtefact<SourceTasksDocum
 
 function artefactOf(
   kind: SpecArtefactKind,
-  found: { readonly relativePath: string; readonly dates: SourceFileDates; readonly fillState?: 'template' | 'filled' } | null
+  found: {
+    readonly relativePath: string; readonly dates: SourceFileDates; readonly fillState?: 'template' | 'filled'; readonly fileCount?: number
+  } | null
 ): SnapshotArtefact[] {
   return found === null ? [] : [{
-    kind, relativePath: found.relativePath, state: found.fillState ?? 'filled', ...SpecDateUtil.snapshotDatesOf(found.dates)
+    kind,
+    relativePath: found.relativePath,
+    state:        found.fillState ?? 'filled',
+    ...SpecDateUtil.snapshotDatesOf(found.dates),
+    ...(found.fileCount === undefined ? {} : { fileCount: found.fileCount }),
   }];
 }
 

@@ -119,7 +119,8 @@ function filesMarkup(spec: SnapshotSpec): string {
       return `<li class="ap-spec-file" data-file-state="template" ${MarkupUtil.attribute('title', `${fileName} is still spec-kit's template`)}>`
         + `${HtmlEscapeUtil.escapeHtml(fileName)}<span class="ap-spec-file-mark">template</span></li>`;
     }
-    return `<li class="ap-spec-file" data-file-state="filled">${HtmlEscapeUtil.escapeHtml(fileName)}</li>`;
+    const fileCountMarkup = artefact.fileCount === undefined ? '' : `<span class="ap-spec-file-mark">${HtmlEscapeUtil.escapeHtml(String(artefact.fileCount))}</span>`;
+    return `<li class="ap-spec-file" data-file-state="filled">${HtmlEscapeUtil.escapeHtml(fileName)}${fileCountMarkup}</li>`;
   });
   return `<ul class="ap-spec-files" aria-label="Spec files">${items.join('')}</ul>`;
 }

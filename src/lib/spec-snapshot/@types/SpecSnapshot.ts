@@ -15,6 +15,8 @@ export interface SnapshotArtefact {
   readonly state:        'template' | 'filled';
   readonly created:      SnapshotDate | null;
   readonly modified:     SnapshotDate | null;
+  /** The files directly inside the `contracts/` folder, written on that artefact alone. */
+  readonly fileCount?:   number;
 }
 
 export interface TickCount {

@@ -85,6 +85,24 @@ describe('specCardsMarkup', () => {
     ]);
   });
 
+  test('contracts/ counts its files, and a contracts artefact without a count shows the name alone', () => {
+    const spec        = exampleSpec('002');
+    const withCount   = (fileCount: number | undefined) => spec.artefacts.map((artefact) => {
+      if (artefact.kind !== 'contracts') return artefact;
+      const { fileCount: _storedCount, ...uncounted } = artefact;
+      return fileCount === undefined ? uncounted : { ...uncounted, fileCount };
+    });
+
+    expect(cardOf(spec)).toContain('data-file-state="filled">contracts/<span class="ap-spec-file-mark">2</span></li>');
+    expect(cardOf({ ...spec, artefacts: withCount(3) })).toContain('data-file-state="filled">contracts/<span class="ap-spec-file-mark">3</span></li>');
+    expect(cardOf({ ...spec, artefacts: withCount(undefined) })).toContain('data-file-state="filled">contracts/</li>');
+  });
+
+  test('the title is the bare feature name, spec-kit\'s prefix dropped', () => {
+    expect(cardOf(exampleSpec('007'))).toContain('Store Pickup');
+    expect(cardOf(exampleSpec('007'))).not.toContain('Feature Specification');
+  });
+
   test('a template copy of plan.md is marked as one', () => {
     const spec = exampleSpec('005');
     const markup = cardOf({ ...spec, artefacts: spec.artefacts.map((artefact) => (artefact.kind === 'plan' ? { ...artefact, state: 'template' } : artefact)) });

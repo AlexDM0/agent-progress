@@ -122,6 +122,34 @@ describe('the snapshot of the example repository', () => {
     expect(dates.length).toBeGreaterThan(0);
     expect(dates.every((date) => date !== null && !date.at.endsWith('Z') && date.source.length > 0)).toBe(true);
   });
+
+  test('every spec title drops spec-kit\'s "Feature Specification:" prefix', () => {
+    expect(exampleSource.features.every((feature) => feature.spec.document.title.startsWith('Feature Specification: '))).toBe(true);
+    expect(exampleSnapshot.specs.map((spec) => spec.title)).toEqual([
+      'Customer Login', 'Product Search', 'Wishlist', 'Gift Cards', 'Order Tracking', 'Saved Addresses', 'Store Pickup', 'Gift Wrapping',
+    ]);
+  });
+
+  test('a title without the prefix, or of the prefix alone, is kept byte for byte', () => {
+    const titles = ['  Store Pickup: Feature Specification:', 'Feature Specification:'];
+    const source = {
+      ...exampleSource,
+      features: titles.map((title, index) => {
+        const feature = exampleSource.features[index] ?? exampleSource.features[0];
+        if (feature === undefined) throw new Error('the example repository has no feature');
+        return { ...feature, spec: { ...feature.spec, document: { ...feature.spec.document, title } } };
+      }),
+    };
+    expect(deriveSpecSnapshot(source, GENERATED_AT).specs.map((spec) => spec.title)).toEqual(titles);
+  });
+
+  test('the contracts artefact alone carries its folder\'s file count', () => {
+    const productSearch = exampleSnapshot.specs.find((spec) => spec.folderName === '002-product-search');
+    expect(productSearch?.artefacts.find((artefact) => artefact.kind === 'contracts')?.fileCount).toBe(2);
+    const counted = exampleSnapshot.specs.flatMap((spec) => spec.artefacts).filter((artefact) => 'fileCount' in artefact);
+    expect(counted.length).toBeGreaterThan(0);
+    expect(counted.every((artefact) => artefact.kind === 'contracts')).toBe(true);
+  });
 });
 
 describe('no date decides a lane, a state, a dependency or an order', () => {

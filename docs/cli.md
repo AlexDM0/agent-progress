@@ -719,7 +719,8 @@ in the detail panel.
   with a known start, the now line at the moment the snapshot was taken.
 - **Tickets tab**: the work items as a table grouped by spec, searched by text and narrowed by spec and state chips.
 - **Specs tab**: the constitution card, then one card per spec, open specs first and done ones last, with its
-  stepper, stories, files (filled, template or missing), checklists and task roll-up; its detail adds each phase's
+  title (`spec.md`'s heading without spec-kit's `Feature Specification:` prefix), stepper, stories, files (filled,
+  template or missing, `contracts/` with its file count), checklists and task roll-up; its detail adds each phase's
   ticked count and the stage dates.
 - **Dependencies tab**: the open work items' waves, as on the tracker page, with no slot meters.
 
@@ -949,7 +950,7 @@ absent file while `agent-brief.md` is installed; an absent file with no brief is
     {
       "folderName": "001-example-feature",
       "number": 1,                               // the folder name's leading digits, or null
-      "title": "Example Feature",
+      "title": "Example Feature",                // spec.md's heading, spec-kit's "Feature Specification:" dropped
       "colourSlot": 1,
       "lane": "implement",                       // specify|plan|tasks|implement|converge|done
       "stepper": { "doneLanes": ["specify", "plan", "tasks"], "currentLane": "implement" }, // currentLane null once done
@@ -961,6 +962,7 @@ absent file while `agent-brief.md` is installed; an absent file with no brief is
           "state": "filled",                     // or template
           "created": { "at": "2026-09-01T10:00:00+02:00", "source": "birth-time" }, // each date or null
           "modified": { "at": "2026-09-02T10:00:00+02:00", "source": "modification-time" } }
+                                                 // a contracts artefact adds "fileCount", the files in the folder
       ],
       "checklists": [],                          // { relativePath, title, checked, total }
       "tasks": { "ticked": 3, "total": 5 },

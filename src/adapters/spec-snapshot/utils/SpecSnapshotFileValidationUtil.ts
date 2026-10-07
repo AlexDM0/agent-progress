@@ -42,6 +42,10 @@ function nullable(check: ShapeCheck): ShapeCheck {
   return (value, path) => value === null ? null : check(value, path);
 }
 
+function optional(check: ShapeCheck): ShapeCheck {
+  return (value, path) => value === undefined ? null : check(value, path);
+}
+
 function oneOf(values: readonly string[]): ShapeCheck {
   return (value, path) => typeof value === 'string' && values.includes(value) ? null : `${path} is ${JSON.stringify(value)}, which is not one of ${values.join(', ')}`;
 }
@@ -123,7 +127,7 @@ const specShape = objectOf({
   })),
   counts:    everyKeyOf(['functionalRequirements', 'successCriteria', 'openMarkers', 'clarificationSessions', 'clarificationAnswers'], wholeNumber),
   artefacts: listOf(objectOf({
-    kind: oneOf(SPEC_ARTEFACT_KINDS), relativePath: text, state: artefactState, created: snapshotDate, modified: snapshotDate
+    kind: oneOf(SPEC_ARTEFACT_KINDS), relativePath: text, state: artefactState, created: snapshotDate, modified: snapshotDate, fileCount: optional(wholeNumber)
   })),
   checklists: listOf(objectOf({
     relativePath: text, title: text, checked: wholeNumber, total: wholeNumber

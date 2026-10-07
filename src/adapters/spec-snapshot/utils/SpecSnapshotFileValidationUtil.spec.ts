@@ -50,6 +50,7 @@ describe('each check names its field', () => {
     ['a stage span with no start', ['specs', 0, 'stageSpans', 0, 'start'], null, 'specs[0].stageSpans[0].start is not an object'],
     ['an artefact date that is text', ['specs', 0, 'artefacts', 0, 'created'], '2026-10-07', 'specs[0].artefacts[0].created is not an object'],
     ['a constitution that is a list', ['constitution'], [], 'constitution is not an object'],
+    ['an artefact file count that is a fraction', ['specs', 0, 'artefacts', 0, 'fileCount'], 1.5, 'specs[0].artefacts[0].fileCount is not a whole number'],
   ];
 
   test.each(cases)('%s', (_case, fieldPath, replacement, expectedProblem) => {
@@ -60,6 +61,13 @@ describe('each check names its field', () => {
 test('null passes where the snapshot allows it: no spec-kit version, no constitution, an open span\'s end', () => {
   const storedDocument = documentWith([[['specKitVersion'], null], [['constitution'], null], [['specs', 0, 'stageSpans', 0, 'end'], null]]);
   expect(SpecSnapshotFileValidationUtil.documentProblemOf(storedDocument)).toBeNull();
+});
+
+test('an artefact\'s file count is optional: absent, as a file written without it, or a whole number both read', () => {
+  const uncounted = writtenDocument();
+  expect(JSON.stringify(uncounted)).not.toContain('fileCount');
+  expect(SpecSnapshotFileValidationUtil.readingOf(uncounted).verdict).toBe('readable');
+  expect(SpecSnapshotFileValidationUtil.documentProblemOf(documentWith([[['specs', 0, 'artefacts', 0, 'fileCount'], 3]]))).toBeNull();
 });
 
 test('a reading of a spoiled document is unreadable with the same reason', () => {

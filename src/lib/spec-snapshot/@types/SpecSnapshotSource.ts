@@ -80,6 +80,7 @@ export interface SourceChecklistDocument {
 
 export interface SourceFolder {
   readonly relativePath: string;
+  readonly fileCount:    number;
   readonly dates:        SourceFileDates;
 }
 

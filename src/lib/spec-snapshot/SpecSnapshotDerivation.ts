@@ -13,6 +13,13 @@ import { SpecStageUtil }                                       from './utils/Spe
 import { SpecWorkItemUtil }                                    from './utils/SpecWorkItemUtil.ts';
 
 const LEADING_NUMBER_PATTERN = /^(\d+)/;
+/** What spec-kit's `spec.md` template puts before the feature's name in its title. */
+const SPEC_TEMPLATE_TITLE_PREFIX = 'Feature Specification:';
+
+function bareTitleOf(title: string): string {
+  const bareTitle = title.startsWith(SPEC_TEMPLATE_TITLE_PREFIX) ? title.slice(SPEC_TEMPLATE_TITLE_PREFIX.length).trimStart() : title;
+  return bareTitle === '' ? title : bareTitle;
+}
 
 function lastPathSegmentOf(path: string): string {
   return path.split(/[\\/]/).filter((segment) => segment !== '').at(-1) ?? path;
@@ -32,7 +39,7 @@ function specOf(feature: SourceFeature, folderIndex: number): SnapshotSpec {
   return {
     folderName: feature.folderName,
     number:     folderNumberOf(feature.folderName),
-    title:      spec.title,
+    title:      bareTitleOf(spec.title),
     colourSlot: (folderIndex % SPEC_COLOUR_SLOT_COUNT) + 1,
     lane,
     stepper:    SpecStageUtil.stepperOf(lane),
