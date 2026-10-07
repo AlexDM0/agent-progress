@@ -2,7 +2,8 @@
  * The dependency model against the design's Shared model definitions. The cases that matter: a chain and a diamond (a ticket two paths
  * reach is held once), two parallel chains (waves span chains, the pace path follows the deeper one), the pace-path tie-break and its
  * place first in its wave, settled and abandoned dependencies, Unlocks counting upstream dependencies as no obstacle, cross-epic links by
- * primary epic, and the inputs that must not throw: a cycle, an unknown id and an empty board. The slot count is whatever limit is passed.
+ * primary epic, a pending low-priority ticket left out of the waves yet still holding its dependents out of Now, and the inputs that must
+ * not throw: a cycle, an unknown id and an empty board. The slot count is whatever limit is passed.
  */
 
 import { describe, expect, test }     from 'bun:test';
@@ -133,6 +134,52 @@ describe('waves', () => {
     expect(graph.heldOfTicket.get('1')).toEqual(new Set(['4']));
     expect(graph.heldOfTicket.has('3')).toBe(false);
     expect([...graph.upstreamOfTicket.get('4') ?? []].sort()).toEqual(['1', '2']);
+  });
+});
+
+describe('low-priority tickets', () => {
+  test('a pending low ticket with nothing open in front of it is in no wave, and Now neither holds nor counts it', () => {
+    const graph = graphOf([exampleTicket('1', { priority: 'low' }), exampleTicket('2'), exampleTicket('3')]);
+    expect(graph.openTicketIds).toEqual(['2', '3']);
+    expect(graph.waveOfTicket.has('1')).toBe(false);
+    expect(waveTicketIds(graph)).toEqual([['2', '3']]);
+    expect(graph.waves[0]?.isNarrow).toBe(false);
+    expect(graph.pacePathTicketIds).not.toContain('1');
+  });
+
+  test('a low ticket once started is in its wave as before, and once reviewed is settled as before', () => {
+    for (const status of ['in-progress', 'in-review'] as const) {
+      const graph = graphOf([exampleTicket('1', { priority: 'low', status }), exampleTicket('2')]);
+      expect(graph.openTicketIds).toEqual(['1', '2']);
+      expect(waveTicketIds(graph)).toEqual([['1', '2']]);
+    }
+    const reviewed = graphOf([exampleTicket('1', { priority: 'low', status: 'reviewed' }), exampleTicket('2', { dependsOn: ['1'] })]);
+    expect(reviewed.settledTicketIds).toEqual(['1']);
+    expect(waveTicketIds(reviewed)).toEqual([['2']]);
+  });
+
+  test('a ticket waiting on a pending low ticket stays out of Now, and nothing holds, unlocks or paces through the low ticket', () => {
+    const graph = graphOf([
+      exampleTicket('1', { priority: 'low' }),
+      exampleTicket('2', { dependsOn: ['1'] }),
+      exampleTicket('3'),
+      exampleTicket('4', { dependsOn: ['3'] }),
+      exampleTicket('5', { dependsOn: ['1', '3'] }),
+    ]);
+    expect(graph.openTicketIds).toEqual(['2', '3', '4', '5']);
+    expect(waveTicketIds(graph)).toEqual([['3'], ['2', '4', '5']]);
+    expect(graph.waveOfTicket.get('2')).toBe(1);
+    expect(graph.waveOfTicket.has('1')).toBe(false);
+    expect(heldCounts(graph)['1']).toBe(2);
+    expect(graph.unlocksOfTicket.get('3')).toEqual(['4']);
+    expect(graph.pacePathTicketIds).not.toContain('1');
+  });
+
+  test('a ticket waiting only on a pending low ticket leaves Now empty rather than taking its place', () => {
+    const graph = graphOf([exampleTicket('1', { priority: 'low' }), exampleTicket('2', { dependsOn: ['1'] })]);
+    expect(waveTicketIds(graph)).toEqual([[], ['2']]);
+    expect(graph.waves.map((wave) => wave.label)).toEqual(['Now', 'Wave 2']);
+    expect(graph.pacePathTicketIds).toEqual(['2']);
   });
 });
 

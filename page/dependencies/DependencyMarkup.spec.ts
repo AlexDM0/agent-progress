@@ -166,13 +166,12 @@ describe('nodes', () => {
     expect(nodeOf(MARKUP, '013')).not.toContain('ap-badge');
   });
 
-  test('a held and a low ticket stay in Now without the Ready chip, the held one marked Held, as the Board lists only the normal one', () => {
+  test('a held ticket stays in Now without the Ready chip, marked Held, and a pending low one is no node, as the Board lists only the normal one', () => {
     expect([...HELD_AND_LOW_BOARD.readyTicketIds]).toEqual(['023']);
-    expect(HELD_AND_LOW_GRAPH.waves[0]?.ticketIds.toSorted()).toEqual(['021', '022', '023']);
+    expect(HELD_AND_LOW_GRAPH.waves[0]?.ticketIds.toSorted()).toEqual(['021', '023']);
     expect(nodeOf(HELD_AND_LOW_MARKUP, '021')).toContain('<span class="ap-kanban-held" title="Held: not before 2026-10-05">Held</span>');
     expect(nodeOf(HELD_AND_LOW_MARKUP, '021')).not.toContain('data-ready');
-    expect(nodeOf(HELD_AND_LOW_MARKUP, '022')).not.toContain('data-ready');
-    expect(nodeOf(HELD_AND_LOW_MARKUP, '022')).not.toContain('ap-kanban-held');
+    expect(HELD_AND_LOW_MARKUP).not.toContain('data-open-ticket="022"');
     expect(nodeOf(HELD_AND_LOW_MARKUP, '023')).toContain('<span class="ap-badge" data-ready>Ready</span>');
   });
 

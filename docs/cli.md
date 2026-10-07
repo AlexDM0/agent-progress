@@ -564,7 +564,8 @@ waits on another.
   browser. On a board with dependencies, "Order To do" switches To do between filed and by wave: the
   lane says how many of its cards are ready and how many wait, then one group per dependency wave,
   headed with how wide the wave is (the first also with how many are ready), a one-ticket wave marked
-  "one at a time"; the choice is kept in the browser. Pointing at a card draws arrows from the cards
+  "one at a time", and a pending low-priority ticket, in no wave, closing the lane; the choice is kept
+  in the browser. Pointing at a card draws arrows from the cards
   it waits on directly and marks them "needed first"; an open card's `↦ N` counts the tickets that
   wait on it, directly or further down the chain.
 - **Progress tab**: the Gantt chart, filling the window below the range bar and scrolling its rows
@@ -585,14 +586,17 @@ waits on another.
 - **Epics tab**: one card per epic, open ones first, with its key, its description's first paragraph,
   a roll-up of its tickets by status, three dependency rows and the list of its tickets; the title
   opens the epic in the detail panel and a ticket opens that ticket. The rows, by primary epic: "Waits
-  on", the other epics' tickets its own wait on; its tickets in the board's waves, Done first; and
+  on", the other epics' tickets its own wait on; its tickets in the board's waves, Done first, a
+  pending low-priority ticket left out; and
   "Frees", the epics waiting on it, with the tickets they wait through. The finished-work switch hides
   a finished epic, one with tickets that are all delivered or abandoned, whose span ended before its
   window; an open or empty epic always shows, its card whole.
 - **Dependencies tab**: the open tickets' waves left to right, a Done column first holding the settled
   tickets an open one waits on, then "Now" (nothing open in front of it), "Wave 2" and on; each
   column says how many tickets in it can run side by side against the board's slots, and a one-ticket
-  wave is marked "one at a time". A ticket shows its state (ready, in progress, in review or held)
+  wave is marked "one at a time". A low-priority ticket is drawn only once it has been started: a
+  pending one is left out of every wave and every count, yet a ticket waiting on it is still kept
+  out of "Now", which can then stand empty. A ticket shows its state (ready, in progress, in review or held)
   and how many wait on it; an arrow runs from each ticket to the ones waiting on it, dashed from a
   settled one. Pointing at a ticket fades in its whole chain, before and after, and dims the rest;
   pointing off a ticket clears the highlight after a moment, so moving to a neighbour switches it

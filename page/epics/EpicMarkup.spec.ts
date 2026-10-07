@@ -254,6 +254,29 @@ describe('epicCardsMarkup dependency rows', () => {
     expect(linkedGraph.waves.map((wave) => wave.isNarrow)).toEqual([true, true, false]);
   });
 
+  test('gives a pending low ticket no wave entry, and one waiting on it no place in Now', () => {
+    const lowBoard = pageBoardFixture({
+      tasks:   [],
+      tickets: [
+        exampleTicket({
+          id: '040', title: 'Low polish', priority: 'low', epics: ['checkout-redesign']
+        }),
+        exampleTicket({
+          id: '041', title: 'After the polish', dependsOn: ['040'], epics: ['checkout-redesign']
+        }),
+      ],
+      epics: EPICS.slice(0, 1),
+    });
+    const markup = EpicMarkup.epicCardsMarkup(
+      lowBoard.epics, new Map(lowBoard.tickets.map((ticket) => [ticket.id, ticket])), DependencyGraphUtil.dependencyGraphOf(lowBoard.tickets, BOARD_SLOTS), FORMAT
+    );
+
+    expect(markup).not.toContain('class="ap-epic-wave-pill" data-open-ticket="040"');
+    expect(markup).not.toContain('<span class="ap-epic-wave-name">Now</span>');
+    expect(markup).toContain('<div class="ap-epic-waves"><div class="ap-epic-wave" data-narrow><span class="ap-epic-wave-name">Wave 2</span>'
+      + '<button type="button" class="ap-epic-wave-pill" data-open-ticket="041"');
+  });
+
   test('keeps the strip on a card whose epic holds no ticket as its primary', () => {
     const emptyBoard = pageBoardFixture({ tasks: [], tickets: [], epics: EPICS.slice(0, 1) });
     const markup     = EpicMarkup.epicCardsMarkup(emptyBoard.epics, new Map(), DependencyGraphUtil.dependencyGraphOf([], BOARD_SLOTS), FORMAT);

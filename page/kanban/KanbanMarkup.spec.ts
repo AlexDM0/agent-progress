@@ -403,16 +403,27 @@ describe('the To do order', () => {
     expect(lane).not.toContain('data-priority');
   });
 
-  test('by wave counts as ready only what the Board lists ready and not held: a held and a low ticket stay in Now, waiting', () => {
-    const tickets = [...WAVE_TICKETS, exampleTicket('008', { hold: 'not before 2026-10-05' }), exampleTicket('009', { priority: 'low' })];
+  test('by wave counts as ready only what the Board lists ready and not held: a held ticket stays in Now, waiting', () => {
+    const tickets = [...WAVE_TICKETS, exampleTicket('008', { hold: 'not before 2026-10-05' })];
     const input   = boardInput(tickets, [], { todoOrder: 'by-wave' });
     const lane    = kanbanLaneMarkup('todo', input);
 
     expect([...input.readyTicketIds].sort()).toEqual(['001', '002']);
     expect(waveGroupsOf(lane)[0]).toBe(
-      '<div class="ap-lane-wave" data-wave="0"><div class="ap-lane-group">Now <span class="ap-lane-group-note">2 ready · 4 side by side</span>'
+      '<div class="ap-lane-wave" data-wave="0"><div class="ap-lane-group">Now <span class="ap-lane-group-note">2 ready · 3 side by side</span>'
     );
-    expect(lane).toContain('<span class="ap-lane-sub">2 ready · 7 waiting</span>');
+    expect(lane).toContain('<span class="ap-lane-sub">2 ready · 6 waiting</span>');
+  });
+
+  test('by wave gives a pending low ticket no wave group: it closes the lane, and Now neither holds nor counts it', () => {
+    const tickets = [...WAVE_TICKETS, exampleTicket('009', { priority: 'low' })];
+    const lane    = kanbanLaneMarkup('todo', boardInput(tickets, [], { todoOrder: 'by-wave' }));
+
+    expect(waveGroupsOf(lane)[0]).toBe(
+      '<div class="ap-lane-wave" data-wave="0"><div class="ap-lane-group">Now <span class="ap-lane-group-note">2 ready · 2 side by side</span>'
+    );
+    expect(ticketIdsInOrder(lane).at(-1)).toBe('009');
+    expect(lane.slice(lane.lastIndexOf('class="ap-lane-wave"'), lane.indexOf('data-ticket-id="009"'))).toContain('</article></div><article');
   });
 
   test('by wave puts the pace-path ticket first in its group, then the most held', () => {
