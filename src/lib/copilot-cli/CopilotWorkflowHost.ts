@@ -27,7 +27,7 @@ export interface CopilotWorkflowHostRequest {
   /** The `@github/copilot-sdk/extension` module, read for `joinSession` and `defineWorkflow`. */
   sdk:            Readonly<Record<string, unknown>>;
   workflow:       HostedWorkflow;
-  /** Run once per settled agent with its JSON on stdin, and once at startup with `--session <id>` appended. */
+  /** Run once per settled agent with its JSON on stdin, and once at startup with `--session <id>` appended and only the repository root on stdin. */
   settleCommand:  readonly string[];
   repositoryRoot: string;
   runCommand?:    CommandRunner;
@@ -172,6 +172,6 @@ export async function hostCopilotWorkflow(request: CopilotWorkflowHostRequest): 
     };
     runCommand(request.settleCommand, JSON.stringify(input));
   }));
-  runCommand([...request.settleCommand, '--session', session.sessionId], '');
+  runCommand([...request.settleCommand, '--session', session.sessionId], JSON.stringify({ repositoryRoot: request.repositoryRoot }));
   return { verdict: 'hosted', sessionId: session.sessionId };
 }

@@ -43,7 +43,7 @@ const FAKE_SDK_MODULE = [
   '',
 ].join('\n');
 
-const FAKE_COMMAND_SCRIPT = '#!/bin/sh\necho "$PWD|$*" >> "$(dirname "$0")/../commands.txt"\n';
+const FAKE_COMMAND_SCRIPT = '#!/bin/sh\necho "$PWD|$*|$(cat)" >> "$(dirname "$0")/../commands.txt"\n';
 
 const POLL_INTERVAL_MILLISECONDS = 20;
 
@@ -119,6 +119,7 @@ describe('the dispatcher\'s Copilot extension', () => {
     ]);
     const commandsPath = join(repositoryRoot, 'commands.txt');
     await pollUntil(() => existsSync(commandsPath));
-    expect(readFileSync(commandsPath, 'utf8')).toBe(`${repositoryRoot}|${COPILOT_EXTENSION_BUILD.SETTLE_COMMAND.slice(1).join(' ')} --session session-example\n`);
+    const reconciliationArguments = `${COPILOT_EXTENSION_BUILD.SETTLE_COMMAND.slice(1).join(' ')} --session session-example`;
+    expect(readFileSync(commandsPath, 'utf8')).toBe(`${repositoryRoot}|${reconciliationArguments}|${JSON.stringify({ repositoryRoot })}\n`);
   }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 });

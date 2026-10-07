@@ -108,7 +108,7 @@ function startAgent(fake: FakeSdk, agentId: string, label: string, prompt: strin
 }
 
 function settledInputsOf(commandRuns: readonly CommandRun[]): SettledAgentInput[] {
-  return commandRuns.filter((run) => run.stdinText !== '').map((run) => JSON.parse(run.stdinText) as SettledAgentInput);
+  return commandRuns.filter((run) => !run.commandLine.includes('--session')).map((run) => JSON.parse(run.stdinText) as SettledAgentInput);
 }
 
 const POLL_INTERVAL_MILLISECONDS = 20;
@@ -135,9 +135,9 @@ describe('hostCopilotWorkflow, on a fake SDK', () => {
     expect(await fake.definitions[0]?.run({})).toBe('ran');
   });
 
-  test('runs the reconciliation once at startup, with the session id', async () => {
+  test('runs the reconciliation once at startup, with the session id and the repository root on stdin', async () => {
     const { commandRuns } = await hostedOn(fakeSdk());
-    expect(commandRuns).toEqual([{ commandLine: [...SETTLE_COMMAND, '--session', EXAMPLE_SESSION_ID], stdinText: '' }]);
+    expect(commandRuns).toEqual([{ commandLine: [...SETTLE_COMMAND, '--session', EXAMPLE_SESSION_ID], stdinText: JSON.stringify({ repositoryRoot: EXAMPLE_ROOT }) }]);
   });
 
   test('a completed agent runs the command exactly once, with the running totals of all its usage events', async () => {
@@ -151,7 +151,7 @@ describe('hostCopilotWorkflow, on a fake SDK', () => {
     fake.emit({ type: 'subagent.completed', agentId: 'agent-1', data: { toolCallId: 'agent-1', agentDisplayName: 'build #001', agentName: 'example-agent' } });
     fake.emit({ type: 'subagent.completed', agentId: 'agent-1', data: { toolCallId: 'agent-1', agentDisplayName: 'build #001', agentName: 'example-agent' } });
     fake.emit(usageEvent('agent-1', 999, 999, 0, 0));
-    expect(commandRuns.filter((run) => run.stdinText !== '').map((run) => run.commandLine)).toEqual([SETTLE_COMMAND]);
+    expect(commandRuns.filter((run) => !run.commandLine.includes('--session')).map((run) => run.commandLine)).toEqual([SETTLE_COMMAND]);
     expect(settledInputsOf(commandRuns)).toEqual([{
       repositoryRoot: EXAMPLE_ROOT,
       sessionId:      EXAMPLE_SESSION_ID,
