@@ -78,8 +78,8 @@ of a message is easy to miss, and the board then waits on an answer nobody knows
 message may say a question is pending, never instead of asking it. **Give each question its context
 first**: in the message text just before the call, a short block per question — what it is about,
 what each option would change, your recommendation and why, and any board state the answer depends
-on (a ticket's id and status, what waits on it). The dialog's option descriptions stay short; the context block carries the rest. Every
-passage below that hands the user a decision asks this way.
+on (a ticket's id and status, what waits on it). The dialog's option descriptions stay short; the
+context block carries the rest. Every passage below that hands the user a decision asks this way.
 
 **Grill before filing.** Ask only what changes the ticket and only what the repository cannot answer:
 the acceptance condition when "better" or "fix" is all you have, which surface or flow is meant when
