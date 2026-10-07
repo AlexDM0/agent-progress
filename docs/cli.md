@@ -130,27 +130,6 @@ no opt-out; the last records which install version all of them are.
    the line `agent-progress checks` prints, stored once in the tracker, which `release` runs itself. It is the tool's
    script, not the project's, so a hand edit is undone. A dispatcher that cannot be generated is
    exit 2, and nothing at all is written.
-
-**Copilot CLI as the host.** `init --host copilot-cli` installs the same tracker, briefs, block (with
-Copilot's sentences: the extension credits each agent's tokens through `hook copilot-agent-settled`)
-and skills — Copilot CLI reads project skills from `.claude/skills/` too — but no hook, since Copilot's
-own hook carries no token counts. Item 6 becomes the Copilot CLI extension
-`.github/extensions/agent-progress/extension.mjs`, bundled from `dispatcher/DispatchFromCopilotWorkflow.ts`
-with its folder git-ignored, which registers the `agent-progress-dispatch` workflow
-(`copilot workflow run agent-progress-dispatch`); Copilot CLI loads it only in a folder the user trusts,
-and untrusted reports the workflow not found, so `init` says to trust the folder. Item 7 becomes
-`.github/agents/agent-progress-worker.agent.md`, from `resources/templates/CopilotAgentProgressWorker.md`,
-naming Copilot's tools and the default tier's Copilot model and reasoning effort. `--no-workflow` and
-`--no-agent-definition` opt out of those two, and `--no-hooks` does nothing. The host goes into
-`version.json` (item 9), and `update` installs for it. `init --host copilot-cli` is refused at exit 1,
-writing nothing, unless `copilot --version` prints 1.0.92 or newer.
-
-Both hosts cannot share a repository: Copilot CLI runs a `.github/agents/` worker over its
-`.claude/agents/` namesake without a word. So `init` and `update` are refused at exit 1, writing
-nothing and deleting nothing, while the other host's files are present, naming each: for a Copilot
-install `.claude/agents/agent-progress-worker.md` and the `SubagentStop` entry running
-`agent-progress hook subagent-stop` in either settings file; for a Claude Code install the Copilot
-worker and extension. Remove them by hand to switch hosts.
 7. **The worker agent definition**, a Claude Code subagent whose frontmatter sets `model: opus` and
    `effort: medium` — the default for every agent that builds or reviews a ticket. The Agent tool
    takes a subagent's effort from its definition alone, so spawning `agent-progress-worker` is how an
@@ -176,6 +155,27 @@ worker and extension. Remove them by hand to switch hosts.
    `init` and `update` compute every installed file first and write this one last, after every other
    write, so a run that fails part way leaves the version it found and a second run completes it. A
    refused `CLAUDE.md` block or settings file is reported and does not hold it back.
+
+**Copilot CLI as the host.** `init --host copilot-cli` installs the same tracker, briefs, block (with
+Copilot's sentences: the extension credits each agent's tokens through `hook copilot-agent-settled`)
+and skills — Copilot CLI reads project skills from `.claude/skills/` too — but no hook, since Copilot's
+own hook carries no token counts. Item 6 becomes the Copilot CLI extension
+`.github/extensions/agent-progress/extension.mjs`, bundled from `dispatcher/DispatchFromCopilotWorkflow.ts`
+with its folder git-ignored, which registers the `agent-progress-dispatch` workflow
+(`copilot workflow run agent-progress-dispatch`); Copilot CLI loads it only in a folder the user trusts,
+and untrusted reports the workflow not found, so `init` says to trust the folder. Item 7 becomes
+`.github/agents/agent-progress-worker.agent.md`, from `resources/templates/CopilotAgentProgressWorker.md`,
+naming Copilot's tools and the default tier's Copilot model and reasoning effort. `--no-workflow` and
+`--no-agent-definition` opt out of those two, and `--no-hooks` does nothing. The host goes into
+`version.json` (item 9), and `update` installs for it. `init --host copilot-cli` is refused at exit 1,
+writing nothing, unless `copilot --version` prints 1.0.92 or newer.
+
+Both hosts cannot share a repository: Copilot CLI runs a `.github/agents/` worker over its
+`.claude/agents/` namesake without a word. So `init` and `update` are refused at exit 1, writing
+nothing and deleting nothing, while the other host's files are present, naming each: for a Copilot
+install `.claude/agents/agent-progress-worker.md` and the `SubagentStop` entry running
+`agent-progress hook subagent-stop` in either settings file; for a Claude Code install the Copilot
+worker and extension. Remove them by hand to switch hosts.
 
 `update`, and `init` at a root that already has a tracker, report items 2 and 4–8 on a line each:
 `updated` or `unchanged`, judged from the file's bytes before and after (the hook from its entry, and
