@@ -2,7 +2,8 @@
  * The text of every file `init` and `update` install, computed before any of them is written, so a failure here leaves the repository
  * as it was. The dispatcher is bundled from `dispatcher/` by path, and the markdown is read from `resources/templates/` and filled.
  */
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, relative, sep }       from 'node:path';
 
 import { bundleWorkflowScript, type WorkflowScriptBundle }           from '../../src/lib/claude-code/WorkflowScriptBundle.ts';
 import type { AgentModel }                                           from '../../src/lib/tracker-model/@types/Ticket.ts';
@@ -17,8 +18,9 @@ import {
   type AgentHost,
   type InstalledFile,
   type InstalledFileName,
-  type InstalledPart
-}                                                                    from './constants/AgentHostInstalls.ts';
+  type InstalledPart,
+  type InstalledSkillName
+}                                                                from './constants/AgentHostInstalls.ts';
 
 // The brief is prose, so it names the model the way a person writes it; the agent definition keeps the id Claude Code reads.
 const AGENT_MODEL_DISPLAY_NAMES: Readonly<Record<AgentModel, string>> = Object.freeze({
@@ -48,8 +50,41 @@ function templateTextOf(templateFileName: string): string {
 
 function filesOf(part: InstalledPart): readonly InstalledFile[] {
   if (part.writing === 'managed-block') return [part.file];
-  if (part.writing === 'claude-settings-hooks') return [];
+  if (part.writing === 'claude-settings-hooks' || part.writing === 'skill-folders') return [];
   return part.files;
+}
+
+/** Each installed skill's files, keyed by their path inside the skill folder written with `/`, in path order. */
+export type InstalledSkillFileTexts = Readonly<Partial<Record<InstalledSkillName, ReadonlyMap<string, string>>>>;
+
+/** Resolves from the installed package like `resources/`, because the `bun link`ed binary runs from any repository. */
+export function skillSourceDirectoryOf(skillName: InstalledSkillName): string {
+  return join(import.meta.dir, '..', '..', 'skills', skillName);
+}
+
+/** A skill folder that cannot be read or holds no file is a defect of this checkout, not of the repository being written to. */
+function skillFileTextsOf(sourceDirectory: string): ReadonlyMap<string, string> {
+  const unreadable = () => new OperationRefusal('unrepaired', `The skill folder ${sourceDirectory} could not be read, so nothing was written.`);
+  try {
+    const filePaths = readdirSync(sourceDirectory, { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isFile())
+      .map((entry) => join(entry.parentPath, entry.name))
+      .sort();
+    if (filePaths.length === 0) throw unreadable();
+    return new Map(filePaths.map((filePath) => [relative(sourceDirectory, filePath).split(sep).join('/'), readFileSync(filePath, 'utf8')]));
+  } catch (error) {
+    if (error instanceof OperationRefusal) throw error;
+    throw unreadable();
+  }
+}
+
+export function installedSkillFileTextsFor(agentHost: AgentHost): InstalledSkillFileTexts {
+  const texts: Partial<Record<InstalledSkillName, ReadonlyMap<string, string>>> = {};
+  for (const part of AGENT_HOST_INSTALLS[agentHost].parts) {
+    if (part.writing !== 'skill-folders') continue;
+    for (const skillName of part.skillNames) texts[skillName] = skillFileTextsOf(skillSourceDirectoryOf(skillName));
+  }
+  return texts;
 }
 
 export async function installedFileTextsFor(request: { agentHost: AgentHost; generatesTheDispatcherScript: boolean }): Promise<InstalledFileTexts> {

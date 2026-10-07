@@ -4,6 +4,7 @@
  * brief earlier learns its copy is stale.
  */
 import { existsSync, readFileSync } from 'node:fs';
+import { join }                     from 'node:path';
 
 import { createInstallManifestWriter } from '../../src/adapters/install/InstallManifestWriter.ts';
 import { writeFileAtomically }         from '../../src/lib/atomic-file/AtomicFile.ts';
@@ -15,11 +16,12 @@ import {
   writeCommandHook,
   type CommandHook
 }                                                                    from '../../src/lib/claude-code/ClaudeSettings.ts';
-import type { Workspace }                                from '../../src/services/tracker/Workspace.ts';
-import { OperationRefusal }                              from '../../src/shared/OperationRefusal.ts';
-import { installedFilePathsIn, type InstalledFilePaths } from '../InstalledFiles.ts';
-import { INSTALL_VERSION }                               from '../constants/InstallVersion.ts';
-import type { InstalledFileTexts }                       from './InstalledFileGeneration.ts';
+import { ensureIgnored }                                                                   from '../../src/lib/git/GitIgnore.ts';
+import type { Workspace }                                                                  from '../../src/services/tracker/Workspace.ts';
+import { OperationRefusal }                                                                from '../../src/shared/OperationRefusal.ts';
+import { installedFilePathsIn, installedSkillFolderInRepository, type InstalledFilePaths } from '../InstalledFiles.ts';
+import { INSTALL_VERSION }                                                                 from '../constants/InstallVersion.ts';
+import type { InstalledFileTexts, InstalledSkillFileTexts }                                from './InstalledFileGeneration.ts';
 import {
   AGENT_HOST_INSTALLS,
   INSTALL_OPT_OUT_FLAGS,
@@ -27,8 +29,9 @@ import {
   type InstalledFile,
   type InstalledFileName,
   type InstalledPart,
+  type InstalledSkillName,
   type InstallOptOutFlag
-}                                                                    from './constants/AgentHostInstalls.ts';
+}                                                                from './constants/AgentHostInstalls.ts';
 import { CLAUDE_MANAGED_BLOCK_MARKERS } from './constants/ClaudeManagedBlockMarkers.ts';
 
 const REFUSED_UNREADABLE_SETTINGS_LINE = 'refused (the settings file could not be read)';
@@ -37,15 +40,16 @@ const REFUSED_UNREADABLE_SETTINGS_LINE = 'refused (the settings file could not b
 const REPORT_LABEL_COLUMN_WIDTH = 13;
 
 export interface TrackerRefreshRequest {
-  workspace:           Workspace;
-  agentHost:           AgentHost;
-  installedFileTexts:  InstalledFileTexts;
+  workspace:               Workspace;
+  agentHost:               AgentHost;
+  installedFileTexts:      InstalledFileTexts;
+  installedSkillFileTexts: InstalledSkillFileTexts;
   /** The word the reader typed, so a line telling them to run something again names it. */
-  commandName:         string;
-  optOutFlags:         ReadonlySet<InstallOptOutFlag>;
+  commandName:             string;
+  optOutFlags:             ReadonlySet<InstallOptOutFlag>;
   /** Only a fresh `init`: the brief marks the files installed, so a run cut short after it reads as unversioned and asks for a rerun. */
-  writesTheBriefFirst: boolean;
-  standardError:       (text: string) => void;
+  writesTheBriefFirst:     boolean;
+  standardError:           (text: string) => void;
 }
 
 export interface RefreshedPartLine {
@@ -129,6 +133,27 @@ function refreshRewrittenFiles(files: readonly InstalledFile[], installedFilePat
     return fileChangedByWriting(filePath, requiredTextOf(installedFileTexts, file.name)) ? `updated (${filePath})` : `unchanged (${filePath})`;
   });
   return fileLines.join('; ');
+}
+
+/**
+ * Every file of the skill is rewritten, like the briefs; a file a user added to the folder is never touched, so one the skill dropped stays
+ * behind too. Each folder is git-ignored, since it is a copy of this checkout's and the next `update` replaces it.
+ */
+function refreshSkillFolders(skillNames: readonly InstalledSkillName[], rootDirectory: string, installedSkillFileTexts: InstalledSkillFileTexts): string {
+  const folderLines = skillNames.map((skillName) => {
+    const skillFileTexts = installedSkillFileTexts[skillName];
+    if (skillFileTexts === undefined) throw new OperationRefusal('unrepaired', `No files were read for the installed skill ${skillName}, so it was not written.`);
+    const folderInRepository = installedSkillFolderInRepository(skillName);
+    const folderPath         = join(rootDirectory, folderInRepository);
+    let anyFileChanged = false;
+    for (const [pathInFolder, text] of skillFileTexts) {
+      if (fileChangedByWriting(join(folderPath, pathInFolder), text)) anyFileChanged = true;
+    }
+    const ignoreOutcome = ensureIgnored(rootDirectory, folderInRepository);
+    const ignoreNote    = ignoreOutcome === 'appended' ? ', .gitignore entry added' : '';
+    return `${anyFileChanged ? 'updated' : 'unchanged'} (${folderPath}${ignoreNote})`;
+  });
+  return folderLines.join('; ');
 }
 
 /** Written to the per-user settings file unless the shared one already holds the entry, which is then kept current there. */
@@ -232,7 +257,7 @@ export function refuseKeepingADispatcherWithoutItsAgentDefinition(
 /** Touches nothing the tracker holds: not `progress.json`, not a ticket, not the log. */
 export function refreshTrackedRepository(request: TrackerRefreshRequest): TrackerRefreshReport {
   const {
-    workspace, agentHost, installedFileTexts, commandName, optOutFlags, writesTheBriefFirst, standardError
+    workspace, agentHost, installedFileTexts, installedSkillFileTexts, commandName, optOutFlags, writesTheBriefFirst, standardError
   } = request;
   const installedFilePaths = installedFilePathsIn(workspace.rootDirectory);
   const { parts }          = AGENT_HOST_INSTALLS[agentHost];
@@ -252,6 +277,8 @@ export function refreshTrackedRepository(request: TrackerRefreshRequest): Tracke
         return refreshRewrittenFiles(part.files, installedFilePaths, installedFileTexts);
       case 'claude-settings-hooks':
         return refreshClaudeSettingsHooks(part.hooks, workspace.rootDirectory, commandName, standardError);
+      case 'skill-folders':
+        return refreshSkillFolders(part.skillNames, workspace.rootDirectory, installedSkillFileTexts);
     }
   }
 

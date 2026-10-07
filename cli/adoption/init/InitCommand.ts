@@ -1,17 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import { basename }   from 'node:path';
 
-import { ensureIgnored, type EnsureIgnoredOutcome }    from '../../../src/lib/git/GitIgnore.ts';
-import { LocalTimeUtil }                               from '../../../src/lib/local-time/LocalTimeUtil.ts';
-import { createTracker }                               from '../../../src/services/tracker/TrackerCreation.ts';
-import { findWorkspace, workspacePathsFor }            from '../../../src/services/tracker/Workspace.ts';
-import { TRACKER_FILES }                               from '../../../src/services/tracker/constants/TrackerFiles.ts';
-import { OperationRefusal }                            from '../../../src/shared/OperationRefusal.ts';
-import type { CommandHandler }                         from '../../CommandHandler.ts';
-import { requireInstallManifestThisVersionCanReplace } from '../../InstallVersionCheck.ts';
-import { OutputUtil }                                  from '../../utils/OutputUtil.ts';
-import { installedFileTextsFor }                       from '../InstalledFileGeneration.ts';
-import type { InstalledFileTexts }                     from '../InstalledFileGeneration.ts';
+import { ensureIgnored, type EnsureIgnoredOutcome }          from '../../../src/lib/git/GitIgnore.ts';
+import { LocalTimeUtil }                                     from '../../../src/lib/local-time/LocalTimeUtil.ts';
+import { createTracker }                                     from '../../../src/services/tracker/TrackerCreation.ts';
+import { findWorkspace, workspacePathsFor }                  from '../../../src/services/tracker/Workspace.ts';
+import { TRACKER_FILES }                                     from '../../../src/services/tracker/constants/TrackerFiles.ts';
+import { OperationRefusal }                                  from '../../../src/shared/OperationRefusal.ts';
+import type { CommandHandler }                               from '../../CommandHandler.ts';
+import { requireInstallManifestThisVersionCanReplace }       from '../../InstallVersionCheck.ts';
+import { OutputUtil }                                        from '../../utils/OutputUtil.ts';
+import { installedFileTextsFor, installedSkillFileTextsFor } from '../InstalledFileGeneration.ts';
+import type { InstalledFileTexts }                           from '../InstalledFileGeneration.ts';
 import {
   optOutFlagsGiven,
   recordInstallVersion,
@@ -46,11 +46,13 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
 
   refuseAnOverrideNamingAnotherDirectory(context.currentDirectory, rootDirectory);
 
+  const installedSkillFileTexts = installedSkillFileTextsFor('claude-code');
   // The brief, the block and the hook are written by the same refresh a second `init` and `update` run, so a fresh tracker and an adopted one never drift.
   const refreshTheRepository = (installedFileTexts: InstalledFileTexts, { writesTheBriefFirst }: { writesTheBriefFirst: boolean }) => refreshTrackedRepository({
     workspace,
     agentHost:     'claude-code',
     installedFileTexts,
+    installedSkillFileTexts,
     commandName:   'init',
     optOutFlags,
     writesTheBriefFirst,

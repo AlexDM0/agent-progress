@@ -3,10 +3,10 @@
  * `init` — a verb that reads as destructive — to pick up a newer brief or CLAUDE.md block. It creates
  * no tracker, so it takes neither `--project` nor `--root`, and never touches the tracker's own files.
  */
-import { requireWorkspace }                            from '../../../src/services/tracker/Workspace.ts';
-import type { CommandHandler }                         from '../../CommandHandler.ts';
-import { requireInstallManifestThisVersionCanReplace } from '../../InstallVersionCheck.ts';
-import { installedFileTextsFor }                       from '../InstalledFileGeneration.ts';
+import { requireWorkspace }                                  from '../../../src/services/tracker/Workspace.ts';
+import type { CommandHandler }                               from '../../CommandHandler.ts';
+import { requireInstallManifestThisVersionCanReplace }       from '../../InstallVersionCheck.ts';
+import { installedFileTextsFor, installedSkillFileTextsFor } from '../InstalledFileGeneration.ts';
 import {
   optOutFlagsGiven,
   recordInstallVersion,
@@ -32,10 +32,12 @@ export const updateCommand: CommandHandler = async (commandArguments, context) =
   requireInstallManifestThisVersionCanReplace(workspace.rootDirectory);
   refuseKeepingADispatcherWithoutItsAgentDefinition('update', workspace.rootDirectory, { writesTheAgentDefinition, writesTheDispatcherWorkflow });
   const installedFileTexts = await installedFileTextsFor({ agentHost: 'claude-code', generatesTheDispatcherScript: writesTheDispatcherWorkflow });
+  const installedSkillFileTexts = installedSkillFileTextsFor('claude-code');
   const report             = refreshTrackedRepository({
     workspace,
     agentHost:           'claude-code',
     installedFileTexts,
+    installedSkillFileTexts,
     commandName:         'update',
     optOutFlags,
     writesTheBriefFirst: false,

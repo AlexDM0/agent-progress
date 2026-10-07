@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# setup.sh — install the agent-progress tooling on this machine: Bun, `bun install` + `bun link`, and
-# symlinks from ~/.claude/skills/agent-progress to this repository's skills/agent-progress/ and from
-# ~/.claude/skills/agent-progress-orchestrate to its skills/agent-progress-orchestrate/, and points this
-# repository's `core.hooksPath` at its tracked `.githooks/`.
+# setup.sh — install the agent-progress tooling on this machine: Bun, `bun install` + `bun link`, the
+# removal of the ~/.claude/skills/ symlinks earlier versions made, and this repository's
+# `core.hooksPath` pointed at its tracked `.githooks/`.
 #
 # It edits nothing outside $HOME/.claude, this repository's git config and, on the offer, one shell rc
-# file, and it deletes nothing that is not a symlink it wrote. Per-repository setup is
-# `agent-progress init`'s job, not this one's.
+# file, and it deletes nothing that is not a symlink into this checkout. Per-repository setup, the
+# skills included, is `agent-progress init`'s job, not this one's.
 #
 # Usage: ./setup.sh [--instruct-only]
 #   --instruct-only  changes nothing: every offer declines and every write is reported as "would".
@@ -90,26 +89,16 @@ else
   fi
 fi
 
-step "3/4 The agent-progress Claude skills"
-# A symlink, never a copy: `cli/HelpText.spec.ts` holds the bundled skills against the command table in
-# this checkout, and a copy under ~/.claude would be the one version nothing checks.
-#
-# The one thing this block removes is a symlink; anything else at that path is reported and left where
-# it is, because ~/.claude/skills/ is a directory people keep their own work in.
+step "3/4 Retire the global agent-progress Claude skills"
+# `agent-progress init` and `update` copy both skills into each tracked repository's .claude/skills/, so
+# nothing is linked into ~/.claude/skills/ any more. This removes the two links earlier versions made,
+# and only when each is a symlink resolving into this checkout: ~/.claude/skills/ is a directory people
+# keep their own work in, so anything else at those paths is reported and left where it is.
 SKILLS_DIRECTORY="$HOME/.claude/skills"
+RETIRED_SKILL_NAMES=(agent-progress agent-progress-orchestrate)
 
-# "<folder in this checkout>:<name it takes under ~/.claude/skills>". Two skills because they have two
-# audiences: `skills/agent-progress/` is loaded by every session in a tracked repository,
-# `skills/agent-progress-orchestrate/` only by the one running the board, and an orchestrator's material
-# in the first would be injected into every implementing agent that opens a file.
-BUNDLED_SKILLS=(
-  "skills/agent-progress:agent-progress"
-  "skills/agent-progress-orchestrate:agent-progress-orchestrate"
-)
-
-# Both sides of "is it already linked?" resolve physically: a textual readlink comparison is wrong the
-# moment either path crosses a symlinked component (/tmp against /private/tmp), and the script would
-# then relink on every run.
+# Both sides resolve physically: a textual readlink comparison is wrong the moment either path crosses a
+# symlinked component (/tmp against /private/tmp).
 resolved_directory() {
   if command -v realpath >/dev/null 2>&1; then
     realpath "$1" 2>/dev/null || true
@@ -118,55 +107,32 @@ resolved_directory() {
   fi
 }
 
-link_bundled_skill() {
-  local skill_source="$1"
-  local skill_target="$2"
-  if [[ ! -f "$skill_source/SKILL.md" ]]; then
-    warn "No skill bundled at $skill_source — skipping"
-  elif [[ -L "$skill_target" ]]; then
-    local linked_at source_at
+CHECKOUT_AT="$(resolved_directory "$HERE")"
+
+remove_retired_skill_link() {
+  local skill_target="$1"
+  if [[ -L "$skill_target" ]]; then
+    local linked_at
     linked_at="$(resolved_directory "$skill_target")"
-    source_at="$(resolved_directory "$skill_source")"
-    if [[ -n "$linked_at" && "$linked_at" == "$source_at" ]]; then
-      ok "Skill already linked: $skill_target → $skill_source"
-    elif [[ "$INSTRUCT_ONLY" == "1" ]]; then
-      warn "Would relink $skill_target → $skill_source (it currently points at ${linked_at:-nothing})"
+    if [[ -n "$linked_at" && "$linked_at" == "$CHECKOUT_AT/"* ]]; then
+      if [[ "$INSTRUCT_ONLY" == "1" ]]; then
+        warn "Would remove the retired skill link $skill_target → $linked_at"
+      else
+        rm -f "$skill_target"
+        ok "Removed the retired skill link $skill_target → $linked_at"
+      fi
     else
-      rm -f "$skill_target"
-      mkdir -p "$SKILLS_DIRECTORY"
-      ln -s "$skill_source" "$skill_target"
-      ok "Skill relinked: $skill_target → $skill_source"
+      warn "$skill_target is a symlink to ${linked_at:-nothing}, not into this checkout — left untouched."
     fi
   elif [[ -e "$skill_target" ]]; then
-    if [[ -d "$skill_target" ]]; then
-      warn "$skill_target is a real directory, not a symlink — left untouched."
-    else
-      warn "$skill_target is a real file, not a symlink — left untouched."
-    fi
-    warn "  Move or delete it yourself, then re-run ./setup.sh to install the link."
-  elif [[ "$INSTRUCT_ONLY" == "1" ]]; then
-    warn "Would link $skill_target → $skill_source"
+    warn "$skill_target is not a symlink setup.sh made — left untouched. agent-progress init installs the skill per repository now; remove it yourself if it is a stale copy."
   else
-    mkdir -p "$SKILLS_DIRECTORY"
-    ln -s "$skill_source" "$skill_target"
-    ok "Skill linked: $skill_target → $skill_source"
+    ok "No global skill at $skill_target"
   fi
 }
 
-# The claude-skills repository adopts any skill under ~/.claude/skills/ that its "ignore" list does not
-# name, replacing the link with a stale copy. Reported and never fixed here: that file is another
-# repository's tracked source, and editing it would leave an uncommitted change in somebody's tree.
-CLAUDE_REPOSITORY_SKILLS_JSON="$HOME/development/claude/skills.json"
-
-for BUNDLED_SKILL in "${BUNDLED_SKILLS[@]}"; do
-  SKILL_FOLDER="${BUNDLED_SKILL%%:*}"
-  SKILL_NAME="${BUNDLED_SKILL##*:}"
-  link_bundled_skill "$HERE/$SKILL_FOLDER" "$SKILLS_DIRECTORY/$SKILL_NAME"
-  if [[ -f "$CLAUDE_REPOSITORY_SKILLS_JSON" ]] && ! grep -q "\"$SKILL_NAME\"" "$CLAUDE_REPOSITORY_SKILLS_JSON"; then
-    warn "$CLAUDE_REPOSITORY_SKILLS_JSON does not list \"$SKILL_NAME\" under \"ignore\"."
-    warn "  That repository's install.sh would adopt this skill and clobber the symlink above."
-    warn "  Add \"$SKILL_NAME\" to the \"ignore\" array there, then commit it."
-  fi
+for RETIRED_SKILL_NAME in "${RETIRED_SKILL_NAMES[@]}"; do
+  remove_retired_skill_link "$SKILLS_DIRECTORY/$RETIRED_SKILL_NAME"
 done
 
 step "4/4 The pre-commit hook (git config core.hooksPath)"

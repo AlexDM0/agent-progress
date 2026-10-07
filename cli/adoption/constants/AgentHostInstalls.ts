@@ -22,16 +22,20 @@ export interface InstalledFile {
   text: InstalledTextSource;
 }
 
+/** A folder of this checkout's `skills/`, copied under the same name into the repository's `.claude/skills/`. */
+export type InstalledSkillName = 'agent-progress' | 'agent-progress-orchestrate';
+
 /**
  * `managed-block` keeps the rest of the file; `rewritten-files` replaces each file whole, and `briefs` does too but asks the reader to
  * re-read the last one, whose presence marks the files installed; `claude-settings-hooks` writes no file text, only Claude Code settings
- * entries.
+ * entries; `skill-folders` rewrites every file of each skill folder, leaves any other file in it alone, and git-ignores the folder.
  */
 export type InstalledPart =
   | { writing: 'managed-block'; reportLabel: string; optOutFlag: InstallOptOutFlag | null; file: InstalledFile }
   | { writing: 'briefs'; reportLabel: string; optOutFlag: null; files: readonly InstalledFile[] }
   | { writing: 'rewritten-files'; reportLabel: string; optOutFlag: InstallOptOutFlag | null; files: readonly InstalledFile[] }
-  | { writing: 'claude-settings-hooks'; reportLabel: string; optOutFlag: InstallOptOutFlag | null; hooks: readonly CommandHook[] };
+  | { writing: 'claude-settings-hooks'; reportLabel: string; optOutFlag: InstallOptOutFlag | null; hooks: readonly CommandHook[] }
+  | { writing: 'skill-folders'; reportLabel: string; optOutFlag: null; skillNames: readonly InstalledSkillName[] };
 
 export interface AgentHostInstall {
   parts:         readonly InstalledPart[];
@@ -109,6 +113,12 @@ export const AGENT_HOST_INSTALLS: Readonly<Record<AgentHost, AgentHostInstall>> 
         reportLabel: 'agent',
         optOutFlag:  'no-agent-definition',
         files:       [{ name: 'agentDefinition', text: { kind: 'template', templateFileName: 'AgentProgressWorker.md' } }],
+      },
+      {
+        writing:     'skill-folders',
+        reportLabel: 'skills',
+        optOutFlag:  null,
+        skillNames:  ['agent-progress', 'agent-progress-orchestrate'],
       },
     ],
     hostSentences: CLAUDE_CODE_HOST_SENTENCES,

@@ -32,27 +32,23 @@ cd agent-progress
 |---|---|
 | 1/4 Bun | Puts `~/.bun/bin` on the `PATH` for its own run and checks for Bun. Below 1.2 it warns and suggests `bun upgrade`; when Bun is missing it offers the official installer and exits if you decline. |
 | 2/4 Dependencies and the global command | Runs `bun install` on every run, not only the first, because every command that rewrites the page needs `marked`. Then `bun link`, so `agent-progress` works from any directory. When `agent-progress` is still not found on the `PATH` and the rc file does not already mention `~/.bun/bin`, it offers to add one export line to `~/.zshrc` (or `~/.bashrc` under bash). |
-| 3/4 The skills | Symlinks `~/.claude/skills/agent-progress` to this checkout's `skills/agent-progress/` and `~/.claude/skills/agent-progress-orchestrate` to its `skills/agent-progress-orchestrate/`. |
+| 3/4 Retire the global skills | Removes `~/.claude/skills/agent-progress` and `~/.claude/skills/agent-progress-orchestrate` when each is a symlink resolving into this checkout, the links earlier versions made; links nothing. |
 | 4/4 The pre-commit hook | Sets `core.hooksPath` to `.githooks` unless it already is, so `.githooks/pre-commit` refuses a commit that fails `bun run lint` or `bun run typecheck`, in this checkout and every worktree of it. |
 
 `.claude/settings.json` adds a `PostToolUse` hook, `.claude/hooks/fix-lint-on-edit.sh`, that runs
 `eslint --fix` on a `.ts` file after each Edit or Write, with the ESLint of the checkout holding it.
 
-The skills are **symlinks, never copies**: an edit reaches every session at once, a `git pull` needs
-no install step, and a copy under `~/.claude` would be the one version nothing checks. The step is
-idempotent: a link already pointing here is left alone (both sides are compared as resolved
-physical paths, so `/tmp` against `/private/tmp` does not cause a relink on every run), a stale link is
-replaced, and a real file or directory at the target is reported and left untouched, because the
-only thing the script ever removes is a symlink.
+The skills are installed per repository, not per machine: `agent-progress init` and `update` copy this
+checkout's `skills/agent-progress/` and `skills/agent-progress-orchestrate/` into the tracked
+repository's git-ignored `.claude/skills/`, so a session loads them only where a tracker is. After a
+`git pull` here, `agent-progress update` in each tracked repository brings its copies up to date. Step
+3/4 only cleans up after the old global install: both sides are compared as resolved physical paths
+(`/tmp` against `/private/tmp`), and a symlink pointing elsewhere or a real file or directory at either
+path is reported and left untouched, because the only thing the script ever removes is a symlink into
+this checkout.
 
-If you keep a separate skills-installer repository that adopts every skill it finds under
-`~/.claude/skills/` unless its `skills.json` ignore list names it, that installer can replace the
-symlinks with stale copies. `setup.sh` checks for such a `skills.json` at its expected location and
-warns when either skill name is missing from it; it never edits that file, since it belongs to
-another repository.
-
-`./setup.sh --instruct-only` declines every offer and reports `bun install`, `bun link`, each skill
-link and the `core.hooksPath` change as what it would do.
+`./setup.sh --instruct-only` declines every offer and reports `bun install`, `bun link`, each retired
+skill link it would remove and the `core.hooksPath` change as what it would do.
 
 ### Running from source
 

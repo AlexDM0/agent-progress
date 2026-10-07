@@ -3,16 +3,20 @@
  * The script runs with a scratch `HOME` and a fake `bun` first on a minimal `PATH` that records every call, so neither the real `bun` nor the
  * real home is ever reached; the cases hold that no install or link call happens, that each is announced instead, and that the home is unchanged.
  * Setting `core.hooksPath` is what makes the tracked pre-commit hook gate every worktree, so it is held on a copy of the script in a scratch
- * repository: set on the first run, recognised and left on the second, only announced under --instruct-only.
+ * repository: set on the first run, recognised and left on the second, only announced under --instruct-only. The skills are installed per
+ * repository by `init`, so the script links none into the scratch home, removes the old links that resolve into its checkout, and leaves a
+ * foreign symlink or a real directory at those paths where it is.
  */
 import {
   chmodSync,
   copyFileSync,
+  existsSync,
   lstatSync,
   mkdirSync,
   readdirSync,
   readFileSync,
   readlinkSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { join }                          from 'node:path';
@@ -152,6 +156,53 @@ testWhenBashIsPresent('setup.sh --instruct-only announces each bun step it skips
   const { output } = runSetupScriptInstructOnly();
   expect(output).toContain(`Would run bun install in ${CHECKOUT_DIRECTORY}`);
   expect(output).toContain(`Would run bun link in ${CHECKOUT_DIRECTORY}`);
+}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
+
+function skillsDirectoryOfHome(): string {
+  return join(scratchHomeDirectory, '.claude', 'skills');
+}
+
+testWhenBashIsPresent('setup.sh links no skill into ~/.claude/skills: a clean home gains nothing there', () => {
+  const repositoryDirectory = scratchRepositoryWithSetupScript();
+  for (const skillName of ['agent-progress', 'agent-progress-orchestrate']) {
+    mkdirSync(join(repositoryDirectory, 'skills', skillName), { recursive: true });
+    writeFileSync(join(repositoryDirectory, 'skills', skillName, 'SKILL.md'), 'Example skill\n');
+  }
+  const { exitCode, output } = runSetupScriptIn(repositoryDirectory, []);
+  expect(exitCode, output).toBe(0);
+  expect(existsSync(join(scratchHomeDirectory, '.claude')), output).toBe(false);
+}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
+
+testWhenBashIsPresent('setup.sh removes an old skill symlink that resolves into its checkout and creates none in its place', () => {
+  const repositoryDirectory = scratchRepositoryWithSetupScript();
+  mkdirSync(join(repositoryDirectory, 'skills', 'agent-progress'), { recursive: true });
+  mkdirSync(join(repositoryDirectory, 'skills', 'agent-progress-orchestrate'), { recursive: true });
+  mkdirSync(skillsDirectoryOfHome(), { recursive: true });
+  symlinkSync(join(repositoryDirectory, 'skills', 'agent-progress'), join(skillsDirectoryOfHome(), 'agent-progress'));
+  symlinkSync(join(repositoryDirectory, 'skills', 'agent-progress-orchestrate'), join(skillsDirectoryOfHome(), 'agent-progress-orchestrate'));
+
+  const { exitCode, output } = runSetupScriptIn(repositoryDirectory, []);
+
+  expect(exitCode, output).toBe(0);
+  expect(readdirSync(skillsDirectoryOfHome()), output).toEqual([]);
+  expect(output).toContain(`Removed the retired skill link ${join(skillsDirectoryOfHome(), 'agent-progress')}`);
+}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
+
+testWhenBashIsPresent('setup.sh leaves a foreign symlink and a real directory at the skill paths in place, warning about each', () => {
+  const repositoryDirectory = scratchRepositoryWithSetupScript();
+  const foreignSkillDirectory = join(scratchDirectory, 'example-foreign-skill');
+  mkdirSync(foreignSkillDirectory);
+  mkdirSync(join(skillsDirectoryOfHome(), 'agent-progress-orchestrate'), { recursive: true });
+  writeFileSync(join(skillsDirectoryOfHome(), 'agent-progress-orchestrate', 'SKILL.md'), 'Alex Example\'s own skill\n');
+  symlinkSync(foreignSkillDirectory, join(skillsDirectoryOfHome(), 'agent-progress'));
+  const homeBefore = snapshotOf(scratchHomeDirectory);
+
+  const { exitCode, output } = runSetupScriptIn(repositoryDirectory, []);
+
+  expect(exitCode, output).toBe(0);
+  expect(snapshotOf(scratchHomeDirectory)).toEqual(homeBefore);
+  expect(output).toContain(`${join(skillsDirectoryOfHome(), 'agent-progress')} is a symlink to ${foreignSkillDirectory}, not into this checkout — left untouched.`);
+  expect(output).toContain(`${join(skillsDirectoryOfHome(), 'agent-progress-orchestrate')} is not a symlink setup.sh made — left untouched.`);
 }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
 testWhenBashIsPresent('setup.sh --instruct-only leaves the home unchanged: no skill symlink, no rc edit', () => {

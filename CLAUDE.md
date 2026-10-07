@@ -1,8 +1,8 @@
 # agent-progress
 
 A Bun + TypeScript CLI that tracks an AI orchestrator's work per repository (Gantt rows, stateful markdown tickets,
-a log, and a self-contained `progress.html` regenerated on every command), and installs the skills, brief and
-dispatcher its sessions run on.
+a log, and a self-contained `progress.html` regenerated on every command), and installs into each tracked repository
+the skills, brief and dispatcher its sessions run on.
 
 ## Verify
 
@@ -239,8 +239,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - `skills/agent-progress-orchestrate/` repeats nothing from `skills/agent-progress/`, writes rules as instructions,
   and never restates what the dispatcher decides. Call budgets and the rework threshold are `DISPATCH_PROTOCOL`
   (`src/shared/constants/DispatchProtocol.ts`), filled into the brief and block by `init` and `update`.
-- `setup.sh` symlinks both into `~/.claude/skills/`, and `~/development/claude/skills.json` must list them under
-  `ignore`.
+- `init` and `update` copy both into the tracked repository's git-ignored `.claude/skills/`, never globally; `setup.sh`
+  only removes the `~/.claude/skills/` symlinks into this checkout that earlier versions made.
 
 ## Repository map
 

@@ -21,9 +21,9 @@
     <text x="15" y="182">&#160;&#160;<tspan fill="#32D74B">&#x2714;&#xFE0E;</tspan> dependencies installed (bun install in ~/agent-progress)</text>
     <text x="15" y="200">&#160;&#160;<tspan fill="#32D74B">&#x2714;&#xFE0E;</tspan> agent-progress is on your PATH (~/.bun/bin/agent-progress)</text>
 
-    <text x="15" y="236" font-weight="700" fill="#FFFFFF">3/3 The agent-progress Claude skills</text>
-    <text x="15" y="254">&#160;&#160;<tspan fill="#32D74B">&#x2714;&#xFE0E;</tspan> Skill linked: ~/.claude/skills/agent-progress → ~/agent-progress/skills/agent-progress</text>
-    <text x="15" y="272">&#160;&#160;<tspan fill="#32D74B">&#x2714;&#xFE0E;</tspan> Skill linked: ~/.claude/skills/agent-progress-orchestrate → ~/agent-progress/skills/agent-progress-orchestrate</text>
+    <text x="15" y="236" font-weight="700" fill="#FFFFFF">3/3 Retire the global agent-progress Claude skills</text>
+    <text x="15" y="254">&#160;&#160;<tspan fill="#32D74B">&#x2714;&#xFE0E;</tspan> No global skill at ~/.claude/skills/agent-progress</text>
+    <text x="15" y="272">&#160;&#160;<tspan fill="#32D74B">&#x2714;&#xFE0E;</tspan> No global skill at ~/.claude/skills/agent-progress-orchestrate</text>
 
     <text x="15" y="308"><tspan font-weight="700" fill="#FFFFFF">Tooling ready.</tspan> Next:&#160;&#160;<tspan fill="#FFFFFF">cd &lt;a repository&gt; &amp;&amp; agent-progress init</tspan></text>
   </g>

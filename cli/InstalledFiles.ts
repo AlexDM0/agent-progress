@@ -20,6 +20,11 @@ export interface InstalledFilePaths {
   installManifest:    string;
 }
 
+/** Claude Code reads a project's skills from `.claude/skills/<name>/`, written with `/` as `.gitignore` takes it. */
+export function installedSkillFolderInRepository(skillName: string): string {
+  return `.claude/skills/${skillName}`;
+}
+
 export function installedFilePathsIn(rootDirectory: string): InstalledFilePaths {
   return {
     agentBrief:         join(rootDirectory, DISPATCH_PROTOCOL.AGENT_BRIEF_PATH_IN_REPOSITORY),

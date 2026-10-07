@@ -4,6 +4,7 @@
 import {
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   readlinkSync,
   realpathSync,
@@ -177,7 +178,7 @@ describeWhenGitIsPresent('initialising a repository', () => {
 
     expect(await runCommandLine(['init', '--no-workflow', '--no-hooks', '--no-agent-definition'], context)).toBe(0);
 
-    expect(existsSync(join(repositoryDirectory, '.claude')), 'with the hook and the agent opted out too, nothing at all lands in .claude/').toBe(false);
+    expect(readdirSync(join(repositoryDirectory, '.claude')), 'with the hook and the agent opted out too, only the skills land in .claude/').toEqual(['skills']);
     expect(existsSync(dispatcherScriptPathIn(repositoryDirectory))).toBe(false);
     expect(context.outputText()).toContain('workflow:    left alone (--no-workflow)');
   });

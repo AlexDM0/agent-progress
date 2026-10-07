@@ -2,11 +2,12 @@
  * A Claude `init` and the `update` after it write exactly the files `cli/adoption/FrozenClaudeInstall.json` holds, taken from the
  * implementation before the install became a per-host table: every opt-out flag is its own scenario, since each one decides which files
  * exist, and the report lines are compared too, because the table walk now produces them. The dispatcher script is compared against a fresh
- * bundle instead, since `dispatcher/` changes it on its own. To retake, only in a commit meant to change an installed text: write the
- * table this spec gathers (`frozenTableFromTheCurrentImplementation`) to the JSON file, and check its diff shows only that change.
+ * bundle instead, since `dispatcher/` changes it on its own, and each skill file against its source in `skills/` for the same reason. To
+ * retake, only in a commit meant to change an installed text: write the table this spec gathers (`frozenTableFromTheCurrentImplementation`)
+ * to the JSON file, and check its diff shows only that change.
  */
-import { readFileSync, realpathSync } from 'node:fs';
-import { join }                       from 'node:path';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
+import { join }                                   from 'node:path';
 
 import { afterAll, expect, test }                             from 'bun:test';
 import { createScratchGitRepository, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
@@ -53,6 +54,10 @@ const DISPATCHER_SCRIPT_STAND_IN = '<the dispatcher script bundled from dispatch
 
 const ROOT_STAND_IN = '<root>';
 
+const INSTALLED_SKILLS_FOLDER = '.claude/skills/';
+
+const CHECKOUT_SKILLS_DIRECTORY = join(import.meta.dir, '..', '..', 'skills');
+
 const GENERATED_DISPATCHER_SCRIPT = (await installedFileTextsFor({ agentHost: 'claude-code', generatesTheDispatcherScript: true })).dispatcherScript ?? '';
 
 const scratchDirectories: string[] = [];
@@ -61,11 +66,19 @@ afterAll(() => {
   for (const directory of scratchDirectories.splice(0)) removeScratchDirectory(directory);
 });
 
+/** A skill file copied byte for byte from this checkout's `skills/`, which change on their own, stands in as the source it was copied from. */
+function skillCopyStandInOf(relativePath: string, text: string): string | null {
+  if (!relativePath.startsWith(INSTALLED_SKILLS_FOLDER)) return null;
+  const sourcePath = join(CHECKOUT_SKILLS_DIRECTORY, relativePath.slice(INSTALLED_SKILLS_FOLDER.length));
+  return existsSync(sourcePath) && readFileSync(sourcePath, 'utf8') === text ? `<copied from skills/${relativePath.slice(INSTALLED_SKILLS_FOLDER.length)}>` : null;
+}
+
 function installedFilesIn(repositoryDirectory: string): Map<string, string> {
   const installedFiles = new Map<string, string>();
   for (const [relativePath, text] of repositoryFileContentsOf(repositoryDirectory)) {
     if (TRACKER_STORE_PATHS.has(relativePath) || relativePath.startsWith(TRACKER_LOCK_FOLDER)) continue;
-    installedFiles.set(relativePath, relativePath === DISPATCHER_SCRIPT_PATH && text === GENERATED_DISPATCHER_SCRIPT ? DISPATCHER_SCRIPT_STAND_IN : text);
+    const dispatcherStandIn = relativePath === DISPATCHER_SCRIPT_PATH && text === GENERATED_DISPATCHER_SCRIPT ? DISPATCHER_SCRIPT_STAND_IN : null;
+    installedFiles.set(relativePath, dispatcherStandIn ?? skillCopyStandInOf(relativePath, text) ?? text);
   }
   return installedFiles;
 }
