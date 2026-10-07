@@ -174,6 +174,6 @@ describe('the two skills stay split by audience', () => {
 
   test('the orchestrator skill is the one that tells its reader to record what an agent cost', () => {
     expect(ORCHESTRATE_TEXT).toContain('--tokens');
-    expect(ORCHESTRATE_TEXT).toContain('subagent_tokens');
+    expect(ORCHESTRATE_TEXT).toContain('`.agent-progress/agent-brief.md`\'s Orchestrator checklist');
   });
 });
