@@ -5,8 +5,8 @@
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": []
   },
-  // The shared files the page reaches plus every shipping module of `src/lib/tracker-model/`, named one by one (its specs import `bun:test`,
-  // its `testing/` is for them), so the whole model package compiles under DOM-only options, which proves it stays environment-neutral.
+  // The shared files the page reaches plus every shipping module of `src/lib/tracker-model/` and `src/lib/spec-snapshot/`, named one by one
+  // (their specs import `bun:test`), so both packages compile whole under DOM-only options, which proves they stay environment-neutral.
   "include": [
     "./**/*.ts",
     "../src/lib/tracker-model/@types/BoardChanges.ts",
@@ -57,6 +57,14 @@
     "../src/lib/tracker-model/utils/TicketIdUtil.ts",
     "../src/lib/tracker-model/utils/TicketMoveUtil.ts",
     "../src/lib/tracker-model/utils/VocabularyUtil.ts",
+    "../src/lib/spec-snapshot/@types/SpecSnapshot.ts",
+    "../src/lib/spec-snapshot/@types/SpecSnapshotSource.ts",
+    "../src/lib/spec-snapshot/SpecSnapshotDerivation.ts",
+    "../src/lib/spec-snapshot/constants/SpecLanes.ts",
+    "../src/lib/spec-snapshot/utils/SpecArtefactUtil.ts",
+    "../src/lib/spec-snapshot/utils/SpecDateUtil.ts",
+    "../src/lib/spec-snapshot/utils/SpecStageUtil.ts",
+    "../src/lib/spec-snapshot/utils/SpecWorkItemUtil.ts",
     "../src/adapters/utils/HtmlLabelUtil.ts",
     "../src/lib/html-escape/HtmlEscapeUtil.ts",
     "../src/lib/local-time/LocalTimeUtil.ts",

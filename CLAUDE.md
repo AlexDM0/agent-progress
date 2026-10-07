@@ -46,7 +46,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   structurally typed parameter.
 - A `src/lib/` package knows nothing about its callers: no agent-progress names, file names, wording or exit codes.
   App values arrive as parameters; a refusal leaves as a verdict (except the `Board`, see Deviations).
-- `src/lib/tracker-model/` stays DOM-safe: the page project compiles it.
+- `src/lib/tracker-model/` and `src/lib/spec-snapshot/` stay DOM-safe: the page project compiles them.
 
 ### Values and wording
 
