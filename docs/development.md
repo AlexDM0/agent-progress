@@ -225,7 +225,7 @@ session events the extension receives through `session.on`.
 1. Resume memoisation (`interactive-events-104431.jsonl`, `spike_drive` running then resuming `memo`): a
    `ctx.agent` call that resolved a value replays it on resume with no new agent; a call that resolved `null` is
    not memoised: the resume started a new agent for it (`failing`: agent `bbcf5358…`, then `e4e6a033…`).
-2. Usage before settle (`spike-events.jsonl`, all seven runs): every `assistant.usage` of an agent arrives before
+2. Usage before settle (`spike-events.jsonl`, all eight runs): every `assistant.usage` of an agent arrives before
    its `ctx.agent` promise settles. `subagent.completed` usually precedes the settle too, but not always (run
    `29c7899b…`: settled at …807102, completed at …807118). A failed agent emits `subagent.failed` with `error`
    and no `assistant.usage` when it fails before its first model call.
