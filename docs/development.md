@@ -249,6 +249,11 @@ session events the extension receives through `session.on`.
    the status agent, denied `agent-progress status --json`, replied an all-zero status, so the dispatcher read
    the board as stopped and ended with nothing built. Untrusted, the CLI excludes project extensions unless
    `GITHUB_COPILOT_PROMPT_MODE_EXTENSIONS=true` is set for the invocation.
+9. A whole run (#235, the same scratch repository with `COPILOT_ALLOW_ALL`, one haiku ticket): built, reviewed and
+   released in one workflow run; the builder's and reviewer's rows held exactly their agents' `agentMetrics`
+   input, and a `--session` reconcile added nothing. `cli/CopilotHostEndToEnd.spec.ts` repeats it when
+   `AGENT_PROGRESS_LIVE_COPILOT_RUN` is set. A worker frontmatter `reasoning-effort` outlives `ctx.agent`'s model
+   override, so every haiku agent failed at once until the worker dropped it.
 
 Also seen: a `ctx.agent` given `reasoningEffort` a model rejects fails in about 85 ms
 (`Reasoning effort 'low' is not supported for model 'claude-haiku-4.5'.`); gpt-5-mini with no effort runs at

@@ -1,10 +1,11 @@
 /**
  * Spawns the real binary for the one claim an in-process `runCommandLine` cannot make: that `agent-progress.ts` itself works, shebang, executable
  * bit and exit code included, and for a spec that must set the child's environment, which no spec may set in-process. Its callers are
- * `cli/BinarySmoke.spec.ts`, `cli/InitRootOverride.spec.ts`, `cli/ViewSpecEndToEnd.spec.ts` and `cli/dispatch/release/ReleaseCommand.checks.spec.ts`.
+ * `cli/BinarySmoke.spec.ts`, `cli/InitRootOverride.spec.ts`, `cli/ViewSpecEndToEnd.spec.ts`,
+ * `cli/CopilotHostEndToEnd.spec.ts` and `cli/dispatch/release/ReleaseCommand.checks.spec.ts`.
  */
-import { existsSync }               from 'node:fs';
-import { delimiter, dirname, join } from 'node:path';
+import { chmodSync, existsSync, writeFileSync } from 'node:fs';
+import { delimiter, dirname, join }             from 'node:path';
 
 import { requireTrackerIsolation } from '../../src/testing/TrackerIsolation.ts';
 
@@ -18,6 +19,7 @@ export interface RunAgentProgressOptions {
   currentDirectory: string;
   /** The child's whole environment, beside a `PATH` reaching Bun and git; absent, it inherits this process's. */
   environment?:     Record<string, string>;
+  standardInput?:   string;
 }
 
 const ROOT_OVERRIDE_VARIABLE = 'AGENT_PROGRESS_ROOT';
@@ -45,7 +47,7 @@ export async function runAgentProgress(commandLineArguments: readonly string[], 
   if (overriddenRoot !== undefined) requireTrackerIsolation(overriddenRoot);
   const spawned = Bun.spawn(['bun', agentProgressEntryPoint(), ...commandLineArguments], {
     cwd:    options.currentDirectory,
-    stdin:  'ignore',
+    stdin:  options.standardInput === undefined ? 'ignore' : new Blob([options.standardInput]),
     stdout: 'pipe',
     stderr: 'pipe',
     ...(options.environment === undefined ? {} : { env: childEnvironmentOf(options.environment) }),
@@ -56,4 +58,15 @@ export async function runAgentProgress(commandLineArguments: readonly string[], 
     spawned.exited,
   ]);
   return { exitCode, standardOutput, standardError };
+}
+
+/**
+ * Writes an `agent-progress` command into a scratch folder that runs this checkout's entry point, for a child that runs it by name from its
+ * `PATH`, as the Copilot extension does, rather than through `runAgentProgress`.
+ */
+export function writeAgentProgressCommandInto(scratchDirectory: string): void {
+  requireTrackerIsolation(scratchDirectory);
+  const commandPath = join(scratchDirectory, 'agent-progress');
+  writeFileSync(commandPath, `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(agentProgressEntryPoint())} "$@"\n`);
+  chmodSync(commandPath, 0o755);
 }

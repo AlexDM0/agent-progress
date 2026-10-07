@@ -16,7 +16,10 @@ const CONFINED_REACHES = [
     allowedIn: ['cli/CommandContext.ts', 'src/lib/claude-code/WorkflowScriptBundle.spec.ts'],
     property:  { object: 'process', property: 'cwd', message: 'Take the directory from the CommandContext.' },
   },
-  { allowedIn: ['cli/CommandContext.ts'], importName: { name: 'node:os', importNames: ['homedir'], message: 'Take the home directory from the CommandContext.' } },
+  {
+    allowedIn:  ['cli/CommandContext.ts', 'cli/CopilotHostEndToEnd.spec.ts'],
+    importName: { name: 'node:os', importNames: ['homedir'], message: 'Take the home directory from the CommandContext.' },
+  },
   ...['localStorage', 'sessionStorage'].flatMap((storageName) => [
     { allowedIn: ['page/preferences/PreferenceStore.ts'], property: { object: 'window', property: storageName, message: STORAGE_MESSAGE } },
     { allowedIn: ['page/preferences/PreferenceStore.ts'], global: { name: storageName, message: STORAGE_MESSAGE } },

@@ -163,9 +163,12 @@ own hook carries no token counts. Item 6 becomes the Copilot CLI extension
 `.github/extensions/agent-progress/extension.mjs`, bundled from `dispatcher/DispatchFromCopilotWorkflow.ts`
 with its folder git-ignored, which registers the `agent-progress-dispatch` workflow
 (`copilot workflow run agent-progress-dispatch`); Copilot CLI loads it only in a folder the user trusts,
-and untrusted reports the workflow not found, so `init` says to trust the folder. Item 7 becomes
+and untrusted reports the workflow not found, so `init` says to trust the folder. Its agents run
+unattended, so every shell call they make is denied unless the run is started with `COPILOT_ALLOW_ALL=true`. Item 7 becomes
 `.github/agents/agent-progress-worker.agent.md`, from `resources/templates/CopilotAgentProgressWorker.md`,
-naming Copilot's tools and the default tier's Copilot model and reasoning effort. `--no-workflow` and
+naming Copilot's tools and the default tier's Copilot model but no reasoning effort: a frontmatter effort
+outlives the dispatcher's model override and fails every agent on a model that rejects one, such as
+`claude-haiku-4.5`, and the dispatcher passes each other model its effort itself. `--no-workflow` and
 `--no-agent-definition` opt out of those two, and `--no-hooks` does nothing. The host goes into
 `version.json` (item 9), and `update` installs for it. `init --host copilot-cli` is refused at exit 1,
 writing nothing, unless `copilot --version` prints 1.0.92 or newer.

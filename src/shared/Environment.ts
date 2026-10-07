@@ -10,12 +10,26 @@ const EVERY_TOOL_REQUIRED_VARIABLE = 'AGENT_PROGRESS_REQUIRE_EVERY_TOOL';
 
 const USER_SHELL_VARIABLE = 'SHELL';
 
+const LIVE_COPILOT_RUN_VARIABLE = 'AGENT_PROGRESS_LIVE_COPILOT_RUN';
+
 /**
  * Turns every spec the tool guard (`src/testing/ToolGuard.ts`) would skip for a missing tool into a failure, for a run on a machine that
  * must prove every claim. Any value but empty, whitespace or `0` requires, so a `true` or `yes` is never a silent skip.
  */
 export function everyToolIsRequired(): boolean {
-  const value = process.env[EVERY_TOOL_REQUIRED_VARIABLE]?.trim();
+  return switchIsOn(EVERY_TOOL_REQUIRED_VARIABLE);
+}
+
+/**
+ * Lets the one spec that runs a live, paid Copilot CLI workflow (`cli/CopilotHostEndToEnd.spec.ts`) run on a machine that has `copilot`; read
+ * like `AGENT_PROGRESS_REQUIRE_EVERY_TOOL`.
+ */
+export function liveCopilotRunIsAllowed(): boolean {
+  return switchIsOn(LIVE_COPILOT_RUN_VARIABLE);
+}
+
+function switchIsOn(variable: string): boolean {
+  const value = process.env[variable]?.trim();
   return value !== undefined && value.length > 0 && value !== '0';
 }
 

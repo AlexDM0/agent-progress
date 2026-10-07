@@ -5,10 +5,11 @@
  */
 import { describe, test } from 'bun:test';
 
-import { everyToolIsRequired } from '../shared/Environment.ts';
-import { gitIsAvailable }      from './ScratchWorkspace.ts';
+import { everyToolIsRequired, liveCopilotRunIsAllowed } from '../shared/Environment.ts';
+import { gitIsAvailable }                               from './ScratchWorkspace.ts';
 
-export type RequiredTool = 'git' | 'bash';
+/** `copilot-live-run` is `copilot` on the path with `AGENT_PROGRESS_LIVE_COPILOT_RUN` set, since its one spec spends real model tokens. */
+export type RequiredTool = 'git' | 'bash' | 'copilot-live-run';
 
 export interface SkippedSpec {
   readonly title:       string;
@@ -19,7 +20,15 @@ function bashIsAvailable(): boolean {
   return Bun.which('bash') !== null;
 }
 
-const TOOL_IS_PRESENT: Readonly<Record<RequiredTool, () => boolean>> = { git: gitIsAvailable, bash: bashIsAvailable };
+function copilotLiveRunIsAvailable(): boolean {
+  return Bun.which('copilot') !== null && liveCopilotRunIsAllowed();
+}
+
+const TOOL_IS_PRESENT: Readonly<Record<RequiredTool, () => boolean>> = {
+  'git':              gitIsAvailable,
+  'bash':             bashIsAvailable,
+  'copilot-live-run': copilotLiveRunIsAvailable,
+};
 
 type SpecBody = () => void | Promise<unknown>;
 
@@ -71,6 +80,10 @@ export function testWhenGitIsPresent(claim: string, body: SpecBody, timeoutMilli
 
 export function testWhenBashIsPresent(claim: string, body: SpecBody, timeoutMilliseconds?: number): void {
   testWhenToolIsPresent('bash', claim, body, timeoutMilliseconds);
+}
+
+export function testWhenCopilotLiveRunIsPresent(claim: string, body: SpecBody, timeoutMilliseconds?: number): void {
+  testWhenToolIsPresent('copilot-live-run', claim, body, timeoutMilliseconds);
 }
 
 export function skippedSpecsSoFar(): readonly SkippedSpec[] {

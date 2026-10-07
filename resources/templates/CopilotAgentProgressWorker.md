@@ -2,7 +2,6 @@
 name: agent-progress-worker
 description: Builds or reviews one ticket of this repository's agent-progress board, following the brief it is handed. Use it for every implementing or reviewing agent an orchestrator spawns for a ticket.
 model: {{model}}
-reasoning-effort: {{effort}}
 tools: ["bash", "read_bash", "write_bash", "stop_bash", "list_bash", "view", "create", "edit", "apply_patch", "grep", "glob", "skill", "report_intent", "task_complete"]
 ---
 

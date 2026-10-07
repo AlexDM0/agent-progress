@@ -121,7 +121,8 @@ describeWhenGitIsPresent('a Copilot CLI install', () => {
 
     const worker = readFileSync(join(repositoryDirectory, COPILOT_WORKER_PATH), 'utf8');
     expect(worker).toStartWith('---\nname: agent-progress-worker\n');
-    expect(worker).toContain('\nmodel: claude-opus-4.8\nreasoning-effort: medium\ntools: ["bash", ');
+    expect(worker).toContain('\nmodel: claude-opus-4.8\ntools: ["bash", ');
+    expect(worker).not.toContain('reasoning-effort');
   });
 
   test('the worker\'s model is the one the dispatcher maps the default tier to', () => {
