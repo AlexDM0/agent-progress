@@ -55,7 +55,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - All command-line text (confirmations, usage, argument errors, help prose) lives in `cli/`, beside the command that
   prints it; command verbs are literals, so they grep.
 - `src/adapters/` holds only translations: a refusal's detail and exit code to output, the domain model to an output
-  format.
+  format. One exception reads files: `src/adapters/spec-kit/` finds a spec-kit repository's root and scans its files.
 - JSON output, stored files, a reason naming stored values, and a command the output suggests carry the values
   themselves, since the parser reads them back.
 
