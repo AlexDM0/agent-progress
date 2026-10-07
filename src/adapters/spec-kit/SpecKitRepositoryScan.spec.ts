@@ -5,6 +5,7 @@
  * injected reader, so no case depends on the machine's file system keeping birth times.
  */
 import {
+  chmodSync,
   mkdirSync,
   readdirSync,
   readFileSync,
@@ -109,6 +110,23 @@ describe('the scan', () => {
     expect(scan.features[1]?.plan?.document.title).toBe('Implementation Plan: Example Finish');
     expect(scan.constitution?.document.version).toBe('1.0.0');
     expect(scan.initOptions?.document.speckitVersion).toBe('1.1.0');
+  });
+
+  test('a `checklists/` folder that cannot be listed is an unreadable entry, not a feature with no checklist', () => {
+    const root = scratchDirectory();
+    writeSpecKitRepository(root, TWO_FEATURE_REPOSITORY, { datesFilesInThePast: false });
+    const checklistsDirectory = join(root, 'specs', '002-example-finish', 'checklists');
+    mkdirSync(checklistsDirectory);
+    chmodSync(checklistsDirectory, 0o000);
+
+    try {
+      const scan = createSpecKitRepositoryScan().scan(root);
+
+      expect(scan.unreadable.map((entry) => entry.relativePath)).toEqual(['specs/002-example-finish/checklists']);
+      expect(scan.features.map((feature) => feature.folderName)).toEqual(['001-example-start', '002-example-finish']);
+    } finally {
+      chmodSync(checklistsDirectory, 0o755);
+    }
   });
 
   test('a repository with `.specify/` and no `specs/` folder scans as zero features with no unreadable entry', () => {

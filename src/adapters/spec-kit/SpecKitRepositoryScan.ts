@@ -56,15 +56,8 @@ function pathExists(path: string): boolean {
   }
 }
 
-/** A missing folder lists as empty, so a repository without `specs/` or a feature without `checklists/` reads as having none. */
-function sortedEntriesOf(directory: string): { name: string; isDirectory: boolean }[] {
-  try {
-    return readdirSync(directory, { withFileTypes: true })
-      .map((entry) => ({ name: entry.name, isDirectory: entry.isDirectory() }))
-      .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
-  } catch {
-    return [];
-  }
+function isMissingPath(problem: unknown): boolean {
+  return problem instanceof Error && 'code' in problem && problem.code === 'ENOENT';
 }
 
 export function createSpecKitRepositoryScan(fileTimesOf: FileTimesReader = fileTimesFromTheFileSystem): { scan(rootDirectory: string): SpecKitScan } {
@@ -78,6 +71,18 @@ export function createSpecKitRepositoryScan(fileTimesOf: FileTimesReader = fileT
 
   function scan(rootDirectory: string): SpecKitScan {
     const unreadable: SpecKitUnreadableEntry[] = [];
+
+    /** A missing folder lists as empty, so a repository without `specs/` or a feature without `checklists/` reads as having none. */
+    function sortedEntriesOf(relativePath: string): { name: string; isDirectory: boolean }[] {
+      try {
+        return readdirSync(join(rootDirectory, relativePath), { withFileTypes: true })
+          .map((entry) => ({ name: entry.name, isDirectory: entry.isDirectory() }))
+          .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+      } catch (problem) {
+        if (!isMissingPath(problem)) unreadable.push({ relativePath, reason: reasonOf(problem), line: null });
+        return [];
+      }
+    }
 
     /** Null when the file is absent; an unreadable entry and null when it cannot be read or parses as malformed. */
     function parsedArtefactOf<Document extends object>(
@@ -136,7 +141,7 @@ export function createSpecKitRepositoryScan(fileTimesOf: FileTimesReader = fileT
       if (spec === null) return null;
 
       const checklistsPath = `${relativePath}/${CHECKLISTS_FOLDER}`;
-      const checklists = sortedEntriesOf(join(rootDirectory, checklistsPath))
+      const checklists = sortedEntriesOf(checklistsPath)
         .filter((entry) => !entry.isDirectory && entry.name.endsWith(MARKDOWN_EXTENSION))
         .map((entry) => parsedArtefactOf(`${checklistsPath}/${entry.name}`, SpecKitChecklistUtil.checklistReadingOf))
         .filter((checklist) => checklist !== null);
@@ -157,7 +162,7 @@ export function createSpecKitRepositoryScan(fileTimesOf: FileTimesReader = fileT
 
     const initOptions = parsedArtefactOf(INIT_OPTIONS_PATH, SpecKitMemoryUtil.initOptionsReadingOf);
     const constitution = parsedArtefactOf(CONSTITUTION_PATH, SpecKitMemoryUtil.constitutionReadingOf);
-    const features = sortedEntriesOf(join(rootDirectory, SPECS_DIRECTORY))
+    const features = sortedEntriesOf(SPECS_DIRECTORY)
       .filter((entry) => entry.isDirectory)
       .map((entry) => featureOf(entry.name))
       .filter((feature) => feature !== null);
