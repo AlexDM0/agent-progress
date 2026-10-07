@@ -6,6 +6,7 @@
 import { Marked }                      from 'marked';
 import type { RendererObject, Tokens } from 'marked';
 import { HtmlEscapeUtil }              from '../../lib/html-escape/HtmlEscapeUtil.ts';
+import { TICKET_SECTION_PATTERNS }     from '../../shared/constants/TicketSectionPatterns.ts';
 
 const ALLOWED_HREF_SCHEMES = ['http:', 'https:', 'mailto:'] as const;
 
@@ -94,14 +95,6 @@ const PAGE_RENDERER: RendererObject = {
   },
 };
 
-const SECTION_BOUNDARY_PATTERN = /^#{1,2}[ \t]/;
-
-const CODE_FENCE_PATTERN = /^[ \t]*(```|~~~)/;
-
-const ACCEPTANCE_HEADING_PATTERN = /^## Acceptance[ \t]*$/;
-
-const ACCEPTANCE_ITEM_LINE_PATTERN = /^A\d+\.(?:[ \t]|$)/;
-
 /**
  * A ticket body with a blank line before every `A<number>.` line of its `## Acceptance` section that follows a non-blank one, so marked
  * renders each item as its own paragraph instead of joining them into one; every other line, and the stored file, stay as written.
@@ -112,12 +105,12 @@ export function withAcceptanceItemsSeparated(ticketBody: string): string {
   let insideAcceptance = false;
   let insideCodeFence = false;
   for (const line of lines) {
-    if (CODE_FENCE_PATTERN.test(line)) insideCodeFence = !insideCodeFence;
-    if (!insideCodeFence && SECTION_BOUNDARY_PATTERN.test(line)) {
-      insideAcceptance = ACCEPTANCE_HEADING_PATTERN.test(line.trimEnd());
+    if (TICKET_SECTION_PATTERNS.CODE_FENCE.test(line)) insideCodeFence = !insideCodeFence;
+    if (!insideCodeFence && TICKET_SECTION_PATTERNS.SECTION_BOUNDARY.test(line)) {
+      insideAcceptance = TICKET_SECTION_PATTERNS.ACCEPTANCE_HEADING.test(line.trimEnd());
     }
     const previousLine = separatedLines.at(-1);
-    const startsAnItemAfterText = insideAcceptance && !insideCodeFence && ACCEPTANCE_ITEM_LINE_PATTERN.test(line)
+    const startsAnItemAfterText = insideAcceptance && !insideCodeFence && TICKET_SECTION_PATTERNS.ACCEPTANCE_ITEM_LINE.test(line)
       && previousLine !== undefined && previousLine.trim() !== '';
     if (startsAnItemAfterText) separatedLines.push('');
     separatedLines.push(line);

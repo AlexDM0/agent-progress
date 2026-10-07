@@ -3,6 +3,8 @@
  * item. It only reads: a body it cannot make sense of is a verdict, never a throw.
  */
 
+import { TICKET_SECTION_PATTERNS } from '../../../shared/constants/TicketSectionPatterns.ts';
+
 export interface AcceptanceItem {
   label:        string;
   /** The reason after `Waived:` when the Acceptance itself marks the item waived, continuation lines joined; `null` otherwise. */
@@ -30,11 +32,7 @@ export type AcceptanceVerdict =
   | { verdict: 'waived-in-review-only'; waivers: ReviewWaiver[] };
 
 const LINE_BREAK_PATTERN        = /\r?\n/;
-const SECTION_BOUNDARY_PATTERN  = /^#{1,2}[ \t]/;
-const CODE_FENCE_PATTERN        = /^[ \t]*(```|~~~)/;
-const ACCEPTANCE_HEADING        = /^## Acceptance[ \t]*$/;
 const REVIEW_HEADING            = /^## Review[ \t]*$/;
-const ITEM_LINE_PATTERN         = /^A(\d+)\.(?:[ \t]+(.*))?$/;
 const WAIVED_MARKER_PATTERN     = /^Waived:[ \t]*(.*)$/;
 const REVIEW_LINE_PATTERN       = /^[ \t]*(?:[-*+][ \t]+)?A(\d+)[ \t]+(holds|does not hold|waived)\b(.*)$/;
 const VERDICT_SEPARATOR_PATTERN = /^[\s—–:-]+/;
@@ -49,8 +47,8 @@ function sectionsUnder(body: string, headingPattern: RegExp): string[][] {
   let current: string[] | null = null;
   let insideCodeFence = false;
   for (const line of body.split(LINE_BREAK_PATTERN)) {
-    if (CODE_FENCE_PATTERN.test(line)) insideCodeFence = !insideCodeFence;
-    if (!insideCodeFence && SECTION_BOUNDARY_PATTERN.test(line)) {
+    if (TICKET_SECTION_PATTERNS.CODE_FENCE.test(line)) insideCodeFence = !insideCodeFence;
+    if (!insideCodeFence && TICKET_SECTION_PATTERNS.SECTION_BOUNDARY.test(line)) {
       current = headingPattern.test(line) ? [] : null;
       if (current !== null) sections.push(current);
       continue;
@@ -69,12 +67,13 @@ function waivedReasonOf(itemText: string, continuationLines: readonly string[]):
 /** The items of the first `## Acceptance`, in written order; an item numbered twice counts once, as first written. */
 function acceptanceItemsOf(body: string): AcceptanceItem[] {
   const items: AcceptanceItem[] = [];
-  const lines = sectionsUnder(body, ACCEPTANCE_HEADING)[0] ?? [];
+  const lines = sectionsUnder(body, TICKET_SECTION_PATTERNS.ACCEPTANCE_HEADING)[0] ?? [];
   for (let i = 0; i < lines.length; i++) {
-    const itemLine = ITEM_LINE_PATTERN.exec(lines[i] ?? '');
+    const itemLine = TICKET_SECTION_PATTERNS.ACCEPTANCE_ITEM_LINE.exec(lines[i] ?? '');
     if (itemLine === null) continue;
     const continuationLines: string[] = [];
-    while (i + 1 < lines.length && (lines[i + 1] ?? '').trim() !== '' && !ITEM_LINE_PATTERN.test(lines[i + 1] ?? '')) {
+    while (i + 1 < lines.length && (lines[i + 1] ?? '').trim() !== ''
+      && !TICKET_SECTION_PATTERNS.ACCEPTANCE_ITEM_LINE.test(lines[i + 1] ?? '')) {
       i++;
       continuationLines.push(lines[i] ?? '');
     }

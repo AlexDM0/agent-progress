@@ -168,6 +168,12 @@ describe('withAcceptanceItemsSeparated', () => {
     expect(html).toContain('    continues on an indented line.\nA2. The second claim');
   });
 
+  test('separates the items of a CRLF body, its heading and item lines ending in a carriage return', () => {
+    const crlfTicketBody = '## Acceptance\r\nA1. The first claim.\r\nA2. The second claim.\r\n';
+
+    expect(withAcceptanceItemsSeparated(crlfTicketBody)).toBe('## Acceptance\r\n\nA1. The first claim.\r\n\nA2. The second claim.\r\n');
+  });
+
   test.each([
     ['an item line outside the Acceptance section', '## Report\nA1. Not an item here\nA2. Nor this\n'],
     ['Acceptance prose without numbered items', '## Acceptance\nThe page shows\none block.\n'],
