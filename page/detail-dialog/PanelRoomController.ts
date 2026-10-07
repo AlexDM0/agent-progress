@@ -3,13 +3,7 @@
  * gain trailing scroll room the width of what it covers, with their column widths frozen, so what the panel opened on scrolls clear of it.
  */
 
-import {
-  CHART_ELEMENT_ID,
-  KANBAN_BOARD_ELEMENT_ID,
-  KANBAN_FRAME_ELEMENT_ID,
-  PANEL_COVER_PROPERTY,
-  PANEL_ROOM_PROPERTY,
-} from '../constants/TemplateIds.ts';
+import { CHART_ELEMENT_ID, PANEL_COVER_PROPERTY, PANEL_ROOM_PROPERTY } from '../constants/TemplateIds.ts';
 
 const PANEL_ROOM_ATTRIBUTE               = 'data-panel-room';
 const FROZEN_LANE_WIDTH_PROPERTY         = '--frozen-lane-w';
@@ -18,6 +12,18 @@ const DETAIL_WIDTH_PROPERTY              = '--detail-w';
 const DETAIL_TOP_PROPERTY                = '--detail-top';
 const PANEL_GUTTER_PIXELS                = 16;
 const SCROLL_SETTLE_FALLBACK_MILLISECONDS = 1000;
+
+/** A scroller the panel makes room in: a lane board inside its frame, or the chart, which has none. */
+export interface PanelRoomScroller {
+  boardElementId: string;
+  frameElementId: string | null;
+}
+
+interface FoundScroller {
+  scroller:    HTMLElement;
+  frame:       HTMLElement | null;
+  isLaneBoard: boolean;
+}
 
 export interface PanelRoomController {
   dockBelowTabBar(): void;
@@ -55,14 +61,15 @@ function pinnedColumnsRightEdgeOf(chart: HTMLElement): number {
   return pill === null ? chart.getBoundingClientRect().left : pill.getBoundingClientRect().right;
 }
 
-function freezeWidths(scroller: HTMLElement): void {
-  const measured = scroller.id === KANBAN_BOARD_ELEMENT_ID
+/** A lane board freezes its lane width, the chart its timeline's. */
+function freezeWidths(scroller: HTMLElement, isLaneBoard: boolean): void {
+  const measured = isLaneBoard
     ? scroller.querySelector('.ap-lane:not([data-collapsed])')
     : scroller.querySelector('.ap-chart-head > .ap-cell-track');
   if (measured === null) {
     return;
   }
-  const property = scroller.id === KANBAN_BOARD_ELEMENT_ID ? FROZEN_LANE_WIDTH_PROPERTY : FROZEN_TIMELINE_WIDTH_PROPERTY;
+  const property = isLaneBoard ? FROZEN_LANE_WIDTH_PROPERTY : FROZEN_TIMELINE_WIDTH_PROPERTY;
   scroller.style.setProperty(property, `${measured.getBoundingClientRect().width}px`);
 }
 
@@ -92,11 +99,13 @@ function scrollBarClearOfPanel(chart: HTMLElement, row: HTMLElement): void {
   }
 }
 
-export function createPanelRoomController(updateKanbanOverflow: () => void): PanelRoomController {
-  const scrollers = (): HTMLElement[] => [KANBAN_BOARD_ELEMENT_ID, CHART_ELEMENT_ID]
-    .map((elementId) => document.getElementById(elementId))
-    .filter((element): element is HTMLElement => element !== null);
-  const kanbanFrame = (): HTMLElement | null => document.getElementById(KANBAN_FRAME_ELEMENT_ID);
+export function createPanelRoomController(scrollerElements: readonly PanelRoomScroller[], updateKanbanOverflow: () => void): PanelRoomController {
+  const shownScrollers = (): FoundScroller[] => scrollerElements.flatMap((scrollerElement) => {
+    const scroller = document.getElementById(scrollerElement.boardElementId);
+    const frame    = scrollerElement.frameElementId === null ? null : document.getElementById(scrollerElement.frameElementId);
+    return scroller === null ? [] : [{ scroller, frame, isLaneBoard: scrollerElement.frameElementId !== null }];
+  });
+  const scrollers = (): HTMLElement[] => shownScrollers().map((found) => found.scroller);
 
   const dockBelowTabBar = (): void => {
     const tabBar = document.querySelector('.ap-tab-bar');
@@ -109,25 +118,25 @@ export function createPanelRoomController(updateKanbanOverflow: () => void): Pan
 
   // Shown scrollers only: a hidden tab's scroller gets its room when the panel next opens or the window resizes.
   const makeRoom = (): void => {
-    for (const scroller of scrollers()) {
+    for (const { scroller, frame, isLaneBoard } of shownScrollers()) {
       if (scroller.clientWidth === 0) {
         continue;
       }
       if (!scroller.hasAttribute(PANEL_ROOM_ATTRIBUTE)) {
-        freezeWidths(scroller);
+        freezeWidths(scroller, isLaneBoard);
       }
       const covered = Math.max(0, visibleRightEdgeOf(scroller) - panelLeftEdge());
       scroller.style.setProperty(PANEL_ROOM_PROPERTY, `${covered > 0 ? covered + PANEL_GUTTER_PIXELS : 0}px`);
       scroller.setAttribute(PANEL_ROOM_ATTRIBUTE, '');
-      if (scroller.id === KANBAN_BOARD_ELEMENT_ID) {
-        kanbanFrame()?.style.setProperty(PANEL_COVER_PROPERTY, `${covered}px`);
-      }
+      frame?.style.setProperty(PANEL_COVER_PROPERTY, `${covered}px`);
     }
     updateKanbanOverflow();
   };
 
   const releaseRoom = (panelIsOpen: () => boolean): void => {
-    kanbanFrame()?.style.removeProperty(PANEL_COVER_PROPERTY);
+    for (const { frame } of shownScrollers()) {
+      frame?.style.removeProperty(PANEL_COVER_PROPERTY);
+    }
     for (const scroller of scrollers()) {
       if (!scroller.hasAttribute(PANEL_ROOM_ATTRIBUTE)) {
         continue;

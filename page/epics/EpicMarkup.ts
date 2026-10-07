@@ -12,6 +12,7 @@ import type { PageLimits }             from '../../src/shared/@types/PagePayload
 import type { DependencyGraph }        from '../@types/DependencyGraph.ts';
 import type { GroupRollupModel }       from '../@types/GroupMarks.ts';
 import type { BoardEpic, BoardTicket } from '../@types/PageBoard.ts';
+import { filterChipMarkup }            from '../chips/FilterChipMarkup.ts';
 import { DetailMarkupUtil }            from '../detail-dialog/utils/DetailMarkupUtil.ts';
 import { MarkupUtil }                  from '../utils/MarkupUtil.ts';
 import { TimeUtil }                    from '../utils/TimeUtil.ts';
@@ -19,9 +20,6 @@ import { WorkItemMarkupUtil }          from '../utils/WorkItemMarkupUtil.ts';
 import { EpicDependencyMarkup }        from './EpicDependencyMarkup.ts';
 import { EPIC_MARK_VOCABULARY }        from './EpicMarkVocabulary.ts';
 import { GroupMarkup }                 from './GroupMarkup.ts';
-
-/** A Kanban card and a table line show this many epic chips, then "+N" for the rest. */
-export const CARD_EPIC_CHIP_LIMIT = 2;
 
 /** The roll-up bar's segments, settled work first. */
 const ROLLUP_STATUS_ORDER: readonly TicketStatus[] = ['delivered', 'reviewed', 'in-review', 'in-progress', 'pending', 'abandoned'];
@@ -202,13 +200,9 @@ function epicGroupRowMarkup(epic: BoardEpic | null, columnCount: number, format:
 /** One chip per epic in shown order, then the no-epic chip; the counts and pressed states are the controller's to set. */
 function epicFilterChipsMarkup(epics: readonly BoardEpic[]): string {
   const { filterChipAttribute, noGroupChip } = EPIC_MARK_VOCABULARY;
-  const chips = epicsInShownOrder(epics).map((epic) => (
-    `<button type="button" class="ap-chip" ${MarkupUtil.attribute(filterChipAttribute, epic.key)} ${slotAttribute(epic)} aria-pressed="false">`
-    + `${GroupMarkup.swatchMarkup()}${HtmlEscapeUtil.escapeHtml(epic.title)} <span class="ap-chip-count"></span></button>`
-  ));
+  const chips = epicsInShownOrder(epics).map((epic) => filterChipMarkup(filterChipAttribute, { value: epic.key, label: epic.title, slot: epic.slot }));
   if (noGroupChip !== null) {
-    chips.push(`<button type="button" class="ap-chip" ${MarkupUtil.attribute(filterChipAttribute, noGroupChip.key)} aria-pressed="false">`
-      + `${HtmlEscapeUtil.escapeHtml(noGroupChip.label)} <span class="ap-chip-count"></span></button>`);
+    chips.push(filterChipMarkup(filterChipAttribute, { value: noGroupChip.key, label: noGroupChip.label }));
   }
   return chips.join('');
 }

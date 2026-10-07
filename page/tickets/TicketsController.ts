@@ -4,8 +4,11 @@ import { TICKET_TYPES }                                      from '../../src/lib
 import type { PageLimits }                                   from '../../src/shared/@types/PagePayload.ts';
 import type { BoardEpic, BoardTicket }                       from '../@types/PageBoard.ts';
 import type { TicketSortKey, TicketView, ViewerPreferences } from '../@types/ViewerChoices.ts';
+import { ChipFilterUtil }                                    from '../chips/ChipFilterUtil.ts';
+import { createChipGroupController }                         from '../chips/ChipGroupController.ts';
 import { NO_EPIC_CHIP }                                      from '../constants/EpicChips.ts';
 import { TICKET_COUNT_ELEMENT_ID, TICKET_ROWS_ELEMENT_ID }   from '../constants/TemplateIds.ts';
+import { EPIC_MARK_VOCABULARY }                              from '../epics/EpicMarkVocabulary.ts';
 import type { EpicMarkupFormat }                             from '../epics/EpicMarkup.ts';
 import { EpicMarkup }                                        from '../epics/EpicMarkup.ts';
 import { DomUtil }                                           from '../utils/DomUtil.ts';
@@ -53,32 +56,6 @@ export interface TicketsController {
   applyView(view: TicketView): void;
 }
 
-interface ChipGroup {
-  containerId:   string;
-  attributeName: string;
-  datasetKey:    string;
-}
-
-const STATUS_CHIP_GROUP: ChipGroup = { containerId: TICKET_STATUS_CHIPS_ELEMENT_ID, attributeName: 'status', datasetKey: 'status' };
-const TYPE_CHIP_GROUP: ChipGroup   = { containerId: TICKET_TYPE_CHIPS_ELEMENT_ID, attributeName: 'type', datasetKey: 'type' };
-const EPIC_CHIP_GROUP: ChipGroup   = { containerId: TICKET_EPIC_CHIPS_ELEMENT_ID, attributeName: 'epic-chip', datasetKey: 'epicChip' };
-
-function reflectChipGroup(chipGroup: ChipGroup, pressedValues: readonly string[], counts: ReadonlyMap<string, number>): void {
-  const container = document.getElementById(chipGroup.containerId);
-  for (const button of container?.querySelectorAll(`[data-${chipGroup.attributeName}]`) ?? []) {
-    if (!(button instanceof HTMLElement)) {
-      continue;
-    }
-    const value = button.dataset[chipGroup.datasetKey] ?? '';
-    const count = counts.get(value) ?? 0;
-    button.setAttribute('aria-pressed', String(pressedValues.includes(value)));
-    button.toggleAttribute('data-empty', count === 0);
-    const countElement = button.querySelector('.ap-chip-count');
-    if (countElement !== null) {
-      countElement.textContent = String(count);
-    }
-  }
-}
 
 function reflectSortedColumn(view: TicketView): void {
   for (const header of document.querySelectorAll(`#${TICKET_TABLE_ELEMENT_ID} th[data-sort]`)) {
@@ -106,6 +83,9 @@ export function createTicketsController(sources: TicketsControllerSources): Tick
   const epicTitleByChip      = new Map(epics.map((epic) => [epic.key, epic.title]));
   const epicChipLabelOf      = (chip: string): string => epicTitleByChip.get(chip) ?? chip;
   const knownEpicChips       = new Set(showsEpics ? [...epicTitleByChip.keys(), NO_EPIC_CHIP] : []);
+  const statusChipGroup      = createChipGroupController({ containerId: TICKET_STATUS_CHIPS_ELEMENT_ID, attributeName: 'data-status' });
+  const typeChipGroup        = createChipGroupController({ containerId: TICKET_TYPE_CHIPS_ELEMENT_ID, attributeName: 'data-type' });
+  const epicChipGroup        = createChipGroupController({ containerId: TICKET_EPIC_CHIPS_ELEMENT_ID, attributeName: EPIC_MARK_VOCABULARY.filterChipAttribute });
   let view                   = DEFAULT_TICKET_VIEW;
   let visibleTickets         = allTickets;
   let ticketsAreGrouped      = showsEpics && sources.preferences.readTicketsGroupedByEpic();
@@ -139,9 +119,9 @@ export function createTicketsController(sources: TicketsControllerSources): Tick
     const shown = TicketViewUtil.ticketsShownBy(view, allTickets, visibleTickets, searchableTextById);
     DomUtil.setMarkup(TICKET_ROWS_ELEMENT_ID, allTickets.length === 0 ? '' : rowsMarkupOf(shown));
     DomUtil.setText(TICKET_COUNT_ELEMENT_ID, ticketCountText(shown.length, allTickets));
-    reflectChipGroup(STATUS_CHIP_GROUP, view.statusChips, TicketViewUtil.statusChipCountsOf(view, allTickets, searchableTextById));
-    reflectChipGroup(TYPE_CHIP_GROUP, view.typeChips, TicketViewUtil.typeChipCountsOf(view, allTickets, searchableTextById));
-    reflectChipGroup(EPIC_CHIP_GROUP, view.epicChips, TicketViewUtil.epicChipCountsOf(view, allTickets, searchableTextById));
+    statusChipGroup.reflect(view.statusChips, TicketViewUtil.statusChipCountsOf(view, allTickets, searchableTextById));
+    typeChipGroup.reflect(view.typeChips, TicketViewUtil.typeChipCountsOf(view, allTickets, searchableTextById));
+    epicChipGroup.reflect(view.epicChips, TicketViewUtil.epicChipCountsOf(view, allTickets, searchableTextById));
     document.getElementById(TICKET_GROUPING_ELEMENT_ID)?.setAttribute('aria-pressed', String(ticketsAreGrouped));
     reflectSortedColumn(view);
     DomUtil.setHidden(TICKET_CLEAR_ELEMENT_ID, !TicketViewUtil.viewNarrows(view));
@@ -181,16 +161,14 @@ export function createTicketsController(sources: TicketsControllerSources): Tick
   const wireChips = (): void => {
     DomUtil.setMarkup(TICKET_STATUS_CHIPS_ELEMENT_ID, statusChipsMarkup(TICKET_STATUS_CHIPS));
     DomUtil.setMarkup(TICKET_TYPE_CHIPS_ELEMENT_ID, typeChipsMarkup(TICKET_TYPES));
-    document.getElementById(TICKET_STATUS_CHIPS_ELEMENT_ID)?.addEventListener('click', (event) => {
-      const button = event.target instanceof Element ? event.target.closest('[data-status]') : null;
-      const chip   = TICKET_STATUS_CHIPS.find((candidate) => button instanceof HTMLElement && candidate === button.dataset['status']);
+    statusChipGroup.wire((value) => {
+      const chip = TICKET_STATUS_CHIPS.find((candidate) => candidate === value);
       if (chip !== undefined) {
         changeView({ ...view, statusChips: TicketViewUtil.toggledValues(view.statusChips, chip) });
       }
     });
-    document.getElementById(TICKET_TYPE_CHIPS_ELEMENT_ID)?.addEventListener('click', (event) => {
-      const button = event.target instanceof Element ? event.target.closest('[data-type]') : null;
-      const type   = TICKET_TYPES.find((candidate) => button instanceof HTMLElement && candidate === button.dataset['type']);
+    typeChipGroup.wire((value) => {
+      const type = TICKET_TYPES.find((candidate) => candidate === value);
       if (type !== undefined) {
         changeView({ ...view, typeChips: TicketViewUtil.toggledValues(view.typeChips, type) });
       }
@@ -209,12 +187,7 @@ export function createTicketsController(sources: TicketsControllerSources): Tick
       return;
     }
     DomUtil.setMarkup(TICKET_EPIC_CHIPS_ELEMENT_ID, EpicMarkup.epicFilterChipsMarkup(epics));
-    document.getElementById(TICKET_EPIC_CHIPS_ELEMENT_ID)?.addEventListener('click', (event) => {
-      const button = event.target instanceof Element ? event.target.closest('[data-epic-chip]') : null;
-      if (button instanceof HTMLElement) {
-        changeView({ ...view, epicChips: TicketViewUtil.toggledValues(view.epicChips, button.dataset['epicChip'] ?? '') });
-      }
-    });
+    epicChipGroup.wire((chip) => changeView({ ...view, epicChips: TicketViewUtil.toggledValues(view.epicChips, chip) }));
     document.getElementById(TICKET_GROUPING_ELEMENT_ID)?.addEventListener('click', () => {
       ticketsAreGrouped = !ticketsAreGrouped;
       sources.preferences.writeTicketsGroupedByEpic(ticketsAreGrouped);
@@ -251,7 +224,6 @@ export function createTicketsController(sources: TicketsControllerSources): Tick
       render();
     },
     readView:  () => view,
-    // A restored epic chip whose epic has since gone presses nothing, so it cannot narrow the table unseen.
-    applyView: (restoredView) => changeView({ ...restoredView, epicChips: restoredView.epicChips.filter((chip) => knownEpicChips.has(chip)) }),
+    applyView: (restoredView) => changeView({ ...restoredView, epicChips: ChipFilterUtil.knownPressedChips(restoredView.epicChips, knownEpicChips) }),
   };
 }

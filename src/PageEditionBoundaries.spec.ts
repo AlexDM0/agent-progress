@@ -31,6 +31,11 @@ const TRACKER_PAGE_ONLY_MODULES = [
   'page/detail-dialog/TaskDetail.ts',
   'page/detail-dialog/TicketDetail.ts',
   'page/detail-dialog/TicketTimeline*',
+  'page/kanban/KanbanController.ts',
+  'page/kanban/KanbanTodoOrderController.ts',
+  'page/kanban/KanbanDependencyArrowController.ts',
+  'page/kanban/KanbanEpicFilterController.ts',
+  'page/epics/EpicDependencyMarkup.ts',
 ];
 
 /** Attributes tracker-page controllers read and write, which a spec view's markup must not wake. */
@@ -50,6 +55,7 @@ const SHARED_HOOK_ATTRIBUTES = [
   'data-open-ticket',
   'data-lane-more',
   'data-lane-reset',
+  'data-epic-chip',
 ];
 
 const MARKUP_TOKEN_PATTERN = /(?<![a-z0-9-])ap-[a-z0-9-]+/g;

@@ -3,6 +3,7 @@
 import { DETAIL_BODY_ELEMENT_ID }                          from '../constants/TemplateIds.ts';
 import { DomUtil }                                         from '../utils/DomUtil.ts';
 import type { DetailLinkOpener, DetailTargetRegistration } from './@types/DetailTargetRegistration.ts';
+import type { PanelRoomScroller }                          from './PanelRoomController.ts';
 import { createPanelRoomController }                       from './PanelRoomController.ts';
 
 const DETAIL_DIALOG_ELEMENT_ID = 'ap-detail';
@@ -26,6 +27,7 @@ export interface DetailPanelSettings<Kind extends string> {
   linkOpeners:          readonly DetailLinkOpener<Kind>[];
   /** Refilled on every layout, which drops the selection mark on what the panel shows. */
   observedContainerIds: readonly string[];
+  panelRoomScrollers:   readonly PanelRoomScroller[];
   updateOverflow:       () => void;
 }
 
@@ -53,7 +55,7 @@ export function createDetailPanelController<Kind extends string>(settings: Detai
     .map((kind) => targets[kind].openerSelector)
     .filter((selector): selector is string => selector !== null)
     .join(', ');
-  const panelRoom = createPanelRoomController(settings.updateOverflow);
+  const panelRoom = createPanelRoomController(settings.panelRoomScrollers, settings.updateOverflow);
   let openTarget: DetailPanelTarget<Kind> | null = null;
   let returnFocusTo: HTMLElement | null = null;
   let pendingCloseTimer = 0;

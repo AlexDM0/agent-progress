@@ -1,7 +1,7 @@
 /**
  * The spec page's browser entry: it reads the spec island of `resources/spec-template.html` and fills the frame through the shared shell, the
  * status line as a snapshot's, the header from the spec header model, the edition badge, the unreadable entries' banner and the Kanban's two
- * bands, and wires the detail panel on the spec page's own targets.
+ * bands with their behaviour, and wires the detail panel on the spec page's own targets.
  */
 
 import type { SpecSnapshot } from '../../src/lib/spec-snapshot/@types/SpecSnapshot.ts';
@@ -10,7 +10,6 @@ import {
   CHART_ELEMENT_ID,
   DETAIL_BODY_ELEMENT_ID,
   GENERATED_STAMP_ELEMENT_ID,
-  KANBAN_BOARD_ELEMENT_ID,
   PROJECT_NAME_ELEMENT_ID,
   STATUS_LABEL_ELEMENT_ID,
   SUMMARY_ELEMENT_ID,
@@ -19,17 +18,22 @@ import { createDetailPanelController } from '../detail-dialog/DetailPanelControl
 import { headerStatisticsMarkup }      from '../header/HeaderMarkup.ts';
 import { showStatusLine }              from '../header/StatusLine.ts';
 import { HeaderFigureUtil }            from '../header/utils/HeaderFigureUtil.ts';
-import { laneBoardMarkup }             from '../kanban/LaneBoardMarkup.ts';
+import { BROWSER_STORAGE_AREAS }       from '../preferences/PreferenceStore.ts';
 import { createFragmentRouter }        from '../shell/FragmentRouter.ts';
-import { PageShell }                   from '../shell/PageShell.ts';
-import { DomUtil }                     from '../utils/DomUtil.ts';
-import { TimeUtil }                    from '../utils/TimeUtil.ts';
-import { unreadableEntriesMarkup }     from './UnreadableEntriesMarkup.ts';
-import { SPEC_DETAIL_LINK_OPENERS }    from './detail-dialog/SpecDetailTargets.ts';
-import { specDetailTargetsOf }         from './detail-dialog/SpecDetailTargets.ts';
-import { specEditionBadgeMarkup }      from './header/SpecEditionBadgeMarkup.ts';
-import { specHeaderModelOf }           from './header/SpecHeaderModel.ts';
-import { specKanbanModelOf }           from './kanban/SpecKanbanModel.ts';
+import { PageShell }                   from '../shell/PageShell.ts';import { DomUtil } from '../utils/DomUtil.ts';
+import { TimeUtil }                                                                    from '../utils/TimeUtil.ts';
+import { unreadableEntriesMarkup }                                                     from './UnreadableEntriesMarkup.ts';
+import { SPEC_DETAIL_LINK_OPENERS }                                                    from './detail-dialog/SpecDetailTargets.ts';
+import { specDetailTargetsOf }                                                         from './detail-dialog/SpecDetailTargets.ts';
+import { specEditionBadgeMarkup }                                                      from './header/SpecEditionBadgeMarkup.ts';
+import { specHeaderModelOf }                                                           from './header/SpecHeaderModel.ts';
+import {
+  createSpecKanbanController,
+  SPEC_KANBAN_MARKUP_CONTAINER_IDS,
+  SPEC_KANBAN_SCROLLERS,
+  SPEC_KANBAN_TEXT_CONTAINER_IDS,
+} from './kanban/SpecKanbanController.ts';
+import { createSpecViewerPreferences } from './preferences/SpecViewerPreferences.ts';
 
 interface SpecPagePayload {
   readonly snapshot: SpecSnapshot;
@@ -50,17 +54,13 @@ const TICKETS_EMPTY_ELEMENT_ID      = 'ap-spec-tickets-empty';
 const SPECS_EMPTY_ELEMENT_ID        = 'ap-spec-specs-empty';
 const DEPENDENCIES_EMPTY_ELEMENT_ID = 'ap-spec-dependencies-empty';
 
-const WORK_BOARD_ELEMENT_ID       = 'ap-spec-work-kanban';
-const SPECS_BAND_COUNT_ELEMENT_ID = 'ap-spec-specs-band-count';
-const WORK_BAND_COUNT_ELEMENT_ID  = 'ap-spec-work-band-count';
-
-const VIEW_CONTAINER_IDS = [KANBAN_BOARD_ELEMENT_ID, WORK_BOARD_ELEMENT_ID, CHART_ELEMENT_ID, 'ap-spec-tickets', 'ap-spec-specs', 'ap-spec-dependencies'];
+const VIEW_CONTAINER_IDS = [...SPEC_KANBAN_MARKUP_CONTAINER_IDS, CHART_ELEMENT_ID, 'ap-spec-tickets', 'ap-spec-specs', 'ap-spec-dependencies'];
 
 const OWNED_MARKUP_CONTAINER_IDS = [
   SUMMARY_ELEMENT_ID, EDITION_BADGE_ELEMENT_ID, UNREADABLE_LIST_ELEMENT_ID, DETAIL_BODY_ELEMENT_ID, ...VIEW_CONTAINER_IDS,
 ];
 const OWNED_TEXT_CONTAINER_IDS   = [
-  PROJECT_NAME_ELEMENT_ID, STATUS_LABEL_ELEMENT_ID, GENERATED_STAMP_ELEMENT_ID, SPECS_BAND_COUNT_ELEMENT_ID, WORK_BAND_COUNT_ELEMENT_ID,
+  PROJECT_NAME_ELEMENT_ID, STATUS_LABEL_ELEMENT_ID, GENERATED_STAMP_ELEMENT_ID, ...SPEC_KANBAN_TEXT_CONTAINER_IDS,
 ];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -101,14 +101,6 @@ function showHeader(snapshot: SpecSnapshot, limits: PageLimits): void {
   DomUtil.setHidden(EDITION_BADGE_ELEMENT_ID, badgeMarkup === null);
 }
 
-function showKanban(snapshot: SpecSnapshot, limits: PageLimits): void {
-  const kanbanModel = specKanbanModelOf({ snapshot, todayCalendarDate: TimeUtil.calendarDateOf(Date.now()), slices: limits });
-  DomUtil.setText(SPECS_BAND_COUNT_ELEMENT_ID, String(kanbanModel.specsBand.cardCount));
-  DomUtil.setMarkup(KANBAN_BOARD_ELEMENT_ID, laneBoardMarkup(kanbanModel.specsBand.lanes));
-  DomUtil.setText(WORK_BAND_COUNT_ELEMENT_ID, String(kanbanModel.workBand.cardCount));
-  DomUtil.setMarkup(WORK_BOARD_ELEMENT_ID, laneBoardMarkup(kanbanModel.workBand.lanes));
-}
-
 function startSpecPage(): void {
   PageShell.clearOwnedContainers(OWNED_MARKUP_CONTAINER_IDS, OWNED_TEXT_CONTAINER_IDS);
   const payload = specPagePayloadFrom(PageShell.islandContentsOf(SPEC_ISLAND_ELEMENT_ID));
@@ -118,7 +110,12 @@ function startSpecPage(): void {
   }
   const { snapshot, limits } = payload;
   showHeader(snapshot, limits);
-  showKanban(snapshot, limits);
+  const kanbanController = createSpecKanbanController({
+    snapshot,
+    limits,
+    preferences: createSpecViewerPreferences(snapshot.repositoryKey, BROWSER_STORAGE_AREAS.local),
+  });
+  kanbanController.wire();
 
   DomUtil.setMarkup(UNREADABLE_LIST_ELEMENT_ID, unreadableEntriesMarkup(snapshot.unreadable));
   DomUtil.setHidden(UNREADABLE_BANNER_ELEMENT_ID, snapshot.unreadable.length === 0);
@@ -134,7 +131,8 @@ function startSpecPage(): void {
     targets:              specDetailTargetsOf(snapshot),
     linkOpeners:          SPEC_DETAIL_LINK_OPENERS,
     observedContainerIds: VIEW_CONTAINER_IDS,
-    updateOverflow:       () => undefined,
+    panelRoomScrollers:   SPEC_KANBAN_SCROLLERS,
+    updateOverflow:       kanbanController.updateOverflow,
   }).wire();
 
   const fragmentRouter = createFragmentRouter({ tabNames: TAB_NAMES, openItemFragment: () => false });

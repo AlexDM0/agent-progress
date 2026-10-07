@@ -54,7 +54,9 @@
  #ap-project                  the project title
  #ap-theme                    the theme radios, the bootstrap's
  #ap-summary                  the statistics: specs, implementing, tasks ticked of
-                              total, open clarifications
+                              total, open clarifications; implementing is a
+                              button with data-kanban-lane="implement", opening
+                              the Specs band's Implement lane
  #ap-tabs                     Kanban · Progress · Tickets · Specs · Dependencies,
                               each button #ap-tab-<name> with data-tab="<name>"
  section[data-panel=<name>]   #ap-panel-<name>, one per tab, [hidden] unless selected
@@ -62,11 +64,23 @@
                               card count: #ap-spec-specs-band-count, then
                               #ap-spec-work-band-count
    #ap-kanban-frame > #ap-kanban   the Specs band's frame and board, the ids the
-                                   design and the detail panel's room key on: one
-                                   lane per spec phase and Done
-   .ap-spec-work-frame > #ap-spec-work-kanban   the work band's frame and board:
-                              To do, In progress and Done, one card per tasks.md
-                              phase; each band scrolls inside its own frame
+                                   design keys on: one lane per spec phase and
+                                   Done; hovering or focusing a spec card sets
+                                   data-spec-dimmed on every work card of another
+                                   spec
+   #ap-spec-kanban-strip      .ap-epic-strip, [hidden] with no specs: one chip
+                              per spec in #ap-spec-kanban-specs, data-spec-chip
+                              its folder name, its swatch, number, title and
+                              work-item count; pressed chips narrow the work
+                              band to their specs, remembered per repository
+   #ap-spec-work-kanban-frame > #ap-spec-work-kanban   the work band's frame and
+                              board: To do, In progress and Done, one card per
+                              tasks.md phase; each band scrolls inside its own
+                              frame, data-overflow="start|end" on the frame
+                              fading its edges, and while the detail panel is
+                              open each board carries data-panel-room with
+                              --panel-room and --frozen-lane-w, its frame
+                              --panel-cover
    #ap-chart                  the Progress chart's container
    #ap-spec-tickets           the Tickets view's container
    #ap-spec-specs             the Specs view's container
@@ -87,7 +101,9 @@
  the second a no-op, since the page never reloads.
  localStorage keys: "agent-progress:theme" (shared with the tracker page) and
  "agent-progress:spec-tab", the selected tab, Kanban when the saved value is not
- one of the five. The arrow keys, Home and End move between the tabs.
+ one of the five. The arrow keys, Home and End move between the tabs. The page
+ script keeps its own choices under "agent-progress-spec:<repositoryKey>:<name>":
+ "kanban-specs", the strip's pressed specs.
 ===============================================================================
 -->
 <style>__DESIGN_STYLES__</style>
@@ -102,6 +118,11 @@
 .ap-spec-band-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 0 0 var(--sp-2); }
 .ap-spec-band-label { font-size: var(--fs-small); font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink); }
 .ap-spec-band-line { font-size: var(--fs-micro); color: var(--ink-muted); }
+#ap-spec-work-kanban[data-panel-room] { scroll-padding-inline-end: calc(var(--panel-room) + 24px); }
+#ap-spec-work-kanban[data-panel-room] > .ap-lane:not([data-collapsed]) { flex: 0 0 var(--frozen-lane-w); }
+#ap-spec-work-kanban[data-panel-room]::after { content: ""; flex: 0 0 max(0px, calc(var(--panel-room) - 10px)); }
+#ap-spec-work-kanban .ap-kanban-card { transition: opacity var(--motion-fast); }
+#ap-spec-work-kanban .ap-kanban-card[data-spec-dimmed] { opacity: 0.35; }
 .ap-spec-steps { flex-basis: 100%; display: flex; gap: 2px; list-style: none; margin: 6px 0 2px; padding: 0; min-width: 0; }
 .ap-spec-step { flex: 1 1 0; min-width: 0; padding: 2px 0; border: 1px solid transparent; border-radius: 3px; font-size: var(--fs-micro); line-height: 1.2; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ap-spec-step[data-step="done"] { background: var(--surface-2); color: var(--ink); }
@@ -195,7 +216,15 @@
       <span class="ap-lane-count" id="ap-spec-work-band-count">0</span>
       <span class="ap-spec-band-line">one card per tasks.md phase · the chip is its spec, the tag its phase</span>
     </div>
-    <div class="ap-kanban-frame ap-spec-work-frame">
+    <div class="ap-epic-strip" id="ap-spec-kanban-strip">
+      <div class="ap-toolbar-group">
+        <span class="ap-range-label" id="ap-spec-kanban-specs-label">Spec</span>
+        <div class="ap-chips" id="ap-spec-kanban-specs" role="group" aria-labelledby="ap-spec-kanban-specs-label">
+          <button type="button" class="ap-chip" data-spec-chip="002-product-search" data-epic-slot="2" aria-pressed="true"><span class="ap-epic-swatch"></span>002 Product Search <span class="ap-chip-count">7</span></button>
+        </div>
+      </div>
+    </div>
+    <div class="ap-kanban-frame ap-spec-work-frame" id="ap-spec-work-kanban-frame">
       <div class="ap-kanban" id="ap-spec-work-kanban"></div>
     </div>
   </div>

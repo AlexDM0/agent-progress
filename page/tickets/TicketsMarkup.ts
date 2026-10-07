@@ -10,8 +10,10 @@ import { TicketDefaultsUtil }                from '../../src/lib/tracker-model/u
 import type { PageTicket }                   from '../../src/shared/@types/PagePayload.ts';
 import type { BoardTicket }                  from '../@types/PageBoard.ts';
 import type { TicketStatusChip, TicketView } from '../@types/ViewerChoices.ts';
+import { filterChipMarkup }                  from '../chips/FilterChipMarkup.ts';
 import { STATE_LABEL_FOR_DISPLAY_STATE }     from '../constants/StateLabels.ts';
-import { CARD_EPIC_CHIP_LIMIT, EpicMarkup }  from '../epics/EpicMarkup.ts';
+import { EpicMarkup }                        from '../epics/EpicMarkup.ts';
+import { CARD_EPIC_CHIP_LIMIT }              from '../epics/GroupMarkup.ts';
 import { IntegrationMarkupUtil }             from '../utils/IntegrationMarkupUtil.ts';
 import { MarkupUtil }                        from '../utils/MarkupUtil.ts';
 import type { PauseTextFormat }              from '../utils/PauseTextUtil.ts';
@@ -122,18 +124,11 @@ export function emptyTicketTableMarkup(view: TicketView, columnCount: number, ep
 }
 
 export function statusChipsMarkup(chips: readonly TicketStatusChip[]): string {
-  return chips.map((chip) => [
-    `<button type="button" class="ap-chip" ${MarkupUtil.attribute('data-status', chip)} ${MarkupUtil.attribute('data-state', chip)} aria-pressed="false">`,
-    `<span class="ap-lane-dot" ${MarkupUtil.attribute('data-state', chip)}></span>${HtmlEscapeUtil.escapeHtml(STATE_LABEL_FOR_DISPLAY_STATE[chip])} `,
-    '<span class="ap-chip-count"></span></button>',
-  ].join('')).join('');
+  return chips.map((chip) => filterChipMarkup('data-status', { value: chip, label: STATE_LABEL_FOR_DISPLAY_STATE[chip], stateToken: chip })).join('');
 }
 
 export function typeChipsMarkup(types: readonly TicketType[]): string {
-  return types.map((type) => (
-    `<button type="button" class="ap-chip" ${MarkupUtil.attribute('data-type', type)} aria-pressed="false">`
-    + `${HtmlEscapeUtil.escapeHtml(type)} <span class="ap-chip-count"></span></button>`
-  )).join('');
+  return types.map((type) => filterChipMarkup('data-type', { value: type, label: type })).join('');
 }
 
 export function ticketCountText(shownCount: number, allTickets: readonly PageTicket[]): string {

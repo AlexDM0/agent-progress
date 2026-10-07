@@ -2,6 +2,8 @@
 
 import type { BoardEpic, BoardTicket } from '../@types/PageBoard.ts';
 import type { ViewerPreferences }      from '../@types/ViewerChoices.ts';
+import { ChipFilterUtil }              from '../chips/ChipFilterUtil.ts';
+import { createChipGroupController }   from '../chips/ChipGroupController.ts';
 import { NO_EPIC_CHIP }                from '../constants/EpicChips.ts';
 import { EPIC_MARK_VOCABULARY }        from '../epics/EpicMarkVocabulary.ts';
 import { EpicMarkup }                  from '../epics/EpicMarkup.ts';
@@ -31,8 +33,8 @@ export interface KanbanEpicFilterController {
 export function createKanbanEpicFilterController(sources: KanbanEpicFilterSources): KanbanEpicFilterController {
   const { epics, allTickets, preferences } = sources;
   const knownChips = new Set([...epics.map((epic) => epic.key), NO_EPIC_CHIP]);
-  // A stored key whose epic has since gone presses nothing, so it cannot empty the board unseen.
-  let pressedChips = preferences.readKanbanEpicFilter().filter((chip) => knownChips.has(chip));
+  const chipGroup  = createChipGroupController({ containerId: EPIC_CHIPS_ELEMENT_ID, attributeName: filterChipAttribute });
+  let pressedChips = ChipFilterUtil.knownPressedChips(preferences.readKanbanEpicFilter(), knownChips);
 
   const ticketCountByChip = new Map<string, number>();
   for (const ticket of allTickets) {
@@ -40,16 +42,7 @@ export function createKanbanEpicFilterController(sources: KanbanEpicFilterSource
   }
 
   const render = (): void => {
-    for (const button of document.querySelectorAll<HTMLElement>(`#${EPIC_CHIPS_ELEMENT_ID} [${filterChipAttribute}]`)) {
-      const chip  = button.getAttribute(filterChipAttribute) ?? '';
-      const count = ticketCountByChip.get(chip) ?? 0;
-      button.setAttribute('aria-pressed', String(pressedChips.includes(chip)));
-      button.toggleAttribute('data-empty', count === 0);
-      const countElement = button.querySelector('.ap-chip-count');
-      if (countElement !== null) {
-        countElement.textContent = String(count);
-      }
-    }
+    chipGroup.reflect(pressedChips, ticketCountByChip);
     DomUtil.setMarkup(EPIC_ROLLUPS_ELEMENT_ID, epics.filter((epic) => pressedChips.includes(epic.key)).map(EpicMarkup.epicStripRollupMarkup).join(''));
   };
 
@@ -62,13 +55,8 @@ export function createKanbanEpicFilterController(sources: KanbanEpicFilterSource
       }
       DomUtil.setMarkup(EPIC_CHIPS_ELEMENT_ID, EpicMarkup.epicFilterChipsMarkup(epics));
       render();
-      document.getElementById(EPIC_CHIPS_ELEMENT_ID)?.addEventListener('click', (event) => {
-        const button = event.target instanceof Element ? event.target.closest(`[${filterChipAttribute}]`) : null;
-        if (!(button instanceof HTMLElement)) {
-          return;
-        }
-        const chip   = button.getAttribute(filterChipAttribute) ?? '';
-        pressedChips = pressedChips.includes(chip) ? pressedChips.filter((pressed) => pressed !== chip) : [...pressedChips, chip];
+      chipGroup.wire((chip) => {
+        pressedChips = ChipFilterUtil.toggledChips(pressedChips, chip);
         preferences.writeKanbanEpicFilter(pressedChips);
         render();
         sources.applyFilter();

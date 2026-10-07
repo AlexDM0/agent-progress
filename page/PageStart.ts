@@ -30,6 +30,7 @@ import { createHeaderController }                             from './header/Hea
 import { createLiveHeaderController }                         from './header/LiveHeaderController.ts';
 import { createKanbanController }                             from './kanban/KanbanController.ts';
 import { createKanbanEpicFilterController }                   from './kanban/KanbanEpicFilterController.ts';
+import { wireTabOverflow }                                    from './kanban/LaneBoardController.ts';
 import { KanbanLaneUtil }                                     from './kanban/utils/KanbanLaneUtil.ts';
 import { BROWSER_STORAGE_AREAS }                              from './preferences/PreferenceStore.ts';
 import { createReloadSnapshotStore, createViewerPreferences } from './preferences/ViewerPreferences.ts';
@@ -163,7 +164,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     preferences,
     applyFilter: () => {
       showVisibleWork();
-      kanbanController.updateOverflow();
+      kanbanController.laneBoard.updateOverflow();
     },
   });
   const detailDialogController = createDetailDialogController({
@@ -174,7 +175,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     limits,
     readTodayCalendarDate: () => todayCalendarDate,
     readKanbanCards:       () => kanbanController.readVisibleCards(),
-    updateKanbanOverflow:  () => kanbanController.updateOverflow(),
+    updateKanbanOverflow:  () => kanbanController.laneBoard.updateOverflow(),
   });
 
   // The switch hides a finished epic's whole card, but a card it shows counts all its tickets, finished ones included.
@@ -230,6 +231,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   progressController.wireReviewRows();
   progressController.wireEpicGroups();
   kanbanController.wire();
+  wireTabOverflow([kanbanController.laneBoard]);
   kanbanEpicFilter.wire();
   ticketsController.wire();
   showTabButton(EPICS_TAB_ELEMENT_ID, board.epics.length > 0, KANBAN_TAB_NAME);
@@ -246,11 +248,11 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     openItemFragment: (target) => openTicketFragment(target, openTicketDetail),
   });
   window.addEventListener('resize', () => {
-    kanbanController.updateOverflow();
+    kanbanController.laneBoard.updateOverflow();
   });
   window.addEventListener('hashchange', () => {
     fragmentRouter.applyFragment(window.location.hash);
-    kanbanController.updateOverflow();
+    kanbanController.laneBoard.updateOverflow();
     finishedWorkSwitch.render();
   });
   fragmentRouter.wireSameFragmentReclick();
@@ -277,7 +279,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   reloadSnapshotController.restorePlace();
   // After the fragment and the snapshot chose the tab, whose items the pills count.
   finishedWorkSwitch.render();
-  kanbanController.updateOverflow();
+  kanbanController.laneBoard.updateOverflow();
 }
 
 function startPage(): void {

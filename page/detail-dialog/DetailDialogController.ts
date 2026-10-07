@@ -6,8 +6,10 @@ import type { KanbanCard }                       from '../@types/KanbanCard.ts';
 import type { BoardEpic, BoardRow, BoardTicket } from '../@types/PageBoard.ts';
 import type { DetailTarget, DetailTargetKind }   from '../@types/ViewerChoices.ts';
 import {
+  CHART_ELEMENT_ID,
   DETAIL_BODY_ELEMENT_ID,
   KANBAN_BOARD_ELEMENT_ID,
+  KANBAN_FRAME_ELEMENT_ID,
   TASK_ROWS_ELEMENT_ID,
   TICKET_ROWS_ELEMENT_ID,
 } from '../constants/TemplateIds.ts';
@@ -144,7 +146,11 @@ export function createDetailDialogController(sources: DetailDialogSources): Deta
     targets:              trackerDetailTargetsOf(sources),
     linkOpeners:          TRACKER_DETAIL_LINK_OPENERS,
     observedContainerIds: [TASK_ROWS_ELEMENT_ID, TICKET_ROWS_ELEMENT_ID, KANBAN_BOARD_ELEMENT_ID],
-    updateOverflow:       sources.updateKanbanOverflow,
+    panelRoomScrollers:   [
+      { boardElementId: KANBAN_BOARD_ELEMENT_ID, frameElementId: KANBAN_FRAME_ELEMENT_ID },
+      { boardElementId: CHART_ELEMENT_ID, frameElementId: null },
+    ],
+    updateOverflow: sources.updateKanbanOverflow,
   });
   return {
     wire:             panel.wire,

@@ -73,7 +73,7 @@ function cardsElementIdOf(band: SpecKanbanBandName, laneKey: string): string {
   return `ap-spec-${band}-lane-${laneKey}-cards`;
 }
 
-function cardElementIdOf(band: SpecKanbanBandName, identity: string): string {
+export function cardElementIdOf(band: SpecKanbanBandName, identity: string): string {
   return `ap-spec-${band}-card-${identity}`;
 }
 

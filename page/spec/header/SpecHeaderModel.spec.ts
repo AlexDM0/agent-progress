@@ -1,6 +1,6 @@
 /**
  * The spec page's header model. The cases that matter: the four statistics come in order with their labels, implementing is the `implement`
- * lane's count, tasks read ticked of total, open clarifications count every open marker, and no statistic opens a lane yet.
+ * lane's count, tasks read ticked of total, open clarifications count every open marker, and only implementing opens a lane, the Specs band's.
  */
 
 import { describe, expect, test } from 'bun:test';
@@ -33,10 +33,12 @@ describe('specHeaderModelOf', () => {
     ]);
   });
 
-  test('opens no lane, so every statistic prints as plain text', () => {
+  test('implementing opens the Specs band’s implement lane, and the other statistics print as plain text', () => {
     const markup = headerStatisticsMarkup(specHeaderModelOf(EXAMPLE_SOURCE).statistics);
 
-    expect(markup).not.toContain('<button');
+    expect(specHeaderModelOf(EXAMPLE_SOURCE).statistics.map((statistic) => statistic.opensLane)).toEqual([null, 'implement', null, null]);
+    expect(markup.match(/<button/g)).toHaveLength(1);
+    expect(markup).toContain('data-kanban-lane="implement" aria-label="Show 2 implementing on Kanban"');
     expect(markup).toContain('<span class="ap-stat"><span class="ap-stat-n">69 / 122</span><span class="ap-stat-label">tasks</span></span>');
   });
 });

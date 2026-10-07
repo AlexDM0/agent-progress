@@ -1,14 +1,13 @@
 /** One lane card, shaped by the placeholder cards of `resources/template.html`; a part the model leaves out is left out of the card. */
 
-import { HtmlEscapeUtil }       from '../../src/lib/html-escape/HtmlEscapeUtil.ts';
-import { TokenCountUtil }       from '../../src/lib/token-count/TokenCountUtil.ts';
-import { CARD_EPIC_CHIP_LIMIT } from '../epics/EpicMarkup.ts';
-import { GroupMarkup }          from '../epics/GroupMarkup.ts';
-import { MarkupUtil }           from '../utils/MarkupUtil.ts';
-import { WorkItemMarkupUtil }   from '../utils/WorkItemMarkupUtil.ts';
-import type { LaneCardHead }    from './@types/LaneBoard.ts';
-import type { LaneCardMarks }   from './@types/LaneBoard.ts';
-import type { LaneCardModel }   from './@types/LaneBoard.ts';
+import { HtmlEscapeUtil }                    from '../../src/lib/html-escape/HtmlEscapeUtil.ts';
+import { TokenCountUtil }                    from '../../src/lib/token-count/TokenCountUtil.ts';
+import { CARD_EPIC_CHIP_LIMIT, GroupMarkup } from '../epics/GroupMarkup.ts';
+import { MarkupUtil }                        from '../utils/MarkupUtil.ts';
+import { WorkItemMarkupUtil }                from '../utils/WorkItemMarkupUtil.ts';
+import type { LaneCardHead }                 from './@types/LaneBoard.ts';
+import type { LaneCardMarks }                from './@types/LaneBoard.ts';
+import type { LaneCardModel }                from './@types/LaneBoard.ts';
 
 /** The "needed first" slot, then the head's right end: the held count and the token count, kept together so a crowded head wraps them as one. */
 function headTailMarkup(head: LaneCardHead): string {

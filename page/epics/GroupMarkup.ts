@@ -8,6 +8,9 @@ import type { GroupRollupSegment }       from '../@types/GroupMarks.ts';
 import { STATE_LABEL_FOR_DISPLAY_STATE } from '../constants/StateLabels.ts';
 import { MarkupUtil }                    from '../utils/MarkupUtil.ts';
 
+/** A Kanban card and a table line show this many group chips, then "+N" for the rest. */
+export const CARD_EPIC_CHIP_LIMIT = 2;
+
 function slotAttribute(group: GroupMark): string {
   return MarkupUtil.attribute('data-epic-slot', String(group.slot));
 }
