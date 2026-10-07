@@ -29,7 +29,7 @@ export interface SpecStageRow extends ChartRowSource {
   datedFromModificationTime: boolean;
 }
 
-const STAGE_NAMES: Readonly<Record<SpecStage, SpecStageName>> = Object.freeze({
+export const STAGE_NAMES: Readonly<Record<SpecStage, SpecStageName>> = Object.freeze({
   specify:   'Specify',
   plan:      'Plan',
   implement: 'Implement',

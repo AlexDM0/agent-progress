@@ -53,6 +53,7 @@ const SHARED_HOOK_ATTRIBUTES = [
   'data-ticket-link',
   'data-epic',
   'data-epic-slot',
+  'data-epic-key',
   'data-open-epic',
   'data-open-ticket',
   'data-lane-more',
@@ -251,6 +252,17 @@ describe('shared hooks', () => {
 
     expect(foreignMarkupTokensOf(planted, specTemplateIds())).toEqual([{ path: kanbanModel, token: 'ap-kanban-card' }]);
     expect(sharedHookAttributesNamedIn(planted)).toContainEqual({ path: kanbanModel, token: 'data-epic-slot' });
+    expect(foreignMarkupTokensOf(SCANNER.graph, specTemplateIds())).toEqual([]);
+    expect(sharedHookAttributesNamedIn(SCANNER.graph)).toEqual([]);
+  });
+
+  test('a spec progress module writing a chart head row or its fold key itself is caught, and passes once both are gone', () => {
+    const specRowGrouping = 'page/spec/progress/SpecRowGrouping.ts';
+    const plants          = 'export const planted = \'<div class="ap-epic-head-row" data-epic-key="001">\';\n';
+    const planted         = SCANNER.graphWithPlantedFiles({ [specRowGrouping]: `${SCANNER.graph.sourceTextOf(specRowGrouping)}${plants}` });
+
+    expect(foreignMarkupTokensOf(planted, specTemplateIds())).toEqual([{ path: specRowGrouping, token: 'ap-epic-head-row' }]);
+    expect(sharedHookAttributesNamedIn(planted)).toContainEqual({ path: specRowGrouping, token: 'data-epic-key' });
     expect(foreignMarkupTokensOf(SCANNER.graph, specTemplateIds())).toEqual([]);
     expect(sharedHookAttributesNamedIn(SCANNER.graph)).toEqual([]);
   });

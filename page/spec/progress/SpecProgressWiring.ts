@@ -1,6 +1,6 @@
 /**
- * The spec page's Progress tab on the shared chart: its stage rows, ungrouped, drawn up to the moment the snapshot was taken, and the note
- * saying where the dates come from.
+ * The spec page's Progress tab on the shared chart: its stage rows under a foldable head row per spec, drawn up to the moment the
+ * snapshot was taken, and the note saying where the dates come from.
  */
 
 import type { SpecSnapshot }          from '../../../src/lib/spec-snapshot/@types/SpecSnapshot.ts';
@@ -9,6 +9,7 @@ import { createGanttChartController } from '../../progress/GanttChartController.
 import { DomUtil }                    from '../../utils/DomUtil.ts';
 import { TimeUtil }                   from '../../utils/TimeUtil.ts';
 import type { SpecViewerPreferences } from '../preferences/SpecViewerPreferences.ts';
+import { rowGroupingOfSpecs }         from './SpecRowGrouping.ts';
 import type { SpecStageRow }          from './SpecStageRows.ts';
 import { SpecStageRows }              from './SpecStageRows.ts';
 
@@ -45,8 +46,7 @@ export function wireSpecProgress(sources: SpecProgressSources): void {
     },
     limits,
     rows,
-    tickets:              [],
-    epics:                [],
+    rowGrouping:          rowGroupingOfSpecs(snapshot.specs),
     waitingOnOf:          () => [],
     trailingNameMarkupOf: SpecStageRows.trailingNameMarkupOf,
     nowEpochMilliseconds: () => generatedAtEpochMilliseconds,
@@ -57,4 +57,5 @@ export function wireSpecProgress(sources: SpecProgressSources): void {
   controller.wireRangeBar();
   controller.wireNameColumn();
   controller.wireChartWidth();
+  controller.wireEpicGroups();
 }

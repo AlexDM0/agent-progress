@@ -2,10 +2,8 @@
 
 import type { ViewRange }                                              from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import type { PageLimits }                                             from '../../src/shared/@types/PagePayload.ts';
-import type { BoardEpic, BoardTicket }                                 from '../@types/PageBoard.ts';
 import type { Timeline, TimelineRowSource }                            from '../@types/Timeline.ts';
 import type { NameColumnWidth, StoredViewOverride, ViewerPreferences } from '../@types/ViewerChoices.ts';
-import { NO_EPIC_CHIP }                                                from '../constants/EpicChips.ts';
 import {
   AXIS_TICKS_ELEMENT_ID,
   CHART_ELEMENT_ID,
@@ -13,18 +11,12 @@ import {
   RANGE_NOTE_ELEMENT_ID,
   TASK_ROWS_ELEMENT_ID,
 } from '../constants/TemplateIds.ts';
-import { EpicGroupMarks }           from '../epics/EpicGroupMarks.ts';
-import { DomUtil }                  from '../utils/DomUtil.ts';
-import { GeometryUtil }             from '../utils/GeometryUtil.ts';
-import { TimeUtil }                 from '../utils/TimeUtil.ts';
-import { createCustomRangePopover } from './CustomRangePopover.ts';
-import { effectiveViewRangeFor }    from './EffectiveViewRange.ts';
-import type {
-  ChartRowSource,
-  EpicGrouping,
-  PlacedTick,
-  TaskRow
-} from './GanttChartMarkup.ts';
+import { DomUtil }                                  from '../utils/DomUtil.ts';
+import { GeometryUtil }                             from '../utils/GeometryUtil.ts';
+import { TimeUtil }                                 from '../utils/TimeUtil.ts';
+import { createCustomRangePopover }                 from './CustomRangePopover.ts';
+import { effectiveViewRangeFor }                    from './EffectiveViewRange.ts';
+import type { ChartRowSource, PlacedTick, TaskRow } from './GanttChartMarkup.ts';
 import {
   overlayMarkup,
   rangeNoteMarkup,
@@ -32,6 +24,7 @@ import {
   taskRowsMarkup,
   tickLayerMarkup,
 } from './GanttChartMarkup.ts';
+import type { RowGrouping, RowGroupingSource }                                from './RowGrouping.ts';
 import { FIT_RANGE_PRESET, NAME_COLUMN_WIDTH_ATTRIBUTE, RANGE_PRESET_BOUNDS } from './constants/ProgressChart.ts';
 import { AxisFitUtil }                                                        from './utils/AxisFitUtil.ts';
 import { ChartPreferenceUtil }                                                from './utils/ChartPreferenceUtil.ts';
@@ -53,9 +46,8 @@ export interface GanttChartControllerSources<Row extends ChartRowSource> {
   progress:              ChartProgress;
   limits:                PageLimits;
   rows:                  readonly Row[];
-  tickets:               readonly BoardTicket[];
-  /** Ordered by key; a board without epics draws its rows ungrouped. */
-  epics:                 readonly BoardEpic[];
+  /** Null draws the rows ungrouped. */
+  rowGrouping:           NoInfer<RowGroupingSource<Row>> | null;
   waitingOnOf:           (row: Row) => readonly string[];
   trailingNameMarkupOf?: (row: Row) => string;
   /** A parameter, never the clock read here: the live page draws the present, a snapshot the moment it was taken. */
@@ -171,16 +163,14 @@ export function createGanttChartController<Row extends ChartRowSource>(sources: 
     progress,
     limits,
     rows,
-    tickets,
-    epics,
+    rowGrouping,
     nowEpochMilliseconds: readNow,
     preferences,
     reviewRows,
   } = sources;
   const chart                = document.getElementById(CHART_ELEMENT_ID);
-  const epicsInShownOrder    = EpicGroupMarks.epicsInShownOrder(epics);
-  const epicsOfTicket        = new Map(tickets.map((ticket) => [ticket.id, ticket.memberOfEpics]));
-  const knownGroupKeys       = new Set([...epics.map((epic) => epic.key), NO_EPIC_CHIP]);
+  const ungroupedHeadKeys    = rowGrouping?.ungroupedHead === null || rowGrouping === null ? [] : [rowGrouping.ungroupedHead.key];
+  const knownGroupKeys       = new Set([...rowGrouping?.groups.map((group) => group.key) ?? [], ...ungroupedHeadKeys]);
   let foldedGroupKeys        = new Set(preferences.readFoldedEpicGroups().filter((groupKey) => knownGroupKeys.has(groupKey)));
   let override               = preferences.readRangeOverride();
   let nameColumnWidth        = preferences.readNameColumnWidth();
@@ -216,9 +206,8 @@ export function createGanttChartController<Row extends ChartRowSource>(sources: 
     markCoveredAxisLabels(availablePixels > 0);
     const nowLabelSitsLeftOfMarker = timeline.nowPercent !== null && AxisFitUtil.nowLabelSitsLeftOfMarker(timeline.nowPercent, axisWidthPixels);
     DomUtil.setMarkup(CHART_OVERLAY_ELEMENT_ID, overlayMarkup(timeline.ticks, timeline.nowPercent, nowLabelSitsLeftOfMarker));
-    const epicGrouping: EpicGrouping | null = epics.length === 0 ? null : {
-      epics:                   epicsInShownOrder,
-      epicsOfTicket,
+    const drawnGrouping: RowGrouping<Row> | null = rowGrouping === null ? null : {
+      ...rowGrouping,
       foldedGroupKeys,
       axis:                    timeline,
       nowEpochMilliseconds,
@@ -228,7 +217,7 @@ export function createGanttChartController<Row extends ChartRowSource>(sources: 
       slices:            limits,
       todayCalendarDate: TimeUtil.calendarDateOf(nowEpochMilliseconds),
       reviewRowsAreShown,
-      epicGrouping,
+      rowGrouping:       drawnGrouping,
     }));
     DomUtil.setHidden('ap-chart-empty', visibleProgress.tasks.length > 0);
 

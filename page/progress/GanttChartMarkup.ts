@@ -11,10 +11,6 @@ import type { PageLimits }                              from '../../src/shared/@
 import type { BoardEpic }                               from '../@types/PageBoard.ts';
 import type { ResolvedSpan, TimelineBar, TimelineTick } from '../@types/Timeline.ts';
 import type { TimelineRowSource }                       from '../@types/Timeline.ts';
-import { NO_EPIC_CHIP }                                 from '../constants/EpicChips.ts';
-import { EpicGroupMarks }                               from '../epics/EpicGroupMarks.ts';
-import { EPIC_MARK_VOCABULARY }                         from '../epics/EpicMarkVocabulary.ts';
-import { GroupMarkup }                                  from '../epics/GroupMarkup.ts';
 import { BarPhaseUtil }                                 from '../utils/BarPhaseUtil.ts';
 import type { ShortenedText }                           from '../utils/MarkupUtil.ts';
 import { MarkupUtil }                                   from '../utils/MarkupUtil.ts';
@@ -22,6 +18,9 @@ import { TemplateIdUtil }                               from '../utils/TemplateI
 import type { TimestampSlices }                         from '../utils/TimeUtil.ts';
 import { TimeUtil }                                     from '../utils/TimeUtil.ts';
 import { WorkItemMarkupUtil }                           from '../utils/WorkItemMarkupUtil.ts';
+import { rowGroupingOfEpics }                           from './EpicRowGrouping.ts';
+import type { ChartGroupModel, RowGrouping }            from './RowGrouping.ts';
+import type { UngroupedHead }                           from './RowGrouping.ts';
 import { TICK_LABEL_GUTTER_PIXELS }                     from './constants/ProgressChart.ts';
 
 /**
@@ -64,6 +63,8 @@ export interface TaskRowsDrawing {
   reviewRowsAreShown: boolean;
   /** Null on a board without epics, whose rows are drawn ungrouped. */
   epicGrouping?:      EpicGrouping | null;
+  /** Drawn in place of `epicGrouping` when set. */
+  rowGrouping?:       RowGrouping<ChartRowSource> | null;
 }
 
 /** The rows grouped under a head row per epic, each ticket under its primary epic, then the rows in none under "No epic". */
@@ -247,20 +248,9 @@ function taskRowMarkup(placed: PlacedTaskRow, drawing: TaskRowsDrawing, otherEpi
   ].join('');
 }
 
-/** A review row goes with the ticket it reviews; a free-standing row has no ticket. */
-function ticketIdOfRow(task: ChartRowSource): string | null {
-  return task.ticket ?? task.ownRowOfReviewedTicket?.ticket ?? task.reviewOf ?? null;
-}
-
-function groupKeyOf(task: ChartRowSource, grouping: EpicGrouping): string {
-  const ticketId = ticketIdOfRow(task);
-  const primary  = ticketId === null ? undefined : grouping.epicsOfTicket.get(ticketId)?.[0];
-  return primary?.key ?? NO_EPIC_CHIP;
-}
-
-/** The epic's span on the axis from its roll-up, nothing when it never started or lies wholly outside the range. */
-function epicSpanMarkup(epic: BoardEpic, grouping: EpicGrouping, drawing: TaskRowsDrawing): string {
-  const { span } = epic;
+/** The group's span on the axis, nothing when it never started or lies wholly outside the range. */
+function groupSpanMarkup(group: ChartGroupModel, grouping: RowGrouping<ChartRowSource>, drawing: TaskRowsDrawing): string {
+  const { span } = group;
   if (span === null) {
     return '';
   }
@@ -279,8 +269,8 @@ function epicSpanMarkup(epic: BoardEpic, grouping: EpicGrouping, drawing: TaskRo
   const widthPercent = Math.min(100, Math.max(Math.min(rawRightPercent, 100) - Math.max(rawLeftPercent, 0), grouping.minimumSpanWidthPercent));
   const leftPercent  = Math.max(0, Math.min(Math.max(rawLeftPercent, 0), 100 - widthPercent));
   const endText      = span.end === null ? 'now' : TimeUtil.shortStampText(span.end, drawing.todayCalendarDate, drawing.slices);
-  const title        = `${epic.title} · ${TimeUtil.shortStampText(span.start, drawing.todayCalendarDate, drawing.slices)} → ${endText}`;
-  const openMark     = EpicGroupMarks.openTicketCountOf(epic) > 0 ? ' data-open' : '';
+  const title        = `${span.label} · ${TimeUtil.shortStampText(span.start, drawing.todayCalendarDate, drawing.slices)} → ${endText}`;
+  const openMark     = group.isOpen ? ' data-open' : '';
   return `<div class="ap-epic-span"${openMark} ${placementStyle({ leftPercent, widthPercent })} ${MarkupUtil.attribute('title', title)}></div>`;
 }
 
@@ -290,59 +280,69 @@ function headRowOpeningMarkup(groupKey: string, folded: boolean, extraAttributes
     + `<div class="ap-cell-name"><span class="ap-epic-caret" aria-hidden="true">${FOLD_CARET}</span>`;
 }
 
-/** Shared tickets are the epic's tickets drawn under another, primary, epic; its span counts them all the same. */
-function epicHeadRowMarkup(epic: BoardEpic, grouping: EpicGrouping, drawing: TaskRowsDrawing): string {
-  const sharedCount = epic.ticketIds.filter((ticketId) => grouping.epicsOfTicket.get(ticketId)?.[0]?.key !== epic.key).length;
-  const sharedNote  = sharedCount === 0
+function groupHeadRowMarkup(group: ChartGroupModel, grouping: RowGrouping<ChartRowSource>, drawing: TaskRowsDrawing): string {
+  const { sharedMemberCount } = group;
+  const sharedNote  = sharedMemberCount === 0
     ? ''
-    : ` <span class="ap-epic-head-count" ${MarkupUtil.attribute('title', `${sharedCount} of its tickets show under another epic`)}>+${sharedCount} shared</span>`;
+    : ` <span class="ap-epic-head-count" ${MarkupUtil.attribute('title', `${sharedMemberCount} of its tickets show under another epic`)}>+${sharedMemberCount} shared</span>`;
   return [
-    headRowOpeningMarkup(epic.key, grouping.foldedGroupKeys.has(epic.key), ` ${MarkupUtil.attribute('data-epic-slot', String(epic.slot))}`),
-    `${GroupMarkup.groupChipsMarkup([epic], EPIC_MARK_VOCABULARY)}${sharedNote}</div>`,
-    `<div class="ap-cell-pill">${EpicGroupMarks.doneTicketCountOf(epic)} / ${epic.ticketIds.length} done</div>`,
-    `<div class="ap-cell-track">${epicSpanMarkup(epic, grouping, drawing)}</div>`,
+    headRowOpeningMarkup(group.key, grouping.foldedGroupKeys.has(group.key), ` ${MarkupUtil.attribute('data-epic-slot', String(group.slot))}`),
+    `${group.chipMarkup}${sharedNote}</div>`,
+    `<div class="ap-cell-pill">${HtmlEscapeUtil.escapeHtml(group.doneText)}</div>`,
+    `<div class="ap-cell-track">${groupSpanMarkup(group, grouping, drawing)}</div>`,
     '</div>',
   ].join('');
 }
 
-function noEpicHeadRowMarkup(memberCount: number, grouping: EpicGrouping): string {
-  return `${headRowOpeningMarkup(NO_EPIC_CHIP, grouping.foldedGroupKeys.has(NO_EPIC_CHIP), '')}No epic <span class="ap-epic-head-count">${memberCount}</span></div>`
-    + '<div class="ap-cell-pill"></div><div class="ap-cell-track"></div></div>';
+function ungroupedHeadRowMarkup(head: UngroupedHead, memberCount: number, grouping: RowGrouping<ChartRowSource>): string {
+  return `${headRowOpeningMarkup(head.key, grouping.foldedGroupKeys.has(head.key), '')}${HtmlEscapeUtil.escapeHtml(head.label)}`
+    + ` <span class="ap-epic-head-count">${memberCount}</span></div><div class="ap-cell-pill"></div><div class="ap-cell-track"></div></div>`;
 }
 
-/** A member row of a ticket in more than one epic carries the squares of the epics it is not drawn under; a review row leaves them to its ticket's. */
-function memberRowMarkup(placed: PlacedTaskRow, grouping: EpicGrouping, drawing: TaskRowsDrawing): string {
-  const { task }    = placed.row;
-  const ticket      = ticketOf(task);
-  const otherEpics  = ticket === null ? [] : grouping.epicsOfTicket.get(ticket)?.slice(1) ?? [];
-  return taskRowMarkup(placed, drawing, GroupMarkup.otherGroupSquaresMarkup(otherEpics, '+'));
+function memberRowMarkup(placed: PlacedTaskRow, grouping: RowGrouping<ChartRowSource>, drawing: TaskRowsDrawing): string {
+  return taskRowMarkup(placed, drawing, grouping.otherGroupsMarkupOfRow?.(placed.row.task) ?? '');
 }
 
-function groupedTaskRowsMarkup(placedRows: readonly PlacedTaskRow[], grouping: EpicGrouping, drawing: TaskRowsDrawing): string {
-  const membersByGroup = new Map<string, PlacedTaskRow[]>();
+/** Each group's head before its rows, in the grouping's order, then the ungrouped rows under their head; a group with no rows is left out. */
+function groupedTaskRowsMarkup(placedRows: readonly PlacedTaskRow[], grouping: RowGrouping<ChartRowSource>, drawing: TaskRowsDrawing): string {
+  const membersByGroup = new Map<string | null, PlacedTaskRow[]>();
   for (const placed of placedRows) {
-    const groupKey = groupKeyOf(placed.row.task, grouping);
+    const groupKey = grouping.groupKeyOfRow(placed.row.task);
     membersByGroup.set(groupKey, [...membersByGroup.get(groupKey) ?? [], placed]);
   }
-  const groups: Array<{ key: string; epic: BoardEpic | null }> = [
-    ...grouping.epics.map((epic) => ({ key: epic.key, epic })),
-    { key: NO_EPIC_CHIP, epic: null },
+  const { ungroupedHead } = grouping;
+  const heads: Array<{ foldKey: string; memberKey: string | null; headMarkup: (memberCount: number) => string }> = [
+    ...grouping.groups.map((group) => ({ foldKey: group.key, memberKey: group.key, headMarkup: () => groupHeadRowMarkup(group, grouping, drawing) })),
+    ...ungroupedHead === null
+      ? []
+      : [{ foldKey: ungroupedHead.key, memberKey: null, headMarkup: (memberCount: number) => ungroupedHeadRowMarkup(ungroupedHead, memberCount, grouping) }],
   ];
-  return groups.flatMap(({ key, epic }) => {
-    const members = membersByGroup.get(key) ?? [];
+  return heads.flatMap(({ foldKey, memberKey, headMarkup }) => {
+    const members = membersByGroup.get(memberKey) ?? [];
     if (members.length === 0) {
       return [];
     }
-    const head       = epic === null ? noEpicHeadRowMarkup(members.length, grouping) : epicHeadRowMarkup(epic, grouping, drawing);
-    const shownRows  = grouping.foldedGroupKeys.has(key) ? [] : members.map((placed) => memberRowMarkup(placed, grouping, drawing));
-    return [head, ...shownRows];
+    const shownRows = grouping.foldedGroupKeys.has(foldKey) ? [] : members.map((placed) => memberRowMarkup(placed, grouping, drawing));
+    return [headMarkup(members.length), ...shownRows];
   }).join('');
 }
 
-/** Rows arrive in filing order and are drawn in `taskRowsInDisplayOrder`, under their epics' head rows on a board with epics. */
+function rowGroupingOfDrawing(drawing: TaskRowsDrawing): RowGrouping<ChartRowSource> | null {
+  if (drawing.rowGrouping !== undefined && drawing.rowGrouping !== null) {
+    return drawing.rowGrouping;
+  }
+  const epicGrouping = drawing.epicGrouping ?? null;
+  if (epicGrouping === null) {
+    return null;
+  }
+  const { epics, epicsOfTicket, ...layout } = epicGrouping;
+  return { ...rowGroupingOfEpics(epics, epicsOfTicket), ...layout };
+}
+
+/** Rows arrive in filing order and are drawn in `taskRowsInDisplayOrder`, under their groups' head rows when the drawing groups them. */
 export function taskRowsMarkup(rows: readonly TaskRow[], drawing: TaskRowsDrawing): string {
   const placedRows = taskRowsInDisplayOrder(rows, drawing.reviewRowsAreShown);
-  const grouping   = drawing.epicGrouping ?? null;
+  const grouping   = rowGroupingOfDrawing(drawing);
   if (grouping === null) {
     return placedRows.map((placed) => taskRowMarkup(placed, drawing)).join('');
   }

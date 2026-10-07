@@ -24,6 +24,7 @@ import {
 import { createDependencyLineageController }                  from './dependencies/DependencyLineageController.ts';
 import { DependencyMarkup }                                   from './dependencies/DependencyMarkup.ts';
 import { createDetailDialogController }                       from './detail-dialog/DetailDialogController.ts';
+import { EpicGroupMarks }                                     from './epics/EpicGroupMarks.ts';
 import { EpicMarkup }                                         from './epics/EpicMarkup.ts';
 import { createFinishedWorkSwitchController }                 from './finished-work/FinishedWorkSwitchController.ts';
 import { createHeaderController }                             from './header/HeaderController.ts';
@@ -34,6 +35,7 @@ import { wireTabOverflow }                                    from './kanban/Lan
 import { KanbanLaneUtil }                                     from './kanban/utils/KanbanLaneUtil.ts';
 import { BROWSER_STORAGE_AREAS }                              from './preferences/PreferenceStore.ts';
 import { createReloadSnapshotStore, createViewerPreferences } from './preferences/ViewerPreferences.ts';
+import { rowGroupingOfEpics }                                 from './progress/EpicRowGrouping.ts';
 import { createGanttChartController }                         from './progress/GanttChartController.ts';
 import { hiddenWorkNoteText }                                 from './progress/GanttChartMarkup.ts';
 import { highlightChangesSince }                              from './reload/ChangeHighlight.ts';
@@ -110,9 +112,10 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   const progressController   = createGanttChartController({
     progress,
     limits,
-    rows:                 board.rows,
-    tickets:              board.tickets,
-    epics:                board.epics,
+    rows:        board.rows,
+    rowGrouping: board.epics.length === 0
+      ? null
+      : rowGroupingOfEpics(EpicGroupMarks.epicsInShownOrder(board.epics), new Map(board.tickets.map((ticket) => [ticket.id, ticket.memberOfEpics]))),
     waitingOnOf:          (row) => (row.ticket === null ? [] : waitingOnById.get(row.ticket) ?? []),
     nowEpochMilliseconds: Date.now,
     preferences,
