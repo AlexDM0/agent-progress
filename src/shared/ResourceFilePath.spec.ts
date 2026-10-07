@@ -1,6 +1,6 @@
 /**
  * Where the files read at runtime are found. What matters is that the path is anchored to the package, not to the
- * working directory the linked binary runs in, and that the files the commands read are found through it.
+ * working directory the linked binary runs in, and that the files the commands read, both page templates among them, are found through it.
  */
 import { existsSync }             from 'node:fs';
 import { isAbsolute, join }       from 'node:path';
@@ -16,6 +16,10 @@ describe('resourceFilePathOf', () => {
   test('the page template and a markdown template are found through it', () => {
     expect(existsSync(resourceFilePathOf('template.html'))).toBe(true);
     expect(existsSync(resourceFilePathOf('templates', 'AgentBrief.md'))).toBe(true);
+  });
+
+  test('the spec page template is found through it', () => {
+    expect(existsSync(resourceFilePathOf('spec-template.html'))).toBe(true);
   });
 
   test('the path is the package\'s resources folder, whatever the working directory', () => {

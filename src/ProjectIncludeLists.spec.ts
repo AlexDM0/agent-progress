@@ -10,8 +10,8 @@ import { posix } from 'node:path';
 import { describe, expect, test } from 'bun:test';
 import ts                         from 'typescript';
 
-import type { ImportGraph }                                       from './testing/ImportGraph.ts';
-import { createImportGraphScanner, repositoryRootOfThisCheckout } from './testing/ImportGraph.ts';
+import type { ImportGraph }                                                           from './testing/ImportGraph.ts';
+import { createImportGraphScanner, reachablePathsFrom, repositoryRootOfThisCheckout } from './testing/ImportGraph.ts';
 
 interface IncludeListContract {
   readonly configurationPath:   string;
@@ -51,18 +51,8 @@ function listedPathsOf(project: IncludeListContract, includeEntries: readonly st
 }
 
 function reachedPathsOf(project: IncludeListContract, graph: ImportGraph): ReadonlySet<string> {
-  const pending = graph.scannedPaths.filter((path) => path.startsWith(project.projectFolder) && isShippingModule(path));
-  const visited = new Set(pending);
-  const reachedOutside = new Set<string>();
-  while (pending.length > 0) {
-    const fromPath = pending.pop() ?? '';
-    for (const edge of graph.edges) {
-      if (edge.fromPath !== fromPath || edge.target.kind !== 'repository-file' || visited.has(edge.target.path)) continue;
-      visited.add(edge.target.path);
-      pending.push(edge.target.path);
-      if (!edge.target.path.startsWith(project.projectFolder)) reachedOutside.add(edge.target.path);
-    }
-  }
+  const shippingModulePaths = graph.scannedPaths.filter((path) => path.startsWith(project.projectFolder) && isShippingModule(path));
+  const reachedOutside = [...reachablePathsFrom(graph, shippingModulePaths)].filter((path) => !path.startsWith(project.projectFolder));
   const wholePackagePaths = graph.scannedPaths.filter((path) => isShippingModule(path) && project.wholePackageFolders.some((folder) => path.startsWith(folder)));
   return new Set([...reachedOutside, ...wholePackagePaths]);
 }

@@ -121,6 +121,27 @@ export function createImportGraphScanner(repositoryRoot: string): ImportGraphSca
   };
 }
 
+/** The entries themselves and every repository file they import, directly or through each other; a package import is not followed. */
+export function reachablePathsFrom(graph: ImportGraph, entryPaths: readonly string[]): ReadonlySet<string> {
+  const targetPathsByImporter = new Map<string, string[]>();
+  for (const edge of graph.edges) {
+    if (edge.target.kind === 'repository-file') {
+      targetPathsByImporter.set(edge.fromPath, [...targetPathsByImporter.get(edge.fromPath) ?? [], edge.target.path]);
+    }
+  }
+  const pending = [...entryPaths];
+  const reached = new Set(entryPaths);
+  while (pending.length > 0) {
+    for (const targetPath of targetPathsByImporter.get(pending.pop() ?? '') ?? []) {
+      if (!reached.has(targetPath)) {
+        reached.add(targetPath);
+        pending.push(targetPath);
+      }
+    }
+  }
+  return reached;
+}
+
 export function repositoryRootOfThisCheckout(): string {
   return resolve(dirname(import.meta.path), '..', '..');
 }

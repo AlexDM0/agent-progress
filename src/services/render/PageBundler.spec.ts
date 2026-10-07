@@ -61,6 +61,14 @@ describe('a bundler of the spec page entry', () => {
     expect(outcome.verdict === 'built' && outcome.script.includes('ap-spec-data')).toBe(true);
     expect(outcome.verdict === 'built' && outcome.script.includes('ap-progress-data')).toBe(false);
   });
+
+  test('produces a script with no script end and no HTML comment opener, safe to inline', async () => {
+    const outcome = await createPageBundler(PAGE_ENTRY_POINTS.SPEC).bundlePageScript();
+
+    expect(outcome.verdict).toBe('built');
+    expect(outcome.verdict === 'built' && /<\/script/i.test(outcome.script)).toBe(false);
+    expect(outcome.verdict === 'built' && PageScriptTextUtil.scriptWouldOpenAnHtmlComment(outcome.script)).toBe(false);
+  });
 });
 
 describe('the bundled page script', () => {
