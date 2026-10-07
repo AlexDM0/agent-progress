@@ -19,7 +19,7 @@ The CLI writes its keys in this order, omitting an optional key it does not have
 ---
 id: "003"
 title: "Double-click a role to edit it"
-type: "change"
+type: "ticket"
 priority: "high"
 model: "sonnet"
 effort: "high"
