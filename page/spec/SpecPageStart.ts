@@ -1,16 +1,19 @@
 /**
  * The spec page's browser entry: it reads the spec island of `resources/spec-template.html` and fills the frame through the shared shell, the
  * status line as a snapshot's, the header from the spec header model, the edition badge, the unreadable entries' banner, the Kanban's two
- * bands with their behaviour, the Tickets tab's table, the Specs tab's cards and the Dependencies tab's wave graph with its lineage, and
- * wires the detail panel on the spec page's own targets.
+ * bands with their behaviour, the Progress tab's stage chart, the Tickets tab's table, the Specs tab's cards and the Dependencies tab's
+ * wave graph with its lineage, and wires the detail panel on the spec page's own targets.
  */
 
 import type { SpecSnapshot } from '../../src/lib/spec-snapshot/@types/SpecSnapshot.ts';
 import type { PageLimits }   from '../../src/shared/@types/PagePayload.ts';
 import {
-  CHART_ELEMENT_ID,
+  AXIS_TICKS_ELEMENT_ID,
+  CHART_OVERLAY_ELEMENT_ID,
   DETAIL_BODY_ELEMENT_ID,
   GENERATED_STAMP_ELEMENT_ID,
+  RANGE_NOTE_ELEMENT_ID,
+  TASK_ROWS_ELEMENT_ID,
   PROJECT_NAME_ELEMENT_ID,
   STATUS_LABEL_ELEMENT_ID,
   SUMMARY_ELEMENT_ID,
@@ -41,6 +44,7 @@ import {
   SPEC_KANBAN_TEXT_CONTAINER_IDS,
 } from './kanban/SpecKanbanController.ts';
 import { createSpecViewerPreferences }                                                                     from './preferences/SpecViewerPreferences.ts';
+import { PROGRESS_NOTE_ELEMENT_ID, wireSpecProgress }                                                      from './progress/SpecProgressWiring.ts';
 import { constitutionCardMarkup }                                                                          from './specs/ConstitutionCardMarkup.ts';
 import { SpecCardMarkup }                                                                                  from './specs/SpecCardMarkup.ts';
 import { createSpecTicketsController, SPEC_TICKETS_MARKUP_CONTAINER_IDS, SPEC_TICKETS_TEXT_CONTAINER_IDS } from './tickets/SpecTicketsController.ts';
@@ -69,11 +73,13 @@ const SPEC_CARDS_ELEMENT_ID   = 'ap-spec-specs';
 const DEPENDENCIES_ELEMENT_ID = 'ap-spec-dependencies';
 
 const VIEW_CONTAINER_IDS = [
-  ...SPEC_KANBAN_MARKUP_CONTAINER_IDS, CHART_ELEMENT_ID, ...SPEC_TICKETS_MARKUP_CONTAINER_IDS, CONSTITUTION_ELEMENT_ID, SPEC_CARDS_ELEMENT_ID, DEPENDENCIES_ELEMENT_ID,
+  ...SPEC_KANBAN_MARKUP_CONTAINER_IDS, TASK_ROWS_ELEMENT_ID, ...SPEC_TICKETS_MARKUP_CONTAINER_IDS, CONSTITUTION_ELEMENT_ID, SPEC_CARDS_ELEMENT_ID, DEPENDENCIES_ELEMENT_ID,
 ];
 
+const CHART_MARKUP_CONTAINER_IDS = [AXIS_TICKS_ELEMENT_ID, CHART_OVERLAY_ELEMENT_ID, RANGE_NOTE_ELEMENT_ID, PROGRESS_NOTE_ELEMENT_ID];
+
 const OWNED_MARKUP_CONTAINER_IDS = [
-  SUMMARY_ELEMENT_ID, EDITION_BADGE_ELEMENT_ID, UNREADABLE_LIST_ELEMENT_ID, DETAIL_BODY_ELEMENT_ID, ...VIEW_CONTAINER_IDS,
+  SUMMARY_ELEMENT_ID, EDITION_BADGE_ELEMENT_ID, UNREADABLE_LIST_ELEMENT_ID, DETAIL_BODY_ELEMENT_ID, ...VIEW_CONTAINER_IDS, ...CHART_MARKUP_CONTAINER_IDS,
 ];
 const OWNED_TEXT_CONTAINER_IDS   = [
   PROJECT_NAME_ELEMENT_ID, STATUS_LABEL_ELEMENT_ID, GENERATED_STAMP_ELEMENT_ID, ...SPEC_KANBAN_TEXT_CONTAINER_IDS, ...SPEC_TICKETS_TEXT_CONTAINER_IDS,
@@ -145,6 +151,13 @@ function startSpecPage(): void {
   const kanbanController = createSpecKanbanController({ snapshot, limits, preferences });
   kanbanController.wire();
   createSpecTicketsController({ snapshot, preferences }).wire();
+  if (snapshot.specs.length > 0) {
+    // A snapshot unreadable as a moment draws to the viewer's clock, as the status line does.
+    const generatedAtEpochMilliseconds = TimeUtil.epochMillisecondsOf(snapshot.generatedAt) ?? Date.now();
+    wireSpecProgress({
+      snapshot, limits, preferences, generatedAtEpochMilliseconds
+    });
+  }
 
   const nowEpochMilliseconds = Date.now();
   const format               = { limits, todayCalendarDate: TimeUtil.calendarDateOf(nowEpochMilliseconds), nowEpochMilliseconds };

@@ -60,6 +60,9 @@ const SHARED_HOOK_ATTRIBUTES = [
   'data-epic-chip',
   'data-ready',
   'data-in-review',
+  'data-task-id',
+  'data-review-of',
+  'data-live',
 ];
 
 const MARKUP_TOKEN_PATTERN = /(?<![a-z0-9-])ap-[a-z0-9-]+/g;
@@ -157,6 +160,22 @@ describe('edition isolation', () => {
   test('the spec page reaches something, and nothing in TRACKER_PAGE_ONLY_MODULES', () => {
     expect(reachablePathsFrom(SCANNER.graph, [SPEC_PAGE_ENTRY]).size).toBeGreaterThan(1);
     expect(trackerPageOnlyModulesReachedFrom(SCANNER.graph, SPEC_PAGE_ENTRY, TRACKER_PAGE_ONLY_MODULES)).toEqual([]);
+  });
+
+  test('the spec page reaches the shared chart, and with it nothing in TRACKER_PAGE_ONLY_MODULES', () => {
+    const specPageReach = reachablePathsFrom(SCANNER.graph, [SPEC_PAGE_ENTRY]);
+
+    expect(specPageReach).toContain('page/progress/GanttChartController.ts');
+    expect(specPageReach).toContain('page/progress/GanttChartMarkup.ts');
+    expect(trackerPageOnlyModulesReachedFrom(SCANNER.graph, SPEC_PAGE_ENTRY, TRACKER_PAGE_ONLY_MODULES)).toEqual([]);
+  });
+
+  test('the shared chart importing the tracker page preference util is caught', () => {
+    const chartController = 'page/progress/GanttChartController.ts';
+    const plant           = 'import { ViewerPreferenceUtil } from \'../preferences/utils/ViewerPreferenceUtil.ts\';\n';
+    const planted         = SCANNER.graphWithPlantedFiles({ [chartController]: `${plant}${SCANNER.graph.sourceTextOf(chartController)}` });
+
+    expect(trackerPageOnlyModulesReachedFrom(planted, SPEC_PAGE_ENTRY, TRACKER_PAGE_ONLY_MODULES)).toContain('page/preferences/utils/ViewerPreferenceUtil.ts');
   });
 
   test('the spec page importing the tracker page preferences is caught', () => {

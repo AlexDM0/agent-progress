@@ -2,7 +2,7 @@
  * The spec page's stored choices. The cases that matter: the strip's choice is kept under `agent-progress-spec:<repositoryKey>:kanban-specs`,
  * a key string that must never change, so two repositories' pages keep their own choice and nothing lands under a tracker page's prefix;
  * releasing every chip removes the key; blocked storage reads as no choice; and the Tickets tab's view keeps its own keys, a gone spec
- * pressing nothing on read.
+ * pressing nothing on read; the Progress chart's choices sit under named keys, never the bare prefix a tracker page stores its range under.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -69,5 +69,37 @@ describe('createSpecViewerPreferences', () => {
     preferences.writeTicketsView({ searchText: 'wish', specChips: ['003-wish-list'], stateChips: ['done'] });
     preferences.writeTicketsView({ searchText: '', specChips: [], stateChips: [] });
     expect(storage.entries.size).toBe(0);
+  });
+
+  test('keeps the chart’s range and name column under named spec keys, never the bare prefix, and removes them at their defaults', () => {
+    const storage     = inMemoryStorage();
+    const preferences = createSpecViewerPreferences('1c76f5bfd7605ed0', () => storage);
+    const override    = {
+      presetKey: '7d', fromText: '-7d', toText: 'now', tickMinutes: null
+    };
+    preferences.writeRangeOverride(override);
+    preferences.writeNameColumnWidth('wide');
+
+    expect([...storage.entries.keys()].toSorted()).toEqual([
+      'agent-progress-spec:1c76f5bfd7605ed0:progress-name-column',
+      'agent-progress-spec:1c76f5bfd7605ed0:progress-range',
+    ]);
+    expect(preferences.readRangeOverride()).toEqual(override);
+    expect(preferences.readNameColumnWidth()).toBe('wide');
+
+    preferences.writeRangeOverride({
+      presetKey: 'fit', fromText: null, toText: null, tickMinutes: null
+    });
+    preferences.writeNameColumnWidth('normal');
+    expect(storage.entries.size).toBe(0);
+  });
+
+  test('reads an unparseable stored range as no override', () => {
+    const storage = inMemoryStorage();
+    storage.entries.set('agent-progress-spec:1c76f5bfd7605ed0:progress-range', '{broken');
+
+    expect(createSpecViewerPreferences('1c76f5bfd7605ed0', () => storage).readRangeOverride()).toEqual({
+      presetKey: null, fromText: null, toText: null, tickMinutes: null,
+    });
   });
 });

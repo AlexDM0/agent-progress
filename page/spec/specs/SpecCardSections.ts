@@ -11,6 +11,7 @@ import { STATE_LABEL_FOR_DISPLAY_STATE }                     from '../../constan
 import { GroupMarkup }                                       from '../../epics/GroupMarkup.ts';
 import { MarkupUtil }                                        from '../../utils/MarkupUtil.ts';
 import { TimeUtil }                                          from '../../utils/TimeUtil.ts';
+import { MODIFICATION_TIME_SOURCE }                          from '../constants/SnapshotDateSources.ts';
 import { SPEC_MARK_VOCABULARY }                              from '../constants/SpecMarkVocabulary.ts';
 import { DISPLAY_STATE_FOR_WORK_ITEM_STATE }                 from '../constants/WorkItemStateTranslations.ts';
 import { SpecGroupMarks }                                    from '../marks/SpecGroupMarks.ts';
@@ -27,8 +28,6 @@ const FILE_NAME_FOR_KIND: Readonly<Record<SpecFileKind, string>> = Object.freeze
   'quickstart': 'quickstart.md',
   'tasks':      'tasks.md',
 });
-
-const MODIFICATION_TIME_SOURCE = 'modification-time';
 
 /** How a date's source reads; a source not listed shows as the snapshot writes it. */
 const DATE_SOURCE_TEXT: Readonly<Record<string, string>> = Object.freeze({

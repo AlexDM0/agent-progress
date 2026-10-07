@@ -81,7 +81,17 @@
                               open each board carries data-panel-room with
                               --panel-room and --frozen-lane-w, its frame
                               --panel-cover
-   #ap-chart                  the Progress chart's container
+   #ap-panel-progress         the Progress chart on the tracker template's ids: the
+                              range bar #ap-range-presets (#ap-range-fit, #ap-range-custom)
+                              with the popover #ap-range-popover and #ap-range-note;
+                              #ap-spec-progress-note, where the dates come from, with
+                              .ap-spec-progress-date-mark; #ap-chart, its head carrying
+                              #ap-name-column and #ap-ticks, then #ap-overlay, #ap-rows
+                              and #ap-chart-empty. One .ap-row per stage with a known
+                              start, its name trailed by .ap-spec-progress-spec (the
+                              spec's folder name) and, for a date taken from a
+                              modification time, .ap-spec-progress-date-mark; the now
+                              line sits at the moment the snapshot was generated
    #ap-panel-tickets          the Tickets tab, on the tracker table's frame: the count
                               #ap-spec-ticket-count; the search #ap-spec-ticket-search,
                               marking matches with mark.ap-match; the spec chips
@@ -144,7 +154,8 @@
  one of the five. The arrow keys, Home and End move between the tabs. The page
  script keeps its own choices under "agent-progress-spec:<repositoryKey>:<name>":
  "kanban-specs", the strip's pressed specs; "tickets-search", "tickets-specs" and
-"tickets-states", the Tickets tab's search and pressed chips.
+"tickets-states", the Tickets tab's search and pressed chips; "progress-range",
+"progress-name-column" and "progress-folded-groups", the Progress chart's.
 ===============================================================================
 -->
 <style>__DESIGN_STYLES__</style>
@@ -218,6 +229,9 @@
 .ap-spec-ticket-table td:nth-child(3) { white-space: nowrap; }
 .ap-spec-dependency-chip { flex: none; display: inline-flex; align-items: center; gap: 4px; font: var(--fs-micro)/1 var(--font-mono); color: var(--ink-muted); white-space: nowrap; }
 .ap-dependency-node-head .ap-ticket-id { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ap-spec-progress-note { margin: 0 0 var(--sp-2); font-size: var(--fs-small); color: var(--ink-muted); }
+.ap-spec-progress-spec { flex: none; margin-left: 6px; font: var(--fs-micro)/1 var(--font-mono); color: var(--ink-muted); white-space: nowrap; }
+.ap-spec-progress-date-mark { flex: none; margin-left: 4px; font: 600 var(--fs-small)/1 var(--font-mono); color: var(--warn-ink); }
 </style>
 </head>
 <body>
@@ -306,7 +320,63 @@
 
 <section data-panel="progress" role="tabpanel" id="ap-panel-progress" aria-labelledby="ap-tab-progress" hidden>
   <div class="ap-card">
-    <div id="ap-chart"></div>
+    <div class="ap-range">
+      <span class="ap-range-label">Range</span>
+      <div class="ap-seg" id="ap-range-presets">
+        <button type="button" data-preset="fit" id="ap-range-fit" aria-pressed="true" title="Fit the range to the stages: from the earliest start to the snapshot.">Fit</button>
+        <button type="button" data-preset="1h" aria-pressed="false">1h</button>
+        <button type="button" data-preset="4h" aria-pressed="false">4h</button>
+        <button type="button" data-preset="12h" aria-pressed="false">12h</button>
+        <button type="button" data-preset="24h" aria-pressed="false">24h</button>
+        <button type="button" data-preset="7d" aria-pressed="false">7d</button>
+        <button type="button" data-preset="custom" id="ap-range-custom" aria-pressed="false" aria-haspopup="dialog" aria-expanded="false" aria-controls="ap-range-popover">Custom…</button>
+      </div>
+      <div class="ap-popover" id="ap-range-popover" role="dialog" aria-labelledby="ap-range-popover-title" hidden>
+        <p class="ap-popover-title" id="ap-range-popover-title">Custom range</p>
+        <div class="ap-popover-field">
+          <label class="ap-range-label" for="ap-range-from">From</label>
+          <input id="ap-range-from" type="text" value="start" placeholder="start" spellcheck="false" autocomplete="off" aria-describedby="ap-range-from-resolved">
+          <span class="ap-resolved" id="ap-range-from-resolved" aria-live="polite"></span>
+        </div>
+        <div class="ap-popover-field">
+          <label class="ap-range-label" for="ap-range-to">To</label>
+          <input id="ap-range-to" type="text" value="now" placeholder="now" spellcheck="false" autocomplete="off" aria-describedby="ap-range-to-resolved">
+          <span class="ap-resolved" id="ap-range-to-resolved" aria-live="polite"></span>
+        </div>
+        <p class="ap-popover-hint">A time (<code>2026-09-18 13:05</code>, ISO), <code>start</code>, <code>now</code> (the snapshot), or back from it: <code>-2h</code>, <code>-30m</code>, <code>-1d</code>.</p>
+        <div class="ap-popover-ticks">
+          <span class="ap-range-label">Ticks</span>
+          <div class="ap-seg" id="ap-range-ticks">
+            <button type="button" data-tick="auto" aria-pressed="true">Auto</button>
+            <button type="button" data-tick="5" aria-pressed="false">5m</button>
+            <button type="button" data-tick="15" aria-pressed="false">15m</button>
+            <button type="button" data-tick="60" aria-pressed="false">1h</button>
+            <button type="button" data-tick="360" aria-pressed="false">6h</button>
+            <button type="button" data-tick="1440" aria-pressed="false">1d</button>
+          </div>
+        </div>
+        <div class="ap-popover-actions">
+          <button type="button" class="ap-button" id="ap-range-cancel">Cancel</button>
+          <button type="button" class="ap-button" data-primary id="ap-range-apply">Apply</button>
+        </div>
+      </div>
+      <div id="ap-range-note"></div>
+    </div>
+    <p class="ap-spec-progress-note" id="ap-spec-progress-note"></p>
+
+    <div id="ap-chart">
+      <div class="ap-grid-row ap-chart-head">
+        <div class="ap-cell-name">Stage<div class="ap-seg"><button type="button" id="ap-name-column" aria-pressed="false" title="Widen the stage column so full names fit">Expand</button></div></div>
+        <div class="ap-cell-pill">State</div>
+        <div class="ap-cell-track" style="height:100%"><div id="ap-ticks"></div></div>
+      </div>
+
+      <div class="ap-body">
+        <div id="ap-overlay"></div>
+        <div id="ap-rows"></div>
+      </div>
+      <div class="ap-empty" id="ap-chart-empty" hidden>No stages in this range.</div>
+    </div>
     <div class="ap-empty" id="ap-spec-progress-empty" hidden>No specs yet, so no stages to chart.</div>
   </div>
 </section>
