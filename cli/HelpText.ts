@@ -64,7 +64,7 @@ output never carries either.
                               refuse, naming each and removing none, while the other host's
                               agent definition, SubagentStop hook or extension is present.
 
-  update                    Refresh what the tool wrote into a repository it already tracks: the
+  update                      Refresh what the tool wrote into a repository it already tracks: the
       [--no-claude-md]        managed CLAUDE.md block, \`agent-brief.md\` — guidance shipped with the
       [--no-hooks]            tool rather than a file a project edits — the two hooks and the
       [--no-workflow]         dispatcher workflow, generated anew, and the agent definition, a hand
