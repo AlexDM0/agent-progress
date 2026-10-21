@@ -31,15 +31,6 @@ Not started because it changes what the reviewer is told, so it waits for a comm
 the brief and the prompts, which retakes `dispatcher/testing/FrozenDispatchTraces.json`; the
 dispatcher port kept the old script's instructions.
 
-## Keeping the skill's copy of the formats in step
-
-`skills/agent-progress/Reference.md` carries a word-for-word copy of three `docs/cli.md` sections, the ticket file
-format, the ticket moves and the exit codes, kept in step by hand. Agreed: generate those sections of
-`skills/agent-progress/Reference.md` from `docs/cli.md`, or pin them with a spec that fails when the two differ.
-
-Not started because it is a code change (a generator or a guard spec, watched failing on each drifted
-form), and the migration's step 9 changed documentation only.
-
 ## Redrawing two README diagrams
 
 `docs/images/terminal-init.svg` and the `terminal-init.png` built from it show init's report as it was

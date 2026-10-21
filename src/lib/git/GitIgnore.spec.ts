@@ -1,6 +1,6 @@
 /**
  * A pattern that already covers the directory changes nothing, and an append replaces the `.gitignore` whole, keeping its links and
- * permissions, and refuses a link cycle or a dangling link into a missing folder.
+ * permissions, and refuses a link cycle or a dangling link into a missing folder. A removal drops only the lines an append writes.
  */
 import {
   chmodSync,
@@ -14,12 +14,17 @@ import {
   symlinkSync,
   writeFileSync
 } from 'node:fs';
-import { join }                   from 'node:path';
-import { afterAll, expect, test } from 'bun:test';
+import { join } from 'node:path';
+import {
+  afterAll,
+  describe,
+  expect,
+  test
+} from 'bun:test';
 
 import { createScratchDirectory, createScratchGitRepository, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }                                                   from '../../testing/ToolGuard.ts';
-import { ensureIgnored }                                                              from './GitIgnore.ts';
+import { ensureIgnored, removeIgnoreEntry }                                           from './GitIgnore.ts';
 
 const IGNORED_DIRECTORY_NAME = '.example-cache';
 
@@ -226,4 +231,30 @@ test('the .gitignore is replaced rather than rewritten in place, and no temporar
   expect(ensureIgnored(plainDirectory, IGNORED_DIRECTORY_NAME)).toBe('appended');
   expect(statSync(gitIgnorePath).ino).not.toBe(inodeBeforeWrite);
   expect(readdirSync(plainDirectory)).toEqual(['.gitignore']);
+});
+
+describe('removeIgnoreEntry', () => {
+  test('drops the exact entry in either form and keeps every other line, a broader pattern and a negation included', () => {
+    const plainDirectory = scratchDirectory('gitignore-remove');
+    writeFileSync(join(plainDirectory, '.gitignore'), 'node_modules/\n.example-cache/\n  .example-cache  \n.example-*\n!.example-cache\n');
+    expect(removeIgnoreEntry(plainDirectory, IGNORED_DIRECTORY_NAME)).toBe('removed');
+    expect(gitIgnoreIn(plainDirectory)).toBe('node_modules/\n.example-*\n!.example-cache\n');
+  });
+
+  test('a file written with CRLF keeps CRLF', () => {
+    const plainDirectory = scratchDirectory('gitignore-remove-crlf');
+    writeFileSync(join(plainDirectory, '.gitignore'), 'node_modules/\r\n.example-cache/\r\n');
+    expect(removeIgnoreEntry(plainDirectory, IGNORED_DIRECTORY_NAME)).toBe('removed');
+    expect(gitIgnoreIn(plainDirectory)).toBe('node_modules/\r\n');
+  });
+
+  test('a .gitignore without the entry, or no .gitignore at all, is left untouched', () => {
+    const plainDirectory = scratchDirectory('gitignore-remove-absent');
+    expect(removeIgnoreEntry(plainDirectory, IGNORED_DIRECTORY_NAME)).toBe('absent');
+    expect(existsSync(join(plainDirectory, '.gitignore'))).toBe(false);
+    writeFileSync(join(plainDirectory, '.gitignore'), 'node_modules/\n');
+    const inodeBefore = statSync(join(plainDirectory, '.gitignore')).ino;
+    expect(removeIgnoreEntry(plainDirectory, IGNORED_DIRECTORY_NAME)).toBe('absent');
+    expect(statSync(join(plainDirectory, '.gitignore')).ino).toBe(inodeBefore);
+  });
 });

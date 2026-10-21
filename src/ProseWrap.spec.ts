@@ -52,7 +52,12 @@ const PROSE_FILES = wrappedProseFilePaths(REPOSITORY_ROOT).map((path) => ({ path
 
 describe('prose wraps at 120 columns', () => {
   test('the scan reads paragraph lines of the rules, both skills, the templates and the reference', () => {
-    for (const expectedPath of ['CLAUDE.md', 'docs/cli.md', 'skills/agent-progress/SKILL.md', 'skills/agent-progress-orchestrate/SKILL.md', 'resources/templates/AgentBrief.md']) {
+    for (const expectedPath of ['CLAUDE.md',
+      'docs/cli.md',
+      'skills/agent-po/SKILL.md',
+      'skills/agent-progress-orchestrate/SKILL.md',
+      'resources/templates/AgentBrief.md',
+      'resources/templates/Reference.md']) {
       const file = PROSE_FILES.find((prose) => prose.path === expectedPath);
       expect(paragraphLineNumbersOf(file?.text ?? '').length, expectedPath).toBeGreaterThan(0);
     }

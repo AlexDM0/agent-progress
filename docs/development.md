@@ -39,9 +39,13 @@ cd agent-progress
 `eslint --fix` on a `.ts` file after each Edit or Write, with the ESLint of the checkout holding it.
 
 The skills are installed per repository, not per machine: `agent-progress init` and `update` copy this
-checkout's `skills/agent-progress/` and `skills/agent-progress-orchestrate/` into the tracked
-repository's git-ignored `.claude/skills/`, so a session loads them only where a tracker is. After a
-`git pull` here, `agent-progress update` in each tracked repository brings its copies up to date. Step
+checkout's `skills/agent-po/` (loaded by any session asked to file a ticket) and
+`skills/agent-progress-orchestrate/` (the session running the board, which loads `agent-po` for intake)
+into the tracked repository's git-ignored `.claude/skills/`, so a session loads them only where a
+tracker is, and install `resources/templates/Reference.md` as `.agent-progress/reference.md`, the
+formats and exit codes the briefs cite. No builder or reviewer loads a skill. After a
+`git pull` here, `agent-progress update` in each tracked repository brings its copies up to date and
+removes the files of a skill folder an earlier version installed and this one retired. Step
 3/4 only cleans up after the old global install: both sides are compared as resolved physical paths
 (`/tmp` against `/private/tmp`), and a symlink pointing elsewhere or a real file or directory at either
 path is reported and left untouched, because the only thing the script ever removes is a symlink into
@@ -155,7 +159,7 @@ by a spec.
 | `cli/InstallVersionVerdict.spec.ts` | The install-version verdicts: current, older, newer, unversioned and unreadable. |
 | `cli/InstalledSurface.spec.ts` | Every command, flag and status field an installed file names is in `cli/FrozenInstalledSurface.json` under the current `INSTALL_VERSION`, and still in the CLI. |
 | `cli/CommandTable.spec.ts` | Every command in `cli/CommandTable.ts` reaches a handler, and a word that is not a command, an inherited property included, is refused. |
-| `cli/HelpText.spec.ts` | `cli/HelpText.ts` and the command table agree in both directions; no bundled skill carries its own command table; the skill every agent loads stays under its size ceiling. |
+| `cli/HelpText.spec.ts` | `cli/HelpText.ts` and the command table agree in both directions; no bundled skill carries its own command table; the filing skill stays under its size ceiling, and the orchestrator skill loads it rather than restating it. |
 | `cli/BinarySmoke.spec.ts` | The real `agent-progress.ts` spawned end to end: the shebang, the argument slice and the exit status reaching the process. |
 | `cli/InitRootOverride.spec.ts` | `init` beside `AGENT_PROGRESS_ROOT`, spawned because no spec may set the environment in-process: an override naming another directory refused with both progress files byte-identical, an agreeing one refreshing like `update`. |
 | `dispatcher/testing/utils/WorkflowScriptSourceUtil.spec.ts` | Every form the guard catches, each watched failing. |

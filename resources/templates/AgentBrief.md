@@ -16,8 +16,8 @@ definition carries the defaults, so a ticket that overrides them goes through th
 
 ## Host mechanics
 
-How this repository's agent host does what the orchestrate skill asks for by name. The skill decides when; these
-say with what. The dispatcher is {{dispatcherWorkflowName}}.
+How this repository's agent host does what the orchestrate and agent-po skills ask for by name. The skills decide
+when; these say with what. The dispatcher is {{dispatcherWorkflowName}}.
 
 - **Install check**: {{installCheck}}
 - **Asking the user**: {{askingTheUser}}

@@ -6,7 +6,9 @@ nothing here repeats it.
 
 What is here is what the tool does not print: the ticket file an agent edits, what each move does to
 the Gantt row, where a review bar is drawn, how a row's tokens are credited, what counts as one
-agent against the limit, the time axis and the exit codes.
+agent against the limit, the time axis and the exit codes. `agent-progress init` and `update` install
+it as `.agent-progress/reference.md` and rewrite it on every run, so a hand edit is undone; read it
+when a brief or a skill sends you here, not before.
 
 ## The ticket file
 

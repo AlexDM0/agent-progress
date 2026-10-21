@@ -1,5 +1,5 @@
 /**
- * The whole command reference, which `cli/HelpText.spec.ts` holds against `COMMAND_NAMES` and `skills/agent-progress/SKILL.md`.
+ * The whole command reference, which `cli/HelpText.spec.ts` holds against `COMMAND_NAMES` and the skills under `skills/`.
  * The layout is load-bearing: an entry begins at column 2 and every continuation line is indented past it.
  */
 
@@ -42,7 +42,12 @@ output never carries either.
       [--no-agent-definition] generated from this tool's dispatcher, and the Claude Code agent
       [--host <host>]         definition \`.claude/agents/agent-progress-worker.md\`, whose
                               frontmatter sets the default model and effort for builders and
-                              reviewers (opus, medium). Refused when an ancestor
+                              reviewers (opus, medium). Beside the brief go the builder and review
+                              briefs and \`reference.md\` (the ticket format, the moves and the exit
+                              codes, which the briefs cite), and two skills go into
+                              \`.claude/skills/\`: agent-po, which a session asked to file a ticket
+                              loads, and agent-progress-orchestrate, for the session running the
+                              board, which loads agent-po for intake. Refused when an ancestor
                               already holds a tracker, when --root is not an existing directory,
                               and inside a bare repository, which has no working tree to track.
                               Re-running only refreshes what \`update\` refreshes, and
@@ -68,7 +73,9 @@ output never carries either.
       [--no-claude-md]        managed CLAUDE.md block, \`agent-brief.md\` — guidance shipped with the
       [--no-hooks]            tool rather than a file a project edits — the two hooks and the
       [--no-workflow]         dispatcher workflow, generated anew, and the agent definition, a hand
-      [--no-agent-definition] edit to either of which is undone. The tracker itself is left alone:
+      [--no-agent-definition] edit to either of which is undone, the other briefs, \`reference.md\` and
+                              the two skills, removing what an earlier version installed in a
+                              skill folder this one retired. The tracker itself is left alone:
                               a tracker an earlier agent-progress wrote in a format this one no
                               longer reads is refused at exit 2 by every command that reads it,
                               saying to run \`update\` with a release that still reads it. It creates no tracker, so it takes no

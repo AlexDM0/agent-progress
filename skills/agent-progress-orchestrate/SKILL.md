@@ -2,8 +2,9 @@
 name: agent-progress-orchestrate
 description: >-
   Run a session as the orchestrator of an agent-progress board: take ticket
-  requests from the user, grill each one until it is unambiguous, file it with
-  the brief its builder reads, and on the user's go launch the
+  requests from the user, grill each one until it is unambiguous, file it
+  through the agent-po skill with the brief its builder reads, and on the
+  user's go launch the
   agent-progress-dispatch workflow, which builds, reviews and releases every
   ready ticket with clean agents within the board's limit; relaunch a run it
   launched itself when that run finished and work is ready, and wait for the
@@ -23,8 +24,11 @@ user says go, and act on what it hands back. The dispatcher is the workflow `age
 reviewer per built one, within the board's limit. The board is the memory of this session; your
 transcript is not.
 
-**Load the `agent-progress` skill first.** It carries the mental model, the commands and the rules;
-`agent-progress help` prints every flag. Nothing about the tool is repeated here.
+**Filing is the `agent-po` skill's**, which Intake loads; nothing of it is repeated here.
+`agent-progress help` prints every command and flag, and `.agent-progress/reference.md` holds the ticket
+file's format, what each move does to its row and the exit codes. Every move goes through a command
+run on a line of its own, its `--json` parsed; never write a file under `.agent-progress/` with a file
+tool, nor a ticket above its frontmatter's closing line, and never commit the tracker.
 
 **How is the host's: `.agent-progress/agent-brief.md`'s Host mechanics section.** This skill says when
 to launch, watch, resume or stop the dispatcher, ask the user or start an agent by hand; that section
@@ -67,7 +71,12 @@ line, and the calls beside it are cancelled with it. Then act on the answers in 
 
 ## Intake: what to do with what the user says
 
-A question is a question; answer it and file nothing. A bug, a change or a feature becomes a ticket.
+A question is a question; answer it and file nothing. A bug, a change or a feature becomes a ticket,
+filed as the `agent-po` skill says: its fact-finding through subagents, the split by mechanism, the
+epic check, the merge or the order against pending tickets, and the body with its numbered Acceptance
+read back against itself and its `## Brief`. Load it once, at the first filing, and follow it with
+the differences below, skipping the reads of its Before the first ticket that the opening sequence
+already made; it never dispatches, and the dispatching stays yours.
 
 **Every question for the user is asked with the host's question tool (Host mechanics: Asking the
 user), never left as prose.** Grilling a ticket, a parked ticket, a design choice, whether to file
@@ -75,94 +84,16 @@ something, permission to launch or relaunch after a stop, an offer to run a comm
 question in that tool, as many per call as Host mechanics allows, each with two to four concrete
 options, the recommended one first with "(Recommended)" in its label. A question printed at the end
 of a message is easy to miss, and the board then waits on an answer nobody knows is owed. A status
-message may say a question is pending, never instead of asking it. **Give each question its context
-first**: in the message text just before the call, a short block per question — what it is about,
-what each option would change, your recommendation and why, and any board state the answer depends
-on (a ticket's id and status, what waits on it). The dialog's option descriptions stay short; the
-context block carries the rest. Every passage below that hands the user a decision asks this way.
+message may say a question is pending, never instead of asking it. Give each question the context
+block `agent-po` describes, in the message text just before the call. Every passage below that hands
+the user a decision asks this way.
 
-**Grill before filing.** Ask only what changes the ticket and only what the repository cannot answer:
-the acceptance condition when "better" or "fix" is all you have, which surface or flow is meant when
-two match, whether it replaces or extends existing behaviour, and whether it must wait on a ticket
-already on the board. Ask them together, in the fewest calls the question tool allows, as the rule
-above says, and never ask what an agent will discover anyway. Two unanswered ambiguities
+**Grill before every filing**, whether or not the user asked: `agent-po` grills only on request, but
+here every ticket is grilled, by its grilling rules, before it is filed. Two unanswered ambiguities
 cost less to raise now than one agent that guessed wrong.
 
-**Split a large request at filing, not later.** A request that touches more than one mechanism — say
-a drop rule, a layout change and a migration — is filed as halves, one mechanism each, joined with
-`ticket depends <later> --add <earlier>`. Splitting is what keeps an agent inside its call budget. Shaving the budget
-instead does the opposite: it produces six to eight agents on one ticket, each paying for its own start and
-its own rediscovery again. Splitting is for what is too big for one budget, never a reflex: a small
-request stays one ticket, and small requests that edit the same files are filed as one ticket, since
-the dispatcher gives every ticket an agent of its own and starting one costs more than a small
-ticket's work.
-
-**Give a long chain or a group an epic.** A task is one request from the user. Create an epic with
-`epic add <key> "<title>"`, its key a short slug of the subject, and file every ticket of the task into
-it with `ticket add --epic <key>`, when the task is a chain of more than three sequential tickets
-(four or more, each waiting on the one before through `--depends-on`), or when it uses a `--group`:
-every group gets an epic, and every ticket of the group joins it. Tickets that run in parallel are no
-chain: a task that fans out into three parallel tickets gets no epic, and a ticket's reviews (its
-review bar, a second review round) never count towards the four. When the user asks for an epic,
-create it whatever the size. When a chain grows past three tickets after its first ones were filed,
-create the epic then and add the earlier tickets with `ticket epic <id> --add <key>`. A ticket's first
-epic is its primary one, the epic the Progress chart groups it under.
-
-**File into an existing epic before filing alone.** Before filing a ticket, run `epic list` and judge
-whether the ticket is on an epic's subject. An epic that still has a ticket neither delivered nor
-abandoned takes every new ticket on its subject. For two hours after an epic's last ticket was
-delivered, it also takes a new ticket on its subject that could have been part of its initial scope, a
-refinement of the released work; after the two hours, or for new scope, the ticket is filed on its
-own. Where the subject match is a judgement call, ask the user.
-
-**Tickets that share a blast radius are merged into one.** At filing and at every triage, look for
-pending tickets no agent has started that touch the same files or the same mechanism as each other or as
-the one you are filing, and merge them into one ticket: the survivor carries each merged ticket's
-Report and Acceptance, and each merged one is abandoned with the reason `merged into #<survivor>`.
-One agent then sees the whole picture and pays one start and one review instead of several. Only
-when the merged work would clearly exceed one builder's budget do they stay apart, ordered with
-`--depends-on`: ordering is the fallback, not the default.
-
-**Two tickets that edit one file wait on each other.** The dispatcher starts every ready ticket a
-slot allows and knows nothing about files, so two that rewrite one file collide at release and cost a
-rebase and a second review. When the rule above leaves two such tickets apart, record the order at
-filing with `--depends-on`; tickets in one area that edit different files run side by side, and
-holding them apart out of topical caution wastes a slot.
-
-Then file it, with the body written from what the user actually said:
-
-```
-agent-progress ticket add "<title>" --type ticket|bug|research --depends-on <ids> --body-file - <<'BODY'
-## Report
-What the user reported, in their words.
-
-## Wanted
-The behaviour agreed in the grilling, unambiguously.
-
-## Acceptance
-A1. A condition that ends the work — checkable by whoever reads this and nothing else.
-A2. The next one, each numbered at the start of its line.
-
-## Brief
-The `Ticket brief` block of `.agent-progress/agent-brief.md`, filled in.
-BODY
-```
-
-The Acceptance block is the agent's stop condition, so write it as things that are true or false,
-not as a direction of travel. Number its items `A1.`, `A2.`, … at the start of a line, and never
-renumber or reuse one when you edit it: the reviewer writes a verdict per number and `release`
-refuses a ticket whose latest Review leaves one unaccounted.
-**Every ticket you file carries a `## Brief`**: the dispatcher's builder reads it as its brief — where
-the work belongs, the three to eight facts it would otherwise go and
-find, what to open first — and its reviewer reads the claims to test from it. A ticket without one is
-built from Report, Wanted and Acceptance alone, and pays for the rediscovery. Record a dependency with
-`--depends-on` when filing, or `ticket depends <id> --add <ids>` on a filed ticket (bare ids replace
-its whole list), rather than remembering it, and tell the user the id and whether it
-starts now or is queued behind what.
-
-**Model and effort are the default unless the user asks.** Add `--model` or `--effort` to
-`ticket add` (or run `ticket agent` later) only when the user asks for another pair, never on your own
-judgement of the work. A ticket that names another pair goes through the dispatcher; the manual path
+**Say when it starts.** After filing, tell the user the id and whether it starts now or is queued
+behind what. A ticket that names another model or effort goes through the dispatcher; the manual path
 below runs at the defaults only.
 
 **A finding is a low-priority ticket, and you judge its severity.** The dispatcher's reviewers fix
@@ -175,14 +106,6 @@ and are triaged then, before any run is launched for them (Low-priority work, be
 another instance of a mistake a ticket on this board already
 fixed, file, once, the invariant behind both, with the search for its other sites as an acceptance
 item and a mechanical guard where one is possible; the second instance is the signal, not the fifth.
-
-**Read the Acceptance block back against itself before you file it.** Two items that cannot both be
-true send an agent to spend a pass discovering it, and the honest ones then report the contradiction
-instead of the work. A change that removes something and an item demanding nothing look different
-afterwards is the common shape: "the dead space is gone" and "it renders identically" are the same
-sentence twice, once forwards and once backwards. If you notice the tension while writing — the tell
-is wanting to explain it to the user — resolve it in the ticket: say which item wins, and what
-bounded deviation the other one tolerates. Noticing it and filing anyway costs a full pass.
 
 ## Running the dispatcher
 

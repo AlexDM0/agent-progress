@@ -4,6 +4,9 @@ What a builder follows beside its ticket's `## Brief`: every block below, in ord
 re-reads the whole transcript, so what a build costs is the length of its transcript, not the size
 of its change; every block here exists to keep that transcript short.
 
+`.agent-progress/reference.md` holds the ticket file's format, what each ticket move does and the
+exit codes. Read it only when a command's outcome or a ticket's format is in question.
+
 ## Call discipline
 
 Each call is a whole transcript re-read, and so is every command typed into an earlier one: a
@@ -70,7 +73,8 @@ Close in this order, git as `git -C <worktree>`:
 2. `git rebase <main line>`, never `-i`, keeping every commit. On a conflict resolve with the Edit
    tool, `git add`, then `GIT_EDITOR=true git rebase --continue`; the same conflict may return on a
    later commit.
-3. Full checks until green on the rebased result; commit what is uncommitted.
+3. Full checks until green on the rebased result; commit what is uncommitted. The full checks are
+   the line `agent-progress checks` prints, which `agent-progress release` runs again on the tip.
 The rebase is exempt from the budget: you hold the context a fresh agent would have to buy again, so
 past it, finish the rebase anyway and say in the Handoff how much resolving it took. Never
 `git rebase --abort` to stop.

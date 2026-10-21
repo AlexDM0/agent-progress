@@ -1,5 +1,5 @@
 /**
- * Keep a directory out of the repository it sits in. `git check-ignore` decides rather than a
+ * Keep a directory out of the repository it sits in, or drop the entry that did. `git check-ignore` decides rather than a
  * scan of `.gitignore`, so a repository that already covers the directory in any way gets no diff,
  * and the exact-line scan is only the fallback for a machine with no git.
  */
@@ -32,6 +32,22 @@ function gitAlreadyIgnores(rootDirectory: string, ignoreLine: string): boolean |
 
 function contentAlreadyIgnores(content: string, recognisedIgnoreLines: readonly string[]): boolean {
   return content.split(/\r?\n/).some((line) => recognisedIgnoreLines.includes(line.trim()));
+}
+
+export type RemoveIgnoreEntryOutcome = 'removed' | 'absent';
+
+/** Drops only the exact lines `ensureIgnored` writes for the directory; a broader pattern that also covers it is somebody else's and stays. */
+export function removeIgnoreEntry(rootDirectory: string, ignoredDirectoryName: string): RemoveIgnoreEntryOutcome {
+  const gitIgnorePath = join(rootDirectory, GIT_IGNORE_FILE_NAME);
+  if (!existsSync(gitIgnorePath)) return 'absent';
+  const recognisedIgnoreLines = [`${ignoredDirectoryName}/`, ignoredDirectoryName];
+  const existingContent       = readFileSync(gitIgnorePath, 'utf8');
+  const lineEnding            = existingContent.includes('\r\n') ? '\r\n' : '\n';
+  const lines                 = existingContent.split(lineEnding);
+  const keptLines             = lines.filter((line) => !recognisedIgnoreLines.includes(line.trim()));
+  if (keptLines.length === lines.length) return 'absent';
+  writeFileAtomicallyThroughLinks(gitIgnorePath, keptLines.join(lineEnding));
+  return 'removed';
 }
 
 export function ensureIgnored(rootDirectory: string, ignoredDirectoryName: string): EnsureIgnoredOutcome {

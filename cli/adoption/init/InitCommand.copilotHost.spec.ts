@@ -89,6 +89,7 @@ describeWhenGitIsPresent('a Copilot CLI install', () => {
     expect([...filesAfterInit.keys()].sort()).toEqual([
       '.agent-progress/agent-brief.md',
       '.agent-progress/builder-brief.md',
+      '.agent-progress/reference.md',
       '.agent-progress/review-brief.md',
       '.agent-progress/version.json',
       COPILOT_WORKER_PATH,
@@ -96,8 +97,8 @@ describeWhenGitIsPresent('a Copilot CLI install', () => {
       '.gitignore',
       'CLAUDE.md',
     ]);
-    expect(existsSync(join(repositoryDirectory, '.claude', 'skills', 'agent-progress', 'SKILL.md'))).toBe(true);
-    expect(filesAfterInit.get('.gitignore')).toBe('.agent-progress/\n.github/extensions/agent-progress/\n.claude/skills/agent-progress/\n'
+    expect(existsSync(join(repositoryDirectory, '.claude', 'skills', 'agent-po', 'SKILL.md'))).toBe(true);
+    expect(filesAfterInit.get('.gitignore')).toBe('.agent-progress/\n.github/extensions/agent-progress/\n.claude/skills/agent-po/\n'
       + '.claude/skills/agent-progress-orchestrate/\n');
     expect(filesAfterInit.get('.agent-progress/version.json')).toBe(`{\n  "installVersion": ${INSTALL_VERSION},\n  "agentHost": "copilot-cli"\n}\n`);
     expect(init.output).toContain('Copilot CLI loads the extension only in a folder it trusts');

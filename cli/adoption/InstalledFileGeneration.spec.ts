@@ -58,9 +58,9 @@ describe('the installed texts', () => {
     expect(TEXTS.agentBrief).not.toContain('agent-progress release <id>');
   });
 
-  test('the agent definition is named for the type the dispatcher starts its workers as, and preloads the tracker skill without the Skill tool', () => {
+  test('the agent definition is named for the type the dispatcher starts its workers as, and loads no skill nor the Skill tool', () => {
     expect(TEXTS.agentDefinition).toContain(`\nname: ${DISPATCH_PROTOCOL.WORKER_AGENT_TYPE}\n`);
-    expect(TEXTS.agentDefinition).toContain('\nskills: agent-progress\n');
+    expect(TEXTS.agentDefinition).not.toContain('\nskills:');
     const toolsLine = (TEXTS.agentDefinition ?? '').split('\n').find((line) => line.startsWith('tools: ')) ?? '';
     expect(toolsLine.split(/[:,]\s*/)).not.toContain('Skill');
     expect(toolsLine).toContain('Bash, Read, Edit, Write');
@@ -76,6 +76,24 @@ describe('the installed texts', () => {
   test('the agent definition names the builder and review briefs by their paths in the repository', () => {
     expect(TEXTS.agentDefinition).toContain(`\`${DISPATCH_PROTOCOL.BUILDER_BRIEF_PATH_IN_REPOSITORY}\``);
     expect(TEXTS.agentDefinition).toContain(`\`${DISPATCH_PROTOCOL.REVIEW_BRIEF_PATH_IN_REPOSITORY}\``);
+  });
+
+  test('both briefs cite the installed reference by its path, which the reference template is installed to', () => {
+    const referencePathInRepository = relative(EXAMPLE_ROOT, installedFilePathsIn(EXAMPLE_ROOT).reference).split(sep).join('/');
+    expect(referencePathInRepository).toBe('.agent-progress/reference.md');
+    expect(TEXTS.builderBrief).toContain(`\`${referencePathInRepository}\``);
+    expect(TEXTS.reviewBrief).toContain(`\`${referencePathInRepository}\``);
+    expect(TEXTS.reference).toBe(readFileSync(resourceFilePathOf('templates', 'Reference.md'), 'utf8'));
+  });
+
+  /** No agent preloads a skill: what a builder or reviewer needs is in its brief and its definition, read on every call anyway. */
+  test('no worker definition, for either host, loads a skill or names the retired one', async () => {
+    const copilotTexts = await installedFileTextsFor({ agentHost: 'copilot-cli', generatesTheDispatcherScript: false });
+    for (const definitionText of [TEXTS.agentDefinition ?? '', copilotTexts.copilotAgentDefinition ?? '']) {
+      expect(definitionText.length).toBeGreaterThan(0);
+      expect(definitionText).not.toContain('skill');
+      expect(definitionText).toContain('pass no `--tokens`');
+    }
   });
 
   test('the dispatcher is a Workflow script: its meta first, no import or export, and the runner\'s call last', () => {
@@ -105,7 +123,7 @@ describe('the installed texts', () => {
   });
 
   test('neither skill names a Claude-only tool: each host\'s mechanics are values its agent brief is filled with', async () => {
-    const skillFilePaths = ['skills/agent-progress/SKILL.md', 'skills/agent-progress/Reference.md', 'skills/agent-progress-orchestrate/SKILL.md'];
+    const skillFilePaths = ['skills/agent-po/SKILL.md', 'resources/templates/Reference.md', 'skills/agent-progress-orchestrate/SKILL.md'];
     for (const skillFilePath of skillFilePaths) {
       const skillText = readFileSync(join(CHECKOUT_DIRECTORY, skillFilePath), 'utf8');
       for (const claudeOnlyToolName of CLAUDE_ONLY_TOOL_NAMES) expect(skillText, `${skillFilePath} names ${claudeOnlyToolName}`).not.toContain(claudeOnlyToolName);

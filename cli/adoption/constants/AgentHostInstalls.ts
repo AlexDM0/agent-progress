@@ -23,13 +23,24 @@ export interface InstalledFile {
 }
 
 /** A folder of this checkout's `skills/`, copied under the same name into the repository's `.claude/skills/`. */
-export type InstalledSkillName = 'agent-progress' | 'agent-progress-orchestrate';
+export type InstalledSkillName = 'agent-po' | 'agent-progress-orchestrate';
+
+/** A skill folder an earlier install version wrote under `.claude/skills/`, with the file names it installed there. */
+export interface RetiredSkillFolder {
+  skillName:          string;
+  installedFileNames: readonly string[];
+}
+
+const INSTALLED_SKILL_NAMES: readonly InstalledSkillName[] = ['agent-po', 'agent-progress-orchestrate'];
+
+const RETIRED_SKILL_FOLDERS: readonly RetiredSkillFolder[] = [{ skillName: 'agent-progress', installedFileNames: ['SKILL.md', 'Reference.md'] }];
 
 /**
  * `managed-block` keeps the rest of the file; `rewritten-files` replaces each file whole, and `briefs` does too but asks the reader to
  * re-read the last one, whose presence marks the files installed; `claude-settings-hooks` writes no file text, only Claude Code settings
- * entries; `skill-folders` rewrites every file of each skill folder, leaves any other file in it alone, and git-ignores the folder;
- * `git-ignored-files` rewrites each file whole and git-ignores the folder holding them, since they are built from this checkout.
+ * entries; `skill-folders` rewrites every file of each skill folder, leaves any other file in it alone, and git-ignores the folder, and
+ * removes each retired folder's installed files and its `.gitignore` entry; `git-ignored-files` rewrites each file whole and git-ignores
+ * the folder holding them, since they are built from this checkout.
  */
 export type InstalledPart =
   | { writing: 'managed-block'; reportLabel: string; optOutFlag: InstallOptOutFlag | null; file: InstalledFile }
@@ -37,7 +48,13 @@ export type InstalledPart =
   | { writing: 'rewritten-files'; reportLabel: string; optOutFlag: InstallOptOutFlag | null; files: readonly InstalledFile[] }
   | { writing: 'git-ignored-files'; reportLabel: string; optOutFlag: InstallOptOutFlag | null; files: readonly InstalledFile[]; ignoredFolderInRepository: string }
   | { writing: 'claude-settings-hooks'; reportLabel: string; optOutFlag: InstallOptOutFlag | null; hooks: readonly CommandHook[] }
-  | { writing: 'skill-folders'; reportLabel: string; optOutFlag: null; skillNames: readonly InstalledSkillName[] };
+  | {
+    writing:             'skill-folders';
+    reportLabel:         string;
+    optOutFlag:          null;
+    skillNames:          readonly InstalledSkillName[];
+    retiredSkillFolders: readonly RetiredSkillFolder[];
+  };
 
 /** What marks a repository as installed for a host: while any of it is present, installing another host is refused, since both would run. */
 export interface AgentHostMarkers {
@@ -157,6 +174,7 @@ export const AGENT_HOST_INSTALLS: Readonly<Record<AgentHost, AgentHostInstall>> 
         files:       [
           { name: 'builderBrief', text: { kind: 'template', templateFileName: 'BuilderBrief.md' } },
           { name: 'reviewBrief', text: { kind: 'template', templateFileName: 'ReviewBrief.md' } },
+          { name: 'reference', text: { kind: 'template', templateFileName: 'Reference.md' } },
           { name: 'agentBrief', text: { kind: 'template', templateFileName: 'AgentBrief.md' } },
         ],
       },
@@ -179,10 +197,11 @@ export const AGENT_HOST_INSTALLS: Readonly<Record<AgentHost, AgentHostInstall>> 
         files:       [{ name: 'agentDefinition', text: { kind: 'template', templateFileName: 'AgentProgressWorker.md' } }],
       },
       {
-        writing:     'skill-folders',
-        reportLabel: 'skills',
-        optOutFlag:  null,
-        skillNames:  ['agent-progress', 'agent-progress-orchestrate'],
+        writing:             'skill-folders',
+        reportLabel:         'skills',
+        optOutFlag:          null,
+        skillNames:          INSTALLED_SKILL_NAMES,
+        retiredSkillFolders: RETIRED_SKILL_FOLDERS,
       },
     ],
     hostSentences: CLAUDE_CODE_HOST_SENTENCES,
@@ -203,6 +222,7 @@ export const AGENT_HOST_INSTALLS: Readonly<Record<AgentHost, AgentHostInstall>> 
         files:       [
           { name: 'builderBrief', text: { kind: 'template', templateFileName: 'BuilderBrief.md' } },
           { name: 'reviewBrief', text: { kind: 'template', templateFileName: 'ReviewBrief.md' } },
+          { name: 'reference', text: { kind: 'template', templateFileName: 'Reference.md' } },
           { name: 'agentBrief', text: { kind: 'template', templateFileName: 'AgentBrief.md' } },
         ],
       },
@@ -220,10 +240,11 @@ export const AGENT_HOST_INSTALLS: Readonly<Record<AgentHost, AgentHostInstall>> 
         files:       [{ name: 'copilotAgentDefinition', text: { kind: 'template', templateFileName: 'CopilotAgentProgressWorker.md' } }],
       },
       {
-        writing:     'skill-folders',
-        reportLabel: 'skills',
-        optOutFlag:  null,
-        skillNames:  ['agent-progress', 'agent-progress-orchestrate'],
+        writing:             'skill-folders',
+        reportLabel:         'skills',
+        optOutFlag:          null,
+        skillNames:          INSTALLED_SKILL_NAMES,
+        retiredSkillFolders: RETIRED_SKILL_FOLDERS,
       },
     ],
     hostSentences: COPILOT_CLI_HOST_SENTENCES,

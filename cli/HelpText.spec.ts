@@ -12,16 +12,16 @@ import { helpText }      from './HelpText.ts';
 
 const HELP_TEXT = helpText();
 
-const SKILL_TEXT       = readFileSync(join(import.meta.dir, '..', 'skills', 'agent-progress', 'SKILL.md'), 'utf8');
-const REFERENCE_TEXT   = readFileSync(join(import.meta.dir, '..', 'skills', 'agent-progress', 'Reference.md'), 'utf8');
-const ORCHESTRATE_TEXT = readFileSync(join(import.meta.dir, '..', 'skills', 'agent-progress-orchestrate', 'SKILL.md'), 'utf8');
+const FILING_SKILL_TEXT = readFileSync(join(import.meta.dir, '..', 'skills', 'agent-po', 'SKILL.md'), 'utf8');
+const REFERENCE_TEXT    = readFileSync(join(import.meta.dir, '..', 'resources', 'templates', 'Reference.md'), 'utf8');
+const ORCHESTRATE_TEXT  = readFileSync(join(import.meta.dir, '..', 'skills', 'agent-progress-orchestrate', 'SKILL.md'), 'utf8');
 
 /**
- * What `skills/agent-progress/SKILL.md` may grow to. Its trigger fires in every session in a tracked repository,
- * including every implementing subagent, and each of their API calls re-reads it — so orchestrator
- * material creeping back into it is paid for by all of them. Raise this only with the same argument.
+ * What `skills/agent-po/SKILL.md` may grow to. Its trigger fires in every session asked to file a ticket, and each
+ * of that session's API calls re-reads it, so orchestrator or agent material creeping into it is paid for by every
+ * filing. Raise this only with the same argument.
  */
-const SESSION_SKILL_LIMIT_CHARACTERS = 9_000;
+const FILING_SKILL_LIMIT_CHARACTERS = 9_000;
 
 function commandWordsDocumented(): string[] {
   const words = HELP_TEXT.split('\n')
@@ -117,8 +117,8 @@ function ticketSubcommandsDocumented(): string[] {
  * A copy of the command reference is as wrong in a file added next year as it is in these.
  */
 const BUNDLED_SKILL_FILES = [
-  { path: 'skills/agent-progress/SKILL.md',              text: SKILL_TEXT },
-  { path: 'skills/agent-progress/Reference.md',          text: REFERENCE_TEXT },
+  { path: 'skills/agent-po/SKILL.md',                    text: FILING_SKILL_TEXT },
+  { path: 'resources/templates/Reference.md',            text: REFERENCE_TEXT },
   { path: 'skills/agent-progress-orchestrate/SKILL.md',  text: ORCHESTRATE_TEXT }
 ] as const;
 
@@ -128,7 +128,7 @@ describe('the bundled skills leave the command reference to the tool', () => {
     for (const { path, text } of BUNDLED_SKILL_FILES) {
       expect(text.length, `characters read from \`${path}\``).toBeGreaterThan(2_000);
     }
-    expect(SKILL_TEXT).toContain('name: agent-progress');
+    expect(FILING_SKILL_TEXT).toContain('name: agent-po');
     expect(ORCHESTRATE_TEXT).toContain('name: agent-progress-orchestrate');
     expect(ticketSubcommandsDocumented().length, 'ticket subcommands found in the help').toBeGreaterThanOrEqual(8);
   });
@@ -143,16 +143,15 @@ describe('the bundled skills leave the command reference to the tool', () => {
     expect(carryingOne.map(({ path }) => path), 'the reference `agent-progress help` prints may not be duplicated into a skill').toEqual([]);
   });
 
-  test('the session skill sends its reader to the help for a flag, since nothing else does', () => {
-    expect(SKILL_TEXT, 'an agent that is not told to run it will guess the flag instead').toContain('`agent-progress help` is the command reference');
-  });
-
-  test('the session skill names the file beside it, since nothing else points at that one either', () => {
-    expect(SKILL_TEXT, 'a reference no skill mentions is a file no agent opens').toContain('Reference.md');
+  test('both skills send their reader to the help for a flag and to the installed reference for the formats', () => {
+    for (const { path, text } of [BUNDLED_SKILL_FILES[0], BUNDLED_SKILL_FILES[2]]) {
+      expect(text, `${path}: an agent that is not told to run it will guess the flag instead`).toContain('`agent-progress help` prints every command and flag');
+      expect(text, `${path}: a reference nothing mentions is a file no agent opens`).toContain('`.agent-progress/reference.md`');
+    }
   });
 
   test('what the help does not print is in the file that does', () => {
-    // The division of labour between the two: these four are the reason `skills/agent-progress/Reference.md` exists at all.
+    // The division of labour between the two: these four are the reason `resources/templates/Reference.md` exists at all.
     expect(HELP_TEXT, 'the help stays a command reference; the formats live beside the skill').not.toContain('abandonedAt');
     expect(REFERENCE_TEXT).toContain('abandonedAt');
     expect(REFERENCE_TEXT).toContain('## Exit codes');
@@ -162,14 +161,25 @@ describe('the bundled skills leave the command reference to the tool', () => {
 });
 
 describe('the two skills stay split by audience', () => {
-  test('the session skill stays under what every agent in a tracked repository can afford', () => {
-    expect(SKILL_TEXT.length, '`skills/agent-progress/SKILL.md` is loaded by every session in a tracked repository and may not exceed '
-      + `${SESSION_SKILL_LIMIT_CHARACTERS} characters`)
-      .toBeLessThanOrEqual(SESSION_SKILL_LIMIT_CHARACTERS);
+  test('the filing skill stays under what every filing session can afford', () => {
+    expect(FILING_SKILL_TEXT.length, `\`skills/agent-po/SKILL.md\` is loaded by every filing session and may not exceed ${FILING_SKILL_LIMIT_CHARACTERS} characters`)
+      .toBeLessThanOrEqual(FILING_SKILL_LIMIT_CHARACTERS);
   });
 
-  test('the orchestrator skill loads the session one rather than restating it', () => {
-    expect(ORCHESTRATE_TEXT).toContain('`agent-progress` skill');
+  /** A sentence of the filing procedure found in the orchestrator skill is a second copy that drifts from the first. */
+  test('the orchestrator skill loads the filing one rather than restating it, and loads the retired one nowhere', () => {
+    expect(ORCHESTRATE_TEXT).toContain('the `agent-po` skill says');
+    for (const filingSentence of ['Split a large request by mechanism', 'Read the Acceptance back against itself', 'File into an epic']) {
+      expect(FILING_SKILL_TEXT, filingSentence).toContain(filingSentence);
+      expect(ORCHESTRATE_TEXT, filingSentence).not.toContain(filingSentence);
+    }
+    expect(ORCHESTRATE_TEXT).not.toContain('`agent-progress` skill');
+  });
+
+  test('the filing skill files and stops: it loads no other skill and dispatches nothing', () => {
+    expect(FILING_SKILL_TEXT).toContain('you never load `agent-progress-orchestrate`');
+    expect(FILING_SKILL_TEXT).not.toContain('`agent-progress` skill');
+    expect(FILING_SKILL_TEXT).not.toContain('dispatcher running');
   });
 
   test('the orchestrator skill is the one that tells its reader to record what an agent cost', () => {

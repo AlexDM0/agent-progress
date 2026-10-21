@@ -181,7 +181,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 | Only the current stored format is read. | A ticket stored with `type` `change` or `feature` reads as `ticket` everywhere, and every write keeps its stored `type` line. | Stored tickets are never rewritten; both are older names for `ticket`. |
 | A `src/lib/` package leaves a refusal as a verdict. | The tracker model's `Board` throws `BoardRefusal`. | A domain class throws a typed domain error. |
 | A feature never reaches another. | `cli/` reaches `dispatcher/`, the render service `page/`, by path, to bundle them. | Bundled, never imported. |
-| One reference per fact. | `skills/agent-progress/Reference.md` copies three `docs/cli.md` sections verbatim (ticket format, ticket moves, exit codes); a change to either changes both. | Agents elsewhere cannot read `docs/cli.md`. |
+| One reference per fact. | `resources/templates/Reference.md`, installed as `.agent-progress/reference.md`, copies three `docs/cli.md` sections verbatim (ticket format, ticket moves, exit codes); a change to either changes both, held by `cli/ReferenceCopies.spec.ts`. | Agents elsewhere cannot read `docs/cli.md`. |
 | A failure exits non-zero. | Exit 0 for: `hook subagent-stop` after its arguments are read; a store write whose render failed (reported on stderr); `release` when git declined the worktree removal or `branch -d` after the merge (reported). | The agent finished; the store holds the change; the release happened. |
 | A failure exits non-zero. | A monitor registry (`~/.agent-progress-monitor/projects.json`) that cannot be read or written, a newer version or a malformed one is reported on stderr and the command keeps its exit code. | The command's own work is done; the registry is only a pointer for a monitor. |
 
@@ -258,17 +258,22 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 
 ### Skills
 
-- `skills/agent-progress/` loads in every tracked session, so orchestrator-only material goes in
-  `skills/agent-progress-orchestrate/`.
-- No skill file lists commands: `agent-progress help` is the reference. `skills/agent-progress/SKILL.md` names it
-  and `skills/agent-progress/Reference.md`, which holds only what help does not print and follows `docs/cli.md`.
+- Two skills, split by audience. `skills/agent-po/` loads in any session asked to file a ticket and holds the whole
+  filing procedure; it loads no other skill and never dispatches. `skills/agent-progress-orchestrate/` is the one
+  session running the board, loads `agent-po` for intake, and holds only what is the orchestrator's.
+- No agent preloads a skill. What a builder or reviewer needs lives in `resources/templates/BuilderBrief.md`,
+  `ReviewBrief.md` and the worker definitions, each rule stated once in whichever the agent reads.
+- No skill file lists commands: `agent-progress help` is the reference. Both skills name it and
+  `.agent-progress/reference.md`, installed from `resources/templates/Reference.md`, which holds only what help does
+  not print and follows `docs/cli.md`; both briefs cite it.
 - A `SKILL.md` `description` is its trigger, naming the words a user says. Skill files cite only commands, paths in
-  a tracked repository, or files beside them.
-- `skills/agent-progress-orchestrate/` repeats nothing from `skills/agent-progress/`, writes rules as instructions,
+  a tracked repository, or files beside them; naming a skill the host may offer, such as `grill-me`, is no citation.
+- `skills/agent-progress-orchestrate/` repeats nothing from `skills/agent-po/`, writes rules as instructions,
   and never restates what the dispatcher decides. Call budgets and the rework threshold are `DISPATCH_PROTOCOL`
   (`src/shared/constants/DispatchProtocol.ts`), filled into the brief and block by `init` and `update`.
-- `init` and `update` copy both into the tracked repository's git-ignored `.claude/skills/`, never globally; `setup.sh`
-  only removes the `~/.claude/skills/` symlinks into this checkout that earlier versions made.
+- `init` and `update` copy both into the tracked repository's git-ignored `.claude/skills/`, never globally, and
+  remove the files a retired skill folder installed there with its `.gitignore` entry; `setup.sh` only removes the
+  `~/.claude/skills/` symlinks into this checkout that earlier versions made.
 
 ## Repository map
 
@@ -287,9 +292,9 @@ src/adapters/        the boundary: every stored format read, written and mapped,
 src/services/        the tracker and render services
 src/shared/          app-specific code several parts use
 src/testing/         test-only helpers several parts use
-skills/              the two skills, one folder each, named after the skill: agent-progress/, which every
-                     session in a tracked repository loads, and agent-progress-orchestrate/, for the one
-                     session running the board
+skills/              the two skills, one folder each, named after the skill: agent-po/, which a session asked
+                     to file a ticket loads, and agent-progress-orchestrate/, for the one session running the
+                     board
 docs/                the CLI reference, development notes, the backlog, the migration plan, README images
 .readme-graphics/    the scripts and demo board that retake the README images; its build/ is git-ignored
 ```

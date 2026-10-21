@@ -3,10 +3,10 @@
 The complete reference for someone using the tool: what `init` and `update` write into a repository,
 every command and flag, the exit codes, what the dashboard and the spec-kit page show, the files on disk
 and what each ticket move does to its Gantt row. The code wins every disagreement: `agent-progress help` prints the
-command reference from `cli/HelpText.ts` and is never out of step with the tool. `skills/agent-progress/Reference.md`
-carries a word-for-word copy of three sections of this file, the ticket file format, the ticket moves
-and the exit codes, and follows it everywhere else. The overview is in the [README](../README.md); working on this
-repository yourself is in [development.md](development.md).
+command reference from `cli/HelpText.ts` and is never out of step with the tool. `resources/templates/Reference.md`,
+installed as `.agent-progress/reference.md`, carries a word-for-word copy of three sections of this file, the
+ticket file format, the ticket moves and the exit codes, and follows it everywhere else. The overview is in the
+[README](../README.md); working on this repository yourself is in [development.md](development.md).
 
 - [Conventions](#conventions)
 - [Adopting a repository](#adopting-a-repository)
@@ -89,13 +89,13 @@ no opt-out; the last records which install version all of them are.
 | # | what | path | written by | opt-out |
 |---|---|---|---|---|
 | 1 | The tracker: `progress.json`, `log.jsonl`, a `tickets/` folder, the generated `progress.html` and its `progress.stamp.js`, and the `.lock` directory | `.agent-progress/` | `init` only | — |
-| 2 | The briefs, generated from `resources/templates/AgentBrief.md` (the orchestrator's), `BuilderBrief.md` and `ReviewBrief.md` | `.agent-progress/agent-brief.md`, `builder-brief.md`, `review-brief.md` | `init`, `update` | — |
+| 2 | The briefs, generated from `resources/templates/AgentBrief.md` (the orchestrator's), `BuilderBrief.md` and `ReviewBrief.md`, and the reference they cite, from `Reference.md` | `.agent-progress/agent-brief.md`, `builder-brief.md`, `review-brief.md`, `reference.md` | `init`, `update` | — |
 | 3 | A `.gitignore` entry for the tracker | `.gitignore` | `init` only | — |
 | 4 | The managed block, from `resources/templates/ClaudeInstructionsBlock.md` | `CLAUDE.md` | `init`, `update` | `--no-claude-md` |
 | 5 | The `SubagentStop` hook running `agent-progress hook subagent-stop`, and the `PreToolUse` hook on `Bash` running `agent-progress hook pre-tool-use`; each is kept current in `.claude/settings.json` when that file already holds it | `.claude/settings.local.json` | `init`, `update` | `--no-hooks` |
 | 6 | The dispatcher workflow, generated from `dispatcher/DispatchFromWorkflowGlobals.ts` | `.agent-progress/agent-progress-dispatch.js` | `init`, `update` | `--no-workflow` |
 | 7 | The worker agent definition, from `resources/templates/AgentProgressWorker.md` | `.claude/agents/agent-progress-worker.md` | `init`, `update` | `--no-agent-definition` |
-| 8 | The two skills, copied from this checkout's `skills/agent-progress/` and `skills/agent-progress-orchestrate/`, each with its `.gitignore` entry | `.claude/skills/agent-progress/`, `.claude/skills/agent-progress-orchestrate/` | `init`, `update` | — |
+| 8 | The two skills, copied from this checkout's `skills/agent-po/` and `skills/agent-progress-orchestrate/`, each with its `.gitignore` entry | `.claude/skills/agent-po/`, `.claude/skills/agent-progress-orchestrate/` | `init`, `update` | — |
 | 9 | The install version | `.agent-progress/version.json` | `init`, `update` | — |
 
 1. **The tracker.** Its root is the main checkout, found from any worktree.
@@ -106,8 +106,10 @@ no opt-out; the last records which install version all of them are.
    procedure, its budget and the rework threshold). They are guidance shipped with the tool rather than
    files a project edits, so every `init` and every `update` rewrites all three, generated with the
    call budgets and the rework threshold the dispatcher's prompts state, from the same constant. The
-   managed block states that threshold the same way. The line reports the orchestrator's brief, and
-   `updated` when any of the three changed.
+   managed block states that threshold the same way. Both agents' briefs cite `reference.md`, the
+   ticket file's format, the ticket moves and the exit codes copied from this file, which an agent reads
+   on demand and every run rewrites too. The line reports the orchestrator's brief, and `updated` when
+   any of the four changed.
 3. **The `.gitignore` entry**, only when the repository does not already ignore the tracker.
    `git check-ignore` decides, so a repository covered by a broader pattern, a parent `.gitignore` or
    `.git/info/exclude` gets no diff at all.
@@ -138,18 +140,22 @@ no opt-out; the last records which install version all of them are.
    builder and reviewer as this type (`agentType`) and passes each the pair from `readyTickets`. Its
    `tools` list is the shell and file tools, `ToolSearch`, `StructuredOutput` and the browser pane's
    tools, without `Skill`, so a worker carries neither the session's skill listing nor unrelated MCP
-   tools on every call; `skills: agent-progress` preloads the tracker skill instead. A hand edit is
-   undone. Since the dispatcher cannot start a worker without it, `--no-agent-definition` is refused
+   tools on every call, and it preloads no skill: what a worker needs is in its brief and this
+   definition. A hand edit is undone. Since the dispatcher cannot start a worker without it,
+   `--no-agent-definition` is refused
    at exit 1, writing nothing, unless `--no-workflow` is given too. `--no-workflow` leaves an installed
    dispatcher in place, so the two together are refused the same way while
    `.agent-progress/agent-progress-dispatch.js` exists and this definition does not.
-8. **The skills**, `agent-progress` and `agent-progress-orchestrate` ([The two skills](#the-two-skills)),
+8. **The skills**, `agent-po` and `agent-progress-orchestrate` ([The two skills](#the-two-skills)),
    copied file for file from this checkout's `skills/` into `.claude/skills/<name>/`, where Claude Code
    reads a project's skills. Every `init` and `update` rewrites each file the skill ships, so a hand
    edit is undone; a file somebody else put in the folder is never touched, so one a newer skill no
    longer ships stays behind until removed by hand. Each folder gets its own `.gitignore` entry unless
-   git already ignores it, since it is a copy the next `update` replaces. The line names each folder,
-   `updated` or `unchanged`, and adds `.gitignore entry added` when it added one.
+   git already ignores it, since it is a copy the next `update` replaces. A skill folder an earlier
+   version installed and this one retired, `.claude/skills/agent-progress/`, loses the files that version
+   shipped there (`SKILL.md`, `Reference.md`) and its exact `.gitignore` entry; a file somebody else put
+   in it stays, and so does the folder then. The line names each folder, `updated` or `unchanged`, and
+   adds `.gitignore entry added` when it added one, and `retired` for a retired folder it cleared.
 9. **The install version** ([its file](#agent-progressversionjson)): the one version of everything
    above that the tool installs, which changes only when what the CLI and those files expect of each other changes.
    `init` and `update` compute every installed file first and write this one last, after every other
@@ -238,14 +244,15 @@ command's own no-tracker refusal is unchanged.
 
 `init` and `update` copy two Claude Code skills from this checkout's `skills/` into the tracked
 repository's git-ignored `.claude/skills/` (item 8 of [Adopting a repository](#adopting-a-repository)),
-split by audience because the first one's trigger fires in every session in a tracked repository,
-every implementing subagent included.
+split by audience: filing a ticket in any session, and running the board in one. No agent that builds
+or reviews a ticket loads either: what it needs is in its brief (item 2) and the worker definition
+(item 7), and both briefs cite `.agent-progress/reference.md` for the formats and exit codes. Neither
+skill lists commands: `agent-progress help` is the reference, and both name it and the reference file.
 
-| skill | folder | for | holds |
+| skill | folder | loads | holds |
 |---|---|---|---|
-| `agent-progress` | `skills/agent-progress/` | any session in a tracked repository | the model, how to file and move a ticket, what an implementing agent owes its `## Handoff`, the rules. No command list: `agent-progress help` is the reference, and `skills/agent-progress/Reference.md` holds what the help does not print. |
-| `agent-progress-orchestrate` | `skills/agent-progress-orchestrate/` | the one session running the board, started with `/agent-progress-orchestrate` | intake (grilling each request until its acceptance is unambiguous, filing it with a `## Brief`), launching, relaunching and resuming the dispatcher, triaging low-priority tickets. |
-
+| `agent-po` | `skills/agent-po/` | by itself in any session asked to file, report or track a ticket, bug or research question, or with `/agent-po`; and by the orchestrator for its intake | the whole filing procedure: fact-finding through subagents with capped reports, filing without questions and writing each assumption into Wanted (grilling only when the user asks, through a `grill-me` skill when the session has one, else the host's question tool), the split by mechanism, the epic check, merging or ordering tickets that share files or a mechanism, the body with its numbered Acceptance and `## Brief`, and the filing mechanics. It never dispatches, claims, starts or releases a ticket. |
+| `agent-progress-orchestrate` | `skills/agent-progress-orchestrate/` | only with `/agent-progress-orchestrate` or when asked to run the board | what is the orchestrator's alone: grilling before every filing, asking every question with the question tool, judging a finding's severity, asking for the go, launching, relaunching and resuming the dispatcher, triaging low-priority tickets. It loads `agent-po` for intake and repeats none of it. |
 ## Commands
 
 Options in `[brackets]` are optional; `a|b` is a choice of one.

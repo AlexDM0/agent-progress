@@ -3,8 +3,14 @@
  * `cli/adoption/constants/AgentHostInstalls.ts`, and reports per part whether its bytes changed: that is how an orchestrator that read the
  * brief earlier learns its copy is stale.
  */
-import { existsSync, readFileSync } from 'node:fs';
-import { join }                     from 'node:path';
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  rmdirSync,
+  rmSync
+} from 'node:fs';
+import { join } from 'node:path';
 
 import { createInstallManifestWriter } from '../../src/adapters/install/InstallManifestWriter.ts';
 import { writeFileAtomically }         from '../../src/lib/atomic-file/AtomicFile.ts';
@@ -16,7 +22,7 @@ import {
   writeCommandHook,
   type CommandHook
 }                                                                    from '../../src/lib/claude-code/ClaudeSettings.ts';
-import { ensureIgnored }                                                                   from '../../src/lib/git/GitIgnore.ts';
+import { ensureIgnored, removeIgnoreEntry }                                                from '../../src/lib/git/GitIgnore.ts';
 import type { Workspace }                                                                  from '../../src/services/tracker/Workspace.ts';
 import { OperationRefusal }                                                                from '../../src/shared/OperationRefusal.ts';
 import type { AgentHost }                                                                  from '../../src/shared/constants/AgentHosts.ts';
@@ -30,7 +36,8 @@ import {
   type InstalledFileName,
   type InstalledPart,
   type InstalledSkillName,
-  type InstallOptOutFlag
+  type InstallOptOutFlag,
+  type RetiredSkillFolder
 }                                                                from './constants/AgentHostInstalls.ts';
 import { CLAUDE_MANAGED_BLOCK_MARKERS } from './constants/ClaudeManagedBlockMarkers.ts';
 
@@ -139,7 +146,11 @@ function refreshRewrittenFiles(files: readonly InstalledFile[], installedFilePat
  * Every file of the skill is rewritten, like the briefs; a file a user added to the folder is never touched, so one the skill dropped stays
  * behind too. Each folder is git-ignored, since it is a copy of this checkout's and the next `update` replaces it.
  */
-function refreshSkillFolders(skillNames: readonly InstalledSkillName[], rootDirectory: string, installedSkillFileTexts: InstalledSkillFileTexts): string {
+function refreshSkillFolders(
+  { skillNames, retiredSkillFolders }: { skillNames: readonly InstalledSkillName[]; retiredSkillFolders: readonly RetiredSkillFolder[] },
+  rootDirectory: string,
+  installedSkillFileTexts: InstalledSkillFileTexts,
+): string {
   const folderLines = skillNames.map((skillName) => {
     const skillFileTexts = installedSkillFileTexts[skillName];
     if (skillFileTexts === undefined) throw new OperationRefusal('unrepaired', `No files were read for the installed skill ${skillName}, so it was not written.`);
@@ -153,7 +164,21 @@ function refreshSkillFolders(skillNames: readonly InstalledSkillName[], rootDire
     const ignoreNote    = ignoreOutcome === 'appended' ? ', .gitignore entry added' : '';
     return `${anyFileChanged ? 'updated' : 'unchanged'} (${folderPath}${ignoreNote})`;
   });
-  return folderLines.join('; ');
+  const retiredLines = retiredSkillFolders.flatMap((retiredSkillFolder) => retiredSkillFolderLinesOf(retiredSkillFolder, rootDirectory));
+  return [...folderLines, ...retiredLines].join('; ');
+}
+
+/** Only the files the skill shipped go, so a file a user put in the folder keeps the folder; nothing is said when nothing was there. */
+function retiredSkillFolderLinesOf({ skillName, installedFileNames }: RetiredSkillFolder, rootDirectory: string): string[] {
+  const folderInRepository = installedSkillFolderInRepository(skillName);
+  const folderPath         = join(rootDirectory, folderInRepository);
+  const removedFileNames   = installedFileNames.filter((fileName) => existsSync(join(folderPath, fileName)));
+  for (const fileName of removedFileNames) rmSync(join(folderPath, fileName));
+  if (existsSync(folderPath) && readdirSync(folderPath).length === 0) rmdirSync(folderPath);
+  const ignoreOutcome = removeIgnoreEntry(rootDirectory, folderInRepository);
+  if (removedFileNames.length === 0 && ignoreOutcome === 'absent') return [];
+  const ignoreNote = ignoreOutcome === 'removed' ? ', .gitignore entry removed' : '';
+  return [`retired (${folderPath}${ignoreNote})`];
 }
 
 /** Written to the per-user settings file unless the shared one already holds the entry, which is then kept current there. */
@@ -293,7 +318,7 @@ export function refreshTrackedRepository(request: TrackerRefreshRequest): Tracke
       case 'claude-settings-hooks':
         return refreshClaudeSettingsHooks(part.hooks, workspace.rootDirectory, commandName, standardError);
       case 'skill-folders':
-        return refreshSkillFolders(part.skillNames, workspace.rootDirectory, installedSkillFileTexts);
+        return refreshSkillFolders(part, workspace.rootDirectory, installedSkillFileTexts);
     }
   }
 
