@@ -27,7 +27,7 @@ import { SpecStageRows }                                  from './SpecStageRows.
 const EXAMPLE_NOW = new Date('2026-10-06T12:00:00+02:00');
 
 const scratchDirectory = createScratchDirectory('spec-row-grouping');
-const EXAMPLE_SNAPSHOT = deriveSpecSnapshot(scannedExampleSpecKitRepository(scratchDirectory), EXAMPLE_NOW);
+const EXAMPLE_SNAPSHOT = deriveSpecSnapshot(scannedExampleSpecKitRepository(scratchDirectory, EXAMPLE_NOW), EXAMPLE_NOW);
 
 afterAll(() => removeScratchDirectory(scratchDirectory));
 
@@ -106,12 +106,29 @@ describe('rowGroupingOfSpecs over the example repository', () => {
   });
 
   test('ends a spec without an Implement stage at its last stage\'s end once every stage is closed', () => {
-    const spec       = specOf('005');
-    const planEnd    = '2026-09-24T11:59:46+02:00';
-    const closedEnd  = (stageSpan: StageSpan): StageSpan => ({ ...stageSpan, isOpen: false, end: { ...stageSpan.start, date: { at: planEnd, source: 'creation-time' } } });
-    const closedSpec: SnapshotSpec = { ...spec, stageSpans: spec.stageSpans.map((stageSpan) => (stageSpan.isOpen ? closedEnd(stageSpan) : stageSpan)) };
+    const spec         = specOf('005');
+    const specifyStart = '2026-09-20T09:15:00+02:00';
+    const planEnd      = '2026-09-24T11:59:46+02:00';
+    const plantedDates = [
+      { start: specifyStart, end: '2026-09-22T16:30:00+02:00' },
+      { start: '2026-09-22T16:30:00+02:00', end: planEnd },
+    ];
+    const plantedClosedSpan = (stageSpan: StageSpan, stageIndex: number): StageSpan => {
+      const dates = plantedDates[stageIndex];
+      if (dates === undefined) {
+        throw new Error(`spec 005 has more stages than the ${plantedDates.length} planted`);
+      }
+      return {
+        ...stageSpan,
+        isOpen: false,
+        start:  { ...stageSpan.start, date: { at: dates.start, source: 'creation-time' } },
+        end:    { ...stageSpan.start, date: { at: dates.end, source: 'creation-time' } },
+      };
+    };
+    const closedSpec: SnapshotSpec = { ...spec, stageSpans: spec.stageSpans.map(plantedClosedSpan) };
 
-    expect(rowGroupingOfSpecs([closedSpec]).groups[0]).toMatchObject({ span: { end: planEnd }, doneText: '2 of 3 stages' });
+    expect(closedSpec.stageSpans.map((stageSpan) => stageSpan.stage)).toEqual(['specify', 'plan']);
+    expect(rowGroupingOfSpecs([closedSpec]).groups[0]).toMatchObject({ span: { start: specifyStart, end: planEnd }, doneText: '2 of 3 stages' });
   });
 
   test('keys every stage row by its spec\'s folder', () => {

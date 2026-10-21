@@ -23,7 +23,7 @@ const EXAMPLE_NOW = new Date('2026-10-06T12:00:00+02:00');
 const EXAMPLE_FORMAT: GroupMarkupFormat = { limits: EXAMPLE_PAGE_LIMITS, todayCalendarDate: '2026-10-06', nowEpochMilliseconds: EXAMPLE_NOW.getTime() };
 
 const scratchDirectory = createScratchDirectory('spec-detail');
-const EXAMPLE_SNAPSHOT = deriveSpecSnapshot(scannedExampleSpecKitRepository(scratchDirectory), EXAMPLE_NOW);
+const EXAMPLE_SNAPSHOT = deriveSpecSnapshot(scannedExampleSpecKitRepository(scratchDirectory, EXAMPLE_NOW), EXAMPLE_NOW);
 
 afterAll(() => removeScratchDirectory(scratchDirectory));
 

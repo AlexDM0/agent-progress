@@ -23,7 +23,7 @@ import { MODIFICATION_TIME_MARK, SpecStageRows }          from './SpecStageRows.
 const EXAMPLE_NOW = new Date('2026-10-06T12:00:00+02:00');
 
 const scratchDirectory = createScratchDirectory('spec-stage-rows');
-const EXAMPLE_SNAPSHOT = deriveSpecSnapshot(scannedExampleSpecKitRepository(scratchDirectory), EXAMPLE_NOW);
+const EXAMPLE_SNAPSHOT = deriveSpecSnapshot(scannedExampleSpecKitRepository(scratchDirectory, EXAMPLE_NOW), EXAMPLE_NOW);
 
 afterAll(() => removeScratchDirectory(scratchDirectory));
 

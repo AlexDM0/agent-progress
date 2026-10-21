@@ -18,7 +18,8 @@ import { SpecTicketsMarkup }                               from './SpecTicketsMa
 import { DEFAULT_SPEC_TICKETS_VIEW, SpecWorkItemViewUtil } from './SpecWorkItemViewUtil.ts';
 
 const scratchDirectory = createScratchDirectory('spec-tickets');
-const EXAMPLE_SNAPSHOT = deriveSpecSnapshot(scannedExampleSpecKitRepository(scratchDirectory), new Date('2026-10-06T12:00:00+02:00'));
+const EXAMPLE_NOW      = new Date('2026-10-06T12:00:00+02:00');
+const EXAMPLE_SNAPSHOT = deriveSpecSnapshot(scannedExampleSpecKitRepository(scratchDirectory, EXAMPLE_NOW), EXAMPLE_NOW);
 const ENTRIES          = SpecWorkItemViewUtil.workItemEntriesOf(EXAMPLE_SNAPSHOT);
 
 afterAll(() => removeScratchDirectory(scratchDirectory));

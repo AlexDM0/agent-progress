@@ -28,7 +28,7 @@ let exampleSnapshot: SpecSnapshot;
 beforeAll(() => {
   const repositoryDirectory = createCanonicalScratchDirectory('spec-snapshot-file-example');
   scratchDirectories.push(repositoryDirectory);
-  exampleSnapshot = deriveSpecSnapshot(scannedExampleSpecKitRepository(repositoryDirectory), GENERATED_AT);
+  exampleSnapshot = deriveSpecSnapshot(scannedExampleSpecKitRepository(repositoryDirectory, GENERATED_AT), GENERATED_AT);
 });
 
 afterAll(() => {

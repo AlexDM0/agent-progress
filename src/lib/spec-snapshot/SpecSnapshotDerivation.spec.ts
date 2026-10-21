@@ -25,7 +25,7 @@ let exampleSnapshot: SpecSnapshot;
 
 beforeAll(() => {
   scratchDirectory = createCanonicalScratchDirectory('spec-snapshot');
-  exampleSource = scannedExampleSpecKitRepository(scratchDirectory);
+  exampleSource = scannedExampleSpecKitRepository(scratchDirectory, GENERATED_AT);
   exampleSnapshot = deriveSpecSnapshot(exampleSource, GENERATED_AT);
 });
 

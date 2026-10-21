@@ -21,7 +21,8 @@ import { DependencyGraphUtil }                            from '../../utils/Depe
 import { WorkItemDependencyNodes }                        from './WorkItemDependencyNodes.ts';
 
 const scratchDirectory = createScratchDirectory('spec-dependencies');
-const EXAMPLE_SNAPSHOT = deriveSpecSnapshot(scannedExampleSpecKitRepository(scratchDirectory), new Date('2026-10-06T12:00:00+02:00'));
+const EXAMPLE_NOW      = new Date('2026-10-06T12:00:00+02:00');
+const EXAMPLE_SNAPSHOT = deriveSpecSnapshot(scannedExampleSpecKitRepository(scratchDirectory, EXAMPLE_NOW), EXAMPLE_NOW);
 const GRAPH            = DependencyGraphUtil.dependencyGraphOf(
   WorkItemDependencyNodes.graphItemsOf(EXAMPLE_SNAPSHOT),
   0,

@@ -18,7 +18,8 @@ import type { SpecTicketsView }                            from './SpecWorkItemV
 import { DEFAULT_SPEC_TICKETS_VIEW, SpecWorkItemViewUtil } from './SpecWorkItemViewUtil.ts';
 
 const scratchDirectory   = createScratchDirectory('spec-work-item-view');
-const EXAMPLE_SNAPSHOT   = deriveSpecSnapshot(scannedExampleSpecKitRepository(scratchDirectory), new Date('2026-10-06T12:00:00+02:00'));
+const EXAMPLE_NOW        = new Date('2026-10-06T12:00:00+02:00');
+const EXAMPLE_SNAPSHOT   = deriveSpecSnapshot(scannedExampleSpecKitRepository(scratchDirectory, EXAMPLE_NOW), EXAMPLE_NOW);
 const ENTRIES            = SpecWorkItemViewUtil.workItemEntriesOf(EXAMPLE_SNAPSHOT);
 const SEARCHABLE_TEXTS   = new Map(ENTRIES.map((entry) => [entry.workItem.id, SpecWorkItemViewUtil.searchableTextOf(entry)]));
 const SPEC_002           = EXAMPLE_SNAPSHOT.specs.find((spec) => spec.folderName.startsWith('002'))?.folderName ?? '';
