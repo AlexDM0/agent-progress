@@ -2,7 +2,8 @@
  * A `CommandContext` whose two output streams are arrays, so a command spec can drive `runCommandLine` in-process and read back what a user would
  * have seen.
  */
-import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { join }   from 'node:path';
 
 import { createRenderState }       from '../../src/services/render/RenderState.ts';
 import { requireTrackerIsolation } from '../../src/testing/TrackerIsolation.ts';
@@ -25,6 +26,11 @@ export interface CapturedCommandContextOptions {
   platform?:                string;
   /** Checked to be a scratch directory like `currentDirectory`; by default a `spec-home` folder inside it, so no spec reads the real home. */
   homeDirectory?:           string;
+  /**
+   * By default the system temp folder every scratch directory lies in, so no spec registers in the monitor registry; a spec of the registry
+   * names a scratch folder its repository lies outside.
+   */
+  temporaryDirectory?:      string;
   /** What `copilot --version` answers; by default the oldest version `init --host copilot-cli` takes, so no spec runs the real binary. */
   copilotVersionOutput?:    string | null;
 }
@@ -75,6 +81,8 @@ export function createCapturedCommandContext(options: CapturedCommandContextOpti
     },
     platform:             options.platform ?? DEFAULT_SPEC_PLATFORM,
     homeDirectory:        options.homeDirectory ?? join(options.currentDirectory, SPEC_HOME_FOLDER_NAME),
+    temporaryDirectory:   options.temporaryDirectory ?? tmpdir(),
+    commandVerb:          '',
     renderState:          createRenderState(),
     copilotVersionOutput: () => (options.copilotVersionOutput === undefined ? DEFAULT_SPEC_COPILOT_VERSION_OUTPUT : options.copilotVersionOutput),
     outputText:           () => outputLines.join('\n'),

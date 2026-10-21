@@ -1,0 +1,134 @@
+/**
+ * Records a tracker whose page this call wrote in the machine-wide registry `~/.agent-progress-monitor/projects.json`, which a monitor
+ * reads to find every project's page and data. It never fails the command: every way it does not register comes back as a verdict.
+ */
+import { mkdirSync, realpathSync }    from 'node:fs';
+import { isAbsolute, join, relative } from 'node:path';
+
+import { storedFileTextOf }                                              from '../../adapters/StoredFileText.ts';
+import { ProgressFileIngestion }                                         from '../../adapters/progress/ProgressFileIngestion.ts';
+import { writeFileAtomically }                                           from '../../lib/atomic-file/AtomicFile.ts';
+import { GitProcess }                                                    from '../../lib/git/GitProcess.ts';
+import { LocalTimeUtil }                                                 from '../../lib/local-time/LocalTimeUtil.ts';
+import { VersionedRegistryUtil, type RegistryEntry, type RegistryShape } from '../../lib/versioned-registry/VersionedRegistryUtil.ts';
+import { refusalIsOperationRefusal }                                     from '../../shared/OperationRefusal.ts';
+import { withLockAt }                                                    from './TrackerLock.ts';
+import type { Workspace }                                                from './Workspace.ts';
+import { MONITOR_REGISTRY_FILES }                                        from './constants/MonitorRegistryFiles.ts';
+
+export interface MonitorRegistrationRequest {
+  workspace:          Workspace;
+  homeDirectory:      string;
+  /** The system temp folder: a tracker under it is a scratch one nobody monitors. */
+  temporaryDirectory: string;
+  /** The verb that wrote the page, such as `ticket finish`. */
+  command:            string;
+  now:                () => Date;
+}
+
+export type MonitorRegistrationOutcome =
+  | { verdict: 'registered'; registryFilePath: string }
+  | { verdict: 'registered-over-malformed'; registryFilePath: string; problems: string[] }
+  | { verdict: 'not-registered-temporary-tracker' }
+  | { verdict: 'not-registered-unreadable-tracker'; reason: string }
+  | { verdict: 'not-registered-newer-version'; registryFilePath: string; version: number }
+  | { verdict: 'not-registered-unwritable'; registryFilePath: string; reason: string };
+
+const REGISTRY_SHAPE: RegistryShape = { supportedVersion: MONITOR_REGISTRY_FILES.SUPPORTED_VERSION, entriesKey: MONITOR_REGISTRY_FILES.ENTRIES_KEY };
+
+const REGISTERED_AT_KEY = 'registeredAt';
+
+/** A path that cannot be resolved stays as given, which then compares as outside: a tracker is registered rather than silently skipped. */
+function canonicalPathOf(path: string): string {
+  try {
+    return realpathSync(path);
+  } catch {
+    return path;
+  }
+}
+
+function trackerLiesInTheTemporaryFolder(rootDirectory: string, temporaryDirectory: string): boolean {
+  const pathFromTemporaryFolder = relative(canonicalPathOf(temporaryDirectory), canonicalPathOf(rootDirectory));
+  return !pathFromTemporaryFolder.startsWith('..') && !isAbsolute(pathFromTemporaryFolder);
+}
+
+/** `null` when the repository has no `origin` remote, or git cannot say. */
+function gitOriginOf(rootDirectory: string): string | null {
+  const finishedRun = GitProcess.run(rootDirectory, ['remote', 'get-url', 'origin']);
+  if (finishedRun === null || finishedRun.exitCode !== 0) return null;
+  const origin = finishedRun.standardOutput.trim();
+  return origin.length > 0 ? origin : null;
+}
+
+function errorReasonOf(error: unknown): string {
+  if (refusalIsOperationRefusal(error)) return 'its lock is held by another process';
+  return error instanceof Error ? error.message : String(error);
+}
+
+interface Registration {
+  registryFilePath: string;
+  trackerId:        string;
+  /** What this write says about the tracker's place, all replaced on every write, so a moved tracker's one entry follows it. */
+  locationFields:   RegistryEntry;
+  changedAt:        string;
+  command:          string;
+}
+
+/** Keeps the stored entry's keys, unknown ones included, in order, and its first `registeredAt`. */
+function updatedEntry(storedEntry: RegistryEntry | undefined, registration: Registration): RegistryEntry {
+  const storedRegisteredAt = storedEntry?.[REGISTERED_AT_KEY];
+  return {
+    ...storedEntry,
+    ...registration.locationFields,
+    [REGISTERED_AT_KEY]: typeof storedRegisteredAt === 'string' ? storedRegisteredAt : registration.changedAt,
+    lastChangedAt:       registration.changedAt,
+    lastCommand:         registration.command,
+  };
+}
+
+function registerUnderTheLock(registration: Registration): MonitorRegistrationOutcome {
+  const { registryFilePath, trackerId } = registration;
+  const storedText = storedFileTextOf(registryFilePath);
+  if (storedText.verdict === 'unreadable') return { verdict: 'not-registered-unwritable', registryFilePath, reason: storedText.reason };
+  const reading = VersionedRegistryUtil.readingOf(storedText.verdict === 'readable' ? storedText.text : null, REGISTRY_SHAPE);
+  if (reading.verdict === 'newer-version') return { verdict: 'not-registered-newer-version', registryFilePath, version: reading.version };
+
+  const document = VersionedRegistryUtil.documentWithEntry(reading.document, REGISTRY_SHAPE, trackerId, (storedEntry) => updatedEntry(storedEntry, registration));
+  writeFileAtomically(registryFilePath, VersionedRegistryUtil.textOf(document));
+  return reading.verdict === 'malformed'
+    ? { verdict: 'registered-over-malformed', registryFilePath, problems: reading.problems }
+    : { verdict: 'registered', registryFilePath };
+}
+
+export async function registerWithTheMonitor(request: MonitorRegistrationRequest): Promise<MonitorRegistrationOutcome> {
+  const {
+    workspace, homeDirectory, temporaryDirectory, command, now
+  } = request;
+  if (trackerLiesInTheTemporaryFolder(workspace.rootDirectory, temporaryDirectory)) return { verdict: 'not-registered-temporary-tracker' };
+  const progressReading = new ProgressFileIngestion(workspace.progressFilePath).read();
+  if (progressReading.verdict === 'absent') return { verdict: 'not-registered-unreadable-tracker', reason: 'its progress file is absent' };
+  if (progressReading.verdict === 'unreadable') return { verdict: 'not-registered-unreadable-tracker', reason: progressReading.reason };
+
+  const registryDirectory = join(homeDirectory, MONITOR_REGISTRY_FILES.REGISTRY_DIRECTORY_NAME);
+  const registryFilePath  = join(registryDirectory, MONITOR_REGISTRY_FILES.REGISTRY_FILE_NAME);
+  const registration: Registration = {
+    registryFilePath,
+    trackerId:      progressReading.progress.trackerId,
+    locationFields: {
+      project:      progressReading.progress.project,
+      root:         workspace.rootDirectory,
+      progressHtml: workspace.htmlFilePath,
+      progressJson: workspace.progressFilePath,
+      gitOrigin:    gitOriginOf(workspace.rootDirectory),
+    },
+    changedAt: LocalTimeUtil.formatLocalIso(now()),
+    command,
+  };
+  try {
+    // Made before the lock, which would otherwise read a home it cannot write as a lock held until its retries ran out.
+    mkdirSync(registryDirectory, { recursive: true });
+    return await withLockAt(join(registryDirectory, MONITOR_REGISTRY_FILES.LOCK_DIRECTORY_NAME), () => registerUnderTheLock(registration), now);
+  } catch (error) {
+    return { verdict: 'not-registered-unwritable', registryFilePath, reason: errorReasonOf(error) };
+  }
+}

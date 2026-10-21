@@ -112,6 +112,17 @@ test('AGENT_PROGRESS_LIVE_COPILOT_RUN allows the live run at any value but unset
   expect(liveCopilotRunSeenByAChildProcess({ AGENT_PROGRESS_LIVE_COPILOT_RUN: 'yes' })).toBe(true);
 }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
+test('the environment copy holds every variable verbatim, and nothing else', () => {
+  const source = [
+    `const loaded = await import(${JSON.stringify(ENVIRONMENT_MODULE_PATH)});`,
+    'console.log(JSON.stringify(loaded.environmentCopy()));',
+  ].join('\n');
+  const copy = jsonPrintedByAChildProcess({ EXAMPLE_VARIABLE: 'Example Agency', EMPTY_VARIABLE: '' }, source) as Record<string, string>;
+  expect(copy['EXAMPLE_VARIABLE']).toBe('Example Agency');
+  expect(copy['EMPTY_VARIABLE']).toBe('');
+  expect(Object.keys(copy).filter((variable) => variable.startsWith('EXAMPLE_') || variable.startsWith('EMPTY_')).sort()).toEqual(['EMPTY_VARIABLE', 'EXAMPLE_VARIABLE']);
+}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
+
 test('the override is exposed as a function, which is what lets it be redirected at all', () => {
   expect(typeof agentProgressRootOverride).toBe('function');
 });

@@ -22,7 +22,16 @@ const COMMANDS_THE_INSTALL_CHECK_SPARES = new Set(['init', 'update', 'help', 'st
 /** `release --json` words the refusal as its own document, and the hook reports it at exit 0, so each runs the check inside its own handling. */
 const COMMANDS_THAT_CHECK_THEIR_OWN_INSTALL = new Set(['hook', 'release']);
 
+/** The commands whose first argument names a subcommand, which the recorded verb then carries: `ticket finish`, not `ticket`. */
+const COMMANDS_WITH_A_SUBCOMMAND = new Set(['task', 'ticket', 'epic', 'hook']);
+
 type HelpRequest = 'reference' | 'ambiguous' | 'none';
+
+function commandVerbOf(command: string, remainingArguments: readonly string[]): string {
+  const subcommand = remainingArguments[0];
+  if (!COMMANDS_WITH_A_SUBCOMMAND.has(command) || subcommand === undefined || subcommand.startsWith('-')) return command;
+  return `${command} ${subcommand}`;
+}
 
 /**
  * `--help` anywhere before a bare `--`, and `-h` straight after the command word, ask for the reference; an option's value never does.
@@ -61,7 +70,7 @@ export async function runCommandLine(commandLineArguments: readonly string[], co
     if (!COMMANDS_THE_INSTALL_CHECK_SPARES.has(command) && !COMMANDS_THAT_CHECK_THEIR_OWN_INSTALL.has(command)) {
       requireCurrentInstall(context.currentDirectory);
     }
-    await runCommand(createArgumentParser(printsTheHelp ? [] : remainingArguments), context);
+    await runCommand(createArgumentParser(printsTheHelp ? [] : remainingArguments), { ...context, commandVerb: commandVerbOf(command, remainingArguments) });
     return 0;
   } catch (error) {
     if (refusalIsOperationRefusal(error)) {

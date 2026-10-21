@@ -6,7 +6,7 @@
  * agents run with `COPILOT_ALLOW_ALL`: without it every shell call is denied (`docs/development.md`, the Copilot spike notes, item 8).
  */
 import { realpathSync }       from 'node:fs';
-import { homedir }            from 'node:os';
+import { homedir, tmpdir }    from 'node:os';
 import { delimiter, dirname } from 'node:path';
 
 import { afterEach, expect } from 'bun:test';
@@ -59,6 +59,8 @@ function liveRunEnvironment(commandDirectory: string): Record<string, string> {
   return {
     PATH:                                  searchPath.join(delimiter),
     HOME:                                  homedir(),
+    // Copilot needs the real home, so the shim's agent-progress is kept off its monitor registry by the temp-folder rule instead.
+    TMPDIR:                                tmpdir(),
     COPILOT_ALLOW_ALL:                     'true',
     GITHUB_COPILOT_PROMPT_MODE_EXTENSIONS: 'true',
   };

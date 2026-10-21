@@ -205,12 +205,20 @@ export const LockGenerationSteps = {
  * process is gone or its stamp is more than `LIMITS.LOCK_STALE_MILLISECONDS` old, live holder or not; one stamped in the future
  * by a live holder never goes stale. Throws `OperationRefusal('unrepaired')`, its detail `tracker-lock-held` — exit 2 — when the retry budget runs out.
  */
-export async function withLock<ActionResult>(
+export function withLock<ActionResult>(
   workspace: Workspace,
   action: () => Promise<ActionResult> | ActionResult,
   now: () => Date,
 ): Promise<ActionResult> {
-  const { lockDirectoryPath } = workspace;
+  return withLockAt(workspace.lockDirectoryPath, action, now);
+}
+
+/** `withLock` on any lock directory, for a file several trackers' commands share; held, it throws the same refusal. */
+export async function withLockAt<ActionResult>(
+  lockDirectoryPath: string,
+  action: () => Promise<ActionResult> | ActionResult,
+  now: () => Date,
+): Promise<ActionResult> {
   const payload: LockPayload = { acquiredAt: LocalTimeUtil.formatLocalIso(now()), processId: process.pid };
 
   let heldGeneration: number | null = null;

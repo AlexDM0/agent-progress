@@ -3,6 +3,7 @@ import type { DispatcherState }                                  from '../src/li
 import { writeTracker, type TrackerChange, type TrackerWritten } from '../src/services/tracker/TrackerPipeline.ts';
 import { requireWorkspace }                                      from '../src/services/tracker/Workspace.ts';
 import type { CommandContext }                                   from './CommandContext.ts';
+import { registerWrittenDashboard }                              from './RegisterWrittenDashboard.ts';
 import type { ArgumentParser }                                   from './arguments/ArgumentParser.ts';
 import { NextLineUtil }                                          from './utils/NextLineUtil.ts';
 import { OptionValueUtil }                                       from './utils/OptionValueUtil.ts';
@@ -19,6 +20,7 @@ async function writeTrackerForCommand<MutationResult>(
     workspace, at, now: context.now, renderState: context.renderState, mutate
   });
   OutputUtil.reportRenderProblems(context, written.renderOutcome);
+  await registerWrittenDashboard(context, workspace, written.renderOutcome);
   return written;
 }
 

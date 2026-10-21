@@ -932,6 +932,46 @@ A file recording another version, holding anything else or unreadable is a misma
 absent file while `agent-brief.md` is installed; an absent file with no brief is none.
 [Install version](#install-version) says what a mismatch does.
 
+### `~/.agent-progress-monitor/projects.json`
+
+```
+{
+  "version": 1,
+  "projects": {
+    "5f0c2a9e-7b1d-4c3e-9a8f-2d6b4e1c0a37": {
+      "project": "Example Agency",
+      "root": "/Users/alex.example/development/example-agency",
+      "progressHtml": "/Users/alex.example/development/example-agency/.agent-progress/progress.html",
+      "progressJson": "/Users/alex.example/development/example-agency/.agent-progress/progress.json",
+      "gitOrigin": "git@example.invalid:example/example-agency.git",
+      "registeredAt": "2026-10-21T10:00:00+02:00",
+      "lastChangedAt": "2026-10-21T11:30:00+02:00",
+      "lastCommand": "ticket finish"
+    }
+  }
+}
+```
+
+The machine-wide registry of every project whose dashboard this machine's agent-progress wrote, in the home folder,
+for a monitor to find each project's page and data; a folder, so the monitor can keep its own files beside it. A
+project registers, its entry added or updated, exactly when the call wrote its `progress.html`: a mutating command
+whose render succeeded, `render`, `open` when it renders a missing page, and `init`. `update` never renders the page,
+so it never registers; neither does a read-only call, `view-spec` (it writes `progress-spec.html`), or a store write
+whose render failed. A tracker whose root lies under the system temp folder, compared after resolving symlinks, is
+never registered.
+
+An entry is keyed by the tracker's `trackerId`, so a moved or renamed folder updates its one entry. It holds the
+page's `project` name, the `root` folder, the absolute paths of `progressHtml` and `progressJson`, `gitOrigin` (the
+`origin` remote's URL, or `null`), `registeredAt` (the first registration, kept), `lastChangedAt` (this write) and
+`lastCommand` (the verb that wrote, the command word and its subcommand). No board summary is copied: the monitor
+reads each project's own files. The CLI never removes an entry and has no command for the registry.
+
+The read-modify-write holds the registry's own lock, `.agent-progress-monitor/.lock/`, and writes the file
+atomically, indented two spaces and ending in a newline. Unknown keys, at the top level and on an entry, are kept in
+order. A file whose `version` is newer than 1 is left untouched and a warning is printed. A malformed file is reported
+and rewritten with every entry that is still an object, plus this one. A registry that cannot be read or written, its
+lock included, is a warning on standard error: the command keeps its exit code, 0 when it succeeded.
+
 ### `.agent-progress/progress-spec.json`
 
 ```jsonc

@@ -10,6 +10,7 @@ import { OperationRefusal }                                  from '../../../src/
 import { AGENT_HOSTS, DEFAULT_AGENT_HOST, type AgentHost }   from '../../../src/shared/constants/AgentHosts.ts';
 import type { CommandHandler }                               from '../../CommandHandler.ts';
 import { requireInstallManifestThisVersionCanReplace }       from '../../InstallVersionCheck.ts';
+import { registerWrittenDashboard }                          from '../../RegisterWrittenDashboard.ts';
 import { OutputUtil }                                        from '../../utils/OutputUtil.ts';
 import { refuseAnotherAgentHostsLeftovers }                  from '../AgentHostLeftovers.ts';
 import { installedFileTextsFor, installedSkillFileTextsFor } from '../InstalledFileGeneration.ts';
@@ -119,6 +120,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
     return;
   }
   OutputUtil.reportRenderProblems(context, creation.renderOutcome);
+  await registerWrittenDashboard(context, workspace, creation.renderOutcome);
 
   const refresh = refreshTheRepository(installedFileTexts, { writesTheBriefFirst: true });
 

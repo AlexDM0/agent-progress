@@ -28,6 +28,11 @@ export function liveCopilotRunIsAllowed(): boolean {
   return switchIsOn(LIVE_COPILOT_RUN_VARIABLE);
 }
 
+/** A copy of the whole environment, for a child process that should inherit it with a variable or two replaced; a variable without a value is left out. */
+export function environmentCopy(): Record<string, string> {
+  return Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined));
+}
+
 function switchIsOn(variable: string): boolean {
   const value = process.env[variable]?.trim();
   return value !== undefined && value.length > 0 && value !== '0';

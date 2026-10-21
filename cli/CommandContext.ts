@@ -3,7 +3,7 @@
  * against a scratch directory and a frozen clock. It carries no environment access on purpose:
  * `src/shared/Environment.ts` is the one module that reads the environment.
  */
-import { homedir }         from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { createInterface } from 'node:readline';
 
 import { createRenderState, type RenderState } from '../src/services/render/RenderState.ts';
@@ -21,6 +21,10 @@ export interface CommandContext {
   platform:                string;
   /** `node:os`'s `homedir()`, carried here so a spec can point the Claude Code transcripts at a scratch tree. */
   homeDirectory:           string;
+  /** `node:os`'s `tmpdir()`: a tracker under it is a scratch one the monitor registry leaves out. */
+  temporaryDirectory:      string;
+  /** The verb `cli/Main.ts` dispatched, such as `ticket finish`, which the monitor registry records; empty before the dispatch. */
+  commandVerb:             string;
   /** Created once per invocation; holds the render service's memos, the page bundle and the configured Marked. */
   renderState:             RenderState;
   /** What `copilot --version` prints, or `null` when it cannot be run; asked only by `init --host copilot-cli`. */
@@ -39,6 +43,8 @@ export function createProcessContext(): CommandContext {
     confirm:                 confirmOnStandardInput,
     platform:                process.platform,
     homeDirectory:           homedir(),
+    temporaryDirectory:      tmpdir(),
+    commandVerb:             '',
     renderState:             createRenderState(),
     copilotVersionOutput:    versionOutputOfTheInstalledCopilot,
   };
