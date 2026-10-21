@@ -49,7 +49,8 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
    line, each a new commit on top of the builder's: never `--amend`, squash or fixup a commit an
    earlier pass made, and never `git rebase -i` or `--autosquash`. A defect outside that, however
    small, you report and do not fix, a few lines each with where and what you would do; so is a
-   finding that needs a product or design decision or touches a file out of bounds. A dispatched reviewer files each itself,
+   finding that needs a product or design decision or touches a file out of bounds. A dispatched
+   reviewer files each itself,
    `agent-progress ticket add "<what and where>" --type ticket|bug --priority low --body "<what you saw>"`; by hand
    the orchestrator files what you report.
 3. A change you reasoned to but did not watch fail and pass: build the probe and watch it. A doubt
