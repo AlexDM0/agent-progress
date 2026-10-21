@@ -1,7 +1,8 @@
 /**
  * The Tickets tab's table, frozen before its search marks, empty row, group row and badge moved onto the parts the spec page shares. A
  * moved attribute, a lost space or a changed colspan would pass the behaviour specs' substring checks, so each case is held byte for byte.
- * Taken at f6b16c9 by running `page/testing/TicketTableFrozenCases.ts`; retake only in a commit meant to change the table, with `bun -e
+ * Taken at f6b16c9, retaken on `ticket-278` (the task column naming the ticket, not the row id), by running
+ * `page/testing/TicketTableFrozenCases.ts`; retake only in a commit meant to change the table, with `bun -e
  * 'import { ticketTableFrozenCases } from "./page/testing/TicketTableFrozenCases.ts"; await Bun.write("page/testing/FrozenTicketTables.json",
  * JSON.stringify(ticketTableFrozenCases(), null, 2) + "\n")'` at the repository root.
  */

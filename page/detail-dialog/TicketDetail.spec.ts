@@ -123,7 +123,7 @@ describe('the ticket body', () => {
   test('its facts are the present ones in their fixed order, the reviewed stamp read off the own row', () => {
     expect(factLabelsOf(delivered)).toEqual(['filed', 'started', 'finished', 'reviewed', 'done', 'branch', 'task']);
     expect(delivered).toContain('<div><b>reviewed</b><span title="2026-09-25 12:10">12:10</span></div>');
-    expect(delivered).toContain('<div><b>task</b><span><a href="#ap-task-7">#7</a></span></div>');
+    expect(delivered).toContain('<div><b>task</b><span><a href="#ap-task-7">#055</a></span></div>');
   });
 
   test('a waiting ticket links what it waits on to its Kanban card, has no ✓, and escapes its title', () => {

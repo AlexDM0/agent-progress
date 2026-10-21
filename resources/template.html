@@ -296,6 +296,8 @@
                           no row is always a row of its own and carries no attribute
  .ap-row > .ap-cell-name  > .ap-num, .ap-name[title], a.ap-ticket-badge, the ticket type mark on a
                             ticket's own row, .ap-waiting, .ap-tokens;
+                            .ap-num reads the row's ticket ("#NNN"), a review bar's reviewed
+                            ticket, else "TASK": a row id is never visible text;
                             .ap-name drops a leading "#NNN " the badge shows (title keeps it) and
                             clamps at two lines; the row grows from --row-h, bars stay centred
  .ap-waiting              "waiting on #003, #004", each id a link to its ticket card; also
@@ -356,19 +358,22 @@
  placeholder board        its own synthetic board, relative to 2026-09-25 13:36
  -------------------------------------------------------- ticket body markup ---
  .ap-detail-head[data-state]  the card's state; .ap-detail-id, h2.ap-detail-title, .ap-pill (always),
-                          the ✓ where the card has it, the priority mark, the ticket type mark
+                          the ✓ where the card has it, the priority mark, the ticket type mark;
+                          a task's .ap-detail-id reads as its .ap-num does, never the row id
  .ap-ticket-meta          the facts present, in order: epics (.ap-epic-chips), integration
                           (span.ap-integration: "lands together on group-x, released with #N"
                           or "releases group-x with #A, #B"), filed, started, paused ("since 11:45 · 1h 51m",
                           a paused build only) and row note (the paused row's), finished, reviewed (the own
                           row's), done, abandoned, reason, held, waiting on (links to Kanban
-                          cards), branch, task (#ap-task-N); each stamp shortened, full on hover
+                          cards), branch, task (#ap-task-N, reading "#NNN", the ticket's own id);
+                          each stamp shortened, full on hover
  Timeline section         .ap-ticket-gantt: .ap-chart-head (Row, Time, the track holding
                           .ap-ticket-gantt-ticks > .ap-tick > span, then
                           .ap-ticket-gantt-end-label[data-state?]), then .ap-body holding
                           .ap-ticket-gantt-overlay (.ap-grid-line…, .ap-ticket-gantt-end[data-state?])
                           and the rows: Filed (.ap-bar.ap-ticket-gantt-filed, drawn only here),
-                          Build (.ap-bar.ap-bar-segment[data-state=in-progress|paused][data-live?] per
+                          Build, named "Build #NNN" by the ticket's own id once it has a row,
+                          (.ap-bar.ap-bar-segment[data-state=in-progress|paused][data-live?] per
                           phase, its colour following the segment's own phase), Review N (.ap-bar[data-state=reviewing|re-review][data-live?]),
                           After build (.ap-bar.ap-lifecycle-segment[data-state], labelled when
                           wide enough); then ul.ap-ticket-gantt-legend > li > .ap-ticket-gantt-swatch,

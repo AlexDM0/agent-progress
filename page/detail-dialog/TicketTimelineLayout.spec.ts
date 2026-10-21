@@ -193,7 +193,8 @@ describe('the design’s #059, in its second review at the design’s now', () =
     expect(timeline.queueTimeText).toBe('queued 35m');
     expect(markup).toContain('<span class="ap-name">Filed <span class="mono">08:40</span></span>');
     expect(markup).toContain('title="filed 2026-09-25 08:40 · in the queue 35m"');
-    expect(markup).toContain('<span class="ap-name">Build <span class="mono">#9</span></span>');
+    expect(markup).toContain('<span class="ap-name">Build <span class="mono">#059</span></span>');
+    expect(markup).not.toContain('#9<');
     expect(markup.match(/class="ap-bar ap-bar-segment"/g)?.length).toBe(3);
     expect(markup).toContain(' · 780k tokens"');
   });

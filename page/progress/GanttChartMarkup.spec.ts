@@ -91,6 +91,18 @@ function rowFor(task: Task, ticketStatus: TicketStatus | null = null, bar: Timel
   return taskRowsMarkup([{ task: row, bar, waitingOn }], REVIEW_SEGMENTS);
 }
 
+describe('the number cell', () => {
+  // Row ids stay in the hidden attributes only: the visible cell names a ticket or reads TASK.
+  test('names a ticket’s own row by its ticket, a review bar by the ticket it reviews, and a row with neither as TASK', () => {
+    const numberCellOf = (task: Task): string | undefined => /<span class="ap-num">([^<]*)<\/span>/.exec(rowFor(task))?.[1];
+
+    expect(numberCellOf(exampleTask({ id: 41, ticket: '052' }))).toBe('#052');
+    expect(numberCellOf(exampleTask({ id: 42, name: 'Review 1 #052 — Tidy', reviewOf: '052' }))).toBe('#052');
+    expect(numberCellOf(exampleTask({ id: 43 }))).toBe('TASK');
+    expect(rowFor(exampleTask({ id: 43 }))).toContain('data-task-id="43"');
+  });
+});
+
 describe('taskRowsMarkup', () => {
   test('draws the most recently filed task on top', () => {
     const markup = taskRowsMarkup(rowsFiled([1, 2, 3].map((id) => exampleTask({ id }))), REVIEW_SEGMENTS);
@@ -588,7 +600,7 @@ describe('the task name beside its ticket badge', () => {
     const markup = rowFor(exampleTask({ name: '#052 Order confirmation e-mail shows VAT per line', ticket: '052' }), 'in-progress');
 
     expect(markup).toContain('<span class="ap-name" title="#052 Order confirmation e-mail shows VAT per line">Order confirmation e-mail shows VAT per line</span>');
-    expect(markup.match(/#052/g)).toHaveLength(2);
+    expect(markup.match(/#052/g)).toHaveLength(3);
   });
 
   test('drops an unpadded #NN naming the same ticket', () => {

@@ -9,6 +9,7 @@ import type { PageTicket }     from '../../src/shared/@types/PagePayload.ts';
 import type { TimelineLimits } from '../@types/Timeline.ts';
 import { MarkupUtil }          from '../utils/MarkupUtil.ts';
 import { TimeUtil }            from '../utils/TimeUtil.ts';
+import { WorkItemMarkupUtil }  from '../utils/WorkItemMarkupUtil.ts';
 import type {
   LegendEntry,
   ReviewSpan,
@@ -71,12 +72,12 @@ function filedRowMarkup(timeline: TicketTimeline, input: TicketTimelineInput): s
 }
 
 function buildRowMarkup(timeline: TicketTimeline, input: TicketTimelineInput): string {
-  const rowId    = timeline.ownRowId === null ? '' : ` <span class="mono">#${HtmlEscapeUtil.escapeHtml(String(timeline.ownRowId))}</span>`;
+  const rowLabel = timeline.ownRowId === null ? '' : ` <span class="mono">${HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.rowLabelOf({ ticket: input.ticket.id }))}</span>`;
   const segments = timeline.buildSegments.map((segment) => [
     `<div class="ap-bar ap-bar-segment" ${MarkupUtil.attribute('data-state', segment.state)}${liveAttribute(segment)}`,
     ` style="${barStyle(timeline.axis, segment, input.limits)}" ${MarkupUtil.attribute('title', spanTitle(segment, segment.label, input))}></div>`,
   ].join('')).join('');
-  return ganttRowMarkup(`<span class="ap-name">Build${rowId}</span>`, timeline.buildTimeText, segments);
+  return ganttRowMarkup(`<span class="ap-name">Build${rowLabel}</span>`, timeline.buildTimeText, segments);
 }
 
 function reviewRowMarkup(review: ReviewSpan, timeline: TicketTimeline, input: TicketTimelineInput): string {

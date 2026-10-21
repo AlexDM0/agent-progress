@@ -49,8 +49,21 @@ function waitingOnMarkup(identifiers: readonly string[], target: TicketLinkTarge
   return waitingOnLinksMarkup(identifiers.map((identifier) => ticketLinkOf(identifier, target)));
 }
 
-function taskLinkMarkup(taskId: number | null): string {
-  return taskId === null ? '' : `<a ${MarkupUtil.attribute('href', `#${TemplateIdUtil.taskRowElementIdOf(taskId)}`)}>#${HtmlEscapeUtil.escapeHtml(String(taskId))}</a>`;
+/** What a row is called on the page: its own ticket, else the ticket it reviews; the row's own id never shows. */
+export interface RowLabelSource {
+  ticket?:   string | null;
+  reviewOf?: string;
+}
+
+const TICKETLESS_ROW_LABEL = 'TASK';
+
+function rowLabelOf(row: RowLabelSource): string {
+  const ticket = row.ticket ?? row.reviewOf ?? null;
+  return ticket === null ? TICKETLESS_ROW_LABEL : `#${ticket}`;
+}
+
+function taskLinkMarkup(taskId: number | null, row: RowLabelSource): string {
+  return taskId === null ? '' : `<a ${MarkupUtil.attribute('href', `#${TemplateIdUtil.taskRowElementIdOf(taskId)}`)}>${HtmlEscapeUtil.escapeHtml(rowLabelOf(row))}</a>`;
 }
 
 function ticketBadgeMarkup(ticketId: string): string {
@@ -138,6 +151,7 @@ export const WorkItemMarkupUtil = {
   ticketLinksMarkup,
   waitingOnLinksMarkup,
   waitingOnMarkup,
+  rowLabelOf,
   taskLinkMarkup,
   ticketBadgeMarkup,
   ticketStatusBadgeMarkup,

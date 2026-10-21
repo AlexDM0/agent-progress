@@ -31,7 +31,7 @@ import { TICK_LABEL_GUTTER_PIXELS }                     from './constants/Progre
 export interface ChartRowSource extends TimelineRowSource {
   name:                          string;
   displayState:                  DisplayState;
-  /** The element id, `data-task-id` and the number cell. */
+  /** The element id and `data-task-id`; set, the row draws its number cell, which shows its ticket and never this id. */
   id?:                           number;
   /** The ticket badge, and the `#NNN` the name drops beside it. */
   ticket?:                       string | null;
@@ -235,7 +235,7 @@ function taskRowMarkup(placed: PlacedTaskRow, drawing: TaskRowsDrawing, otherEpi
   const identities = task.id === undefined
     ? ''
     : ` ${MarkupUtil.attribute('id', TemplateIdUtil.taskRowElementIdOf(task.id))} ${MarkupUtil.attribute('data-task-id', String(task.id))}`;
-  const numberCell = task.id === undefined ? '' : `<span class="ap-num">${HtmlEscapeUtil.escapeHtml(String(task.id))}</span>`;
+  const numberCell = task.id === undefined ? '' : `<span class="ap-num">${HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.rowLabelOf(task))}</span>`;
   const drawnBars    = [bar, ...reviewSegments.map(({ review }) => review.bar)].filter((drawnBar) => drawnBar.visible);
   const clippedLeft  = drawnBars.some((drawnBar) => drawnBar.clippedLeft);
   const clippedRight = drawnBars.some((drawnBar) => drawnBar.clippedRight);

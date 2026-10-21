@@ -94,7 +94,7 @@ function factsMarkup(input: TicketDetailInput): string {
   if (ticket.hold !== undefined) facts.push(plainFactMarkup('held', HtmlEscapeUtil.escapeHtml(ticket.hold === '' ? HELD_WITHOUT_REASON_TEXT : ticket.hold)));
   if (card.waitingOn.length > 0) facts.push(plainFactMarkup('waiting on', WorkItemMarkupUtil.ticketLinksMarkup(card.waitingOn, 'kanban-card')));
   if (ticket.branch !== undefined && ticket.branch !== '') facts.push(plainFactMarkup('branch', HtmlEscapeUtil.escapeHtml(ticket.branch)));
-  if (ticket.task !== null) facts.push(plainFactMarkup('task', WorkItemMarkupUtil.taskLinkMarkup(ticket.task)));
+  if (ticket.task !== null) facts.push(plainFactMarkup('task', WorkItemMarkupUtil.taskLinkMarkup(ticket.task, { ticket: ticket.id })));
   return `<div class="ap-ticket-meta">${facts.join('')}</div>`;
 }
 

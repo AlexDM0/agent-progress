@@ -219,7 +219,7 @@ function ticketFactsMarkup(ticket: PageTicket, format: TaskDetailInput): string 
   for (const [label, value] of plainValues) {
     if (value !== undefined && value !== '') entries.push([label, HtmlEscapeUtil.escapeHtml(value)]);
   }
-  if (ticket.task !== null) entries.push(['task', WorkItemMarkupUtil.taskLinkMarkup(ticket.task)]);
+  if (ticket.task !== null) entries.push(['task', WorkItemMarkupUtil.taskLinkMarkup(ticket.task, { ticket: ticket.id })]);
   const dependsOn = ticket.dependsOn ?? [];
   if (dependsOn.length > 0) entries.push(['waits on', WorkItemMarkupUtil.ticketLinksMarkup(dependsOn)]);
 
@@ -269,7 +269,7 @@ function headMarkup(task: BoardRow | null, ticket: PageTicket | null): string {
   const ticketBadge = task.ticket === null ? '' : WorkItemMarkupUtil.ticketBadgeMarkup(task.ticket);
   return [
     `<div class="ap-detail-head" ${MarkupUtil.attribute('data-state', state)}>`,
-    `<span class="ap-detail-id">#${HtmlEscapeUtil.escapeHtml(String(task.id))}</span>`,
+    `<span class="ap-detail-id">${HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.rowLabelOf(task))}</span>`,
     `<h2 class="ap-detail-title">${HtmlEscapeUtil.escapeHtml(task.name)}</h2>`,
     `<span class="ap-pill">${HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.stateLabelOf(state, task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND))}</span>`,
     ticketBadge,

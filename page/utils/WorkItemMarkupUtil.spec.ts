@@ -87,11 +87,13 @@ describe('waitingOnMarkup', () => {
 
 describe('taskLinkMarkup', () => {
   test('writes nothing for a ticket with no row', () => {
-    expect(taskLinkMarkup(null)).toBe('');
+    expect(taskLinkMarkup(null, { ticket: '003' })).toBe('');
   });
 
-  test('links a row by its number', () => {
-    expect(taskLinkMarkup(3)).toBe('<a href="#ap-task-3">#3</a>');
+  test('links a row by its number, naming it by its ticket, the ticket it reviews, or TASK', () => {
+    expect(taskLinkMarkup(3, { ticket: '003' })).toBe('<a href="#ap-task-3">#003</a>');
+    expect(taskLinkMarkup(4, { ticket: null, reviewOf: '003' })).toBe('<a href="#ap-task-4">#003</a>');
+    expect(taskLinkMarkup(5, { ticket: null })).toBe('<a href="#ap-task-5">TASK</a>');
   });
 });
 

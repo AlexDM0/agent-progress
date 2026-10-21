@@ -70,7 +70,7 @@ export function ticketTableRowsMarkup(tickets: readonly BoardTicket[], searchTex
     `<td>${WorkItemMarkupUtil.ticketTypeMarkMarkup(ticket.type)}</td>`,
     `<td>${displayStateBadgeMarkup(ticket)}${pauseGapMarkup(ticket, options.format)}</td>`,
     `<td class="mono">${SearchMarkUtil.matchMarkedMarkup(ticket.branch ?? '', markedQuery)}</td>`,
-    `<td class="mono">${WorkItemMarkupUtil.taskLinkMarkup(ticket.task)}</td>`,
+    `<td class="mono">${WorkItemMarkupUtil.taskLinkMarkup(ticket.task, { ticket: ticket.id })}</td>`,
     '</tr>',
   ].join('')).join('');
 }

@@ -83,11 +83,12 @@ function phaseLabelsIn(markup: string): string[] {
 }
 
 describe('the header', () => {
-  test('names the row, its state in the ladder’s words, and the ticket it belongs to', () => {
+  test('names the row by its ticket, its state in the ladder’s words, and the ticket it belongs to', () => {
     const markup = panelFor(exampleTask({ id: 7, status: 'delivered', ticket: '001' }), exampleTicket({ status: 'delivered' }));
 
     expect(markup).toContain('<div class="ap-detail-head" data-state="delivered">');
-    expect(markup).toContain('<span class="ap-detail-id">#7</span>');
+    expect(markup).toContain('<span class="ap-detail-id">#001</span>');
+    expect(markup).not.toContain('#7<');
     expect(markup).toContain('<span class="ap-pill">Done</span>');
     expect(markup).toContain('<a class="ap-ticket-badge" href="#ap-ticket-001">#001</a>');
   });
@@ -98,6 +99,11 @@ describe('the header', () => {
 
     expect(markup).toContain('<div class="ap-detail-head" data-state="reviewing">');
     expect(markup).toContain('<span class="ap-pill">Reviewing</span>');
+  });
+
+  test('names a review bar by the ticket it reviews and a row with no ticket as TASK, never by its row id', () => {
+    expect(panelFor(exampleTask({ id: 31, reviewOf: '008' }), null)).toContain('<span class="ap-detail-id">#008</span>');
+    expect(panelFor(exampleTask({ id: 32 }), null)).toContain('<span class="ap-detail-id">TASK</span>');
   });
 
   test('opens on the ticket alone when its row has been removed, and on nothing at all when neither is there', () => {
@@ -334,6 +340,7 @@ describe('the ticket', () => {
     expect(markup).toContain('<div><b>commit</b><span>abc1234</span></div>');
     expect(markup).toContain('<div><b>filed</b><span title="2026-09-18 20:26">20:26</span></div>');
     expect(markup).toContain('<div><b>waits on</b><span><a href="#ap-ticket-002">#002</a>, <a href="#ap-ticket-003">#003</a></span></div>');
+    expect(markup).toContain('<div><b>task</b><span><a href="#ap-task-1">#001</a></span></div>');
   });
 
   test('places the pre-rendered body verbatim, because it is the one string already escaped elsewhere', () => {
