@@ -253,6 +253,7 @@ skill lists commands: `agent-progress help` is the reference, and both name it a
 |---|---|---|---|
 | `agent-po` | `skills/agent-po/` | by itself in any session asked to file, report or track a ticket, bug or research question, or with `/agent-po`; and by the orchestrator for its intake | the whole filing procedure: fact-finding through subagents with capped reports, filing without questions and writing each assumption into Wanted (grilling only when the user asks, through a `grill-me` skill when the session has one, else the host's question tool), the split by mechanism, the epic check, merging or ordering tickets that share files or a mechanism, the body with its numbered Acceptance and `## Brief`, and the filing mechanics. It never dispatches, claims, starts or releases a ticket. |
 | `agent-progress-orchestrate` | `skills/agent-progress-orchestrate/` | only with `/agent-progress-orchestrate` or when asked to run the board | what is the orchestrator's alone: grilling before every filing, asking every question with the question tool, judging a finding's severity, asking for the go, launching, relaunching and resuming the dispatcher, triaging low-priority tickets. It loads `agent-po` for intake and repeats none of it. |
+
 ## Commands
 
 Options in `[brackets]` are optional; `a|b` is a choice of one.
