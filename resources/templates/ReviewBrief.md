@@ -47,9 +47,9 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
 2. Fix every finding in what you review — the branch's change and the ticket's Acceptance — yourself,
    with the Edit tool (no heredoc, edit script or `sed -i`), one commit per fix, one plain subject
    line, each a new commit on top of the builder's: never `--amend`, squash or fixup a commit an
-   earlier pass made, and never `git rebase -i` or `--autosquash`. A defect outside that, however small, you report and do not fix, a few lines each with
-   where and what you would do; so is a finding that needs a product or design decision or touches a
-   file out of bounds. A dispatched reviewer files each itself,
+   earlier pass made, and never `git rebase -i` or `--autosquash`. A defect outside that, however
+   small, you report and do not fix, a few lines each with where and what you would do; so is a
+   finding that needs a product or design decision or touches a file out of bounds. A dispatched reviewer files each itself,
    `agent-progress ticket add "<what and where>" --type ticket|bug --priority low --body "<what you saw>"`; by hand
    the orchestrator files what you report.
 3. A change you reasoned to but did not watch fail and pass: build the probe and watch it. A doubt
@@ -64,9 +64,9 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
    `git -C <worktree> commit --allow-empty -m "Review round <N> of #<id>: no changes"` (a bundle
    names every id), so every pass shows apart on the branch.
 5. Record `git -C <worktree> rev-parse HEAD` as <pre-rebase tip>, then `git rebase <main line>`,
-   never `-i`, keeping every commit, the empty one included: resolve with Edit, `git add`, `GIT_EDITOR=true git rebase --continue`. Run
-   `<full check command> 2>&1 | tail -20` until green, commit what is uncommitted. Step 3 covers
-   hunks you resolved by hand. Count what the rebase changed:
+   never `-i`, keeping every commit, the empty one included: resolve with Edit, `git add`,
+   `GIT_EDITOR=true git rebase --continue`. Run `<full check command> 2>&1 | tail -20` until green,
+   commit what is uncommitted. Step 3 covers hunks you resolved by hand. Count what the rebase changed:
    `agent-progress rework --rebased-from <pre-rebase tip> --main <main line> --worktree <worktree>`.
    The rebase is exempt from the budget: past it, finish the rebase anyway, never
    `git rebase --abort`; a big resolution is what step 7b is for.
