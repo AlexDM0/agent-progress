@@ -1,7 +1,7 @@
 /**
  * That `resources/template.html` filled with a fixed fixture stays byte for byte the page main rendered before the spec view's second
- * edition, both with a page script and with the banner-only fallback. The expected digests were retaken on the commit that worded the
- * header comments' ticket labels in place of row ids. To retake them, check out the commit to compare against, run this spec, and copy
+ * edition, both with a page script and with the banner-only fallback. The expected digests were retaken on the commit that put ticket labels in
+ * the placeholder board's row numbers and detail head. To retake them, check out the commit to compare against, run this spec, and copy
  * each actual digest its failure prints into `FROZEN_PAGE_DIGESTS`.
  */
 import { createHash } from 'node:crypto';
@@ -15,8 +15,8 @@ import { createMarkdownRenderer } from './MarkdownRenderer.ts';
 import { fillPageTemplate }       from './PageTemplateFill.ts';
 
 const FROZEN_PAGE_DIGESTS = {
-  withPageScript: '91bf1641447402bd9f5e357d93b8549f1c1f91be41e7615e70818fcf27b9a639',
-  bannerOnly:     '5122a86ac5699e8aa96c466aa16797cc3e3983c01fab47963af3996950458e4a',
+  withPageScript: '70a0099e3229626bfdb922891549b4e5cfa53c7a14f6ffc806c11c0e0cbf82a6',
+  bannerOnly:     '238fc0d11b303e9358d21498f85be3045fd4489f054b8edc912022e856c91e89',
 } as const;
 
 const FROZEN_PROGRESS: TrackerProgress = {

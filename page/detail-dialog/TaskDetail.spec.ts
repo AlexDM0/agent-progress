@@ -83,14 +83,29 @@ function phaseLabelsIn(markup: string): string[] {
 }
 
 describe('the header', () => {
-  test('names the row by its ticket, its state in the ladder’s words, and the ticket it belongs to', () => {
+  test('names the row by its ticket and its state in the ladder’s words', () => {
     const markup = panelFor(exampleTask({ id: 7, status: 'delivered', ticket: '001' }), exampleTicket({ status: 'delivered' }));
 
     expect(markup).toContain('<div class="ap-detail-head" data-state="delivered">');
     expect(markup).toContain('<span class="ap-detail-id">#001</span>');
     expect(markup).not.toContain('#7<');
     expect(markup).toContain('<span class="ap-pill">Done</span>');
-    expect(markup).toContain('<a class="ap-ticket-badge" href="#ap-ticket-001">#001</a>');
+  });
+
+  test('names a ticket’s own row by its ticket id once: the title drops the same leading #NNN, keeping it in the title attribute, and no badge repeats it', () => {
+    const markup = panelFor(exampleTask({ name: '#001 Example ticket', ticket: '001' }), exampleTicket());
+    const head   = /<div class="ap-detail-head"[^>]*>(.*?)<\/div>/.exec(markup)?.[1] ?? '';
+    const visibleText = head.replaceAll(/<[^>]*>/g, ' ');
+
+    expect(head).toContain('<h2 class="ap-detail-title" title="#001 Example ticket">Example ticket</h2>');
+    expect(head).not.toContain('ap-ticket-badge');
+    expect(visibleText.match(/#001/g)).toHaveLength(1);
+  });
+
+  test('keeps the full name of a review bar, a TASK row and a row whose leading number names another ticket', () => {
+    expect(panelFor(exampleTask({ name: '#008 Review', reviewOf: '008' }), null)).toContain('<h2 class="ap-detail-title">#008 Review</h2>');
+    expect(panelFor(exampleTask({ name: '#004 Notes' }), null)).toContain('<h2 class="ap-detail-title">#004 Notes</h2>');
+    expect(panelFor(exampleTask({ name: '#004 Notes', ticket: '001' }), exampleTicket())).toContain('<h2 class="ap-detail-title">#004 Notes</h2>');
   });
 
   // The one state a task status cannot name on its own, and the panel has to read it the same way the chart does.

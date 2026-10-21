@@ -14,6 +14,7 @@ import { EXAMPLE_TIMESTAMP_SLICES } from '../testing/PageLimitsFixture.ts';
 import { WorkItemMarkupUtil }       from './WorkItemMarkupUtil.ts';
 
 const {
+  displayedRowNameOf,
   latestMilestoneMarkup,
   priorityMarkMarkup,
   reviewedMarkMarkup,
@@ -94,6 +95,19 @@ describe('taskLinkMarkup', () => {
     expect(taskLinkMarkup(3, { ticket: '003' })).toBe('<a href="#ap-task-3">#003</a>');
     expect(taskLinkMarkup(4, { ticket: null, reviewOf: '003' })).toBe('<a href="#ap-task-4">#003</a>');
     expect(taskLinkMarkup(5, { ticket: null })).toBe('<a href="#ap-task-5">TASK</a>');
+  });
+});
+
+describe('displayedRowNameOf', () => {
+  test('drops a leading #NNN naming the row’s own ticket, however it is zero-padded', () => {
+    expect(displayedRowNameOf({ name: '#001 Example ticket', ticket: '001' })).toBe('Example ticket');
+    expect(displayedRowNameOf({ name: '#1 Example ticket', ticket: '001' })).toBe('Example ticket');
+  });
+
+  test('keeps a name whose leading number names another ticket, and every name on a row with no ticket of its own', () => {
+    expect(displayedRowNameOf({ name: '#004 Example ticket', ticket: '001' })).toBe('#004 Example ticket');
+    expect(displayedRowNameOf({ name: '#008 Example review', ticket: null })).toBe('#008 Example review');
+    expect(displayedRowNameOf({ name: '#008 Example task' })).toBe('#008 Example task');
   });
 });
 

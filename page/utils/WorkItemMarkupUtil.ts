@@ -62,6 +62,17 @@ function rowLabelOf(row: RowLabelSource): string {
   return ticket === null ? TICKETLESS_ROW_LABEL : `#${ticket}`;
 }
 
+const LEADING_TICKET_NUMBER_PATTERN = /^#(\d+)\s+/;
+
+/** A row name opening with its own ticket's `#NNN` drops it, since the label beside it already names the ticket; any other name is kept. */
+function displayedRowNameOf(row: { name: string; ticket?: string | null }): string {
+  const leadingNumber = LEADING_TICKET_NUMBER_PATTERN.exec(row.name);
+  if (row.ticket === undefined || row.ticket === null || leadingNumber === null || Number(leadingNumber[1]) !== Number(row.ticket)) {
+    return row.name;
+  }
+  return row.name.slice(leadingNumber[0].length);
+}
+
 function taskLinkMarkup(taskId: number | null, row: RowLabelSource): string {
   return taskId === null ? '' : `<a ${MarkupUtil.attribute('href', `#${TemplateIdUtil.taskRowElementIdOf(taskId)}`)}>${HtmlEscapeUtil.escapeHtml(rowLabelOf(row))}</a>`;
 }
@@ -152,6 +163,7 @@ export const WorkItemMarkupUtil = {
   waitingOnLinksMarkup,
   waitingOnMarkup,
   rowLabelOf,
+  displayedRowNameOf,
   taskLinkMarkup,
   ticketBadgeMarkup,
   ticketStatusBadgeMarkup,

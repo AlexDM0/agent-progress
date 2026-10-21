@@ -265,14 +265,15 @@ function headMarkup(task: BoardRow | null, ticket: PageTicket | null): string {
       '</div>',
     ].join('');
   }
-  const state       = task.displayState;
-  const ticketBadge = task.ticket === null ? '' : WorkItemMarkupUtil.ticketBadgeMarkup(task.ticket);
+  const state         = task.displayState;
+  const displayedName = WorkItemMarkupUtil.displayedRowNameOf(task);
+  // The id label already names the row's ticket, so no ticket badge repeats it.
+  const title = displayedName === task.name ? '' : ` ${MarkupUtil.attribute('title', task.name)}`;
   return [
     `<div class="ap-detail-head" ${MarkupUtil.attribute('data-state', state)}>`,
     `<span class="ap-detail-id">${HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.rowLabelOf(task))}</span>`,
-    `<h2 class="ap-detail-title">${HtmlEscapeUtil.escapeHtml(task.name)}</h2>`,
+    `<h2 class="ap-detail-title"${title}>${HtmlEscapeUtil.escapeHtml(displayedName)}</h2>`,
     `<span class="ap-pill">${HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.stateLabelOf(state, task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND))}</span>`,
-    ticketBadge,
     '</div>',
   ].join('');
 }

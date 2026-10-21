@@ -117,8 +117,6 @@ function ticketOf(task: ChartRowSource): string | null {
   return task.ticket ?? null;
 }
 
-const LEADING_TICKET_NUMBER_PATTERN = /^#(\d+)\s+/;
-
 const FOLD_CARET = '▾';
 
 /** Only the prefix is read, as when the bar was filed: `Review 2 #13, #5 — …` is round 2. */
@@ -165,15 +163,6 @@ function taskRowsInDisplayOrder(rows: readonly TaskRow[], reviewRowsAreShown: bo
       { ...ownRow, reviewSegments: [] },
     ];
   });
-}
-
-/** The badge already shows the ticket, so a name opening with the same `#NNN` drops it; the title keeps the full name. */
-function displayedNameOf(task: ChartRowSource): string {
-  const leadingNumber = LEADING_TICKET_NUMBER_PATTERN.exec(task.name);
-  if (task.ticket === undefined || task.ticket === null || leadingNumber === null || Number(leadingNumber[1]) !== Number(task.ticket)) {
-    return task.name;
-  }
-  return task.name.slice(leadingNumber[0].length);
 }
 
 function placementStyle(placed: { leftPercent: number; widthPercent: number }): string {
@@ -242,7 +231,7 @@ function taskRowMarkup(placed: PlacedTaskRow, drawing: TaskRowsDrawing, otherEpi
   return [
     `<div class="ap-grid-row ap-row" tabindex="0"${identities} ${MarkupUtil.attribute('data-state', state)}${nesting}>`,
     `<div class="ap-cell-name">${numberCell}`,
-    `<span class="ap-name" ${MarkupUtil.attribute('title', task.name)}>${HtmlEscapeUtil.escapeHtml(displayedNameOf(task))}</span>`,
+    `<span class="ap-name" ${MarkupUtil.attribute('title', task.name)}>${HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.displayedRowNameOf(task))}</span>`,
     `${ticketBadge}${typeMark}${WorkItemMarkupUtil.waitingOnMarkup(row.waitingOn)}${tokens}${otherEpicSquares}${row.trailingNameMarkup ?? ''}</div>`,
     `<div class="ap-cell-pill"><span class="ap-pill">${HtmlEscapeUtil.escapeHtml(pillLabel)}</span>${reviewedMark}</div>`,
     `<div class="ap-cell-track"><span class="ap-clip-l"${clippedLeft ? '' : ' hidden'}></span>`,
