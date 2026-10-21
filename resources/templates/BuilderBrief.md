@@ -67,8 +67,9 @@ Close in this order, git as `git -C <worktree>`:
    commits: never `--amend`, squash or fixup a commit an earlier pass made, and never
    `git rebase -i` or `--autosquash`. A rework build after a review adds commits, never rewriting
    the reviewed ones.
-2. `git rebase <main line>`, never `-i`, keeping every commit. On a conflict resolve with the Edit tool, `git add`, then
-   `GIT_EDITOR=true git rebase --continue`; the same conflict may return on a later commit.
+2. `git rebase <main line>`, never `-i`, keeping every commit. On a conflict resolve with the Edit
+   tool, `git add`, then `GIT_EDITOR=true git rebase --continue`; the same conflict may return on a
+   later commit.
 3. Full checks until green on the rebased result; commit what is uncommitted.
 The rebase is exempt from the budget: you hold the context a fresh agent would have to buy again, so
 past it, finish the rebase anyway and say in the Handoff how much resolving it took. Never
