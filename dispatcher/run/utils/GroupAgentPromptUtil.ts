@@ -19,6 +19,8 @@ const {
   worktreeOf,
   startReviewCommandOf,
   statusReturnText,
+  historyKeepingText,
+  reviewMarkText,
 } = AgentPromptUtil;
 
 function groupBranchOf(groupName: string): string {
@@ -125,6 +127,7 @@ function groupBuilderPrompt(settings: DispatchSettings, placement: GroupPlacemen
     `Close as Ready to merge says, its rebase being \`git -C ${worktree} rebase <base>\` with <base> read again at that moment, append the \`## Handoff\`, `
       + `then run \`${startReviewCommandOf(settings, 'finish', ticketId, owner)}\`. Never merge ${branchOf(ticketId)} into ${groupBranch} or ${settings.mainLine}, `
       + 'and never release or version anything: the fast-forward of the group branch is your reviewer\'s, the release the release ticket\'s.',
+    historyKeepingText(),
     'Return outcome `in-review` when `ticket finish` succeeded and `failed` otherwise, with your report as `detail` and `claimNote` empty unless your claim '
       + `was refused as in-progress. ${statusReturnText()}`,
   );
@@ -180,6 +183,7 @@ function pipelineStepText(settings: DispatchSettings, placement: GroupPlacement,
 function reviewDisciplineLines(): string[] {
   return [
     `You may use up to about ${DISPATCH_PROTOCOL.REVIEWER_API_CALL_BUDGET} API calls for the review; the rebase and the integration steps are exempt.`,
+    `${historyKeepingText()} ${reviewMarkText()} The rebases of P and R2 keep every commit too.`,
     'Every finding you would hand on instead of fixing, you file yourself: '
       + '`agent-progress ticket add "<what and where>" --type ticket|bug --priority low --body "<what you saw and what you would do>"`; '
       + 'return the ids it printed as `filedTicketIds`.',

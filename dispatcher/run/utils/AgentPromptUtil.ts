@@ -25,6 +25,11 @@ const READY_TICKETS_ADDITION_TEXT = 'adding `readyTickets` (the same document\'s
 const STATUS_RETURN_TEXT = `As your very last act run \`agent-progress status --json\` and return its \`concurrency\` block as \`status\`, ${READY_TICKETS_ADDITION_TEXT}, `
   + 'so the dispatcher acts on the newest board.';
 
+const HISTORY_KEEPING_TEXT = 'Every pass leaves its own commits on the branch: yours go on top as new commits, never `--amend`, squash or fixup a commit '
+  + 'an earlier pass made, never `git rebase -i` or `--autosquash`, and a rebase keeps every commit.';
+
+const REVIEW_MARK_TEXT = 'A review that changed nothing still leaves one empty marker commit before its rebase, as step 4 of the review brief says.';
+
 function branchOf(ticketId: string): string {
   return `ticket-${ticketId}`;
 }
@@ -150,6 +155,7 @@ function builderPrompt(settings: DispatchSettings, request: BuilderPromptRequest
     // One lock hold moves the ticket to review and starts its reviewer's bar, so no status block between builder and reviewer shows the slot free.
     `Close as Ready to merge says, append the \`## Handoff\`, then run \`${startReviewCommandOf(settings, 'finish', ticketId, owner)}\`. `
       + `Never merge ${branchOf(ticketId)} into ${settings.mainLine} and never run \`agent-progress release\`: the release is the reviewer's.`,
+    HISTORY_KEEPING_TEXT,
     'Return outcome `in-review` when `ticket finish` succeeded and `failed` otherwise, with your report as `detail` and `claimNote` empty unless your claim '
       + `was refused as in-progress. ${STATUS_RETURN_TEXT}`,
   );
@@ -193,6 +199,7 @@ function reviewerPrompt(settings: DispatchSettings, request: ReviewerPromptReque
     `Read \`${settings.mainCheckout}/${DISPATCH_PROTOCOL.REVIEW_BRIEF_PATH_IN_REPOSITORY}\` once and follow its fenced block as your whole procedure, `
       + `steps 0 to 8, ${briefPlaceholdersText(settings, ticketId)}. Step 0 reads the diff first; you fix only what you review.`,
     `You may use up to about ${DISPATCH_PROTOCOL.REVIEWER_API_CALL_BUDGET} API calls.`,
+    `${HISTORY_KEEPING_TEXT} ${REVIEW_MARK_TEXT}`,
     'Every finding you would hand on instead of fixing, you file yourself: '
       + '`agent-progress ticket add "<what and where>" --type ticket|bug --priority low --body "<what you saw and what you would do>"`; '
       + 'return the ids it printed as `filedTicketIds`.',
@@ -236,6 +243,14 @@ function readyTicketsAdditionText(): string {
   return READY_TICKETS_ADDITION_TEXT;
 }
 
+function historyKeepingText(): string {
+  return HISTORY_KEEPING_TEXT;
+}
+
+function reviewMarkText(): string {
+  return REVIEW_MARK_TEXT;
+}
+
 function worktreeNamesReturnText(): string {
   return WORKTREE_NAMES_RETURN_TEXT;
 }
@@ -256,6 +271,8 @@ export const AgentPromptUtil = {
   promptWithPreambleOf,
   statusReturnText,
   readyTicketsAdditionText,
+  historyKeepingText,
+  reviewMarkText,
   worktreeNamesReturnText,
   boardTicketCopyText,
   branchOf,
