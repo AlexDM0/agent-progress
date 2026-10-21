@@ -163,7 +163,8 @@ describe('epicCardsMarkup under the finished-work switch', () => {
 
   function epicsTabMarkup(choice: FinishedWorkChoice): string {
     const cutoff = FinishedWorkUtil.cutoffEpochMillisecondsOf(choice, NOW, EXAMPLE_PAGE_LIMITS);
-    return EpicMarkup.epicCardsMarkup(FinishedWorkUtil.shownEpicsOf(switched.epics, cutoff), switchedTicketById, switchedGraph, switchedFormat);
+    const { ticketFinishedMomentById } = FinishedWorkUtil.boardFinishedMomentsOf(switched);
+    return EpicMarkup.epicCardsMarkup(FinishedWorkUtil.shownEpicsOf(switched.epics, ticketFinishedMomentById, cutoff), switchedTicketById, switchedGraph, switchedFormat);
   }
 
   test('"last day" drops the card of an epic whose tickets all settled over a day ago, and "all" brings it back', () => {

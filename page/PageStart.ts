@@ -137,9 +137,12 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
 
   let finishedWork                = preferences.readFinishedWorkChoice();
   let hiddenCountByClosedLane     = { done: 0, abandoned: 0 };
-  const taskFinishedMoments       = board.rows.map((row) => FinishedWorkUtil.taskFinishedEpochMillisecondsOf(row));
-  const ticketFinishedMoments     = board.tickets.map((ticket) => FinishedWorkUtil.ticketFinishedEpochMillisecondsOf(ticket));
-  const epicFinishedMoments       = board.epics.map((epic) => FinishedWorkUtil.epicFinishedEpochMillisecondsOf(epic));
+  const {
+    tasks:   taskFinishedMoments,
+    tickets: ticketFinishedMoments,
+    epics:   epicFinishedMoments,
+    ticketFinishedMomentById,
+  } = FinishedWorkUtil.boardFinishedMomentsOf(board);
   // Declared before its controller, since the Kanban's show-all link and the switch each change the other's view.
   let showAllFinishedWork = (): void => undefined;
   const ticketById = new Map(board.tickets.map((ticket) => [ticket.id, ticket]));
@@ -187,7 +190,8 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   // The switch hides a finished epic's whole card, but a card it shows counts all its tickets, finished ones included.
   const showEpicsTab = (cutoff: number): void => {
     if (board.epics.length > 0) {
-      DomUtil.setMarkup(EPICS_BOARD_ELEMENT_ID, EpicMarkup.epicCardsMarkup(FinishedWorkUtil.shownEpicsOf(board.epics, cutoff), ticketById, dependencyGraph, {
+      const shownEpics = FinishedWorkUtil.shownEpicsOf(board.epics, ticketFinishedMomentById, cutoff);
+      DomUtil.setMarkup(EPICS_BOARD_ELEMENT_ID, EpicMarkup.epicCardsMarkup(shownEpics, ticketById, dependencyGraph, {
         limits,
         todayCalendarDate,
         nowEpochMilliseconds: Date.now(),

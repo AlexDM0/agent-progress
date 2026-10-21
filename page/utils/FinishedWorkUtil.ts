@@ -97,9 +97,15 @@ function cutoffEpochMillisecondsOf(choice: FinishedWorkChoice, nowEpochMilliseco
   return nowEpochMilliseconds - spanMinutesOf(span, units) * MILLISECONDS_PER_MINUTE;
 }
 
-/** When a delivered or abandoned row finished, or null for a row still open. A settled row without an end finished when it started. */
-function taskFinishedEpochMillisecondsOf(task: Task): number | null {
-  return SETTLED_TASK_STATUSES.includes(task.status) ? TimeUtil.epochMillisecondsOf(task.end ?? task.start) : null;
+/**
+ * When a delivered or abandoned row finished, or null for a row still open. A settled row without an end finished when it started; one
+ * that never started, as a ticket abandoned while pending leaves its row, when it reached its last phase, else when its ticket closed.
+ */
+function taskFinishedEpochMillisecondsOf(task: Task, ticketFinishedEpochMilliseconds: number | null = null): number | null {
+  if (!SETTLED_TASK_STATUSES.includes(task.status)) {
+    return null;
+  }
+  return TimeUtil.epochMillisecondsOf(task.end ?? task.start ?? task.history?.at(-1)?.at) ?? ticketFinishedEpochMilliseconds;
 }
 
 /** When a delivered or abandoned ticket closed, or null for a ticket still open; `updated` stands in for a closing stamp it lacks. */
@@ -111,18 +117,47 @@ function ticketFinishedEpochMillisecondsOf(ticket: TicketFrontmatter): number | 
   return TimeUtil.epochMillisecondsOf(closingStamp ?? ticket.updated);
 }
 
+type DatedEpic = Pick<EpicRollup, 'ticketCountByStatus' | 'span' | 'ticketIds'>;
+
 /**
- * When a finished epic, one with tickets that are all delivered or abandoned, ended, or null for an open or empty epic; read from its
- * ticket counts alone. A finished epic without a span end cannot be dated, so it reads as null and always shows.
+ * When a finished epic, one with tickets that are all delivered or abandoned, ended, or null for an open or empty epic. Its span's end
+ * dates it; one without, as an epic whose tickets were abandoned before any row started, ended when its last ticket closed.
  */
-function epicFinishedEpochMillisecondsOf(epic: Pick<EpicRollup, 'ticketCountByStatus' | 'span'>): number | null {
+function epicFinishedEpochMillisecondsOf(epic: DatedEpic, ticketFinishedMomentById: ReadonlyMap<string, number | null>): number | null {
   const counts       = Object.entries(epic.ticketCountByStatus) as [TicketStatus, number][];
   const ticketCount  = counts.reduce((total, [, count]) => total + count, 0);
   const settledCount = counts.filter(([status]) => SETTLED_TICKET_STATUSES.includes(status)).reduce((total, [, count]) => total + count, 0);
   if (ticketCount === 0 || settledCount < ticketCount) {
     return null;
   }
-  return TimeUtil.epochMillisecondsOf(epic.span?.end);
+  const ticketMoments = epic.ticketIds.flatMap((ticketId) => ticketFinishedMomentById.get(ticketId) ?? []);
+  return TimeUtil.epochMillisecondsOf(epic.span?.end) ?? (ticketMoments.length === 0 ? null : Math.max(...ticketMoments));
+}
+
+interface BoardFinishedMoments {
+  /** One per row, in row order: the Progress tab's. */
+  tasks:                    (number | null)[];
+  /** One per ticket, in ticket order: the Tickets tab's and the Kanban's. */
+  tickets:                  (number | null)[];
+  /** One per epic, in epic order: the Epics tab's. */
+  epics:                    (number | null)[];
+  ticketFinishedMomentById: ReadonlyMap<string, number | null>;
+}
+
+/** Every finished moment a board's views filter by, each row able to fall back on its ticket's and each epic on its tickets'. */
+function boardFinishedMomentsOf(board: {
+  rows:    readonly Task[];
+  tickets: readonly TicketFrontmatter[];
+  epics:   readonly DatedEpic[];
+}): BoardFinishedMoments {
+  const tickets                  = board.tickets.map((ticket) => ticketFinishedEpochMillisecondsOf(ticket));
+  const ticketFinishedMomentById = new Map(board.tickets.map((ticket, index) => [ticket.id, tickets[index] ?? null]));
+  return {
+    tasks: board.rows.map((row) => taskFinishedEpochMillisecondsOf(row, row.ticket === null ? null : ticketFinishedMomentById.get(row.ticket) ?? null)),
+    tickets,
+    epics: board.epics.map((epic) => epicFinishedEpochMillisecondsOf(epic, ticketFinishedMomentById)),
+    ticketFinishedMomentById,
+  };
 }
 
 // Comparing with the cutoff is a stated clock exception that decides only what the page shows, never what is stored.
@@ -132,8 +167,12 @@ function finishedMomentIsShown(finishedEpochMilliseconds: number | null, cutoffE
 }
 
 /** The epics the Epics tab draws a card for: every open or empty one, and the finished ones that ended at or after the cutoff. */
-function shownEpicsOf<Epic extends Pick<EpicRollup, 'ticketCountByStatus' | 'span'>>(epics: readonly Epic[], cutoffEpochMilliseconds: number): Epic[] {
-  return epics.filter((epic) => finishedMomentIsShown(epicFinishedEpochMillisecondsOf(epic), cutoffEpochMilliseconds));
+function shownEpicsOf<Epic extends DatedEpic>(
+  epics: readonly Epic[],
+  ticketFinishedMomentById: ReadonlyMap<string, number | null>,
+  cutoffEpochMilliseconds: number,
+): Epic[] {
+  return epics.filter((epic) => finishedMomentIsShown(epicFinishedEpochMillisecondsOf(epic, ticketFinishedMomentById), cutoffEpochMilliseconds));
 }
 
 function shownFinishedCountOf(finishedMoments: readonly (number | null)[], cutoffEpochMilliseconds: number): number {
@@ -191,6 +230,7 @@ export const FinishedWorkUtil = {
   taskFinishedEpochMillisecondsOf,
   ticketFinishedEpochMillisecondsOf,
   epicFinishedEpochMillisecondsOf,
+  boardFinishedMomentsOf,
   finishedMomentIsShown,
   shownEpicsOf,
   shownFinishedCountOf,
