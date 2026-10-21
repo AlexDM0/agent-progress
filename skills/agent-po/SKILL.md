@@ -83,7 +83,8 @@ ticket on its subject, with `ticket add --epic <key>`. For two hours after an ep
 delivered it also takes a refinement of the released work; after that, or for new scope, the ticket
 is filed on its own. A chain of four or more tickets, each waiting on the one before, or a `--group`,
 gets an epic of its own (`epic add <key> "<title>"`, the key a short slug of the subject), and so does
-any task the user asks an epic for; a chain that grows past three later gets one then, with
+any task the user asks an epic for. Tickets that run in parallel are no chain, and a ticket's reviews
+never count towards the four; a chain that grows past three later gets one then, with
 `ticket epic <id> --add <key>` for the earlier tickets. A ticket's first epic is its primary one.
 Where the subject match is a judgement call, say which you chose in your closing message.
 
