@@ -957,8 +957,9 @@ for a monitor to find each project's page and data; a folder, so the monitor can
 project registers, its entry added or updated, exactly when the call wrote its `progress.html`: a mutating command
 whose render succeeded, `render`, `open` when it renders a missing page, and `init`. `update` never renders the page,
 so it never registers; neither does a read-only call, `view-spec` (it writes `progress-spec.html`), or a store write
-whose render failed. A tracker whose root lies under the system temp folder, compared after resolving symlinks, is
-never registered.
+whose render failed. A tracker whose root lies under a temp folder is never registered: the system temp folder
+(`os.tmpdir()`, on macOS `$TMPDIR` under `/var/folders`), `/tmp` and `/var/tmp`, each compared after resolving
+symlinks (`/tmp` to `/private/tmp` on macOS). An entry already in the registry stays.
 
 An entry is keyed by the tracker's `trackerId`, so a moved or renamed folder updates its one entry. It holds the
 page's `project` name, the `root` folder, the absolute paths of `progressHtml` and `progressJson`, `gitOrigin` (the

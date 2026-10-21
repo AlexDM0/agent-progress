@@ -21,14 +21,22 @@ export interface CommandContext {
   platform:                string;
   /** `node:os`'s `homedir()`, carried here so a spec can point the Claude Code transcripts at a scratch tree. */
   homeDirectory:           string;
-  /** `node:os`'s `tmpdir()`: a tracker under it is a scratch one the monitor registry leaves out. */
-  temporaryDirectory:      string;
+  /** `temporaryDirectoriesOfThisMachine()`: a tracker under any of them is a scratch one the monitor registry leaves out. */
+  temporaryDirectories:    readonly string[];
   /** The verb `cli/Main.ts` dispatched, such as `ticket finish`, which the monitor registry records; empty before the dispatch. */
   commandVerb:             string;
   /** Created once per invocation; holds the render service's memos, the page bundle and the configured Marked. */
   renderState:             RenderState;
   /** What `copilot --version` prints, or `null` when it cannot be run; asked only by `init --host copilot-cli`. */
   copilotVersionOutput:    () => string | null;
+}
+
+/** Beside `tmpdir()`, which on macOS is a per-user folder under `/var/folders`; Claude Code keeps its scratchpads under `/tmp`. */
+const TEMPORARY_FOLDERS_OF_EVERY_UNIX_MACHINE = ['/tmp', '/var/tmp'];
+
+/** The one set of temp roots the monitor registry leaves out, each compared after resolving symlinks. */
+export function temporaryDirectoriesOfThisMachine(): string[] {
+  return [tmpdir(), ...TEMPORARY_FOLDERS_OF_EVERY_UNIX_MACHINE];
 }
 
 /** A function, never a module constant: a constant would read `process.cwd()` at import time and hand every spec the test runner's directory. */
@@ -43,7 +51,7 @@ export function createProcessContext(): CommandContext {
     confirm:                 confirmOnStandardInput,
     platform:                process.platform,
     homeDirectory:           homedir(),
-    temporaryDirectory:      tmpdir(),
+    temporaryDirectories:    temporaryDirectoriesOfThisMachine(),
     commandVerb:             '',
     renderState:             createRenderState(),
     copilotVersionOutput:    versionOutputOfTheInstalledCopilot,

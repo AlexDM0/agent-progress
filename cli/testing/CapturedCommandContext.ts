@@ -30,7 +30,7 @@ export interface CapturedCommandContextOptions {
    * By default the system temp folder every scratch directory lies in, so no spec registers in the monitor registry; a spec of the registry
    * names a scratch folder its repository lies outside.
    */
-  temporaryDirectory?:      string;
+  temporaryDirectories?:    readonly string[];
   /** What `copilot --version` answers; by default the oldest version `init --host copilot-cli` takes, so no spec runs the real binary. */
   copilotVersionOutput?:    string | null;
 }
@@ -81,7 +81,7 @@ export function createCapturedCommandContext(options: CapturedCommandContextOpti
     },
     platform:             options.platform ?? DEFAULT_SPEC_PLATFORM,
     homeDirectory:        options.homeDirectory ?? join(options.currentDirectory, SPEC_HOME_FOLDER_NAME),
-    temporaryDirectory:   options.temporaryDirectory ?? tmpdir(),
+    temporaryDirectories: options.temporaryDirectories ?? [tmpdir()],
     commandVerb:          '',
     renderState:          createRenderState(),
     copilotVersionOutput: () => (options.copilotVersionOutput === undefined ? DEFAULT_SPEC_COPILOT_VERSION_OUTPUT : options.copilotVersionOutput),

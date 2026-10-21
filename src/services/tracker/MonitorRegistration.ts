@@ -2,8 +2,15 @@
  * Records a tracker whose page this call wrote in the machine-wide registry `~/.agent-progress-monitor/projects.json`, which a monitor
  * reads to find every project's page and data. It never fails the command: every way it does not register comes back as a verdict.
  */
-import { mkdirSync, realpathSync }    from 'node:fs';
-import { isAbsolute, join, relative } from 'node:path';
+import { mkdirSync, realpathSync } from 'node:fs';
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve
+} from 'node:path';
 
 import { storedFileTextOf }                                              from '../../adapters/StoredFileText.ts';
 import { ProgressFileIngestion }                                         from '../../adapters/progress/ProgressFileIngestion.ts';
@@ -17,13 +24,13 @@ import type { Workspace }                                                from '.
 import { MONITOR_REGISTRY_FILES }                                        from './constants/MonitorRegistryFiles.ts';
 
 export interface MonitorRegistrationRequest {
-  workspace:          Workspace;
-  homeDirectory:      string;
-  /** The system temp folder: a tracker under it is a scratch one nobody monitors. */
-  temporaryDirectory: string;
+  workspace:            Workspace;
+  homeDirectory:        string;
+  /** Every temp folder of the machine: a tracker under any of them is a scratch one nobody monitors. */
+  temporaryDirectories: readonly string[];
   /** The verb that wrote the page, such as `ticket finish`. */
-  command:            string;
-  now:                () => Date;
+  command:              string;
+  now:                  () => Date;
 }
 
 export type MonitorRegistrationOutcome =
@@ -38,18 +45,23 @@ const REGISTRY_SHAPE: RegistryShape = { supportedVersion: MONITOR_REGISTRY_FILES
 
 const REGISTERED_AT_KEY = 'registeredAt';
 
-/** A path that cannot be resolved stays as given, which then compares as outside: a tracker is registered rather than silently skipped. */
+/** A path that does not exist is resolved through its nearest existing ancestor, so `/tmp/missing` still reads as under `/private/tmp`. */
 function canonicalPathOf(path: string): string {
+  const absolutePath = resolve(path);
   try {
-    return realpathSync(path);
+    return realpathSync(absolutePath);
   } catch {
-    return path;
+    const parentDirectory = dirname(absolutePath);
+    return parentDirectory === absolutePath ? absolutePath : join(canonicalPathOf(parentDirectory), basename(absolutePath));
   }
 }
 
-function trackerLiesInTheTemporaryFolder(rootDirectory: string, temporaryDirectory: string): boolean {
-  const pathFromTemporaryFolder = relative(canonicalPathOf(temporaryDirectory), canonicalPathOf(rootDirectory));
-  return !pathFromTemporaryFolder.startsWith('..') && !isAbsolute(pathFromTemporaryFolder);
+function trackerLiesInATemporaryFolder(rootDirectory: string, temporaryDirectories: readonly string[]): boolean {
+  const canonicalRoot = canonicalPathOf(rootDirectory);
+  return temporaryDirectories.some((temporaryDirectory) => {
+    const pathFromTemporaryFolder = relative(canonicalPathOf(temporaryDirectory), canonicalRoot);
+    return !pathFromTemporaryFolder.startsWith('..') && !isAbsolute(pathFromTemporaryFolder);
+  });
 }
 
 /** `null` when the repository has no `origin` remote, or git cannot say. */
@@ -102,9 +114,9 @@ function registerUnderTheLock(registration: Registration): MonitorRegistrationOu
 
 export async function registerWithTheMonitor(request: MonitorRegistrationRequest): Promise<MonitorRegistrationOutcome> {
   const {
-    workspace, homeDirectory, temporaryDirectory, command, now
+    workspace, homeDirectory, temporaryDirectories, command, now
   } = request;
-  if (trackerLiesInTheTemporaryFolder(workspace.rootDirectory, temporaryDirectory)) return { verdict: 'not-registered-temporary-tracker' };
+  if (trackerLiesInATemporaryFolder(workspace.rootDirectory, temporaryDirectories)) return { verdict: 'not-registered-temporary-tracker' };
   const progressReading = new ProgressFileIngestion(workspace.progressFilePath).read();
   if (progressReading.verdict === 'absent') return { verdict: 'not-registered-unreadable-tracker', reason: 'its progress file is absent' };
   if (progressReading.verdict === 'unreadable') return { verdict: 'not-registered-unreadable-tracker', reason: progressReading.reason };

@@ -12,10 +12,10 @@ export async function registerWrittenDashboard(context: CommandContext, workspac
   if (renderOutcome.verdict === 'unreadable') return;
   const outcome = await registerWithTheMonitor({
     workspace,
-    homeDirectory:      context.homeDirectory,
-    temporaryDirectory: context.temporaryDirectory,
-    command:            context.commandVerb,
-    now:                context.now,
+    homeDirectory:        context.homeDirectory,
+    temporaryDirectories: context.temporaryDirectories,
+    command:              context.commandVerb,
+    now:                  context.now,
   });
   if (outcome.verdict === 'registered-over-malformed') {
     context.standardError(

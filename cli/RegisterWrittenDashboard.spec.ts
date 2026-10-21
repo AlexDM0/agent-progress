@@ -2,8 +2,9 @@
  * The monitor registry `~/.agent-progress-monitor/projects.json` as the commands write it, under a scratch home and with the temp-folder
  * rule pointed at a scratch folder the repositories lie outside, so they count as real ones. What matters: exactly a call that wrote
  * `progress.html` registers, one entry per `trackerId` carrying every field with its value; a read-only call, `view-spec`, `update`, a
- * failed render and a tracker under the temp folder register nothing; the file's version, unknown keys and malformed entries are handled as
- * `docs/cli.md` says; a registry that cannot be written never changes the exit code; and concurrent processes all land in the file.
+ * failed render and a tracker under any temp folder (`/tmp`, `/var/tmp`, the system one) register nothing; the file's version, unknown keys
+ * and malformed entries are handled as `docs/cli.md` says; a registry that cannot be written never changes the exit code; and concurrent
+ * processes all land in the file.
  */
 import {
   existsSync,
@@ -13,13 +14,20 @@ import {
   symlinkSync,
   writeFileSync
 } from 'node:fs';
+import { tmpdir }        from 'node:os';
 import { dirname, join } from 'node:path';
 
-import { afterEach, beforeEach, expect } from 'bun:test';
+import {
+  afterEach,
+  beforeEach,
+  expect,
+  test
+} from 'bun:test';
 
-import { LocalTimeUtil }     from '../src/lib/local-time/LocalTimeUtil.ts';
-import { withLockAt }        from '../src/services/tracker/TrackerLock.ts';
-import { workspacePathsFor } from '../src/services/tracker/Workspace.ts';
+import { LocalTimeUtil }          from '../src/lib/local-time/LocalTimeUtil.ts';
+import { registerWithTheMonitor } from '../src/services/tracker/MonitorRegistration.ts';
+import { withLockAt }             from '../src/services/tracker/TrackerLock.ts';
+import { workspacePathsFor }      from '../src/services/tracker/Workspace.ts';
 import {
   createScratchCopyOf,
   createScratchDirectory,
@@ -29,6 +37,7 @@ import {
 } from '../src/testing/ScratchWorkspace.ts';
 import { writeExampleSpecKitRepository }      from '../src/testing/SpecKitRepositoryFixtures.ts';
 import { testWhenGitIsPresent }               from '../src/testing/ToolGuard.ts';
+import { temporaryDirectoriesOfThisMachine }  from './CommandContext.ts';
 import { runCommandLine }                     from './Main.ts';
 import { registerWrittenDashboard }           from './RegisterWrittenDashboard.ts';
 import { createCapturedCommandContext }       from './testing/CapturedCommandContext.ts';
@@ -97,7 +106,7 @@ function trackerIdOf(repositoryDirectory: string): string {
 
 function registeringContext(repositoryDirectory: string, now: Date = FIRST_NOW): ReturnType<typeof createCapturedCommandContext> {
   return createCapturedCommandContext({
-    currentDirectory: repositoryDirectory, homeDirectory, temporaryDirectory: folderOutsideEveryRepository, now: () => now
+    currentDirectory: repositoryDirectory, homeDirectory, temporaryDirectories: [folderOutsideEveryRepository], now: () => now
   });
 }
 
@@ -210,9 +219,39 @@ testWhenGitIsPresent('A2: a tracker under the system temp folder registers nothi
   const linkToTheRepositoryFolder = join(folderOutsideEveryRepository, 'linked-temporary-folder');
   symlinkSync(realpathSync(dirname(repositoryDirectory)), linkToTheRepositoryFolder);
   await requireExitZero(['render'], createCapturedCommandContext({
-    currentDirectory: repositoryDirectory, homeDirectory, temporaryDirectory: linkToTheRepositoryFolder, now: () => FIRST_NOW
+    currentDirectory: repositoryDirectory, homeDirectory, temporaryDirectories: [linkToTheRepositoryFolder], now: () => FIRST_NOW
   }));
   expect(existsSync(registryFilePath())).toBe(false);
+});
+
+/** Registers straight through the service, since no spec may write a tracker under `/tmp` or `/var/tmp` themselves. */
+async function registrationOfATrackerRootedAt(rootDirectory: string, temporaryDirectories: readonly string[]): Promise<string> {
+  const outcome = await registerWithTheMonitor({
+    workspace: workspacePathsFor(rootDirectory), homeDirectory, temporaryDirectories, command: 'render', now: () => FIRST_NOW
+  });
+  return outcome.verdict;
+}
+
+test('A1: a tracker rooted under /tmp registers nothing, named directly or through its resolved path', async () => {
+  for (const rootDirectory of [join('/tmp', 'scratch-x'), join(realpathSync('/tmp'), 'scratch-x', 'nested')]) {
+    expect(await registrationOfATrackerRootedAt(rootDirectory, temporaryDirectoriesOfThisMachine())).toBe('not-registered-temporary-tracker');
+  }
+  expect(existsSync(registryFilePath())).toBe(false);
+});
+
+test('A2: a tracker rooted under /var/tmp or the system temp folder registers nothing, each resolved through symlinks', async () => {
+  const roots = [join('/var/tmp', 'scratch-x'), join(realpathSync('/var/tmp'), 'scratch-x'), join(tmpdir(), 'scratch-x'), join(realpathSync(tmpdir()), 'scratch-x')];
+  for (const rootDirectory of roots) {
+    expect(await registrationOfATrackerRootedAt(rootDirectory, temporaryDirectoriesOfThisMachine())).toBe('not-registered-temporary-tracker');
+  }
+  expect(existsSync(registryFilePath())).toBe(false);
+});
+
+testWhenGitIsPresent('A2: a tracker outside every temp folder still registers when /tmp and /var/tmp are among them', async () => {
+  const repositoryDirectory = await initializedRepository();
+  const temporaryDirectories = ['/tmp', '/var/tmp', folderOutsideEveryRepository];
+  expect(await registrationOfATrackerRootedAt(repositoryDirectory, temporaryDirectories)).toBe('registered');
+  expect(Object.keys(registry().projects)).toEqual([trackerIdOf(repositoryDirectory)]);
 });
 
 testWhenGitIsPresent('A3: a moved tracker updates its one entry\'s paths', async () => {
