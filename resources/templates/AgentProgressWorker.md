@@ -17,5 +17,6 @@ only where the brief says to, as a reviewer's release does.
 
 The tracker moves only through `agent-progress` commands, each on a line of its own, `--json` parsed:
 never write a file under `.agent-progress/` with a file tool, edit a ticket only below its frontmatter,
-and never commit the tracker. Your prompt's `agent-progress row:` or `agent-progress ticket:` line is
-how what you process reaches your row, so pass no `--tokens` to any move: it would replace the sum.
+and never commit the tracker. Your prompt's `agent-progress row:`, `agent-progress ticket:` or
+`agent-progress review:` line is how what you process reaches your row, so pass no `--tokens` to any
+move: it would replace the sum.
