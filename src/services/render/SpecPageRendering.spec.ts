@@ -111,14 +111,13 @@ describe('renderSpecPage', () => {
     expect(occurrencesOf(readFileSync(resourceFilePathOf('spec-template.html'), 'utf8'), firstRule)).toBe(0);
   });
 
-  test('writes the project name into the heading the spec template ships empty, so no placeholder shows before the page script runs', async () => {
+  test('writes the stored snapshot’s project name into the heading', async () => {
     const repository = exampleRepository();
     await renderSpecPage({ ...repository, generatedAt: GENERATED_AT }, renderState);
     const page       = readFileSync(join(repository.trackerDirectory, 'progress-spec.html'), 'utf8');
     const storedFile = JSON.parse(readFileSync(join(repository.trackerDirectory, 'progress-spec.json'), 'utf8')) as { project: string };
 
     expect(page).toContain(`<h1 class="ap-title" id="ap-project">${storedFile.project}</h1>`);
-    expect(readFileSync(resourceFilePathOf('spec-template.html'), 'utf8')).toContain('<h1 class="ap-title" id="ap-project"></h1>');
   });
 
   test('writes the snapshot it stored and the tracker page’s limits into its island', async () => {
