@@ -2,10 +2,11 @@
 export const TEMPLATE_FILE_NAME = 'template.html';
 
 export const TEMPLATE_TOKENS = {
-  PROGRESS:    '__PROGRESS__',
-  TICKETS:     '__TICKETS__',
-  PAGE_SCRIPT: '__PAGE_SCRIPT__',
-  TITLE:       '<title>agent-progress</title>',
+  PROGRESS:        '__PROGRESS__',
+  TICKETS:         '__TICKETS__',
+  PAGE_SCRIPT:     '__PAGE_SCRIPT__',
+  TITLE:           '<title>agent-progress</title>',
+  PROJECT_HEADING: '<h1 class="ap-title" id="ap-project"></h1>',
 } as const;
 
 export const SPEC_TEMPLATE_FILE_NAME = 'spec-template.html';

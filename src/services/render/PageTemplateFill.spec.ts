@@ -148,6 +148,20 @@ describe('fillPageTemplate', () => {
     expect(document).toContain('<title>&lt;/title&gt;&lt;script&gt;alert(1)&lt;/script&gt; progress</title>');
   });
 
+  // The heading is in the markup before the page script runs, so no placeholder or empty title ever shows.
+  test('writes the project name into the heading at render', () => {
+    const document = render({ progress: exampleProgress({ project: 'Example Storefront' }) });
+
+    expect(document).toContain('<h1 class="ap-title" id="ap-project">Example Storefront</h1>');
+    expect(document).not.toContain('Example Agency</h1>');
+  });
+
+  test('escapes a project name that would otherwise close the heading', () => {
+    const document = render({ progress: exampleProgress({ project: '</h1><script>alert(1)</script>' }) });
+
+    expect(document).toContain('<h1 class="ap-title" id="ap-project">&lt;/h1&gt;&lt;script&gt;alert(1)&lt;/script&gt;</h1>');
+  });
+
   test('carries the tracker through the progress island unchanged, with its log worded', () => {
     const payload = islandContentsOf(render(), 'ap-progress-data') as { progress: TrackerProgress; pageScriptFailure: string | null };
 
