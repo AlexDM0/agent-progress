@@ -1,6 +1,7 @@
 /**
- * Fills `resources/spec-template.html` — the design's styles, the spec island, the page script and the title — from one snapshot. The island
- * goes through `escapeJsonForScriptTag` of `src/lib/html-escape/HtmlEscapeUtil.ts`, so no spec text can close its script tag.
+ * Fills `resources/spec-template.html` — the design's styles, the spec island, the page script, the title and the project
+ * heading — from one snapshot. The island goes through `escapeJsonForScriptTag` of `src/lib/html-escape/HtmlEscapeUtil.ts`, so no spec text
+ * can close its script tag.
  */
 import { readFileSync } from 'node:fs';
 
@@ -35,9 +36,11 @@ export function fillSpecPageTemplate(input: SpecPageTemplateFillInput): string {
 
   const description = { templateFilePath: `resources/${SPEC_TEMPLATE_FILE_NAME}`, tokens: Object.values(SPEC_TEMPLATE_TOKENS) };
   return substituteTemplateTokens(specTemplate, description, {
-    [SPEC_TEMPLATE_TOKENS.TITLE]:         `<title>${HtmlEscapeUtil.escapeHtml(snapshot.project)} spec</title>`,
-    [SPEC_TEMPLATE_TOKENS.DESIGN_STYLES]: designStylesOf(trackerTemplate, `resources/${TEMPLATE_FILE_NAME}`),
-    [SPEC_TEMPLATE_TOKENS.SPEC]:          HtmlEscapeUtil.escapeJsonForScriptTag(JSON.stringify(payload)),
-    [SPEC_TEMPLATE_TOKENS.PAGE_SCRIPT]:   pageScript ?? PageScriptTextUtil.bannerOnlyScriptOf(pageScriptFailure),
+    [SPEC_TEMPLATE_TOKENS.TITLE]:           `<title>${HtmlEscapeUtil.escapeHtml(snapshot.project)} spec</title>`,
+    // Written here as well as by the page script, so the heading never shows empty before the script runs.
+    [SPEC_TEMPLATE_TOKENS.PROJECT_HEADING]: `<h1 class="ap-title" id="ap-project">${HtmlEscapeUtil.escapeHtml(snapshot.project)}</h1>`,
+    [SPEC_TEMPLATE_TOKENS.DESIGN_STYLES]:   designStylesOf(trackerTemplate, `resources/${TEMPLATE_FILE_NAME}`),
+    [SPEC_TEMPLATE_TOKENS.SPEC]:            HtmlEscapeUtil.escapeJsonForScriptTag(JSON.stringify(payload)),
+    [SPEC_TEMPLATE_TOKENS.PAGE_SCRIPT]:     pageScript ?? PageScriptTextUtil.bannerOnlyScriptOf(pageScriptFailure),
   });
 }

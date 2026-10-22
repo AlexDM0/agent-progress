@@ -12,10 +12,11 @@ export const TEMPLATE_TOKENS = {
 export const SPEC_TEMPLATE_FILE_NAME = 'spec-template.html';
 
 export const SPEC_TEMPLATE_TOKENS = {
-  DESIGN_STYLES: '__DESIGN_STYLES__',
-  SPEC:          '__SPEC__',
-  PAGE_SCRIPT:   '__PAGE_SCRIPT__',
-  TITLE:         '<title>agent-progress spec</title>',
+  DESIGN_STYLES:   '__DESIGN_STYLES__',
+  SPEC:            '__SPEC__',
+  PAGE_SCRIPT:     '__PAGE_SCRIPT__',
+  TITLE:           '<title>agent-progress spec</title>',
+  PROJECT_HEADING: '<h1 class="ap-title" id="ap-project"></h1>',
 } as const;
 
 /** The one element of `template.html` whose text the spec template takes in at render. */

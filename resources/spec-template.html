@@ -22,11 +22,11 @@
  agent-progress — spec page template
 ===============================================================================
  The spec view of a spec-kit repository, a snapshot: it never polls a stamp and
- never reloads. Replaced by the CLI, which splits this file on all four tokens at
+ never reloads. Replaced by the CLI, which splits this file on all five tokens at
  once and swaps each piece, so injected content is never searched again. Each
  token must occur exactly ONCE or the render refuses — the names are written
- here without their leading and trailing underscores, and the title without its
- tags, on purpose:
+ here without their leading and trailing underscores, and the title and heading
+ without their tags, on purpose:
    DESIGN_STYLES  the text of template.html's one style element, so both pages
                   share the design; this file carries only spec-specific CSS,
                   on the design's tokens (--warn-tint, --warn-edge, --warn-ink,
@@ -35,6 +35,7 @@
                                    holding { snapshot, limits }
    PAGE_SCRIPT    layout script -> last <script> in <body>
    title          the <title> element in <head>, "agent-progress spec" -> "<project> spec"
+   heading        the empty #ap-project h1 -> holding "<project>"
 
  The page script clears every container below that it fills before filling it.
 
@@ -51,7 +52,8 @@
  #ap-spec-edition             the edition badge, "spec-kit <version> · constitution
                               v<version>", each part omitted when unknown, [hidden]
                               when both are
- #ap-project                  the project title
+ #ap-project                  the project title, filled at render and again by
+                              the page script
  #ap-theme                    the theme radios, the bootstrap's
  #ap-summary                  the statistics: specs, implementing, tasks ticked of
                               total, open clarifications; implementing is a
@@ -260,7 +262,7 @@
         <span id="ap-generated" title="generated 2026-10-06 14:20">generated 14:20 · 3 min ago</span>
         <span class="ap-spec-edition" id="ap-spec-edition">spec-kit <b>1.1.0</b> · constitution <b>v1.2.0</b></span>
       </div>
-      <h1 class="ap-title" id="ap-project">Example Storefront</h1>
+      <h1 class="ap-title" id="ap-project"></h1>
     </div>
     <div class="ap-head-stats">
       <div class="ap-theme" id="ap-theme" role="radiogroup" aria-label="Theme">
