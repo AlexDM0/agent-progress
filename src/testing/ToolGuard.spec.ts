@@ -13,9 +13,9 @@ import {
   test,
 } from 'bun:test';
 
-import { CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS }        from './ChildProcessCaseTimeout.ts';
-import { createScratchDirectory, removeScratchDirectory } from './ScratchWorkspace.ts';
-import { testWhenGitIsPresent }                           from './ToolGuard.ts';
+import { CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS }                                 from './ChildProcessCaseTimeout.ts';
+import { createScratchDirectory, removeScratchDirectory }                          from './ScratchWorkspace.ts';
+import { testWhenGitIsPresent, testWhenGitIsPresentAndTheScratchRootIsOutsideTmp } from './ToolGuard.ts';
 
 const TOOL_GUARD_MODULE_PATH      = join(import.meta.dir, 'ToolGuard.ts');
 const TEST_RUN_REPORT_MODULE_PATH = join(import.meta.dir, 'TestRunReport.ts');
@@ -115,7 +115,7 @@ testWhenGitIsPresent('with the scratch root under /tmp and AGENT_PROGRESS_REQUIR
   expect(output).not.toContain('skipped for a missing tool');
 }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
-testWhenGitIsPresent('with the scratch root outside both fixed temp folders the temp-folder guard runs its spec', () => {
+testWhenGitIsPresentAndTheScratchRootIsOutsideTmp('with the scratch root outside both fixed temp folders the temp-folder guard runs its spec', () => {
   const { exitCode, output } = temporaryFolderGuardedRun(scratchDirectory, { AGENT_PROGRESS_REQUIRE_EVERY_TOOL: '1' });
   expect(exitCode, output).toBe(0);
   expect(output).toContain('1 pass');
