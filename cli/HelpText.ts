@@ -40,7 +40,7 @@ output never carries either.
       [--no-hooks]            its work through this tool, the two hooks below, and the
       [--no-workflow]         dispatcher workflow at \`.agent-progress/agent-progress-dispatch.js\`,
       [--no-agent-definition] generated from this tool's dispatcher, and the Claude Code agent
-      [--host <host>]         definition \`.claude/agents/agent-progress-worker.md\`, whose
+                              definition \`.claude/agents/agent-progress-worker.md\`, whose
                               frontmatter sets the default model and effort for builders and
                               reviewers (opus, medium). Beside the brief go the builder and review
                               briefs and \`reference.md\` (the ticket format, the moves and the exit
@@ -60,14 +60,6 @@ output never carries either.
                               dispatcher starts every builder and reviewer as that agent; and
                               both together are refused the same way while a dispatcher is
                               installed without its definition, which --no-workflow would keep.
-                              --host claude-code (the default) or copilot-cli: copilot-cli writes
-                              no hook, the workflow as the extension
-                              \`.github/extensions/agent-progress/extension.mjs\` (git-ignored) and
-                              the definition as \`.github/agents/agent-progress-worker.agent.md\`,
-                              records the host in \`version.json\` for update, and is refused
-                              unless \`copilot --version\` is 1.0.92 or newer. init and update
-                              refuse, naming each and removing none, while the other host's
-                              agent definition, SubagentStop hook or extension is present.
 
   update                      Refresh what the tool wrote into a repository it already tracks: the
       [--no-claude-md]        managed CLAUDE.md block, \`agent-brief.md\` — guidance shipped with the
@@ -177,19 +169,6 @@ output never carries either.
                               runs \`agent-progress checks\` with a line, --clear or --restamp.
                               A read (\`checks\`, \`checks --json\`), every other call, and every
                               call from the main session pass at exit 0, unreadable input too.
-
-  hook copilot-agent-settled  Record what a settled Copilot CLI agent cost, as subagent-stop does:
-      [--session <id>]        the Copilot extension runs it. Standard input holds one JSON object
-                              with repositoryRoot, agentId, label, prompt and usage (inputTokens,
-                              outputTokens, cacheReadTokens, cacheWriteTokens, running totals).
-                              The tracker is found from repositoryRoot alone; the prompt's marker
-                              line names the rows; inputTokens alone is the input, as it already
-                              holds the cache reads and writes. An agent is credited only what
-                              its total grew by since it was last logged, so a repeat adds
-                              nothing. With --session it needs only repositoryRoot and credits
-                              each agent of ~/.copilot/session-state/<id>/events.jsonl its
-                              shutdown totals, the same way. Every failure exits 0, writing
-                              nothing and one reason to standard error.
 
   usage [--since <when>]      What this repository's subagents cost, read out of the transcripts the
       [--transcripts <folder>]

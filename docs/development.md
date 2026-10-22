@@ -221,53 +221,6 @@ clock and randomness refused as the Workflow tool refuses them. The specs:
 
 A change to the dispatcher's behaviour therefore comes with a claim and its mutant.
 
-## Copilot CLI host
-
-Spike #229, Copilot CLI 1.0.92, 2026-10-07, run by hand in a scratch repository with a spike extension; each
-fact names its capture (`<scratch>/captures/`, not kept). `workflow.*`, `subagent.*` and `assistant.usage` are
-session events the extension receives through `session.on`.
-
-1. Resume memoisation (`interactive-events-104431.jsonl`, `spike_drive` running then resuming `memo`): a
-   `ctx.agent` call that resolved a value replays it on resume with no new agent; a call that resolved `null` is
-   not memoised: the resume started a new agent for it (`failing`: agent `bbcf5358…`, then `e4e6a033…`).
-2. Usage before settle (`spike-events.jsonl`, all eight runs): every `assistant.usage` of an agent arrives before
-   its `ctx.agent` promise settles. `subagent.completed` usually precedes the settle too, but not always (run
-   `29c7899b…`: settled at …807102, completed at …807118). A failed agent emits `subagent.failed` with `error`
-   and no `assistant.usage` when it fails before its first model call.
-3. Cache accounting (`q2-q3-usage-*`): `inputTokens` already includes cache reads and cache writes. Haiku cold:
-   16596 = 16586 written + 10; warm: 16597 = 12502 read + 4085 written + 10. gpt-5-mini: 12473 with 11776 read,
-   0 written. Never add the cache fields to `inputTokens`.
-4. Model precedence (`q4-q7-worker-*`): with `{ agent: 'agent-progress-worker', model }` the call's `model` wins
-   (`modelSelectionSource: explicit_override`); without it the agent's frontmatter model runs
-   (`agent_definition_default`). The agent's `tools: ["view"]` applies: neither run could run a shell command.
-5. Interactive session (`q5-notes.txt`): the session model starts a workflow with `run_dynamic_workflow`
-   (background, returns a run id at once; the same tool resumes), and lists and inspects runs with
-   `dynamic_workflows_manage` (`guide`, `list`, `inspect`, `runs`, `inspect-run`, `author`). It has no stop or
-   cancel operation. Completion is announced to the session unprompted, with a result preview. An "Asking user"
-   tool shows a multiple-choice picker and waits. A `/workflows` slash command exists. Open: whether `/workflows`
-   stops a run.
-6. Without `--experimental` (`q6-usage-without-experimental`): the extension loads and `copilot workflow run`
-   runs its agent to a result. Project extensions load only in a trusted folder: untrusted, the CLI says so and
-   reports the workflow not found.
-7. Agent folders (`q4-q7-worker-no-model`): with `agent-progress-worker` in both `.claude/agents` and
-   `.github/agents`, the `.github/agents` one runs (its prompt marker, its description); the other is ignored with
-   no warning event.
-8. Permissions (#235, `copilot workflow run agent-progress-dispatch` in an `init --host copilot-cli` scratch
-   repository, no `COPILOT_ALLOW_ALL`): agents do not stall. Each shell call is denied at once
-   (`permission.completed` `denied-no-approval-rule-and-could-not-request-from-user`, `unattended_fallback`), and
-   the status agent, denied `agent-progress status --json`, replied an all-zero status, so the dispatcher read
-   the board as stopped and ended with nothing built. Untrusted, the CLI excludes project extensions unless
-   `GITHUB_COPILOT_PROMPT_MODE_EXTENSIONS=true` is set for the invocation.
-9. A whole run (#235, the same scratch repository with `COPILOT_ALLOW_ALL`, one haiku ticket): built, reviewed and
-   released in one workflow run; the builder's and reviewer's rows held exactly their agents' `agentMetrics`
-   input, and a `--session` reconcile added nothing. `cli/CopilotHostEndToEnd.spec.ts` repeats it when
-   `AGENT_PROGRESS_LIVE_COPILOT_RUN` is set. A worker frontmatter `reasoning-effort` outlives `ctx.agent`'s model
-   override, so every haiku agent failed at once until the worker dropped it.
-
-Also seen: a `ctx.agent` given `reasoningEffort` a model rejects fails in about 85 ms
-(`Reasoning effort 'low' is not supported for model 'claude-haiku-4.5'.`); gpt-5-mini with no effort runs at
-`reasoningEffort: "high"` (`subagent.configured`); the owner saw the extension fail to load without `meta.phases`.
-
 ## Architecture decisions
 
 **One tracker per repository, shared by every worktree.** Discovery walks up from the current

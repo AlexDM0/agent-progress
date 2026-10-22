@@ -1,6 +1,6 @@
 /**
- * Writes what the tool installs into a tracked repository for `init` and `update`, walking the host's table in
- * `cli/adoption/constants/AgentHostInstalls.ts`, and reports per part whether its bytes changed: that is how an orchestrator that read the
+ * Writes what the tool installs into a tracked repository for `init` and `update`, walking the table in
+ * `cli/adoption/constants/ClaudeCodeInstall.ts`, and reports per part whether its bytes changed: that is how an orchestrator that read the
  * brief earlier learns its copy is stale.
  */
 import {
@@ -25,12 +25,11 @@ import {
 import { ensureIgnored, removeIgnoreEntry }                                                from '../../src/lib/git/GitIgnore.ts';
 import type { Workspace }                                                                  from '../../src/services/tracker/Workspace.ts';
 import { OperationRefusal }                                                                from '../../src/shared/OperationRefusal.ts';
-import type { AgentHost }                                                                  from '../../src/shared/constants/AgentHosts.ts';
 import { installedFilePathsIn, installedSkillFolderInRepository, type InstalledFilePaths } from '../InstalledFiles.ts';
 import { INSTALL_VERSION }                                                                 from '../constants/InstallVersion.ts';
 import type { InstalledFileTexts, InstalledSkillFileTexts }                                from './InstalledFileGeneration.ts';
 import {
-  AGENT_HOST_INSTALLS,
+  CLAUDE_CODE_INSTALL,
   INSTALL_OPT_OUT_FLAGS,
   type InstalledFile,
   type InstalledFileName,
@@ -38,7 +37,7 @@ import {
   type InstalledSkillName,
   type InstallOptOutFlag,
   type RetiredSkillFolder
-}                                                                from './constants/AgentHostInstalls.ts';
+}                                                                from './constants/ClaudeCodeInstall.ts';
 import { CLAUDE_MANAGED_BLOCK_MARKERS } from './constants/ClaudeManagedBlockMarkers.ts';
 
 const REFUSED_UNREADABLE_SETTINGS_LINE = 'refused (the settings file could not be read)';
@@ -48,7 +47,6 @@ const REPORT_LABEL_COLUMN_WIDTH = 13;
 
 export interface TrackerRefreshRequest {
   workspace:               Workspace;
-  agentHost:               AgentHost;
   installedFileTexts:      InstalledFileTexts;
   installedSkillFileTexts: InstalledSkillFileTexts;
   /** The word the reader typed, so a line telling them to run something again names it. */
@@ -265,13 +263,13 @@ export function refuseAnAgentDefinitionOptOutKeepingTheWorkflow(
 /** Checked before the first write: `--no-workflow` leaves an installed dispatcher in place, and it could start no worker without the definition. */
 export function refuseKeepingADispatcherWithoutItsAgentDefinition(
   commandName: string,
-  { rootDirectory, agentHost }: { rootDirectory: string; agentHost: AgentHost },
+  rootDirectory: string,
   { writesTheAgentDefinition, writesTheDispatcherWorkflow }: { writesTheAgentDefinition: boolean; writesTheDispatcherWorkflow: boolean },
 ): void {
   if (writesTheAgentDefinition || writesTheDispatcherWorkflow) return;
   const installedFilePaths   = installedFilePathsIn(rootDirectory);
-  const dispatcherFilePath   = installedFilePaths[lastFileOf(filesOptedOutBy(agentHost, 'no-workflow')).name];
-  const definitionFilePath   = installedFilePaths[lastFileOf(filesOptedOutBy(agentHost, 'no-agent-definition')).name];
+  const dispatcherFilePath   = installedFilePaths[lastFileOf(filesOptedOutBy('no-workflow')).name];
+  const definitionFilePath   = installedFilePaths[lastFileOf(filesOptedOutBy('no-agent-definition')).name];
   if (!existsSync(dispatcherFilePath) || existsSync(definitionFilePath)) return;
   throw new OperationRefusal(
     'refused',
@@ -281,10 +279,10 @@ export function refuseKeepingADispatcherWithoutItsAgentDefinition(
   );
 }
 
-function filesOptedOutBy(agentHost: AgentHost, optOutFlag: InstallOptOutFlag): readonly InstalledFile[] {
-  return AGENT_HOST_INSTALLS[agentHost].parts.flatMap((part) => {
+function filesOptedOutBy(optOutFlag: InstallOptOutFlag): readonly InstalledFile[] {
+  return CLAUDE_CODE_INSTALL.parts.flatMap((part) => {
     if (part.optOutFlag !== optOutFlag) return [];
-    if (part.writing === 'rewritten-files' || part.writing === 'git-ignored-files') return part.files;
+    if (part.writing === 'rewritten-files') return part.files;
     return [];
   });
 }
@@ -292,12 +290,12 @@ function filesOptedOutBy(agentHost: AgentHost, optOutFlag: InstallOptOutFlag): r
 /** Touches nothing the tracker holds: not `progress.json`, not a ticket, not the log. */
 export function refreshTrackedRepository(request: TrackerRefreshRequest): TrackerRefreshReport {
   const {
-    workspace, agentHost, installedFileTexts, installedSkillFileTexts, commandName, optOutFlags, writesTheBriefFirst, standardError
+    workspace, installedFileTexts, installedSkillFileTexts, commandName, optOutFlags, writesTheBriefFirst, standardError
   } = request;
   const installedFilePaths = installedFilePathsIn(workspace.rootDirectory);
-  const { parts }          = AGENT_HOST_INSTALLS[agentHost];
+  const { parts }          = CLAUDE_CODE_INSTALL;
   const briefsPart         = parts.find((part) => part.writing === 'briefs');
-  if (briefsPart?.writing !== 'briefs') throw new OperationRefusal('unrepaired', `The ${agentHost} install lists no briefs.`);
+  if (briefsPart?.writing !== 'briefs') throw new OperationRefusal('unrepaired', 'The install lists no briefs.');
 
   function refreshedLineOf(part: InstalledPart): string {
     // Opting out comes first, or refreshing a hook the shared settings file already holds would write into a file colleagues share on
@@ -310,11 +308,6 @@ export function refreshTrackedRepository(request: TrackerRefreshRequest): Tracke
         return refreshBriefs(part.files, installedFilePaths, installedFileTexts);
       case 'rewritten-files':
         return refreshRewrittenFiles(part.files, installedFilePaths, installedFileTexts);
-      case 'git-ignored-files': {
-        const filesLine     = refreshRewrittenFiles(part.files, installedFilePaths, installedFileTexts);
-        const ignoreOutcome = ensureIgnored(workspace.rootDirectory, part.ignoredFolderInRepository);
-        return ignoreOutcome === 'appended' ? `${filesLine}, .gitignore entry added` : filesLine;
-      }
       case 'claude-settings-hooks':
         return refreshClaudeSettingsHooks(part.hooks, workspace.rootDirectory, commandName, standardError);
       case 'skill-folders':
@@ -343,6 +336,6 @@ export function refreshTrackedRepository(request: TrackerRefreshRequest): Tracke
 }
 
 /** Called last by `init` and `update`, after every other write, so a refresh cut short leaves the old version and commands keep asking for `update`. */
-export function recordInstallVersion(rootDirectory: string, agentHost: AgentHost): void {
-  createInstallManifestWriter(installedFilePathsIn(rootDirectory).installManifest).write({ installVersion: INSTALL_VERSION, agentHost });
+export function recordInstallVersion(rootDirectory: string): void {
+  createInstallManifestWriter(installedFilePathsIn(rootDirectory).installManifest).write({ installVersion: INSTALL_VERSION });
 }

@@ -58,7 +58,7 @@ const INSTALLED_SKILLS_FOLDER = '.claude/skills/';
 
 const CHECKOUT_SKILLS_DIRECTORY = join(import.meta.dir, '..', '..', 'skills');
 
-const GENERATED_DISPATCHER_SCRIPT = (await installedFileTextsFor({ agentHost: 'claude-code', generatesTheDispatcherScript: true })).dispatcherScript ?? '';
+const GENERATED_DISPATCHER_SCRIPT = (await installedFileTextsFor({ generatesTheDispatcherScript: true })).dispatcherScript ?? '';
 
 const scratchDirectories: string[] = [];
 

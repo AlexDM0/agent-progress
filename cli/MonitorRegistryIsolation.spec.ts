@@ -26,8 +26,7 @@ import { runAgentProgress }                                   from './testing/Cl
 
 const HOME_DIRECTORY_FUNCTION = 'homedir';
 
-/** The live Copilot run must hand Copilot the real home; it keeps its CLI off the registry through `TMPDIR` instead. */
-const SPECS_ALLOWED_THE_REAL_HOME = ['cli/CopilotHostEndToEnd.spec.ts'];
+const SPECS_ALLOWED_THE_REAL_HOME: string[] = [];
 
 const SPAWNED_CASE_TIMEOUT_MILLISECONDS = 60_000;
 

@@ -14,22 +14,22 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 
-import { afterEach, expect, test }                                                   from 'bun:test';
-import { workspacePathsFor }                                                         from '../../src/services/tracker/Workspace.ts';
-import { createScratchGitRepository, removeScratchDirectory }                        from '../../src/testing/ScratchWorkspace.ts';
-import { describeWhenGitIsPresent }                                                  from '../../src/testing/ToolGuard.ts';
-import { runCommandLine }                                                            from '../Main.ts';
-import { createCapturedCommandContext }                                              from '../testing/CapturedCommandContext.ts';
-import { repositoryFileContentsOf }                                                  from '../testing/RepositoryFileContents.ts';
-import { installedFileTextsFor, installedSkillFileTextsFor, skillSourceDirectoryOf } from './InstalledFileGeneration.ts';
-import { refreshTrackedRepository }                                                  from './TrackerRefresh.ts';
-import type { InstalledSkillName }                                                   from './constants/AgentHostInstalls.ts';
+import { afterEach, expect, test }                                                from 'bun:test';
+import { workspacePathsFor }                                                      from '../../src/services/tracker/Workspace.ts';
+import { createScratchGitRepository, removeScratchDirectory }                     from '../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                                               from '../../src/testing/ToolGuard.ts';
+import { runCommandLine }                                                         from '../Main.ts';
+import { createCapturedCommandContext }                                           from '../testing/CapturedCommandContext.ts';
+import { repositoryFileContentsOf }                                               from '../testing/RepositoryFileContents.ts';
+import { installedFileTextsFor, installedSkillFileTexts, skillSourceDirectoryOf } from './InstalledFileGeneration.ts';
+import { refreshTrackedRepository }                                               from './TrackerRefresh.ts';
+import type { InstalledSkillName }                                                from './constants/ClaudeCodeInstall.ts';
 
 const SKILL_NAMES: readonly InstalledSkillName[] = ['agent-po', 'agent-progress-orchestrate'];
 
 const RETIRED_SKILL_FOLDER = join('.claude', 'skills', 'agent-progress');
 
-const INSTALLED_FILE_TEXTS = await installedFileTextsFor({ agentHost: 'claude-code', generatesTheDispatcherScript: false });
+const INSTALLED_FILE_TEXTS = await installedFileTextsFor({ generatesTheDispatcherScript: false });
 
 const scratchDirectories: string[] = [];
 
@@ -56,7 +56,6 @@ async function initIn(repositoryDirectory: string): Promise<void> {
 function refreshSkillsIn(repositoryDirectory: string, skillFileTexts: ReadonlyMap<string, string>): void {
   refreshTrackedRepository({
     workspace:               workspacePathsFor(repositoryDirectory),
-    agentHost:               'claude-code',
     installedFileTexts:      INSTALLED_FILE_TEXTS,
     installedSkillFileTexts: { 'agent-po': skillFileTexts, 'agent-progress-orchestrate': skillFileTexts },
     commandName:             'update',
@@ -80,7 +79,7 @@ describeWhenGitIsPresent('the installed skill folders', () => {
   });
 
   test('the files read for each skill are every file of its source folder, SKILL.md among them', () => {
-    const skillFileTexts = installedSkillFileTextsFor('claude-code');
+    const skillFileTexts = installedSkillFileTexts();
     for (const skillName of SKILL_NAMES) {
       expect([...(skillFileTexts[skillName]?.keys() ?? [])]).toEqual([...repositoryFileContentsOf(skillSourceDirectoryOf(skillName)).keys()].sort());
       expect(skillFileTexts[skillName]?.has('SKILL.md'), skillName).toBe(true);

@@ -5,12 +5,11 @@
  */
 import { describe, test } from 'bun:test';
 
-import { everyToolIsRequired, liveCopilotRunIsAllowed }   from '../shared/Environment.ts';
+import { everyToolIsRequired }                            from '../shared/Environment.ts';
 import { scratchRootLiesOutsideTheFixedTemporaryFolders } from './FixedTemporaryFolders.ts';
 import { gitIsAvailable }                                 from './ScratchWorkspace.ts';
 
-/** `copilot-live-run` is `copilot` on the path with `AGENT_PROGRESS_LIVE_COPILOT_RUN` set, since its one spec spends real model tokens. */
-export type RequiredTool = 'git' | 'bash' | 'copilot-live-run';
+export type RequiredTool = 'git' | 'bash';
 
 export type SpecRequirement = RequiredTool | 'scratch-root-outside-tmp';
 
@@ -23,21 +22,15 @@ function bashIsAvailable(): boolean {
   return Bun.which('bash') !== null;
 }
 
-function copilotLiveRunIsAvailable(): boolean {
-  return Bun.which('copilot') !== null && liveCopilotRunIsAllowed();
-}
-
 const REQUIREMENT_IS_MET: Readonly<Record<SpecRequirement, () => boolean>> = {
   'git':                      gitIsAvailable,
   'bash':                     bashIsAvailable,
-  'copilot-live-run':         copilotLiveRunIsAvailable,
   'scratch-root-outside-tmp': scratchRootLiesOutsideTheFixedTemporaryFolders,
 };
 
 const UNMET_REQUIREMENT_WORDING: Readonly<Record<SpecRequirement, string>> = {
   'git':                      'git is missing',
   'bash':                     'bash is missing',
-  'copilot-live-run':         'copilot-live-run is missing',
   'scratch-root-outside-tmp': 'the scratch root lies under /tmp or /var/tmp',
 };
 
@@ -91,10 +84,6 @@ export function testWhenGitIsPresent(claim: string, body: SpecBody, timeoutMilli
 
 export function testWhenBashIsPresent(claim: string, body: SpecBody, timeoutMilliseconds?: number): void {
   testWhenRequirementIsMet('bash', claim, body, timeoutMilliseconds);
-}
-
-export function testWhenCopilotLiveRunIsPresent(claim: string, body: SpecBody, timeoutMilliseconds?: number): void {
-  testWhenRequirementIsMet('copilot-live-run', claim, body, timeoutMilliseconds);
 }
 
 /** For a spec whose spawned child must reach a tracker outside every temp folder: `TMPDIR` moves the child's `tmpdir()`, never these two. */

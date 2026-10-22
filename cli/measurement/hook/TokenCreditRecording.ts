@@ -49,19 +49,10 @@ function tokensStillToCreditOf(usage: AgentUsage, storedLogRecords: readonly Log
   return Math.max(0, usage.totalInputTokens - alreadyCreditedTokens);
 }
 
-/** A Copilot agent's settled total arrives again on every reconcile, so its replays are skipped rather than logged a second time. */
-function stopWasAlreadyLogged(usage: AgentUsage, storedLogRecords: readonly LogRecord[]): boolean {
-  return usage.agentId !== UNKNOWN_AGENT && storedLogRecords.some(
-    (record) => record.kind === 'agent-stopped' && record.fields.agentId === usage.agentId && record.fields.totalInputTokens >= usage.totalInputTokens,
-  );
-}
-
 export interface AgentStop {
   usage:     AgentUsage;
   briefText: string;
 }
-
-export type ReplayedStopPolicy = 'logged-again' | 'skipped';
 
 /**
  * The tracker is resolved from the given working directory, not from this process's: the hook runs wherever
@@ -75,14 +66,12 @@ export async function recordInTheTracker(
   reportPrefix: string,
   workingDirectory: string,
   agentStops: readonly AgentStop[],
-  replayedStopPolicy: ReplayedStopPolicy,
 ): Promise<void> {
   const trackerContext: CommandContext = { ...context, currentDirectory: workingDirectory };
   let unrecordedShareSentences: string[] = [];
   try {
     requireCurrentInstall(workingDirectory);
     unrecordedShareSentences = await openTrackerForWriting(commandArguments, trackerContext, (change) => agentStops.flatMap(({ usage, briefText }) => {
-      if (replayedStopPolicy === 'skipped' && stopWasAlreadyLogged(usage, change.storedLogRecords)) return [];
       const tokensStillToCredit = tokensStillToCreditOf(usage, change.storedLogRecords);
       const briefCredits        = tokensStillToCredit > 0 ? SubagentStopUtil.creditsFor(briefText, tokensStillToCredit) : [];
       const { outcomes }        = change.board.recordAgentStop(usage, briefCredits, change.at);

@@ -31,11 +31,7 @@ export interface CapturedCommandContextOptions {
    * names a scratch folder its repository lies outside.
    */
   temporaryDirectories?:    readonly string[];
-  /** What `copilot --version` answers; by default the oldest version `init --host copilot-cli` takes, so no spec runs the real binary. */
-  copilotVersionOutput?:    string | null;
 }
-
-const DEFAULT_SPEC_COPILOT_VERSION_OUTPUT = 'GitHub Copilot CLI 1.0.92.\nRun \'copilot update\' to check for updates.\n';
 
 const DEFAULT_SPEC_CLOCK_READING = '2026-09-18T20:11:03Z';
 
@@ -84,7 +80,6 @@ export function createCapturedCommandContext(options: CapturedCommandContextOpti
     temporaryDirectories: options.temporaryDirectories ?? [tmpdir()],
     commandVerb:          '',
     renderState:          createRenderState(),
-    copilotVersionOutput: () => (options.copilotVersionOutput === undefined ? DEFAULT_SPEC_COPILOT_VERSION_OUTPUT : options.copilotVersionOutput),
     outputText:           () => outputLines.join('\n'),
     errorText:            () => errorLines.join('\n'),
     questionsAsked:       () => [...questions],

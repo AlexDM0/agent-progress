@@ -96,22 +96,6 @@ test('any other AGENT_PROGRESS_REQUIRE_EVERY_TOOL value requires every tool, so 
   }
 }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
-function liveCopilotRunSeenByAChildProcess(childEnvironment: Record<string, string>): boolean {
-  const source = [
-    `const loaded = await import(${JSON.stringify(ENVIRONMENT_MODULE_PATH)});`,
-    'console.log(JSON.stringify(loaded.liveCopilotRunIsAllowed()));',
-  ].join('\n');
-  return jsonPrintedByAChildProcess(childEnvironment, source) as boolean;
-}
-
-test('AGENT_PROGRESS_LIVE_COPILOT_RUN allows the live run at any value but unset, empty, whitespace or 0', () => {
-  expect(liveCopilotRunSeenByAChildProcess({})).toBe(false);
-  for (const relaxedValue of ['', '  ', '0']) {
-    expect(liveCopilotRunSeenByAChildProcess({ AGENT_PROGRESS_LIVE_COPILOT_RUN: relaxedValue }), JSON.stringify(relaxedValue)).toBe(false);
-  }
-  expect(liveCopilotRunSeenByAChildProcess({ AGENT_PROGRESS_LIVE_COPILOT_RUN: 'yes' })).toBe(true);
-}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
-
 test('the environment copy holds every variable verbatim, and nothing else', () => {
   const source = [
     `const loaded = await import(${JSON.stringify(ENVIRONMENT_MODULE_PATH)});`,

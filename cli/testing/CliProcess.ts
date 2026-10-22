@@ -2,11 +2,10 @@
  * Spawns the real binary for the one claim an in-process `runCommandLine` cannot make: that `agent-progress.ts` itself works, shebang, executable
  * bit and exit code included, and for a spec that must set the child's environment, which no spec may set in-process. Its callers are
  * `cli/BinarySmoke.spec.ts`, `cli/InitRootOverride.spec.ts`, `cli/ViewSpecEndToEnd.spec.ts`,
- * `cli/CopilotHostEndToEnd.spec.ts`, `cli/dispatch/release/ReleaseCommand.checks.spec.ts`, `cli/RegisterWrittenDashboard.spec.ts` and
- * `cli/MonitorRegistryIsolation.spec.ts`.
+ * `cli/dispatch/release/ReleaseCommand.checks.spec.ts`, `cli/RegisterWrittenDashboard.spec.ts` and `cli/MonitorRegistryIsolation.spec.ts`.
  */
-import { chmodSync, existsSync, writeFileSync } from 'node:fs';
-import { delimiter, dirname, join }             from 'node:path';
+import { existsSync }               from 'node:fs';
+import { delimiter, dirname, join } from 'node:path';
 
 import { environmentCopy }                                from '../../src/shared/Environment.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
@@ -73,15 +72,4 @@ export async function runAgentProgress(commandLineArguments: readonly string[], 
   } finally {
     if (options.homeDirectory === undefined) removeScratchDirectory(homeDirectory);
   }
-}
-
-/**
- * Writes an `agent-progress` command into a scratch folder that runs this checkout's entry point, for a child that runs it by name from its
- * `PATH`, as the Copilot extension does, rather than through `runAgentProgress`.
- */
-export function writeAgentProgressCommandInto(scratchDirectory: string): void {
-  requireTrackerIsolation(scratchDirectory);
-  const commandPath = join(scratchDirectory, 'agent-progress');
-  writeFileSync(commandPath, `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(agentProgressEntryPoint())} "$@"\n`);
-  chmodSync(commandPath, 0o755);
 }

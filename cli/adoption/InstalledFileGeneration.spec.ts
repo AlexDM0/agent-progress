@@ -2,7 +2,7 @@
  * The texts `init` and `update` install, computed before anything is written. The cases that matter: no placeholder survives, the definition
  * keeps its frontmatter at byte 0 with the default pair and the brief names it in prose (`Opus`), the brief and the block state `DISPATCH_PROTOCOL`'s
  * numbers, which the dispatcher's prompts also state, and name the paths the catalogue installs to, the dispatcher is a Workflow script with
- * its meta first and no path of this checkout in it, neither skill names a Claude-only tool since each host's brief carries its own mechanics,
+ * its meta first and no path of this checkout in it, neither skill names a Claude-only tool since the agent brief carries the mechanics,
  * `--no-workflow` bundles nothing, and a failed bundle is a refusal the tool will not
  * repair. The spec builds the dispatcher by path, as the command does, and never imports `dispatcher/`.
  */
@@ -16,9 +16,9 @@ import { resourceFilePathOf }                            from '../../src/shared/
 import { DISPATCH_PROTOCOL }                             from '../../src/shared/constants/DispatchProtocol.ts';
 import { installedFilePathsIn }                          from '../InstalledFiles.ts';
 import { dispatcherScriptTextOf, installedFileTextsFor } from './InstalledFileGeneration.ts';
-import { AGENT_HOST_INSTALLS }                           from './constants/AgentHostInstalls.ts';
+import { CLAUDE_CODE_INSTALL }                           from './constants/ClaudeCodeInstall.ts';
 
-const TEXTS = await installedFileTextsFor({ agentHost: 'claude-code', generatesTheDispatcherScript: true });
+const TEXTS = await installedFileTextsFor({ generatesTheDispatcherScript: true });
 
 const CHECKOUT_DIRECTORY = join(import.meta.dir, '..', '..');
 
@@ -87,13 +87,11 @@ describe('the installed texts', () => {
   });
 
   /** No agent preloads a skill: what a builder or reviewer needs is in its brief and its definition, read on every call anyway. */
-  test('no worker definition, for either host, loads a skill or names the retired one', async () => {
-    const copilotTexts = await installedFileTextsFor({ agentHost: 'copilot-cli', generatesTheDispatcherScript: false });
-    for (const definitionText of [TEXTS.agentDefinition ?? '', copilotTexts.copilotAgentDefinition ?? '']) {
-      expect(definitionText.length).toBeGreaterThan(0);
-      expect(definitionText).not.toContain('skill');
-      expect(definitionText).toContain('pass no `--tokens`');
-    }
+  test('the worker definition loads no skill and names the retired one nowhere', () => {
+    const definitionText = TEXTS.agentDefinition ?? '';
+    expect(definitionText.length).toBeGreaterThan(0);
+    expect(definitionText).not.toContain('skill');
+    expect(definitionText).toContain('pass no `--tokens`');
   });
 
   test('the dispatcher is a Workflow script: its meta first, no import or export, and the runner\'s call last', () => {
@@ -112,17 +110,17 @@ describe('the installed texts', () => {
     expect(TEXTS.dispatcherScript).not.toContain(CHECKOUT_DIRECTORY);
   });
 
-  test('the block and agent-brief templates name no hook themselves: each host sentence is a placeholder one of them fills', () => {
+  test('the block and agent-brief templates name no hook themselves: each Claude Code sentence is a placeholder one of them fills', () => {
     const templateTexts = ['ClaudeInstructionsBlock.md', 'AgentBrief.md'].map((templateFileName) => readFileSync(resourceFilePathOf('templates', templateFileName), 'utf8'));
     for (const templateText of templateTexts) expect(templateText).not.toContain('SubagentStop');
-    for (const sentenceName of Object.keys(AGENT_HOST_INSTALLS['claude-code'].hostSentences)) {
+    for (const sentenceName of Object.keys(CLAUDE_CODE_INSTALL.sentences)) {
       expect(templateTexts.some((templateText) => templateText.includes(`{{${sentenceName}}}`)), sentenceName).toBe(true);
     }
     expect(TEXTS.claudeInstructions).toContain('`SubagentStop` hook adds every token');
     expect(TEXTS.agentBrief).toContain('the `SubagentStop` hook reads that line');
   });
 
-  test('neither skill names a Claude-only tool: each host\'s mechanics are values its agent brief is filled with', async () => {
+  test('neither skill names a Claude-only tool: the host\'s mechanics are values the agent brief is filled with', () => {
     const skillFilePaths = ['skills/agent-po/SKILL.md', 'resources/templates/Reference.md', 'skills/agent-progress-orchestrate/SKILL.md'];
     for (const skillFilePath of skillFilePaths) {
       const skillText = readFileSync(join(CHECKOUT_DIRECTORY, skillFilePath), 'utf8');
@@ -132,15 +130,10 @@ describe('the installed texts', () => {
     expect(TEXTS.agentBrief).toContain('resumeFromRunId');
     expect(TEXTS.agentBrief).toContain('AskUserQuestion');
     expect(TEXTS.agentBrief).toContain('`subagent_type: \'agent-progress-worker\'`');
-    const copilotTexts = await installedFileTextsFor({ agentHost: 'copilot-cli', generatesTheDispatcherScript: false });
-    expect(copilotTexts.agentBrief).not.toContain('{{');
-    expect(copilotTexts.agentBrief).toContain('`run_dynamic_workflow`');
-    expect(copilotTexts.agentBrief).toContain('`dynamic_workflows_manage`');
-    for (const claudeOnlyToolName of CLAUDE_ONLY_TOOL_NAMES) expect(copilotTexts.agentBrief, claudeOnlyToolName).not.toContain(claudeOnlyToolName);
   });
 
   test('with no dispatcher asked for, none is bundled', async () => {
-    expect((await installedFileTextsFor({ agentHost: 'claude-code', generatesTheDispatcherScript: false })).dispatcherScript).toBeUndefined();
+    expect((await installedFileTextsFor({ generatesTheDispatcherScript: false })).dispatcherScript).toBeUndefined();
   });
 });
 

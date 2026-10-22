@@ -1,7 +1,7 @@
 /**
  * The hooks. `SubagentStop` logs what a finished subagent cost and adds it to the rows its brief names, every failure one sentence on
- * standard error at exit 0, since the agent has already stopped and a non-zero exit would prevent nothing. `copilot-agent-settled` is
- * the same for a Copilot CLI agent. `PreToolUse` is the check command's guard.
+ * standard error at exit 0, since the agent has already stopped and a non-zero exit would prevent nothing. `PreToolUse` is the check
+ * command's guard.
  */
 import { agentDescriptionBeside, transcriptTextAt, workflowRunIdentifierOf } from '../../../src/lib/claude-code/ClaudeTranscripts.ts';
 import type { TranscriptUsageTotals }                                        from '../../../src/lib/claude-code/utils/TranscriptUsageUtil.ts';
@@ -13,7 +13,6 @@ import type { CommandContext }                                               fro
 import type { CommandHandler }                                               from '../../CommandHandler.ts';
 import type { ArgumentParser }                                               from '../../arguments/ArgumentParser.ts';
 import { guardTheCheckCommand }                                              from './CheckCommandGuard.ts';
-import { reconcileCopilotSession, recordSettledCopilotAgent }                from './CopilotAgentSettled.ts';
 import {
   REPORT_PREFIX,
   UNKNOWN_AGENT,
@@ -22,17 +21,13 @@ import {
 }                                                        from './HookInput.ts';
 import { recordInTheTracker } from './TokenCreditRecording.ts';
 
-const USAGE = 'agent-progress hook subagent-stop|pre-tool-use|copilot-agent-settled [--session <id>]  (the hook JSON arrives on standard input)';
+const USAGE = 'agent-progress hook subagent-stop|pre-tool-use  (the hook JSON arrives on standard input)';
 
 const SUBAGENT_STOP_EVENT = 'subagent-stop';
 
 const PRE_TOOL_USE_EVENT = 'pre-tool-use';
 
-const COPILOT_AGENT_SETTLED_EVENT = 'copilot-agent-settled';
-
-const SESSION_OPTION_NAME = 'session';
-
-const KNOWN_OPTION_NAMES: readonly string[] = [SESSION_OPTION_NAME];
+const KNOWN_OPTION_NAMES: readonly string[] = [];
 
 /** The harness writes the transcript path with a `~`, and `readFileSync` has no shell to expand it for it. */
 function expandLeadingTilde(path: string, homeDirectory: string): string {
@@ -81,7 +76,7 @@ async function recordSubagentStop(commandArguments: ArgumentParser, context: Com
 
   const workingDirectory = readStringField(hookInput, 'cwd') ?? context.currentDirectory;
   const agentStop = { usage: agentUsageOf(hookInput, totals, expandedTranscriptPath), briefText: TranscriptUsageUtil.briefTextOf(transcriptText) };
-  await recordInTheTracker(commandArguments, context, REPORT_PREFIX, workingDirectory, [agentStop], 'logged-again');
+  await recordInTheTracker(commandArguments, context, REPORT_PREFIX, workingDirectory, [agentStop]);
 }
 
 /**
@@ -94,19 +89,12 @@ export const hookCommand: CommandHandler = async (commandArguments, context) => 
   commandArguments.rejectUnknownOptions(KNOWN_OPTION_NAMES, USAGE);
 
   const event = commandArguments.positional();
-  if (event !== SUBAGENT_STOP_EVENT && event !== PRE_TOOL_USE_EVENT && event !== COPILOT_AGENT_SETTLED_EVENT) {
+  if (event !== SUBAGENT_STOP_EVENT && event !== PRE_TOOL_USE_EVENT) {
     const named = event === undefined ? 'no hook event' : `"${event}"`;
     throw new OperationRefusal('refused', `agent-progress hook takes one event and was given ${named}.\n  Usage: ${USAGE}`);
   }
   commandArguments.rejectExtraPositionals(1, USAGE);
 
-  const sessionIdentifier = commandArguments.option(SESSION_OPTION_NAME);
-  if (sessionIdentifier !== undefined && event !== COPILOT_AGENT_SETTLED_EVENT) {
-    throw new OperationRefusal('refused', `agent-progress hook takes --${SESSION_OPTION_NAME} only with ${COPILOT_AGENT_SETTLED_EVENT}.\n  Usage: ${USAGE}`);
-  }
-
   if (event === PRE_TOOL_USE_EVENT) await guardTheCheckCommand(context);
-  else if (event === SUBAGENT_STOP_EVENT) await recordSubagentStop(commandArguments, context);
-  else if (sessionIdentifier === undefined) await recordSettledCopilotAgent(commandArguments, context);
-  else await reconcileCopilotSession(commandArguments, context, sessionIdentifier);
+  else await recordSubagentStop(commandArguments, context);
 };

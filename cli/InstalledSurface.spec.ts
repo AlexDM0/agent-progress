@@ -50,9 +50,8 @@ const INSTALLED_TEMPLATE_PATHS = [
   'resources/templates/Reference.md',
   'resources/templates/ClaudeInstructionsBlock.md',
   'resources/templates/AgentProgressWorker.md',
-  'resources/templates/CopilotAgentProgressWorker.md',
-  // Each host's sentences, filled into the block and the brief.
-  'cli/adoption/constants/AgentHostInstalls.ts',
+  // The Claude Code sentences, filled into the block and the brief.
+  'cli/adoption/constants/ClaudeCodeInstall.ts',
 ];
 
 const INSTALLED_SKILL_FOLDERS = ['skills/agent-po', 'skills/agent-progress-orchestrate'];

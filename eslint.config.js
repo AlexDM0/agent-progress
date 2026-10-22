@@ -17,7 +17,7 @@ const CONFINED_REACHES = [
     property:  { object: 'process', property: 'cwd', message: 'Take the directory from the CommandContext.' },
   },
   {
-    allowedIn:  ['cli/CommandContext.ts', 'cli/CopilotHostEndToEnd.spec.ts'],
+    allowedIn:  ['cli/CommandContext.ts'],
     importName: { name: 'node:os', importNames: ['homedir'], message: 'Take the home directory from the CommandContext.' },
   },
   ...['localStorage', 'sessionStorage'].flatMap((storageName) => [
