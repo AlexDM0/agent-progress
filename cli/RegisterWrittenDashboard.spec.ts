@@ -4,7 +4,8 @@
  * `progress.html` registers, one entry per `trackerId` carrying every field with its value; a read-only call, `view-spec`, `update`, a
  * failed render and a tracker under any temp folder (`/tmp`, `/var/tmp`, the system one) register nothing; the file's version, unknown keys
  * and malformed entries are handled as `docs/cli.md` says; a registry that cannot be written never changes the exit code; and concurrent
- * processes all land in the file.
+ * processes all land in the file. A case needing a registered tracker outside `/tmp` and `/var/tmp` is skipped where the scratch root lies
+ * under either (Linux), since neither a child's `TMPDIR` nor the case can move those.
  */
 import {
   existsSync,
@@ -35,14 +36,14 @@ import {
   gitOutputIn,
   removeScratchDirectory
 } from '../src/testing/ScratchWorkspace.ts';
-import { writeExampleSpecKitRepository }      from '../src/testing/SpecKitRepositoryFixtures.ts';
-import { testWhenGitIsPresent }               from '../src/testing/ToolGuard.ts';
-import { temporaryDirectoriesOfThisMachine }  from './CommandContext.ts';
-import { runCommandLine }                     from './Main.ts';
-import { registerWrittenDashboard }           from './RegisterWrittenDashboard.ts';
-import { createCapturedCommandContext }       from './testing/CapturedCommandContext.ts';
-import { runAgentProgress }                   from './testing/CliProcess.ts';
-import { createInitializedScratchRepository } from './testing/InitializedScratchRepository.ts';
+import { writeExampleSpecKitRepository }                                           from '../src/testing/SpecKitRepositoryFixtures.ts';
+import { testWhenGitIsPresent, testWhenGitIsPresentAndTheScratchRootIsOutsideTmp } from '../src/testing/ToolGuard.ts';
+import { temporaryDirectoriesOfThisMachine }                                       from './CommandContext.ts';
+import { runCommandLine }                                                          from './Main.ts';
+import { registerWrittenDashboard }                                                from './RegisterWrittenDashboard.ts';
+import { createCapturedCommandContext }                                            from './testing/CapturedCommandContext.ts';
+import { runAgentProgress }                                                        from './testing/CliProcess.ts';
+import { createInitializedScratchRepository }                                      from './testing/InitializedScratchRepository.ts';
 
 const FIRST_NOW  = new Date('2026-10-21T10:00:00Z');
 const SECOND_NOW = new Date('2026-10-21T11:30:00Z');
@@ -247,7 +248,7 @@ test('A2: a tracker rooted under /var/tmp or the system temp folder registers no
   expect(existsSync(registryFilePath())).toBe(false);
 });
 
-testWhenGitIsPresent('A2: a tracker outside every temp folder still registers when /tmp and /var/tmp are among them', async () => {
+testWhenGitIsPresentAndTheScratchRootIsOutsideTmp('A2: a tracker outside every temp folder still registers when /tmp and /var/tmp are among them', async () => {
   const repositoryDirectory = await initializedRepository();
   const temporaryDirectories = ['/tmp', '/var/tmp', folderOutsideEveryRepository];
   expect(await registrationOfATrackerRootedAt(repositoryDirectory, temporaryDirectories)).toBe('registered');
@@ -326,7 +327,7 @@ testWhenGitIsPresent('A4: a registry that cannot be written warns on standard er
   expect(context.errorText()).toContain(`The monitor registry ${registryFilePath()} could not be updated:`);
 });
 
-testWhenGitIsPresent('A5: several processes registering different projects at once all end up in the file', async () => {
+testWhenGitIsPresentAndTheScratchRootIsOutsideTmp('A5: several processes registering different projects at once all end up in the file', async () => {
   const repositoryDirectories = await Promise.all([1, 2, 3, 4].map(async (projectNumber) => {
     const repositoryDirectory = scratch(createScratchGitRepository(`monitor-concurrent-${projectNumber}`));
     await requireExitZero(['init', '--project', `Example Agency ${projectNumber}`], createCapturedCommandContext({ currentDirectory: repositoryDirectory }));

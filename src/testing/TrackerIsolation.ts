@@ -23,7 +23,7 @@ function scratchRootDirectory(): string {
 }
 
 /** A path that does not exist yet is canonicalised through its nearest existing ancestor, since the scratch root itself sits behind a symlink on macOS. */
-function canonicalPathOf(path: string): string {
+export function canonicalPathOf(path: string): string {
   const absolutePath = resolve(path);
   try {
     return realpathSync(absolutePath);

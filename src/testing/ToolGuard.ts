@@ -1,19 +1,22 @@
 /**
- * The one shared guard for a spec that needs a tool the machine may lack. A missing tool skips the suite with the tool named in its
- * title and records the skip for `src/testing/TestRunReport.ts`; with `AGENT_PROGRESS_REQUIRE_EVERY_TOOL` set it registers a failing
- * test naming the tool instead.
+ * The one shared guard for a spec that needs a tool, or a machine condition, the machine may lack. An unmet requirement skips the suite
+ * with the requirement named in its title and records the skip for `src/testing/TestRunReport.ts`; with
+ * `AGENT_PROGRESS_REQUIRE_EVERY_TOOL` set it registers a failing test naming the requirement instead.
  */
 import { describe, test } from 'bun:test';
 
-import { everyToolIsRequired, liveCopilotRunIsAllowed } from '../shared/Environment.ts';
-import { gitIsAvailable }                               from './ScratchWorkspace.ts';
+import { everyToolIsRequired, liveCopilotRunIsAllowed }   from '../shared/Environment.ts';
+import { scratchRootLiesOutsideTheFixedTemporaryFolders } from './FixedTemporaryFolders.ts';
+import { gitIsAvailable }                                 from './ScratchWorkspace.ts';
 
 /** `copilot-live-run` is `copilot` on the path with `AGENT_PROGRESS_LIVE_COPILOT_RUN` set, since its one spec spends real model tokens. */
 export type RequiredTool = 'git' | 'bash' | 'copilot-live-run';
 
+export type SpecRequirement = RequiredTool | 'scratch-root-outside-tmp';
+
 export interface SkippedSpec {
-  readonly title:       string;
-  readonly missingTool: RequiredTool;
+  readonly title:            string;
+  readonly unmetRequirement: SpecRequirement;
 }
 
 function bashIsAvailable(): boolean {
@@ -24,66 +27,83 @@ function copilotLiveRunIsAvailable(): boolean {
   return Bun.which('copilot') !== null && liveCopilotRunIsAllowed();
 }
 
-const TOOL_IS_PRESENT: Readonly<Record<RequiredTool, () => boolean>> = {
-  'git':              gitIsAvailable,
-  'bash':             bashIsAvailable,
-  'copilot-live-run': copilotLiveRunIsAvailable,
+const REQUIREMENT_IS_MET: Readonly<Record<SpecRequirement, () => boolean>> = {
+  'git':                      gitIsAvailable,
+  'bash':                     bashIsAvailable,
+  'copilot-live-run':         copilotLiveRunIsAvailable,
+  'scratch-root-outside-tmp': scratchRootLiesOutsideTheFixedTemporaryFolders,
+};
+
+const UNMET_REQUIREMENT_WORDING: Readonly<Record<SpecRequirement, string>> = {
+  'git':                      'git is missing',
+  'bash':                     'bash is missing',
+  'copilot-live-run':         'copilot-live-run is missing',
+  'scratch-root-outside-tmp': 'the scratch root lies under /tmp or /var/tmp',
 };
 
 type SpecBody = () => void | Promise<unknown>;
 
 const skippedSpecs: SkippedSpec[] = [];
 
-function titleNamingTheMissingTool(title: string, tool: RequiredTool): string {
-  return `${title} [${tool} is missing]`;
+export function titleNamingTheUnmetRequirement(title: string, requirement: SpecRequirement): string {
+  return `${title} [${UNMET_REQUIREMENT_WORDING[requirement]}]`;
 }
 
-function failBecauseToolIsMissing(tool: RequiredTool): never {
-  throw new Error(`Every tool is required (AGENT_PROGRESS_REQUIRE_EVERY_TOOL is set), but "${tool}" is not on this machine.`);
+function failBecauseRequirementIsUnmet(requirement: SpecRequirement): never {
+  throw new Error(`Every tool is required (AGENT_PROGRESS_REQUIRE_EVERY_TOOL is set), but ${UNMET_REQUIREMENT_WORDING[requirement]} on this machine.`);
 }
 
-function describeWhenToolIsPresent(tool: RequiredTool, title: string, body: () => void): void {
-  if (TOOL_IS_PRESENT[tool]()) {
+function describeWhenRequirementIsMet(requirement: SpecRequirement, title: string, body: () => void): void {
+  if (REQUIREMENT_IS_MET[requirement]()) {
     describe(title, body);
     return;
   }
-  const namedTitle = titleNamingTheMissingTool(title, tool);
+  const namedTitle = titleNamingTheUnmetRequirement(title, requirement);
   if (everyToolIsRequired()) {
-    test(namedTitle, () => failBecauseToolIsMissing(tool));
+    test(namedTitle, () => failBecauseRequirementIsUnmet(requirement));
     return;
   }
-  skippedSpecs.push({ title, missingTool: tool });
+  skippedSpecs.push({ title, unmetRequirement: requirement });
   describe.skip(namedTitle, body);
 }
 
-function testWhenToolIsPresent(tool: RequiredTool, claim: string, body: SpecBody, timeoutMilliseconds?: number): void {
-  if (TOOL_IS_PRESENT[tool]()) {
+function testWhenRequirementIsMet(requirement: SpecRequirement, claim: string, body: SpecBody, timeoutMilliseconds?: number): void {
+  if (REQUIREMENT_IS_MET[requirement]()) {
     test(claim, body, timeoutMilliseconds);
     return;
   }
-  const namedClaim = titleNamingTheMissingTool(claim, tool);
+  const namedClaim = titleNamingTheUnmetRequirement(claim, requirement);
   if (everyToolIsRequired()) {
-    test(namedClaim, () => failBecauseToolIsMissing(tool));
+    test(namedClaim, () => failBecauseRequirementIsUnmet(requirement));
     return;
   }
-  skippedSpecs.push({ title: claim, missingTool: tool });
+  skippedSpecs.push({ title: claim, unmetRequirement: requirement });
   test.skip(namedClaim, body);
 }
 
 export function describeWhenGitIsPresent(title: string, body: () => void): void {
-  describeWhenToolIsPresent('git', title, body);
+  describeWhenRequirementIsMet('git', title, body);
 }
 
 export function testWhenGitIsPresent(claim: string, body: SpecBody, timeoutMilliseconds?: number): void {
-  testWhenToolIsPresent('git', claim, body, timeoutMilliseconds);
+  testWhenRequirementIsMet('git', claim, body, timeoutMilliseconds);
 }
 
 export function testWhenBashIsPresent(claim: string, body: SpecBody, timeoutMilliseconds?: number): void {
-  testWhenToolIsPresent('bash', claim, body, timeoutMilliseconds);
+  testWhenRequirementIsMet('bash', claim, body, timeoutMilliseconds);
 }
 
 export function testWhenCopilotLiveRunIsPresent(claim: string, body: SpecBody, timeoutMilliseconds?: number): void {
-  testWhenToolIsPresent('copilot-live-run', claim, body, timeoutMilliseconds);
+  testWhenRequirementIsMet('copilot-live-run', claim, body, timeoutMilliseconds);
+}
+
+/** For a spec whose spawned child must reach a tracker outside every temp folder: `TMPDIR` moves the child's `tmpdir()`, never these two. */
+export function testWhenGitIsPresentAndTheScratchRootIsOutsideTmp(claim: string, body: SpecBody, timeoutMilliseconds?: number): void {
+  if (!REQUIREMENT_IS_MET.git()) {
+    testWhenRequirementIsMet('git', claim, body, timeoutMilliseconds);
+    return;
+  }
+  testWhenRequirementIsMet('scratch-root-outside-tmp', claim, body, timeoutMilliseconds);
 }
 
 export function skippedSpecsSoFar(): readonly SkippedSpec[] {
