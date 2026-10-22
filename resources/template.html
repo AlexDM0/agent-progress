@@ -21,18 +21,20 @@
 ===============================================================================
  agent-progress — page template
 ===============================================================================
- Replaced by the CLI, which splits this file on all four tokens at once and
+ Replaced by the CLI, which splits this file on all five tokens at once and
  swaps each piece, so injected content is never searched again. Each token must
  occur exactly ONCE or the render refuses — the names are written here without
- their leading and trailing underscores, and the title without its tags, on purpose:
+ their leading and trailing underscores, and the title and heading without their
+ tags, on purpose:
    PROGRESS      JSON island   -> <script type="application/json" id="ap-progress-data">
    TICKETS       JSON island   -> <script type="application/json" id="ap-tickets-data">
    PAGE_SCRIPT   layout script -> last <script> in <body>
    title         the <title> element in <head>, "agent-progress" -> "<project> progress"
+   heading       the empty #ap-project h1 -> holding "<project>"
 
- The template ships with placeholder content inside every container so it can be
- opened on its own. The page script is expected to replace the contents of each
- container listed below.
+ The template ships with placeholder content inside every container but
+ #ap-project so it can be opened on its own. The page script is expected to
+ replace the contents of each container listed below.
 
  ---------------------------------------------------------------- containers ---
  header.ap-head          three rows 28px apart: .ap-head-title-row (.ap-head-identity holding
@@ -46,7 +48,7 @@
                                  reload; .ap-status-dot (pulses while live), #ap-status-label,
                                  #ap-generated
  #ap-status-label         text   "Live" or "Snapshot", upper-cased by CSS
- #ap-project              text   project name, the h1
+ #ap-project              text   project name, the h1, filled at render and again by the page script
  #ap-summary              html   four .ap-stat, each .ap-stat-n then .ap-stat-label: agents working
                                  ("1 / 6", running rows over the concurrency limit, or the running
                                  count alone), then, only while builds are paused, "N paused"

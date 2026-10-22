@@ -1,6 +1,6 @@
 /**
  * What `fillPageTemplate` must guarantee: each token replaced exactly once, both islands parsing
- * back to what went in, and nothing from the tracker able to close the script element it travels in.
+ * back to what went in, and nothing from the tracker able to close the script element it travels in, the title or the heading.
  */
 
 import { describe, expect, test }         from 'bun:test';
@@ -153,7 +153,6 @@ describe('fillPageTemplate', () => {
     const document = render({ progress: exampleProgress({ project: 'Example Storefront' }) });
 
     expect(document).toContain('<h1 class="ap-title" id="ap-project">Example Storefront</h1>');
-    expect(document).not.toContain('Example Agency</h1>');
   });
 
   test('escapes a project name that would otherwise close the heading', () => {

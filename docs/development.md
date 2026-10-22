@@ -169,7 +169,7 @@ by a spec.
 ## The page
 
 `progress.html` is built from `resources/template.html`, whose contract with the page modules is a
-rule in the root `CLAUDE.md` (The page). `src/services/render/PageTemplateFill.ts` replaces four tokens in
+rule in the root `CLAUDE.md` (The page). `src/services/render/PageTemplateFill.ts` replaces five tokens in
 it, and `src/services/render/PageBundler.ts` bundles the TypeScript under `page/` into it from
 `page/PageStart.ts`.
 
