@@ -1,14 +1,13 @@
 /** The header's parts that stay put: the project title, the summary statistics and the embedded page's today figures, filled once at load. */
 
-import type { PagePayload }                              from '../../src/shared/@types/PagePayload.ts';
-import type { BoardTicket }                              from '../@types/PageBoard.ts';
-import { PROJECT_NAME_ELEMENT_ID, SUMMARY_ELEMENT_ID }   from '../constants/TemplateIds.ts';
-import { DomUtil }                                       from '../utils/DomUtil.ts';
-import { TimeUtil }                                      from '../utils/TimeUtil.ts';
-import { TODAY_FIGURES_ELEMENT_ID }                      from './EmbeddedDashboardMode.ts';
-import { headerStatisticsMarkup }                        from './HeaderMarkup.ts';
-import { trackerHeaderModelOf, trackerTodayFiguresText } from './TrackerHeaderModel.ts';
-import { HeaderFigureUtil }                              from './utils/HeaderFigureUtil.ts';
+import type { PagePayload }                                                      from '../../src/shared/@types/PagePayload.ts';
+import type { BoardTicket }                                                      from '../@types/PageBoard.ts';
+import { PROJECT_NAME_ELEMENT_ID, SUMMARY_ELEMENT_ID, TODAY_FIGURES_ELEMENT_ID } from '../constants/TemplateIds.ts';
+import { DomUtil }                                                               from '../utils/DomUtil.ts';
+import { TimeUtil }                                                              from '../utils/TimeUtil.ts';
+import { headerStatisticsMarkup }                                                from './HeaderMarkup.ts';
+import { trackerHeaderModelOf, trackerTodayFiguresText }                         from './TrackerHeaderModel.ts';
+import { HeaderFigureUtil }                                                      from './utils/HeaderFigureUtil.ts';
 
 export interface HeaderController {
   show(nowEpochMilliseconds: number): void;

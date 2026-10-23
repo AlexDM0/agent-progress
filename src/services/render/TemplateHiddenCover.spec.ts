@@ -6,9 +6,9 @@
  * no `display: none` rule matching the hidden element at a specificity that wins. Only modules the page entry reaches are scanned. What
  * matters: the real template and page modules pass with every collected id found in the template; each hiding form is collected; and
  * removing the epic strip's cover fails.
- * Embedded mode (`page/header/EmbeddedDashboardMode.ts`) hides elements through rules under `html[data-embedded="dashboard"]` the page
- * script adds: each element they hide must lose every other `display` to one, the four header parts must be among them, and the
- * `hidden` covers must still win with those rules added.
+ * Embedded mode hides elements through the template's rules under `html[data-embedded="dashboard"]`, the mark its head script sets only
+ * for `?embedded=dashboard`: each element they hide must lose every other `display` to one, the four header parts must be among them,
+ * the `hidden` covers must still win with the root marked, and a rule under the mark reaches nothing while the root is unmarked.
  */
 
 import { readFileSync }           from 'node:fs';
@@ -40,7 +40,7 @@ type HidingCause = 'hidden-attribute' | 'embedded-dashboard';
 
 const EMBEDDED_DASHBOARD_MARK = '[data-embedded="dashboard"]';
 
-const EMBEDDED_MODE_MODULE_PATH = 'page/header/EmbeddedDashboardMode.ts';
+const EMBEDDED_ATTRIBUTE = 'data-embedded';
 
 const VOID_ELEMENTS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr']);
 
@@ -259,7 +259,9 @@ function compoundCanMatch(compound: string, element: ElementOpeningTag, mode: Ma
     }
     if (simpleSelector.startsWith('[')) {
       const [, name = '', value] = /^\[([\w-]+)(?:[~|^$*]?="?([^"\]]*)"?)?\]$/.exec(simpleSelector) ?? [];
-      return mode === 'reaching' || (element.attributes.has(name) && (value === undefined || element.attributes.get(name) === value));
+      const attributeMatches = element.attributes.has(name) && (value === undefined || element.attributes.get(name) === value);
+      // The embedded mark is set once before first paint, never by the page script, so it reaches only a root that carries it.
+      return attributeMatches || (mode === 'reaching' && name !== EMBEDDED_ATTRIBUTE);
     }
     if (simpleSelector.replace(/\s/g, '') === ':not([hidden])') {
       return !element.attributes.has('hidden');
@@ -320,7 +322,7 @@ function chainHiddenBy(chain: readonly ElementOpeningTag[], element: ElementOpen
   if (cause === 'hidden-attribute' || root === undefined) {
     return [...chain.slice(0, -1), withAttribute(element, 'hidden', '')];
   }
-  return [withAttribute(root, 'data-embedded', 'dashboard'), ...chain.slice(1)];
+  return [withAttribute(root, EMBEDDED_ATTRIBUTE, 'dashboard'), ...chain.slice(1)];
 }
 
 function coversElement(rule: StyleRule, hiddenChain: readonly ElementOpeningTag[], cause: HidingCause): boolean {
@@ -354,20 +356,14 @@ function offencesOf(templateText: string, elementIds: Iterable<string>, cause: H
   return [...elementIds].flatMap((elementId) => uncoveredDisplayRulesOf(templateText, elementId, cause));
 }
 
-function embeddedStylesOf(graph: ImportGraph): string {
-  return /EMBEDDED_DASHBOARD_STYLES\s*=\s*`([^`]*)`/.exec(graph.sourceTextOf(EMBEDDED_MODE_MODULE_PATH))?.[1] ?? '';
+/** The template as its head script leaves it for `?embedded=dashboard`: the root marked. */
+function templateMarkedEmbedded(templateSource: string): string {
+  return templateSource.replace('<html lang="en">', '<html lang="en" data-embedded="dashboard">');
 }
 
-/** The template as the page script leaves it in embedded mode: the root marked and the embedded styles appended to the head. */
-function templateWithEmbeddedStyles(templateSource: string, embeddedStyles: string): string {
-  return templateSource
-    .replace('<html lang="en">', '<html lang="en" data-embedded="dashboard">')
-    .replace('</head>', () => `<style>${embeddedStyles}</style>\n</head>`);
-}
-
-/** The ids whose own rule hides them in embedded mode, read from the embedded styles. */
-function embeddedHiddenIdsOf(embeddedStyles: string): string[] {
-  return styleRulesOf(`<style>${embeddedStyles}</style>`)
+/** The ids whose own rule under the embedded mark hides them. */
+function embeddedHiddenIdsOf(templateSource: string): string[] {
+  return styleRulesOf(templateSource)
     .filter((rule) => rule.display === 'none' && rule.selector.includes(EMBEDDED_DASHBOARD_MARK))
     .map((rule) => /#([\w-]+)$/.exec(rule.selector)?.[1])
     .filter((elementId) => elementId !== undefined)
@@ -442,32 +438,61 @@ describe('every element the page hides is display: none while hidden', () => {
 });
 
 describe('every element embedded mode hides is display: none in embedded mode', () => {
-  const embeddedStyles       = embeddedStylesOf(SCANNER.graph);
-  const embeddedTemplateText = templateWithEmbeddedStyles(templateText, embeddedStyles);
+  const embeddedTemplateText = templateMarkedEmbedded(templateText);
 
-  test('the embedded styles are read from the module the tracker entry reaches', () => {
-    expect(pageSourcesReachedFrom(SCANNER.graph, TRACKER_ENTRY_PATH).map((source) => source.path)).toContain(EMBEDDED_MODE_MODULE_PATH);
-    expect(styleRulesOf(embeddedTemplateText).length).toBeGreaterThan(styleRulesOf(templateText).length);
+  test('the head script marks the root only for the literal ?embedded=dashboard, before the page script runs', () => {
+    const headScript = /<head>[\s\S]*?<script>([\s\S]*?)<\/script>/.exec(templateText)?.[1] ?? '';
+    const markOf = (search: string): string | undefined => {
+      const rootAttributes = new Map<string, string>();
+      const fakeWindow     = { location: { search }, matchMedia: () => ({ matches: false }) };
+      const fakeDocument   = { documentElement: { setAttribute: (name: string, value: string) => rootAttributes.set(name, value) } };
+      const fakeStorage    = { getItem: () => null };
+      new Function('window', 'document', 'localStorage', headScript)(fakeWindow, fakeDocument, fakeStorage);
+      return rootAttributes.get(EMBEDDED_ATTRIBUTE);
+    };
+    expect(markOf('?embedded=dashboard')).toBe('dashboard');
+    expect(markOf('?view=kanban&embedded=dashboard')).toBe('dashboard');
+    for (const search of ['', '?embedded', '?embedded=', '?embedded=Dashboard', '?embedded=sidebar']) {
+      expect(markOf(search)).toBeUndefined();
+    }
+  });
+
+  test('the template carries the embedded rules and no page module appends styles', () => {
+    expect(styleRulesOf(templateText).some((rule) => rule.selector.includes(EMBEDDED_DASHBOARD_MARK))).toBe(true);
+    const appendingSources = pageSourcesReachedFrom(SCANNER.graph, TRACKER_ENTRY_PATH)
+      .filter((source) => /createElement\(\s*'style'\s*\)/.test(source.text))
+      .map((source) => source.path);
+    expect(appendingSources).toEqual([]);
   });
 
   test('the status line, the project title, the statistics and the theme switch are the elements it hides', () => {
-    expect(embeddedHiddenIdsOf(embeddedStyles)).toEqual(['ap-project', 'ap-status', 'ap-summary', 'ap-theme']);
+    expect(embeddedHiddenIdsOf(templateText)).toEqual(['ap-project', 'ap-status', 'ap-summary', 'ap-theme']);
   });
 
   test('each element it hides has a winning embedded rule over each display its rules set', () => {
-    expect(offencesOf(embeddedTemplateText, embeddedHiddenIdsOf(embeddedStyles), 'embedded-dashboard')).toEqual([]);
+    expect(offencesOf(embeddedTemplateText, embeddedHiddenIdsOf(templateText), 'embedded-dashboard')).toEqual([]);
   });
 
-  test('every element the page hides through hidden stays covered with the embedded styles added', () => {
+  test('every element the page hides through hidden stays covered with the root marked', () => {
     const { elementIds } = hidingSitesOf(pageSourcesReachedFrom(SCANNER.graph, TRACKER_ENTRY_PATH));
     expect(offencesOf(embeddedTemplateText, elementIds)).toEqual([]);
   });
 
   test('removing the theme switch rule fails on the theme switch, and the activity banner hidden cover on the banner', () => {
-    const withoutThemeRule = templateWithEmbeddedStyles(templateText, embeddedStyles.replace(/^.*#ap-theme \{ display: none; \}$/m, ''));
+    const withoutThemeRule = templateMarkedEmbedded(templateText.replace(/^.*#ap-theme \{ display: none; \}$/m, ''));
+    expect(withoutThemeRule.length).toBeLessThan(embeddedTemplateText.length);
     expect(offencesOf(withoutThemeRule, ['ap-theme'], 'embedded-dashboard')).toEqual(['#ap-theme: .ap-theme { display: flex }']);
-    const withoutBannerCover = templateWithEmbeddedStyles(templateText, embeddedStyles.replace(/^.*\.ap-activity\[hidden\].*$/m, ''));
+    const withoutBannerCover = templateMarkedEmbedded(templateText.replace(/^html\[data-embedded="dashboard"\] \.ap-activity\[hidden\].*$/m, ''));
+    expect(withoutBannerCover.length).toBeLessThan(embeddedTemplateText.length);
     expect(offencesOf(withoutBannerCover, ['ap-activity'])).toEqual(['#ap-activity: html[data-embedded="dashboard"] .ap-activity { display: flex }']);
+  });
+
+  test('a rule under the embedded mark reaches nothing while the root is unmarked', () => {
+    const markup = '<html><div class="x" id="planted" hidden></div></html>';
+    const sheet  = `<style>.x[hidden] { display: none } html${EMBEDDED_DASHBOARD_MARK} .x { display: flex }</style>`;
+    expect(offencesOf(`${sheet}${markup}`, ['planted'])).toEqual([]);
+    expect(offencesOf(`${sheet}${markup.replace('<html>', '<html data-embedded="dashboard">')}`, ['planted']))
+      .toEqual([`#planted: html${EMBEDDED_DASHBOARD_MARK} .x { display: flex }`]);
   });
 
   test('a rule under the embedded mark covers only while the root carries it', () => {

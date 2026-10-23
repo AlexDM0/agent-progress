@@ -1,8 +1,8 @@
 /**
  * That `resources/template.html` filled with a fixed fixture stays byte for byte the page main rendered before the spec view's second
- * edition, both with a page script and with the banner-only fallback. The expected digests were retaken on the commit that wrote the project name
- * into the heading at render. To retake them, check out the commit to compare against, run this spec, and copy
- * each actual digest its failure prints into `FROZEN_PAGE_DIGESTS`.
+ * edition, both with a page script and with the banner-only fallback. The expected digests were retaken on the commit that streamlined the
+ * Kanban lane headers and moved embedded mode's styles and today figures into the template. To retake them, check out the commit to
+ * compare against, run this spec, and copy each actual digest its failure prints into `FROZEN_PAGE_DIGESTS`.
  */
 import { createHash } from 'node:crypto';
 
@@ -15,8 +15,8 @@ import { createMarkdownRenderer } from './MarkdownRenderer.ts';
 import { fillPageTemplate }       from './PageTemplateFill.ts';
 
 const FROZEN_PAGE_DIGESTS = {
-  withPageScript: 'fe3ccbcf1aaa4df3bc015751cd3c94f308ae173ef5699f4c626d1366485d1eb1',
-  bannerOnly:     'af83bce4c37e358296de8bc066cbe26a6a7b4738f2fece11dd2f53ba4e527adc',
+  withPageScript: 'e12688197f8d54c9d2f2e3d41a2c8dcf0994e991d910fe3bf53c04509c9dcf0f',
+  bannerOnly:     'b2a251484148246219f7e2f75cdadd1f0622e6c556ee32e91b97929da48ce5a7',
 } as const;
 
 const FROZEN_PROGRESS: TrackerProgress = {

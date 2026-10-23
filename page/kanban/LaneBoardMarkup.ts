@@ -24,20 +24,17 @@ function subtitleMarkup(subtitle: LaneSubtitle): string {
 }
 
 function headMarkup(lane: LaneModel): string {
-  const headInner = [
-    `<span class="ap-lane-dot" ${MarkupUtil.attribute('data-state', lane.dotState)}></span>`,
-    `<span class="ap-card-title">${HtmlEscapeUtil.escapeHtml(lane.title)}</span>`,
-    `<span class="ap-lane-count">${lane.count}</span>`,
-  ].join('');
-  const subtitle = subtitleMarkup(lane.subtitle);
+  const headInner = `<span class="ap-card-title">${HtmlEscapeUtil.escapeHtml(lane.title)}</span><span class="ap-lane-count">${lane.count}</span>`;
+  const headOpening = `<div class="ap-card-head" ${MarkupUtil.attribute('data-state', lane.dotState)}>`;
+  const subtitle    = subtitleMarkup(lane.subtitle);
   if (lane.collapse === null) {
-    return `<div class="ap-card-head">${headInner}${subtitle}</div>`;
+    return `${headOpening}${headInner}${subtitle}</div>`;
   }
   const toggle = [
     `<button type="button" class="ap-lane-toggle" aria-expanded="${String(!lane.collapse.isCollapsed)}" ${MarkupUtil.attribute('aria-controls', lane.cardsElementId)}`,
     ` ${MarkupUtil.attribute('title', lane.collapse.toggleTitle)}>${headInner}</button>`,
   ].join('');
-  return `<div class="ap-card-head">${toggle}${subtitle}</div>`;
+  return `${headOpening}${toggle}${subtitle}</div>`;
 }
 
 function groupMarkup(group: LaneCardGroup): string {

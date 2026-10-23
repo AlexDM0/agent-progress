@@ -12,6 +12,7 @@ export const TABS_ELEMENT_ID         = 'ap-tabs';
 export const PROJECT_NAME_ELEMENT_ID    = 'ap-project';
 export const STATUS_LABEL_ELEMENT_ID    = 'ap-status-label';
 export const SUMMARY_ELEMENT_ID         = 'ap-summary';
+export const TODAY_FIGURES_ELEMENT_ID   = 'ap-today';
 export const AXIS_TICKS_ELEMENT_ID      = 'ap-ticks';
 export const CHART_OVERLAY_ELEMENT_ID   = 'ap-overlay';
 export const TASK_ROWS_ELEMENT_ID       = 'ap-rows';

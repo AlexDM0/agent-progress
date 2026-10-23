@@ -20,6 +20,7 @@ import {
   TASK_ROWS_ELEMENT_ID,
   TICKET_COUNT_ELEMENT_ID,
   TICKET_ROWS_ELEMENT_ID,
+  TODAY_FIGURES_ELEMENT_ID,
 } from './constants/TemplateIds.ts';
 import { createDependencyLineageController }                  from './dependencies/DependencyLineageController.ts';
 import { DependencyMarkup }                                   from './dependencies/DependencyMarkup.ts';
@@ -27,7 +28,6 @@ import { createDetailDialogController }                       from './detail-dia
 import { EpicGroupMarks }                                     from './epics/EpicGroupMarks.ts';
 import { EpicMarkup }                                         from './epics/EpicMarkup.ts';
 import { createFinishedWorkSwitchController }                 from './finished-work/FinishedWorkSwitchController.ts';
-import { embedsInDashboard, enterEmbeddedDashboardMode }      from './header/EmbeddedDashboardMode.ts';
 import { createHeaderController }                             from './header/HeaderController.ts';
 import { createLiveHeaderController }                         from './header/LiveHeaderController.ts';
 import { createKanbanController }                             from './kanban/KanbanController.ts';
@@ -86,6 +86,7 @@ const OWNED_TEXT_CONTAINER_IDS = [
   RANGE_NOTE_ELEMENT_ID,
   TICKET_COUNT_ELEMENT_ID,
   HIDDEN_WORK_NOTE_ELEMENT_ID,
+  TODAY_FIGURES_ELEMENT_ID,
 ];
 
 const { showLayoutFailure, islandContentsOf, showTabButton } = PageShell;
@@ -294,9 +295,6 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
 }
 
 function startPage(): void {
-  if (embedsInDashboard(window.location.search)) {
-    enterEmbeddedDashboardMode();
-  }
   PageShell.clearOwnedContainers(OWNED_MARKUP_CONTAINER_IDS, OWNED_TEXT_CONTAINER_IDS);
   const payload = IslandUtil.pagePayloadFrom(islandContentsOf(PROGRESS_ISLAND_ELEMENT_ID));
   if (payload === null) {

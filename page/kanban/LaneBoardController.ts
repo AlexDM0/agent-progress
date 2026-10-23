@@ -209,9 +209,9 @@ export function createLaneBoardController(settings: LaneBoardSettings): LaneBoar
     const overflowRight = laneBox.right - boardBox.right;
     const scrollDelta   = overflowLeft < 0 ? overflowLeft : Math.max(0, overflowRight);
     board.scrollBy({ left: scrollDelta, behavior: motionIsReduced ? 'auto' : 'smooth' });
-    const dot = laneElement.querySelector('.ap-lane-dot');
-    if (dot !== null) {
-      laneElement.style.setProperty('--lane-highlight-edge', getComputedStyle(dot).getPropertyValue('--s-edge'));
+    const head = laneElement.querySelector(':scope > .ap-card-head');
+    if (head !== null) {
+      laneElement.style.setProperty('--lane-highlight-edge', getComputedStyle(head).getPropertyValue('--s-edge'));
     }
     board.querySelectorAll(':scope > .ap-lane[data-highlighted]').forEach((highlightedLane) => highlightedLane.removeAttribute('data-highlighted'));
     // Reading the layout between the removal and the setting restarts the animation when the same lane is asked for twice.
