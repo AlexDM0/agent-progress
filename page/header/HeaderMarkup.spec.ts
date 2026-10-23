@@ -8,7 +8,7 @@ import { describe, expect, test }                                from 'bun:test'
 import { MILLISECONDS_PER_MINUTE }                               from '../../src/lib/local-time/LocalTimeUtil.ts';
 import { TimeUtil }                                              from '../utils/TimeUtil.ts';
 import { freshnessLabel, freshnessText, headerStatisticsMarkup } from './HeaderMarkup.ts';
-import { trackerHeaderStatisticsOf }                             from './TrackerHeaderModel.ts';
+import { trackerHeaderStatisticsOf, trackerTodayFiguresText }    from './TrackerHeaderModel.ts';
 import type { HeaderStatistics }                                 from './utils/HeaderFigureUtil.ts';
 
 const EXAMPLE_STATISTICS: HeaderStatistics = {
@@ -19,6 +19,17 @@ const EXAMPLE_STATISTICS: HeaderStatistics = {
   waitingInQueueCount: 0,
   pausedBuildCount:    0,
 };
+
+describe('trackerTodayFiguresText', () => {
+  test('prints the done-today and tokens-today figures the statistics print, on one line', () => {
+    const markup  = headerStatisticsMarkup(trackerHeaderStatisticsOf(EXAMPLE_STATISTICS));
+    const figures = [...markup.matchAll(/<span class="ap-stat-n">([^<]*)<\/span><span class="ap-stat-label">(done today|tokens today)<\/span>/g)]
+      .map((match) => `${match[1]} ${match[2]}`);
+
+    expect(trackerTodayFiguresText(EXAMPLE_STATISTICS)).toBe(figures.join(' · '));
+    expect(trackerTodayFiguresText(EXAMPLE_STATISTICS)).toBe('34 done today · 358.2M tokens today');
+  });
+});
 
 describe('headerStatisticsMarkup', () => {
   test('prints agents working, done today, tokens today and waiting in queue, in that order', () => {

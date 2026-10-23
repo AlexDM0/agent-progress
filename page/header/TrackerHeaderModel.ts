@@ -27,6 +27,11 @@ export function trackerHeaderStatisticsOf(statistics: HeaderStatistics): HeaderS
   ];
 }
 
+/** The embedded page's one line of today's figures, formatted as the statistics format them. */
+export function trackerTodayFiguresText(statistics: HeaderStatistics): string {
+  return `${statistics.deliveredTodayCount} done today · ${TokenCountUtil.formatTokenCount(statistics.tokensToday)} tokens today`;
+}
+
 export function trackerHeaderModelOf(projectTitle: string, statistics: HeaderStatistics): HeaderModel {
   return { projectTitle, statistics: trackerHeaderStatisticsOf(statistics) };
 }

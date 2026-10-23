@@ -623,6 +623,11 @@ waits on another.
   row with `--review-of`, `REVIEWING`, with its ticket and a running timer; a snapshot freezes the
   timers at the moment the page was generated. The tab row holds the tabs and the finished-work
   switch.
+- **Embedded mode**, for a dashboard framing the page: `progress.html?embedded=dashboard` (that
+  literal value only, read once at load) hides the status line, the project name, the four figures
+  and the theme switch, folds the activity banner to one compact line, and ends the tab row with
+  `<n> done today · <tokens> tokens today`. The theme switch stays in the document, undisplayed, so
+  a framing page can still click it. Any other value, or none, is the normal page.
 - **Click any row**, in the chart or the ticket table, or press Enter or Space on it, for the whole
   story of that task in the detail panel on the right: its facts, every phase it went through with
   how long it sat in each, the ticket with its body, and the log lines about either (a line the tool
