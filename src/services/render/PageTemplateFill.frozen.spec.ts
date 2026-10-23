@@ -1,7 +1,7 @@
 /**
  * That `resources/template.html` filled with a fixed fixture stays byte for byte the page main rendered before the spec view's second
- * edition, both with a page script and with the banner-only fallback. The expected digests were retaken on the commit that streamlined the
- * Kanban lane headers and moved embedded mode's styles and today figures into the template. To retake them, check out the commit to
+ * edition, both with a page script and with the banner-only fallback. The expected digests were retaken on the commit that gave the dark
+ * To do and Abandoned lane headers a readable --s-head colour. To retake them, check out the commit to
  * compare against, run this spec, and copy each actual digest its failure prints into `FROZEN_PAGE_DIGESTS`.
  */
 import { createHash } from 'node:crypto';
@@ -15,8 +15,8 @@ import { createMarkdownRenderer } from './MarkdownRenderer.ts';
 import { fillPageTemplate }       from './PageTemplateFill.ts';
 
 const FROZEN_PAGE_DIGESTS = {
-  withPageScript: 'bddde6bf1e0eaa9463bb730b31c212b0129abb6086a55127bafd15c2e28b6ab5',
-  bannerOnly:     'd9dc7d11332ebb45df1696d483a2875de941649d76550439e7dcec178e839bc6',
+  withPageScript: 'a15b1ceb3af68698baab52f2a90a093863d9892721a4bd5d502425016fb6d88b',
+  bannerOnly:     'f0ddf6e593fe87334588361ef7ca2779d1942e1e7f861bffafd03e6e7dbd656a',
 } as const;
 
 const FROZEN_PROGRESS: TrackerProgress = {

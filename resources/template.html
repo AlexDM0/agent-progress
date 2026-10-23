@@ -464,7 +464,7 @@
               epic-1 … epic-6 -fill / -tint / -ink (an epic's stored slot);
               per state: --s-fill (bars) / --s-tint (pill bg) / --s-ink (pill text)
               / --s-edge (pill border), set by [data-state]; --s-head (lane header text, only
-              where --s-fill is too pale to read: light pending and abandoned); per epic: --epic-fill /
+              where --s-fill does not read: pending and abandoned, both themes); per epic: --epic-fill /
               --epic-tint / --epic-ink, set by [data-epic-slot]; --now for the marker
    spacing    4 8 12 16 24 32 (--sp-1 … --sp-6)
    radius     4 pill-inner / 6 controls / 10 cards / 999 pills
@@ -626,7 +626,7 @@
     --epic-5-fill: oklch(0.68 0.14 280); --epic-5-tint: oklch(0.31 0.060 280); --epic-5-ink: oklch(0.89 0.060 280);
     --epic-6-fill: oklch(0.70 0.16 325); --epic-6-tint: oklch(0.31 0.060 325); --epic-6-ink: oklch(0.89 0.060 325);
 }
-:root[data-theme="dark"] [data-state="pending"]     { --s-fill: oklch(0.42 0.012 265); --s-tint: oklch(0.29 0.010 265); --s-ink: oklch(0.80 0.012 265); --s-edge: oklch(0.40 0.012 265); --s-head: var(--s-fill); }
+:root[data-theme="dark"] [data-state="pending"]     { --s-fill: oklch(0.42 0.012 265); --s-tint: oklch(0.29 0.010 265); --s-ink: oklch(0.80 0.012 265); --s-edge: oklch(0.40 0.012 265); --s-head: var(--s-ink); }
 :root[data-theme="dark"] [data-state="in-progress"] { --s-fill: oklch(0.76 0.145 80);  --s-tint: oklch(0.33 0.065 80);  --s-ink: oklch(0.91 0.075 85);  --s-edge: oklch(0.52 0.10 80); }
 :root[data-theme="dark"] [data-state="paused"]      { --s-fill: oklch(0.62 0.045 265); --s-tint: oklch(0.31 0.022 265); --s-ink: oklch(0.85 0.030 265); --s-edge: oklch(0.47 0.030 265); }
 :root[data-theme="dark"] [data-state="in-review"]   { --s-fill: oklch(0.66 0.150 255); --s-tint: oklch(0.32 0.060 255); --s-ink: oklch(0.88 0.065 255); --s-edge: oklch(0.50 0.10 255); }
@@ -634,7 +634,7 @@
 :root[data-theme="dark"] [data-state="re-review"]   { --s-fill: oklch(0.64 0.155 205); --s-tint: oklch(0.37 0.085 205); --s-ink: oklch(0.94 0.080 205); --s-edge: oklch(0.58 0.115 205); }
 :root[data-theme="dark"] [data-state="reviewed"]    { --s-fill: oklch(0.72 0.135 155); --s-tint: oklch(0.32 0.055 155); --s-ink: oklch(0.89 0.060 155); --s-edge: oklch(0.50 0.080 155); }
 :root[data-theme="dark"] [data-state="delivered"]   { --s-fill: oklch(0.68 0.145 300); --s-tint: oklch(0.32 0.060 300); --s-ink: oklch(0.89 0.060 300); --s-edge: oklch(0.51 0.095 300); }
-:root[data-theme="dark"] [data-state="abandoned"]   { --s-fill: oklch(0.40 0.008 265); --s-tint: oklch(0.28 0.006 265); --s-ink: oklch(0.72 0.010 265); --s-edge: oklch(0.38 0.008 265); --s-head: var(--s-fill); }
+:root[data-theme="dark"] [data-state="abandoned"]   { --s-fill: oklch(0.40 0.008 265); --s-tint: oklch(0.28 0.006 265); --s-ink: oklch(0.72 0.010 265); --s-edge: oklch(0.38 0.008 265); --s-head: var(--s-ink); }
 
 * { box-sizing: border-box; }
 
@@ -1428,7 +1428,7 @@ body:has(#ap-panel-progress:not([hidden])) .ap-page { height: 100%; display: fle
 .ap-lane > .ap-card-head { flex-wrap: wrap; align-content: center; gap: 2px var(--sp-2); min-height: 56px; padding: var(--sp-2) var(--sp-3); }
 .ap-lane-dot { flex: none; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--s-fill); }
 /* The lane's title and count read as one line in the lane's state colour, the head's data-state;
-   a state too pale to read as text sets --s-head. */
+   a state whose colour does not read as text sets --s-head. */
 .ap-lane > .ap-card-head .ap-card-title { color: var(--s-head, var(--s-fill)); }
 .ap-lane-count { font-size: var(--fs-small); font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; font-variant-numeric: tabular-nums; color: var(--s-head, var(--s-fill)); }
 .ap-lane-sub { flex-basis: 100%; display: flex; align-items: center; gap: 5px; font-size: var(--fs-micro); color: var(--ink-muted); white-space: nowrap; }
