@@ -336,7 +336,7 @@
  ------------------------------------------------------------- kanban markup ---
  .ap-lane[data-lane]      todo | progress | review | merge | done | abandoned; .ap-card-head[data-state]
                           holds .ap-card-title, .ap-lane-count: the title and the count one line in
-                          the lane's header colour (--s-head, else --s-fill), no dot, no rule; its
+                          the lane's header colour (--s-head, else --s-fill), after a CSS bar in it; its
                           title attribute holds the lane's summary ("by priority", the counts), if any;
                           then .ap-lane-cards#ap-lane-<lane>-cards, then, in Done and Abandoned,
                           .ap-lane-more: the paging when capped, then .ap-lane-hidden-line ("19
@@ -1421,20 +1421,22 @@ body:has(#ap-panel-progress:not([hidden])) .ap-page { height: 100%; display: fle
 .ap-kanban-frame[data-overflow~="start"]::before,
 .ap-kanban-frame[data-overflow~="end"]::after { opacity: 1; }
 .ap-kanban { display: flex; align-items: stretch; gap: 10px; overflow-x: auto; overscroll-behavior-x: contain; padding-bottom: var(--sp-1); }
-.ap-lane { flex: 1 1 0; min-width: 220px; margin-bottom: 0; display: flex; flex-direction: column; overflow: hidden; container-type: inline-size; }
+.ap-lane { flex: 1 1 0; min-width: 220px; margin-bottom: 0; background: var(--bg); display: flex; flex-direction: column; overflow: hidden; container-type: inline-size; }
 /* Drawn inside the lane, so the board's scroll box never clips it. */
 .ap-lane[data-highlighted] { outline: 2px solid var(--lane-highlight-edge, var(--line-strong)); outline-offset: -2px; animation: ap-lane-highlight 0.3s ease-out; }
 @keyframes ap-lane-highlight { from { outline-color: transparent; } }
 @media (prefers-reduced-motion: reduce) { .ap-lane[data-highlighted] { animation: none; } }
-.ap-lane > .ap-card-head { gap: var(--sp-1); padding: 10px var(--sp-3) 0; border-bottom: 0; }
+/* The head and the priority dividers start at the cards' outer edge, the lane padding in. */
+.ap-lane > .ap-card-head { gap: 6px; padding: var(--sp-2); border-bottom: 0; }
+.ap-lane:not([data-collapsed]) > .ap-card-head::before { content: ""; flex: none; align-self: center; width: 4px; height: 1.1em; margin-right: 2px; border-radius: 2px; background: var(--s-head, var(--s-fill)); }
 .ap-lane-dot { flex: none; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--s-fill); }
 /* The lane's title and count read as one line in the lane's state colour, the head's data-state;
    a state whose colour does not read as text sets --s-head. */
-.ap-lane > .ap-card-head .ap-card-title { letter-spacing: 0.09em; color: var(--s-head, var(--s-fill)); }
-.ap-lane-count { font-size: var(--fs-small); font-weight: 600; text-transform: uppercase; letter-spacing: 0.09em; font-variant-numeric: tabular-nums; color: var(--s-head, var(--s-fill)); }
-.ap-lane-cards { flex: 1; display: flex; flex-direction: column; gap: 6px; padding: 6px; background: var(--bg); }
+.ap-lane > .ap-card-head .ap-card-title { font-size: var(--fs-body); font-weight: 700; letter-spacing: 0.12em; color: var(--s-head, var(--s-fill)); }
+.ap-lane-count { font-size: var(--fs-body); font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; font-variant-numeric: tabular-nums; color: var(--s-head, var(--s-fill)); }
+.ap-lane-cards { flex: 1; display: flex; flex-direction: column; gap: 6px; padding: 6px 6px 6px var(--sp-2); }
 .ap-lane-cards > .ap-empty { padding: var(--sp-3) var(--sp-1); text-align: center; }
-.ap-lane-group { display: flex; align-items: center; gap: 6px; padding: 6px 2px 0; font: 600 var(--fs-micro)/1.4 var(--font-ui); text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-muted); }
+.ap-lane-group { display: flex; align-items: center; gap: 6px; padding: 6px 2px 0 0; font: 600 var(--fs-micro)/1.4 var(--font-ui); text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-muted); }
 .ap-lane-group:first-child { padding-top: 0; }
 .ap-lane-group::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
 .ap-lane-group-count { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: 0; }
@@ -1486,9 +1488,10 @@ body:has(#ap-panel-progress:not([hidden])) .ap-page { height: 100%; display: fle
   padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-3);
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--r-2);
+  border-radius: 8px;
 }
-.ap-kanban-card::before { content: ""; position: absolute; left: -1px; top: -1px; bottom: -1px; width: 3px; border-radius: var(--r-2) 0 0 var(--r-2); background: var(--s-fill); }
+/* The bar is the left strip of an overlay as large as the card, so the card's own rounding clips it cleanly. */
+.ap-kanban-card::before { content: ""; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none; background: linear-gradient(var(--s-fill), var(--s-fill)) left / 3px 100% no-repeat; }
 .ap-kanban-card[data-row="none"]::before { content: none; }
 .ap-kanban-card:hover { border-color: var(--line-strong); }
 .ap-kanban-card:focus-visible { outline: 2px solid var(--link); outline-offset: 3px; }
@@ -1499,7 +1502,7 @@ body:has(#ap-panel-progress:not([hidden])) .ap-page { height: 100%; display: fle
 .ap-kanban-card[data-state]:hover { background: var(--surface-2); }
 .ap-kanban-card[data-state][data-selected] { background: var(--surface-2); border-style: solid; border-color: var(--link); }
 .ap-kanban-card[data-state="paused"]::before,
-.ap-kanban-card[data-state="in-review"]::before { background: repeating-linear-gradient(180deg, var(--s-fill) 0 4px, transparent 4px 7px); }
+.ap-kanban-card[data-state="in-review"]::before { background: repeating-linear-gradient(180deg, var(--s-fill) 0 4px, transparent 4px 7px) left / 3px 100% no-repeat; }
 .ap-kanban-card[data-state="abandoned"] .ap-kanban-title { text-decoration: line-through; color: var(--ink-muted); }
 /* The "needed first" slot is always laid out, so it fading in on hover moves nothing; a head too crowded for one line wraps
    its right end, "↦ N" and the tokens together, rather than run them under one another. */

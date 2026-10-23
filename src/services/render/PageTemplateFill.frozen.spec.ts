@@ -1,7 +1,7 @@
 /**
  * That `resources/template.html` filled with a fixed fixture stays byte for byte the page main rendered before the spec view's second
- * edition, both with a page script and with the banner-only fallback. The expected digests were retaken on the commit that made each Kanban lane
- * head one line, its subtitle moved into the head's title. To retake them, check out the commit to
+ * edition, both with a page script and with the banner-only fallback. The expected digests were retaken on the commit that restyled the Kanban
+ * lane heads after the roomier mockup. To retake them, check out the commit to
  * compare against, run this spec, and copy each actual digest its failure prints into `FROZEN_PAGE_DIGESTS`.
  */
 import { createHash } from 'node:crypto';
@@ -15,8 +15,8 @@ import { createMarkdownRenderer } from './MarkdownRenderer.ts';
 import { fillPageTemplate }       from './PageTemplateFill.ts';
 
 const FROZEN_PAGE_DIGESTS = {
-  withPageScript: 'a6cd4c8f84448605bcaaa45486fa9a51f36f02baab0acb79e053d54242e6970f',
-  bannerOnly:     '01655d9c35ad87a499e112f4f3e2a74d0dfe0454484ec94872a42af226605105',
+  withPageScript: '5e0d89afa517cd3fabc1399cfb9e162ff3d0ee9d8fa75f857b9294db4841f285',
+  bannerOnly:     'c87e65d28990ceec82443782b74f6f4b9406533eaaa3a61d33eb2e36066045ba',
 } as const;
 
 const FROZEN_PROGRESS: TrackerProgress = {
