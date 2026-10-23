@@ -5,6 +5,7 @@ import type { ViewerPreferences }      from '../@types/ViewerChoices.ts';
 import { ChipFilterUtil }              from '../chips/ChipFilterUtil.ts';
 import { createChipGroupController }   from '../chips/ChipGroupController.ts';
 import { NO_EPIC_CHIP }                from '../constants/EpicChips.ts';
+import { EpicGroupMarks }              from '../epics/EpicGroupMarks.ts';
 import { EPIC_MARK_VOCABULARY }        from '../epics/EpicMarkVocabulary.ts';
 import { EpicMarkup }                  from '../epics/EpicMarkup.ts';
 import { DomUtil }                     from '../utils/DomUtil.ts';
@@ -30,8 +31,10 @@ export interface KanbanEpicFilterController {
   keeps(ticket: BoardTicket): boolean;
 }
 
+/** Only an epic holding an open ticket gets a chip; a remembered chip of any other epic reads as unpressed, its stored value kept. */
 export function createKanbanEpicFilterController(sources: KanbanEpicFilterSources): KanbanEpicFilterController {
-  const { epics, allTickets, preferences } = sources;
+  const { allTickets, preferences } = sources;
+  const epics      = sources.epics.filter((epic) => EpicGroupMarks.openTicketCountOf(epic) > 0);
   const knownChips = new Set([...epics.map((epic) => epic.key), NO_EPIC_CHIP]);
   const chipGroup  = createChipGroupController({ containerId: EPIC_CHIPS_ELEMENT_ID, attributeName: filterChipAttribute });
   let pressedChips = ChipFilterUtil.knownPressedChips(preferences.readKanbanEpicFilter(), knownChips);
