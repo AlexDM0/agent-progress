@@ -26,7 +26,6 @@ export const COMMAND_TABLE = {
   render:      async () => (await import('./tracking/render/RenderCommand.ts')).renderCommand,
   open:        async () => (await import('./tracking/open/OpenCommand.ts')).openCommand,
   clear:       async () => (await import('./tracking/clear/ClearCommand.ts')).clearCommand,
-  'view-spec': async () => (await import('./spec-view/view-spec/ViewSpecCommand.ts')).viewSpecCommand,
   help:        async () => {
     const { helpText } = await import('./HelpText.ts');
     return (_commandArguments: ArgumentParser, context: CommandContext) => {

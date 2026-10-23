@@ -1,5 +1,5 @@
 /**
- * That each page entry bundles from wherever the binary is run, the bundler building the entry it was given, and the result is safe to inline
+ * That the page entry bundles from wherever the binary is run, the bundler building the entry it was given, and the result is safe to inline
  * in a `<script>`.
  */
 
@@ -50,24 +50,6 @@ describe('createPageBundler', () => {
 
     expect(second).not.toBe(first);
     expect(first.verdict === 'built' && second.verdict === 'built' && first.script === second.script).toBe(true);
-  });
-});
-
-describe('a bundler of the spec page entry', () => {
-  test('bundles the spec entry, which reads the spec island and not the tracker page’s', async () => {
-    const outcome = await createPageBundler(PAGE_ENTRY_POINTS.SPEC).bundlePageScript();
-
-    expect(outcome.verdict).toBe('built');
-    expect(outcome.verdict === 'built' && outcome.script.includes('ap-spec-data')).toBe(true);
-    expect(outcome.verdict === 'built' && outcome.script.includes('ap-progress-data')).toBe(false);
-  });
-
-  test('produces a script with no script end and no HTML comment opener, safe to inline', async () => {
-    const outcome = await createPageBundler(PAGE_ENTRY_POINTS.SPEC).bundlePageScript();
-
-    expect(outcome.verdict).toBe('built');
-    expect(outcome.verdict === 'built' && /<\/script/i.test(outcome.script)).toBe(false);
-    expect(outcome.verdict === 'built' && PageScriptTextUtil.scriptWouldOpenAnHtmlComment(outcome.script)).toBe(false);
   });
 });
 

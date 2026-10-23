@@ -1,5 +1,5 @@
 /**
- * Bundles a page entry, `page/PageStart.ts` or `page/spec/SpecPageStart.ts`, into the single minified script its template fill inlines,
+ * Bundles a page entry, such as `page/PageStart.ts`, into the single minified script its template fill inlines,
  * resolved from `import.meta.dir` because the binary is installed with `bun link` and run from whatever repository the orchestrator is in.
  */
 

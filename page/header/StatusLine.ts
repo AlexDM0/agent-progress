@@ -1,4 +1,4 @@
-/** The status line both page editions show: its Live or Snapshot label, its generated text, and its `data-freshness` on `#ap-status`. */
+/** The page's status line: its Live or Snapshot label, its generated text, and its `data-freshness` on `#ap-status`. */
 
 import { GENERATED_STAMP_ELEMENT_ID, STATUS_LABEL_ELEMENT_ID } from '../constants/TemplateIds.ts';
 import { DomUtil }                                             from '../utils/DomUtil.ts';

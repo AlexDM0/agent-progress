@@ -68,7 +68,7 @@ export interface LaneCardHead {
   priority:       TicketPriority;
   /** Null on a card that is not a ticket's, which shows no type mark. */
   ticketType:     TicketType | null;
-  /** Spec-only markup after the type mark, already escaped by its producer. */
+  /** Markup after the type mark, already escaped by its producer. */
   slotMarkup:     string | null;
   /** Holds the "needed first" slot that hovering a dependent fades in. */
   hasNeededFirst: boolean;

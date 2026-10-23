@@ -1,7 +1,7 @@
 /**
  * The `include` lists of `page/tsconfig.json` and `dispatcher/tsconfig.json`, held against what each project reaches: every file outside its
- * folder that its shipping modules import, directly or through each other, and, for the page, every shipping module of the tracker model and
- * of `src/lib/spec-snapshot/`, which it compiles whole to prove both packages DOM-safe. The comparison is exact both ways, so a missing entry
+ * folder that its shipping modules import, directly or through each other, and, for the page, every shipping module of the tracker model,
+ * which it compiles whole to prove the package DOM-safe. The comparison is exact both ways, so a missing entry
  * and one nothing needs both fail. The scan first proves it found each project's reach, and each form is planted once in memory to prove the
  * guard still names it.
  */
@@ -23,7 +23,7 @@ interface IncludeListContract {
 const PAGE_PROJECT: IncludeListContract = {
   configurationPath:   'page/tsconfig.json',
   projectFolder:       'page/',
-  wholePackageFolders: ['src/lib/tracker-model/', 'src/lib/spec-snapshot/'],
+  wholePackageFolders: ['src/lib/tracker-model/'],
 };
 
 const DISPATCHER_PROJECT: IncludeListContract = {

@@ -1,8 +1,8 @@
 /**
  * Spawns the real binary for the one claim an in-process `runCommandLine` cannot make: that `agent-progress.ts` itself works, shebang, executable
  * bit and exit code included, and for a spec that must set the child's environment, which no spec may set in-process. Its callers are
- * `cli/BinarySmoke.spec.ts`, `cli/InitRootOverride.spec.ts`, `cli/ViewSpecEndToEnd.spec.ts`,
- * `cli/dispatch/release/ReleaseCommand.checks.spec.ts`, `cli/RegisterWrittenDashboard.spec.ts` and `cli/MonitorRegistryIsolation.spec.ts`.
+ * `cli/BinarySmoke.spec.ts`, `cli/InitRootOverride.spec.ts`, `cli/dispatch/release/ReleaseCommand.checks.spec.ts`,
+ * `cli/RegisterWrittenDashboard.spec.ts` and `cli/MonitorRegistryIsolation.spec.ts`.
  */
 import { existsSync }               from 'node:fs';
 import { delimiter, dirname, join } from 'node:path';

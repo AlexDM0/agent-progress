@@ -1,4 +1,4 @@
-/** What a page edition's header shows: its title and its statistics, each a figure under a label. */
+/** What the page header shows: its title and its statistics, each a figure under a label. */
 
 export interface HeaderStatisticModel {
   readonly figure:    string;

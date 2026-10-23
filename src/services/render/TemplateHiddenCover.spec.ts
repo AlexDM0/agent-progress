@@ -2,12 +2,10 @@
  * An element the page hides through the `hidden` attribute is not rendered, whatever `display` its rules set: the browser's own
  * `[hidden] { display: none }` loses to any author rule declaring `display`, so each such rule needs a `[hidden]` rule over it. The
  * scan collects every element id a page module hides through `DomUtil.setHidden`, `.hidden =` or `toggleAttribute('hidden')`, finds
- * the element in the template of each page edition whose entry reaches the module, and fails when a rule that can reach the element
- * declares a `display` other than `none` with no `display: none` rule matching the hidden element at a specificity that wins. The tracker
- * page's modules are checked against `resources/template.html`, the spec page's against `resources/spec-template.html` with the design
- * styles injected as the render injects them, and a module both reach against both. What matters: the real templates and page modules
- * pass with every collected id found in each template; each hiding form is collected; removing the epic strip's cover fails; an id a
- * spec-reached module hides that the spec template lacks fails; and each edition resolves constants from its own modules only.
+ * the element in `resources/template.html`, and fails when a rule that can reach the element declares a `display` other than `none` with
+ * no `display: none` rule matching the hidden element at a specificity that wins. Only modules the page entry reaches are scanned. What
+ * matters: the real template and page modules pass with every collected id found in the template; each hiding form is collected; and
+ * removing the epic strip's cover fails.
  * Embedded mode (`page/header/EmbeddedDashboardMode.ts`) hides elements through rules under `html[data-embedded="dashboard"]` the page
  * script adds: each element they hide must lose every other `display` to one, the four header parts must be among them, and the
  * `hidden` covers must still win with those rules added.
@@ -22,9 +20,8 @@ import {
   repositoryRootOfThisCheckout,
   type ImportGraph
 } from '../../testing/ImportGraph.ts';
-import { designStylesOf }                                                    from './DesignStyleExtraction.ts';
-import { PAGE_ENTRY_POINTS }                                                 from './constants/PageEntryPoints.ts';
-import { SPEC_TEMPLATE_FILE_NAME, SPEC_TEMPLATE_TOKENS, TEMPLATE_FILE_NAME } from './constants/TemplateFile.ts';
+import { PAGE_ENTRY_POINTS }  from './constants/PageEntryPoints.ts';
+import { TEMPLATE_FILE_NAME } from './constants/TemplateFile.ts';
 
 type PageSource = { path: string, text: string };
 
@@ -51,15 +48,11 @@ const SCANNER = createImportGraphScanner(repositoryRootOfThisCheckout());
 
 const TRACKER_ENTRY_PATH = PAGE_ENTRY_POINTS.TRACKER.join('/');
 
-const SPEC_ENTRY_PATH = PAGE_ENTRY_POINTS.SPEC.join('/');
-
 /**
  * `DomUtil.setHidden` and `PageShell.showTabButton` themselves, whose callers are collected, and the epic column's header cell, reached by a
  * selector and checked by hand.
  */
 const UNRESOLVED_HIDING_SITES = ['page/shell/PageShell.ts: tabElement', 'page/tickets/TicketsController.ts: epicHeader', 'page/utils/DomUtil.ts: element'];
-
-const SPEC_UNRESOLVED_HIDING_SITES = ['page/shell/PageShell.ts: tabElement', 'page/utils/DomUtil.ts: element'];
 
 /** `DomUtil.setHidden` and `PageShell.showTabButton` hide the element their first argument names, so their callers are collected. */
 const SET_HIDDEN_CALL       = /(?:DomUtil\.setHidden|(?<!function )\bshowTabButton)\(\s*('[^']*'|\w+)/g;
@@ -73,11 +66,6 @@ function pageSourcesReachedFrom(graph: ImportGraph, entryPath: string): PageSour
     .filter((path) => path.startsWith('page/'))
     .sort()
     .map((path) => ({ path, text: graph.sourceTextOf(path) }));
-}
-
-/** The graph with a line appended to a real module, in memory. */
-function graphWithAppendedLine(modulePath: string, line: string): ImportGraph {
-  return SCANNER.graphWithPlantedFiles({ [modulePath]: `${SCANNER.graph.sourceTextOf(modulePath)}\n${line}\n` });
 }
 
 function constantValuesOf(sources: readonly PageSource[]): Map<string, string> {
@@ -388,11 +376,6 @@ function embeddedHiddenIdsOf(embeddedStyles: string): string[] {
 
 const templateText = readFileSync(resourceFilePathOf(TEMPLATE_FILE_NAME), 'utf8');
 
-const rawSpecTemplateText = readFileSync(resourceFilePathOf(SPEC_TEMPLATE_FILE_NAME), 'utf8');
-
-/** The spec template's design rules arrive only at render, so the guard reads it with them injected through the render's own extraction. */
-const specTemplateText = rawSpecTemplateText.replace(SPEC_TEMPLATE_TOKENS.DESIGN_STYLES, () => designStylesOf(templateText, `resources/${TEMPLATE_FILE_NAME}`));
-
 describe('every element the page hides is display: none while hidden', () => {
   test('every element id the page modules hide has a winning [hidden] rule over each display its rules set', () => {
     const { elementIds, unresolvedSites } = hidingSitesOf(pageSourcesReachedFrom(SCANNER.graph, TRACKER_ENTRY_PATH));
@@ -455,46 +438,6 @@ describe('every element the page hides is display: none while hidden', () => {
     const markup = '<div class="outer"><p></p><div class="x" id="planted" hidden></div></div>';
     expect(offencesOf(`<style>.elsewhere .x { display: flex }</style>${markup}`, ['planted'])).toEqual([]);
     expect(offencesOf(`<style>.outer > .x { display: flex }</style>${markup}`, ['planted'])).toEqual(['#planted: .outer > .x { display: flex }']);
-  });
-});
-
-describe('every element the spec page hides is display: none while hidden in the spec template', () => {
-  test('the spec template is read with the design rules injected', () => {
-    expect(styleRulesOf(specTemplateText).length).toBeGreaterThan(styleRulesOf(rawSpecTemplateText).length);
-    expect(specTemplateText).not.toContain(SPEC_TEMPLATE_TOKENS.DESIGN_STYLES);
-  });
-
-  test('every element id the spec page modules hide has a winning [hidden] rule in the spec template', () => {
-    const { elementIds, unresolvedSites } = hidingSitesOf(pageSourcesReachedFrom(SCANNER.graph, SPEC_ENTRY_PATH));
-    expect([...elementIds]).toContain('ap-error');
-    expect([...unresolvedSites].sort()).toEqual(SPEC_UNRESOLVED_HIDING_SITES);
-    expect(offencesOf(specTemplateText, elementIds)).toEqual([]);
-  });
-
-  test('a module both entries reach is checked against both templates, so an id only the tracker template holds fails the spec page', () => {
-    const sharedModulePath = 'page/shell/PageShell.ts';
-    const planted          = graphWithAppendedLine(sharedModulePath, 'DomUtil.setHidden(\'ap-kanban-epics\', true);');
-    const trackerSources   = pageSourcesReachedFrom(planted, TRACKER_ENTRY_PATH);
-    const specSources      = pageSourcesReachedFrom(planted, SPEC_ENTRY_PATH);
-    expect(trackerSources.map((source) => source.path)).toContain(sharedModulePath);
-    expect(specSources.map((source) => source.path)).toContain(sharedModulePath);
-    expect(offencesOf(templateText, hidingSitesOf(trackerSources).elementIds)).toEqual([]);
-    expect(offencesOf(specTemplateText, hidingSitesOf(specSources).elementIds)).toEqual(['#ap-kanban-epics is not in the template']);
-  });
-
-  test('an id the spec entry itself hides that the spec template lacks fails', () => {
-    const planted = graphWithAppendedLine(SPEC_ENTRY_PATH, 'DomUtil.setHidden(\'ap-planted-missing\', true);');
-    expect(offencesOf(specTemplateText, hidingSitesOf(pageSourcesReachedFrom(planted, SPEC_ENTRY_PATH)).elementIds))
-      .toEqual(['#ap-planted-missing is not in the template']);
-  });
-
-  test('each edition resolves a constant only from the modules its entry reaches', () => {
-    const withTrackerConstant = SCANNER.graphWithPlantedFiles({
-      'page/kanban/KanbanMarkup.ts': `${SCANNER.graph.sourceTextOf('page/kanban/KanbanMarkup.ts')}\nconst PLANTED_ELEMENT_ID = 'ap-error';\n`,
-      [SPEC_ENTRY_PATH]:             `${SCANNER.graph.sourceTextOf(SPEC_ENTRY_PATH)}\nDomUtil.setHidden(PLANTED_ELEMENT_ID, true);\n`,
-    });
-    expect(hidingSitesOf(pageSourcesReachedFrom(withTrackerConstant, SPEC_ENTRY_PATH)).unresolvedSites.sort())
-      .toEqual([...SPEC_UNRESOLVED_HIDING_SITES, `${SPEC_ENTRY_PATH}: PLANTED_ELEMENT_ID`].sort());
   });
 });
 

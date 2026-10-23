@@ -1,5 +1,5 @@
 /**
- * The address-bar fragment, routed for either page edition: a tab's name selects that tab, an item fragment is the edition's own to open,
+ * The address-bar fragment, routed for the page: a tab's name selects that tab, an item fragment is the caller's own to open,
  * and any other fragment naming an element selects its panel, opens its disclosures and scrolls to it.
  */
 

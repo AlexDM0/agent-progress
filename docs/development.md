@@ -173,11 +173,6 @@ rule in the root `CLAUDE.md` (The page). `src/services/render/PageTemplateFill.t
 it, and `src/services/render/PageBundler.ts` bundles the TypeScript under `page/` into it from
 `page/PageStart.ts`.
 
-`view-spec` builds a second page, `progress-spec.html`, the same way from `resources/spec-template.html` and the
-entry `page/spec/SpecPageStart.ts`, everything it alone draws under `page/spec/`. The two pages share their shell
-(the JSON island, the error banner, fragment routing) in `page/shell/` and their filter chips in `page/chips/`.
-What it reads and shows is [the spec-kit page](cli.md#the-spec-kit-page).
-
 To see a change, render a scratch tracker (the one from the session above, before its `rm -rf`) and
 open it:
 

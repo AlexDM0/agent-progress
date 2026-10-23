@@ -1,7 +1,7 @@
 # agent-progress — command and file-format reference
 
 The complete reference for someone using the tool: what `init` and `update` write into a repository,
-every command and flag, the exit codes, what the dashboard and the spec-kit page show, the files on disk
+every command and flag, the exit codes, what the dashboard shows, the files on disk
 and what each ticket move does to its Gantt row. The code wins every disagreement: `agent-progress help` prints the
 command reference from `cli/HelpText.ts` and is never out of step with the tool. `resources/templates/Reference.md`,
 installed as `.agent-progress/reference.md`, carries a word-for-word copy of three sections of this file, the
@@ -15,7 +15,6 @@ ticket file format, the ticket moves and the exit codes, and follows it everywhe
 - [Exit codes](#exit-codes)
 - [The Handoff and the token column](#the-handoff-and-the-token-column)
 - [The dashboard](#the-dashboard)
-- [The spec-kit page](#the-spec-kit-page)
 - [Files on disk](#files-on-disk)
 - [Ticket moves and their rows](#ticket-moves-and-their-rows)
 
@@ -26,7 +25,7 @@ ticket file format, the ticket moves and the exit codes, and follows it everywhe
 | `<when>` | An ISO 8601 timestamp, `now`, or an offset from now: `-5m`, `-2h`, `-1d`, `+30m`. `--at <when>` backfills: a stamp already recorded is kept, so a row nobody registered at the time can be dated afterwards. |
 | `<n>` | The figure on `--tokens`: a whole number or a decimal with a `k`/`m`/`b` suffix — `12000`, `12k`, `12.3k`, `1.2m`, `1.20b`, so a figure `status` or the page prints reads back. A bare decimal and a negative are refused. It is a figure the orchestrator reports, never one this tool measures, and it replaces the row's figure rather than adding to it. |
 | `<id>` | A task id is a number (`17`); a ticket id is its padded number (`003`), and `3` or `#3` name the same ticket. |
-| `--json` | Accepted by every command but `init`, `update`, `render`, `open`, `view-spec`, `hook` and `help`, and prints one JSON document on standard output in place of the human output. A reading command prints the document its row describes. A command that writes prints what it wrote: the row for a `task` verb, the ticket for a `ticket` verb or setting (a list for a claim of several), the epic for `epic add` and `epic edit` (`{ key, removed: true, filePath }` for `epic remove`), the log entry for `log`, the stored axis for `range`, the new state for `concurrency <n>`, `dispatcher <state>` and `checks <command>`, and the counts for `clear`; `release` prints its own document. Nothing follows the document on standard output — no Next line, running-dispatcher notice or resume line — while a warning still goes to standard error. |
+| `--json` | Accepted by every command but `init`, `update`, `render`, `open`, `hook` and `help`, and prints one JSON document on standard output in place of the human output. A reading command prints the document its row describes. A command that writes prints what it wrote: the row for a `task` verb, the ticket for a `ticket` verb or setting (a list for a claim of several), the epic for `epic add` and `epic edit` (`{ key, removed: true, filePath }` for `epic remove`), the log entry for `log`, the stored axis for `range`, the new state for `concurrency <n>`, `dispatcher <state>` and `checks <command>`, and the counts for `clear`; `release` prints its own document. Nothing follows the document on standard output — no Next line, running-dispatcher notice or resume line — while a warning still goes to standard error. |
 | `AGENT_PROGRESS_ROOT` | Names the repository to use instead of walking up from the current directory, for a command run from somewhere else entirely. It does not create a tracker: a value naming a directory that has none is refused with a message saying the variable is set. `init` does not choose its directory by it, and refuses at exit 1 when it names a directory other than the one `init` targets. |
 
 **One tracker per repository.** The tracker lives in `.agent-progress/` at the repository root, found
@@ -43,8 +42,7 @@ file, and a log line never describes a change that was not stored.
 `concurrency`, `dispatcher` and `checks` without an argument, `usage` and `rework` take none: every file
 they read is written atomically. `release` runs a stored check command before it takes the lock, so a
 release waits for no other release's checks. `update`, and `init` on an existing tracker, never touch the tracker's
-own files and take no lock. `view-spec` takes no lock either: it writes only `progress-spec.json`, then
-`progress-spec.html`, each atomically, and reads or writes no tracker file.
+own files and take no lock.
 
 **Help and options.** `agent-progress help` prints the whole reference. `--help` works after a
 command word as well as on its own, and `-h` on its own or straight after the command word; a `-h`
@@ -187,7 +185,7 @@ ignore it the way you ignore any personal file; this tool writes no `.gitignore`
 ### Install version
 
 `.agent-progress/version.json` records which install version the installed files are (item 9 above),
-written last by `init` and `update`. Every command except `init`, `update`, `help`, `status` and `view-spec` checks
+written last by `init` and `update`. Every command except `init`, `update`, `help` and `status` checks
 it against the running agent-progress before it does anything:
 
 - the version it records equals this agent-progress's: the command runs;
@@ -218,7 +216,6 @@ command's own no-tracker refusal is unchanged.
   they could not replace.
 - `status` never refuses and says nothing about a mismatch, because its output is what scripts read.
   This is a known gap: the refusal first shows at the next command.
-- `view-spec` runs without a tracker and reads no installed file, so a mismatch cannot make it wrong.
 
 ## The two skills
 
@@ -243,7 +240,7 @@ Options in `[brackets]` are optional; `a|b` is a choice of one.
 | command | what it does |
 |---|---|
 | `init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]` | Create the tracker here and write the nine items in [Adopting a repository](#adopting-a-repository). `--project` names the project shown on the page (default: the root directory's name); `--root` tracks that directory instead of the discovered repository root. Refused, naming each file and deleting none, while `version.json` names a retired agent host. Refused when an ancestor already holds a tracker, when `--root` is not an existing directory, inside a bare repository, for `--no-agent-definition` without `--no-workflow` (the dispatcher starts every worker as that agent), for the two together while a dispatcher is installed without its definition, and when `AGENT_PROGRESS_ROOT` is set to a directory other than the one it would create the tracker in (the message names both, and nothing is written). A re-run refreshes only what `update` refreshes and leaves the tracker's own files alone; like `update`, it is refused at exit 1, writing nothing, over files a newer agent-progress installed ([Install version](#install-version)). |
-| `update [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]` | Refresh what the tool wrote into a repository it already tracks, refusing like `init` while `version.json` names a retired agent host: the managed block, `agent-brief.md`, the hook, the workflow — generated anew into `.agent-progress/` — the agent definition and the two skills, undoing a hand edit to any of the last three; then, last, `version.json`. The tracker's own files are left alone, and the first line says so. A tracker an earlier agent-progress wrote in a format this one no longer reads — a version 1 `progress.json` holding its own log, or a status word the rename retired — is refused at exit 2 by every command that reads it, the reason ending in the advice to run `agent-progress update` with a release that still reads it, which rewrites it in the current format. It creates no tracker, so it takes no `--project` and no `--root`. With no tracker it is refused at exit 1, naming `agent-progress init`; so is `--no-agent-definition` without `--no-workflow`, or with it while a dispatcher is installed without its definition, writing nothing, as for `init`; and over files a newer agent-progress installed at exit 1, writing nothing ([Install version](#install-version)). Every command but `init`, `update`, `help`, `status` and `view-spec` is refused until it has run over files of an older install version, and `hook subagent-stop` reports it at exit 0 ([Install version](#install-version)). |
+| `update [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]` | Refresh what the tool wrote into a repository it already tracks, refusing like `init` while `version.json` names a retired agent host: the managed block, `agent-brief.md`, the hook, the workflow — generated anew into `.agent-progress/` — the agent definition and the two skills, undoing a hand edit to any of the last three; then, last, `version.json`. The tracker's own files are left alone, and the first line says so. A tracker an earlier agent-progress wrote in a format this one no longer reads — a version 1 `progress.json` holding its own log, or a status word the rename retired — is refused at exit 2 by every command that reads it, the reason ending in the advice to run `agent-progress update` with a release that still reads it, which rewrites it in the current format. It creates no tracker, so it takes no `--project` and no `--root`. With no tracker it is refused at exit 1, naming `agent-progress init`; so is `--no-agent-definition` without `--no-workflow`, or with it while a dispatcher is installed without its definition, writing nothing, as for `init`; and over files a newer agent-progress installed at exit 1, writing nothing ([Install version](#install-version)). Every command but `init`, `update`, `help` and `status` is refused until it has run over files of an older install version, and `hook subagent-stop` reports it at exit 0 ([Install version](#install-version)). |
 | `help` | The command reference. |
 
 ### Reading the board
@@ -512,7 +509,6 @@ comment is code, and a file type it does not know counts every non-blank line.
 | `range --auto` | Reset the axis to the automatic span. It takes no `--from`, `--to` or `--tick`; any of them beside it is refused at exit 1. |
 | `render` | Regenerate `progress.html` from the progress file, `log.jsonl` and the tickets, changing nothing else — for a page lost to a crash, or after a ticket body was edited by hand. An unreadable tracker is exit 2. |
 | `open` | Open `progress.html` in the default browser (`open` on macOS, `xdg-open` elsewhere), rendering it first when it is missing; a page that cannot be rendered is exit 2, as for `render`. |
-| `view-spec [--open]` | Write a standalone snapshot of the spec-kit project at or above the current directory — the nearest directory holding `.specify/`, or the one `AGENT_PROGRESS_ROOT` names, with no walk — into its `.agent-progress/`: `progress-spec.json`, then `progress-spec.html`, and print the page's absolute path. It needs no tracker and creates none: it takes no lock, reads or writes no tracker file and leaves `.gitignore` alone, and the install-version check spares it. `--open` then opens the page as `open` does; without it nothing is launched. Where no spec-kit project is found it is refused at exit 1 (`no-spec-kit-found`), writing nothing; a snapshot that cannot be read back after its write is exit 2. |
 | `clear [--all] [--yes]` | Throw away every task row and the log, restart the clock and reset the stored axis to automatic, leaving one `Tracker cleared` log line, and keep the tickets: each surviving ticket is given a fresh row seeded from its own frontmatter, with a new id, except a low ticket with no row. Row ids are not reused, and every epic file is kept untouched. `--all` deletes the tickets and every epic too and restarts the ticket ids at 001; `--json` prints `removedTaskCount`, `removedLogCount`, `deletedTicketCount`, `deletedEpicCount` and `reseededTicketCount`. `--yes` skips the confirmation, and is required when standard input is not a terminal. |
 
 ## Exit codes
@@ -520,7 +516,7 @@ comment is code, and a file type it does not know counts every non-blank line.
 | code | meaning | examples |
 |---|---|---|
 | **0** | done, or there was nothing to do | also a store write whose page could not be rebuilt (reported on standard error, with an error banner on the page when only its script failed; `render` rebuilds it), a release whose cleanup git declined, every `hook subagent-stop` run as `init` and `update` wire it (a wrong event word, an extra argument or an option is refused at exit 1), and every `hook pre-tool-use` run it lets through |
-| **1** | a refusal the caller can act on | no tracker here (run `agent-progress init`), no spec-kit project for `view-spec` (run `specify init`), no such task or ticket, a missing `--reason`, a move the matrix refuses, a claim with no free slot or on a held-back low ticket, lowering a ticket that is not pending, a release refused (`main-moved` among them), installed files of another install version (every command but `init`, `update`, `help`, `status`, `view-spec` and `hook subagent-stop`, which reports it at exit 0; run `agent-progress update`), `init` or `update` over files a newer agent-progress installed or a `version.json` naming a retired agent host, `hook` given a wrong event word, an extra argument or an option, and an unknown command |
+| **1** | a refusal the caller can act on | no tracker here (run `agent-progress init`), no such task or ticket, a missing `--reason`, a move the matrix refuses, a claim with no free slot or on a held-back low ticket, lowering a ticket that is not pending, a release refused (`main-moved` among them), installed files of another install version (every command but `init`, `update`, `help`, `status` and `hook subagent-stop`, which reports it at exit 0; run `agent-progress update`), `init` or `update` over files a newer agent-progress installed or a `version.json` naming a retired agent host, `hook` given a wrong event word, an extra argument or an option, and an unknown command |
 | **2** | a state the tool will not repair on its own | an unreadable or malformed progress file, an unreadable or malformed log.jsonl, a malformed ticket file a command names, a lock it could not take, a release reason `git-failed` or `tracker-failed`, `hook pre-tool-use` blocking a subagent's change to the check command (exit 2 is how Claude Code reads a block), and any error the tool did not expect |
 
 Check the code rather than the wording.
@@ -678,89 +674,11 @@ A row with nothing to merge — a review pass, a chore — still reaches `Done`,
 orchestrator closes every row left open, and a chart whose rows stop at `Awaiting review` is a chart
 nobody closed.
 
-## The spec-kit page
-
-`agent-progress view-spec` draws a second page, `.agent-progress/progress-spec.html`, from a spec-kit repository's
-own files. It applies where a `.specify/` folder sits in the current directory or one above it, the nearest such
-directory being the project's root; `AGENT_PROGRESS_ROOT` names the root instead, with no walk. It needs no tracker.
-
-**What it reads**, from the root: `.specify/init-options.json` for the spec-kit version,
-`.specify/memory/constitution.md` for the constitution's version, dates and principles, and every folder under
-`specs/` holding a `spec.md`: that file, `plan.md`, `research.md`, `data-model.md`, `quickstart.md`, the
-`contracts/` folder, `tasks.md` and `checklists/*.md`, with each file's creation and modification time. A `plan.md`
-or `tasks.md` still a template copy is shown as one and counts as absent. A folder without `spec.md`, or a file it
-cannot read, is listed in a banner on the page with its reason, and everything else is drawn.
-
-**What it writes**: `progress-spec.json`, the snapshot ([its format](#agent-progressprogress-specjson)), then
-`progress-spec.html`, the page, both into the root's `.agent-progress/`. Without a tracker it creates that folder
-holding only those two files and leaves `.gitignore` alone. With one it touches no tracker file. The page is a
-snapshot: its status line always reads `Snapshot`, it never reloads itself, and a fresh one is another `view-spec`
-run.
-
-The tabs are **Kanban · Progress · Tickets · Specs · Dependencies**, in that order, the chosen one kept in the
-browser. The header shows the spec-kit and constitution versions, the project's folder name and four figures: the
-specs, those implementing (opening the Implement lane), the tasks ticked of their total and the
-`NEEDS CLARIFICATION` markers still open in the `spec.md` files. A spec's or a work item's card, row or link opens it
-in the detail panel.
-
-- **Kanban tab**: two bands. The Specs band holds one card per spec in the lane of its phase, with a stepper through
-  the lanes; pointing at one dims every other spec's work. The Work band holds one card per `tasks.md` phase in To
-  do (ready first, then waiting), In progress and Done; a strip of spec chips above it narrows it to the specs
-  pressed.
-- **Progress tab**: the tracker page's Gantt chart and range bar, one folding head row per spec over a row per stage
-  with a known start, the now line at the moment the snapshot was taken.
-- **Tickets tab**: the work items as a table grouped by spec, searched by text and narrowed by spec and state chips.
-- **Specs tab**: the constitution card, then one card per spec, open specs first and done ones last, with its
-  title (`spec.md`'s heading without spec-kit's `Feature Specification:` prefix), stepper, stories, files (filled,
-  template or missing, `contracts/` with its file count), checklists and task roll-up; its detail adds each phase's
-  ticked count and the stage dates.
-- **Dependencies tab**: the open work items' waves, as on the tracker page, with no slot meters.
-
-**The lanes.** A spec's lane comes from its files' contents alone, never a date.
-
-| lane | when |
-|---|---|
-| Specify | no filled `plan.md` and no filled `tasks.md` |
-| Plan | a filled `plan.md`, no filled `tasks.md` |
-| Tasks | a filled `tasks.md` with no task ticked |
-| Implement | some task ticked, and some task outside the Convergence phases not |
-| Converge | every task outside the Convergence phases ticked, a Convergence task not |
-| Done | every task ticked |
-
-**Work items.** Each `## Phase N: <name>` of a filled `tasks.md` is one work item, `<spec folder>-p<NN>`: To do with
-no task ticked, Done with every one, In progress between. Its kind comes from its name: `User Story <n>`, then a name
-starting Setup, Foundational, Polish or Convergence, else other. It waits on phases of its own spec, by kind and
-file order, and is waiting while any of them is not Done:
-
-| kind | waits on |
-|---|---|
-| setup | nothing |
-| foundational | every setup phase |
-| user story | every foundational phase, or every setup phase when there is none |
-| polish | every user story phase |
-| convergence | the convergence phase before it; the first, every polish phase, or the last user story phase when there is none |
-| other | the phase just before it |
-
-**Stage dates.** Specify runs from `spec.md`'s creation to the creation of `plan.md`, or of `tasks.md` without one;
-Plan from `plan.md`'s creation to `tasks.md`'s; Implement from `tasks.md`'s creation to its last modification, once
-every task is ticked. Only filled files count. A creation date is the file's birth time on this machine, its
-modification time standing in where the file system reports none; a stage dated from a modification time is marked
-`~`, and a stage with no known start is not drawn. A fresh clone or checkout writes every file anew, so it resets
-every creation date to that moment; the lanes and work items do not change.
-
-**Browser keys.** The page shares `agent-progress:theme` with the tracker page and keeps its tab under
-`agent-progress:spec-tab`. Its other choices sit under `agent-progress-spec:<repositoryKey>:`, the key a hash of the
-root's path: `kanban-specs` (the strip's pressed specs), `tickets-search`, `tickets-specs` and `tickets-states`
-(the Tickets tab's search and chips), and `progress-range`, `progress-name-column` and `progress-folded-groups`
-(the chart's).
-
 ## Files on disk
 
 ```
 .agent-progress/
   progress.json          the rows, the view, the limits
-  progress-spec.json     the spec-kit snapshot, rewritten whole by every view-spec run
-  progress-spec.html     the spec-kit page, written by view-spec after the snapshot
   log.jsonl              the log, one record per line
   progress.html          the generated dashboard
   progress.stamp.js      the render stamp the open dashboard polls, written after it
@@ -776,10 +694,9 @@ root's path: `kanban-specs` (the strip's pressed specs), `tickets-search`, `tick
 
 A mutating command writes, under one lock hold, the progress file, then the tickets it changed, then
 the epics it added, changed or removed, then `log.jsonl`, then the page, so a log line never describes
-an unstored change. `view-spec` writes outside that pipeline, with no lock: `progress-spec.json`, then
-`progress-spec.html`, so its page never describes a snapshot that was not stored. Every file a reader may hold open
-is written atomically: a temporary file beside the target, fsync, rename. Timestamps carry the offset of the
-machine that wrote them and are displayed as written, never re-parsed into a viewer's zone.
+an unstored change. Every file a reader may hold open is written atomically: a temporary file beside the target,
+fsync, rename. Timestamps carry the offset of the machine that wrote them and are displayed as written, never
+re-parsed into a viewer's zone.
 
 ### `.agent-progress/progress.json`
 
@@ -946,7 +863,7 @@ The machine-wide registry of every project whose dashboard this machine's agent-
 for a monitor to find each project's page and data; a folder, so the monitor can keep its own files beside it. A
 project registers, its entry added or updated, exactly when the call wrote its `progress.html`: a mutating command
 whose render succeeded, `render`, `open` when it renders a missing page, and `init`. `update` never renders the page,
-so it never registers; neither does a read-only call, `view-spec` (it writes `progress-spec.html`), or a store write
+so it never registers; neither does a read-only call or a store write
 whose render failed. A tracker whose root lies under a temp folder is never registered: the system temp folder
 (`os.tmpdir()`, on macOS `$TMPDIR` under `/var/folders`), `/tmp` and `/var/tmp`, each compared after resolving
 symlinks (`/tmp` to `/private/tmp` on macOS). An entry already in the registry stays.
@@ -962,76 +879,6 @@ atomically, indented two spaces and ending in a newline. Unknown keys, at the to
 order. A file whose `version` is newer than 1 is left untouched and a warning is printed. A malformed file is reported
 and rewritten with every entry that is still an object, plus this one. A registry that cannot be read or written, its
 lock included, is a warning on standard error: the command keeps its exit code, 0 when it succeeded.
-
-### `.agent-progress/progress-spec.json`
-
-```jsonc
-{
-  "version": 1,                                  // this document's own version, apart from progress.json's
-  "project": "example-storefront",               // the spec-kit repository's folder name
-  "repositoryKey": "1c76f5bfd7605ed0",           // the tracker model's body hash of the repository's root path
-  "generatedAt": "2026-10-07T11:30:00+02:00",
-  "specKitVersion": null,                        // or the version .specify/init-options.json names
-  "constitution": null,                          // or { state, version, ratified, lastAmended, principles }
-  "laneCounts": { "specify": 0, "plan": 0, "tasks": 0, "implement": 1, "converge": 0, "done": 0 },
-  "tasks": { "ticked": 3, "total": 5 },
-  "openMarkers": [],                             // { folderName, relativePath, text, line } per spec.md marker
-  "unreadable": [],                              // { relativePath, reason, line (or null) } per file the scan could not read
-  "specs": [
-    {
-      "folderName": "001-example-feature",
-      "number": 1,                               // the folder name's leading digits, or null
-      "title": "Example Feature",                // spec.md's heading, spec-kit's "Feature Specification:" dropped
-      "colourSlot": 1,
-      "lane": "implement",                       // specify|plan|tasks|implement|converge|done
-      "stepper": { "doneLanes": ["specify", "plan", "tasks"], "currentLane": "implement" }, // currentLane null once done
-      "stories": [{ "number": 1, "title": "Example story", "priority": 1, "phaseState": "in-progress" }], // phaseState to-do|in-progress|done, or null
-      "counts": { "functionalRequirements": 1, "successCriteria": 1, "openMarkers": 0, "clarificationSessions": 0, "clarificationAnswers": 0 },
-      "artefacts": [
-        { "kind": "spec",                        // spec|plan|research|data-model|quickstart|contracts|tasks|checklist
-          "relativePath": "specs/001-example-feature/spec.md",
-          "state": "filled",                     // or template
-          "created": { "at": "2026-09-01T10:00:00+02:00", "source": "birth-time" }, // each date or null
-          "modified": { "at": "2026-09-02T10:00:00+02:00", "source": "modification-time" } }
-                                                 // a contracts artefact adds "fileCount", the files in the folder
-      ],
-      "checklists": [],                          // { relativePath, title, checked, total }
-      "tasks": { "ticked": 3, "total": 5 },
-      "workItems": [
-        {
-          "id": "001-example-feature-p02",       // the folder name, -p and the two-digit phase ordinal
-          "ordinal": 2,
-          "kind": "user-story",                  // setup|foundational|user-story|polish|convergence|other
-          "storyNumber": 1,                      // or null
-          "priority": 1,                         // or null
-          "isMinimumViableProduct": true,
-          "title": "Phase 2: Example user-story",
-          "tagText": "US1 · P1",                 // or null for a phase of no story
-          "state": "in-progress",                // to-do|in-progress|done
-          "taskCount": 3,
-          "tickedCount": 1,
-          "tasks": [{ "id": "T20", "isDone": true, "isParallel": false, "storyNumber": 1, "description": "Example task 0" }],
-          "dependsOn": ["001-example-feature-p01"],
-          "waitingOn": []                        // the work items it depends on that are not done
-        }
-      ],
-      "stageSpans": [
-        { "stage": "implement",                  // specify|plan|implement
-          "start": { "artefact": "tasks", "date": { "at": "2026-09-01T10:00:00+02:00", "source": "birth-time" } },
-          "end": null,                           // or { artefact, date } once the span closed
-          "isOpen": true }
-      ]
-    }
-  ]
-}
-```
-
-A regenerated snapshot, not a store: it is written whole, indented two spaces and ending in a newline,
-atomically, on every run that derives it, and read back only by the render that follows that write.
-It is never edited by hand, so a key the tool does not know is not kept, and an older version is not
-answered with the `update` advice. A document at another version, one that is not JSON, or one with a
-field of the wrong type is unreadable, its reason naming the field by its path
-(`specs[0].workItems[1].waitingOn is not an array`).
 
 ### `.agent-progress/tickets/003-double-click-a-role-to-edit-it.md`
 

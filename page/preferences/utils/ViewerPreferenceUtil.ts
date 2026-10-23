@@ -76,7 +76,7 @@ function shownCountFrom(stored: string | null): number {
   return stored === null ? CAPPED_LANE_FIRST_PAGE_CARDS : Number(stored);
 }
 
-// The chart's own choices live beside the chart, so the spec page reads them without this module; they are kept here as delegates.
+// The chart's own choices live beside the chart; they are kept here as delegates.
 export const ViewerPreferenceUtil = {
   storedOverrideFrom:     ChartPreferenceUtil.storedOverrideFrom,
   reloadSnapshotFrom,

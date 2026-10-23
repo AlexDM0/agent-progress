@@ -35,8 +35,7 @@ interface PageTemplateFillInput {
   renderMarkdown:    (markdown: string) => string;
 }
 
-/** Both page editions write these into their island, so the spec page lays out time as the tracker page does. */
-export function pageLimits(): PagePayload['limits'] {
+function pageLimits(): PagePayload['limits'] {
   return {
     tickStepLadderMinutes:      LIMITS.TICK_STEP_LADDER_MINUTES,
     maximumTicksPerAxis:        LIMITS.MAXIMUM_TICKS_PER_AXIS,

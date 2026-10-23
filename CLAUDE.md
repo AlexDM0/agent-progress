@@ -46,7 +46,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   structurally typed parameter.
 - A `src/lib/` package knows nothing about its callers: no agent-progress names, file names, wording or exit codes.
   App values arrive as parameters; a refusal leaves as a verdict (except the `Board`, see Deviations).
-- `src/lib/tracker-model/` and `src/lib/spec-snapshot/` stay DOM-safe: the page project compiles them.
+- `src/lib/tracker-model/` stays DOM-safe: the page project compiles it.
 
 ### Values and wording
 
@@ -55,7 +55,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - All command-line text (confirmations, usage, argument errors, help prose) lives in `cli/`, beside the command that
   prints it; command verbs are literals, so they grep.
 - `src/adapters/` holds only translations: a refusal's detail and exit code to output, the domain model to an output
-  format. One exception reads files: `src/adapters/spec-kit/` finds a spec-kit repository's root and scans its files.
+  format.
 - JSON output, stored files, a reason naming stored values, and a command the output suggests carry the values
   themselves, since the parser reads them back.
 
@@ -67,8 +67,6 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - A malformed stored file is a verdict and a report, never a throw that takes down `status` or `render`.
 - `progress.json` keeps unknown keys, top level and on rows, in order. An optional key is written only once set, and
   a read never adds or rewrites one, so a file stays byte-identical.
-- `progress-spec.json` is a regenerated snapshot, versioned on its own, written whole on every run and read back only
-  by the render after its write, never edited by hand: the unknown-key and older-format rules do not bind it.
 - An epic is `.agent-progress/epics/<key>.md`, known by its file name, its description kept byte for byte like a
   ticket body; the folder exists only once an epic was added. Its colour `slot` is stored at `epic add`, never derived.
 - The Board logs ids and values through one `log(record)` over a typed record union (the vocabulary, no method per
@@ -93,9 +91,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   `process.exit` to `agent-progress.ts`, `process.cwd`, `homedir()` and the clock in `src/` and `cli/` to
   `cli/CommandContext.ts`, and `process.chdir` to nowhere. The environment is read through documented getters; specs
   set it in a child process (one exception, Deviations).
-- No work at module load (entry points excepted, Deviations). The render service keeps no module state: the tracker
-  page bundle, the spec page bundle (built only when a spec page is rendered) and configured Marked live in the render
-  state the command context carries.
+- No work at module load (entry points excepted, Deviations). The render service keeps no module state: the page
+  bundle and configured Marked live in the render state the command context carries.
 - Factories of closures over classes, except for state carried across calls, domain and ingestion classes. A
   constructor does no work.
 - A record keyed by outside text is indexed through `Object.hasOwn`.
@@ -175,7 +172,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 | Rule | Done instead | Why |
 | --- | --- | --- |
 | Ingestion reads, validates and maps in separate steps. | The ticket parse is one line-oriented pass. | A second walk would risk the unowned lines kept byte for byte. |
-| No work at module load. | `agent-progress.ts` runs the command on import, `page/PageStart.ts` and `page/spec/SpecPageStart.ts` start their pages, the preload `src/testing/TestRunReport.ts` registers its report. | They are entry points. |
+| No work at module load. | `agent-progress.ts` runs the command on import, `page/PageStart.ts` starts the page, the preload `src/testing/TestRunReport.ts` registers its report. | They are entry points. |
 | Specs never set the environment in-process. | `src/shared/Environment.spec.ts` does, once. | It tests the getters themselves. |
 | A frozen table comes from the previous implementation. | `dispatcher/testing/FrozenDispatchTraces.json` is retaken from the bundle, only in a commit meant to change what agents are told, its diff showing prompt text or wire names and no decision; `cli/FrozenInstalledSurface.json` is taken from the installed files. | No previous implementation holds them. |
 | Only the current stored format is read. | A ticket stored with `type` `change` or `feature` reads as `ticket` everywhere, and every write keeps its stored `type` line. | Stored tickets are never rewritten; both are older names for `ticket`. |
@@ -193,15 +190,13 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   in a scratch repository: nobody runs the checkout's source here, and only the owner runs `init`, `update` or
   `clear`.
 - Help is one screen, no per-command help; to stdout when asked, to stderr after an unknown command.
-- Every command but `init`, `update`, `help`, `status` and `view-spec` checks the install version first
+- Every command but `init`, `update`, `help` and `status` checks the install version first
   (`cli/Main.spec.ts`); `release` reports a mismatch as its `--json` refusal, `hook subagent-stop` at exit 0.
 - A new command is an entry in `cli/CommandTable.ts`, a block in `cli/HelpText.ts` and a folder in its set, held by
   `cli/CommandTable.spec.ts` and `cli/HelpText.spec.ts`.
 - Every mutating command writes through `writeTracker` in `src/services/tracker/TrackerPipeline.ts` (lock, read into
   a Board, change, writes in `docs/cli.md`'s order, render from disk, one lock hold). `init` creates a tracker;
   `update`, and `init` on an existing one, never touch its files. `status` takes no lock and renders nothing.
-  `view-spec` writes only `progress-spec.json` then `progress-spec.html`, atomically, takes no lock, runs without a
-  tracker, and reads or writes no tracker file.
 
 ### Tickets
 
@@ -218,34 +213,20 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 
 ### The page
 
-- `resources/template.html` and `resources/spec-template.html` are designer-owned, never generated. Each one's
-  placeholder markup is the contract with its page modules: a one-sided change is a bug, a new mark reuses a styled
-  class, and its header comment (tokens, containers, axis box) stays in step.
-- The spec template takes `template.html`'s one `<style>` block in at render and carries only spec-specific CSS, so
-  both pages share one design.
+- `resources/template.html` is designer-owned, never generated. Its placeholder markup is the contract with the page
+  modules: a one-sided change is a bug, a new mark reuses a styled class, and its header comment (tokens, containers,
+  axis box) stays in step.
 - The page script clears every container it owns before filling it; a failed bundle renders an error banner.
-- Each template's bootstrap owns theme and tab selection, reached only through `window.agentProgressTemplate`. No ticket
-  open state is kept: `agent-progress:open-tickets` is retired, and a ticket body shows only in the detail panel. The
-  spec template's bootstrap shares the theme key `agent-progress:theme`, keeps its tab under `agent-progress:spec-tab`
-  (Kanban when the saved value is not one of its tabs), never reloads, and gives `onBeforeReload` as a no-op.
-- The spec page (`page/spec/SpecPageStart.ts`) reuses the tracker page's views by composition. A shared module reads a
-  structural type of exactly the fields it uses, or a view model; tracker types satisfy it unchanged, and no mapper
-  invents a tracker value (owner, token, ticket number, row or task id).
-- Tracker-only concepts reach shared code as parameters: lane sets, card anatomy, detail target kinds, opener
-  attributes, header statistics and the preference prefix. The tracker page passes today's values, and a
-  generalisation keeps its output byte for byte, proved by the existing specs passing unchanged and by a frozen table
-  taken before it.
-- A shared module stays in its view's folder; what both entries start with lives in `page/shell/`, types several
-  views use in `page/@types/`, chip parts in `page/chips/`. Tracker-page mappers sit beside the module they feed;
-  spec mappers and spec-only views go in `page/spec/<view>/`. A tracker-page view moves onto a shared renderer in the
-  same change that adds its spec consumer.
-- `src/PageEditionBoundaries.spec.ts` holds the editions apart: the tracker-page entry never reaches `page/spec/`, the
-  spec entry reaches no module in `TRACKER_PAGE_ONLY_MODULES`, every `ap-` token in a `page/spec/` literal is an
-  `ap-spec-*` class or id or an id declared in `resources/spec-template.html`, and no `page/spec/` literal names a
-  `SHARED_HOOK_ATTRIBUTES` entry.
-- `eslint.config.js` holds browser storage to `page/preferences/PreferenceStore.ts`. Tracker-page keys stay under
-  `agent-progress:<trackerId>`, spec keys go under `agent-progress-spec:<repositoryKey>`, and a key string never
-  changes.
+- The template's bootstrap owns theme and tab selection, reached only through `window.agentProgressTemplate`. No ticket
+  open state is kept: `agent-progress:open-tickets` is retired, and a ticket body shows only in the detail panel.
+- A view module generalised for reuse reads a structural type of exactly the fields it uses, or a view model; tracker
+  types satisfy it unchanged. Its tracker concepts arrive as parameters (lane sets, card anatomy, detail target kinds,
+  opener attributes, header statistics, the preference prefix), which the page passes; a change to one keeps the
+  page's output byte for byte, proved by the existing specs passing unchanged and by a frozen table taken before it.
+- A module stays in its view's folder; what the entry starts with lives in `page/shell/`, types several views use in
+  `page/@types/`, chip parts in `page/chips/`, and a mapper sits beside the module it feeds.
+- `eslint.config.js` holds browser storage to `page/preferences/PreferenceStore.ts`. Keys stay under
+  `agent-progress:<trackerId>`, and a key string never changes.
 - The render service writes `boardFacts` from the same Board queries `status --json` prints; the page keeps no copy
   of the rules.
 - The detail panel claims a log line by its `taskIds` or `ticketIds`, never a number in free text; a note is matched
@@ -280,15 +261,13 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 ```
 agent-progress.ts    the bin shim: runs the command line and exits with its number
 cli/                 feature: the command surface, its commands grouped into sets
-page/                feature: the browser pages, one DOM-only project: the tracker page's entry and views, the
-                     spec page's entry and views under page/spec/, the shell both start with under page/shell/,
-                     and the chip parts both use under page/chips/
+page/                feature: the browser page, one DOM-only project: its entry and views, the shell it starts
+                     with under page/shell/, and the chip parts under page/chips/
 dispatcher/          feature: the dispatcher policy, which init and update bundle into a Workflow script
-resources/           files read at runtime: the two page templates, template.html and spec-template.html, and the
-                     markdown init, update and ticket add fill
+resources/           files read at runtime: the page template, template.html, and the markdown init, update and
+                     ticket add fill
 src/lib/             package-grade building blocks, one folder each
-src/adapters/        the boundary: every stored format read, written and mapped, the wording, and the reading of a
-                     spec-kit repository's files
+src/adapters/        the boundary: every stored format read, written and mapped, and the wording
 src/services/        the tracker and render services
 src/shared/          app-specific code several parts use
 src/testing/         test-only helpers several parts use

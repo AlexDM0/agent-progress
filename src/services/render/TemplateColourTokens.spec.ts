@@ -2,18 +2,16 @@
  * Every colour in the page is a token: a colour literal (a colour function, a hex colour or a named colour) appears in
  * `resources/template.html` only as a custom property's value in a token block, which is `:root`, the dark theme's
  * `:root[data-theme="dark"]`, or a `[data-state]` block and its dark twin. Every other declaration, markup attribute and page module
- * reaches a colour through `var(--…)`. `resources/spec-template.html` defines no tokens, so its own rules and markup hold no colour
- * literal at all; the design rules it takes in at render are `template.html`'s, scanned there. What matters: the real templates and page
- * modules pass; the scan recognises token definitions in each block form, the spec template's own sheet, and style fragments in the page,
- * so a scan that finds nothing cannot pass; and a planted literal of every form the guard claims is caught on its own line in either
- * template.
+ * reaches a colour through `var(--…)`. What matters: the real template and page modules pass; the scan recognises token definitions in
+ * each block form and style fragments in the page, so a scan that finds nothing cannot pass; and a planted literal of every form the
+ * guard claims is caught on its own line in the template.
  */
 
-import { readdirSync, readFileSync }                   from 'node:fs';
-import { join, relative }                              from 'node:path';
-import { describe, expect, test }                      from 'bun:test';
-import { resourceFilePathOf }                          from '../../shared/ResourceFilePath.ts';
-import { SPEC_TEMPLATE_FILE_NAME, TEMPLATE_FILE_NAME } from './constants/TemplateFile.ts';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, relative }            from 'node:path';
+import { describe, expect, test }    from 'bun:test';
+import { resourceFilePathOf }        from '../../shared/ResourceFilePath.ts';
+import { TEMPLATE_FILE_NAME }        from './constants/TemplateFile.ts';
 
 type ColourOffence = { line: number, text: string };
 
@@ -223,27 +221,6 @@ describe('the template', () => {
 
   test('fails on a colour literal planted in a markup attribute, naming its line', () => {
     const planted = withPlantedLines(templateText(), '</body>', '<svg viewBox="0 0 4 4"><circle cx="2" cy="2" r="2" fill="#123456"/></svg>');
-    expect(scanTemplateColours(planted.text).offences.map((offence) => offence.line)).toEqual([planted.plantedLine]);
-  });
-});
-
-describe('the spec template', () => {
-  function specTemplateText(): string {
-    return readFileSync(resourceFilePathOf(SPEC_TEMPLATE_FILE_NAME), 'utf8');
-  }
-
-  test('holds no colour literal in its own rules or its markup', () => {
-    expect(styleSheetTextOf(specTemplateText())).toContain('.ap-spec-edition');
-    expect(scanTemplateColours(specTemplateText()).offences).toEqual([]);
-  });
-
-  test.each(plantedDeclarations)('fails on %s planted in its own rules, naming its line', (_formName, plantedRule) => {
-    const planted = withPlantedLines(specTemplateText(), '</style>', plantedRule);
-    expect(scanTemplateColours(planted.text).offences.map((offence) => offence.line)).toEqual([planted.plantedLine]);
-  });
-
-  test('fails on a colour literal planted in a markup attribute, naming its line', () => {
-    const planted = withPlantedLines(specTemplateText(), '</body>', '<svg viewBox="0 0 4 4"><circle cx="2" cy="2" r="2" fill="#123456"/></svg>');
     expect(scanTemplateColours(planted.text).offences.map((offence) => offence.line)).toEqual([planted.plantedLine]);
   });
 });

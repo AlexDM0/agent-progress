@@ -18,10 +18,6 @@ describe('resourceFilePathOf', () => {
     expect(existsSync(resourceFilePathOf('templates', 'AgentBrief.md'))).toBe(true);
   });
 
-  test('the spec page template is found through it', () => {
-    expect(existsSync(resourceFilePathOf('spec-template.html'))).toBe(true);
-  });
-
   test('the path is the package\'s resources folder, whatever the working directory', () => {
     expect(resourceFilePathOf('templates', 'TicketBody.md')).toBe(join(import.meta.dir, '..', '..', 'resources', 'templates', 'TicketBody.md'));
   });

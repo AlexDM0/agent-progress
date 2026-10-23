@@ -1,5 +1,5 @@
 /**
- * What every page edition's entry shares: reading a JSON island, showing the template's error banner, starting once the document is ready,
+ * What the page entry starts with: reading a JSON island, showing the template's error banner, starting once the document is ready,
  * clearing the containers it owns, and showing or hiding a tab button.
  */
 

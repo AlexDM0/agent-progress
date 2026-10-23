@@ -62,7 +62,6 @@ describe('the command table', () => {
       'ticket',
       'update',
       'usage',
-      'view-spec',
     ]);
   });
 });

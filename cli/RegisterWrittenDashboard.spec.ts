@@ -1,7 +1,7 @@
 /**
  * The monitor registry `~/.agent-progress-monitor/projects.json` as the commands write it, under a scratch home and with the temp-folder
  * rule pointed at a scratch folder the repositories lie outside, so they count as real ones. What matters: exactly a call that wrote
- * `progress.html` registers, one entry per `trackerId` carrying every field with its value; a read-only call, `view-spec`, `update`, a
+ * `progress.html` registers, one entry per `trackerId` carrying every field with its value; a read-only call, `update`, a
  * failed render and a tracker under any temp folder (`/tmp`, `/var/tmp`, the system one) register nothing; the file's version, unknown keys
  * and malformed entries are handled as `docs/cli.md` says; a registry that cannot be written never changes the exit code; and concurrent
  * processes all land in the file. A case needing a registered tracker outside `/tmp` and `/var/tmp` is skipped where the scratch root lies
@@ -36,7 +36,6 @@ import {
   gitOutputIn,
   removeScratchDirectory
 } from '../src/testing/ScratchWorkspace.ts';
-import { writeExampleSpecKitRepository }                                           from '../src/testing/SpecKitRepositoryFixtures.ts';
 import { testWhenGitIsPresent, testWhenGitIsPresentAndTheScratchRootIsOutsideTmp } from '../src/testing/ToolGuard.ts';
 import { temporaryDirectoriesOfThisMachine }                                       from './CommandContext.ts';
 import { runCommandLine }                                                          from './Main.ts';
@@ -187,13 +186,6 @@ testWhenGitIsPresent('A2: a status call leaves an existing registry byte-identic
   const before = registryText();
   await requireExitZero(['status'], registeringContext(repositoryDirectory, SECOND_NOW));
   expect(registryText()).toBe(before);
-});
-
-testWhenGitIsPresent('A2: view-spec registers nothing, since it writes progress-spec.html', async () => {
-  const repositoryDirectory = scratch(createScratchDirectory('monitor-view-spec'));
-  writeExampleSpecKitRepository(repositoryDirectory, { datesFilesInThePast: true, now: FIRST_NOW });
-  await requireExitZero(['view-spec'], registeringContext(repositoryDirectory));
-  expect(existsSync(registryFilePath())).toBe(false);
 });
 
 testWhenGitIsPresent('A2: update registers nothing, since it never writes progress.html', async () => {

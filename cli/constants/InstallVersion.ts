@@ -1,1 +1,1 @@
-export const INSTALL_VERSION = 11;
+export const INSTALL_VERSION = 12;
