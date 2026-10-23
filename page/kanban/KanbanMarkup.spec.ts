@@ -1,8 +1,9 @@
 /**
  * The Kanban markup against the template's placeholder board, which is the contract: the To do lane, three cards and the Done footer are
  * rebuilt from constructed inputs and must match the template's text exactly. Then the parts the placeholder does not show: the cap's
- * buttons, the empty lanes under Show all, the Abandoned toggle and the escaping. Last the dependency views: To do by wave (groups, the
- * narrow tint, the sub-line and the order within a group) and each card's "needed first" slot and `↦ N`, absent on a board without
+ * buttons, the empty lanes under Show all, the Abandoned toggle, each lane head's hover (the old subtitle, one line of plain text, none
+ * when empty) and the escaping. Last the dependency views: To do by wave (groups, the narrow tint, the head's hover and the order within a
+ * group) and each card's "needed first" slot and `↦ N`, absent on a board without
  * dependencies so the filed board stays byte for byte as it was, `↦ N` sharing the head's end with the token count so the two never overlap.
  */
 
@@ -339,6 +340,55 @@ describe('the Abandoned lane', () => {
   });
 });
 
+function laneHeadOf(markup: string): string {
+  return /<div class="ap-card-head"[^>]*>/.exec(markup)?.[0] ?? '';
+}
+
+describe('the lane heads', () => {
+  test('render no subtitle in any lane', () => {
+    expect(kanbanBoardMarkup(boardInput(TODO_TICKETS, TODO_ROWS))).not.toContain('ap-lane-sub');
+  });
+
+  test('To do carries its waiting, held and rowless counts as the hover, zero counts dropped', () => {
+    const tickets = [exampleTicket('001', { dependsOn: ['002'] }), exampleTicket('002')];
+    expect(laneHeadOf(kanbanLaneMarkup('todo', boardInput(tickets, [])))).toBe('<div class="ap-card-head" data-state="pending" title="1 waiting · 2 no row">');
+  });
+
+  test('To do with nothing to count has no hover', () => {
+    expect(laneHeadOf(kanbanLaneMarkup('todo', boardInput([], [])))).toBe('<div class="ap-card-head" data-state="pending">');
+  });
+
+  test('In progress carries its working and paused counts with plain dots as the hover', () => {
+    const tickets = [exampleTicket('001', { status: 'in-progress', task: 1 }), exampleTicket('002', { status: 'in-progress', task: 2 })];
+    const rows    = [exampleRow(1, { status: 'in-progress', ticket: '001' }), exampleRow(2, { status: 'paused', ticket: '002' })];
+    expect(laneHeadOf(kanbanLaneMarkup('progress', boardInput(tickets, rows)))).toBe('<div class="ap-card-head" data-state="in-progress" title="• 1 in progress · ○ 1 paused">');
+  });
+
+  test('In progress with no cards has no hover', () => {
+    expect(laneHeadOf(kanbanLaneMarkup('progress', boardInput([], [])))).toBe('<div class="ap-card-head" data-state="in-progress">');
+  });
+
+  test('Review carries its awaiting and reviewing counts with plain dots as the hover', () => {
+    const tickets = [exampleTicket('001', { status: 'in-review' })];
+    expect(laneHeadOf(kanbanLaneMarkup('review', boardInput(tickets, []))))
+      .toBe('<div class="ap-card-head" data-state="reviewing" title="○ 1 awaiting review">');
+  });
+
+  test('Awaiting merge carries "by priority" as the hover', () => {
+    expect(laneHeadOf(kanbanLaneMarkup('merge', boardInput([], [])))).toBe('<div class="ap-card-head" data-state="reviewed" title="by priority">');
+  });
+
+  test('Done carries "newest first" and its reviewed-first count as the hover', () => {
+    const ticket = exampleTicket('055', { status: 'delivered', delivered: at('13:28'), task: 7 });
+    const row    = exampleRow(7, { status: 'delivered', ticket: '055', reviewed: at('12:10') });
+    expect(laneHeadOf(kanbanLaneMarkup('done', boardInput([ticket], [row])))).toBe('<div class="ap-card-head" data-state="delivered" title="newest first · ✓1 reviewed first">');
+  });
+
+  test('Abandoned carries "newest first" as the hover beside its toggle', () => {
+    expect(laneHeadOf(kanbanLaneMarkup('abandoned', boardInput([], [])))).toBe('<div class="ap-card-head" data-state="abandoned" title="newest first">');
+  });
+});
+
 describe('a card’s marks', () => {
   test('says Held without a colon when no reason was given', () => {
     const input  = boardInput([exampleTicket('070', { hold: '' })], []);
@@ -399,7 +449,7 @@ describe('the To do order', () => {
       '<div class="ap-lane-wave" data-wave="1"><div class="ap-lane-group">Wave 2 <span class="ap-lane-group-note">4 side by side</span>',
       '<div class="ap-lane-wave" data-wave="2" data-narrow=""><div class="ap-lane-group">Wave 3 <span class="ap-lane-group-note">one at a time</span>',
     ]);
-    expect(lane).toContain('<span class="ap-lane-sub">2 ready · 5 waiting</span>');
+    expect(laneHeadOf(lane)).toBe('<div class="ap-card-head" data-state="pending" title="2 ready · 5 waiting">');
     expect(lane).not.toContain('data-priority');
   });
 
@@ -412,7 +462,7 @@ describe('the To do order', () => {
     expect(waveGroupsOf(lane)[0]).toBe(
       '<div class="ap-lane-wave" data-wave="0"><div class="ap-lane-group">Now <span class="ap-lane-group-note">2 ready · 3 side by side</span>'
     );
-    expect(lane).toContain('<span class="ap-lane-sub">2 ready · 6 waiting</span>');
+    expect(laneHeadOf(lane)).toBe('<div class="ap-card-head" data-state="pending" title="2 ready · 6 waiting">');
   });
 
   test('by wave gives a pending low ticket no wave group: it closes the lane, and Now neither holds nor counts it', () => {

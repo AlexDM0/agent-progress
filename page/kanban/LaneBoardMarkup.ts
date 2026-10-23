@@ -1,6 +1,7 @@
 /** A board of lanes, shaped by the placeholder board in `resources/template.html`; the lanes, their words and their cards are the model's. */
 
 import { HtmlEscapeUtil }     from '../../src/lib/html-escape/HtmlEscapeUtil.ts';
+import type { DisplayState }  from '../../src/lib/tracker-model/@types/Task.ts';
 import { MarkupUtil }         from '../utils/MarkupUtil.ts';
 import type { LaneBody }      from './@types/LaneBoard.ts';
 import type { LaneCardGroup } from './@types/LaneBoard.ts';
@@ -10,31 +11,38 @@ import type { LanePaging }    from './@types/LaneBoard.ts';
 import type { LaneSubtitle }  from './@types/LaneBoard.ts';
 import { laneCardMarkup }     from './LaneCardMarkup.ts';
 
-function subtitleMarkup(subtitle: LaneSubtitle): string {
-  if (subtitle.kind === 'text') {
-    return subtitle.text === '' ? '' : `<span class="ap-lane-sub">${HtmlEscapeUtil.escapeHtml(subtitle.text)}</span>`;
+/** Waiting is hollow, working is filled: the same rule as the dashed and solid card outlines. */
+const HOLLOW_DOT_STATES: ReadonlySet<DisplayState> = new Set(['paused', 'in-review']);
+
+function dotGlyphOf(dotState: DisplayState | null): string {
+  if (dotState === null) {
+    return '';
   }
-  const counts = subtitle.counts.map((entry) => {
-    const dot  = entry.dotState === null ? '' : `<span class="ap-lane-dot" ${MarkupUtil.attribute('data-state', entry.dotState)}></span>`;
-    const mark = entry.reviewedMark ? '<span class="ap-reviewed-mark" data-state="reviewed" aria-hidden="true">✓</span>' : '';
-    return `${dot}${mark}${entry.count} ${HtmlEscapeUtil.escapeHtml(entry.label)}`;
-  });
-  const parts = [...subtitle.leading === null ? [] : [HtmlEscapeUtil.escapeHtml(subtitle.leading)], ...counts];
-  return parts.length === 0 ? '' : `<span class="ap-lane-sub">${parts.join(' · ')}</span>`;
+  return HOLLOW_DOT_STATES.has(dotState) ? '○ ' : '• ';
+}
+
+/** The head's subtitle as one plain line for its hover; zero counts were already left out by the model. */
+function subtitleTextOf(subtitle: LaneSubtitle): string {
+  if (subtitle.kind === 'text') {
+    return subtitle.text;
+  }
+  const counts = subtitle.counts.map((entry) => `${dotGlyphOf(entry.dotState)}${entry.reviewedMark ? '✓' : ''}${entry.count} ${entry.label}`);
+  return [...subtitle.leading === null ? [] : [subtitle.leading], ...counts].join(' · ');
 }
 
 function headMarkup(lane: LaneModel): string {
-  const headInner = `<span class="ap-card-title">${HtmlEscapeUtil.escapeHtml(lane.title)}</span><span class="ap-lane-count">${lane.count}</span>`;
-  const headOpening = `<div class="ap-card-head" ${MarkupUtil.attribute('data-state', lane.dotState)}>`;
-  const subtitle    = subtitleMarkup(lane.subtitle);
+  const headInner      = `<span class="ap-card-title">${HtmlEscapeUtil.escapeHtml(lane.title)}</span><span class="ap-lane-count">${lane.count}</span>`;
+  const subtitleText   = subtitleTextOf(lane.subtitle);
+  const titleAttribute = subtitleText === '' ? '' : ` ${MarkupUtil.attribute('title', subtitleText)}`;
+  const headOpening    = `<div class="ap-card-head" ${MarkupUtil.attribute('data-state', lane.dotState)}${titleAttribute}>`;
   if (lane.collapse === null) {
-    return `${headOpening}${headInner}${subtitle}</div>`;
+    return `${headOpening}${headInner}</div>`;
   }
   const toggle = [
     `<button type="button" class="ap-lane-toggle" aria-expanded="${String(!lane.collapse.isCollapsed)}" ${MarkupUtil.attribute('aria-controls', lane.cardsElementId)}`,
     ` ${MarkupUtil.attribute('title', lane.collapse.toggleTitle)}>${headInner}</button>`,
   ].join('');
-  return `${headOpening}${toggle}${subtitle}</div>`;
+  return `${headOpening}${toggle}</div>`;
 }
 
 function groupMarkup(group: LaneCardGroup): string {
