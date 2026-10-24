@@ -31,8 +31,15 @@ import type {
   TokenCredit,
   TrackerCleared
 }                                                           from './@types/BoardChanges.ts';
-import type { Concurrency, DispatchCapacity }     from './@types/Concurrency.ts';
-import type { Draft, DraftOpening, DraftSummary } from './@types/Draft.ts';
+import type { Concurrency, DispatchCapacity } from './@types/Concurrency.ts';
+import type {
+  Draft,
+  DraftNoteAddition,
+  DraftOpening,
+  DraftQuestionAsking,
+  DraftState,
+  DraftSummary
+}                                                           from './@types/Draft.ts';
 import type {
   Epic,
   EpicAddition,
@@ -51,6 +58,7 @@ import type { DispatcherState, TrackerProgress, ViewRange } from './@types/Track
 import { BoardRecords }                                     from './BoardRecords.ts';
 import { DispatchQueries }                                  from './DispatchQueries.ts';
 import { DisplayQueries }                                   from './DisplayQueries.ts';
+import { DraftContents }                                    from './DraftContents.ts';
 import { Drafts }                                           from './Drafts.ts';
 import { Epics }                                            from './Epics.ts';
 import { GroupReleases }                                    from './GroupReleases.ts';
@@ -106,6 +114,8 @@ export class Board {
 
   private readonly draftRules: Drafts;
 
+  private readonly draftContents: DraftContents;
+
   constructor(input: BoardInput) {
     this.records            = new BoardRecords(input.progress, input.tickets, input.epics, input.drafts ?? [], input.logger);
     this.reviewBars         = new ReviewBars(this.records);
@@ -122,6 +132,7 @@ export class Board {
     this.trackerChanges     = new TrackerChanges(this.records, this.dispatchQueries);
     this.epicRules          = new Epics(this.records, this.displayQueries);
     this.draftRules         = new Drafts(this.records);
+    this.draftContents      = new DraftContents(this.records, this.draftRules);
   }
 
   setChartRange(view: ViewRange, at: string): Logged {
@@ -217,6 +228,22 @@ export class Board {
     return this.draftRules.abandonDraft(draftId, reason, at);
   }
 
+  addDraftNote(draftId: string, addition: DraftNoteAddition, at: string): DraftChanged {
+    return this.draftContents.addDraftNote(draftId, addition, at);
+  }
+
+  askDraftQuestion(draftId: string, asking: DraftQuestionAsking, at: string): DraftChanged {
+    return this.draftContents.askDraftQuestion(draftId, asking, at);
+  }
+
+  answerDraftQuestion(draftId: string, questionId: string, answerText: string, at: string): DraftChanged {
+    return this.draftContents.answerDraftQuestion(draftId, questionId, answerText, at);
+  }
+
+  dropDraftItem(draftId: string, itemId: string, at: string): DraftChanged {
+    return this.draftContents.dropDraftItem(draftId, itemId, at);
+  }
+
   moveTicket(ticketId: string, targetStatus: TicketStatus, request: TicketMoveRequest, at: string): TicketMoved {
     return this.ticketMoves.moveTicket(ticketId, targetStatus, request, at);
   }
@@ -310,6 +337,11 @@ export class Board {
   /** Every open draft, ordered by id number, as `status --json` and the page's `boardFacts` list them. */
   openDraftSummaries(): DraftSummary[] {
     return this.draftRules.openDraftSummaries();
+  }
+
+  /** `waiting` while a question is open, else `researching` while claimed and `resumable` while not. */
+  draftStateOf(draft: Readonly<Draft>): DraftState {
+    return this.draftRules.draftStateOf(draft);
   }
 
   /** One per epic, ordered by key. */

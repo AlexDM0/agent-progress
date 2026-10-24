@@ -105,6 +105,25 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
     case 'draft-closed-into-unknown-tickets':
       return `Draft ${detail.draftId} was not closed: there is no ticket ${detail.missingTicketReferences.join(', ')}. ${NOTHING_WAS_WRITTEN} `
         + 'File the tickets first, then close the draft into their ids.';
+    case 'draft-has-open-questions':
+      return `Draft ${detail.draftId} was not closed: ${detail.openQuestionIds.join(', ')} ${detail.openQuestionIds.length === 1 ? 'is' : 'are'} `
+        + `still open. ${NOTHING_WAS_WRITTEN} Answer them with \`agent-progress draft answer\`, or drop the moot ones with \`agent-progress draft drop\`.`;
+    case 'unknown-draft-question':
+      return `Draft ${detail.draftId} has no question ${detail.questionId}. ${NOTHING_WAS_WRITTEN} `
+        + `Run \`agent-progress draft show ${detail.draftId}\` to see its questions.`;
+    case 'unknown-draft-item':
+      return `Draft ${detail.draftId} has no note or question ${detail.itemId}. ${NOTHING_WAS_WRITTEN} `
+        + `Run \`agent-progress draft show ${detail.draftId}\` to see what it holds.`;
+    case 'draft-question-option-count':
+      return `A question takes ${detail.minimum} to ${detail.maximum} options, and ${detail.optionCount} ${detail.optionCount === 1 ? 'was' : 'were'} given. `
+        + NOTHING_WAS_WRITTEN;
+    case 'draft-question-without-recommendation':
+      return `A question needs --recommended <letter>, the option Claude recommends. ${NOTHING_WAS_WRITTEN}`;
+    case 'unknown-draft-option-letters':
+      return `There is no option ${detail.unknownLetters.join(', ')}: the options are ${detail.optionLetters.join(', ')}. ${NOTHING_WAS_WRITTEN}`;
+    case 'several-letters-on-single-select-question':
+      return `${detail.letters.join(', ')} names several options, and the question takes one: only a question asked with --multiple takes `
+        + `several. ${NOTHING_WAS_WRITTEN}`;
     case 'check-command-change-with-tickets-in-flight':
       return `The check command was not changed: ${TicketPhraseUtil.ticketReferencesText(detail.ticketIds)} `
         + `${detail.ticketIds.length === 1 ? 'is' : 'are'} in progress or in review under the one stored, and a release refuses a ticket `

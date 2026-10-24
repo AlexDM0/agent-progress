@@ -35,6 +35,17 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
   board.releaseDraft('D1', at);
   board.claimDraft('D1', { owner: 'opus', forces: false }, at);
   board.claimDraft('D1', { owner: 'example-session', forces: true }, at);
+  board.addDraftNote('D1', { text: 'The export lives in src/export/', kind: 'fact' }, at);
+  board.askDraftQuestion('D1', {
+    question:           'Which format?',
+    context:            'Alex Example named two',
+    optionTexts:        ['CSV', 'JSON'],
+    multiple:           false,
+    recommendedLetters: ['a'],
+    underQuestionId:    null,
+  }, at);
+  board.answerDraftQuestion('D1', 'Q1', 'a', at);
+  board.dropDraftItem('D1', 'N1', at);
   board.closeDraft('D1', ['3'], at);
   board.openDraft({ title: 'Example import', request: '', owner: 'opus' }, at);
   board.abandonDraft('D2', 'folded into D1', at);

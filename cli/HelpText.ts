@@ -480,15 +480,34 @@ output never carries either.
                               long ago it was claimed is never judged. Only this command checks
                               the claim.
   draft release D<n> [--json] Drop a draft's claim, as a session ending with work left does.
+  draft note D<n> "<text>" [--assumption] [--json]
+                              Add a research fact, its paths written in the text, or with
+                              --assumption an assumption, as the next note N1, N2, ….
+  draft ask D<n> "<question>" --context <text> --option <text> --option <text> [--option …]
+      --recommended <letters> [--multiple] [--under Q<k>] [--json]
+                              Add the next question Q1, Q2, …, its two to four options lettered
+                              a to d in the order given. --multiple makes it multi-select, whose
+                              --recommended may name several letters (a,c); --under makes it a
+                              follow-up of Q<k>. A wrong option count, a letter outside the
+                              options or a missing Q<k> is refused at exit 1.
+  draft answer D<n> Q<k> "<answer>" [--json]
+                              Record an answer, overwriting any earlier one: option letters (a or
+                              a,c, several only on a multi-select question) or else free text. The
+                              log keeps every answer. Needs no claim.
+  draft drop D<n> N<k>|Q<k> [--json]
+                              Remove a note or a question made moot, a question with its follow-ups.
+                              Numbers are never reused.
   draft close D<n> --tickets <ids> [--json]
                               End a draft once its tickets are filed: removes its file and logs the
-                              ticket ids it became. A ticket that does not exist is refused at
-                              exit 1 with nothing written.
+                              ticket ids it became. A ticket that does not exist, or any question
+                              still open, is refused at exit 1 with nothing written.
   draft abandon D<n> --reason <text> [--json]
                               Remove a draft, logging the reason; without --reason it is refused
                               at exit 1.
-  draft show D<n> [--json]    One draft: its title, claim, file and request. --json prints the
-                              whole stored draft, so a rebooted session resumes from it alone.
+  draft show D<n> [--json]    One draft: its title, claim, state, file, request, notes and question
+                              tree. The state is waiting while a question is open, else
+                              researching while claimed and resumable once released. --json prints
+                              the whole stored draft, so a rebooted session resumes from it alone.
   draft list [--json]         Every open draft; a malformed draft file is reported on standard
                               error and skipped.
 

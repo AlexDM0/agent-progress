@@ -23,7 +23,7 @@ const STANDARD_INPUT_MARKER = '-';
 
 const TICKET_LIST_SEPARATOR_PATTERN = /[\s,]+/;
 
-function refusalOf(text: string): OperationRefusal {
+export function refusalOf(text: string): OperationRefusal {
   return new OperationRefusal('refused', `${text}\n  Usage: ${DRAFT_USAGE}`);
 }
 

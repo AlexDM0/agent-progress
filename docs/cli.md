@@ -368,15 +368,25 @@ Only `draft claim` checks who holds a draft; no other draft command looks at the
 | `draft open "<title>" --owner <who> [--request <text>] [--request-file <path\|->] [--json]` | Write the next `D<n>.json` with the title, the request from `--request` or `--request-file` (`-` reads standard input), kept byte for byte, and the claim held by `<who>`; the first one makes the folder and stores `nextDraftId`. Prints the id; `--json` prints the stored draft. A missing title or `--owner`, both request options, or a malformed file already at the new id's path is refused at exit 1 with nothing written. |
 | `draft claim D<n> --owner <who> [--force] [--json]` | Take the claim. Refused at exit 1 with nothing written while another owner holds it, unless `--force`, whose log line names the owner it took the draft from; how long ago it was claimed is never judged. A claim the owner already holds writes and logs nothing. `--json` prints the stored draft. |
 | `draft release D<n> [--json]` | Drop the claim, as a session ending with work left does. Releasing an unclaimed draft writes and logs nothing. |
-| `draft close D<n> --tickets <ids> [--json]` | End a draft once its tickets are filed: remove its file and log the ticket ids it became. `<ids>` are comma- or space-separated ticket references (`5`, `#005`); one that names no ticket is refused at exit 1 with nothing written, and so is no `--tickets`. |
+| `draft note D<n> "<text>" [--assumption] [--json]` | Add a research fact, its paths written in the text, or with `--assumption` an assumption, as the next note `N<k>`. A blank text is refused at exit 1. `--json` prints the stored draft. |
+| `draft ask D<n> "<question>" --context <text> --option <text> --option <text> [--option …] --recommended <letters> [--multiple] [--under Q<k>] [--json]` | Add the next question `Q<k>`, its options lettered `a` to `d` in the order given. `--multiple` makes it multi-select. `--recommended` names one letter, or on a multi-select question one or more, comma-separated (`a,c`). `--under` makes it a follow-up of an existing question, at any depth and whatever that question's answer. Refused at exit 1 with nothing written: fewer than two or more than four options, a blank question or `--context`, no `--recommended`, a recommended letter outside the options, several on a single-select question, or a `--under` question the draft does not hold. |
+| `draft answer D<n> Q<k> "<answer>" [--json]` | Record the answer. A comma-separated list of option letters (`a`, `a,c`) chooses those options; anything else is free text, never both. Several letters on a single-select question, or a letter outside the options on either kind, is refused at exit 1 with nothing written, and so is a question the draft does not hold. Answering again overwrites the answer: the draft keeps only the current one, the log every one. Needs no claim, so the dashboard or any session may answer; the later write wins. |
+| `draft drop D<n> N<k>\|Q<k> [--json]` | Remove a note or question made moot; dropping a question drops its follow-ups too, logging one line each. An item the draft does not hold is refused at exit 1. |
+| `draft close D<n> --tickets <ids> [--json]` | End a draft once its tickets are filed: remove its file and log the ticket ids it became. `<ids>` are comma- or space-separated ticket references (`5`, `#005`); one that names no ticket is refused at exit 1 with nothing written, and so is no `--tickets`. While any question is unanswered, follow-ups included, it is refused at exit 1 with nothing written, naming the open question numbers in number order. A draft with no question closes at once, so a simple request goes open, note, tickets, close in one run. |
 | `draft abandon D<n> --reason <text> [--json]` | Remove the draft's file, logging the reason. Refused at exit 1 without `--reason` or with a blank one. |
-| `draft show D<n> [--json]` | One draft: its title, claim, file path and request. `--json` prints the whole stored draft. |
+| `draft show D<n> [--json]` | One draft: its title, claim, state, file path, request, notes and question tree. `--json` prints the whole stored draft. |
 | `draft list [--json]` | Every open draft, ordered by id; `--json` prints their stored documents. |
 
-An id that is not `D` and a number, or names no open draft, is refused at exit 1. `status --json`,
-both documents, carries `drafts` after `epics`: `{ id, title, claimOwner, openedAt }` for every open
-draft ordered by id, `claimOwner` null while unclaimed, an empty list when there is none. The page's
-`boardFacts.drafts` carries the same list from the same Board query.
+An id that is not `D` and a number, or names no open draft, is refused at exit 1. A draft numbers
+its notes `N1`, `N2`, … and its questions `Q1`, `Q2`, …, each from its own stored counter, never
+reused, not after a drop. A question is open while it has no answer.
+
+Each open draft has a derived state, which no clock decides: `waiting` while any question is open,
+claimed or not; `researching` when none is open and the draft is claimed; `resumable` when none is
+open and nobody holds the claim. `status --json`, both documents, carries `drafts` after `epics`:
+`{ id, title, claimOwner, openedAt, state, openQuestionCount, questions }` for every open draft ordered
+by id, `claimOwner` null while unclaimed, `questions` the stored question tree, an empty list when
+there is none. The page's `boardFacts.drafts` carries the same list from the same Board query.
 
 ### The dispatcher and concurrency
 
@@ -1034,7 +1044,24 @@ as ignored. Only the `draft` commands write it, through the lock, atomically:
   "title": "Example feature",
   "request": "The user's request, kept byte for byte.",
   "openedAt": "2026-10-24T22:01:45+02:00",
-  "claim": { "owner": "opus", "claimedAt": "2026-10-24T22:01:45+02:00" } // or null while unclaimed
+  "claim": { "owner": "opus", "claimedAt": "2026-10-24T22:01:45+02:00" }, // or null while unclaimed
+  "notes": [
+    { "id": "N1", "kind": "fact", "text": "The export lives in src/export/" } // kind: fact | assumption
+  ],
+  "questions": [                                 // the top-level questions, each holding its follow-ups
+    {
+      "id": "Q1",
+      "question": "Which format?",
+      "context": "What the user needs to answer it",
+      "options": [{ "letter": "a", "text": "CSV" }, { "letter": "b", "text": "JSON" }],
+      "multiple": false,                         // true for a multi-select question
+      "recommended": ["a"],                      // one letter, or several on a multi-select question
+      "answer": { "letters": ["a"], "answeredAt": "2026-10-24T22:05:00+02:00" }, // or { "text", "answeredAt" }, or null while open
+      "followUps": []                            // questions of the same shape, asked --under Q1
+    }
+  ],
+  "nextNoteNumber": 2,                           // the number the next note and question take, never wound back
+  "nextQuestionNumber": 2
 }
 ```
 

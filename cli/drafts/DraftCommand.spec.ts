@@ -115,12 +115,16 @@ describeWhenGitIsPresent('draft', () => {
     expect(opened.outputText().trim()).toBe('D1');
     const stored = storedJsonOf(draftFilePath('D1'));
     expect(stored).toEqual({
-      version:  1,
-      id:       'D1',
-      title:    'Example feature',
-      request:  EXAMPLE_REQUEST,
-      openedAt: stored['openedAt'],
-      claim:    { owner: 'opus', claimedAt: stored['openedAt'] },
+      version:            1,
+      id:                 'D1',
+      title:              'Example feature',
+      request:            EXAMPLE_REQUEST,
+      openedAt:           stored['openedAt'],
+      claim:              { owner: 'opus', claimedAt: stored['openedAt'] },
+      notes:              [],
+      questions:          [],
+      nextNoteNumber:     1,
+      nextQuestionNumber: 1,
     });
     expect(storedJsonOf(join(trackerDirectory(), 'progress.json'))['nextDraftId']).toBe(2);
     expect(logKinds().slice(logLengthBefore)).toEqual(['draft-opened']);
@@ -209,10 +213,10 @@ describeWhenGitIsPresent('draft', () => {
     await run(['draft', 'release', 'D2']);
     const expected = [
       {
-        id: 'D1', title: 'Example feature', claimOwner: 'opus', openedAt: expect.any(String) as unknown
+        id: 'D1', title: 'Example feature', claimOwner: 'opus', openedAt: expect.any(String) as unknown, state: 'researching', openQuestionCount: 0, questions: []
       },
       {
-        id: 'D2', title: 'Example search', claimOwner: null, openedAt: expect.any(String) as unknown
+        id: 'D2', title: 'Example search', claimOwner: null, openedAt: expect.any(String) as unknown, state: 'resumable', openQuestionCount: 0, questions: []
       },
     ];
     expect(((await jsonOf(['status'])) as { drafts: unknown }).drafts).toEqual(expected);
@@ -258,10 +262,23 @@ describeWhenGitIsPresent('draft', () => {
     expect(readFileSync(draftFilePath('D1'), 'utf8')).toBe('not JSON');
 
     writeFileSync(draftFilePath('D1'), JSON.stringify({
-      version: 1, id: 'D1', title: 'Kept', request: 'r', openedAt: 'x', claim: null, notes: ['kept'], answers: { a: 1 }
+      version:            1,
+      id:                 'D1',
+      title:              'Kept',
+      request:            'r',
+      openedAt:           'x',
+      claim:              null,
+      sources:            ['kept'],
+      notes:              [],
+      questions:          [],
+      nextNoteNumber:     1,
+      nextQuestionNumber: 1,
+      answers:            { a: 1 },
     }));
     await run(['draft', 'claim', 'D1', '--owner', 'opus']);
-    expect(Object.keys(storedJsonOf(draftFilePath('D1')))).toEqual(['version', 'id', 'title', 'request', 'openedAt', 'claim', 'notes', 'answers']);
+    expect(Object.keys(storedJsonOf(draftFilePath('D1')))).toEqual([
+      'version', 'id', 'title', 'request', 'openedAt', 'claim', 'notes', 'questions', 'nextNoteNumber', 'nextQuestionNumber', 'sources', 'answers',
+    ]);
     expect(storedJsonOf(draftFilePath('D1'))['answers']).toEqual({ a: 1 });
   });
 });

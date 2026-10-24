@@ -11,7 +11,7 @@ import type { LogRecord }              from './@types/LogRecord.ts';
 
 const LOGGED_AT = '2026-09-26T10:15:00+02:00';
 
-const RECORD_KIND_COUNT = 36;
+const RECORD_KIND_COUNT = 40;
 
 /**
  * Two kinds are logged twice: `draft-claimed`, plainly and as a forced takeover, since the two store different fields, and `draft-opened`,
@@ -38,6 +38,10 @@ const FROZEN_STORED_LINES = [
   '{"at":"2026-09-26T10:15:00+02:00","kind":"draft-released","draftId":"D1","fields":{"owner":"opus"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"draft-claimed","draftId":"D1","fields":{"owner":"opus"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"draft-claimed","draftId":"D1","fields":{"owner":"example-session","takenFrom":"opus"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"draft-note-added","draftId":"D1","fields":{"noteId":"N1","noteKind":"fact"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"draft-question-asked","draftId":"D1","fields":{"questionId":"Q1"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"draft-question-answered","draftId":"D1","fields":{"questionId":"Q1","answer":"a"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"draft-item-dropped","draftId":"D1","fields":{"itemId":"N1"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"draft-closed","draftId":"D1","fields":{"ticketIds":["003"]}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"draft-opened","draftId":"D2","fields":{"title":"Example import","owner":"opus"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"draft-abandoned","draftId":"D2","fields":{"reason":"folded into D1"}}',

@@ -43,7 +43,14 @@ export type BoardRefusalDetail =
   | { reason: 'check-command-change-with-tickets-in-flight'; ticketIds: readonly string[] }
   | { reason: 'unknown-draft'; draftId: string }
   | { reason: 'draft-claimed-by-another-owner'; draftId: string; owner: string }
-  | { reason: 'draft-closed-into-unknown-tickets'; draftId: string; missingTicketReferences: readonly string[] };
+  | { reason: 'draft-closed-into-unknown-tickets'; draftId: string; missingTicketReferences: readonly string[] }
+  | { reason: 'draft-has-open-questions'; draftId: string; openQuestionIds: readonly string[] }
+  | { reason: 'unknown-draft-question'; draftId: string; questionId: string }
+  | { reason: 'unknown-draft-item'; draftId: string; itemId: string }
+  | { reason: 'draft-question-option-count'; draftId: string; optionCount: number; minimum: number; maximum: number }
+  | { reason: 'draft-question-without-recommendation'; draftId: string }
+  | { reason: 'unknown-draft-option-letters'; draftId: string; unknownLetters: readonly string[]; optionLetters: readonly string[] }
+  | { reason: 'several-letters-on-single-select-question'; draftId: string; letters: readonly string[] };
 
 export class BoardRefusal extends Error {
   readonly detail: BoardRefusalDetail;

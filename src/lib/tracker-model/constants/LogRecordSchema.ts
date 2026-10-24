@@ -68,6 +68,12 @@ export const LOG_RECORD_SCHEMA = {
   'draft-released':                  { subject: 'draft', fields: { owner: 'text' } },
   'draft-closed':                    { subject: 'draft', fields: { ticketIds: 'ticket-ids' } },
   'draft-abandoned':                 { subject: 'draft', fields: { reason: 'text' } },
+  'draft-note-added':                { subject: 'draft', fields: { noteId: 'text', noteKind: 'text' } },
+  'draft-question-asked':            { subject: 'draft', fields: { questionId: 'text', underQuestionId: 'optional-text' } },
+  // `answer` is the option letters joined by commas, or the free text: the log keeps every answer, the draft only the current one.
+  'draft-question-answered':         { subject: 'draft', fields: { questionId: 'text', answer: 'text' } },
+  // A dropped question's follow-ups are dropped too, one record each after it.
+  'draft-item-dropped':              { subject: 'draft', fields: { itemId: 'text' } },
   // A review bar's `name` is carried because the sentence prints the row's stored name, which an edit may have made anything.
   'review-bar-started':              { subject: 'review-bar', fields: { name: 'text' } },
   'review-bar-closed':               { subject: 'review-bar', fields: { name: 'text' } },

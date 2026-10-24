@@ -8,6 +8,8 @@ import { OPTION_NAMES_WITH_VALUES } from './constants/OptionNamesWithValues.ts';
 export interface ArgumentParser {
   flag(name: string): boolean;
   option(name: string): string | undefined;
+  /** Every value a repeatable option was given, in order. */
+  optionValues(name: string): string[];
   positionalsBeforeSeparator(): string[];
   positionals(): string[];
   positional(): string | undefined;
@@ -131,6 +133,7 @@ export function createArgumentParser(remainingArguments: readonly string[]): Arg
   return {
     flag,
     option,
+    optionValues,
     positionalsBeforeSeparator,
     positionals,
     positional,

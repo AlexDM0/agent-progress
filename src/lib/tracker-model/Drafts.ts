@@ -2,12 +2,18 @@
  * Drafts as records: opened, claimed, released, closed into the tickets filed from them, or abandoned. A draft is not a ticket: it has no
  * status, row or move, and only `claimDraft` looks at who holds it.
  */
-import type { DraftChanged, DraftClaimChanged }   from './@types/BoardChanges.ts';
-import type { Draft, DraftOpening, DraftSummary } from './@types/Draft.ts';
-import type { BoardRecords }                      from './BoardRecords.ts';
-import { BoardRefusal }                           from './BoardRefusal.ts';
-import { FIRST_DRAFT_NUMBER }                     from './constants/DraftFields.ts';
-import { DraftIdUtil }                            from './utils/DraftIdUtil.ts';
+import type { DraftChanged, DraftClaimChanged } from './@types/BoardChanges.ts';
+import type {
+  Draft,
+  DraftOpening,
+  DraftState,
+  DraftSummary
+}                                                         from './@types/Draft.ts';
+import type { BoardRecords }                           from './BoardRecords.ts';
+import { BoardRefusal }                                from './BoardRefusal.ts';
+import { FIRST_DRAFT_ITEM_NUMBER, FIRST_DRAFT_NUMBER } from './constants/DraftFields.ts';
+import { DraftIdUtil }                                 from './utils/DraftIdUtil.ts';
+import { DraftQuestionTreeUtil }                       from './utils/DraftQuestionTreeUtil.ts';
 
 export class Drafts {
   constructor(private readonly records: BoardRecords) {}
@@ -15,12 +21,16 @@ export class Drafts {
   openDraft(opening: DraftOpening, at: string): DraftChanged {
     const { title, request, owner } = opening;
     const draft: Draft = {
-      id:       DraftIdUtil.draftIdOf(this.takeNextDraftNumber()),
+      id:                 DraftIdUtil.draftIdOf(this.takeNextDraftNumber()),
       title,
       request,
-      openedAt: at,
-      claim:    { owner, claimedAt: at },
-      extra:    [],
+      openedAt:           at,
+      claim:              { owner, claimedAt: at },
+      notes:              [],
+      questions:          [],
+      nextNoteNumber:     FIRST_DRAFT_ITEM_NUMBER,
+      nextQuestionNumber: FIRST_DRAFT_ITEM_NUMBER,
+      extra:              [],
     };
     this.records.draftRecords.push(draft);
     this.records.markDraftChanged(draft);
@@ -50,9 +60,14 @@ export class Drafts {
     return { logged: [this.records.logger.log({ kind: 'draft-released', draftId, fields: { owner } }, at)], draft, changed: true };
   }
 
-  /** Every reference must name a ticket the board holds; the log keeps the ids the draft became, as the tickets store them. */
+  /**
+   * Refused while any question is open, so a draft with no question closes at once. Every reference must name a ticket the board holds; the
+   * log keeps the ids the draft became, as the tickets store them.
+   */
   closeDraft(draftId: string, ticketReferences: readonly string[], at: string): DraftChanged {
     const draft             = this.requireDraft(draftId);
+    const openQuestionIds   = DraftQuestionTreeUtil.openQuestionIdsOf(draft.questions);
+    if (openQuestionIds.length > 0) throw new BoardRefusal({ reason: 'draft-has-open-questions', draftId, openQuestionIds });
     const missingReferences = ticketReferences.filter((reference) => this.records.ticketRecordByReference(reference) === undefined);
     if (missingReferences.length > 0) {
       throw new BoardRefusal({ reason: 'draft-closed-into-unknown-tickets', draftId, missingTicketReferences: missingReferences });
@@ -70,19 +85,34 @@ export class Drafts {
 
   /** In id order. */
   openDraftSummaries(): DraftSummary[] {
-    return this.draftsInIdOrder().map((draft) => ({
-      id: draft.id, title: draft.title, claimOwner: draft.claim?.owner ?? null, openedAt: draft.openedAt
-    }));
+    return this.draftsInIdOrder().map((draft) => this.draftSummaryOf(draft));
+  }
+
+  draftStateOf(draft: Readonly<Draft>): DraftState {
+    if (DraftQuestionTreeUtil.openQuestionIdsOf(draft.questions).length > 0) return 'waiting';
+    return draft.claim === null ? 'resumable' : 'researching';
   }
 
   draftsInIdOrder(): Draft[] {
     return [...this.records.draftRecords].sort((a, b) => (DraftIdUtil.draftNumberOf(a.id) ?? 0) - (DraftIdUtil.draftNumberOf(b.id) ?? 0));
   }
 
-  private requireDraft(draftId: string): Draft {
+  requireDraft(draftId: string): Draft {
     const draft = this.records.draftRecordById(draftId);
     if (draft === undefined) throw new BoardRefusal({ reason: 'unknown-draft', draftId });
     return draft;
+  }
+
+  private draftSummaryOf(draft: Readonly<Draft>): DraftSummary {
+    return {
+      id:                draft.id,
+      title:             draft.title,
+      claimOwner:        draft.claim?.owner ?? null,
+      openedAt:          draft.openedAt,
+      state:             this.draftStateOf(draft),
+      openQuestionCount: DraftQuestionTreeUtil.openQuestionIdsOf(draft.questions).length,
+      questions:         draft.questions,
+    };
   }
 
   private removeDraftRecord(draft: Draft): void {

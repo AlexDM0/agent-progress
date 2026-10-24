@@ -111,6 +111,16 @@ function sentenceOf(record: LogRecordContent): string {
       return `Draft ${record.draftId} closed into ${TicketPhraseUtil.ticketReferencesText(record.fields.ticketIds)}`;
     case 'draft-abandoned':
       return `Draft ${record.draftId} abandoned: ${record.fields.reason}`;
+    case 'draft-note-added':
+      return `Draft ${record.draftId} noted ${record.fields.noteKind} ${record.fields.noteId}`;
+    case 'draft-question-asked':
+      return record.fields.underQuestionId === undefined
+        ? `Draft ${record.draftId} asked ${record.fields.questionId}`
+        : `Draft ${record.draftId} asked ${record.fields.questionId} under ${record.fields.underQuestionId}`;
+    case 'draft-question-answered':
+      return `Draft ${record.draftId} ${record.fields.questionId} answered: ${record.fields.answer}`;
+    case 'draft-item-dropped':
+      return `Draft ${record.draftId} dropped ${record.fields.itemId}`;
     case 'review-bar-started':
       return `Review row #${record.taskId} started: ${record.fields.name}`;
     case 'review-bar-closed':

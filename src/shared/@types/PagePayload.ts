@@ -59,8 +59,8 @@ export interface PageBoardFacts {
   /** The Board's ready tickets in the order to take them, as `status --json` prints its `readyTickets`, held ones marked `held`. */
   readyTickets: ReadyTicket[];
   /**
-   * Every open draft ordered by id, as `status --json` prints its `drafts`. The render always writes it; it is optional only until the page
-   * reads it, so the page's own fixtures need not carry it yet.
+   * Every open draft ordered by id, with its state, open-question count and question tree, as `status --json` prints its `drafts`. The
+   * render always writes it; it is optional only until the page reads it, so the page's own fixtures need not carry it yet.
    */
   drafts?:      DraftSummary[];
 }

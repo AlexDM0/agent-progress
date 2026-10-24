@@ -4,18 +4,24 @@
  */
 import { JsonRecordUtil }             from '../../../lib/json-record/JsonRecordUtil.ts';
 import type { Draft, DraftClaim }     from '../../../lib/tracker-model/@types/Draft.ts';
+import { FIRST_DRAFT_ITEM_NUMBER }    from '../../../lib/tracker-model/constants/DraftFields.ts';
 import { DraftIdUtil }                from '../../../lib/tracker-model/utils/DraftIdUtil.ts';
 import { OLDER_FORMAT_ADVICE }        from '../../constants/OlderFormatAdvice.ts';
 import { StoredValueUtil }            from '../../utils/StoredValueUtil.ts';
 import { CURRENT_DRAFT_FILE_VERSION } from '../constants/DraftFileVersions.ts';
+import { DraftContentParsingUtil }    from './DraftContentParsingUtil.ts';
 
 export type DraftDocumentParsing =
   | { verdict: 'parsed'; draft: Draft }
   | { verdict: 'malformed'; reason: string };
 
-const OWNED_KEYS = ['version', 'id', 'title', 'request', 'openedAt', 'claim'] as const;
+const OWNED_KEYS = ['version', 'id', 'title', 'request', 'openedAt', 'claim', 'notes', 'questions', 'nextNoteNumber', 'nextQuestionNumber'] as const;
 
 const INDENTATION_SPACES = 2;
+
+function isItemNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= FIRST_DRAFT_ITEM_NUMBER;
+}
 
 function claimOf(value: unknown): DraftClaim | null | undefined {
   if (value === null) return null;
@@ -48,13 +54,21 @@ function parsedDraftDocumentOf(text: string): DraftDocumentParsing {
   if (typeof openedAt !== 'string') return malformed('openedAt is not a timestamp');
   const claim = claimOf(document['claim']);
   if (claim === undefined) return malformed('claim is neither null nor an object holding an owner and a claimedAt');
+  const notes = DraftContentParsingUtil.notesOf(document['notes']);
+  if (notes === undefined) return malformed('notes is not a list of notes, each holding an id, a kind of fact or assumption, and a text');
+  const questions = DraftContentParsingUtil.questionsOf(document['questions']);
+  if (questions === undefined) return malformed('questions is not a list of questions, each with its options, recommendation, answer and follow-ups');
+  const { nextNoteNumber, nextQuestionNumber } = document;
+  if (!isItemNumber(nextNoteNumber) || !isItemNumber(nextQuestionNumber)) {
+    return malformed(`nextNoteNumber and nextQuestionNumber have to be whole numbers of at least ${FIRST_DRAFT_ITEM_NUMBER}`);
+  }
 
   const ownedKeys: readonly string[] = OWNED_KEYS;
   const extra = Object.entries(document).filter(([key]) => !ownedKeys.includes(key));
   return {
     verdict: 'parsed',
     draft:   {
-      id, title, request, openedAt, claim, extra
+      id, title, request, openedAt, claim, notes, questions, nextNoteNumber, nextQuestionNumber, extra
     },
   };
 }
@@ -69,6 +83,10 @@ function draftDocumentOf(draft: Readonly<Draft>): Record<string, unknown> {
     ['request', draft.request],
     ['openedAt', draft.openedAt],
     ['claim', draft.claim],
+    ['notes', draft.notes],
+    ['questions', draft.questions],
+    ['nextNoteNumber', draft.nextNoteNumber],
+    ['nextQuestionNumber', draft.nextQuestionNumber],
     ...draft.extra,
   ]);
 }
