@@ -1,7 +1,7 @@
 /**
  * That `resources/template.html` filled with a fixed fixture stays byte for byte the page main rendered before the spec view's second
- * edition, both with a page script and with the banner-only fallback. The expected digests were retaken on the commit that gave the Kanban cards
- * their live stamps and the light theme the Coral palette. To retake them, check out the commit to
+ * edition, both with a page script and with the banner-only fallback. The expected digests were retaken on the commit that folded the range bar into
+ * the chart head. To retake them, check out the commit to
  * compare against, run this spec, and copy each actual digest its failure prints into `FROZEN_PAGE_DIGESTS`.
  */
 import { createHash } from 'node:crypto';
@@ -15,8 +15,8 @@ import { createMarkdownRenderer } from './MarkdownRenderer.ts';
 import { fillPageTemplate }       from './PageTemplateFill.ts';
 
 const FROZEN_PAGE_DIGESTS = {
-  withPageScript: '5c355d6096f77625e2dcad8c64be05aa79713718184c1ecbd6f383d90b136e6e',
-  bannerOnly:     'f6a8317acf34b46eb050a24a5ac30b99001eaa244444e9a4f88abf882b4d5197',
+  withPageScript: 'f58e9531c21b1e710671eb975050797d4616343d44e1d546aff7db069076cb19',
+  bannerOnly:     'ec886cfd1b37c5e8b97d27d938d3ab62fe4b591608e9e6f47b6836f91669cc11',
 } as const;
 
 const FROZEN_PROGRESS: TrackerProgress = {

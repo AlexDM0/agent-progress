@@ -144,7 +144,19 @@
                                  and not shown once the tab bar wraps (below 1320px); a click checks
                                  custom on all. [data-changed] flashes it once
  #ap-finished-status      text   visually hidden, aria-live: what the switch now shows
- #ap-range-presets        el     buttons data-preset="fit|1h|4h|12h|24h|7d|custom", aria-pressed;
+ #ap-range-button         button the chart head's first control, in its pinned cell: #ap-range-summary
+                                 then a ▾; aria-expanded while #ap-range-menu is open; carries
+                                 [data-refit] (a dot) as #ap-range-fit does. The custom range
+                                 popover hangs under it
+ #ap-range-summary        html   .ap-range-mode ("Fit", or the held "4h" / "Custom" with
+                                 [data-held]), then .ap-range-ends, the range's two clock times,
+                                 e.g. "20:30 → 22:15"
+ #ap-range-menu           dialog [hidden] unless #ap-range-button opened it: #ap-range-note, then
+                                 #ap-range-presets. A preset applies and closes it; Custom… closes
+                                 it and opens #ap-range-popover. Esc, a click or focus outside close
+                                 it; Esc refocuses #ap-range-button
+ #ap-range-presets        el     inside #ap-range-menu: .ap-menu-item buttons
+                                 data-preset="fit|1h|4h|12h|24h|7d|custom", aria-pressed;
                                  #ap-range-fit "Fit", the default, spans the rows shown from their
                                  earliest start to now, a margin of 3% of the span (at least 5m) at
                                  both ends, ticks chosen for the span, and re-fits whenever the
@@ -157,7 +169,7 @@
  #ap-range-popover        dialog [hidden] unless Custom… opened it; holds the fields and the ticks.
                                  Enter or #ap-range-apply applies; Esc, #ap-range-cancel, a click
                                  or focus outside discards; closing by key or button refocuses
-                                 Custom…
+                                 #ap-range-button
  #ap-range-from           input  from field (free text: ISO, "start", "now", "-2h"), empty reads
                                  as "start"; aria-invalid="true" while it cannot be read
  #ap-range-from-resolved  text   under the field: "→ 15:40" (a stamp, full one as its title), or
@@ -166,12 +178,14 @@
  #ap-range-to-resolved    text   as the from line, or "→ 15:40 is not after From"
  #ap-range-ticks          el     inside the popover: buttons data-tick="auto|5|15|60|360|1440",
                                  aria-pressed, applied with the fields
- #ap-range-note           html   .ap-range-mode ("Fit", or the held "4h" / "Custom" with
-                                 [data-held]), then the resolved range, e.g. "Fit · 20:30 → 22:15 ·
-                                 15m ticks", each end a stamp; title the whole note in full
- #ap-chart                el     the scroller, both ways; fills the viewport below the range bar,
-                                 its rows scrolling inside it; owns --timeline-w
- #ap-ticks                el     tick layer in the header row; children .ap-tick > span; a
+ #ap-range-note           text   the first line of #ap-range-menu: the resolved range, e.g.
+                                 "20:30 → 22:15 · 15m ticks", each end a stamp; title the mode and
+                                 the whole note in full
+ #ap-chart                el     the scroller, both ways; fills the viewport below the tab bar,
+                                 its rows scrolling inside it; owns --timeline-w. Its head,
+                                 .ap-chart-head, is one 40px row
+ #ap-ticks                el     tick layer in the header row, labels centred in it; children
+                                 .ap-tick > span; a
                                  tick whose label another label covers gets data-covered
  #ap-rows                 el     row list; direct children are .ap-row. On a board with epics the
                                  rows are grouped: each epic's .ap-epic-head-row[data-epic-key]
@@ -186,10 +200,17 @@
  #ap-now                  el     the now marker inside #ap-overlay; [hidden] if out of range;
                                  data-label-side="left" near the right edge
  #ap-chart-empty          el     shown instead of rows when there are none
- #ap-name-column          button in the chart's Task header, aria-pressed; pressed widens the
+ #ap-row-options-button  button icon button at the right of the chart head's pinned cell,
+                                 aria-label "Row options", aria-expanded while
+                                 #ap-row-options-menu is open
+ #ap-row-options-menu     dialog [hidden] unless #ap-row-options-button opened it: #ap-review-rows
+                                 then #ap-name-column. A toggle, Esc, a click or focus outside
+                                 close it; Esc refocuses #ap-row-options-button
+ #ap-name-column          button .ap-menu-item "Wide titles" in #ap-row-options-menu,
+                                 aria-pressed, remembered per viewer; pressed widens the
                                  name column (data-name-column="wide" on the root element)
- #ap-review-rows          button beside #ap-name-column, aria-pressed, remembered per viewer;
-                                 pressed draws each review pass as a row of its own
+ #ap-review-rows          button .ap-menu-item "Review passes as rows" in #ap-row-options-menu,
+                                 aria-pressed, remembered per viewer; pressed draws each review pass as a row of its own
                                  (.ap-row[data-review-of]) instead of a segment on its ticket's row
  #ap-ticket-rows          tbody  ticket table body; each <tr> carries data-ticket-id and data-state, its status
                                  an .ap-badge[data-state] with the state's label, a paused build's
@@ -951,8 +972,66 @@ html[data-embedded="dashboard"] .ap-tab-bar > .ap-tab-today {
 .ap-card-note { margin-left: auto; font-size: var(--fs-small); color: var(--ink-muted); }
 .ap-card-body { padding: var(--sp-4); }
 
-/* -------------------------------------------------------------- range bar -- */
-.ap-range { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--line); }
+/* ------------------------------------------------- chart head and its menus -- */
+/* The Progress chart's one header row: the range button and the row options in the pinned cell, the ticks on the track. */
+#ap-chart > .ap-chart-head { height: 40px; min-height: 40px; }
+#ap-chart > .ap-chart-head > .ap-cell-name { gap: var(--sp-2); padding: 0 var(--sp-3); font-size: var(--fs-body); text-transform: none; letter-spacing: 0; color: var(--ink); }
+#ap-ticks .ap-tick > span { top: 50%; transform: translateY(-50%); }
+.ap-range-button {
+  position: relative;
+  display: inline-flex; align-items: center; gap: var(--sp-2);
+  min-width: 0; height: 28px; padding: 0 10px;
+  font: 500 var(--fs-small)/1 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong); border-radius: var(--r-2);
+  cursor: pointer;
+}
+#ap-range-summary { display: inline-flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.ap-range-ends { color: var(--ink-muted); overflow: hidden; text-overflow: ellipsis; }
+.ap-range-caret { font-size: var(--fs-micro); color: var(--ink-muted); }
+/* A dot on the range button, and on Fit in its menu, says the rows changed under a held range. */
+.ap-range-button[data-refit]::after,
+#ap-range-fit[data-refit]::after { content: ""; position: absolute; top: 3px; right: 3px; width: 5px; height: 5px; border-radius: 50%; background: var(--link); }
+.ap-icon-button {
+  flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; margin-left: auto; padding: 0;
+  color: var(--ink-muted);
+  background: transparent;
+  border: 1px solid transparent; border-radius: var(--r-2);
+  cursor: pointer;
+}
+.ap-icon-button svg { width: 16px; height: 16px; }
+.ap-icon-button:hover,
+.ap-icon-button[aria-expanded="true"] { color: var(--ink); border-color: var(--line-strong); }
+.ap-range-button:focus-visible,
+.ap-icon-button:focus-visible,
+.ap-menu-item:focus-visible { outline: 2px solid var(--link); outline-offset: 1px; }
+/* Placed under its button by the page script, which sets its top and left. */
+.ap-popover.ap-head-menu { width: max-content; min-width: 232px; padding: 6px; display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-small); }
+.ap-popover.ap-head-menu[hidden] { display: none; }
+#ap-range-presets { display: flex; flex-direction: column; gap: 2px; }
+.ap-range-readout { white-space: nowrap; padding: 6px 8px 8px; margin-bottom: 4px; border-bottom: 1px solid var(--line); font: var(--fs-micro)/1.4 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink-muted); }
+.ap-menu-item {
+  position: relative;
+  display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3);
+  width: 100%; padding: 7px 8px;
+  font: 500 var(--fs-small)/1 var(--font-mono);
+  text-align: left;
+  color: var(--ink);
+  background: transparent;
+  border: 0; border-radius: var(--r-2);
+  cursor: pointer;
+}
+#ap-row-options-menu .ap-menu-item { font-family: var(--font-ui); }
+.ap-menu-item:hover { background: var(--surface-2); }
+.ap-menu-item[aria-pressed="true"] { background: var(--surface-selected); }
+.ap-menu-hint { font-family: var(--font-ui); font-weight: 400; color: var(--ink-muted); }
+.ap-menu-check { visibility: hidden; color: var(--link); }
+.ap-menu-item[aria-pressed="true"] > .ap-menu-check { visibility: visible; }
 .ap-range-label { font-size: var(--fs-micro); text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-muted); }
 .ap-seg { display: flex; gap: 2px; padding: 2px; background: var(--surface-2); border-radius: var(--r-2); }
 .ap-seg button {
@@ -978,15 +1057,10 @@ html[data-embedded="dashboard"] .ap-tab-bar > .ap-tab-today {
 }
 .ap-field input::placeholder { color: var(--ink-muted); opacity: 0.7; }
 .ap-field input:focus { outline: 0; border-bottom-color: var(--ink); }
-#ap-range-note { margin-left: auto; font-size: var(--fs-small); color: var(--ink-muted); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .ap-seg button:focus-visible { outline: 2px solid var(--link); outline-offset: 1px; }
-#ap-range-custom[aria-expanded="true"] { color: var(--ink); }
-/* Fit leads the presets; a dot on it says the rows changed under a held range. */
-#ap-range-fit { position: relative; }
-#ap-range-fit[data-refit]::after { content: ""; position: absolute; top: 2px; right: 2px; width: 5px; height: 5px; border-radius: 50%; background: var(--link); }
 .ap-range-mode { font-family: var(--font-ui); font-weight: 600; color: var(--ink); }
 .ap-range-mode[data-held] { color: var(--warn-ink); }
-/* Placed under Custom… by the page script, which sets its top and left. */
+/* The custom range hangs under the range button, placed by the page script, which sets its top and left. */
 .ap-popover {
   position: absolute; z-index: 10;
   width: min(340px, calc(100% - var(--sp-4)));
@@ -1061,10 +1135,7 @@ body:has(#ap-panel-progress:not([hidden])) .ap-page { height: 100%; display: fle
 }
 .ap-chart-head .ap-cell-name,
 .ap-chart-head .ap-cell-pill { background: var(--surface); z-index: 4; height: 100%; display: flex; align-items: center; }
-.ap-chart-head .ap-seg { margin-left: auto; }
-.ap-chart-head .ap-seg button,
 .ap-card-head .ap-seg button { padding: 3px 7px; font-family: var(--font-ui); text-transform: none; letter-spacing: 0; }
-.ap-chart-head .ap-seg button[aria-pressed="true"] { color: var(--ink); }
 
 .ap-body { position: relative; width: fit-content; min-width: 100%; }
 .ap-row { border-bottom: 1px solid var(--line); }
@@ -1639,9 +1710,6 @@ a.ap-num:hover { color: var(--ink); }
   body { padding: var(--sp-4) var(--sp-4) var(--sp-5); }
   .ap-ticket-dates { display: none; }
 }
-@media (max-width: 1024px) {
-  #ap-range-note { margin-left: 0; width: 100%; }
-}
 /* After the breakpoints and more specific than :root, so the widened column wins at every window width. */
 :root[data-name-column="wide"] { --col-name: var(--col-name-wide); }
 .ap-seg[hidden] { display: none; }
@@ -2105,17 +2173,27 @@ button.ap-epic-title:hover { text-decoration: underline; text-underline-offset: 
 
 <section data-panel="progress" role="tabpanel" id="ap-panel-progress" aria-labelledby="ap-tab-progress" hidden>
   <div class="ap-card">
-    <div class="ap-range">
-      <span class="ap-range-label">Range</span>
-      <div class="ap-seg" id="ap-range-presets">
-        <button type="button" data-preset="fit" id="ap-range-fit" aria-pressed="true" title="Fit the range to the rows shown: from the earliest start to now. Follows the finished-work switch.">Fit</button>
-        <button type="button" data-preset="1h" aria-pressed="false">1h</button>
-        <button type="button" data-preset="4h" aria-pressed="false">4h</button>
-        <button type="button" data-preset="12h" aria-pressed="false">12h</button>
-        <button type="button" data-preset="24h" aria-pressed="false">24h</button>
-        <button type="button" data-preset="7d" aria-pressed="false">7d</button>
-        <button type="button" data-preset="custom" id="ap-range-custom" aria-pressed="false" aria-haspopup="dialog" aria-expanded="false" aria-controls="ap-range-popover">Custom…</button>
-      </div>
+    <div id="ap-chart">
+      <div class="ap-grid-row ap-chart-head">
+        <div class="ap-cell-name">
+          <button type="button" class="ap-range-button" id="ap-range-button" aria-haspopup="dialog" aria-expanded="false" aria-controls="ap-range-menu"><span id="ap-range-summary"><span class="ap-range-mode" title="Fitted to the rows shown; re-fits when the finished-work switch changes">Fit</span><span class="ap-range-ends">20:30 → 22:15</span></span><span class="ap-range-caret" aria-hidden="true">▾</span></button>
+          <div class="ap-popover ap-head-menu" id="ap-range-menu" role="dialog" aria-label="Range" hidden>
+            <div class="ap-range-readout" id="ap-range-note" title="Fit · 2026-09-18 20:30 → 2026-09-18 22:15 · 15m ticks">20:30 → 22:15 · 15m ticks</div>
+            <div id="ap-range-presets">
+              <button type="button" class="ap-menu-item" data-preset="fit" id="ap-range-fit" aria-pressed="true" title="Fit the range to the rows shown: from the earliest start to now. Follows the finished-work switch."><span>Fit</span><span class="ap-menu-hint">the rows shown</span></button>
+              <button type="button" class="ap-menu-item" data-preset="1h" aria-pressed="false"><span>1h</span></button>
+              <button type="button" class="ap-menu-item" data-preset="4h" aria-pressed="false"><span>4h</span></button>
+              <button type="button" class="ap-menu-item" data-preset="12h" aria-pressed="false"><span>12h</span></button>
+              <button type="button" class="ap-menu-item" data-preset="24h" aria-pressed="false"><span>24h</span></button>
+              <button type="button" class="ap-menu-item" data-preset="7d" aria-pressed="false"><span>7d</span></button>
+              <button type="button" class="ap-menu-item" data-preset="custom" id="ap-range-custom" aria-pressed="false" aria-haspopup="dialog" aria-expanded="false" aria-controls="ap-range-popover"><span>Custom…</span><span class="ap-menu-hint">from, to, ticks</span></button>
+            </div>
+          </div>
+          <button type="button" class="ap-icon-button" id="ap-row-options-button" aria-label="Row options" title="Row options" aria-haspopup="dialog" aria-expanded="false" aria-controls="ap-row-options-menu"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h12M4 8h8M6 12h4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+          <div class="ap-popover ap-head-menu" id="ap-row-options-menu" role="dialog" aria-label="Row options" hidden>
+            <button type="button" class="ap-menu-item" id="ap-review-rows" aria-pressed="false" title="Draw each review pass as a row of its own, above its ticket's row"><span>Review passes as rows</span><span class="ap-menu-check" aria-hidden="true">✓</span></button>
+            <button type="button" class="ap-menu-item" id="ap-name-column" aria-pressed="false" title="Widen the task column so full names fit"><span>Wide titles</span><span class="ap-menu-check" aria-hidden="true">✓</span></button>
+          </div>
       <div class="ap-popover" id="ap-range-popover" role="dialog" aria-labelledby="ap-range-popover-title" hidden>
         <p class="ap-popover-title" id="ap-range-popover-title">Custom range</p>
         <div class="ap-popover-field">
@@ -2145,12 +2223,7 @@ button.ap-epic-title:hover { text-decoration: underline; text-underline-offset: 
           <button type="button" class="ap-button" data-primary id="ap-range-apply">Apply</button>
         </div>
       </div>
-      <div id="ap-range-note" title="Fit · 2026-09-18 20:30 → 2026-09-18 22:15 · 15m ticks"><span class="ap-range-mode" title="Fitted to the rows shown; re-fits when the finished-work switch changes">Fit</span> · 20:30 → 22:15 · 15m ticks</div>
-    </div>
-
-    <div id="ap-chart">
-      <div class="ap-grid-row ap-chart-head">
-        <div class="ap-cell-name">Task<div class="ap-seg"><button type="button" id="ap-review-rows" aria-pressed="false" title="Draw each review pass as a row of its own, above its ticket's row">Review rows</button><button type="button" id="ap-name-column" aria-pressed="false" title="Widen the task column so full names fit">Expand</button></div></div>
+        </div>
         <div class="ap-cell-track" style="height:100%"><div id="ap-ticks">
           <div class="ap-tick" style="left:0%"><span>20:30</span></div>
           <div class="ap-tick" style="left:14.3%"><span>20:45</span></div>

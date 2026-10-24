@@ -404,11 +404,12 @@ export function rangeNoteText(
 const FITTED_RANGE_TITLE = 'Fitted to the rows shown; re-fits when the finished-work switch changes';
 const HELD_RANGE_TITLE   = 'Held: this range stays when the finished-work switch changes; Fit follows the rows again';
 
-/** The range note led by its mode: "Fit", or the held preset ("4h") or "Custom" in the held colour. */
-export function rangeNoteMarkup(modeLabel: string, modeIsHeld: boolean, note: ShortenedText): string {
+/** The range button's label: its mode, "Fit", or the held preset ("4h") or "Custom" in the held colour, then the range's two clock times. */
+export function rangeSummaryMarkup(modeLabel: string, modeIsHeld: boolean, fromEpochMilliseconds: number, toEpochMilliseconds: number): string {
   const mode = `<span class="ap-range-mode"${modeIsHeld ? ' data-held' : ''} ${MarkupUtil.attribute('title', modeIsHeld ? HELD_RANGE_TITLE : FITTED_RANGE_TITLE)}>`
     + `${HtmlEscapeUtil.escapeHtml(modeLabel)}</span>`;
-  return `${mode} · ${HtmlEscapeUtil.escapeHtml(note.text)}`;
+  const ends = `${TimeUtil.clockOf(new Date(fromEpochMilliseconds))} → ${TimeUtil.clockOf(new Date(toEpochMilliseconds))}`;
+  return `${mode}<span class="ap-range-ends">${ends}</span>`;
 }
 
 /** Names hidden tickets and epics, never task rows. */

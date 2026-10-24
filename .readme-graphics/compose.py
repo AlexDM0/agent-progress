@@ -170,7 +170,7 @@ def base_jobs(build):
         jobs.append({**common, 'name': f'hero-{theme}', 'output': f'{build}/shots/hero-{theme}.png', 'localStorageEntries': page_state(theme, 'progress'),
                      # Shot down to the chart's frame, so a panel window taller than the rows (the range crop) has no blank band.
                      'clipBottomSelector': '#ap-chart', 'clipBottomPadding': HERO_BOTTOM_PADDING,
-                     'measure': {'lastRow': HERO_LAST_ROW_SELECTOR, 'range': '.ap-range', 'tabBar': '.ap-tab-bar'}})
+                     'measure': {'lastRow': HERO_LAST_ROW_SELECTOR, 'range': '#ap-chart > .ap-chart-head','tabBar': '.ap-tab-bar'}})
         jobs.append({**common, 'name': f'tickets-{theme}', 'output': f'{build}/shots/tickets-{theme}.png', 'localStorageEntries': page_state(theme, 'tickets'),
                      'actionScript': f"document.querySelector('{TICKETS_OPENED_ROW_SELECTOR}').click(); true",
                      'measure': {'tabBar': '.ap-tab-bar', 'table': '#ap-ticket-table', 'dialog': '#ap-detail'}})

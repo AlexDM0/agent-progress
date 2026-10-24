@@ -52,7 +52,12 @@ const TRACKER_ENTRY_PATH = PAGE_ENTRY_POINTS.TRACKER.join('/');
  * `DomUtil.setHidden` and `PageShell.showTabButton` themselves, whose callers are collected, and the epic column's header cell, reached by a
  * selector and checked by hand.
  */
-const UNRESOLVED_HIDING_SITES = ['page/shell/PageShell.ts: tabElement', 'page/tickets/TicketsController.ts: epicHeader', 'page/utils/DomUtil.ts: element'];
+const UNRESOLVED_HIDING_SITES = [
+  'page/progress/HeadMenu.ts: menuElement',
+  'page/shell/PageShell.ts: tabElement',
+  'page/tickets/TicketsController.ts: epicHeader',
+  'page/utils/DomUtil.ts: element',
+];
 
 /** `DomUtil.setHidden` and `PageShell.showTabButton` hide the element their first argument names, so their callers are collected. */
 const SET_HIDDEN_CALL       = /(?:DomUtil\.setHidden|(?<!function )\bshowTabButton)\(\s*('[^']*'|\w+)/g;

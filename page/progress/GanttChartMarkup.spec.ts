@@ -16,8 +16,8 @@ import type { TaskRowsDrawing }                          from './GanttChartMarku
 import {
   hiddenWorkNoteText,
   overlayMarkup,
-  rangeNoteMarkup,
   rangeNoteText,
+  rangeSummaryMarkup,
   taskRowsMarkup,
   tickLayerMarkup,
 } from './GanttChartMarkup.ts';
@@ -749,12 +749,13 @@ describe('hiddenWorkNoteText', () => {
   });
 });
 
-describe('rangeNoteMarkup', () => {
-  test('leads with Fit, or marks a held preset, and escapes the range once', () => {
-    const note = { text: '20:30 → 22:15 · 15m ticks', title: null };
+describe('rangeSummaryMarkup', () => {
+  test('leads with Fit, or marks a held preset, escapes the mode once, and ends with the two clock times', () => {
+    const from = new Date(2026, 8, 18, 20, 30).getTime();
+    const to   = new Date(2026, 8, 19, 22, 15).getTime();
 
-    expect(rangeNoteMarkup('Fit', false, note)).toMatch(/^<span class="ap-range-mode" title="Fitted[^"]*">Fit<\/span> · 20:30 → 22:15 · 15m ticks$/);
-    expect(rangeNoteMarkup('4h', true, note)).toMatch(/^<span class="ap-range-mode" data-held title="Held[^"]*">4h<\/span> · /);
-    expect(rangeNoteMarkup('<b>', true, note)).toContain('>&lt;b&gt;</span>');
+    expect(rangeSummaryMarkup('Fit', false, from, to)).toMatch(/^<span class="ap-range-mode" title="Fitted[^"]*">Fit<\/span><span class="ap-range-ends">20:30 → 22:15<\/span>$/);
+    expect(rangeSummaryMarkup('4h', true, from, to)).toMatch(/^<span class="ap-range-mode" data-held title="Held[^"]*">4h<\/span>/);
+    expect(rangeSummaryMarkup('<b>', true, from, to)).toContain('>&lt;b&gt;</span>');
   });
 });

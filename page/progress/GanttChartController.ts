@@ -1,4 +1,4 @@
-/** The Progress tab: the chart's layout, the range bar with its Fit preset, and the name column. */
+/** The Progress tab: the chart's layout, the chart head's range menu with its Fit preset, and the row options. */
 
 import type { ViewRange }                                              from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import type { PageLimits }                                             from '../../src/shared/@types/PagePayload.ts';
@@ -8,7 +8,9 @@ import {
   AXIS_TICKS_ELEMENT_ID,
   CHART_ELEMENT_ID,
   CHART_OVERLAY_ELEMENT_ID,
+  RANGE_BUTTON_ELEMENT_ID,
   RANGE_NOTE_ELEMENT_ID,
+  RANGE_SUMMARY_ELEMENT_ID,
   TASK_ROWS_ELEMENT_ID,
 } from '../constants/TemplateIds.ts';
 import { DomUtil }                                  from '../utils/DomUtil.ts';
@@ -19,11 +21,13 @@ import { effectiveViewRangeFor }                    from './EffectiveViewRange.t
 import type { ChartRowSource, PlacedTick, TaskRow } from './GanttChartMarkup.ts';
 import {
   overlayMarkup,
-  rangeNoteMarkup,
   rangeNoteText,
+  rangeSummaryMarkup,
   taskRowsMarkup,
   tickLayerMarkup,
 } from './GanttChartMarkup.ts';
+import type { HeadMenu }                                                      from './HeadMenu.ts';
+import { createHeadMenu }                                                     from './HeadMenu.ts';
 import type { RowGrouping, RowGroupingSource }                                from './RowGrouping.ts';
 import { FIT_RANGE_PRESET, NAME_COLUMN_WIDTH_ATTRIBUTE, RANGE_PRESET_BOUNDS } from './constants/ProgressChart.ts';
 import { AxisFitUtil }                                                        from './utils/AxisFitUtil.ts';
@@ -76,6 +80,9 @@ const OWN_CLICK_SELECTOR     = 'a, button';
 
 const REVIEW_ROWS_CONTROL_ELEMENT_ID = 'ap-review-rows';
 const FIT_PRESET_ELEMENT_ID          = 'ap-range-fit';
+const RANGE_MENU_ELEMENT_ID          = 'ap-range-menu';
+const ROW_OPTIONS_BUTTON_ELEMENT_ID  = 'ap-row-options-button';
+const ROW_OPTIONS_MENU_ELEMENT_ID    = 'ap-row-options-menu';
 const NAME_COLUMN_WIDTH_PROPERTY     = '--col-name';
 
 function reflectNameColumnWidth(width: NameColumnWidth): void {
@@ -128,16 +135,21 @@ function taskRowsFor<Row extends ChartRowSource>(
 // The popover's fields and ticks are a draft, filled from the override when it opens, so a layout never touches them.
 function reflectRangeBar(pressedPreset: string, rowsChangedUnderHeldRange: boolean): void {
   DomUtil.reflectSegment('ap-range-presets', 'preset', pressedPreset);
-  document.getElementById(FIT_PRESET_ELEMENT_ID)?.toggleAttribute('data-refit', rowsChangedUnderHeldRange && pressedPreset !== FIT_RANGE_PRESET);
+  const showsRefitDot = rowsChangedUnderHeldRange && pressedPreset !== FIT_RANGE_PRESET;
+  for (const elementId of [FIT_PRESET_ELEMENT_ID, RANGE_BUTTON_ELEMENT_ID]) {
+    document.getElementById(elementId)?.toggleAttribute('data-refit', showsRefitDot);
+  }
 }
 
-function wireRangePresets(readOverride: () => StoredViewOverride, applyOverride: (next: StoredViewOverride) => void): void {
+function wireRangePresets(readOverride: () => StoredViewOverride, applyOverride: (next: StoredViewOverride) => void, rangeMenu: HeadMenu): void {
   document.getElementById('ap-range-presets')?.addEventListener('click', (event) => {
     const button = event.target instanceof Element ? event.target.closest('[data-preset]') : null;
     if (!(button instanceof HTMLElement)) {
       return;
     }
     const key = button.dataset['preset'] ?? FIT_RANGE_PRESET;
+    // Custom… opens its popover, which takes the focus, so the menu closes without handing it back.
+    rangeMenu.close(Object.hasOwn(RANGE_PRESET_BOUNDS, key));
     if (!Object.hasOwn(RANGE_PRESET_BOUNDS, key)) {
       return;
     }
@@ -222,8 +234,12 @@ export function createGanttChartController<Row extends ChartRowSource>(sources: 
     const rangeNote = rangeNoteText(timeline.fromEpochMilliseconds, timeline.toEpochMilliseconds, timeline.stepMinutes, TimeUtil.calendarDateOf(nowEpochMilliseconds), limits);
     const pressedPreset = RangePresetUtil.pressedPresetOf(override);
     const modeLabel     = RangePresetUtil.modeLabelOf(pressedPreset);
-    DomUtil.setMarkup(RANGE_NOTE_ELEMENT_ID, rangeNoteMarkup(modeLabel, RangePresetUtil.rangeIsHeld(override), rangeNote));
-    document.getElementById(RANGE_NOTE_ELEMENT_ID)?.setAttribute('title', `${modeLabel} · ${rangeNote.title ?? rangeNote.text}`);
+    DomUtil.setMarkup(RANGE_SUMMARY_ELEMENT_ID, rangeSummaryMarkup(modeLabel, RangePresetUtil.rangeIsHeld(override), timeline.fromEpochMilliseconds, timeline.toEpochMilliseconds));
+    const rangeNoteElement = document.getElementById(RANGE_NOTE_ELEMENT_ID);
+    if (rangeNoteElement !== null) {
+      rangeNoteElement.textContent = rangeNote.text;
+      rangeNoteElement.setAttribute('title', `${modeLabel} · ${rangeNote.title ?? rangeNote.text}`);
+    }
     reflectRangeBar(pressedPreset, rowsChangedUnderHeldRange);
 
     if (bringNowIntoView && chart !== null && timeline.nowPercent !== null) {
@@ -243,6 +259,8 @@ export function createGanttChartController<Row extends ChartRowSource>(sources: 
     readOverride:      () => override,
     applyOverride,
   });
+  const rangeMenu      = createHeadMenu({ buttonElementId: RANGE_BUTTON_ELEMENT_ID, menuElementId: RANGE_MENU_ELEMENT_ID });
+  const rowOptionsMenu = createHeadMenu({ buttonElementId: ROW_OPTIONS_BUTTON_ELEMENT_ID, menuElementId: ROW_OPTIONS_MENU_ELEMENT_ID });
 
   return {
     applyNameColumnWidth: () => {
@@ -259,7 +277,8 @@ export function createGanttChartController<Row extends ChartRowSource>(sources: 
     },
     layOut,
     wireRangeBar: () => {
-      wireRangePresets(() => override, applyOverride);
+      rangeMenu.wire();
+      wireRangePresets(() => override, applyOverride, rangeMenu);
       rangePopover.wire();
     },
     rangePopoverIsOpen: () => rangePopover.isOpen(),
@@ -267,7 +286,9 @@ export function createGanttChartController<Row extends ChartRowSource>(sources: 
       rangePopover.open(fromText, toText);
     },
     wireNameColumn: () => {
+      rowOptionsMenu.wire();
       document.getElementById('ap-name-column')?.addEventListener('click', () => {
+        rowOptionsMenu.close(true);
         nameColumnWidth = ChartPreferenceUtil.toggledNameColumnWidth(nameColumnWidth);
         preferences.writeNameColumnWidth(nameColumnWidth);
         reflectNameColumnWidth(nameColumnWidth);
@@ -301,6 +322,7 @@ export function createGanttChartController<Row extends ChartRowSource>(sources: 
       const control = document.getElementById(REVIEW_ROWS_CONTROL_ELEMENT_ID);
       control?.setAttribute('aria-pressed', String(reviewRowsAreShown));
       control?.addEventListener('click', () => {
+        rowOptionsMenu.close(true);
         reviewRowsAreShown = !reviewRowsAreShown;
         reviewRows.writeReviewRowsAreShown(reviewRowsAreShown);
         control.setAttribute('aria-pressed', String(reviewRowsAreShown));

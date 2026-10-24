@@ -1,9 +1,9 @@
 /** The Custom… preset's popover: the typed bounds with what each resolves to, the tick sizes, and applying or discarding them together. */
 
-import type { StoredViewOverride }                    from '../@types/ViewerChoices.ts';
-import { RANGE_FROM_ELEMENT_ID, RANGE_TO_ELEMENT_ID } from '../constants/TemplateIds.ts';
-import { DomUtil }                                    from '../utils/DomUtil.ts';
-import type { RangeBoundLine }                        from './CustomRangeDraft.ts';
+import type { StoredViewOverride }                                             from '../@types/ViewerChoices.ts';
+import { RANGE_BUTTON_ELEMENT_ID, RANGE_FROM_ELEMENT_ID, RANGE_TO_ELEMENT_ID } from '../constants/TemplateIds.ts';
+import { DomUtil }                                                             from '../utils/DomUtil.ts';
+import type { RangeBoundLine }                                                 from './CustomRangeDraft.ts';
 import {
   customRangeDraftVerdict,
   customRangeOverride,
@@ -11,6 +11,7 @@ import {
   EMPTY_TO_BOUND_TEXT,
   rangeBoundLine,
 } from './CustomRangeDraft.ts';
+import { placeUnderAnchor }      from './PopoverPlacement.ts';
 import { AUTOMATIC_TICK_CHOICE } from './constants/ProgressChart.ts';
 
 export interface CustomRangePopoverSources {
@@ -34,8 +35,6 @@ const TO_RESOLVED_ELEMENT_ID        = 'ap-range-to-resolved';
 const TICKS_ELEMENT_ID              = 'ap-range-ticks';
 const APPLY_BUTTON_ELEMENT_ID       = 'ap-range-apply';
 const CANCEL_BUTTON_ELEMENT_ID      = 'ap-range-cancel';
-const POPOVER_GAP_PIXELS            = 6;
-const POPOVER_EDGE_CLEARANCE_PIXELS = 8;
 
 function tickChoiceOf(tickMinutes: number | null): string {
   return tickMinutes === null ? AUTOMATIC_TICK_CHOICE : String(tickMinutes);
@@ -77,6 +76,7 @@ export function createCustomRangePopover(sources: CustomRangePopoverSources): Cu
 
   const popover      = (): HTMLElement | null => document.getElementById(POPOVER_ELEMENT_ID);
   const customButton = (): HTMLElement | null => document.getElementById(CUSTOM_BUTTON_ELEMENT_ID);
+  const rangeButton  = (): HTMLElement | null => document.getElementById(RANGE_BUTTON_ELEMENT_ID);
   const isOpen       = (): boolean => popover()?.hidden === false;
 
   const validateDraft = (): boolean => {
@@ -95,22 +95,11 @@ export function createCustomRangePopover(sources: CustomRangePopoverSources): Cu
     return verdict.draftIsApplicable;
   };
 
-  const placeUnderCustomButton = (popoverElement: HTMLElement, button: HTMLElement): void => {
-    const rangeBar = popoverElement.offsetParent;
-    if (!(rangeBar instanceof HTMLElement)) {
-      return;
-    }
-    const rangeBarBox  = rangeBar.getBoundingClientRect();
-    const buttonBox    = button.getBoundingClientRect();
-    const furthestLeft = rangeBarBox.width - popoverElement.offsetWidth - POPOVER_EDGE_CLEARANCE_PIXELS;
-    popoverElement.style.top  = `${buttonBox.bottom - rangeBarBox.top + POPOVER_GAP_PIXELS}px`;
-    popoverElement.style.left = `${Math.max(POPOVER_EDGE_CLEARANCE_PIXELS, Math.min(buttonBox.left - rangeBarBox.left, furthestLeft))}px`;
-  };
-
   const open = (fromText?: string, toText?: string): void => {
     const popoverElement = popover();
     const button         = customButton();
-    if (popoverElement === null || button === null) {
+    const anchor         = rangeButton();
+    if (popoverElement === null || button === null || anchor === null) {
       return;
     }
     const override  = readOverride();
@@ -126,7 +115,7 @@ export function createCustomRangePopover(sources: CustomRangePopoverSources): Cu
     DomUtil.reflectSegment(TICKS_ELEMENT_ID, 'tick', tickChoiceOf(draftTickMinutes));
     popoverElement.hidden = false;
     button.setAttribute('aria-expanded', 'true');
-    placeUnderCustomButton(popoverElement, button);
+    placeUnderAnchor(popoverElement, anchor);
     validateDraft();
     fromInput?.focus();
     fromInput?.select();
@@ -138,10 +127,10 @@ export function createCustomRangePopover(sources: CustomRangePopoverSources): Cu
       return;
     }
     popoverElement.hidden = true;
-    const button = customButton();
-    button?.setAttribute('aria-expanded', 'false');
+    customButton()?.setAttribute('aria-expanded', 'false');
+    // Custom… sits in the range menu, closed by now, so the focus returns to the range button the popover hangs from.
     if (returnFocus) {
-      button?.focus();
+      rangeButton()?.focus();
     }
   };
 
