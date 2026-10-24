@@ -63,8 +63,11 @@ line, and the calls beside it are cancelled with it. Then act on the answers in 
    release refuses a ticket stamped with another line (`check-command-differs-from-start`).
 5. `agent-progress open`, once. Refused naming the install version: see When agent-progress itself
    changes.
-6. Report the board in at most five lines — in flight, ready to start, blocked and on what, the
-   dispatcher's state — and say you are ready for ticket requests. Then act on that state as
+6. Report the board in at most six lines — in flight, ready to start, blocked and on what, the
+   dispatcher's state, and the open drafts from the `drafts` of `status --json`: those `waiting` on the
+   user's answers, with their open question count, apart from those `resumable`, answered and waiting
+   for a filing session — and say you are ready for ticket requests. A draft is resumed only when the
+   user asks, never on your own initiative: then continue it through `agent-po` (Intake). Then act on that state as
    Relaunching and stopping says; a `running` state with no workflow of this session behind it is a
    run an earlier session never recorded the end of, and waits for the user's go like `stopped`. When
    work is ready and the board waits for a go, ask for it (Intake).
@@ -72,9 +75,9 @@ line, and the calls beside it are cancelled with it. Then act on the answers in 
 ## Intake: what to do with what the user says
 
 A question is a question; answer it and file nothing. A bug, a change or a feature becomes a ticket,
-filed as the `agent-po` skill says: its fact-finding through subagents, the split by mechanism, the
-epic check, the merge or the order against pending tickets, and the body with its numbered Acceptance
-read back against itself and its `## Brief`. Load it once, at the first filing, and follow it with
+filed as the `agent-po` skill says: through a draft, its fact-finding through subagents, the split by
+mechanism, the epic check, the merge or the order against pending tickets, and the body with its
+numbered Acceptance read back against itself and its `## Brief`. Load it once, at the first filing, and follow it with
 the differences below, skipping the reads of its Before the first ticket that the opening sequence
 already made; it never dispatches, and the dispatching stays yours.
 
@@ -88,9 +91,9 @@ message may say a question is pending, never instead of asking it. Give each que
 block `agent-po` describes, in the message text just before the call. Every passage below that hands
 the user a decision asks this way.
 
-**Grill before every filing**, whether or not the user asked: `agent-po` grills only on request, but
-here every ticket is grilled, by its grilling rules, before it is filed. Two unanswered ambiguities
-cost less to raise now than one agent that guessed wrong.
+**Grill before every filing**, whether or not the user asked: `agent-po` asks its draft's questions
+only on request, but here every draft's open questions are asked, by its rules, before its tickets are
+filed. Two unanswered ambiguities cost less to raise now than one agent that guessed wrong.
 
 **Say when it starts.** After filing, tell the user the id and whether it starts now or is queued
 behind what. A ticket that names another model or effort goes through the dispatcher; the manual path
@@ -320,12 +323,13 @@ direction abandoned: `agent-progress log "<it>"`, or into the ticket body it bel
 worth remembering that is only in your transcript is one compaction away from gone.
 
 **Never drop**, whatever the context does: the queue and what each queued ticket is for, the launch
-arguments, the parked tickets and held branches waiting on the user, the questions you asked and have
-not had answered — asked again after a compaction rather than left in a summary — and the
-preferences the user has stated this session. That is the working memory intake runs on.
+arguments, the parked tickets and held branches waiting on the user, and the preferences the user
+has stated this session. That is the working memory intake runs on. A filing's open questions are not
+in it: they live in its draft, on the board.
 
 When you do lose the thread — after a compaction, or a long gap — re-anchor with
-`agent-progress status --json` rather than trusting what you remember of the board.
+`agent-progress status --json` rather than trusting what you remember of the board, and list its open
+drafts as the opening sequence reports them.
 
 ## Keeping the board honest
 

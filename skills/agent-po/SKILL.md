@@ -4,19 +4,20 @@ description: >-
   File work on an agent-progress board: turn what the user reports into
   tickets an agent can build without asking, each with its Report, Wanted,
   numbered Acceptance and Brief, split by mechanism, merged or ordered against
-  the pending tickets it shares files with, and filed into the right epic. Use
-  this skill in a repository tracked by agent-progress whenever the user asks
-  to file, report, log, track or add a ticket, a bug, a feature, a change or a
-  research question, asks you to grill them on one, or says "/agent-po".
+  the pending tickets it shares files with, and filed into the right epic,
+  through a resumable draft. Use this skill in a repository tracked by
+  agent-progress whenever the user asks to file, report, log, track or add a
+  ticket, a bug, a feature, a change or a research question, asks you to grill
+  them on one, says "continue D7" of a draft, or says "/agent-po".
 ---
 
 # Filing tickets on an agent-progress board
 
 You are the product owner for this board's intake. You turn what the user says into tickets, each
 carrying the brief its builder reads, and you stop there: you never dispatch, claim, start or release
-a ticket, and you never load `agent-progress-orchestrate`. The session running the board picks up
-what you file. `agent-progress help` prints every command and flag; `.agent-progress/reference.md`
-holds the ticket file's format, what each move does and the exit codes.
+a ticket, and you never load `agent-progress-orchestrate`.
+`agent-progress help` prints every command and flag; `.agent-progress/reference.md` holds the ticket
+file's format, the moves and the exit codes.
 
 ## Before the first ticket
 
@@ -28,36 +29,41 @@ Send these as separate calls in one message, never joined into one shell line:
 3. Read `.agent-progress/agent-brief.md` once: its `Ticket brief` block is the `## Brief` every ticket
    carries, and its Host mechanics section says how this host asks the user a question.
 
-## Finding the facts without holding the source
+## Working in a draft
 
-Every file you open stays in this session's context and is paid for again on every later call. Send
-the fact-finding to subagents: which files the work touches, the three to eight facts its Brief
-states, what to open first, and which pending tickets touch the same files or mechanism. Give each a
-narrow question and cap its report (a list of paths with line ranges and one line per fact, under 200
-words), so your context holds conclusions, not source. Read a file yourself only to settle a
-contradiction between two reports.
+Every filing works in a draft, the record the `agent-progress draft` commands keep on the board, so
+another session can resume it. **Open it first, before any research**, with `draft open`, an owner
+naming this session and the user's words as the request; keep its id (`D7`). Record each fact your
+subagents report with `draft note`, paths in the text, and each assumption with `--assumption`. Send
+the fact-finding to subagents, each with a narrow question and a capped report (paths with line
+ranges, one line per fact, under 200 words): which files the work touches, the facts its Brief states,
+which pending tickets share its files or mechanism. Read a file yourself only to settle a contradiction.
 
-## Grilling, only when the user asks for it
+**A question is for what would change the tickets' Acceptance or scope and the repository cannot
+settle**: the acceptance condition when "better" is all you have, which of two matching flows is meant,
+replace or extend, whether it waits on a ticket on the board. Never ask what an agent will discover.
+Add it with `draft ask`: its context (what each option changes, the board state it depends on), two to
+four options and your recommendation, `--multiple` when the options are not exclusive, `--under Q<k>`
+for a follow-up an answer raised. A smaller choice is an `Assumed: <what>; say so to change it.` line
+in the ticket's Wanted. A simple request ("the red button must be blue") has no question: open, note,
+file, close in one run, nobody asked.
 
-By default ask nothing: file from what the user said and what your subagents found, and write every
-assumption you made into the ticket's Wanted as `Assumed: <what>; say so to change it.`, one line
-each, so the user can correct it before an agent starts.
+**Ask nothing unless the user asks to be grilled** ("grill me", "ask me first"); open questions wait in
+the draft for the dashboard or a later session. When grilling, ask them with a `grill-me` skill if the
+session has one, else the host's question tool (Host mechanics: Asking the user): the draft's options,
+the recommended first labelled "(Recommended)", a `--multiple` question as multi-select, each after a
+context block in the message text. Record every answer at once with `draft answer`.
 
-When the user asks to be grilled ("grill me", "ask me first", "interview me"), grill before filing:
+**File only when no question is open**, follow-ups included. Read the draft back with
+`draft show <id> --json` and write the tickets from its final state, never from the back-and-forth,
+then `draft close` it with their ids; later changes edit the tickets. A session ending with a question
+open files nothing from it and runs `draft release`, so the board shows it resumable once answered. A
+withdrawn request is `draft abandon`ed.
 
-- If the session's skill list holds a `grill-me` skill, invoke it; its numbered rounds, each with a
-  recommendation, replace the question tool for this grilling.
-- Otherwise ask with the host's question tool (Host mechanics: Asking the user), as many questions per
-  call as it allows, each with two to four concrete options, the recommended one first with
-  "(Recommended)" in its label. Before the call, give each question a short context block in the
-  message text: what it is about, what each option would change, your recommendation and why, and any
-  board state the answer depends on (a ticket's id and status, what waits on it).
-
-Either way ask only what changes the ticket and only what the repository cannot answer: the acceptance
-condition when "better" or "fix" is all you have, which surface or flow is meant when two match,
-whether it replaces or extends existing behaviour, and whether it must wait on a ticket already on the
-board. Never ask what an agent will discover anyway. Everything below applies to what the grilling
-settles.
+**Resuming "continue D7"** needs no earlier transcript: `draft claim D7`; refused because another
+owner holds it, take over with `--force` only when the user says that session is gone, never judging
+by elapsed time. `draft show D7 --json` is the whole state: every question without an answer is open;
+name their numbers and carry on as above.
 
 ## Shaping the tickets
 
@@ -126,13 +132,11 @@ other tolerates.
 
 - A dependency is recorded, never remembered: `--depends-on` when filing, `ticket depends <id> --add
   <ids>` on a filed ticket. Bare ids (`ticket depends 5 3`) replace the whole list.
-- `--at <when>` backfills a stamp: an ISO 8601 timestamp, `now` or an offset such as `-5m`.
 - Run each tracker command on a line of its own, and parse `--json` output, never the human text.
-- Never write `.agent-progress/progress.json`, `log.jsonl` or `progress.html` with a file tool, and edit
-  a ticket only below its frontmatter (`agent-progress ticket show <id>` prints its path).
-- The tracker is git-ignored on purpose: never commit it.
+- Never write a file under `.agent-progress/` with a file tool, edit a ticket only below its
+  frontmatter (`ticket show <id>` prints its path), and never commit the tracker.
 
 ## Closing
 
-Tell the user, one line per ticket filed, its id, title, what it depends on and its epic, plus every
-ticket you merged or abandoned and why. Then stop: the board's orchestrator takes it from there.
+Tell the user, one line per ticket, its id, title, dependencies and epic, every ticket you merged or
+abandoned and why, and the draft closed or left open with its id and open question numbers. Then stop.
