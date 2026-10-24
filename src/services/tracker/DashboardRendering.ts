@@ -24,12 +24,13 @@ export async function renderDashboard(workspace: Workspace, generatedAt: Date, r
   if (reading.verdict !== 'readable') return { verdict: 'unreadable', reading };
 
   const {
-    progress, storedLog, listing, epicListing
+    progress, storedLog, listing, epicListing, draftListing
   } = reading.contents;
   const rendering = await renderDashboardDocument({
     progress,
     tickets:    listing.tickets,
     epics:      epicListing.epics,
+    drafts:     draftListing.drafts,
     logRecords: storedLog.records,
     generatedAt,
   }, renderState);

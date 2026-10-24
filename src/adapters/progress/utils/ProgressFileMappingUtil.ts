@@ -23,6 +23,7 @@ const KNOWN_PROGRESS_KEYS = {
   dispatcherState:  true,
   dispatcherRunId:  true,
   checkCommand:     true,
+  nextDraftId:      true,
   tasks:            true,
 } as const satisfies Record<keyof TrackerProgress | keyof StoredProgressFile, true>;
 
@@ -118,6 +119,7 @@ function progressOf(document: StoredProgressFile): TrackerProgress {
     ...(document.dispatcherState === undefined ? {} : { dispatcherState: document.dispatcherState }),
     ...(document.dispatcherRunId === undefined ? {} : { dispatcherRunId: document.dispatcherRunId }),
     ...(document.checkCommand === undefined ? {} : { checkCommand: document.checkCommand }),
+    ...(document.nextDraftId === undefined ? {} : { nextDraftId: document.nextDraftId }),
     tasks:      document.tasks.map(taskOf),
   });
 }
@@ -160,6 +162,7 @@ function storedDocumentOf(progress: TrackerProgress): StoredProgressFile {
     ...(progress.dispatcherState === undefined ? {} : { dispatcherState: progress.dispatcherState }),
     ...(progress.dispatcherRunId === undefined ? {} : { dispatcherRunId: progress.dispatcherRunId }),
     ...(progress.checkCommand === undefined ? {} : { checkCommand: progress.checkCommand }),
+    ...(progress.nextDraftId === undefined ? {} : { nextDraftId: progress.nextDraftId }),
     tasks:      progress.tasks.map(storedTaskOf),
   });
 }

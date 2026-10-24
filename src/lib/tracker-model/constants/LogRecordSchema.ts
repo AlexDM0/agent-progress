@@ -4,7 +4,7 @@
  * new kind is one entry here plus its wording and its emitter.
  */
 
-export type LogRecordSubject = 'board' | 'ticket' | 'epic' | 'review-bar';
+export type LogRecordSubject = 'board' | 'ticket' | 'epic' | 'draft' | 'review-bar';
 
 export type LogFieldShape =
   | 'text'
@@ -34,6 +34,7 @@ export const LOG_RECORD_SUBJECT_IDS = {
   'board':      NO_FIELDS,
   'ticket':     { ticketId: 'text' },
   'epic':       { epicKey: 'text' },
+  'draft':      { draftId: 'text' },
   'review-bar': { taskId: 'task-id', ticketId: 'text' },
 } as const satisfies Readonly<Record<LogRecordSubject, Readonly<Record<string, LogFieldShape>>>>;
 
@@ -61,6 +62,12 @@ export const LOG_RECORD_SCHEMA = {
   'epic-added':                      { subject: 'epic', fields: { title: 'text' } },
   'epic-edited':                     { subject: 'epic', fields: { title: 'text' } },
   'epic-removed':                    { subject: 'epic', fields: NO_FIELDS },
+  'draft-opened':                    { subject: 'draft', fields: { title: 'text', owner: 'text' } },
+  // `takenFrom` is set only when a forced claim took the draft from another owner.
+  'draft-claimed':                   { subject: 'draft', fields: { owner: 'text', takenFrom: 'optional-text' } },
+  'draft-released':                  { subject: 'draft', fields: { owner: 'text' } },
+  'draft-closed':                    { subject: 'draft', fields: { ticketIds: 'ticket-ids' } },
+  'draft-abandoned':                 { subject: 'draft', fields: { reason: 'text' } },
   // A review bar's `name` is carried because the sentence prints the row's stored name, which an edit may have made anything.
   'review-bar-started':              { subject: 'review-bar', fields: { name: 'text' } },
   'review-bar-closed':               { subject: 'review-bar', fields: { name: 'text' } },

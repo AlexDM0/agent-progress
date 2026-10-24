@@ -24,5 +24,7 @@ export interface TrackerProgress {
   dispatcherRunId?:  string;
   /** The shell line a release runs on the branch tip before it changes anything; absent on a tracker that never set one, which runs none. */
   checkCommand?:     string;
+  /** The number the next draft takes, never wound back; absent on a tracker that never opened a draft. */
+  nextDraftId?:      number;
   tasks:             Task[];
 }

@@ -1,5 +1,6 @@
 /** The shape of the progress island, which the render side writes and the page reads. */
 
+import type { DraftSummary }                   from '../../lib/tracker-model/@types/Draft.ts';
 import type { EpicRollup }                     from '../../lib/tracker-model/@types/Epic.ts';
 import type { DisplayState }                   from '../../lib/tracker-model/@types/Task.ts';
 import type { ReadyTicket, TicketFrontmatter } from '../../lib/tracker-model/@types/Ticket.ts';
@@ -57,6 +58,11 @@ export interface PageBoardFacts {
   epics:        EpicRollup[];
   /** The Board's ready tickets in the order to take them, as `status --json` prints its `readyTickets`, held ones marked `held`. */
   readyTickets: ReadyTicket[];
+  /**
+   * Every open draft ordered by id, as `status --json` prints its `drafts`. The render always writes it; it is optional only until the page
+   * reads it, so the page's own fixtures need not carry it yet.
+   */
+  drafts?:      DraftSummary[];
 }
 
 /** An epic's description rendered as a ticket body is, joined to its roll-up in `boardFacts.epics` by key. */

@@ -2,6 +2,7 @@ import { LogUtil }                        from '../../src/adapters/utils/LogUtil
 import { TrackerReadingWordingUtil }      from '../../src/adapters/utils/TrackerReadingWordingUtil.ts';
 import type { LogRecord }                 from '../../src/lib/tracker-model/@types/LogRecord.ts';
 import type { DashboardRenderOutcome }    from '../../src/services/tracker/DashboardRendering.ts';
+import type { MalformedDraftFile }        from '../../src/services/tracker/DraftStore.ts';
 import type { MalformedEpicFile }         from '../../src/services/tracker/EpicStore.ts';
 import type { MalformedTicketFile }       from '../../src/services/tracker/TicketStore.ts';
 import { JsonTextUtil }                   from '../../src/shared/utils/JsonTextUtil.ts';
@@ -27,6 +28,10 @@ function reportIgnoredEpicFiles(context: CommandContext, malformedEpics: readonl
     const place = malformed.line > 0 ? ` (line ${malformed.line})` : '';
     context.standardError(`Epic file ignored: ${malformed.filePath}${place}: ${malformed.reason}`);
   }
+}
+
+function reportIgnoredDraftFiles(context: CommandContext, malformedDrafts: readonly MalformedDraftFile[]): void {
+  for (const malformed of malformedDrafts) context.standardError(`Draft file ignored: ${malformed.filePath}: ${malformed.reason}`);
 }
 
 function loggedSentencesOf(logged: readonly LogRecord[]): string {
@@ -73,5 +78,6 @@ export const OutputUtil = {
   ignoredTicketFileText,
   reportIgnoredTicketFiles,
   reportIgnoredEpicFiles,
+  reportIgnoredDraftFiles,
   reportRenderProblems,
 } as const;

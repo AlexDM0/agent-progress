@@ -19,6 +19,7 @@ export const COMMAND_TABLE = {
   release:     async () => (await import('./dispatch/release/ReleaseCommand.ts')).releaseCommand,
   ticket:      async () => (await import('./tickets/TicketCommand.ts')).ticketCommand,
   epic:        async () => (await import('./epics/EpicCommand.ts')).epicCommand,
+  draft:       async () => (await import('./drafts/DraftCommand.ts')).draftCommand,
   concurrency: async () => (await import('./dispatch/concurrency/ConcurrencyCommand.ts')).concurrencyCommand,
   dispatcher:  async () => (await import('./dispatch/dispatcher/DispatcherCommand.ts')).dispatcherCommand,
   checks:      async () => (await import('./dispatch/checks/ChecksCommand.ts')).checksCommand,

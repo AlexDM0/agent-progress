@@ -9,6 +9,8 @@ import type {
   CheckCommandSet,
   ConcurrencyLimitSet,
   DispatcherStateSet,
+  DraftChanged,
+  DraftClaimChanged,
   EpicChanged,
   EpicEdited,
   Logged,
@@ -29,7 +31,8 @@ import type {
   TokenCredit,
   TrackerCleared
 }                                                           from './@types/BoardChanges.ts';
-import type { Concurrency, DispatchCapacity } from './@types/Concurrency.ts';
+import type { Concurrency, DispatchCapacity }     from './@types/Concurrency.ts';
+import type { Draft, DraftOpening, DraftSummary } from './@types/Draft.ts';
 import type {
   Epic,
   EpicAddition,
@@ -48,6 +51,7 @@ import type { DispatcherState, TrackerProgress, ViewRange } from './@types/Track
 import { BoardRecords }                                     from './BoardRecords.ts';
 import { DispatchQueries }                                  from './DispatchQueries.ts';
 import { DisplayQueries }                                   from './DisplayQueries.ts';
+import { Drafts }                                           from './Drafts.ts';
 import { Epics }                                            from './Epics.ts';
 import { GroupReleases }                                    from './GroupReleases.ts';
 import type { Logger }                                      from './Logger.ts';
@@ -66,6 +70,8 @@ export interface BoardInput {
   progress: TrackerProgress;
   tickets:  Ticket[];
   epics:    Epic[];
+  /** Absent for a caller that reads no drafts, which reads as none. */
+  drafts?:  Draft[];
   logger:   Logger;
 }
 
@@ -98,8 +104,10 @@ export class Board {
 
   private readonly epicRules: Epics;
 
+  private readonly draftRules: Drafts;
+
   constructor(input: BoardInput) {
-    this.records            = new BoardRecords(input.progress, input.tickets, input.epics, input.logger);
+    this.records            = new BoardRecords(input.progress, input.tickets, input.epics, input.drafts ?? [], input.logger);
     this.reviewBars         = new ReviewBars(this.records);
     this.groupReleases      = new GroupReleases(this.records);
     this.dispatchQueries    = new DispatchQueries(this.records, this.groupReleases);
@@ -113,6 +121,7 @@ export class Board {
     this.tokenCredits       = new TokenCredits(this.records, this.reviewBars);
     this.trackerChanges     = new TrackerChanges(this.records, this.dispatchQueries);
     this.epicRules          = new Epics(this.records, this.displayQueries);
+    this.draftRules         = new Drafts(this.records);
   }
 
   setChartRange(view: ViewRange, at: string): Logged {
@@ -186,6 +195,26 @@ export class Board {
 
   removeTicketEpics(ticketId: string, removedEpicKeys: readonly string[], at: string): TicketEpicsChanged {
     return this.epicRules.removeTicketEpics(ticketId, removedEpicKeys, at);
+  }
+
+  openDraft(opening: DraftOpening, at: string): DraftChanged {
+    return this.draftRules.openDraft(opening, at);
+  }
+
+  claimDraft(draftId: string, request: { owner: string; forces: boolean }, at: string): DraftClaimChanged {
+    return this.draftRules.claimDraft(draftId, request, at);
+  }
+
+  releaseDraft(draftId: string, at: string): DraftClaimChanged {
+    return this.draftRules.releaseDraft(draftId, at);
+  }
+
+  closeDraft(draftId: string, ticketReferences: readonly string[], at: string): DraftChanged {
+    return this.draftRules.closeDraft(draftId, ticketReferences, at);
+  }
+
+  abandonDraft(draftId: string, reason: string, at: string): DraftChanged {
+    return this.draftRules.abandonDraft(draftId, reason, at);
   }
 
   moveTicket(ticketId: string, targetStatus: TicketStatus, request: TicketMoveRequest, at: string): TicketMoved {
@@ -271,6 +300,16 @@ export class Board {
 
   epicByKey(epicKey: string): Readonly<Epic> | undefined {
     return this.records.epicRecordByKey(epicKey);
+  }
+
+  /** Ordered by id number. */
+  drafts(): readonly Readonly<Draft>[] {
+    return this.draftRules.draftsInIdOrder();
+  }
+
+  /** Every open draft, ordered by id number, as `status --json` and the page's `boardFacts` list them. */
+  openDraftSummaries(): DraftSummary[] {
+    return this.draftRules.openDraftSummaries();
   }
 
   /** One per epic, ordered by key. */
@@ -414,5 +453,13 @@ export class Board {
 
   removedEpics(): readonly Epic[] {
     return this.records.removedEpicRecords;
+  }
+
+  changedDrafts(): readonly Draft[] {
+    return this.records.changedDraftRecords;
+  }
+
+  removedDrafts(): readonly Draft[] {
+    return this.records.removedDraftRecords;
   }
 }

@@ -7,5 +7,6 @@ export const TRACKER_FILES = {
   TRACKER_DIRECTORY_NAME: '.agent-progress',
   TICKETS_DIRECTORY_NAME: 'tickets',
   EPICS_DIRECTORY_NAME:   'epics',
+  DRAFTS_DIRECTORY_NAME:  'filing-cabinet',
   LOCK_DIRECTORY_NAME:    '.lock',
 } as const;

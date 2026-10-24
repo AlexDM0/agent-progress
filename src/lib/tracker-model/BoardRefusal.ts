@@ -40,7 +40,10 @@ export type BoardRefusalDetail =
   | { reason: 'epic-already-exists'; epicKey: string }
   | { reason: 'unknown-epic'; missingEpicKeys: readonly string[] }
   | { reason: 'epic-still-named'; epicKey: string; ticketIds: readonly string[] }
-  | { reason: 'check-command-change-with-tickets-in-flight'; ticketIds: readonly string[] };
+  | { reason: 'check-command-change-with-tickets-in-flight'; ticketIds: readonly string[] }
+  | { reason: 'unknown-draft'; draftId: string }
+  | { reason: 'draft-claimed-by-another-owner'; draftId: string; owner: string }
+  | { reason: 'draft-closed-into-unknown-tickets'; draftId: string; missingTicketReferences: readonly string[] };
 
 export class BoardRefusal extends Error {
   readonly detail: BoardRefusalDetail;

@@ -31,6 +31,13 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
   board.editEpic('example-checkout', { title: 'Example checkout overhaul' }, at);
   board.removeEpic('example-checkout', at);
   board.setTicketEpics('002', [], at);
+  board.openDraft({ title: 'Example export', request: 'Alex Example asks for an export', owner: 'opus' }, at);
+  board.releaseDraft('D1', at);
+  board.claimDraft('D1', { owner: 'opus', forces: false }, at);
+  board.claimDraft('D1', { owner: 'example-session', forces: true }, at);
+  board.closeDraft('D1', ['3'], at);
+  board.openDraft({ title: 'Example import', request: '', owner: 'opus' }, at);
+  board.abandonDraft('D2', 'folded into D1', at);
   board.moveTicket('001', 'in-progress', { checksLegality: true }, at);
   board.setCheckCommand('bun run example-checks', true, at);
   board.editTicket('001', { body: { text: 'Example rewritten report.\n', appends: false }, allowsPastPending: true }, at);

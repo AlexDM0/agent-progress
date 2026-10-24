@@ -47,6 +47,7 @@ describe('the command table', () => {
       'clear',
       'concurrency',
       'dispatcher',
+      'draft',
       'epic',
       'help',
       'hook',

@@ -99,6 +99,18 @@ function sentenceOf(record: LogRecordContent): string {
       return `Epic ${record.epicKey} edited: ${record.fields.title}`;
     case 'epic-removed':
       return `Epic ${record.epicKey} removed`;
+    case 'draft-opened':
+      return `Draft ${record.draftId} opened by ${record.fields.owner}: ${record.fields.title}`;
+    case 'draft-claimed':
+      return record.fields.takenFrom === undefined
+        ? `Draft ${record.draftId} claimed by ${record.fields.owner}`
+        : `Draft ${record.draftId} taken over by ${record.fields.owner} from ${record.fields.takenFrom}`;
+    case 'draft-released':
+      return `Draft ${record.draftId} released by ${record.fields.owner}`;
+    case 'draft-closed':
+      return `Draft ${record.draftId} closed into ${TicketPhraseUtil.ticketReferencesText(record.fields.ticketIds)}`;
+    case 'draft-abandoned':
+      return `Draft ${record.draftId} abandoned: ${record.fields.reason}`;
     case 'review-bar-started':
       return `Review row #${record.taskId} started: ${record.fields.name}`;
     case 'review-bar-closed':
@@ -128,6 +140,7 @@ function taskIdsConcernedBy(record: LogRecordContent): number[] {
 
 function ticketIdsConcernedBy(record: LogRecordContent): string[] {
   if (record.kind === 'ticket-dependencies-set') return [...new Set([record.ticketId, ...record.fields.dependsOn])];
+  if (record.kind === 'draft-closed') return [...record.fields.ticketIds];
   return 'ticketId' in record ? [record.ticketId] : [];
 }
 

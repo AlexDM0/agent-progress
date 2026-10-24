@@ -2,6 +2,7 @@
  * The rows and tickets one Board changes in place, the logger it logs through and which tickets it changed, with the lookups and row
  * filings every rule module of the Board shares.
  */
+import type { Draft }                from './@types/Draft.ts';
 import type { Epic }                 from './@types/Epic.ts';
 import type { Task, TaskStatus }     from './@types/Task.ts';
 import type { Ticket, TicketStatus } from './@types/Ticket.ts';
@@ -22,10 +23,16 @@ export class BoardRecords {
 
   readonly removedEpicRecords: Epic[] = [];
 
+  /** Opened or claimed drafts, as `changedEpicRecords`; a closed or abandoned one leaves it for `removedDraftRecords`. */
+  readonly changedDraftRecords: Draft[] = [];
+
+  readonly removedDraftRecords: Draft[] = [];
+
   constructor(
     readonly progress: TrackerProgress,
     readonly ticketRecords: Ticket[],
     readonly epicRecords: Epic[],
+    readonly draftRecords: Draft[],
     readonly logger: Logger,
   ) {}
 
@@ -35,6 +42,14 @@ export class BoardRecords {
 
   markEpicChanged(epic: Epic): void {
     if (!this.changedEpicRecords.includes(epic)) this.changedEpicRecords.push(epic);
+  }
+
+  markDraftChanged(draft: Draft): void {
+    if (!this.changedDraftRecords.includes(draft)) this.changedDraftRecords.push(draft);
+  }
+
+  draftRecordById(draftId: string): Draft | undefined {
+    return this.draftRecords.find((draft) => draft.id === draftId);
   }
 
   epicRecordByKey(epicKey: string): Epic | undefined {

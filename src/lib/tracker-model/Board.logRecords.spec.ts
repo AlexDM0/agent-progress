@@ -11,7 +11,13 @@ import type { LogRecord }              from './@types/LogRecord.ts';
 
 const LOGGED_AT = '2026-09-26T10:15:00+02:00';
 
-const RECORD_KIND_COUNT = 31;
+const RECORD_KIND_COUNT = 36;
+
+/**
+ * Two kinds are logged twice: `draft-claimed`, plainly and as a forced takeover, since the two store different fields, and `draft-opened`,
+ * since a closed draft cannot then be abandoned.
+ */
+const RECORD_COUNT = RECORD_KIND_COUNT + 2;
 
 const FROZEN_STORED_LINES = [
   '{"at":"2026-09-26T10:15:00+02:00","kind":"note","fields":{"text":"Example note from the orchestrator"}}',
@@ -28,6 +34,13 @@ const FROZEN_STORED_LINES = [
   '{"at":"2026-09-26T10:15:00+02:00","kind":"epic-edited","epicKey":"example-checkout","fields":{"title":"Example checkout overhaul"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"epic-removed","epicKey":"example-checkout","fields":{}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-epics-set","ticketId":"002","fields":{"epics":[]}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"draft-opened","draftId":"D1","fields":{"title":"Example export","owner":"opus"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"draft-released","draftId":"D1","fields":{"owner":"opus"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"draft-claimed","draftId":"D1","fields":{"owner":"opus"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"draft-claimed","draftId":"D1","fields":{"owner":"example-session","takenFrom":"opus"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"draft-closed","draftId":"D1","fields":{"ticketIds":["003"]}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"draft-opened","draftId":"D2","fields":{"title":"Example import","owner":"opus"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"draft-abandoned","draftId":"D2","fields":{"reason":"folded into D1"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-started","ticketId":"001","fields":{}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"check-command-set","fields":{"command":"bun run example-checks"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-check-command-restamped","ticketId":"001","fields":{"command":"bun run example-checks"}}',
@@ -52,9 +65,9 @@ function storedLinesOf(records: readonly LogRecord[]): string[] {
   return records.map((record) => JSON.stringify(record));
 }
 
-test('the scenario logs every record kind there is, once each', () => {
+test('the scenario logs every record kind there is, two draft kinds twice and every other once', () => {
   const records = everyRecordKindTheBoardLogs(LOGGED_AT);
-  expect(records.length).toBe(RECORD_KIND_COUNT);
+  expect(records.length).toBe(RECORD_COUNT);
   expect(new Set(records.map((record) => record.kind)).size).toBe(RECORD_KIND_COUNT);
 });
 

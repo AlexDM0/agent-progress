@@ -468,6 +468,30 @@ output never carries either.
   epic remove <key> [--at <when>] [--json]
                               Delete an epic's file. Refused at exit 1 while any ticket names it.
 
+  draft open "<title>"        Open a draft, the working record a filing session builds tickets
+      --owner <who>           from: \`.agent-progress/filing-cabinet/D<n>.json\` holding its title,
+      [--request <text>]      the request from --request or --request-file (\`-\` reads standard
+      [--request-file <path|->]
+      [--json]                input) kept byte for byte, and the claim held by <who>. Prints the
+                              new id, \`D1\`, \`D2\`, …, never reused; --json prints the draft.
+  draft claim D<n> --owner <who> [--force] [--json]
+                              Take a draft's claim. Refused at exit 1 with nothing written while
+                              another owner holds it, unless --force, which logs the takeover; how
+                              long ago it was claimed is never judged. Only this command checks
+                              the claim.
+  draft release D<n> [--json] Drop a draft's claim, as a session ending with work left does.
+  draft close D<n> --tickets <ids> [--json]
+                              End a draft once its tickets are filed: removes its file and logs the
+                              ticket ids it became. A ticket that does not exist is refused at
+                              exit 1 with nothing written.
+  draft abandon D<n> --reason <text> [--json]
+                              Remove a draft, logging the reason; without --reason it is refused
+                              at exit 1.
+  draft show D<n> [--json]    One draft: its title, claim, file and request. --json prints the
+                              whole stored draft, so a rebooted session resumes from it alone.
+  draft list [--json]         Every open draft; a malformed draft file is reported on standard
+                              error and skipped.
+
   concurrency [<n>] [--json]  Print the concurrency limit: how many agents may be in flight at once.
                               A slot is an agent: the in-progress rows one \`ticket claim\` started
                               count once, and every other in-progress row, such as a review bar,

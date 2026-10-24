@@ -40,6 +40,6 @@ export function boardFactsOf(board: Board): PageBoardFacts {
   }));
 
   return {
-    rows, tickets, epics: board.epicRollups(), readyTickets: board.readyTicketEntries()
+    rows, tickets, epics: board.epicRollups(), readyTickets: board.readyTicketEntries(), drafts: board.openDraftSummaries()
   };
 }

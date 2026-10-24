@@ -41,5 +41,6 @@ export interface StoredProgressFile {
   dispatcherState?:  DispatcherState;
   dispatcherRunId?:  string;
   checkCommand?:     string;
+  nextDraftId?:      number;
   tasks:             StoredTask[];
 }

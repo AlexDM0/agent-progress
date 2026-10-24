@@ -2,6 +2,7 @@
 import { JsonRecordUtil }                                    from '../../../lib/json-record/JsonRecordUtil.ts';
 import { LOWEST_CONCURRENCY_LIMIT_AGENTS }                   from '../../../lib/tracker-model/constants/ConcurrencyLimits.ts';
 import { DISPATCHER_STATES }                                 from '../../../lib/tracker-model/constants/DispatcherStates.ts';
+import { FIRST_DRAFT_NUMBER }                                from '../../../lib/tracker-model/constants/DraftFields.ts';
 import { FIRST_REPEAT_REVIEW_ROUND, FIRST_REVIEW_BAR_ROUND } from '../../../lib/tracker-model/constants/ReviewRounds.ts';
 import { TASK_STATUSES }                                     from '../../../lib/tracker-model/constants/Statuses.ts';
 import { FIRST_TASK_ID }                                     from '../../../lib/tracker-model/constants/TaskIds.ts';
@@ -108,6 +109,9 @@ function documentHeaderProblemOf(candidate: unknown): string | null {
   }
   if (candidate['checkCommand'] !== undefined && !BoardSettingsUtil.checkCommandIsWellFormed(candidate['checkCommand'])) {
     return `checkCommand is ${JSON.stringify(candidate['checkCommand'])}, and when present it has to be a shell line that is not blank`;
+  }
+  if (candidate['nextDraftId'] !== undefined && !StoredValueUtil.wholeNumberIsAtLeast(candidate['nextDraftId'], FIRST_DRAFT_NUMBER)) {
+    return `nextDraftId is ${JSON.stringify(candidate['nextDraftId'])}, and when present it has to be a whole number of at least ${FIRST_DRAFT_NUMBER}`;
   }
   if (!Array.isArray(candidate['tasks'])) return 'tasks is not an array';
   if (Object.hasOwn(candidate, 'log')) return `log is present, and a version ${CURRENT_PROGRESS_FILE_VERSION} file keeps its log in log.jsonl`;

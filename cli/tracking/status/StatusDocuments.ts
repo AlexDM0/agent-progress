@@ -39,6 +39,7 @@ export function fullDocumentOf(progress: TrackerProgress, wordedLog: readonly Wo
     ...(showsTicketsOnly ? { ...progressDocument, tasks: selectedTasksOf(board, true) } : progressDocument),
     tickets:             board.tickets().map(TicketJsonUtil.ticketDocumentOf),
     epics:               board.epicRollups(),
+    drafts:              board.openDraftSummaries(),
     ...derivedDocumentOf(board),
     ...StatusDocumentUtil.boardWorkOf(board, board.tickets()),
     tokensByOwner:       ownerTokenTotalsOf(progress.tasks),
@@ -61,6 +62,7 @@ export function workingDocumentOf(progress: TrackerProgress, logNewestFirst: rea
     tasks:   unsettledTasks,
     tickets: unsettledTickets.map(TicketJsonUtil.ticketDocumentOf),
     epics:   board.epicRollups(),
+    drafts:  board.openDraftSummaries(),
     ...derivedDocumentOf(board),
     omitted: {
       settledTasks:    selectedTasks.length - unsettledTasks.length,

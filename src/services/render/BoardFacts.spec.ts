@@ -178,7 +178,7 @@ describe('boardFactsOf', () => {
 
   test('gives empty lists for an empty Board', () => {
     expect(boardFactsOf(boardFixture().board)).toEqual({
-      rows: [], tickets: [], epics: [], readyTickets: []
+      rows: [], tickets: [], epics: [], readyTickets: [], drafts: []
     });
   });
 });

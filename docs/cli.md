@@ -247,7 +247,7 @@ Options in `[brackets]` are optional; `a|b` is a choice of one.
 
 | command | what it does |
 |---|---|
-| `status [--json] [--full] [--tickets-only]` | The project, the counts, the rows that are not delivered or abandoned, and the last five log entries newest first, then the Next line. `--json` prints the same working view for an agent — the unsettled rows and tickets, the last 10 log entries, and an `omitted` object counting what was left out. `--full` lists everything; with `--json` it prints the whole progress file plus every ticket's frontmatter. The `version` both `--json` documents carry is the document's own shape version, `1`, with the worded log directly after `tasks`, whatever version the stored file is at. Both `--json` documents carry `concurrency` — `limit`, `agentsInFlight`, `freeSlots`, `readyTicketIds`, `dispatcherState`, `heldTicketIds`, while one is stored `dispatcherRunId`, then `inProgressTicketIds` and `inProgressReviewOfIds` — and beside it `readyTickets`, then `reviewWaitingTickets`, `pausedBuilds` and `ticketRows`, and end with `tokensByOwner`. Both carry `epics` after `tickets`, every epic with its roll-up (see Epics), and each ticket carries `epics`, its list in order, empty when it has none. `--tickets-only`, with or without `--json` and `--full`, leaves out the free-standing task rows — every row that is no ticket's own row (`ticket` null) and no review bar (no `reviewOf`) — while the tickets, the log and the counts stay; the working view's `omitted` then adds `freeStandingTasks`. The human output breaks the token total down per owner: owners are grouped case-insensitively on the trimmed text and shown under the group's most common spelling (the first met on a tie), most tokens first, with the reported rows that carry no owner on a `no owner` line of their own. `tokensByOwner` carries the same over every row, whatever the flags: `{ owners: [{ owner, tokens, rows }], withoutOwner: { tokens, rows }, withoutTokens: { rows } }`, whose owner and `withoutOwner` tokens add up to the reported total. Both `--json` documents end with `ticketCountByStatus`, every ticket on the board counted per status (settled ones included, every status present, zero or not), so a reader totalling the board needs no `--full`. |
+| `status [--json] [--full] [--tickets-only]` | The project, the counts, the rows that are not delivered or abandoned, and the last five log entries newest first, then the Next line. `--json` prints the same working view for an agent — the unsettled rows and tickets, the last 10 log entries, and an `omitted` object counting what was left out. `--full` lists everything; with `--json` it prints the whole progress file plus every ticket's frontmatter. The `version` both `--json` documents carry is the document's own shape version, `1`, with the worded log directly after `tasks`, whatever version the stored file is at. Both `--json` documents carry `concurrency` — `limit`, `agentsInFlight`, `freeSlots`, `readyTicketIds`, `dispatcherState`, `heldTicketIds`, while one is stored `dispatcherRunId`, then `inProgressTicketIds` and `inProgressReviewOfIds` — and beside it `readyTickets`, then `reviewWaitingTickets`, `pausedBuilds` and `ticketRows`, and end with `tokensByOwner`. Both carry `epics` after `tickets`, every epic with its roll-up (see Epics), and each ticket carries `epics`, its list in order, empty when it has none; then `drafts`, every open draft (see Drafts). `--tickets-only`, with or without `--json` and `--full`, leaves out the free-standing task rows — every row that is no ticket's own row (`ticket` null) and no review bar (no `reviewOf`) — while the tickets, the log and the counts stay; the working view's `omitted` then adds `freeStandingTasks`. The human output breaks the token total down per owner: owners are grouped case-insensitively on the trimmed text and shown under the group's most common spelling (the first met on a tie), most tokens first, with the reported rows that carry no owner on a `no owner` line of their own. `tokensByOwner` carries the same over every row, whatever the flags: `{ owners: [{ owner, tokens, rows }], withoutOwner: { tokens, rows }, withoutTokens: { rows } }`, whose owner and `withoutOwner` tokens add up to the reported total. Both `--json` documents end with `ticketCountByStatus`, every ticket on the board counted per status (settled ones included, every status present, zero or not), so a reader totalling the board needs no `--full`. |
 | `ticket list [--status <s>] [--priority <p>] [--json]` | The tickets with their status, priority, type and row id, the model and effort after the title where the ticket names them, and "waiting on #003" where a dependency is unsettled. `--status` and `--priority` narrow the listing. `--json` carries no bodies. |
 | `ticket show <id> [--json]` | One ticket: its frontmatter, its priority, its model and effort where it names them, its body, and always its file path — which is what an agent needs in order to edit that body. Once the ticket was claimed or started it says whether the body changed since: a hash of the body now against the `claimedBodyHash` the claim recorded, never a clock; under `--json`, and in `status --json` and `ticket list --json`, that is `bodyChangedSinceClaim`, absent on a ticket never claimed. |
 
@@ -354,6 +354,29 @@ present; `tokens` adds each ticket's own row and its review rows, a row without 
 nothing; `span` is `{ start, end }` over the same rows, from the earliest start to the latest end,
 ordered by instant and printed as stored, `end` null while one of them that started has not ended,
 and `span` itself null while none has started.
+
+### Drafts
+
+A draft is the working record a filing session builds its tickets from, never a ticket: it has no
+status, row or move, and touches no dispatch. Its file, `.agent-progress/filing-cabinet/D<n>.json`
+(see Files on disk), holds everything a rebooted session needs to resume. Ids are `D1`, `D2`, …, from
+the stored `nextDraftId`, never reused, not after a close or an abandon. Every move logs one line.
+Only `draft claim` checks who holds a draft; no other draft command looks at the claim.
+
+| command | what it does |
+|---|---|
+| `draft open "<title>" --owner <who> [--request <text>] [--request-file <path\|->] [--json]` | Write the next `D<n>.json` with the title, the request from `--request` or `--request-file` (`-` reads standard input), kept byte for byte, and the claim held by `<who>`; the first one makes the folder and stores `nextDraftId`. Prints the id; `--json` prints the stored draft. A missing title or `--owner`, both request options, or a malformed file already at the new id's path is refused at exit 1 with nothing written. |
+| `draft claim D<n> --owner <who> [--force] [--json]` | Take the claim. Refused at exit 1 with nothing written while another owner holds it, unless `--force`, whose log line names the owner it took the draft from; how long ago it was claimed is never judged. A claim the owner already holds writes and logs nothing. `--json` prints the stored draft. |
+| `draft release D<n> [--json]` | Drop the claim, as a session ending with work left does. Releasing an unclaimed draft writes and logs nothing. |
+| `draft close D<n> --tickets <ids> [--json]` | End a draft once its tickets are filed: remove its file and log the ticket ids it became. `<ids>` are comma- or space-separated ticket references (`5`, `#005`); one that names no ticket is refused at exit 1 with nothing written, and so is no `--tickets`. |
+| `draft abandon D<n> --reason <text> [--json]` | Remove the draft's file, logging the reason. Refused at exit 1 without `--reason` or with a blank one. |
+| `draft show D<n> [--json]` | One draft: its title, claim, file path and request. `--json` prints the whole stored draft. |
+| `draft list [--json]` | Every open draft, ordered by id; `--json` prints their stored documents. |
+
+An id that is not `D` and a number, or names no open draft, is refused at exit 1. `status --json`,
+both documents, carries `drafts` after `epics`: `{ id, title, claimOwner, openedAt }` for every open
+draft ordered by id, `claimOwner` null while unclaimed, an empty list when there is none. The page's
+`boardFacts.drafts` carries the same list from the same Board query.
 
 ### The dispatcher and concurrency
 
@@ -690,11 +713,13 @@ nobody closed.
   version.json           the install version, written last by init and update
   tickets/003-<slug>.md  one file per ticket
   epics/<key>.md         one file per epic, the folder made by the first epic add
+  filing-cabinet/D1.json one file per open draft, the folder made by the first draft open
   .lock/                 the lock's generation records
 ```
 
 A mutating command writes, under one lock hold, the progress file, then the tickets it changed, then
-the epics it added, changed or removed, then `log.jsonl`, then the page, so a log line never describes
+the epics it added, changed or removed, then the drafts it opened, changed or removed, then
+`log.jsonl`, then the page, so a log line never describes
 an unstored change. Every file a reader may hold open is written atomically: a temporary file beside the target,
 fsync, rename. Timestamps carry the offset of the machine that wrote them and are displayed as written, never
 re-parsed into a viewer's zone.
@@ -713,6 +738,7 @@ re-parsed into a viewer's zone.
   "dispatcherState": "running",                  // optional: running|finished|stopped, absent reads stopped
   "dispatcherRunId": "wf_example-run-1",         // optional: the Workflow run to resume, only beside running
   "checkCommand": "bun run typecheck && bun test", // optional: the shell line release runs; absent runs none
+  "nextDraftId": 3,                              // optional: the number the next draft takes, written by the first draft open, never wound back
   "tasks": [
     {
       "id": 17,
@@ -759,8 +785,8 @@ does not know survive a read and a write, at the top level and on a row, in the 
 ticket's unknown frontmatter lines do.
 
 A present `concurrencyLimit` that is not a whole number of at least 1, a `dispatcherState` outside
-the three, an empty or blank `dispatcherRunId`, or a `checkCommand` that is not text or is blank makes the file
-unreadable (exit 2), and so does a
+the three, an empty or blank `dispatcherRunId`, a `checkCommand` that is not text or is blank, or a
+`nextDraftId` that is not a whole number of at least 1 makes the file unreadable (exit 2), and so does a
 present optional row key of the wrong shape: `reviewRound` below 2, `reviewBarRound` below 1, a row
 `checkCommand` that is not text or is blank, or a
 `history` that is not a list of known statuses with their stamps. A task is linked to at
@@ -995,6 +1021,29 @@ closing fence is the first later `---` line, and a description edit leaves the f
 they are. A malformed epic file is listed as ignored on
 standard error rather than failing `status` or `render`, and `epic add` refuses to overwrite it. A
 tracker that never added an epic has no `epics/` folder.
+
+### `.agent-progress/filing-cabinet/D1.json`
+
+The file name is the draft id, and a draft is known by it: a file whose `id` says otherwise is listed
+as ignored. Only the `draft` commands write it, through the lock, atomically:
+
+```jsonc
+{
+  "version": 1,                                  // only this version is read
+  "id": "D1",
+  "title": "Example feature",
+  "request": "The user's request, kept byte for byte.",
+  "openedAt": "2026-10-24T22:01:45+02:00",
+  "claim": { "owner": "opus", "claimedAt": "2026-10-24T22:01:45+02:00" } // or null while unclaimed
+}
+```
+
+Keys the CLI does not know are kept, in their stored order, after its own. A draft file that is not
+JSON, lacks a field, holds one of the wrong shape, or has another `version` (older or newer, refused
+with the advice to run `agent-progress update` with a release that still reads it) is listed as ignored
+on standard error by `status` and `draft list`, rather than failing them or `render`, and `draft open`
+refuses to overwrite it. A closed or abandoned draft's file is removed; the log keeps what it became. A
+tracker that never opened a draft has no `filing-cabinet/` folder and no `nextDraftId`.
 
 ## Ticket moves and their rows
 

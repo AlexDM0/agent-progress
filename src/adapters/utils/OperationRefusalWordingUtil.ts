@@ -97,6 +97,14 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
       return `Epic ${detail.epicKey} was not removed: ${TicketPhraseUtil.ticketReferencesText(detail.ticketIds)} still `
         + `${detail.ticketIds.length === 1 ? 'names' : 'name'} it. Nothing was written; `
         + `\`agent-progress ticket epic <id> --remove ${detail.epicKey}\` takes it off a ticket.`;
+    case 'unknown-draft':
+      return `There is no open draft ${detail.draftId}. ${NOTHING_WAS_WRITTEN} Run \`agent-progress draft list\` to see what this tracker holds.`;
+    case 'draft-claimed-by-another-owner':
+      return `Draft ${detail.draftId} was not claimed: ${detail.owner} holds it. ${NOTHING_WAS_WRITTEN} `
+        + `Add --force to take it over, or wait for \`agent-progress draft release ${detail.draftId}\`.`;
+    case 'draft-closed-into-unknown-tickets':
+      return `Draft ${detail.draftId} was not closed: there is no ticket ${detail.missingTicketReferences.join(', ')}. ${NOTHING_WAS_WRITTEN} `
+        + 'File the tickets first, then close the draft into their ids.';
     case 'check-command-change-with-tickets-in-flight':
       return `The check command was not changed: ${TicketPhraseUtil.ticketReferencesText(detail.ticketIds)} `
         + `${detail.ticketIds.length === 1 ? 'is' : 'are'} in progress or in review under the one stored, and a release refuses a ticket `

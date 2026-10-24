@@ -446,8 +446,8 @@ describeWhenGitIsPresent('the dispatch fields both --json documents carry', () =
     const progressKeys      = ['version', 'trackerId', 'project', 'startedAt', 'view', 'nextTaskId', 'concurrencyLimit', 'tasks', 'log'];
     const dispatchKeys      = ['reviewWaitingTickets', 'pausedBuilds', 'ticketRows', 'tokensByOwner', 'ticketCountByStatus'];
 
-    expect(Object.keys(working)).toEqual([...progressKeys, 'tickets', 'epics', 'concurrency', 'readyTickets', 'omitted', ...dispatchKeys]);
-    expect(Object.keys(full)).toEqual([...progressKeys, 'tickets', 'epics', 'concurrency', 'readyTickets', ...dispatchKeys]);
+    expect(Object.keys(working)).toEqual([...progressKeys, 'tickets', 'epics', 'drafts', 'concurrency', 'readyTickets', 'omitted', ...dispatchKeys]);
+    expect(Object.keys(full)).toEqual([...progressKeys, 'tickets', 'epics', 'drafts', 'concurrency', 'readyTickets', ...dispatchKeys]);
   });
 
   test('the ids in flight end the concurrency block, after the stored run id', async () => {
