@@ -77,10 +77,6 @@ function taskLinkMarkup(taskId: number | null, row: RowLabelSource): string {
   return taskId === null ? '' : `<a ${MarkupUtil.attribute('href', `#${TemplateIdUtil.taskRowElementIdOf(taskId)}`)}>${HtmlEscapeUtil.escapeHtml(rowLabelOf(row))}</a>`;
 }
 
-function ticketBadgeMarkup(ticketId: string): string {
-  return `<a class="ap-ticket-badge" ${MarkupUtil.attribute('href', `#${TemplateIdUtil.ticketFragmentIdOf(ticketId)}`)}>#${HtmlEscapeUtil.escapeHtml(ticketId)}</a>`;
-}
-
 function ticketTypeMarkMarkup(type: TicketType): string {
   return `<span class="ap-detail-type" ${MarkupUtil.attribute('data-type', type)}>${HtmlEscapeUtil.escapeHtml(type)}</span>`;
 }
@@ -165,7 +161,6 @@ export const WorkItemMarkupUtil = {
   rowLabelOf,
   displayedRowNameOf,
   taskLinkMarkup,
-  ticketBadgeMarkup,
   ticketStatusBadgeMarkup,
   stateBadgeMarkup,
   emptyTableRowMarkup,

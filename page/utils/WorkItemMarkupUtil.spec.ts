@@ -21,7 +21,6 @@ const {
   stateBadgeMarkup,
   stateLabelOf,
   taskLinkMarkup,
-  ticketBadgeMarkup,
   ticketLinksMarkup,
   ticketStatusBadgeMarkup,
   waitingOnMarkup,
@@ -108,12 +107,6 @@ describe('displayedRowNameOf', () => {
     expect(displayedRowNameOf({ name: '#004 Example ticket', ticket: '001' })).toBe('#004 Example ticket');
     expect(displayedRowNameOf({ name: '#008 Example review', ticket: null })).toBe('#008 Example review');
     expect(displayedRowNameOf({ name: '#008 Example task' })).toBe('#008 Example task');
-  });
-});
-
-describe('ticketBadgeMarkup', () => {
-  test('badges a row with a link to its ticket card', () => {
-    expect(ticketBadgeMarkup('003')).toBe('<a class="ap-ticket-badge" href="#ap-ticket-003">#003</a>');
   });
 });
 

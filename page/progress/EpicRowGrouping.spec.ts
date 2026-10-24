@@ -56,12 +56,6 @@ describe('rowGroupingOfEpics', () => {
     expect(GROUPING.ungroupedHead).toEqual({ key: NO_EPIC_CHIP, label: 'No epic' });
   });
 
-  test('gives a ticket\'s own row the squares of its other epics, and a review row none', () => {
-    expect(GROUPING.otherGroupsMarkupOfRow?.({ ticket: '001' })).toContain('data-epic-slot="2"');
-    expect(GROUPING.otherGroupsMarkupOfRow?.({ ticket: '002' })).toBe('');
-    expect(GROUPING.otherGroupsMarkupOfRow?.({ ticket: null, reviewOf: '001' })).toBe('');
-  });
-
   test('carries each epic\'s chip, span titled by the epic, open mark, done count and shared tickets', () => {
     const [checkout, billing] = GROUPING.groups;
 

@@ -1,5 +1,5 @@
 /**
- * `taskRowsMarkup` over the boards the two chart specs build: review rows as segments and as rows of their own, tokens, ticket badges, a
+ * `taskRowsMarkup` over the boards the two chart specs build: review rows as segments and as rows of their own, tokens, ticket id links, a
  * paused row's phases, a reviewed delivery, a waiting note, and epic head rows open and folded. Each row's bar comes from the geometry, so
  * the phases and the live hatch show. `GanttChartMarkup.frozen.spec.ts` compares it against `page/testing/FrozenGanttChartRows.json`.
  * Test-only: nothing that ships may import `page/testing/`.

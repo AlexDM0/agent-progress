@@ -1,7 +1,7 @@
 /**
  * That `resources/template.html` filled with a fixed fixture stays byte for byte the page main rendered before the spec view's second
- * edition, both with a page script and with the banner-only fallback. The expected digests were retaken on the commit that named the Waves tab
- * and gave the Epics tab its empty state. To retake them, check out the commit to
+ * edition, both with a page script and with the banner-only fallback. The expected digests were retaken on the commit that gave the Progress rows
+ * one pinned column and a state chip. To retake them, check out the commit to
  * compare against, run this spec, and copy each actual digest its failure prints into `FROZEN_PAGE_DIGESTS`.
  */
 import { createHash } from 'node:crypto';
@@ -15,8 +15,8 @@ import { createMarkdownRenderer } from './MarkdownRenderer.ts';
 import { fillPageTemplate }       from './PageTemplateFill.ts';
 
 const FROZEN_PAGE_DIGESTS = {
-  withPageScript: '798d1d416a8d5c03d0bb5207c116deda10dba65ce098846e62b9a748432f4697',
-  bannerOnly:     'b3224c22b6afb40d021236bc8ef74a2738f9c88f7036608ccab411c5e35572d1',
+  withPageScript: '17a64f3d4768ceb7444f0c7bc3b9489957b59ba346dfde73caf8345797f37160',
+  bannerOnly:     'e12f7de454e1b2ab5ed6deb02a44d2752fd8d8866568f6b65d4fb39517323551',
 } as const;
 
 const FROZEN_PROGRESS: TrackerProgress = {

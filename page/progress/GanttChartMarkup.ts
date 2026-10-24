@@ -202,7 +202,39 @@ function ownBarMarkup(task: ChartRowSource, bar: TimelineBar, reviewPassRound: n
   }).join('');
 }
 
-function taskRowMarkup(placed: PlacedTaskRow, drawing: TaskRowsDrawing, otherEpicSquares = ''): string {
+/** A row's own ticket links to it; a review bar names the ticket it reviews and a ticketless row reads "TASK", neither a link. */
+function numberCellMarkup(task: ChartRowSource): string {
+  const ticket = ticketOf(task);
+  const label  = HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.rowLabelOf(task));
+  return ticket === null
+    ? `<span class="ap-num">${label}</span>`
+    : `<a class="ap-num" ${MarkupUtil.attribute('href', `#${TemplateIdUtil.ticketFragmentIdOf(ticket)}`)}>${label}</a>`;
+}
+
+/** The full name, then on lines of their own what the row no longer shows: the type, the tickets it waits on and its tokens. */
+function nameTitleOf(task: ChartRowSource, waitingOn: readonly string[]): string {
+  return [
+    task.name,
+    ...task.ticketType === undefined ? [] : [task.ticketType],
+    ...waitingOn.length === 0 ? [] : [`Waiting on ${waitingOn.map((ticket) => `#${ticket}`).join(', ')}`],
+    ...task.tokens === undefined || task.tokens === null ? [] : [`${TokenCountUtil.formatTokenCount(task.tokens)} tokens`],
+  ].join('\n');
+}
+
+const WAITING_CHIP_LABEL  = 'Waiting';
+const REVIEWED_CHIP_SUFFIX = ' ✓';
+
+function stateChipMarkup(task: ChartRowSource, waitingOn: readonly string[], slices: TimestampSlices): string {
+  const state            = task.displayState;
+  const fullLabel        = WorkItemMarkupUtil.stateLabelOf(state, task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND);
+  const countsAsReviewed = task.deliveredRowCountsAsReviewed === true;
+  const label            = state === 'pending' && waitingOn.length > 0 ? WAITING_CHIP_LABEL : `${fullLabel}${countsAsReviewed ? REVIEWED_CHIP_SUFFIX : ''}`;
+  const title            = countsAsReviewed ? `${fullLabel} · ${WorkItemMarkupUtil.reviewedTitleOf(task, slices)}` : fullLabel;
+  return `<span class="ap-state-chip" ${MarkupUtil.attribute('title', title)}><span class="ap-state-dot" aria-hidden="true"></span>`
+    + `<span class="ap-state-word">${HtmlEscapeUtil.escapeHtml(label)}</span></span>`;
+}
+
+function taskRowMarkup(placed: PlacedTaskRow, drawing: TaskRowsDrawing): string {
   const {
     row,
     nestedWithTicket,
@@ -210,30 +242,20 @@ function taskRowMarkup(placed: PlacedTaskRow, drawing: TaskRowsDrawing, otherEpi
     reviewSegments,
   } = placed;
   const { task, bar } = row;
-  const { slices }                                 = drawing;
   const state         = task.displayState;
-  const pillLabel     = WorkItemMarkupUtil.stateLabelOf(state, task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND);
-  const ticket        = ticketOf(task);
-  const ticketBadge   = ticket === null ? '' : WorkItemMarkupUtil.ticketBadgeMarkup(ticket);
-  const typeMark      = task.ticketType === undefined ? '' : WorkItemMarkupUtil.ticketTypeMarkMarkup(task.ticketType);
-  const reviewedMark = task.deliveredRowCountsAsReviewed === true ? WorkItemMarkupUtil.reviewedMarkMarkup(task, slices) : '';
-  const tokens = task.tokens === undefined || task.tokens === null
-    ? ''
-    : `<span class="ap-tokens">${HtmlEscapeUtil.escapeHtml(TokenCountUtil.formatTokenCount(task.tokens))} tokens</span>`;
   const nesting    = nestedWithTicket === null ? '' : ` ${MarkupUtil.attribute('data-review-of', nestedWithTicket)}`;
   const identities = task.id === undefined
     ? ''
     : ` ${MarkupUtil.attribute('id', TemplateIdUtil.taskRowElementIdOf(task.id))} ${MarkupUtil.attribute('data-task-id', String(task.id))}`;
-  const numberCell = task.id === undefined ? '' : `<span class="ap-num">${HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.rowLabelOf(task))}</span>`;
+  const numberCell   = task.id === undefined ? '' : numberCellMarkup(task);
   const drawnBars    = [bar, ...reviewSegments.map(({ review }) => review.bar)].filter((drawnBar) => drawnBar.visible);
   const clippedLeft  = drawnBars.some((drawnBar) => drawnBar.clippedLeft);
   const clippedRight = drawnBars.some((drawnBar) => drawnBar.clippedRight);
   return [
     `<div class="ap-grid-row ap-row" tabindex="0"${identities} ${MarkupUtil.attribute('data-state', state)}${nesting}>`,
     `<div class="ap-cell-name">${numberCell}`,
-    `<span class="ap-name" ${MarkupUtil.attribute('title', task.name)}>${HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.displayedRowNameOf(task))}</span>`,
-    `${ticketBadge}${typeMark}${WorkItemMarkupUtil.waitingOnMarkup(row.waitingOn)}${tokens}${otherEpicSquares}${row.trailingNameMarkup ?? ''}</div>`,
-    `<div class="ap-cell-pill"><span class="ap-pill">${HtmlEscapeUtil.escapeHtml(pillLabel)}</span>${reviewedMark}</div>`,
+    `<span class="ap-name" ${MarkupUtil.attribute('title', nameTitleOf(task, row.waitingOn))}>${HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.displayedRowNameOf(task))}</span>`,
+    `${row.trailingNameMarkup ?? ''}${stateChipMarkup(task, row.waitingOn, drawing.slices)}</div>`,
     `<div class="ap-cell-track"><span class="ap-clip-l"${clippedLeft ? '' : ' hidden'}></span>`,
     ownBarMarkup(task, bar, reviewPassRound),
     `${reviewSegmentsMarkup(reviewSegments, drawing)}<span class="ap-clip-r"${clippedRight ? '' : ' hidden'}></span></div>`,
@@ -280,8 +302,7 @@ function groupHeadRowMarkup(group: ChartGroupModel, grouping: RowGrouping<ChartR
     : ` <span class="ap-epic-head-count" ${MarkupUtil.attribute('title', `${sharedMemberCount} of its tickets show under another epic`)}>+${sharedMemberCount} shared</span>`;
   return [
     headRowOpeningMarkup(group.key, grouping.foldedGroupKeys.has(group.key), ` ${MarkupUtil.attribute('data-epic-slot', String(group.slot))}`),
-    `${group.chipMarkup}${sharedNote}</div>`,
-    `<div class="ap-cell-pill">${HtmlEscapeUtil.escapeHtml(group.doneText)}</div>`,
+    `${group.chipMarkup}${sharedNote}<span class="ap-epic-head-done">${HtmlEscapeUtil.escapeHtml(group.doneText)}</span></div>`,
     `<div class="ap-cell-track">${groupSpanMarkup(group, grouping, drawing)}</div>`,
     '</div>',
   ].join('');
@@ -289,11 +310,7 @@ function groupHeadRowMarkup(group: ChartGroupModel, grouping: RowGrouping<ChartR
 
 function ungroupedHeadRowMarkup(head: UngroupedHead, memberCount: number, grouping: RowGrouping<ChartRowSource>): string {
   return `${headRowOpeningMarkup(head.key, grouping.foldedGroupKeys.has(head.key), '')}${HtmlEscapeUtil.escapeHtml(head.label)}`
-    + ` <span class="ap-epic-head-count">${memberCount}</span></div><div class="ap-cell-pill"></div><div class="ap-cell-track"></div></div>`;
-}
-
-function memberRowMarkup(placed: PlacedTaskRow, grouping: RowGrouping<ChartRowSource>, drawing: TaskRowsDrawing): string {
-  return taskRowMarkup(placed, drawing, grouping.otherGroupsMarkupOfRow?.(placed.row.task) ?? '');
+    + ` <span class="ap-epic-head-count">${memberCount}</span></div><div class="ap-cell-track"></div></div>`;
 }
 
 /** Each group's head before its rows, in the grouping's order, then the ungrouped rows under their head; a group with no rows is left out. */
@@ -315,7 +332,7 @@ function groupedTaskRowsMarkup(placedRows: readonly PlacedTaskRow[], grouping: R
     if (members.length === 0) {
       return [];
     }
-    const shownRows = grouping.foldedGroupKeys.has(foldKey) ? [] : members.map((placed) => memberRowMarkup(placed, grouping, drawing));
+    const shownRows = grouping.foldedGroupKeys.has(foldKey) ? [] : members.map((placed) => taskRowMarkup(placed, drawing));
     return [headMarkup(members.length), ...shownRows];
   }).join('');
 }

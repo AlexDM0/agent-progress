@@ -147,14 +147,13 @@ describe('rows grouped under their epics', () => {
     ]);
   });
 
-  test('draws a ticket in two epics once, under its primary epic, with a square for the other', () => {
+  // A row holds only its id, title and state: its other epics show as the other head's "+N shared", never on the row.
+  test('draws a ticket in two epics once, under its primary epic, with no mark for the other', () => {
     const board  = exampleBoard();
     const markup = taskRowsMarkup(taskRowsOf(board), drawingOf(board));
-    const rowOne = markup.slice(markup.indexOf('data-task-id="1"'), markup.indexOf('ap-cell-pill', markup.indexOf('data-task-id="1"')));
 
     expect(markup.match(/data-task-id="1"/g)?.length).toBe(1);
-    expect(rowOne).toContain('<span class="ap-epic-also" title="Also in Billing">+<span class="ap-epic-swatch" data-epic-slot="2"></span></span>');
-    expect(markup.match(/ap-epic-also/g)?.length).toBe(1);
+    expect(markup).not.toContain('ap-epic-also');
   });
 
   test('counts a ticket shown under another epic as shared on this epic\'s head, and every ticket in its done count', () => {
@@ -162,7 +161,8 @@ describe('rows grouped under their epics', () => {
     const markup = taskRowsMarkup(taskRowsOf(board), drawingOf(board));
 
     expect(headRowOf(markup, 'billing')).toContain('+1 shared');
-    expect(headRowOf(markup, 'billing')).toContain('<div class="ap-cell-pill">0 / 2 done</div>');
+    expect(headRowOf(markup, 'billing')).toContain('<span class="ap-epic-head-done">0 / 2 done</span></div>');
+    expect(markup).not.toContain('ap-cell-pill');
     expect(headRowOf(markup, 'checkout-redesign')).not.toContain('shared');
     expect(headRowOf(markup, NO_EPIC_CHIP)).toContain('No epic <span class="ap-epic-head-count">2</span>');
   });

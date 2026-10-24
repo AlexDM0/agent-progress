@@ -175,10 +175,10 @@
                                  tick whose label another label covers gets data-covered
  #ap-rows                 el     row list; direct children are .ap-row. On a board with epics the
                                  rows are grouped: each epic's .ap-epic-head-row[data-epic-key]
-                                 [data-epic-slot] (.ap-epic-caret, the epic's chip, "+N shared";
-                                 "N / M done" in the pill cell; .ap-epic-span[data-open?] on the
-                                 track) is followed by its rows, a ticket under its primary epic
-                                 only, its other epics as a "+" .ap-epic-also; then "No epic"
+                                 [data-epic-slot] (.ap-epic-caret, the epic's chip with its full
+                                 name, "+N shared", then .ap-epic-head-done "N / M done" at the
+                                 column's end; .ap-epic-span[data-open?] on the track) is followed
+                                 by its rows, a ticket under its primary epic only; then "No epic"
                                  (data-epic-key="no epic"). A click, Enter or Space on a head
                                  folds its rows away ([data-collapsed], aria-expanded; remembered
                                  per viewer). Only a row with data-task-id opens #ap-detail
@@ -303,29 +303,33 @@
                                  .ap-detail-head, .ap-ticket-meta, then the Timeline section
                                  (.ap-ticket-gantt) and the Description section
  ---------------------------------------------------------------- row markup ---
- .ap-row[data-state]      state goes on the ROW; the pill inherits its colours, a bar segment never
+ .ap-row[data-state]      state goes on the ROW; the chip inherits its colours, a bar segment never
  .ap-row[data-review-of]  only while #ap-review-rows is pressed: a review pass, drawn directly
                           above the row of the ticket it names (value = that ticket's id), latest
                           round first, its name cell indented one level; a review whose ticket has
                           no row is always a row of its own and carries no attribute
- .ap-row > .ap-cell-name  > .ap-num, .ap-name[title], a.ap-ticket-badge, the ticket type mark on a
-                            ticket's own row, .ap-waiting, .ap-tokens;
-                            .ap-num reads the row's ticket ("#NNN"), a review bar's reviewed
-                            ticket, else "TASK": a row id is never visible text;
-                            .ap-name drops a leading "#NNN " the badge shows (title keeps it) and
-                            clamps at two lines; the row grows from --row-h, bars stay centred
- .ap-waiting              "waiting on #003, #004", each id a link to its ticket card; also
-                          after the title in the ticket table and in a waiting card's head
+ .ap-row > .ap-cell-name  the one pinned column (--col-name), one line, --row-h tall:
+                            .ap-num, .ap-name[title], then .ap-state-chip, nothing else;
+                            .ap-num is a.ap-num linking its ticket ("#NNN") on a ticket's row, else
+                            a span reading a review bar's reviewed ticket or "TASK": a row id is
+                            never visible text;
+                            .ap-name is ellipsised; it drops a leading "#NNN " .ap-num shows, and
+                            its title is the full name, then on lines of their own the type, "Waiting
+                            on #003, #004" and "N tokens", each when the row has it
+ .ap-state-chip[title]    96x20 soft chip, 6px from the column's rule: .ap-state-dot (pulsing on
+                          in-progress, reviewing and re-review rows; a dashed ring on pending
+                          ones), then .ap-state-word: the state label, "Waiting" for a pending
+                          row with unmet dependencies, "Done ✓" for a delivered row reviewed
+                          first; title the full label (and when it was reviewed)
+ .ap-waiting              "waiting on #003, #004", each id a link to its ticket card: after the
+                          title in the ticket table and in a waiting card's head
  ticket type mark         span.ap-detail-type[data-type] "ticket", "bug" or "research", each in its
-                          own ink: in a card's head, a ticket's own chart row, the ticket table's
-                          Type cell and the detail heads
+                          own ink: in a card's head, the ticket table's Type cell and the detail
+                          heads
  ticket priority          after the title in the ticket table and after the status badge in
                           a card's head, [data-priority]: low = span.ap-ticket-badge "low",
                           high = span.ap-waiting "high"; normal carries no mark. A low ticket
                           that was never started has no .ap-row and an empty task cell
- .ap-row > .ap-cell-pill  > .ap-pill (exactly one; label text carries the state),
-                            then .ap-reviewed-mark[data-state="reviewed"] on a delivered row
-                            that was reviewed first
  .ap-row > .ap-cell-track > the row's own bar: one .ap-bar.ap-bar-segment[data-state][data-live?]
                             per recorded phase (inline left/width %), its colour following the
                             segment's own phase, never the row's state (a review pass drawn as a
@@ -405,7 +409,7 @@
  label      =  To do  | In progress | Paused | Awaiting review | Reviewing | Reviewing (round N) | Awaiting merge |   Done    | Abandoned
                                                                              N counts the review pass, from 2 up
                                       Done means merged: a row is done when nothing more has to happen to it
- the label is the state's one visible word on every tab: .ap-pill, .ap-badge, the detail head, the Timeline
+ the label is the state's one visible word on every tab: .ap-pill, .ap-state-chip, .ap-badge, the detail head, the Timeline
  legend, a single-state Kanban lane's name and the lane-head and summary counts (lower-cased mid-sentence);
  a lane or count over several states keeps its group name (Review, In progress, "in review")
  .ap-badge[data-state] = the ticket's display state, any of the above (Paused for a paused build, never
@@ -446,7 +450,7 @@
                 is "ready") washes it in its --s-tint, and the script removes the
                 mark when it ends. Under reduced motion: a still --s-edge outline
                 instead, removed after the same 1200 ms. Nothing on a first load.
- THE AXIS BOX   one box for everything on the time axis: the third grid column,
+ THE AXIS BOX   one box for everything on the time axis: the last grid column,
                 edge to edge, no padding or margin. .ap-cell-track, #ap-ticks and
                 #ap-overlay all span exactly that box, so a percentage means the
                 same x in bars, tick labels, grid lines and the now marker.
@@ -474,9 +478,10 @@
               the header's own: 44 project title, 18 stat value, 17 tab, 10 banner kind
               system UI stack for prose, system mono stack (--font-mono) for times, numbers
               and the header's labels; no web font, so the page stays offline
-   density    --row-h 30px (a chart row's minimum), --col-name 336px, --col-pill 144px
-              (a 118px pill holds "Reviewing (round 2)");
-              --col-name-wide 780px while :root[data-name-column="wide"]
+   density    --row-h 30px (a chart row), --col-name 432px (360px at and below 1180px wide),
+              the chart's one pinned column, its state chip inside it;
+              --col-name-wide 780px while :root[data-name-column="wide"]; --col-pill only
+              in .ap-ticket-gantt, its Time column
    motion     --motion-fast 120ms: hover and press on buttons, chips, badges, text fields,
               chart rows, ticket-table rows and .ap-kanban-card (lift and shadow), and
               #ap-kanban-frame's edge fades;
@@ -492,7 +497,9 @@
               Focus rings are in no transition.
               --pulse-status 1.6s (.ap-status-dot) and --pulse-activity 1.4s (.ap-activity-dot,
               with its 12px glow): one ap-pulse cycle each, only while [data-freshness="live"]
-              and never under prefers-reduced-motion, which keeps the colours alone.
+              and never under prefers-reduced-motion, which keeps the colours alone;
+              --pulse-status also times .ap-state-dot's ap-state-ring on a working chart row,
+              a ring growing to twice the dot and fading, never under reduced motion.
 ===============================================================================
 -->
 
@@ -512,9 +519,8 @@
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   --row-h: 30px;
-  --col-name: 336px;
+  --col-name: 432px;
   --col-name-wide: 780px;
-  --col-pill: 144px;
 
   --motion-fast: 120ms;
   --motion-base: 160ms;
@@ -1011,10 +1017,13 @@ body:has(#ap-panel-progress:not([hidden])) .ap-page { height: 100%; display: fle
 #ap-chart { flex: 1; min-height: 0; }
 .ap-grid-row {
   display: grid;
-  grid-template-columns: var(--col-name) var(--col-pill) var(--timeline-w);
+  grid-template-columns: var(--col-name) var(--timeline-w);
   align-items: center;
   min-height: var(--row-h);
 }
+/* The chart's one pinned column carries its own right rule; the detail Timeline keeps a second, Time, column. */
+#ap-chart .ap-cell-name { box-shadow: 1px 0 0 var(--line); }
+.ap-ticket-gantt .ap-grid-row { grid-template-columns: var(--col-name) var(--col-pill) var(--timeline-w); }
 .ap-chart-head {
   position: sticky; top: 0; z-index: 3;
   /* Matches .ap-body: without it the header box stops at the scroller's visible width and its
@@ -1039,7 +1048,7 @@ body:has(#ap-panel-progress:not([hidden])) .ap-page { height: 100%; display: fle
 .ap-row { border-bottom: 1px solid var(--line); }
 .ap-row:last-child { border-bottom: 0; }
 /* A review pass sits one level in, directly above its ticket's row: its number lines up with the ticket row's name. */
-.ap-row[data-review-of] > .ap-cell-name { padding-left: calc(var(--sp-4) + 28px); }
+#ap-rows > .ap-row[data-review-of] > .ap-cell-name { padding-left: calc(var(--sp-4) + 44px); }
 
 .ap-cell-name {
   position: sticky; left: 0; z-index: 2;
@@ -1057,21 +1066,40 @@ body:has(#ap-panel-progress:not([hidden])) .ap-page { height: 100%; display: fle
   height: 100%;
 }
 .ap-cell-track { position: relative; height: var(--row-h); }
-/* A chart row grows with a two-line name; its cells stretch with it, so the bars stay centred. */
-#ap-rows > .ap-row > .ap-cell-name { align-self: stretch; padding-block: 5px; }
-#ap-rows > .ap-row > .ap-cell-pill { align-self: stretch; height: auto; }
-#ap-rows > .ap-row > .ap-cell-track { align-self: stretch; height: auto; min-height: var(--row-h); }
+/* A chart row is one line: the id, the title ellipsised, and the state chip 6px from the column's rule. */
+#ap-rows > .ap-row > .ap-cell-name { align-self: stretch; gap: 10px; padding-right: 6px; }
 
 .ap-num {
-  flex: 0 0 22px;
+  flex: 0 0 34px;
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-size: var(--fs-micro);
   color: var(--ink-muted);
-  text-align: right;
 }
+a.ap-num:hover { color: var(--ink); }
 .ap-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#ap-rows .ap-name { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.3; overflow-wrap: anywhere; }
+#ap-rows .ap-name { flex: 1; }
+
+/* Every chip is the same box, so chips line up down the column and a state change never shifts the title. */
+.ap-state-chip {
+  flex: none; display: inline-flex; align-items: center; gap: 6px;
+  width: 96px; height: 20px; margin-left: 6px; padding: 0 8px;
+  font: 500 var(--fs-small)/1 var(--font-ui);
+  white-space: nowrap;
+  border-radius: var(--r-1);
+  background: var(--s-tint);
+  color: var(--s-ink);
+}
+.ap-state-word { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ap-state-dot { position: relative; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--s-fill); }
+.ap-row[data-state="pending"] .ap-state-dot { background: transparent; border: 1.5px dashed var(--s-ink); }
+@media (prefers-reduced-motion: no-preference) {
+  .ap-row:is([data-state="in-progress"], [data-state="reviewing"], [data-state="re-review"]) .ap-state-dot::after {
+    content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--s-fill);
+    animation: ap-state-ring var(--pulse-status) ease-out infinite;
+  }
+}
+@keyframes ap-state-ring { from { transform: scale(1); opacity: 0.55; } to { transform: scale(2); opacity: 0; } }
 .ap-row[data-state="abandoned"] .ap-name { text-decoration: line-through; color: var(--ink-muted); }
 .ap-row[data-state="abandoned"] { opacity: 0.72; }
 .ap-ticket-badge {
@@ -1161,7 +1189,7 @@ body:has(#ap-panel-progress:not([hidden])) .ap-page { height: 100%; display: fle
 
 #ap-overlay {
   position: absolute; top: 0; bottom: 0;
-  left: calc(var(--col-name) + var(--col-pill));
+  left: var(--col-name);
   right: 0;
   pointer-events: none;
   z-index: 1;
@@ -1354,13 +1382,11 @@ body:has(#ap-panel-progress:not([hidden])) .ap-page { height: 100%; display: fle
 #ap-rows > .ap-row { position: relative; }
 #ap-rows > .ap-row:hover,
 #ap-rows > .ap-row:hover > .ap-cell-name,
-#ap-rows > .ap-row:hover > .ap-cell-pill,
 #ap-rows > .ap-row[data-selected],
-#ap-rows > .ap-row[data-selected] > .ap-cell-name,
-#ap-rows > .ap-row[data-selected] > .ap-cell-pill { background: var(--surface-2); }
-#ap-rows > .ap-row[data-selected] > .ap-cell-name { box-shadow: inset 3px 0 0 var(--link); }
+#ap-rows > .ap-row[data-selected] > .ap-cell-name { background: var(--surface-2); }
+#ap-rows > .ap-row[data-selected] > .ap-cell-name { box-shadow: inset 3px 0 0 var(--link), 1px 0 0 var(--line); }
 #ap-rows > .ap-row:focus { outline: none; }
-/* Drawn above the sticky name and state cells, which would cover an outline on the row itself. */
+/* Drawn above the sticky name cell, which would cover an outline on the row itself. */
 #ap-rows > .ap-row:focus-visible::after { content: ""; position: absolute; inset: 0; z-index: 2; border: 2px solid var(--link); border-radius: var(--r-1); pointer-events: none; }
 #ap-ticket-rows > tr[data-ticket-id]:hover > td,
 #ap-ticket-rows > tr[data-selected] > td { background: var(--surface-2); }
@@ -1375,7 +1401,7 @@ body:has(#ap-panel-progress:not([hidden])) .ap-page { height: 100%; display: fle
 #ap-kanban[data-panel-room] > .ap-lane:not([data-collapsed]) { flex: 0 0 var(--frozen-lane-w); }
 #ap-kanban[data-panel-room]::after { content: ""; flex: 0 0 max(0px, calc(var(--panel-room) - 10px)); }
 #ap-chart[data-panel-room] { padding-inline-end: var(--panel-room); }
-#ap-chart[data-panel-room] .ap-grid-row { grid-template-columns: var(--col-name) var(--col-pill) var(--frozen-timeline-w, var(--timeline-w)); }
+#ap-chart[data-panel-room] .ap-grid-row { grid-template-columns: var(--col-name) var(--frozen-timeline-w, var(--timeline-w)); }
 @media (prefers-reduced-motion: reduce) {
   .ap-detail { transition: none; }
   .ap-detail-scroll[data-swapped] { animation: none; }
@@ -1575,7 +1601,7 @@ body:has(#ap-panel-progress:not([hidden])) .ap-page { height: 100%; display: fle
 .ap-detail-section > .ap-ticket-body { border-top: 0; padding-top: 0; }
 
 @media (max-width: 1180px) {
-  :root { --col-name: 268px; --col-pill: 144px; }
+  :root { --col-name: 360px; }
   body { padding: var(--sp-4) var(--sp-4) var(--sp-5); }
   .ap-ticket-dates { display: none; }
 }
@@ -1603,7 +1629,7 @@ button, [role="button"], .ap-chip, .ap-ticket-badge { transition: var(--feedback
 button:not(:disabled):active, [role="button"]:active { transform: scale(0.98); }
 
 /* Registered, so the Expand toggle eases the name column instead of jumping. */
-@property --col-name { syntax: "<length>"; inherits: true; initial-value: 336px; }
+@property --col-name { syntax: "<length>"; inherits: true; initial-value: 432px; }
 :root { transition: --col-name var(--motion-base) var(--ease-out); }
 
 /* The incoming tab panel fades in and rises 4px; the outgoing one is hidden at once, so it never takes a click. */
@@ -1647,7 +1673,6 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
 /* Chart and ticket-table rows ease their hover background; they never move, so the pinned columns stay put. */
 #ap-rows > .ap-row,
 #ap-rows > .ap-row > .ap-cell-name,
-#ap-rows > .ap-row > .ap-cell-pill,
 #ap-ticket-rows > tr[data-ticket-id] > td {
   transition: background-color var(--motion-fast) var(--ease-out);
 }
@@ -1657,7 +1682,6 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
 @media (prefers-reduced-motion: no-preference) {
   :root[data-motion="ready"] #ap-rows > .ap-row[data-changed],
   :root[data-motion="ready"] #ap-rows > .ap-row[data-changed] > .ap-cell-name,
-  :root[data-motion="ready"] #ap-rows > .ap-row[data-changed] > .ap-cell-pill,
   :root[data-motion="ready"] #ap-ticket-rows > tr[data-changed],
   :root[data-motion="ready"] .ap-kanban-card[data-changed] { animation: ap-changed 1200ms var(--ease-out); }
 }
@@ -1882,12 +1906,13 @@ button.ap-epic-title:hover { text-decoration: underline; text-underline-offset: 
 
 /* The Progress chart's rows under their epics' head rows. The caret hangs in the name cell's padding, so a member row's label keeps its width. */
 #ap-rows > .ap-epic-head-row { background: var(--surface-2); cursor: pointer; }
-#ap-rows > .ap-epic-head-row > .ap-cell-name,
-#ap-rows > .ap-epic-head-row > .ap-cell-pill { background: var(--surface-2); }
+#ap-rows > .ap-epic-head-row > .ap-cell-name { background: var(--surface-2); }
 #ap-rows > .ap-epic-head-row > .ap-cell-name { gap: 4px; padding-left: var(--sp-1); }
 .ap-epic-head-row .ap-cell-name { font-weight: 600; }
-.ap-epic-head-row .ap-cell-pill { font: 500 var(--fs-micro)/1 var(--font-mono); color: var(--ink-muted); }
-.ap-epic-head-row .ap-epic-chips { flex-wrap: nowrap; }
+/* The head's epic chip is the epic's full name, ellipsised only where the done count starts. */
+.ap-epic-head-row .ap-epic-chip { flex: 0 1 auto; min-width: 0; max-width: none; padding: 0 4px; font: inherit; font-size: var(--fs-body); background: transparent; border-color: transparent; }
+.ap-epic-head-row .ap-epic-chip:hover { border-color: var(--line-strong); }
+.ap-epic-head-done { flex: none; margin-left: auto; font: 500 var(--fs-micro)/1 var(--font-mono); color: var(--ink-muted); white-space: nowrap; }
 .ap-epic-caret { flex: none; width: 12px; color: var(--ink-muted); font-size: var(--fs-micro); text-align: center; transition: transform var(--motion-fast) var(--ease-out); }
 .ap-epic-head-row[data-collapsed] .ap-epic-caret { transform: rotate(-90deg); }
 .ap-epic-head-count { flex: none; font: 400 var(--fs-micro)/1 var(--font-mono); color: var(--ink-muted); }
@@ -2071,7 +2096,6 @@ button.ap-epic-title:hover { text-decoration: underline; text-underline-offset: 
     <div id="ap-chart">
       <div class="ap-grid-row ap-chart-head">
         <div class="ap-cell-name">Task<div class="ap-seg"><button type="button" id="ap-review-rows" aria-pressed="false" title="Draw each review pass as a row of its own, above its ticket's row">Review rows</button><button type="button" id="ap-name-column" aria-pressed="false" title="Widen the task column so full names fit">Expand</button></div></div>
-        <div class="ap-cell-pill">State</div>
         <div class="ap-cell-track" style="height:100%"><div id="ap-ticks">
           <div class="ap-tick" style="left:0%"><span>20:30</span></div>
           <div class="ap-tick" style="left:14.3%"><span>20:45</span></div>
@@ -2096,43 +2120,35 @@ button.ap-epic-title:hover { text-decoration: underline; text-underline-offset: 
 
         <div id="ap-rows">
           <div class="ap-grid-row ap-row" tabindex="0" id="ap-task-8" data-task-id="8" data-state="abandoned">
-            <div class="ap-cell-name"><span class="ap-num">#006</span><span class="ap-name" title="Old idea">Old idea</span><a class="ap-ticket-badge" href="#ap-ticket-006">#006</a></div>
-            <div class="ap-cell-pill"><span class="ap-pill">Abandoned</span></div>
+            <div class="ap-cell-name"><a class="ap-num" href="#ap-ticket-006">#006</a><span class="ap-name" title="Old idea&#10;ticket">Old idea</span><span class="ap-state-chip" title="Abandoned"><span class="ap-state-dot" aria-hidden="true"></span><span class="ap-state-word">Abandoned</span></span></div>
             <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:52.0%;width:11.0%"></div><span class="ap-clip-r" hidden></span></div>
           </div>
           <div class="ap-grid-row ap-row" tabindex="0" id="ap-task-7" data-task-id="7" data-state="pending">
-            <div class="ap-cell-name"><span class="ap-num">#005</span><span class="ap-name" title="Audit the range presets against a real 12-hour session">Audit the range presets against a real 12-hour session</span><a class="ap-ticket-badge" href="#ap-ticket-005">#005</a><span class="ap-waiting">waiting on <a href="#ap-ticket-004">#004</a></span></div>
-            <div class="ap-cell-pill"><span class="ap-pill">To do</span></div>
+            <div class="ap-cell-name"><a class="ap-num" href="#ap-ticket-005">#005</a><span class="ap-name" title="Audit the range presets against a real 12-hour session&#10;ticket&#10;Waiting on #004">Audit the range presets against a real 12-hour session</span><span class="ap-state-chip" title="To do"><span class="ap-state-dot" aria-hidden="true"></span><span class="ap-state-word">Waiting</span></span></div>
             <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:78.5%;width:9.0%"></div><span class="ap-clip-r" hidden></span></div>
           </div>
           <div class="ap-grid-row ap-row" tabindex="0" id="ap-task-6" data-task-id="6" data-state="paused">
-            <div class="ap-cell-name"><span class="ap-num">TASK</span><span class="ap-name" title="Rewrite the range-bar copy">Rewrite the range-bar copy</span><span class="ap-tokens">1.9k tokens</span></div>
-            <div class="ap-cell-pill"><span class="ap-pill">Paused</span></div>
+            <div class="ap-cell-name"><span class="ap-num">TASK</span><span class="ap-name" title="Rewrite the range-bar copy&#10;1.9k tokens">Rewrite the range-bar copy</span><span class="ap-state-chip" title="Paused"><span class="ap-state-dot" aria-hidden="true"></span><span class="ap-state-word">Paused</span></span></div>
             <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar ap-bar-segment" data-state="in-progress" style="left:71.5%;width:3.0%"></div><div class="ap-bar ap-bar-segment" data-state="paused" data-live style="left:74.5%;width:4.0%"></div><span class="ap-clip-r" hidden></span></div>
           </div>
           <div class="ap-grid-row ap-row" tabindex="0" id="ap-task-5" data-task-id="5" data-state="in-progress">
-            <div class="ap-cell-name"><span class="ap-num">#004</span><span class="ap-name" title="Brighter colours">Brighter colours</span><a class="ap-ticket-badge" href="#ap-ticket-004">#004</a><span class="ap-tokens">6.1k tokens</span></div>
-            <div class="ap-cell-pill"><span class="ap-pill">In progress</span></div>
+            <div class="ap-cell-name"><a class="ap-num" href="#ap-ticket-004">#004</a><span class="ap-name" title="Brighter colours&#10;ticket&#10;6.1k tokens">Brighter colours</span><span class="ap-state-chip" title="In progress"><span class="ap-state-dot" aria-hidden="true"></span><span class="ap-state-word">In progress</span></span></div>
             <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar ap-bar-segment" data-state="in-progress" data-live style="left:62.0%;width:16.5%"></div><span class="ap-clip-r" hidden></span></div>
           </div>
           <div class="ap-grid-row ap-row" tabindex="0" id="ap-task-4" data-task-id="4" data-state="in-review">
-            <div class="ap-cell-name"><span class="ap-num">TASK</span><span class="ap-name" title="Regenerate the timeline fixtures">Regenerate the timeline fixtures</span><span class="ap-tokens">4.2k tokens</span></div>
-            <div class="ap-cell-pill"><span class="ap-pill">Awaiting review</span></div>
+            <div class="ap-cell-name"><span class="ap-num">TASK</span><span class="ap-name" title="Regenerate the timeline fixtures&#10;4.2k tokens">Regenerate the timeline fixtures</span><span class="ap-state-chip" title="Awaiting review"><span class="ap-state-dot" aria-hidden="true"></span><span class="ap-state-word">Awaiting review</span></span></div>
             <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:49.0%;width:14.5%"></div><span class="ap-clip-r" hidden></span></div>
           </div>
           <div class="ap-grid-row ap-row" tabindex="0" id="ap-task-3" data-task-id="3" data-state="reviewing">
-            <div class="ap-cell-name"><span class="ap-num">#003</span><span class="ap-name" title="Split the exporter into two passes so the tick ladder can be reused">Split the exporter into two passes so the tick ladder can be reused</span><a class="ap-ticket-badge" href="#ap-ticket-003">#003</a><span class="ap-tokens">12.3k tokens</span></div>
-            <div class="ap-cell-pill"><span class="ap-pill">Reviewing</span></div>
+            <div class="ap-cell-name"><a class="ap-num" href="#ap-ticket-003">#003</a><span class="ap-name" title="Split the exporter into two passes so the tick ladder can be reused&#10;ticket&#10;12.3k tokens">Split the exporter into two passes so the tick ladder can be reused</span><span class="ap-state-chip" title="Reviewing"><span class="ap-state-dot" aria-hidden="true"></span><span class="ap-state-word">Reviewing</span></span></div>
             <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar ap-bar-segment" data-state="in-progress" style="left:31.0%;width:14.0%"></div><div class="ap-bar ap-bar-segment" data-state="paused" style="left:45.0%;width:8.0%"></div><div class="ap-bar ap-bar-segment" data-state="in-progress" style="left:53.0%;width:12.0%"></div><div class="ap-bar ap-bar-review" data-state="reviewing" data-live style="left:66.0%;width:12.0%" title="Review 1 · 21:45 → now"></div><span class="ap-clip-r" hidden></span></div>
           </div>
           <div class="ap-grid-row ap-row" tabindex="0" id="ap-task-2" data-task-id="2" data-state="reviewed">
-            <div class="ap-cell-name"><span class="ap-num">#002</span><span class="ap-name" title="Cache ticket bodies between runs">Cache ticket bodies between runs</span><a class="ap-ticket-badge" href="#ap-ticket-002">#002</a><span class="ap-tokens">9.8k tokens</span></div>
-            <div class="ap-cell-pill"><span class="ap-pill">Awaiting merge</span></div>
+            <div class="ap-cell-name"><a class="ap-num" href="#ap-ticket-002">#002</a><span class="ap-name" title="Cache ticket bodies between runs&#10;ticket&#10;9.8k tokens">Cache ticket bodies between runs</span><span class="ap-state-chip" title="Awaiting merge"><span class="ap-state-dot" aria-hidden="true"></span><span class="ap-state-word">Awaiting merge</span></span></div>
             <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:18.0%;width:31.0%"></div><span class="ap-clip-r" hidden></span></div>
           </div>
           <div class="ap-grid-row ap-row" tabindex="0" id="ap-task-1" data-task-id="1" data-state="delivered">
-            <div class="ap-cell-name"><span class="ap-num">#001</span><span class="ap-name" title="Double-click a role to edit it">Double-click a role to edit it</span><a class="ap-ticket-badge" href="#ap-ticket-001">#001</a><span class="ap-tokens">18.4k tokens</span></div>
-            <div class="ap-cell-pill"><span class="ap-pill">Done</span><span class="ap-reviewed-mark" data-state="reviewed" title="Reviewed 2026-09-18 21:10 before it was done" role="img" aria-label="reviewed">✓</span></div>
+            <div class="ap-cell-name"><a class="ap-num" href="#ap-ticket-001">#001</a><span class="ap-name" title="Double-click a role to edit it&#10;ticket&#10;18.4k tokens">Double-click a role to edit it</span><span class="ap-state-chip" title="Done · Reviewed 2026-09-18 21:10 before it was done"><span class="ap-state-dot" aria-hidden="true"></span><span class="ap-state-word">Done ✓</span></span></div>
             <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:3.2%;width:43.6%"></div><span class="ap-clip-r" hidden></span></div>
           </div>
         </div>

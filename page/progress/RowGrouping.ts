@@ -37,8 +37,6 @@ export interface RowGroupingSource<Row> {
   groups:        readonly ChartGroupModel[];
   /** A null key puts the row under `ungroupedHead`. */
   groupKeyOfRow(row: Row): string | null;
-  /** Closes a member row's name cell; absent, nothing does. */
-  otherGroupsMarkupOfRow?(row: Row): string;
   /** Null when no row can be ungrouped. */
   ungroupedHead: UngroupedHead | null;
 }

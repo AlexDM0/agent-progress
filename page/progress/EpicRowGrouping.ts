@@ -44,11 +44,6 @@ export function rowGroupingOfEpics(
       const ticketId = ticketIdOfRow(row);
       return (ticketId === null ? undefined : epicsOfTicket.get(ticketId)?.[0])?.key ?? null;
     },
-    // A review row leaves the squares to its ticket's row.
-    otherGroupsMarkupOfRow: (row) => {
-      const otherEpics = row.ticket === undefined || row.ticket === null ? [] : epicsOfTicket.get(row.ticket)?.slice(1) ?? [];
-      return GroupMarkup.otherGroupSquaresMarkup(otherEpics, '+');
-    },
     ungroupedHead: { key: NO_EPIC_CHIP, label: 'No epic' },
   };
 }

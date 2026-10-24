@@ -86,11 +86,9 @@ function reflectNameColumnWidth(width: NameColumnWidth): void {
   }
 }
 
-function pinnedColumnsWidth(): number {
+function pinnedColumnWidth(): number {
   const headerName = document.querySelector('.ap-chart-head > .ap-cell-name');
-  const headerPill = document.querySelector('.ap-chart-head > .ap-cell-pill');
-  return (headerName instanceof HTMLElement ? headerName.getBoundingClientRect().width : 0)
-    + (headerPill instanceof HTMLElement ? headerPill.getBoundingClientRect().width : 0);
+  return headerName instanceof HTMLElement ? headerName.getBoundingClientRect().width : 0;
 }
 
 function scrollNowIntoView(chart: HTMLElement, nowPercent: number, axisWidthPixels: number, pinnedWidth: number): void {
@@ -190,7 +188,7 @@ export function createGanttChartController<Row extends ChartRowSource>(sources: 
       limits,
     });
 
-    const pinnedWidth     = pinnedColumnsWidth();
+    const pinnedWidth     = pinnedColumnWidth();
     const availablePixels = chart === null ? 0 : Math.max(0, chart.clientWidth - pinnedWidth);
     const neededPixels    = AxisFitUtil.axisPixelsNeededFor(timeline.ticks);
     const axisScrolls     = neededPixels > availablePixels;

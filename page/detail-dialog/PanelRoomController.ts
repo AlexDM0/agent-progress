@@ -56,9 +56,9 @@ function scrollBehaviour(): ScrollBehavior {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
 }
 
-function pinnedColumnsRightEdgeOf(chart: HTMLElement): number {
-  const pill = chart.querySelector('.ap-chart-head > .ap-cell-pill');
-  return pill === null ? chart.getBoundingClientRect().left : pill.getBoundingClientRect().right;
+function pinnedColumnRightEdgeOf(chart: HTMLElement): number {
+  const pinnedColumn = chart.querySelector('.ap-chart-head > .ap-cell-name');
+  return pinnedColumn === null ? chart.getBoundingClientRect().left : pinnedColumn.getBoundingClientRect().right;
 }
 
 /** A lane board freezes its lane width, the chart its timeline's. */
@@ -88,7 +88,7 @@ function scrollBarClearOfPanel(chart: HTMLElement, row: HTMLElement): void {
   }
   const barLeft    = Math.min(...bars.map((box) => box.left));
   const barRight   = Math.max(...bars.map((box) => box.right));
-  const trackLeft  = pinnedColumnsRightEdgeOf(chart) + PANEL_GUTTER_PIXELS;
+  const trackLeft  = pinnedColumnRightEdgeOf(chart) + PANEL_GUTTER_PIXELS;
   const trackRight = Math.min(visibleRightEdgeOf(chart), panelLeftEdge()) - PANEL_GUTTER_PIXELS;
   let offset = barRight > trackRight ? barRight - trackRight : 0;
   if (barLeft < trackLeft) {

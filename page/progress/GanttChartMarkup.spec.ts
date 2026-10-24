@@ -91,15 +91,30 @@ function rowFor(task: Task, ticketStatus: TicketStatus | null = null, bar: Timel
   return taskRowsMarkup([{ task: row, bar, waitingOn }], REVIEW_SEGMENTS);
 }
 
+function chipWordsOf(markup: string): string[] {
+  return [...markup.matchAll(/<span class="ap-state-word">([^<]*)<\/span>/g)].map((match) => match[1] ?? '');
+}
+
+function nameTitleOf(markup: string): string | undefined {
+  return /<span class="ap-name" title="([^"]*)">/.exec(markup)?.[1];
+}
+
 describe('the number cell', () => {
   // Row ids stay in the hidden attributes only: the visible cell names a ticket or reads TASK.
   test('names a ticket’s own row by its ticket, a review bar by the ticket it reviews, and a row with neither as TASK', () => {
-    const numberCellOf = (task: Task): string | undefined => /<span class="ap-num">([^<]*)<\/span>/.exec(rowFor(task))?.[1];
+    const numberCellOf = (task: Task): string | undefined => /class="ap-num"(?: href="[^"]*")?>([^<]*)<\/(?:span|a)>/.exec(rowFor(task))?.[1];
 
     expect(numberCellOf(exampleTask({ id: 41, ticket: '052' }))).toBe('#052');
     expect(numberCellOf(exampleTask({ id: 42, name: 'Review 1 #052 — Tidy', reviewOf: '052' }))).toBe('#052');
     expect(numberCellOf(exampleTask({ id: 43 }))).toBe('TASK');
     expect(rowFor(exampleTask({ id: 43 }))).toContain('data-task-id="43"');
+  });
+
+  // The id is the row's one way to its ticket now that the badge is gone; a review bar's id names another ticket's row, so it stays text.
+  test('links a ticket’s own row by its id, and leaves a review bar’s and a free-standing task’s label unlinked', () => {
+    expect(rowFor(exampleTask({ id: 41, ticket: '052' }))).toContain('<a class="ap-num" href="#ap-ticket-052">#052</a>');
+    expect(rowFor(exampleTask({ id: 42, name: 'Review 1 #052 — Tidy', reviewOf: '052' }))).toContain('<span class="ap-num">#052</span>');
+    expect(rowFor(exampleTask({ id: 43 }))).toContain('<span class="ap-num">TASK</span>');
   });
 });
 
@@ -120,39 +135,58 @@ describe('taskRowsMarkup', () => {
     ['reviewed', 'Awaiting merge'],
     ['delivered', 'Done'],
     ['abandoned', 'Abandoned'],
-  ])('gives a %s row exactly one pill reading %s', (status, label) => {
+  ])('gives a %s row exactly one state chip reading %s', (status, label) => {
     const markup = rowFor(exampleTask({ status }));
 
     expect(markup).toContain(`data-state="${status}"`);
-    expect(markup).toContain(`<div class="ap-cell-pill"><span class="ap-pill">${label}</span></div>`);
-    expect(markup.match(/ap-pill/g)?.length).toBe(1);
+    expect(markup).toContain(`<span class="ap-state-chip" title="${label}"><span class="ap-state-dot" aria-hidden="true"></span>`);
+    expect(chipWordsOf(markup)).toEqual([label]);
+    expect(markup).not.toContain('ap-cell-pill');
   });
 
-  test('marks a delivered row that was reviewed, with the review time in its title', () => {
+  // The chip carries the check the reviewed mark used to, and its title the review time.
+  test('reads Done ✓ on a delivered row that was reviewed, with the review time in the chip title', () => {
     const markup = rowFor(exampleTask({ status: 'delivered', reviewed: '2026-09-18T21:10:00+02:00' }));
 
-    expect(markup).toContain('class="ap-reviewed-mark"');
-    expect(markup).toContain('title="Reviewed 2026-09-18 21:10 before it was done"');
+    expect(chipWordsOf(markup)).toEqual(['Done ✓']);
+    expect(markup).toContain('<span class="ap-state-chip" title="Done · Reviewed 2026-09-18 21:10 before it was done">');
+    expect(markup).not.toContain('ap-reviewed-mark');
   });
 
-  test('leaves the mark off a row delivered straight from in-review, and off a reviewed row that is not delivered yet', () => {
-    expect(rowFor(exampleTask({ status: 'delivered' }))).not.toContain('ap-reviewed-mark');
-    expect(rowFor(exampleTask({ status: 'reviewed', reviewed: '2026-09-18T21:10:00+02:00' }))).not.toContain('ap-reviewed-mark');
+  test('reads Done on a row delivered straight from in-review, and no check on a reviewed row that is not delivered yet', () => {
+    expect(chipWordsOf(rowFor(exampleTask({ status: 'delivered' })))).toEqual(['Done']);
+    expect(chipWordsOf(rowFor(exampleTask({ status: 'reviewed', reviewed: '2026-09-18T21:10:00+02:00' })))).toEqual(['Awaiting merge']);
   });
 
   // Rows written before the stamp existed: delivery of a ticket is only legal from `reviewed`.
-  test('marks a delivered ticket row as reviewed even when it carries no stamp', () => {
-    expect(rowFor(exampleTask({ status: 'delivered', ticket: '003' }), 'delivered')).toContain('ap-reviewed-mark');
+  test('reads Done ✓ on a delivered ticket row even when it carries no stamp', () => {
+    expect(chipWordsOf(rowFor(exampleTask({ status: 'delivered', ticket: '003' }), 'delivered'))).toEqual(['Done ✓']);
   });
 
-  test('says which tickets a row is waiting on, each linked to its card', () => {
+  test('reads Waiting on a to-do row with unmet dependencies, keeping To do as the chip title, and names them in the title', () => {
     const markup = rowFor(exampleTask({ status: 'pending', ticket: '005' }), 'pending', PLACED_BAR, ['003', '004']);
 
-    expect(markup).toContain('<span class="ap-waiting">waiting on <a href="#ap-ticket-003">#003</a>, <a href="#ap-ticket-004">#004</a></span>');
+    expect(chipWordsOf(markup)).toEqual(['Waiting']);
+    expect(markup).toContain('data-state="pending"');
+    expect(markup).toContain('<span class="ap-state-chip" title="To do">');
+    expect(nameTitleOf(markup)).toMatch(/^[^\n]+\nticket\nWaiting on #003, #004$/);
+    expect(markup).not.toContain('ap-waiting');
   });
 
-  test('writes no waiting note on a row that waits on nothing', () => {
-    expect(rowFor(exampleTask())).not.toContain('ap-waiting');
+  test('reads To do on a to-do row that waits on nothing, and keeps waiting out of its title', () => {
+    const markup = rowFor(exampleTask({ status: 'pending' }));
+
+    expect(chipWordsOf(markup)).toEqual(['To do']);
+    expect(nameTitleOf(markup)).not.toContain('Waiting');
+  });
+
+  // Only the id, the title and the chip stay on a row; the type, the waiting ids and the tokens move into the title's hover text.
+  test('draws the id, the title and the chip and nothing else in the name cell', () => {
+    const markup = rowFor(exampleTask({ ticket: '005', tokens: 12_300 }), 'pending', PLACED_BAR, ['003']);
+    const cell   = /<div class="ap-cell-name">([\s\S]*?)<\/div>/.exec(markup)?.[1] ?? '';
+
+    expect([...cell.matchAll(/<(?:span|a) class="([^"]+)"/g)].map((match) => match[1])).toEqual(['ap-num', 'ap-name', 'ap-state-chip', 'ap-state-dot', 'ap-state-word']);
+    expect(nameTitleOf(markup)).toMatch(/^[^\n]+\nticket\nWaiting on #003\n12\.3k tokens$/);
   });
 
   test('gives a reviewing row the reviewing state and label', () => {
@@ -167,26 +201,26 @@ describe('taskRowsMarkup', () => {
     const markup = taskRowsMarkup([{ task: row, bar: PLACED_BAR, waitingOn: [] }], REVIEW_SEGMENTS);
 
     expect(markup).toContain('data-state="reviewing"');
-    expect(markup).toContain('<span class="ap-pill">Reviewing</span>');
+    expect(chipWordsOf(markup)).toEqual(['Reviewing']);
   });
 
   test('gives a row whose ticket is in review with no reviewer started the awaiting-review state and label', () => {
     const markup = rowFor(exampleTask({ status: 'in-review' }), 'in-review');
 
     expect(markup).toContain('data-state="in-review"');
-    expect(markup).toContain('<span class="ap-pill">Awaiting review</span>');
+    expect(chipWordsOf(markup)).toEqual(['Awaiting review']);
   });
 
-  test('numbers the pill of a row that is on its third review pass', () => {
+  test('numbers the chip of a row that is on its third review pass', () => {
     const markup = rowFor(exampleTask({ status: 're-review', reviewRound: 3 }), 'in-review');
 
     expect(markup).toContain('data-state="re-review"');
-    expect(markup).toContain('<span class="ap-pill">Reviewing (round 3)</span>');
+    expect(chipWordsOf(markup)).toEqual(['Reviewing (round 3)']);
   });
 
   // A row moved by hand to the repeat state has no round on it; the state itself says it is at least the second pass.
   test('reads a repeat review with no round recorded as the second pass', () => {
-    expect(rowFor(exampleTask({ status: 're-review' }))).toContain('<span class="ap-pill">Reviewing (round 2)</span>');
+    expect(chipWordsOf(rowFor(exampleTask({ status: 're-review' })))).toEqual(['Reviewing (round 2)']);
   });
 
   test('leaves every other status alone whatever its ticket says', () => {
@@ -199,7 +233,7 @@ describe('taskRowsMarkup', () => {
 
     expect(markup).toContain('id="ap-task-7"');
     expect(markup).toContain('data-task-id="7"');
-    expect(markup).toContain('<a class="ap-ticket-badge" href="#ap-ticket-003">#003</a>');
+    expect(markup).toContain('<a class="ap-num" href="#ap-ticket-003">#003</a>');
   });
 
   // Enter on a focused row is the keyboard's only way to the overview panel, and a row the Tab key skips cannot be focused.
@@ -207,14 +241,16 @@ describe('taskRowsMarkup', () => {
     expect(rowFor(exampleTask())).toContain('<div class="ap-grid-row ap-row" tabindex="0" id="ap-task-1"');
   });
 
-  test('leaves out the ticket badge for a free-standing task', () => {
+  test('draws no ticket badge on any row', () => {
     expect(rowFor(exampleTask())).not.toContain('ap-ticket-badge');
+    expect(rowFor(exampleTask({ ticket: '003' }))).not.toContain('ap-ticket-badge');
   });
 
-  test('shows a token figure only when the task reports one', () => {
-    expect(rowFor(exampleTask({ tokens: 12_300 }))).toContain('<span class="ap-tokens">12.3k tokens</span>');
-    expect(rowFor(exampleTask({ tokens: 0 }))).toContain('<span class="ap-tokens">0 tokens</span>');
-    expect(rowFor(exampleTask({ tokens: null }))).not.toContain('ap-tokens');
+  test('names a token figure in the title only when the task reports one', () => {
+    expect(nameTitleOf(rowFor(exampleTask({ tokens: 12_300 })))).toMatch(/\n12\.3k tokens$/);
+    expect(nameTitleOf(rowFor(exampleTask({ tokens: 0 })))).toMatch(/\n0 tokens$/);
+    expect(nameTitleOf(rowFor(exampleTask({ tokens: null })))).not.toContain('tokens');
+    expect(rowFor(exampleTask({ tokens: 12_300 }))).not.toContain('ap-tokens');
   });
 
   test('places the bar as percentages and shows a clip marker only on the edge it ran off', () => {
@@ -552,7 +588,7 @@ describe('each segment of a row in its own phase', () => {
     const markup = taskRowsMarkup(phasedTicketRows('in-review'), REVIEW_SEGMENTS);
 
     expect(markup).toContain('id="ap-task-1" data-task-id="1" data-state="reviewing"');
-    expect(markup).toContain('<span class="ap-pill">Reviewing</span>');
+    expect(chipWordsOf(markup)).toEqual(['Reviewing']);
     expect(segmentStatesOf(markup)).toEqual(['"in-progress"', '"paused"', '"in-progress"', '"reviewing"', '"re-review" data-live']);
   });
 
@@ -595,12 +631,12 @@ describe('each segment of a row in its own phase', () => {
   });
 });
 
-describe('the task name beside its ticket badge', () => {
-  test('drops a leading #NNN the ticket badge already shows, keeping the full name in the title', () => {
+describe('the task name beside its ticket id', () => {
+  test('drops a leading #NNN the id cell already shows, keeping the full name in the title', () => {
     const markup = rowFor(exampleTask({ name: '#052 Order confirmation e-mail shows VAT per line', ticket: '052' }), 'in-progress');
 
-    expect(markup).toContain('<span class="ap-name" title="#052 Order confirmation e-mail shows VAT per line">Order confirmation e-mail shows VAT per line</span>');
-    expect(markup.match(/#052/g)).toHaveLength(3);
+    expect(markup).toContain('<span class="ap-name" title="#052 Order confirmation e-mail shows VAT per line\nticket">Order confirmation e-mail shows VAT per line</span>');
+    expect(markup.match(/#052/g)).toHaveLength(2);
   });
 
   test('drops an unpadded #NN naming the same ticket', () => {
