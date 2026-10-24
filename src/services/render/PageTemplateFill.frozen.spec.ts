@@ -15,8 +15,8 @@ import { createMarkdownRenderer } from './MarkdownRenderer.ts';
 import { fillPageTemplate }       from './PageTemplateFill.ts';
 
 const FROZEN_PAGE_DIGESTS = {
-  withPageScript: 'f58e9531c21b1e710671eb975050797d4616343d44e1d546aff7db069076cb19',
-  bannerOnly:     'ec886cfd1b37c5e8b97d27d938d3ab62fe4b591608e9e6f47b6836f91669cc11',
+  withPageScript: 'ac8b3908b83f8fe5a14a24fadb11a034a4848278aea3a09779314ab0e5754c86',
+  bannerOnly:     '4eb6176d0293a2461902b435563cf8d52fb91f6f4c50b5e45b120e1c6805aa4d',
 } as const;
 
 const FROZEN_PROGRESS: TrackerProgress = {

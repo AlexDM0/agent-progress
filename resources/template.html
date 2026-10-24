@@ -185,8 +185,8 @@
                                  its rows scrolling inside it; owns --timeline-w. Its head,
                                  .ap-chart-head, is one 40px row
  #ap-ticks                el     tick layer in the header row, labels centred in it; children
-                                 .ap-tick > span; a
-                                 tick whose label another label covers gets data-covered
+                                 .ap-tick > span; a tick whose label another label covers gets
+                                 data-covered
  #ap-rows                 el     row list; direct children are .ap-row. On a board with epics the
                                  rows are grouped: each epic's .ap-epic-head-row[data-epic-key]
                                  [data-epic-slot] (.ap-epic-caret, the epic's chip with its full
@@ -200,7 +200,7 @@
  #ap-now                  el     the now marker inside #ap-overlay; [hidden] if out of range;
                                  data-label-side="left" near the right edge
  #ap-chart-empty          el     shown instead of rows when there are none
- #ap-row-options-button  button icon button at the right of the chart head's pinned cell,
+ #ap-row-options-button   button icon button at the right of the chart head's pinned cell,
                                  aria-label "Row options", aria-expanded while
                                  #ap-row-options-menu is open
  #ap-row-options-menu     dialog [hidden] unless #ap-row-options-button opened it: #ap-review-rows
@@ -210,8 +210,9 @@
                                  aria-pressed, remembered per viewer; pressed widens the
                                  name column (data-name-column="wide" on the root element)
  #ap-review-rows          button .ap-menu-item "Review passes as rows" in #ap-row-options-menu,
-                                 aria-pressed, remembered per viewer; pressed draws each review pass as a row of its own
-                                 (.ap-row[data-review-of]) instead of a segment on its ticket's row
+                                 aria-pressed, remembered per viewer; pressed draws each review
+                                 pass as a row of its own (.ap-row[data-review-of]) instead of a
+                                 segment on its ticket's row
  #ap-ticket-rows          tbody  ticket table body; each <tr> carries data-ticket-id and data-state, its status
                                  an .ap-badge[data-state] with the state's label, a paused build's
                                  badge followed by .ap-detail-gap "since 11:45 · 1h 51m" (the row's
