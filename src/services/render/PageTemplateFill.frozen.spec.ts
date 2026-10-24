@@ -1,7 +1,7 @@
 /**
  * That `resources/template.html` filled with a fixed fixture stays byte for byte the page main rendered before the spec view's second
- * edition, both with a page script and with the banner-only fallback. The expected digests were retaken on the commit that restyled the Kanban
- * lane heads after the roomier mockup. To retake them, check out the commit to
+ * edition, both with a page script and with the banner-only fallback. The expected digests were retaken on the commit that named the Waves tab
+ * and gave the Epics tab its empty state. To retake them, check out the commit to
  * compare against, run this spec, and copy each actual digest its failure prints into `FROZEN_PAGE_DIGESTS`.
  */
 import { createHash } from 'node:crypto';
@@ -15,8 +15,8 @@ import { createMarkdownRenderer } from './MarkdownRenderer.ts';
 import { fillPageTemplate }       from './PageTemplateFill.ts';
 
 const FROZEN_PAGE_DIGESTS = {
-  withPageScript: '5e0d89afa517cd3fabc1399cfb9e162ff3d0ee9d8fa75f857b9294db4841f285',
-  bannerOnly:     'c87e65d28990ceec82443782b74f6f4b9406533eaaa3a61d33eb2e36066045ba',
+  withPageScript: '798d1d416a8d5c03d0bb5207c116deda10dba65ce098846e62b9a748432f4697',
+  bannerOnly:     'b3224c22b6afb40d021236bc8ef74a2738f9c88f7036608ccab411c5e35572d1',
 } as const;
 
 const FROZEN_PROGRESS: TrackerProgress = {

@@ -2,7 +2,8 @@
  * The epic marks. The cases that matter: a chip carries its key and colour slot and escapes its title once, a card shows two chips then
  * "+N"; the roll-up bar and facts come from the Board's counts; an epic's ticket list opens each ticket and names its other epics; the
  * detail carries the rendered description unescaped; open epics come before settled ones; and the filter chips end with the no-epic chip.
- * The finished-work switch drops a finished epic's card past its cutoff, never an open or empty epic's, and leaves a kept card unchanged.
+ * The finished-work switch drops a finished epic's card past its cutoff, never an open or empty epic's, and leaves a kept card unchanged;
+ * when it drops every card the tab says so in one empty-state line naming the window.
  * A card's dependency rows count each ticket under its primary epic alone, say so when there is nothing, and draw the global waves.
  */
 
@@ -177,6 +178,27 @@ describe('epicCardsMarkup under the finished-work switch', () => {
     const lastDay  = epicsTabMarkup('1d');
     expect(lastDay.startsWith(openCard)).toBe(true);
     expect(lastDay).toContain('data-open-epic="payment-providers"');
+  });
+
+  function finishedEpicTabMarkup(choice: FinishedWorkChoice): string {
+    const cutoff = FinishedWorkUtil.cutoffEpochMillisecondsOf(choice, NOW, EXAMPLE_PAGE_LIMITS);
+    const { ticketFinishedMomentById } = FinishedWorkUtil.boardFinishedMomentsOf(switched);
+    const finishedEpicOnly = switched.epics.filter((epic) => epic.key === 'checkout-redesign');
+    const shownEpics       = FinishedWorkUtil.shownEpicsOf(finishedEpicOnly, ticketFinishedMomentById, cutoff);
+    return EpicMarkup.epicsTabMarkup(shownEpics, switchedTicketById, switchedGraph, switchedFormat, choice);
+  }
+
+  test('the tab shows exactly one empty-state line naming the window, and no card, when the switch hides every epic', () => {
+    const lastDay = finishedEpicTabMarkup('1d');
+    expect(lastDay).toBe('<div class="ap-empty">No epic finished in the last day.</div>');
+    expect(lastDay).not.toContain('ap-card');
+  });
+
+  test('the tab shows the cards and no empty-state line once an epic is shown again', () => {
+    const all = finishedEpicTabMarkup('all');
+    expect(all).toContain('data-open-epic="checkout-redesign"');
+    expect(all).not.toContain('ap-empty');
+    expect(EpicMarkup.epicsTabMarkup(switched.epics, switchedTicketById, switchedGraph, switchedFormat, '1d')).not.toContain('ap-empty');
   });
 });
 

@@ -99,9 +99,13 @@ export function epicMarkFrozenCases(): Record<string, unknown> {
       'limited to two': EpicMarkup.epicChipsMarkup(BOARD.epics, 2),
       'none':           EpicMarkup.epicChipsMarkup([]),
     },
-    epicsInShownOrder:  EpicMarkup.epicsInShownOrder(BOARD.epics).map((epic) => epic.key),
-    epicDetailMarkup:   perEpic((epic) => EpicMarkup.epicDetailMarkup(epic, TICKET_BY_ID, FORMAT)),
-    epicCardsMarkup:    EpicMarkup.epicCardsMarkup(BOARD.epics, TICKET_BY_ID, GRAPH, FORMAT),
+    epicsInShownOrder: EpicMarkup.epicsInShownOrder(BOARD.epics).map((epic) => epic.key),
+    epicDetailMarkup:  perEpic((epic) => EpicMarkup.epicDetailMarkup(epic, TICKET_BY_ID, FORMAT)),
+    epicCardsMarkup:   EpicMarkup.epicCardsMarkup(BOARD.epics, TICKET_BY_ID, GRAPH, FORMAT),
+    epicsTabMarkup:    {
+      'every epic shown':              EpicMarkup.epicsTabMarkup(BOARD.epics, TICKET_BY_ID, GRAPH, FORMAT, '1d'),
+      'none shown in last three days': EpicMarkup.epicsTabMarkup([], TICKET_BY_ID, GRAPH, FORMAT, '3d'),
+    },
     epicGroupRowMarkup: {
       ...perEpic((epic) => EpicMarkup.epicGroupRowMarkup(epic, TABLE_COLUMN_COUNT, FORMAT)),
       'no epic': EpicMarkup.epicGroupRowMarkup(null, TABLE_COLUMN_COUNT, FORMAT),

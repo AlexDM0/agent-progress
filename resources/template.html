@@ -236,7 +236,8 @@
  #ap-epics                html   the Epics tab: one article.ap-card[data-epic-slot] per epic, open
                                  ones first; a finished epic (at least one ticket, all delivered or
                                  abandoned) whose span ended before #ap-finished's cutoff has no
-                                 card, and open epics keep theirs whole: .ap-epic-card-head
+                                 card, and open epics keep theirs whole; when none is left it holds
+                                 one .ap-empty "No epic finished <window>." instead: .ap-epic-card-head
                                  (button.ap-epic-title[data-open-epic], .ap-epic-key,
                                  .ap-epic-done-mark), .ap-epic-card-body (the
                                  description's first paragraph, the roll-up, the dependency rows,
@@ -253,7 +254,7 @@
                           The roll-up: .ap-epic-progress (one span[data-state] per ticket status,
                           flex-grow its count), ul.ap-epic-legend, .ap-ticket-meta (open, done,
                           abandoned?, tokens, span)
- #ap-dependencies         html   the Dependencies tab's .ap-card: .ap-dependency-canvas (width and
+ #ap-dependencies         html   the Waves tab's .ap-card: .ap-dependency-canvas (width and
                                  height inline), its columns left to right: Done (the settled
                                  tickets an open one depends on, [data-done]) then one per wave
                                  ("Now", "Wave 2", …). Each column is a .ap-dependency-band and a
@@ -1737,6 +1738,7 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
 .ap-epics { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr)); gap: var(--sp-4); align-items: start; }
 .ap-epics:has(> .ap-card:only-child) { grid-template-columns: repeat(auto-fill, minmax(min(380px, 100%), 1fr)); }
 .ap-epics > .ap-card { margin-bottom: 0; }
+.ap-epics > .ap-empty { grid-column: 1 / -1; }
 
 /* The Dependencies tab: the page script places every column, band, node and edge on the canvas in pixels; only the look lives here. */
 .ap-dependencies { padding: 20px; overflow-x: auto; }
@@ -1952,7 +1954,7 @@ button.ap-epic-title:hover { text-decoration: underline; text-underline-offset: 
       <button type="button" role="tab" id="ap-tab-progress" aria-controls="ap-panel-progress" data-tab="progress" aria-selected="false">Progress</button>
       <button type="button" role="tab" id="ap-tab-tickets" aria-controls="ap-panel-tickets" data-tab="tickets" aria-selected="false">Tickets</button>
       <button type="button" role="tab" id="ap-tab-epics" aria-controls="ap-panel-epics" data-tab="epics" aria-selected="false">Epics</button>
-      <button type="button" role="tab" id="ap-tab-dependencies" aria-controls="ap-panel-dependencies" data-tab="dependencies" aria-selected="false">Dependencies</button>
+      <button type="button" role="tab" id="ap-tab-dependencies" aria-controls="ap-panel-dependencies" data-tab="dependencies" aria-selected="false">Waves</button>
     </div>
     <div class="ap-finished" id="ap-finished">
       <span class="ap-finished-label" id="ap-finished-label">Finished work</span>

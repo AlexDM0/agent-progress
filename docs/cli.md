@@ -556,9 +556,9 @@ missing stamp, as a render from an older CLI, a hand deletion or a failed stamp 
 as one browser network line (`404` or `ERR_FILE_NOT_FOUND`) per page load, not a script error; no
 script can suppress that line, and the next render ends it.
 
-The tabs are **Kanban · Progress · Tickets · Epics · Dependencies**, in that order; the chosen one is
-kept in the browser, Epics is hidden on a board without epics, and Dependencies on one where no ticket
-waits on another.
+The tabs are **Kanban · Progress · Tickets · Epics · Waves**, in that order; the chosen one is kept in
+the browser, Epics is hidden on a board without epics, and Waves on one where no ticket waits on
+another.
 
 - **Kanban tab**: one card per ticket in six lanes — To do, In progress, Review, Awaiting merge, Done
   and Abandoned — each card in the lane its state names. The open lanes run high → normal → low, then
@@ -598,8 +598,9 @@ waits on another.
   pending low-priority ticket left out; and
   "Frees", the epics waiting on it, with the tickets they wait through. The finished-work switch hides
   a finished epic, one with tickets that are all delivered or abandoned, whose span ended before its
-  window; an open or empty epic always shows, its card whole.
-- **Dependencies tab**: the open tickets' waves left to right, a Done column first holding the settled
+  window; an open or empty epic always shows, its card whole. When it hides every epic, the tab says
+  so in one line naming the window, such as "No epic finished in the last day."
+- **Waves tab**: the open tickets' waves left to right, a Done column first holding the settled
   tickets an open one waits on, then "Now" (nothing open in front of it), "Wave 2" and on; each
   column says how many tickets in it can run side by side against the board's slots, and a one-ticket
   wave is marked "one at a time". A low-priority ticket is drawn only once it has been started: a

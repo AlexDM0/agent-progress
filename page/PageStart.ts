@@ -193,11 +193,11 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   const showEpicsTab = (cutoff: number): void => {
     if (board.epics.length > 0) {
       const shownEpics = FinishedWorkUtil.shownEpicsOf(board.epics, ticketFinishedMomentById, cutoff);
-      DomUtil.setMarkup(EPICS_BOARD_ELEMENT_ID, EpicMarkup.epicCardsMarkup(shownEpics, ticketById, dependencyGraph, {
+      DomUtil.setMarkup(EPICS_BOARD_ELEMENT_ID, EpicMarkup.epicsTabMarkup(shownEpics, ticketById, dependencyGraph, {
         limits,
         todayCalendarDate,
         nowEpochMilliseconds: Date.now(),
-      }));
+      }, finishedWork));
     }
   };
 

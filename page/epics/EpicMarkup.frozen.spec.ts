@@ -1,8 +1,9 @@
 /**
- * All ten `EpicMarkup` exports, frozen before the chips, swatches, squares and roll-up moved onto the shared group marks. A changed
- * attribute or title word would pass the behaviour specs' substring checks, so each output is held byte for byte. Taken at 9802bfd (main)
- * by running `page/testing/EpicMarkFrozenCases.ts`; retake only in a commit meant to change the epic marks, with `bun -e 'import {
- * epicMarkFrozenCases } from "./page/testing/EpicMarkFrozenCases.ts"; await Bun.write("page/testing/FrozenEpicMarks.json",
+ * Every `EpicMarkup` export, frozen before the chips, swatches, squares and roll-up moved onto the shared group marks. A changed
+ * attribute or title word would pass the behaviour specs' substring checks, so each output is held byte for byte. Taken at 9802bfd (main),
+ * `epicsTabMarkup` added on the commit that gave the Epics tab its empty state, by running `page/testing/EpicMarkFrozenCases.ts`;
+ * retake only in a commit meant to change the epic marks, with `bun -e 'import { epicMarkFrozenCases } from
+ * "./page/testing/EpicMarkFrozenCases.ts"; await Bun.write("page/testing/FrozenEpicMarks.json",
  * JSON.stringify(epicMarkFrozenCases(), null, 2) + "\n")'` at the repository root.
  */
 

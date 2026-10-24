@@ -9,8 +9,10 @@ import { TokenCountUtil }              from '../../src/lib/token-count/TokenCoun
 import type { DependencyGraph }        from '../@types/DependencyGraph.ts';
 import type { GroupMarkupFormat }      from '../@types/GroupMarks.ts';
 import type { BoardEpic, BoardTicket } from '../@types/PageBoard.ts';
+import type { FinishedWorkChoice }     from '../@types/ViewerChoices.ts';
 import { filterChipMarkup }            from '../chips/FilterChipMarkup.ts';
 import { DetailMarkupUtil }            from '../detail-dialog/utils/DetailMarkupUtil.ts';
+import { FinishedWorkUtil }            from '../utils/FinishedWorkUtil.ts';
 import { MarkupUtil }                  from '../utils/MarkupUtil.ts';
 import { EpicDependencyMarkup }        from './EpicDependencyMarkup.ts';
 import { EpicGroupMarks }              from './EpicGroupMarks.ts';
@@ -114,6 +116,20 @@ function epicCardsMarkup(
   return epicsInShownOrder(epics).map((epic) => epicCardMarkup(epic, ticketById, graph, format)).join('');
 }
 
+/** The Epics tab's content: the shown epics' cards, or one empty-state line naming the window when the switch hid them all. */
+function epicsTabMarkup(
+  shownEpics: readonly BoardEpic[],
+  ticketById: ReadonlyMap<string, BoardTicket>,
+  graph: DependencyGraph,
+  format: EpicMarkupFormat,
+  finishedWork: FinishedWorkChoice
+): string {
+  if (shownEpics.length === 0) {
+    return `<div class="ap-empty">${HtmlEscapeUtil.escapeHtml(`No epic finished ${FinishedWorkUtil.windowPhraseOf(finishedWork)}.`)}</div>`;
+  }
+  return epicCardsMarkup(shownEpics, ticketById, graph, format);
+}
+
 /** The Tickets table's head row of one epic's tickets, or of the tickets in none when `epic` is null. */
 function epicGroupRowMarkup(epic: BoardEpic | null, columnCount: number, format: EpicMarkupFormat): string {
   if (epic === null) {
@@ -146,6 +162,7 @@ export const EpicMarkup = {
   epicsInShownOrder,
   epicDetailMarkup,
   epicCardsMarkup,
+  epicsTabMarkup,
   epicGroupRowMarkup,
   epicFilterChipsMarkup,
   epicStripRollupMarkup,
