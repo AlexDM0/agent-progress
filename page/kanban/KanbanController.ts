@@ -9,6 +9,7 @@ import type { FinishedWorkChoice, ViewerPreferences }                           
 import { KANBAN_BOARD_ELEMENT_ID, KANBAN_FRAME_ELEMENT_ID, SUMMARY_ELEMENT_ID } from '../constants/TemplateIds.ts';
 import { TemplateIdUtil }                                                       from '../utils/TemplateIdUtil.ts';
 import type { DurationUnits, TimestampSlices }                                  from '../utils/TimeUtil.ts';
+import type { KanbanDraft }                                                     from './DraftCardModel.ts';
 import { createKanbanDependencyArrowController }                                from './KanbanDependencyArrowController.ts';
 import { kanbanBoardMarkup }                                                    from './KanbanMarkup.ts';
 import { createKanbanTodoOrderController }                                      from './KanbanTodoOrderController.ts';
@@ -31,6 +32,8 @@ export interface KanbanControllerSources {
   showAllFinishedWork:         () => void;
   dependencyGraph:             DependencyGraph;
   readyTicketIds:              ReadonlySet<string>;
+  /** Shown at the top of To do whatever the epic filter and the finished-work switch let through, since a draft has neither. */
+  drafts:                      readonly KanbanDraft[];
   boardHasDependencies:        boolean;
 }
 
@@ -58,6 +61,7 @@ export function createKanbanController(sources: KanbanControllerSources): Kanban
     showAllFinishedWork,
     dependencyGraph,
     readyTicketIds,
+    drafts,
   } = sources;
   let visibleCards: readonly KanbanCard[] = [];
   let abandonedLaneIsOpen                 = preferences.readAbandonedLaneIsOpen();
@@ -84,6 +88,7 @@ export function createKanbanController(sources: KanbanControllerSources): Kanban
   function showKanban(): void {
     laneBoard.showBoard(kanbanBoardMarkup({
       cards:                   visibleCards,
+      drafts,
       nowEpochMilliseconds:    readNowEpochMilliseconds(),
       todayCalendarDate:       readTodayCalendarDate(),
       slices,

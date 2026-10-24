@@ -1,14 +1,18 @@
-import type { EpicRollup } from '../../src/lib/tracker-model/@types/Epic.ts';
-import type { Task }       from '../../src/lib/tracker-model/@types/Task.ts';
-import { VocabularyUtil }  from '../../src/lib/tracker-model/utils/VocabularyUtil.ts';
+import type { DraftQuestion, DraftState, DraftSummary } from '../../src/lib/tracker-model/@types/Draft.ts';
+import type { EpicRollup }                              from '../../src/lib/tracker-model/@types/Epic.ts';
+import type { Task }                                    from '../../src/lib/tracker-model/@types/Task.ts';
+import { DraftIdUtil }                                  from '../../src/lib/tracker-model/utils/DraftIdUtil.ts';
+import { VocabularyUtil }                               from '../../src/lib/tracker-model/utils/VocabularyUtil.ts';
 import type {
   PageBoardFacts,
+  PageDraftRequest,
   PageEpicDescription,
   PagePayload,
   PageTicket,
   PageTicketFacts,
 } from '../../src/shared/@types/PagePayload.ts';
 import type {
+  BoardDraft,
   BoardEpic,
   BoardRow,
   BoardTicket,
@@ -32,6 +36,8 @@ const REQUIRED_LIMIT_NAMES = [
   'clockSliceStart',
   'clockSliceEnd',
 ] as const;
+
+const DRAFT_STATES: readonly DraftState[] = ['waiting', 'researching', 'resumable'];
 
 function rowPositionIsValid(value: unknown, rowCount: number): boolean {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && value < rowCount;
@@ -155,12 +161,65 @@ function boardEpicsFrom(epicRollups: unknown, epicDescriptions: unknown): BoardE
     .map((rollup) => ({ ...rollup, descriptionHtml: descriptionHtmlByKey.get(rollup.key) ?? '' }));
 }
 
+function textListIsValid(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
+}
+
+function draftAnswerIsValid(value: unknown): boolean {
+  return value === null || (JsonValueUtil.valueIsRecord(value) && (textListIsValid(value['letters']) || typeof value['text'] === 'string'));
+}
+
+function draftQuestionIsValid(value: unknown): value is DraftQuestion {
+  if (!JsonValueUtil.valueIsRecord(value)) {
+    return false;
+  }
+  const { options, followUps } = value;
+  return typeof value['id'] === 'string'
+    && typeof value['question'] === 'string'
+    && typeof value['context'] === 'string'
+    && Array.isArray(options)
+    && options.every((option) => JsonValueUtil.valueIsRecord(option) && typeof option['letter'] === 'string' && typeof option['text'] === 'string')
+    && typeof value['multiple'] === 'boolean'
+    && textListIsValid(value['recommended'])
+    && draftAnswerIsValid(value['answer'])
+    && Array.isArray(followUps)
+    && followUps.every(draftQuestionIsValid);
+}
+
+function draftSummaryIsUsable(value: unknown): value is DraftSummary {
+  if (!JsonValueUtil.valueIsRecord(value)) {
+    return false;
+  }
+  const { id, questions } = value;
+  return typeof id === 'string' && DraftIdUtil.draftNumberOf(id) !== null
+    && typeof value['title'] === 'string'
+    && (value['claimOwner'] === null || typeof value['claimOwner'] === 'string')
+    && typeof value['openedAt'] === 'string'
+    && DRAFT_STATES.some((state) => state === value['state'])
+    && JsonValueUtil.finiteNumberOrNull(value['openQuestionCount']) !== null
+    && Array.isArray(questions)
+    && questions.every(draftQuestionIsValid);
+}
+
+/** An unusable draft is dropped like an unusable ticket entry, so one bad draft never takes the other cards down with it. */
+function boardDraftsFrom(draftSummaries: unknown, draftRequests: unknown): BoardDraft[] {
+  const requests         = Array.isArray(draftRequests) ? draftRequests : [];
+  const requestByDraftId = new Map(requests.flatMap((entry): Array<[string, string]> => (
+    JsonValueUtil.valueIsRecord(entry) && typeof entry['id'] === 'string' && typeof entry['request'] === 'string' ? [[entry['id'], entry['request']]] : [])));
+  return (Array.isArray(draftSummaries) ? draftSummaries : [])
+    .filter(draftSummaryIsUsable)
+    .map((summary) => ({ ...summary, request: requestByDraftId.get(summary.id) ?? '' }))
+    .toSorted((a, b) => (DraftIdUtil.draftNumberOf(a.id) ?? 0) - (DraftIdUtil.draftNumberOf(b.id) ?? 0));
+}
+
 function pageBoardFrom(
   tasks: readonly Task[],
   boardFacts: PageBoardFacts,
   tickets: readonly PageTicket[],
   epicDescriptions: readonly PageEpicDescription[] = [],
+  draftRequests: readonly PageDraftRequest[] = [],
 ): PageBoard {
+  const drafts    = boardDraftsFrom(boardFacts.drafts, draftRequests);
   const epics     = boardEpicsFrom(boardFacts.epics, epicDescriptions);
   const epicByKey = new Map(epics.map((epic) => [epic.key, epic]));
   const rows = tasks.map((task, position): BoardRow => {
@@ -203,7 +262,7 @@ function pageBoardFrom(
 
   const readyTicketIds = new Set(boardFacts.readyTickets.filter((entry) => entry.held !== true).map((entry) => entry.id));
   return {
-    rows, tickets: boardTickets, epics, readyTicketIds
+    drafts, rows, tickets: boardTickets, epics, readyTicketIds
   };
 }
 

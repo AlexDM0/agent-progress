@@ -121,6 +121,7 @@ describe('the filed bar outside the dialog', () => {
     })), { slices: EXAMPLE_PAGE_LIMITS, todayCalendarDate: EXAMPLE_TODAY, reviewRowsAreShown: false });
     const board   = kanbanBoardMarkup({
       cards:                   [cardFor(DELIVERED_TICKET), cardFor(WAITING_TICKET)],
+      drafts:                  [],
       nowEpochMilliseconds:    EXAMPLE_NOW,
       todayCalendarDate:       EXAMPLE_TODAY,
       slices:                  EXAMPLE_PAGE_LIMITS,

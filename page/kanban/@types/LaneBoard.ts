@@ -66,7 +66,8 @@ export interface LaneCardHeldCount {
 
 export interface LaneCardHead {
   idText:         string;
-  priority:       TicketPriority;
+  /** Null on a card that is not a ticket's, which shows no priority mark. */
+  priority:       TicketPriority | null;
   /** Null on a card that is not a ticket's, which shows no type mark. */
   ticketType:     TicketType | null;
   /** Markup after the type mark, already escaped by its producer. */

@@ -2,6 +2,7 @@
  * A Board over synthetic records, with a logger that keeps every record in a list, for the Board's specs to assert reason codes, records
  * and changed tickets against. Test-only: nothing that ships may import `src/testing/`.
  */
+import type { Draft }                     from '../lib/tracker-model/@types/Draft.ts';
 import type { Epic, EpicFrontmatter }     from '../lib/tracker-model/@types/Epic.ts';
 import type { LogRecord }                 from '../lib/tracker-model/@types/LogRecord.ts';
 import type { Task }                      from '../lib/tracker-model/@types/Task.ts';
@@ -71,7 +72,7 @@ export function epicFixture(overrides: Partial<EpicFrontmatter> = {}): Epic {
 }
 
 /** The next task id is one past the highest row handed in, as a tracker that filed those rows itself would hold. */
-export function boardFixture(contents: { tasks?: Task[]; tickets?: Ticket[]; epics?: Epic[]; concurrencyLimit?: number } = {}): BoardFixture {
+export function boardFixture(contents: { tasks?: Task[]; tickets?: Ticket[]; epics?: Epic[]; drafts?: Draft[]; concurrencyLimit?: number } = {}): BoardFixture {
   const tasks      = contents.tasks ?? [];
   const tickets    = contents.tickets ?? [];
   const epics      = contents.epics ?? [];
@@ -86,7 +87,7 @@ export function boardFixture(contents: { tasks?: Task[]; tickets?: Ticket[]; epi
     tasks,
   };
   const board = new Board({
-    progress, tickets, epics, logger: createLogger((record) => records.push(record))
+    progress, tickets, epics, drafts: contents.drafts ?? [], logger: createLogger((record) => records.push(record))
   });
   return {
     board,

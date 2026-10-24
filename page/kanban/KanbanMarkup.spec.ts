@@ -79,6 +79,7 @@ function boardInput(tickets: readonly PageTicket[], tasks: readonly Task[], chan
   const boardTickets  = board.tickets;
   return {
     cards:                   KanbanLaneUtil.kanbanCardsFor(boardTickets, waitingOnById),
+    drafts:                  board.drafts,
     todoOrder:               'filed',
     dependencyGraph:         DependencyGraphUtil.dependencyGraphOf(boardTickets, EXAMPLE_BOARD_SLOTS),
     readyTicketIds:          board.readyTicketIds,

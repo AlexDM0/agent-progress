@@ -1,3 +1,4 @@
+import type { DraftSummary }       from '../../src/lib/tracker-model/@types/Draft.ts';
 import type { EpicRollup }         from '../../src/lib/tracker-model/@types/Epic.ts';
 import type { DisplayState, Task } from '../../src/lib/tracker-model/@types/Task.ts';
 import type { TicketType }         from '../../src/lib/tracker-model/@types/Ticket.ts';
@@ -28,7 +29,14 @@ export interface BoardTicket extends PageTicket {
   memberOfEpics: readonly BoardEpic[];
 }
 
+/** An open draft's summary with its request, empty when the island carries none for it. */
+export interface BoardDraft extends DraftSummary {
+  request: string;
+}
+
 export interface PageBoard {
+  /** Every open draft the island could read, in draft-number order. */
+  drafts:         readonly BoardDraft[];
   rows:           readonly BoardRow[];
   tickets:        readonly BoardTicket[];
   /** Ordered by key, as the Board rolls them up. */

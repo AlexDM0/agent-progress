@@ -22,6 +22,7 @@ import type { LaneCardModel }              from './@types/LaneBoard.ts';
 import type { LaneFooter }                 from './@types/LaneBoard.ts';
 import type { LaneModel }                  from './@types/LaneBoard.ts';
 import type { LaneSubtitle }               from './@types/LaneBoard.ts';
+import { draftCardModelOf }                from './DraftCardModel.ts';
 import { laneSubCountsOf, subStateNoteOf } from './KanbanLaneText.ts';
 import { workStampOf }                     from './KanbanLaneText.ts';
 import type { ClosedKanbanLane }           from './constants/KanbanBoardLayout.ts';
@@ -241,21 +242,30 @@ function stateGroupsOf(lane: KanbanLane, shown: readonly KanbanCard[], format: K
   return groups;
 }
 
+function ticketGroupsOf(lane: KanbanLane, members: readonly KanbanCard[], shown: readonly KanbanCard[], input: KanbanBoardInput): LaneCardGroup[] {
+  const format = kanbanCardFormatOf(input);
+  if (todoIsByWave(lane, input)) {
+    return todoWaveGroupsOf(shown, format, input.readyTicketIds);
+  }
+  if (KanbanLaneUtil.laneIsDividedByState(lane)) {
+    return stateGroupsOf(lane, shown, format);
+  }
+  if (KanbanLaneUtil.laneIsDividedByPriority(lane, members)) {
+    return priorityGroupsOf(lane, shown, format);
+  }
+  return [{ kind: 'plain', cards: shown.map((card) => kanbanCardModelOf(card, lane, format)) }];
+}
+
+/** To do's draft cards come before its first group, whichever order the lane is in; a lane holding only drafts shows no empty text. */
 function laneBodyOf(lane: KanbanLane, members: readonly KanbanCard[], shown: readonly KanbanCard[], input: KanbanBoardInput): LaneBody {
+  const draftCards = lane === 'todo' ? input.drafts.map(draftCardModelOf) : [];
+  if (draftCards.length > 0) {
+    return { kind: 'groups', groups: [{ kind: 'plain', cards: draftCards }, ...shown.length === 0 ? [] : ticketGroupsOf(lane, members, shown, input)] };
+  }
   if (shown.length === 0) {
     return { kind: 'empty', text: KanbanLaneUtil.laneIsClosed(lane) ? emptyClosedLaneText(lane, input.finishedWork) : EMPTY_LANE_TEXT[lane] };
   }
-  const format = kanbanCardFormatOf(input);
-  if (todoIsByWave(lane, input)) {
-    return { kind: 'groups', groups: todoWaveGroupsOf(shown, format, input.readyTicketIds) };
-  }
-  if (KanbanLaneUtil.laneIsDividedByState(lane)) {
-    return { kind: 'groups', groups: stateGroupsOf(lane, shown, format) };
-  }
-  if (KanbanLaneUtil.laneIsDividedByPriority(lane, members)) {
-    return { kind: 'groups', groups: priorityGroupsOf(lane, shown, format) };
-  }
-  return { kind: 'groups', groups: [{ kind: 'plain', cards: shown.map((card) => kanbanCardModelOf(card, lane, format)) }] };
+  return { kind: 'groups', groups: ticketGroupsOf(lane, members, shown, input) };
 }
 
 /** The paging while the lane holds more than a page, then what the finished-work switch leaves out of it; `null` when there is neither. */

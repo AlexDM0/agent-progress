@@ -1,8 +1,9 @@
 /**
  * One fixture board drawn whole by `page/kanban/KanbanMarkup.ts` under each view the viewer can choose: every lane, To do by priority and
- * by wave, Abandoned closed and open, the Done paging footer with its hidden line, and the empty lanes. `KanbanMarkup.frozen.spec.ts`
+ * by wave, Abandoned closed and open, the Done paging footer with its hidden line, the empty lanes and the open drafts. `KanbanMarkup.frozen.spec.ts`
  * compares it against `page/testing/FrozenKanbanBoards.json`. Test-only: nothing that ships may import `page/testing/`.
  */
+import type { Draft }            from '../../src/lib/tracker-model/@types/Draft.ts';
 import type { EpicFrontmatter }  from '../../src/lib/tracker-model/@types/Epic.ts';
 import type { Task }             from '../../src/lib/tracker-model/@types/Task.ts';
 import type { PageTicket }       from '../../src/shared/@types/PagePayload.ts';
@@ -10,6 +11,8 @@ import type { KanbanBoardInput } from '../kanban/@types/KanbanBoardInput.ts';
 import { kanbanBoardMarkup }     from '../kanban/KanbanMarkup.ts';
 import { KanbanLaneUtil }        from '../kanban/utils/KanbanLaneUtil.ts';
 import { DependencyGraphUtil }   from '../utils/DependencyGraphUtil.ts';
+import { exampleDraft }          from './DraftFixture.ts';
+import { exampleQuestion }       from './DraftFixture.ts';
 import { pageBoardFixture }      from './PageBoardFixture.ts';
 import { EXAMPLE_PAGE_LIMITS }   from './PageLimitsFixture.ts';
 
@@ -148,11 +151,26 @@ const DELIVERED_ROWS: Task[] = DELIVERED_TICKETS.map((ticket, index) => exampleR
   ...index === 0 ? { reviewed: at('09:10') } : {},
 }));
 
-function boardInputOf(tickets: readonly PageTicket[], tasks: readonly Task[], changes: Partial<KanbanBoardInput> = {}): KanbanBoardInput {
+/** Stored out of number order, which the cards must not follow; D2 waits on one open question, D3 on nobody. */
+const DRAFTS: Draft[] = [
+  exampleDraft('D10', { title: 'Tenth <draft> & "quotes"' }),
+  exampleDraft('D2', { title: 'Second draft', questions: [exampleQuestion('Q1')], nextQuestionNumber: 2 }),
+  exampleDraft('D3', { title: 'Third draft', claim: null }),
+];
+
+function boardInputOf(
+  tickets: readonly PageTicket[],
+  tasks: readonly Task[],
+  changes: Partial<KanbanBoardInput> = {},
+  drafts: readonly Draft[] = [],
+): KanbanBoardInput {
   const waitingOnById = new Map(tickets.flatMap((ticket) => (ticket.dependsOn === undefined ? [] : [[ticket.id, ticket.dependsOn]])));
-  const board         = pageBoardFixture({ tasks, tickets, epics: EPICS });
+  const board         = pageBoardFixture({
+    tasks, tickets, epics: EPICS, drafts
+  });
   return {
     cards:                   KanbanLaneUtil.kanbanCardsFor(board.tickets, waitingOnById),
+    drafts:                  board.drafts,
     todoOrder:               'filed',
     dependencyGraph:         DependencyGraphUtil.dependencyGraphOf(board.tickets, EXAMPLE_BOARD_SLOTS),
     readyTicketIds:          board.readyTicketIds,
@@ -181,5 +199,8 @@ export function kanbanBoardFrozenCases(): Record<string, string> {
     })),
     'every lane empty, finished work from the last day':  kanbanBoardMarkup(boardInputOf([], [])),
     'every lane empty, all finished work, To do by wave': kanbanBoardMarkup(boardInputOf([], [], { finishedWork: 'all', todoOrder: 'by-wave' })),
+    'open drafts above the To do tickets, by priority':   kanbanBoardMarkup(boardInputOf(FULL_TICKETS, FULL_ROWS, {}, DRAFTS)),
+    'open drafts above the To do tickets, by wave':       kanbanBoardMarkup(boardInputOf(FULL_TICKETS, FULL_ROWS, { todoOrder: 'by-wave' }, DRAFTS)),
+    'open drafts in an otherwise empty To do':            kanbanBoardMarkup(boardInputOf([], [], {}, DRAFTS)),
   };
 }

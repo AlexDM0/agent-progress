@@ -4,23 +4,24 @@
  * script tag; `generatedAt` is a parameter, not a clock.
  */
 
-import { readFileSync }                                  from 'node:fs';
-import { ProgressFileMappingUtil }                       from '../../adapters/progress/utils/ProgressFileMappingUtil.ts';
-import { LogUtil }                                       from '../../adapters/utils/LogUtil.ts';
-import { HtmlEscapeUtil }                                from '../../lib/html-escape/HtmlEscapeUtil.ts';
-import type { Epic }                                     from '../../lib/tracker-model/@types/Epic.ts';
-import type { LogRecord }                                from '../../lib/tracker-model/@types/LogRecord.ts';
-import type { Ticket }                                   from '../../lib/tracker-model/@types/Ticket.ts';
-import type { TrackerProgress }                          from '../../lib/tracker-model/@types/TrackerProgress.ts';
-import type { PageConcurrency, PagePayload, PageTicket } from '../../shared/@types/PagePayload.ts';
-import { resourceFilePathOf }                            from '../../shared/ResourceFilePath.ts';
-import { LIMITS }                                        from '../../shared/constants/Limits.ts';
-import { TIME_UNITS }                                    from '../../shared/constants/TimeUnits.ts';
-import { TIMESTAMP_SLICES }                              from '../../shared/constants/TimestampSlices.ts';
-import { withAcceptanceItemsSeparated }                  from './MarkdownRenderer.ts';
-import { substituteTemplateTokens }                      from './TemplateTokenSubstitution.ts';
-import { TEMPLATE_FILE_NAME, TEMPLATE_TOKENS }           from './constants/TemplateFile.ts';
-import { PageScriptTextUtil }                            from './utils/PageScriptTextUtil.ts';
+import { readFileSync }                           from 'node:fs';
+import { ProgressFileMappingUtil }                from '../../adapters/progress/utils/ProgressFileMappingUtil.ts';
+import { LogUtil }                                from '../../adapters/utils/LogUtil.ts';
+import { HtmlEscapeUtil }                         from '../../lib/html-escape/HtmlEscapeUtil.ts';
+import type { Epic }                              from '../../lib/tracker-model/@types/Epic.ts';
+import type { LogRecord }                         from '../../lib/tracker-model/@types/LogRecord.ts';
+import type { Ticket }                            from '../../lib/tracker-model/@types/Ticket.ts';
+import type { TrackerProgress }                   from '../../lib/tracker-model/@types/TrackerProgress.ts';
+import type { PageConcurrency, PageDraftRequest } from '../../shared/@types/PagePayload.ts';
+import type { PagePayload, PageTicket }           from '../../shared/@types/PagePayload.ts';
+import { resourceFilePathOf }                     from '../../shared/ResourceFilePath.ts';
+import { LIMITS }                                 from '../../shared/constants/Limits.ts';
+import { TIME_UNITS }                             from '../../shared/constants/TimeUnits.ts';
+import { TIMESTAMP_SLICES }                       from '../../shared/constants/TimestampSlices.ts';
+import { withAcceptanceItemsSeparated }           from './MarkdownRenderer.ts';
+import { substituteTemplateTokens }               from './TemplateTokenSubstitution.ts';
+import { TEMPLATE_FILE_NAME, TEMPLATE_TOKENS }    from './constants/TemplateFile.ts';
+import { PageScriptTextUtil }                     from './utils/PageScriptTextUtil.ts';
 
 interface PageTemplateFillInput {
   progress:          TrackerProgress;
@@ -32,6 +33,8 @@ interface PageTemplateFillInput {
   generatedAt:       Date;
   concurrency:       PageConcurrency;
   boardFacts:        PagePayload['boardFacts'];
+  /** Absent reads as no open draft. */
+  draftRequests?:    PageDraftRequest[];
   renderMarkdown:    (markdown: string) => string;
 }
 
@@ -74,6 +77,7 @@ export function fillPageTemplate(input: PageTemplateFillInput): string {
     generatedAt,
     concurrency,
     boardFacts,
+    draftRequests = [],
     renderMarkdown,
   } = input;
   // Read per call, never at module load.
@@ -86,6 +90,7 @@ export function fillPageTemplate(input: PageTemplateFillInput): string {
     concurrency:                  { limit: concurrency.limit, agentsInFlight: concurrency.agentsInFlight },
     pageScriptFailure,
     epicDescriptions:             epics.map((epic) => ({ key: epic.frontmatter.key, descriptionHtml: renderMarkdown(epic.body) })),
+    ...draftRequests.length === 0 ? {} : { draftRequests },
     // Last, so every byte of the island before it stays where it was.
     boardFacts,
   };

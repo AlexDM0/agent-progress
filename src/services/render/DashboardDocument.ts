@@ -53,6 +53,7 @@ export async function renderDashboardDocument(input: DashboardDocumentInput, ren
     generatedAt,
     concurrency:    board.concurrency(),
     boardFacts:     boardFactsOf(board),
+    draftRequests:  (input.drafts ?? []).map((draft) => ({ id: draft.id, request: draft.request })),
     renderMarkdown: renderState.markdownRenderer.renderMarkdown,
   });
   return { document, pageScriptFailure };

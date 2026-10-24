@@ -20,9 +20,9 @@ export interface StoredViewOverride {
   tickMinutes: number | null;
 }
 
-export type DetailTargetKind = 'task' | 'ticket' | 'kanban-card' | 'epic';
+export type DetailTargetKind = 'task' | 'ticket' | 'kanban-card' | 'epic' | 'draft';
 
-/** What the detail panel shows: a Progress row by task id, a ticket line or a Kanban card by ticket id, or an epic by key. */
+/** What the detail panel shows: a Progress row by task id, a ticket line or a Kanban card by ticket id, an epic by key, or a draft by id. */
 export interface DetailTarget {
   kind: DetailTargetKind;
   id:   string;

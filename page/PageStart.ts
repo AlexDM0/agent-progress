@@ -109,7 +109,7 @@ function waitingOnByTicketIdOf(tickets: readonly BoardTicket[]): Map<string, rea
 
 function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   const { progress, limits } = payload;
-  const board                = IslandUtil.pageBoardFrom(progress.tasks, payload.boardFacts, tickets, payload.epicDescriptions);
+  const board                = IslandUtil.pageBoardFrom(progress.tasks, payload.boardFacts, tickets, payload.epicDescriptions, payload.draftRequests);
   const waitingOnById        = waitingOnByTicketIdOf(board.tickets);
   const preferences          = createViewerPreferences(progress.trackerId, BROWSER_STORAGE_AREAS.local);
   const progressController   = createGanttChartController({
@@ -158,6 +158,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   const kanbanController = createKanbanController({
     dependencyGraph,
     readyTicketIds:              board.readyTicketIds,
+    drafts:                      board.drafts,
     boardHasDependencies,
     slices:                      limits,
     preferences,
@@ -188,6 +189,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     rows:                  board.rows,
     tickets:               board.tickets,
     epics:                 board.epics,
+    drafts:                board.drafts,
     log:                   progress.log,
     limits,
     readTodayCalendarDate: () => todayCalendarDate,

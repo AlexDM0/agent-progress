@@ -14,6 +14,7 @@ import { TRACKER_DETAIL_LINK_OPENERS, trackerDetailTargetsOf } from './DetailDia
 const FROZEN_OPENER_SELECTORS = {
   'task':        '#ap-rows > .ap-row[data-task-id]',
   'ticket':      '#ap-ticket-rows > tr[data-ticket-id]',
+  'draft':       '#ap-kanban .ap-kanban-card[data-draft-id]',
   'kanban-card': '#ap-kanban .ap-kanban-card',
   'epic':        null,
 };
@@ -21,6 +22,7 @@ const FROZEN_OPENER_SELECTORS = {
 const FROZEN_SELECTORS_FOR_X = {
   'task':        '#ap-rows > .ap-row[data-task-id][data-task-id="X"]',
   'ticket':      '#ap-ticket-rows > tr[data-ticket-id][data-ticket-id="X"]',
+  'draft':       '#ap-kanban .ap-kanban-card[data-draft-id][data-draft-id="X"]',
   'kanban-card': '#ap-kanban .ap-kanban-card[data-ticket-id="X"]',
   'epic':        '#ap-epics [data-open-epic="X"]',
 };
@@ -34,6 +36,7 @@ const TARGETS = trackerDetailTargetsOf({
   rows:                  [],
   tickets:               [],
   epics:                 [],
+  drafts:                [],
   log:                   [],
   limits:                EXAMPLE_PAGE_LIMITS,
   readTodayCalendarDate: () => '2026-10-07',
@@ -55,6 +58,6 @@ describe('the tracker page detail registration table, frozen', () => {
   });
 
   test('an id the board does not hold has nothing to open', () => {
-    expect(Object.values(TARGETS).map((registration) => registration.markupOf('404'))).toEqual(['', '', '', '']);
+    expect(Object.values(TARGETS).map((registration) => registration.markupOf('404'))).toEqual(['', '', '', '', '']);
   });
 });

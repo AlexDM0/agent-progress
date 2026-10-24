@@ -326,7 +326,8 @@
                                  second click on the open item close it
  #ap-detail-body          html   the panel's contents: .ap-detail-head then one
                                  .ap-detail-section per part (Task, Phases, Ticket, Log), or for a
-                                 card the ticket body (see "ticket body markup"), or for an epic
+                                 card the ticket body (see "ticket body markup"), for a draft card
+                                 the draft (see "draft markup"), or for an epic
                                  .ap-epic-detail[data-epic-slot]: the head, key and ticket count,
                                  then Progress (the roll-up), Description and Tickets
  #ap-detail-close         el     the panel's close button
@@ -410,7 +411,13 @@
                           [data-elapsed-since] (epoch ms) the page ticks every second while live; "paused
                           1h 51m" and "waiting 16m" on the waiting ones, "built 10:40" in Awaiting merge,
                           else the newest milestone ("started 11:00")
- hover arrows            hovering a card sets [data-needed-first] on the cards it depends on and
+ draft card               an open draft: article.ap-kanban-card[data-draft-id="D7"][data-state="draft"]
+                          [data-row="none"][tabindex="0"] at the top of To do, before every group and
+                          wave in both orders, D-number ascending; no lane of its own. Its head holds
+                          only .ap-ticket-id "D7", then .ap-kanban-title, .ap-kanban-note with the state
+                          ("Researching", "Waiting on you · N open questions", "Ready to resume") and an
+                          empty .ap-kanban-state; dashed and unfilled in the draft colours, no bar
+ hover arrows           hovering a card sets [data-needed-first] on the cards it depends on and
                           adds svg.ap-kanban-arrows[data-still?] to #ap-kanban-frame: per arrow a
                           g[data-route] of path.ap-kanban-arrow-line and path.ap-kanban-arrow-head;
                           leaving the board removes both
@@ -448,6 +455,18 @@
                           in that state once closed; a tick label it covers gets data-covered
                           after showModal() and on resize
  Description section      .ap-ticket-body.md holding the ticket's rendered body
+ ------------------------------------------------------------- draft markup ---
+ .ap-detail-head[data-state="draft"]  .ap-detail-id "D7", h2.ap-detail-title, .ap-pill with the state word
+ .ap-ticket-meta          claimed by (the owner, or "nobody"), opened, waiting on you ("N open questions")
+ Request section          p.ap-draft-request: the user's request byte for byte, white space kept
+ Questions section        ol.ap-draft-questions > li.ap-draft-question[data-question-id][data-open?]: a
+                          p.ap-draft-question-head (.ap-ticket-id "Q1", .ap-draft-question-text,
+                          .ap-draft-mark[data-mark="multiple"] "multi-select" on a multi-select question),
+                          p.ap-draft-context?, ol.ap-draft-options > li.ap-draft-option[data-recommended?]
+                          [data-chosen?] (.ap-draft-option-letter, .ap-draft-option-text, then
+                          .ap-draft-mark[data-mark="recommended"|"chosen"]), p.ap-draft-answer[data-open?]
+                          ("answer" then the chosen letters, the free text, or "open"), then the
+                          follow-ups as a nested ol.ap-draft-questions; p.ap-empty while none is asked
  --------------------------------------------------------------------- states ---
  data-state = pending | in-progress | paused |    in-review    | reviewing |      re-review      |    reviewed    | delivered | abandoned
  label      =  To do  | In progress | Paused | Awaiting review | Reviewing | Reviewing (round N) | Awaiting merge |   Done    | Abandoned
@@ -458,6 +477,8 @@
  a lane or count over several states keeps its group name (Review, In progress, "in review")
  .ap-badge[data-state] = the ticket's display state, any of the above (Paused for a paused build, never
  the raw ticket status), its text the label
+ data-state = draft is no ticket state: it marks an open draft's card and detail head, its --s-* the
+ draft block in both themes
  -------------------------------------------------------------- script hooks ---
  --timeline-w   on #ap-chart: track column width. "1fr" = fill (no scroll);
                 set to a px value (e.g. 2400px) to make the timeline scroll.
@@ -638,6 +659,7 @@
 [data-state="reviewed"]    { --s-fill: oklch(0.7225 0.1545 151); --s-tint: oklch(0.96 0.04 151); --s-ink: oklch(0.448 0.1175 151); --s-edge: oklch(0.8125 0.097 151); }
 [data-state="delivered"]   { --s-fill: oklch(0.65 0.145 300);  --s-tint: oklch(0.957 0.030 300); --s-ink: oklch(0.44 0.125 300); --s-edge: oklch(0.80 0.075 300); }
 [data-state="abandoned"]   { --s-fill: oklch(0.80 0.006 265);  --s-tint: oklch(0.955 0.004 265); --s-ink: oklch(0.50 0.008 265); --s-edge: oklch(0.885 0.006 265); --s-head: var(--s-ink); }
+[data-state="draft"]       { --s-fill: oklch(0.70 0.10 15);    --s-tint: oklch(0.96 0.02 15);    --s-ink: oklch(0.47 0.11 15);    --s-edge: oklch(0.78 0.08 15); }
 
 /* Theme is resolved to data-theme="light"|"dark" on <html> by the head script,
    from the saved choice or the OS preference; the toggle rewrites it. */
@@ -695,6 +717,7 @@
 :root[data-theme="dark"] [data-state="reviewed"]    { --s-fill: oklch(0.72 0.135 155); --s-tint: oklch(0.32 0.055 155); --s-ink: oklch(0.89 0.060 155); --s-edge: oklch(0.50 0.080 155); }
 :root[data-theme="dark"] [data-state="delivered"]   { --s-fill: oklch(0.68 0.145 300); --s-tint: oklch(0.32 0.060 300); --s-ink: oklch(0.89 0.060 300); --s-edge: oklch(0.51 0.095 300); }
 :root[data-theme="dark"] [data-state="abandoned"]   { --s-fill: oklch(0.40 0.008 265); --s-tint: oklch(0.28 0.006 265); --s-ink: oklch(0.72 0.010 265); --s-edge: oklch(0.38 0.008 265); --s-head: var(--s-ink); }
+:root[data-theme="dark"] [data-state="draft"]       { --s-fill: oklch(0.70 0.10 15);   --s-tint: oklch(0.31 0.04 15);   --s-ink: oklch(0.88 0.06 15);   --s-edge: oklch(0.55 0.08 15); }
 
 * { box-sizing: border-box; }
 
@@ -1497,6 +1520,22 @@ a.ap-num:hover { color: var(--ink); }
 .ap-detail-section-title { font-size: var(--fs-micro); font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-muted); margin: 0 0 var(--sp-2); }
 .ap-detail .ap-ticket-meta { padding: 0; margin: 0 0 var(--sp-2); }
 .ap-detail .ap-ticket-body { padding: var(--sp-3) 0 0; margin: 0; border-top: 1px dashed var(--line); }
+/* A draft's panel: its request as the user wrote it, then its question tree, each follow-up indented under its parent's answer. */
+.ap-draft-request { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
+.ap-draft-questions { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
+.ap-draft-question .ap-draft-questions { margin-top: var(--sp-2); padding-left: var(--sp-3); border-left: 2px solid var(--line); }
+.ap-draft-question-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--sp-2); margin: 0; font-weight: 500; }
+.ap-draft-context { margin: 4px 0 0; font-size: var(--fs-small); color: var(--ink-muted); white-space: pre-wrap; }
+.ap-draft-options { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-small); }
+.ap-draft-option { display: flex; align-items: baseline; gap: var(--sp-2); }
+.ap-draft-option-letter { flex: none; width: 1.2em; font-family: var(--font-mono); color: var(--ink-muted); }
+.ap-draft-option[data-chosen] .ap-draft-option-text { font-weight: 600; }
+.ap-draft-mark { font: 500 var(--fs-micro)/1.5 var(--font-ui); padding: 0 6px; border: 1px solid var(--line-strong); border-radius: var(--r-1); color: var(--ink-muted); white-space: nowrap; }
+.ap-draft-mark[data-mark="recommended"] { border-color: var(--link); color: var(--link); }
+.ap-draft-mark[data-mark="chosen"] { background: var(--surface-2); color: var(--ink); }
+.ap-draft-answer { margin: 6px 0 0; font-size: var(--fs-small); }
+.ap-draft-answer b { font-weight: 500; color: var(--ink-muted); opacity: 0.75; margin-right: 4px; text-transform: uppercase; letter-spacing: 0.06em; font-size: var(--fs-micro); }
+.ap-draft-answer[data-open] { color: var(--warn-ink); }
 .ap-detail-ticket-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-2); }
 .ap-detail-ticket-head .ap-ticket-title { font-size: var(--fs-title); }
 .ap-detail-type { font-size: var(--fs-micro); text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-muted); }
@@ -1613,6 +1652,9 @@ a.ap-num:hover { color: var(--ink); }
     linear-gradient(to top, var(--s-fill) 0 7px, transparent 16px) left top / 3px 100% no-repeat,
     repeating-linear-gradient(180deg, var(--s-fill) 0 4px, transparent 4px 7px) left center / 3px calc(100% - 20px) no-repeat;
 }
+/* A draft being filed: dashed and unfilled like a waiting card, in the draft colours, with no bar since it has no row. */
+.ap-kanban-card[data-state="draft"] { background: var(--bg); border-style: dashed; border-color: var(--s-edge); }
+.ap-kanban-card[data-state="draft"]:hover { border-color: var(--s-fill); }
 /* An awaiting-review card's bar takes the Review lane's colour, the reviewing cyan, not the in-review blue. */
 :root .ap-kanban-card[data-state="in-review"] { --s-fill: var(--awaiting-review-fill); }
 .ap-kanban-card[data-state="abandoned"] .ap-kanban-title { text-decoration: line-through; color: var(--ink-muted); }

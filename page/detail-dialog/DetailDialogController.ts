@@ -1,8 +1,9 @@
-/** The tracker page's detail targets: which row, ticket line, Kanban card or epic link opens the panel, and what each fills it with. */
+/** The tracker page's detail targets: which row, ticket line, Kanban card, draft card or epic link opens the panel, and what each fills it with. */
 
 import type { PageLimits }                       from '../../src/shared/@types/PagePayload.ts';
 import type { IdentifiedLogEntry }               from '../../src/shared/@types/WordedLogEntry.ts';
 import type { KanbanCard }                       from '../@types/KanbanCard.ts';
+import type { BoardDraft }                       from '../@types/PageBoard.ts';
 import type { BoardEpic, BoardRow, BoardTicket } from '../@types/PageBoard.ts';
 import type { DetailTarget, DetailTargetKind }   from '../@types/ViewerChoices.ts';
 import {
@@ -18,6 +19,7 @@ import { EpicMarkup }                                      from '../epics/EpicMa
 import { GeometryUtil }                                    from '../utils/GeometryUtil.ts';
 import type { DetailLinkOpener, DetailTargetRegistration } from './@types/DetailTargetRegistration.ts';
 import { createDetailPanelController }                     from './DetailPanelController.ts';
+import { draftDetailMarkup }                               from './DraftDetail.ts';
 import { taskDetailMarkup }                                from './TaskDetail.ts';
 import { ticketDetailMarkup }                              from './TicketDetail.ts';
 
@@ -27,6 +29,7 @@ const EPICS_BOARD_ELEMENT_ID = 'ap-epics';
 const TASK_ROW_SELECTOR    = `#${TASK_ROWS_ELEMENT_ID} > .ap-row[data-task-id]`;
 const TICKET_ROW_SELECTOR  = `#${TICKET_ROWS_ELEMENT_ID} > tr[data-ticket-id]`;
 const KANBAN_CARD_SELECTOR = `#${KANBAN_BOARD_ELEMENT_ID} .ap-kanban-card`;
+const DRAFT_CARD_SELECTOR  = `#${KANBAN_BOARD_ELEMENT_ID} .ap-kanban-card[data-draft-id]`;
 
 const { chipOpenerAttribute, titleOpenerAttribute, itemOpenerAttribute } = EPIC_MARK_VOCABULARY;
 
@@ -34,6 +37,7 @@ export interface DetailDialogSources {
   rows:                  readonly BoardRow[];
   tickets:               readonly BoardTicket[];
   epics:                 readonly BoardEpic[];
+  drafts:                readonly BoardDraft[];
   log:                   readonly IdentifiedLogEntry[];
   limits:                PageLimits;
   readTodayCalendarDate: () => string;
@@ -98,6 +102,16 @@ export function trackerDetailTargetsOf(sources: DetailDialogSources): Readonly<R
       markupOf:       (ticketId) => {
         const ticket = ticketById.get(ticketId) ?? null;
         return detailMarkup(ticket?.ownRow ?? null, ticket);
+      },
+    },
+    // Before the Kanban card, whose selector a draft card matches too: the openers are matched in this order.
+    'draft': {
+      openerSelector: DRAFT_CARD_SELECTOR,
+      idOf:           (opener) => opener.dataset['draftId'] ?? '',
+      selectorFor:    (escapedId) => `${DRAFT_CARD_SELECTOR}[data-draft-id="${escapedId}"]`,
+      markupOf:       (draftId) => {
+        const draft = sources.drafts.find((candidate) => candidate.id === draftId);
+        return draft === undefined ? '' : draftDetailMarkup({ draft, todayCalendarDate: readTodayCalendarDate(), slices: limits });
       },
     },
     'kanban-card': {

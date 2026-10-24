@@ -19,7 +19,7 @@ import { DEFAULT_ABANDONED_LANE_CHOICE }                  from '../constants/Pre
 
 const ABANDONED_LANE_OPEN_CHOICE = 'open';
 
-const DETAIL_TARGET_KINDS: readonly DetailTargetKind[] = ['task', 'ticket', 'kanban-card', 'epic'];
+const DETAIL_TARGET_KINDS: readonly DetailTargetKind[] = ['task', 'ticket', 'kanban-card', 'epic', 'draft'];
 
 function detailTargetFrom(value: unknown): DetailTarget | null {
   if (!JsonValueUtil.valueIsRecord(value)) {

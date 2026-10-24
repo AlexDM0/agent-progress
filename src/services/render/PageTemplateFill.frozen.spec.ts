@@ -1,7 +1,7 @@
 /**
  * That `resources/template.html` filled with a fixed fixture stays byte for byte the page main rendered before the spec view's second
- * edition, both with a page script and with the banner-only fallback. The expected digests were retaken on the commit that gave the embedded header
- * its summary line and the tab row its filter menu. To retake them, check out the commit to
+ * edition, both with a page script and with the banner-only fallback. The expected digests were retaken on the commit that gave open drafts their
+ * dashed Kanban cards and detail panel. To retake them, check out the commit to
  * compare against, run this spec, and copy each actual digest its failure prints into `FROZEN_PAGE_DIGESTS`.
  */
 import { createHash } from 'node:crypto';
@@ -15,8 +15,8 @@ import { createMarkdownRenderer } from './MarkdownRenderer.ts';
 import { fillPageTemplate }       from './PageTemplateFill.ts';
 
 const FROZEN_PAGE_DIGESTS = {
-  withPageScript: '55c37ab92e21841dd43a634ab09cf1fe8335190ba2cea4f0e4f8df7522be7ee4',
-  bannerOnly:     '8e9388b30bb07bd356f55a7189e581b5a1aa26b6fb59c085948e141c5b694114',
+  withPageScript: '1eea25d64370666df0ef07c8a081f1df4135546843e1eb883137ae5cb2f62bd6',
+  bannerOnly:     'ce69a25efbac0c906ef213a04470dee664b4b0d33f943148756ab37176fe5230',
 } as const;
 
 const FROZEN_PROGRESS: TrackerProgress = {
