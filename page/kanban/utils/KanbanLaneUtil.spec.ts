@@ -115,11 +115,17 @@ describe('which lane a card sits in', () => {
 });
 
 describe('the kinds of lane', () => {
-  test('counts only Done and Abandoned as closed, and only In progress and Review as mixing states', () => {
+  test('counts only Done and Abandoned as closed, and only In progress and Review as divided by state', () => {
     const lanes: KanbanLane[] = ['todo', 'progress', 'review', 'merge', 'done', 'abandoned'];
 
     expect(lanes.filter((lane) => KanbanLaneUtil.laneIsClosed(lane))).toEqual(['done', 'abandoned']);
-    expect(lanes.filter((lane) => KanbanLaneUtil.laneMixesStates(lane))).toEqual(['progress', 'review']);
+    expect(lanes.filter((lane) => KanbanLaneUtil.laneIsDividedByState(lane))).toEqual(['progress', 'review']);
+  });
+
+  test('groups a repeat review with a first one, and gives no state outside In progress and Review a group', () => {
+    const states: DisplayState[] = ['pending', 'in-progress', 'paused', 'in-review', 'reviewing', 're-review', 'reviewed', 'delivered', 'abandoned'];
+
+    expect(states.map((state) => KanbanLaneUtil.stateGroupOf(state))).toEqual([null, 'building', 'paused', 'awaiting-review', 'reviewing', 'reviewing', null, null, null]);
   });
 });
 
@@ -148,6 +154,31 @@ describe('the order within a lane', () => {
     expect(KanbanLaneUtil.laneIsDividedByPriority('todo', cardsOfPriorities(['normal', 'normal']))).toBe(false);
     expect(KanbanLaneUtil.laneIsDividedByPriority('todo', cardsOfPriorities(['normal', 'low']))).toBe(true);
     expect(KanbanLaneUtil.laneIsDividedByPriority('done', cardsOfPriorities(['normal', 'low']))).toBe(false);
+    expect(KanbanLaneUtil.laneIsDividedByPriority('progress', cardsOfPriorities(['normal', 'low']))).toBe(false);
+  });
+
+  test('puts the working group before the waiting one in In progress and Review, each by priority then id', () => {
+    const cardInState = (id: string, state: DisplayState, priority: TicketPriority): KanbanCard => ({
+      ticket:     exampleTicket(id, { priority }),
+      ownRow:     null,
+      state,
+      reviewBars: [],
+      waitingOn:  [],
+      epics:      [],
+    });
+    const cards = [
+      cardInState('1', 'paused', 'high'),
+      cardInState('2', 'in-progress', 'low'),
+      cardInState('3', 'in-progress', 'high'),
+      cardInState('4', 'in-review', 'high'),
+      cardInState('5', 're-review', 'normal'),
+      cardInState('6', 'reviewing', 'low'),
+      cardInState('7', 'reviewing', 'high'),
+    ];
+    const idsOf = (lane: KanbanLane): string[] => KanbanLaneUtil.cardsInLane(cards, lane).map((card) => card.ticket.id);
+
+    expect(idsOf('progress')).toEqual(['3', '2', '1']);
+    expect(idsOf('review')).toEqual(['7', '5', '6', '4']);
   });
 
   test('puts Done newest first by its delivered stamp, a tie to the higher id', () => {

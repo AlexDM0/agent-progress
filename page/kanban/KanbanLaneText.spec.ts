@@ -1,6 +1,6 @@
 /**
- * The words a Kanban card and lane head print: each sub-state note appears only where its source exists, and the lane heads count
- * independently.
+ * The words a Kanban card and lane head print: a working card's stamp ticks from the start its agent's row records, a waiting card's counts
+ * how long it waited, each appears only where its source exists, the notes no longer repeat them, and the lane heads count independently.
  */
 
 import { describe, expect, test }          from 'bun:test';
@@ -11,6 +11,7 @@ import { pageBoardFixture }                from '../testing/PageBoardFixture.ts'
 import { EXAMPLE_PAGE_LIMITS }             from '../testing/PageLimitsFixture.ts';
 import type { NoteFormat }                 from './KanbanLaneText.ts';
 import { laneSubCountsOf, subStateNoteOf } from './KanbanLaneText.ts';
+import { workStampOf }                     from './KanbanLaneText.ts';
 import { KanbanLaneUtil }                  from './utils/KanbanLaneUtil.ts';
 
 const EXAMPLE_TODAY = '2026-09-25';
@@ -71,40 +72,56 @@ function noteFormat(): NoteFormat {
   };
 }
 
-describe('the sub-state note', () => {
-  test('dates a pause from the newest paused phase and counts to now', () => {
+function stampTextOf(card: KanbanCard): string | null {
+  return workStampOf(card, noteFormat())?.stamp.shortText ?? null;
+}
+
+describe('the work stamp', () => {
+  test('counts a pause from the newest paused phase to now, its start in the hover', () => {
     const row = exampleRow(1, {
       status:  'paused',
       ticket:  '061',
       history: [{ status: 'paused', at: at('09:00') }, { status: 'in-progress', at: at('09:30') }, { status: 'paused', at: at('11:45') }],
     });
 
-    expect(subStateNoteOf(cardOf(exampleTicket('061', { status: 'in-progress' }), [row]), noteFormat())).toBe('paused since 11:45 · 1h 51m');
+    expect(workStampOf(cardOf(exampleTicket('061', { status: 'in-progress' }), [row]), noteFormat())).toEqual({
+      stamp:        { shortText: 'paused 1h 51m', fullText: 'paused since 2026-09-25 11:45' },
+      elapsedStamp: null,
+    });
   });
 
-  test('leaves a paused row without history with no note', () => {
+  test('leaves a paused row without history to its milestone', () => {
     const row = exampleRow(1, { status: 'paused', ticket: '061' });
 
-    expect(subStateNoteOf(cardOf(exampleTicket('061', { status: 'in-progress' }), [row]), noteFormat())).toBeNull();
+    expect(stampTextOf(cardOf(exampleTicket('061', { status: 'in-progress' }), [row]))).toBeNull();
   });
 
   test.each([
-    ['the newest finished phase', { history: [{ status: 'in-review', at: at('13:20') }] }, { finished: at('12:00') }, 'no reviewer yet · 16m'],
-    ['the ticket’s finished stamp', {}, { finished: at('13:00') }, 'no reviewer yet · 36m'],
-    ['the row’s end', { end: at('11:36') }, {}, 'no reviewer yet · 2h'],
+    ['the newest finished phase', { history: [{ status: 'in-review', at: at('13:20') }] }, { finished: at('12:00') }, 'waiting 16m'],
+    ['the ticket’s finished stamp', {}, { finished: at('13:00') }, 'waiting 36m'],
+    ['the row’s end', { end: at('11:36') }, {}, 'waiting 2h'],
   ] as Array<[string, Partial<Task>, Partial<PageTicket>, string]>)('counts the wait for a reviewer from %s', (_source, rowChanges, ticketChanges, expected) => {
     const row = exampleRow(1, { status: 'in-review', ticket: '062', ...rowChanges });
 
-    expect(subStateNoteOf(cardOf(exampleTicket('062', { status: 'pending', ...ticketChanges }), [row]), noteFormat())).toBe(expected);
+    expect(stampTextOf(cardOf(exampleTicket('062', { status: 'pending', ...ticketChanges }), [row]))).toBe(expected);
   });
 
-  test('names the running reviewer’s start on a reviewing card', () => {
+  test('ticks a build from its row’s start, naming the start for the page’s ticker', () => {
+    const row = exampleRow(1, { status: 'in-progress', ticket: '060', start: at('11:00') });
+
+    expect(workStampOf(cardOf(exampleTicket('060', { status: 'in-progress' }), [row]), noteFormat())).toEqual({
+      stamp:        { shortText: 'building 2h 36m 00s', fullText: 'building 2h 36m 00s' },
+      elapsedStamp: { label: 'building', startEpochMilliseconds: Date.parse(at('11:00')) },
+    });
+  });
+
+  test('ticks a review from the running reviewer’s start', () => {
     const tasks = [exampleRow(1, { status: 'in-review', ticket: '058' }), exampleRow(2, { status: 'in-progress', reviewOf: '058', start: at('13:05') })];
 
-    expect(subStateNoteOf(cardOf(exampleTicket('058', { status: 'in-review' }), tasks), noteFormat())).toBe('reviewer since 13:05');
+    expect(stampTextOf(cardOf(exampleTicket('058', { status: 'in-review' }), tasks))).toBe('reviewing 31m 00s');
   });
 
-  test('names the round and the newest reviewer on a repeat review, finding a review row by its reviewOf', () => {
+  test('names the round of a repeat review and times the newest reviewer, finding a review row by its reviewOf', () => {
     const tasks = [
       exampleRow(1, { status: 're-review', ticket: '059', reviewRound: 3 }),
       exampleRow(2, {
@@ -124,17 +141,30 @@ describe('the sub-state note', () => {
       }),
     ];
 
-    expect(subStateNoteOf(cardOf(exampleTicket('059', { status: 'in-review' }), tasks), noteFormat())).toBe('round 3 reviewer since 09-24 11:34');
+    expect(stampTextOf(cardOf(exampleTicket('059', { status: 'in-review' }), tasks))).toBe('3rd round 26h 02m 00s');
   });
 
   test('falls back to the first repeat round when the row names none', () => {
     const tasks = [exampleRow(1, { status: 're-review', ticket: '059' }), exampleRow(2, { reviewOf: '059', status: 'in-progress', start: at('11:34') })];
 
-    expect(subStateNoteOf(cardOf(exampleTicket('059', { status: 'in-review' }), tasks), noteFormat())).toBe('round 2 reviewer since 11:34');
+    expect(stampTextOf(cardOf(exampleTicket('059', { status: 'in-review' }), tasks))).toBe('2nd round 2h 02m 00s');
   });
 
-  // Between rounds the newest review has ended and no new one has started: no reviewer is running, so none is named.
-  test('leaves a reviewing card with no note when the newest review row has ended', () => {
+  test.each([[1, '1st'], [2, '2nd'], [3, '3rd'], [4, '4th'], [11, '11th'], [12, '12th'], [13, '13th'], [21, '21st'], [112, '112th']])(
+    'calls round %p the %p round',
+    (reviewRound, ordinal) => {
+      const tasks = [exampleRow(1, { status: 're-review', ticket: '059', reviewRound }), exampleRow(2, { reviewOf: '059', status: 'in-progress', start: at('13:36') })];
+
+      expect(stampTextOf(cardOf(exampleTicket('059', { status: 'in-review' }), tasks))).toBe(`${ordinal} round 0s`);
+    },
+  );
+
+  test('says nothing of a card no agent works on or waits for', () => {
+    expect(stampTextOf(cardOf(exampleTicket('063', { status: 'reviewed', finished: at('10:40') }), [exampleRow(1, { status: 'reviewed', ticket: '063' })]))).toBeNull();
+  });
+
+  // Between rounds the newest review has ended and no new one has started: no reviewer is running, so nothing ticks.
+  test('leaves a reviewing card to its milestone when the newest review row has ended', () => {
     const tasks = [
       exampleRow(1, { status: 're-review', ticket: '059' }),
       exampleRow(2, { reviewOf: '059', status: 'in-progress', start: at('10:50') }),
@@ -146,7 +176,19 @@ describe('the sub-state note', () => {
       }),
     ];
 
-    expect(subStateNoteOf(cardOf(exampleTicket('059', { status: 'in-review' }), tasks), noteFormat())).toBeNull();
+    expect(stampTextOf(cardOf(exampleTicket('059', { status: 'in-review' }), tasks))).toBeNull();
+  });
+});
+
+describe('the sub-state note', () => {
+  test('leaves the cards an agent works on or waits for without a note, since their stamp says it', () => {
+    const paused    = exampleRow(1, { status: 'paused', ticket: '061', history: [{ status: 'paused', at: at('11:45') }] });
+    const awaiting  = exampleRow(2, { status: 'in-review', ticket: '062', end: at('11:36') });
+    const reviewing = [exampleRow(3, { status: 're-review', ticket: '059' }), exampleRow(4, { reviewOf: '059', status: 'in-progress', start: at('11:34') })];
+
+    expect(subStateNoteOf(cardOf(exampleTicket('061', { status: 'in-progress' }), [paused]), noteFormat())).toBeNull();
+    expect(subStateNoteOf(cardOf(exampleTicket('062', { status: 'in-progress' }), [awaiting]), noteFormat())).toBeNull();
+    expect(subStateNoteOf(cardOf(exampleTicket('059', { status: 'in-review' }), reviewing), noteFormat())).toBeNull();
   });
 
   test('says when an awaiting-merge card was reviewed, and nothing when the row does not know', () => {

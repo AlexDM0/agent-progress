@@ -129,7 +129,8 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   }
 
   createHeaderController(payload, board.tickets).show(Date.now());
-  createLiveHeaderController(payload, tickets).start();
+  const liveHeaderController = createLiveHeaderController(payload, tickets);
+  liveHeaderController.start();
 
   // Set from the visibility filter's now before anything prints a stamp; the page reloads every few minutes when idle, so the day is rarely stale.
   let todayCalendarDate = '';
@@ -158,6 +159,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     slices:                      limits,
     preferences,
     readTodayCalendarDate:       () => todayCalendarDate,
+    readNowEpochMilliseconds:    liveHeaderController.readElapsedReferenceEpochMilliseconds,
     readFinishedWork:            () => finishedWork,
     readHiddenCountByClosedLane: () => hiddenCountByClosedLane,
     showAllFinishedWork:         () => showAllFinishedWork(),

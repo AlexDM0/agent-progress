@@ -533,6 +533,89 @@ describe('a card’s dependency head', () => {
   });
 
   test('keeps the head of a card on a board without dependencies as it was', () => {
-    expect(cardMarkupOf('001', 'todo', [exampleTicket('001')])).toContain('<span class="ap-detail-type" data-type="ticket">ticket</span></div>');
+    expect(cardMarkupOf('001', 'todo', [exampleTicket('001', { type: 'bug' })])).toContain('<span class="ap-detail-type" data-type="bug">bug</span></div>');
+  });
+
+  test('names a bug and a research ticket in the head, and never a plain ticket', () => {
+    expect(cardMarkupOf('001', 'todo', [exampleTicket('001', { type: 'bug' })])).toContain('data-type="bug">bug</span>');
+    expect(cardMarkupOf('001', 'todo', [exampleTicket('001', { type: 'research' })])).toContain('data-type="research">research</span>');
+    expect(cardMarkupOf('001', 'todo', [exampleTicket('001')])).not.toContain('ap-detail-type');
+  });
+});
+
+describe('the cards an agent works on or waits for', () => {
+  const tickets = [
+    exampleTicket('001', {
+      status: 'in-progress', started: at('11:00'), task: 1, priority: 'low'
+    }),
+    exampleTicket('002', {
+      status: 'in-progress', started: at('10:00'), task: 2, priority: 'high'
+    }),
+    exampleTicket('003', { status: 'in-review', finished: at('12:00'), task: 3 }),
+    exampleTicket('004', {
+      status: 'in-review', finished: at('11:00'), task: 4, priority: 'high'
+    }),
+    exampleTicket('005', {
+      status: 'in-review', finished: at('13:20'), task: 5, priority: 'high'
+    }),
+    exampleTicket('006', { status: 'in-progress', started: at('12:45'), task: 6 }),
+  ];
+  const tasks = [
+    exampleRow(1, { status: 'in-progress', ticket: '001', start: at('11:00') }),
+    exampleRow(2, {
+      status: 'paused', ticket: '002', start: at('10:00'), history: [{ status: 'paused', at: at('11:45') }]
+    }),
+    exampleRow(3, { status: 'in-review', ticket: '003', end: at('12:00') }),
+    exampleRow(13, { status: 'in-progress', reviewOf: '003', start: at('13:05') }),
+    exampleRow(4, { status: 're-review', ticket: '004', reviewRound: 2 }),
+    exampleRow(14, { status: 'in-progress', reviewOf: '004', start: at('11:34') }),
+    exampleRow(5, { status: 'in-review', ticket: '005', history: [{ status: 'in-review', at: at('13:20') }] }),
+    exampleRow(6, { status: 'in-progress', ticket: '006', start: at('12:45') }),
+  ];
+  const input = boardInput(tickets, tasks);
+
+  function cardOrderOf(markup: string): string[] {
+    return [...markup.matchAll(/data-ticket-id="(\d+)"|class="ap-lane-group" data-state-group="([a-z-]+)">[^<]*<span class="ap-lane-group-count">(\d+)/g)]
+      .map((match) => match[1] ?? `${match[2] ?? ''} ${match[3] ?? ''}`);
+  }
+
+  test('groups In progress as Building then Paused, and Review as Reviewing then Awaiting review, each by priority', () => {
+    expect(cardOrderOf(kanbanLaneMarkup('progress', input))).toEqual(['building 2', '006', '001', 'paused 1', '002']);
+    expect(cardOrderOf(kanbanLaneMarkup('review', input))).toEqual(['reviewing 2', '004', '003', 'awaiting-review 1', '005']);
+  });
+
+  test('ticks a working card’s stamp and marks it live; a waiting card reads how long it waited and stays still', () => {
+    const progress = kanbanLaneMarkup('progress', input);
+    const review   = kanbanLaneMarkup('review', input);
+
+    expect(progress).toContain('data-state="in-progress" data-live=""');
+    expect(progress).toContain(`<span class="ap-kanban-stamp" data-elapsed-label="building" data-elapsed-since="${Date.parse(at('11:00'))}">building 2h 36m 00s</span>`);
+    expect(progress).toContain('>paused 1h 51m</span>');
+    expect(progress).not.toContain('data-state="paused" data-live');
+    expect(review).toContain('>reviewing 31m 00s</span>');
+    expect(review).toContain('>2nd round 2h 02m 00s</span>');
+    expect(review).toContain('>waiting 16m</span>');
+    expect(review).not.toContain('data-state="in-review" data-live');
+  });
+
+  test('shows no pill and no note that repeats the stamp', () => {
+    const markup = kanbanBoardMarkup(input);
+
+    expect(markup).not.toContain('ap-pill');
+    for (const repeated of ['reviewer since', 'round 2 reviewer since', 'paused since 11', 'no reviewer yet']) {
+      expect(markup.replaceAll(/title="[^"]*"/g, '')).not.toContain(repeated);
+    }
+  });
+
+  test('calls an Awaiting merge card’s build built, and keeps Done’s reviewed mark', () => {
+    const merged = boardInput(
+      [exampleTicket('007', { status: 'reviewed', finished: at('10:40'), task: 7 }), exampleTicket('008', {
+        status: 'delivered', finished: at('09:00'), delivered: at('09:30'), task: 8
+      })],
+      [exampleRow(7, { status: 'reviewed', ticket: '007' }), exampleRow(8, { status: 'delivered', ticket: '008', reviewed: at('09:10') })],
+    );
+
+    expect(kanbanLaneMarkup('merge', merged)).toContain('>built 10:40</span>');
+    expect(kanbanLaneMarkup('done', merged)).toContain('class="ap-reviewed-mark"');
   });
 });

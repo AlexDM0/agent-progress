@@ -1,8 +1,8 @@
 /**
  * The activity banner's figures. The cases that matter: only an in-progress row with no end is an agent at work; a row reviews only by its
  * `reviewOf`, so a name reading "Review 2 #12" without it still builds; a review names the ticket it reviews; the title is the ticket's,
- * else the row's name without its leading "#123 "; the longest-running agent comes first; and the elapsed time keeps the design's three
- * shapes with zero-padded inner units.
+ * else the row's name without its leading "#123 "; the longest-running agent comes first; and the elapsed time runs from the start to the
+ * reference moment. Its shapes are `page/utils/ElapsedTimeUtil.spec.ts`'s.
  */
 
 import { describe, expect, test } from 'bun:test';
@@ -11,12 +11,10 @@ import { EXAMPLE_PAGE_LIMITS }    from '../../testing/PageLimitsFixture.ts';
 import { ActivityBannerUtil }     from './ActivityBannerUtil.ts';
 
 const {
-  activityKindOf, bannerTitleOf, activityEntriesOf, formatElapsed, elapsedTextOf
+  activityKindOf, bannerTitleOf, activityEntriesOf, elapsedTextOf
 } = ActivityBannerUtil;
 
 const SECOND = 1000;
-const MINUTE = 60 * SECOND;
-const HOUR   = 60 * MINUTE;
 
 function exampleTask(changes: Partial<Task> = {}): Task {
   return {
@@ -83,21 +81,6 @@ describe('activityEntriesOf', () => {
       startEpochMilliseconds: Date.parse('2026-09-19T08:00:00+02:00'),
     });
     expect(entries[3]?.startEpochMilliseconds).toBeNull();
-  });
-});
-
-describe('formatElapsed', () => {
-  test.each([
-    [0, '0s'],
-    [42 * SECOND, '42s'],
-    [4 * MINUTE + 12 * SECOND, '4m 12s'],
-    [51 * MINUTE + 3 * SECOND, '51m 03s'],
-    [HOUR + 2 * MINUTE + 17 * SECOND, '1h 02m 17s'],
-    [26 * HOUR + 5 * SECOND, '26h 00m 05s'],
-    [999, '0s'],
-    [-5 * SECOND, '0s'],
-  ])('%p ms prints %p', (milliseconds, expected) => {
-    expect(formatElapsed(milliseconds, EXAMPLE_PAGE_LIMITS)).toBe(expected);
   });
 });
 

@@ -130,12 +130,15 @@ function stateLabelOf(state: DisplayState, reviewRound: number): string {
   return state === 're-review' ? `${label} (round ${reviewRound})` : label;
 }
 
-/** The newest of the ticket's closing, finishing, starting and filing stamps, labelled, shortened against today and in full. */
-function latestMilestoneTextsOf(ticket: PageTicket, slices: TimestampSlices, todayCalendarDate: string): ShortenedTexts | null {
+/**
+ * The newest of the ticket's closing, finishing, starting and filing stamps, labelled, shortened against today and in full. A view that
+ * calls a finished build something else passes its word.
+ */
+function latestMilestoneTextsOf(ticket: PageTicket, slices: TimestampSlices, todayCalendarDate: string, finishedLabel = 'finished'): ShortenedTexts | null {
   const milestones: Array<[label: string, value: string | null | undefined]> = [
     [CLOSING_EVENT_WORD.delivered, ticket.delivered],
     [CLOSING_EVENT_WORD.abandoned, ticket.abandonedAt],
-    ['finished', ticket.finished],
+    [finishedLabel, ticket.finished],
     ['started', ticket.started],
     ['filed', ticket.filed],
   ];

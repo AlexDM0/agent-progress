@@ -38,9 +38,21 @@ function marksMarkup(marks: LaneCardMarks): string {
 }
 
 function stateMarkup(card: LaneCardModel): string {
-  const pill     = card.pill === null ? '' : `<span class="ap-pill">${HtmlEscapeUtil.escapeHtml(card.pill)}</span>`;
   const reviewed = card.reviewedTitle === null ? '' : `${WorkItemMarkupUtil.titledReviewedMarkMarkup(card.reviewedTitle)}<span>reviewed</span>`;
-  return `<div class="ap-kanban-state">${pill}${reviewed}</div>`;
+  return `<div class="ap-kanban-state">${reviewed}</div>`;
+}
+
+/** A ticking stamp names its label and start, so the page's ticker can re-measure it without the model. */
+function stampMarkup(card: LaneCardModel): string {
+  const { stamp, elapsedStamp } = card;
+  if (stamp === null) {
+    return '';
+  }
+  if (elapsedStamp === null) {
+    return MarkupUtil.shortenedTextMarkup('span', stamp.shortText, stamp.fullText, 'ap-kanban-stamp');
+  }
+  const ticker = `${MarkupUtil.attribute('data-elapsed-label', elapsedStamp.label)} ${MarkupUtil.attribute('data-elapsed-since', String(elapsedStamp.startEpochMilliseconds))}`;
+  return `<span class="ap-kanban-stamp" ${ticker}>${HtmlEscapeUtil.escapeHtml(stamp.shortText)}</span>`;
 }
 
 export function laneCardMarkup(card: LaneCardModel): string {
@@ -51,7 +63,7 @@ export function laneCardMarkup(card: LaneCardModel): string {
   ].join(' ');
   const { chips } = card;
   return [
-    `<article class="ap-kanban-card" ${identities}${card.hasStripe ? '' : ' data-row="none"'}${card.opensDetail ? ' tabindex="0"' : ''}`,
+    `<article class="ap-kanban-card" ${identities}${card.hasStripe ? '' : ' data-row="none"'}${card.isLive ? ' data-live=""' : ''}${card.opensDetail ? ' tabindex="0"' : ''}`,
     ` ${MarkupUtil.attribute('aria-label', card.ariaLabel)}>`,
     headMarkup(card.head),
     `<p class="ap-kanban-title" ${MarkupUtil.attribute('title', card.title)}>${HtmlEscapeUtil.escapeHtml(card.title)}</p>`,
@@ -59,7 +71,7 @@ export function laneCardMarkup(card: LaneCardModel): string {
     marksMarkup(card.marks),
     card.note === null ? '' : `<p class="ap-kanban-note">${HtmlEscapeUtil.escapeHtml(card.note)}</p>`,
     stateMarkup(card),
-    card.stamp === null ? '' : MarkupUtil.shortenedTextMarkup('span', card.stamp.shortText, card.stamp.fullText, 'ap-kanban-stamp'),
+    stampMarkup(card),
     '</article>',
   ].join('');
 }

@@ -24,10 +24,35 @@ const LANE_FOR_DISPLAY_STATE: Record<DisplayState, KanbanLane> = {
   'abandoned':   'abandoned',
 };
 
+/** In progress and Review divide their cards by whether an agent is at work on them, the working group first. */
+export type KanbanStateGroup = 'building' | 'paused' | 'reviewing' | 'awaiting-review';
+
+const STATE_GROUP_FOR_DISPLAY_STATE: Partial<Record<DisplayState, KanbanStateGroup>> = {
+  'in-progress': 'building',
+  'paused':      'paused',
+  'reviewing':   'reviewing',
+  're-review':   'reviewing',
+  'in-review':   'awaiting-review',
+};
+
+const STATE_GROUP_ORDER: Record<KanbanStateGroup, number> = {
+  'building': 0, 'paused': 1, 'reviewing': 0, 'awaiting-review': 1
+};
+
 const PRIORITY_ORDER: Record<TicketPriority, number> = { high: 0, normal: 1, low: 2 };
 
 function laneOfState(state: DisplayState): KanbanLane {
   return LANE_FOR_DISPLAY_STATE[state];
+}
+
+/** `null` for a state outside In progress and Review. */
+function stateGroupOf(state: DisplayState): KanbanStateGroup | null {
+  return STATE_GROUP_FOR_DISPLAY_STATE[state] ?? null;
+}
+
+function stateGroupRankOf(card: KanbanCard): number {
+  const group = stateGroupOf(card.state);
+  return group === null ? 0 : STATE_GROUP_ORDER[group];
 }
 
 function kanbanCardsFor(tickets: readonly BoardTicket[], waitingOnById: ReadonlyMap<string, readonly string[]>): KanbanCard[] {
@@ -45,7 +70,7 @@ function laneIsClosed(lane: KanbanLane): lane is ClosedKanbanLane {
   return CLOSED_KANBAN_LANES.some((closedLane) => closedLane === lane);
 }
 
-function laneMixesStates(lane: KanbanLane): boolean {
+function laneIsDividedByState(lane: KanbanLane): boolean {
   return lane === 'progress' || lane === 'review';
 }
 
@@ -104,8 +129,8 @@ function dependencyOrderOf(band: readonly KanbanCard[]): KanbanCard[] {
 }
 
 /**
- * Open lanes run high → normal → low, then by id as a number, except that To Do orders each band by what its cards wait on; the closed lanes
- * newest first by their closing stamp, a tie to the higher id.
+ * Open lanes run high → normal → low, then by id as a number, except that To Do orders each band by what its cards wait on and In progress
+ * and Review put their working group before their waiting one; the closed lanes newest first by their closing stamp, a tie to the higher id.
  */
 function cardsInLane(cards: readonly KanbanCard[], lane: KanbanLane): KanbanCard[] {
   const members = cards.filter((card) => laneOfState(card.state) === lane);
@@ -116,7 +141,7 @@ function cardsInLane(cards: readonly KanbanCard[], lane: KanbanLane): KanbanCard
       return (Number.isNaN(newerFirst) ? 0 : newerFirst) || idNumberOf(b) - idNumberOf(a);
     });
   }
-  const byPriorityThenId = members.toSorted((a, b) => priorityRankOf(a) - priorityRankOf(b) || idNumberOf(a) - idNumberOf(b));
+  const byPriorityThenId = members.toSorted((a, b) => stateGroupRankOf(a) - stateGroupRankOf(b) || priorityRankOf(a) - priorityRankOf(b) || idNumberOf(a) - idNumberOf(b));
   if (lane !== 'todo') {
     return byPriorityThenId;
   }
@@ -125,7 +150,7 @@ function cardsInLane(cards: readonly KanbanCard[], lane: KanbanLane): KanbanCard
 }
 
 function laneIsDividedByPriority(lane: KanbanLane, members: readonly KanbanCard[]): boolean {
-  return !laneIsClosed(lane) && new Set(members.map((card) => TicketDefaultsUtil.ticketPriorityOf(card.ticket))).size > 1;
+  return !laneIsClosed(lane) && !laneIsDividedByState(lane) && new Set(members.map((card) => TicketDefaultsUtil.ticketPriorityOf(card.ticket))).size > 1;
 }
 
 const OVERFLOW_TOLERANCE_PIXELS = 1;
@@ -145,7 +170,8 @@ export const KanbanLaneUtil = {
   overflowDirectionsOf,
   kanbanCardsFor,
   laneIsClosed,
-  laneMixesStates,
+  laneIsDividedByState,
+  stateGroupOf,
   cardsInLane,
   laneIsDividedByPriority,
 } as const;

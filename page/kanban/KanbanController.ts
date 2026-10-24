@@ -24,6 +24,8 @@ export interface KanbanControllerSources {
   slices:                      TimestampSlices & DurationUnits;
   preferences:                 ViewerPreferences;
   readTodayCalendarDate:       () => string;
+  /** What the cards' times run to: the clock while the page is live, its generation once it is a snapshot. */
+  readNowEpochMilliseconds:    () => number;
   readFinishedWork:            () => FinishedWorkChoice;
   readHiddenCountByClosedLane: () => Readonly<Record<ClosedKanbanLane, number>>;
   showAllFinishedWork:         () => void;
@@ -48,6 +50,7 @@ export function createKanbanController(sources: KanbanControllerSources): Kanban
     slices,
     preferences,
     readTodayCalendarDate,
+    readNowEpochMilliseconds,
     readFinishedWork,
     readHiddenCountByClosedLane,
     showAllFinishedWork,
@@ -79,7 +82,7 @@ export function createKanbanController(sources: KanbanControllerSources): Kanban
   function showKanban(): void {
     laneBoard.showBoard(kanbanBoardMarkup({
       cards:                   visibleCards,
-      nowEpochMilliseconds:    Date.now(),
+      nowEpochMilliseconds:    readNowEpochMilliseconds(),
       todayCalendarDate:       readTodayCalendarDate(),
       slices,
       finishedWork:            readFinishedWork(),

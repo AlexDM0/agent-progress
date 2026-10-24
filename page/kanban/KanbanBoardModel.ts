@@ -23,9 +23,11 @@ import type { LaneFooter }                 from './@types/LaneBoard.ts';
 import type { LaneModel }                  from './@types/LaneBoard.ts';
 import type { LaneSubtitle }               from './@types/LaneBoard.ts';
 import { laneSubCountsOf, subStateNoteOf } from './KanbanLaneText.ts';
+import { workStampOf }                     from './KanbanLaneText.ts';
 import type { ClosedKanbanLane }           from './constants/KanbanBoardLayout.ts';
 import { CAPPED_LANE_FIRST_PAGE_CARDS }    from './constants/KanbanBoardLayout.ts';
 import { KANBAN_LANES }                    from './constants/KanbanBoardLayout.ts';
+import type { KanbanStateGroup }           from './utils/KanbanLaneUtil.ts';
 import { KanbanLaneUtil }                  from './utils/KanbanLaneUtil.ts';
 import { LanePagingUtil }                  from './utils/LanePagingUtil.ts';
 
@@ -33,6 +35,16 @@ const NO_ROW_TITLE = 'Low priority: it gets a row on the Progress chart once it 
 
 /** From this many tickets waiting on a card, its `↦ N` reads in full ink. */
 const HEAVY_HELD_COUNT = 5;
+
+/** A card an agent is at work on: a build or a review running. */
+const LIVE_STATES: ReadonlySet<DisplayState> = new Set(['in-progress', 'reviewing', 're-review']);
+
+const STATE_GROUP_TITLE: Record<KanbanStateGroup, string> = {
+  'building':        'Building',
+  'paused':          'Paused',
+  'reviewing':       'Reviewing',
+  'awaiting-review': 'Awaiting review',
+};
 
 interface LaneDesign {
   title:    string;
@@ -83,7 +95,7 @@ export function kanbanCardFormatOf(input: KanbanBoardInput): KanbanCardFormat {
   };
 }
 
-function pillLabelOf(card: KanbanCard): string {
+function stateLabelOf(card: KanbanCard): string {
   return WorkItemMarkupUtil.stateLabelOf(card.state, card.ownRow?.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND);
 }
 
@@ -99,20 +111,31 @@ function reviewedTitleOf(card: KanbanCard, lane: KanbanLane, format: KanbanCardF
   return lane === 'done' && card.ownRow !== null && card.ownRow.deliveredRowCountsAsReviewed ? WorkItemMarkupUtil.reviewedTitleOf(card.ownRow, format.slices) : null;
 }
 
+/** A working or waiting card's own stamp, else the newest milestone, which Awaiting merge calls the build's. */
+function stampOf(card: KanbanCard, lane: KanbanLane, format: KanbanCardFormat): Pick<LaneCardModel, 'stamp' | 'elapsedStamp'> {
+  const workStamp = workStampOf(card, format);
+  if (workStamp !== null) {
+    return workStamp;
+  }
+  const finishedLabel = lane === 'merge' ? 'built' : 'finished';
+  return { stamp: WorkItemMarkupUtil.latestMilestoneTextsOf(card.ticket, format.slices, format.todayCalendarDate, finishedLabel), elapsedStamp: null };
+}
+
 export function kanbanCardModelOf(card: KanbanCard, lane: KanbanLane, format: KanbanCardFormat): LaneCardModel {
   const { ticket, ownRow } = card;
   const priority           = TicketDefaultsUtil.ticketPriorityOf(ticket);
   const { hold }           = ticket;
+  const { stamp, elapsedStamp } = stampOf(card, lane, format);
   return {
     elementId:  TemplateIdUtil.kanbanCardElementIdOf(ticket.id),
     identity:   { attribute: 'data-ticket-id', value: ticket.id },
     stateToken: card.state,
     hasStripe:  ownRow !== null,
-    ariaLabel:  `#${ticket.id} ${ticket.title}, ${pillLabelOf(card)}, ${priority} priority`,
+    ariaLabel:  `#${ticket.id} ${ticket.title}, ${stateLabelOf(card)}, ${priority} priority`,
     head:       {
       idText:         `#${ticket.id}`,
       priority,
-      ticketType:     ticket.type,
+      ticketType:     ticket.type === 'ticket' ? null : ticket.type,
       slotMarkup:     null,
       hasNeededFirst: format.dependedOnTicketIds.has(ticket.id),
       heldCount:      heldCountOf(card, lane, format),
@@ -126,9 +149,10 @@ export function kanbanCardModelOf(card: KanbanCard, lane: KanbanLane, format: Ka
       noRowTitle: lane === 'todo' && ownRow === null ? NO_ROW_TITLE : null,
     },
     note:          subStateNoteOf(card, format),
-    pill:          KanbanLaneUtil.laneMixesStates(lane) ? pillLabelOf(card) : null,
     reviewedTitle: reviewedTitleOf(card, lane, format),
-    stamp:         WorkItemMarkupUtil.latestMilestoneTextsOf(ticket, format.slices, format.todayCalendarDate),
+    stamp,
+    isLive:        LIVE_STATES.has(card.state),
+    elapsedStamp,
     opensDetail:   true,
   };
 }
@@ -193,6 +217,30 @@ function priorityGroupsOf(lane: KanbanLane, shown: readonly KanbanCard[], format
   return groups;
 }
 
+/** In progress and Review: the working group, then the waiting one, each in the lane's priority order; an empty group is left out. */
+function stateGroupsOf(lane: KanbanLane, shown: readonly KanbanCard[], format: KanbanCardFormat): LaneCardGroup[] {
+  const groups: LaneCardGroup[] = [];
+  for (const card of shown) {
+    const stateGroup = KanbanLaneUtil.stateGroupOf(card.state);
+    const last       = groups.at(-1);
+    if (stateGroup === null) {
+      continue;
+    }
+    if (last?.kind === 'state' && last.stateGroup === stateGroup) {
+      groups[groups.length - 1] = { ...last, cards: [...last.cards, kanbanCardModelOf(card, lane, format)] };
+      continue;
+    }
+    groups.push({
+      kind:  'state',
+      stateGroup,
+      title: STATE_GROUP_TITLE[stateGroup],
+      count: shown.filter((other) => KanbanLaneUtil.stateGroupOf(other.state) === stateGroup).length,
+      cards: [kanbanCardModelOf(card, lane, format)],
+    });
+  }
+  return groups;
+}
+
 function laneBodyOf(lane: KanbanLane, members: readonly KanbanCard[], shown: readonly KanbanCard[], input: KanbanBoardInput): LaneBody {
   if (shown.length === 0) {
     return { kind: 'empty', text: KanbanLaneUtil.laneIsClosed(lane) ? emptyClosedLaneText(lane, input.finishedWork) : EMPTY_LANE_TEXT[lane] };
@@ -200,6 +248,9 @@ function laneBodyOf(lane: KanbanLane, members: readonly KanbanCard[], shown: rea
   const format = kanbanCardFormatOf(input);
   if (todoIsByWave(lane, input)) {
     return { kind: 'groups', groups: todoWaveGroupsOf(shown, format, input.readyTicketIds) };
+  }
+  if (KanbanLaneUtil.laneIsDividedByState(lane)) {
+    return { kind: 'groups', groups: stateGroupsOf(lane, shown, format) };
   }
   if (KanbanLaneUtil.laneIsDividedByPriority(lane, members)) {
     return { kind: 'groups', groups: priorityGroupsOf(lane, shown, format) };

@@ -53,6 +53,9 @@ function groupMarkup(group: LaneCardGroup): string {
     case 'priority':
       return `<div class="ap-lane-group" ${MarkupUtil.attribute('data-priority', group.priority)}>${HtmlEscapeUtil.escapeHtml(group.title)} `
         + `<span class="ap-lane-group-count">${group.count}</span></div>${cards}`;
+    case 'state':
+      return `<div class="ap-lane-group" ${MarkupUtil.attribute('data-state-group', group.stateGroup)}>${HtmlEscapeUtil.escapeHtml(group.title)} `
+        + `<span class="ap-lane-group-count">${group.count}</span></div>${cards}`;
     case 'wave':
       return [
         `<div class="ap-lane-wave" ${MarkupUtil.attribute('data-wave', String(group.index))}${group.isNarrow ? ' data-narrow=""' : ''}>`,

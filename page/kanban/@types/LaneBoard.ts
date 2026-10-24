@@ -22,6 +22,7 @@ export type LaneSubtitle =
 export type LaneCardGroup =
   | { kind: 'plain'; cards: readonly LaneCardModel[] }
   | { kind: 'priority'; priority: TicketPriority; title: string; count: number; cards: readonly LaneCardModel[] }
+  | { kind: 'state'; stateGroup: string; title: string; count: number; cards: readonly LaneCardModel[] }
   | { kind: 'wave'; index: number; isNarrow: boolean; label: string; note: string; cards: readonly LaneCardModel[] };
 
 export type LaneBody =
@@ -87,6 +88,11 @@ export interface LaneCardGroupChips {
   vocabulary: GroupMarkVocabulary;
 }
 
+export interface LaneCardElapsedStamp {
+  label:                  string;
+  startEpochMilliseconds: number;
+}
+
 export interface LaneCardModel {
   elementId:     string;
   identity:      { attribute: string; value: string };
@@ -100,9 +106,12 @@ export interface LaneCardModel {
   chips:         LaneCardGroupChips | null;
   marks:         LaneCardMarks;
   note:          string | null;
-  pill:          string | null;
   reviewedTitle: string | null;
   stamp:         ShortenedTexts | null;
+  /** An agent is at work on it: the card pulses while the page is live. */
+  isLive:        boolean;
+  /** What the page's ticker re-measures the stamp from every second; `null` for a stamp that stands still. */
+  elapsedStamp:  LaneCardElapsedStamp | null;
   /** A card that opens the detail panel takes the keyboard focus. */
   opensDetail:   boolean;
 }

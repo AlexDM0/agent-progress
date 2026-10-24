@@ -4,11 +4,9 @@
  */
 
 import type { Task }          from '../../../src/lib/tracker-model/@types/Task.ts';
+import { ElapsedTimeUtil }    from '../../utils/ElapsedTimeUtil.ts';
 import type { DurationUnits } from '../../utils/TimeUtil.ts';
 import { TimeUtil }           from '../../utils/TimeUtil.ts';
-
-const MILLISECONDS_PER_SECOND = 1000;
-const SECONDS_PER_MINUTE      = 60;
 
 const LEADING_TASK_ID_PATTERN = /^#\d+\s+/;
 
@@ -64,35 +62,14 @@ function activityEntriesOf(tasks: readonly ActivityTask[], tickets: readonly { i
     .sort((a, b) => startOrder(a.startEpochMilliseconds) - startOrder(b.startEpochMilliseconds) || a.taskId - b.taskId);
 }
 
-function padToTwoDigits(value: number): string {
-  return String(value).padStart(2, '0');
-}
-
-/** `42s`, `4m 12s`, `1h 02m 17s`; a start after the reference moment, which a skewed clock can give, reads as `0s`. */
-function formatElapsed(milliseconds: number, units: DurationUnits): string {
-  const totalSeconds = Math.max(0, Math.floor(milliseconds / MILLISECONDS_PER_SECOND));
-  const secondsPerHour = units.hourMinutes * SECONDS_PER_MINUTE;
-  const hours   = Math.floor(totalSeconds / secondsPerHour);
-  const minutes = Math.floor((totalSeconds % secondsPerHour) / SECONDS_PER_MINUTE);
-  const seconds = totalSeconds % SECONDS_PER_MINUTE;
-  if (hours > 0) {
-    return `${hours}h ${padToTwoDigits(minutes)}m ${padToTwoDigits(seconds)}s`;
-  }
-  if (minutes > 0) {
-    return `${minutes}m ${padToTwoDigits(seconds)}s`;
-  }
-  return `${seconds}s`;
-}
-
 /** Empty for an entry without a start. The reference moment is the clock while the page is live and its generation once it is a snapshot. */
 function elapsedTextOf(entry: Pick<ActivityEntry, 'startEpochMilliseconds'>, referenceEpochMilliseconds: number, units: DurationUnits): string {
-  return entry.startEpochMilliseconds === null ? '' : formatElapsed(referenceEpochMilliseconds - entry.startEpochMilliseconds, units);
+  return entry.startEpochMilliseconds === null ? '' : ElapsedTimeUtil.formatElapsed(referenceEpochMilliseconds - entry.startEpochMilliseconds, units);
 }
 
 export const ActivityBannerUtil = {
   activityKindOf,
   bannerTitleOf,
   activityEntriesOf,
-  formatElapsed,
   elapsedTextOf,
 } as const;
