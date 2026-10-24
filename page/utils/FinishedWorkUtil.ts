@@ -81,7 +81,6 @@ function choiceFrom(value: unknown): FinishedWorkChoice | null {
   return calendarDate === null ? null : sinceChoiceFor(calendarDate);
 }
 
-/** Everything but the switch's own two pills sits under its custom pill. */
 /** Finished work at or after this moment shows; `-Infinity` for all. */
 function cutoffEpochMillisecondsOf(choice: FinishedWorkChoice, nowEpochMilliseconds: number, units: DurationUnits): number {
   const calendarDate = sinceCalendarDateOf(choice);
