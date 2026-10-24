@@ -2,7 +2,8 @@
  * The finished-work switch's rules. The cases that matter: on one constructed board with work finished 30 minutes, 5 hours, 10 hours,
  * 2 days and 5 days ago, every choice lets through exactly the finished items it reaches and never hides unfinished work; a picked day
  * starts at its local midnight; a ticket is dated by its closing stamp, an epic by its span's end once every ticket is settled; stored
- * and clicked values read back only as real choices; and the reach marks keep their order on one scale. Abandoned work, stampless
+ * and clicked values read back only as real choices; and the filter line names every window, a stored one the menu no longer offers
+ * included, and reads as showing all once nothing is hidden. Abandoned work, stampless
  * included, hides beside delivered work of the same age in Progress, Tickets, Kanban and Epics, never shown forever for a missing stamp.
  */
 
@@ -20,13 +21,12 @@ const {
   boardFinishedMomentsOf,
   shownEpicsOf,
   choiceFrom,
-  choiceIsCustom,
   cutoffEpochMillisecondsOf,
   epicFinishedEpochMillisecondsOf,
+  filterLineTextOf,
   finishedMomentIsShown,
   hiddenCountOf,
   labelOf,
-  reachPercentOf,
   shownFinishedCountOf,
   sinceChoiceFor,
   taskFinishedEpochMillisecondsOf,
@@ -201,13 +201,6 @@ describe('choiceFrom', () => {
     expect(choiceFrom('constructor')).toBeNull();
     expect(choiceFrom(42)).toBeNull();
   });
-
-  test('only last hour and last day are not custom', () => {
-    expect(choiceIsCustom('1h')).toBe(false);
-    expect(choiceIsCustom('1d')).toBe(false);
-    expect(choiceIsCustom('6h')).toBe(true);
-    expect(choiceIsCustom('since-2026-09-24')).toBe(true);
-  });
 });
 
 describe('the words', () => {
@@ -222,18 +215,19 @@ describe('the words', () => {
   });
 });
 
-describe('reachPercentOf', () => {
-  test('a longer span reaches further, all fills the track, and nothing passes the oldest finished work', () => {
-    const oldest  = NOW_EPOCH_MILLISECONDS - 5 * DAY_MILLISECONDS;
-    const reachOf = (choice: FinishedWorkChoice): number => {
-      const cutoff = cutoffEpochMillisecondsOf(choice, NOW_EPOCH_MILLISECONDS, EXAMPLE_PAGE_LIMITS);
-      return reachPercentOf(cutoff, oldest, NOW_EPOCH_MILLISECONDS);
-    };
-    expect(reachOf('1h')).toBeLessThan(reachOf('6h'));
-    expect(reachOf('6h')).toBeLessThan(reachOf('1d'));
-    expect(reachOf('1d')).toBeLessThan(reachOf('3d'));
-    expect(reachOf('all')).toBe(100);
-    expect(reachPercentOf(NOW_EPOCH_MILLISECONDS - 30 * DAY_MILLISECONDS, oldest, NOW_EPOCH_MILLISECONDS)).toBe(100);
+describe('filterLineTextOf', () => {
+  test('names the window of a span, the day of a since choice, and a stored 6 or 12 hours the menu no longer offers', () => {
+    expect(filterLineTextOf('1h', 3)).toEqual({ lead: 'Hiding closed > ', window: '1 hour' });
+    expect(filterLineTextOf('1d', 3)).toEqual({ lead: 'Hiding closed > ', window: '1 day' });
+    expect(filterLineTextOf('3d', 3)).toEqual({ lead: 'Hiding closed > ', window: '3 days' });
+    expect(filterLineTextOf('6h', 3)).toEqual({ lead: 'Hiding closed > ', window: '6 hours' });
+    expect(filterLineTextOf('12h', 3)).toEqual({ lead: 'Hiding closed > ', window: '12 hours' });
+    expect(filterLineTextOf('since-2026-09-24', 3)).toEqual({ lead: 'Hiding closed before ', window: '09-24' });
+  });
+
+  test('reads as showing all once nothing is hidden, whatever the window', () => {
+    expect(filterLineTextOf('all', 0)).toEqual({ lead: 'Showing all closed', window: '' });
+    expect(filterLineTextOf('1d', 0)).toEqual({ lead: 'Showing all closed', window: '' });
   });
 });
 

@@ -10,7 +10,7 @@ import {
   CHART_OVERLAY_ELEMENT_ID,
   DETAIL_BODY_ELEMENT_ID,
   GENERATED_STAMP_ELEMENT_ID,
-  HIDDEN_WORK_NOTE_ELEMENT_ID,
+  HIDDEN_WORK_COUNT_ELEMENT_ID,
   KANBAN_BOARD_ELEMENT_ID,
   KANBAN_TAB_NAME,
   PROJECT_NAME_ELEMENT_ID,
@@ -18,17 +18,17 @@ import {
   RANGE_SUMMARY_ELEMENT_ID,
   STATUS_LABEL_ELEMENT_ID,
   SUMMARY_ELEMENT_ID,
+  SUMMARY_LINE_ELEMENT_ID,
   TASK_ROWS_ELEMENT_ID,
   TICKET_COUNT_ELEMENT_ID,
   TICKET_ROWS_ELEMENT_ID,
-  TODAY_FIGURES_ELEMENT_ID,
 } from './constants/TemplateIds.ts';
 import { createDependencyLineageController }                  from './dependencies/DependencyLineageController.ts';
 import { DependencyMarkup }                                   from './dependencies/DependencyMarkup.ts';
 import { createDetailDialogController }                       from './detail-dialog/DetailDialogController.ts';
 import { EpicGroupMarks }                                     from './epics/EpicGroupMarks.ts';
 import { EpicMarkup }                                         from './epics/EpicMarkup.ts';
-import { createFinishedWorkSwitchController }                 from './finished-work/FinishedWorkSwitchController.ts';
+import { createFilterMenuController }                         from './finished-work/FilterMenuController.ts';
 import { createHeaderController }                             from './header/HeaderController.ts';
 import { createLiveHeaderController }                         from './header/LiveHeaderController.ts';
 import { createKanbanController }                             from './kanban/KanbanController.ts';
@@ -59,7 +59,7 @@ const TICKETS_ISLAND_ELEMENT_ID  = 'ap-tickets-data';
 const TICKETS_TAB_NAME      = 'tickets';
 const EPICS_TAB_NAME        = 'epics';
 const DEPENDENCIES_TAB_NAME = 'dependencies';
-const TAB_NAMES             = ['progress', KANBAN_TAB_NAME, TICKETS_TAB_NAME, EPICS_TAB_NAME, DEPENDENCIES_TAB_NAME];
+const TAB_NAMES             = [KANBAN_TAB_NAME, DEPENDENCIES_TAB_NAME, 'progress', EPICS_TAB_NAME, TICKETS_TAB_NAME];
 
 const EPICS_TAB_ELEMENT_ID          = 'ap-tab-epics';
 const EPICS_BOARD_ELEMENT_ID        = 'ap-epics';
@@ -71,8 +71,8 @@ const OWNED_MARKUP_CONTAINER_IDS = [
   DEPENDENCIES_CARD_ELEMENT_ID,
   'ap-ticket-epic',
   'ap-kanban-epic',
-  'ap-kanban-epic-rollups',
   SUMMARY_ELEMENT_ID,
+  SUMMARY_LINE_ELEMENT_ID,
   AXIS_TICKS_ELEMENT_ID,
   CHART_OVERLAY_ELEMENT_ID,
   TASK_ROWS_ELEMENT_ID,
@@ -87,8 +87,7 @@ const OWNED_TEXT_CONTAINER_IDS = [
   GENERATED_STAMP_ELEMENT_ID,
   RANGE_NOTE_ELEMENT_ID,
   TICKET_COUNT_ELEMENT_ID,
-  HIDDEN_WORK_NOTE_ELEMENT_ID,
-  TODAY_FIGURES_ELEMENT_ID,
+  HIDDEN_WORK_COUNT_ELEMENT_ID,
 ];
 
 const { showLayoutFailure, islandContentsOf, showTabButton } = PageShell;
@@ -148,8 +147,10 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     epics:   epicFinishedMoments,
     ticketFinishedMomentById,
   } = FinishedWorkUtil.boardFinishedMomentsOf(board);
-  // Declared before its controller, since the Kanban's show-all link and the switch each change the other's view.
+  // Declared before its controller, since the Kanban's show-all link and the filter menu each change the other's view.
   let showAllFinishedWork = (): void => undefined;
+  // Declared before the filter menu, since the epic filter's change renames the filter line.
+  let renderFilterLine = (): void => undefined;
   const ticketById = new Map(board.tickets.map((ticket) => [ticket.id, ticket]));
   // The graph spans every ticket, finished ones included, so the finished-work switch never reshapes the waves.
   const dependencyGraph      = DependencyGraphUtil.dependencyGraphOf(board.tickets, payload.concurrency.limit);
@@ -180,6 +181,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     applyFilter: () => {
       showVisibleWork();
       kanbanController.laneBoard.updateOverflow();
+      renderFilterLine();
     },
   });
   const detailDialogController = createDetailDialogController({
@@ -224,7 +226,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     showEpicsTab(cutoff);
   };
 
-  const finishedWorkSwitch = createFinishedWorkSwitchController({
+  const filterMenu = createFilterMenuController({
     initialChoice:       finishedWork,
     units:               limits,
     readFinishedMoments: () => ({ tasks: taskFinishedMoments, tickets: ticketFinishedMoments, epics: epicFinishedMoments }),
@@ -235,12 +237,18 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
       showVisibleWork();
       progressController.layOut(true);
     },
+    readEpicLabel:      () => kanbanEpicFilter.readLabel(),
+    resetKanbanFilters: () => {
+      kanbanEpicFilter.reset();
+      kanbanController.resetTodoOrder();
+    },
   });
-  showAllFinishedWork = () => finishedWorkSwitch.choose('all');
+  showAllFinishedWork = () => filterMenu.choose('all');
+  renderFilterLine    = () => filterMenu.render();
 
   detailDialogController.wire();
   progressController.wireRangeBar();
-  finishedWorkSwitch.wire();
+  filterMenu.wire();
 
   progressController.wireNameColumn();
   progressController.wireChartWidth();
@@ -269,7 +277,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   window.addEventListener('hashchange', () => {
     fragmentRouter.applyFragment(window.location.hash);
     kanbanController.laneBoard.updateOverflow();
-    finishedWorkSwitch.render();
+    filterMenu.render();
   });
   fragmentRouter.wireSameFragmentReclick();
 
@@ -293,8 +301,8 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   progressController.layOut(true);
   fragmentRouter.applyFragment(window.location.hash);
   reloadSnapshotController.restorePlace();
-  // After the fragment and the snapshot chose the tab, whose items the pills count.
-  finishedWorkSwitch.render();
+  // After the fragment and the snapshot chose the tab, whose items the menu counts.
+  filterMenu.render();
   kanbanController.laneBoard.updateOverflow();
 }
 

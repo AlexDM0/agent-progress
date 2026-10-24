@@ -126,11 +126,11 @@ describe('fillPageTemplate', () => {
   });
 
   // A fresh viewer lands on Kanban: its tab is the one selected and every other panel ships hidden.
-  test('runs the tabs Kanban, Progress, Tickets, Epics, Dependencies, with only Kanban selected', () => {
+  test('runs the tabs Kanban, Waves, Progress, Epics, Tickets, with only Kanban selected', () => {
     const document = render();
     const tabs     = [...document.matchAll(/role="tab" id="ap-tab-(\w+)"[^>]*aria-selected="(\w+)"/g)].map((match) => `${match[1]}:${match[2]}`);
 
-    expect(tabs).toEqual(['kanban:true', 'progress:false', 'tickets:false', 'epics:false', 'dependencies:false']);
+    expect(tabs).toEqual(['kanban:true', 'dependencies:false', 'progress:false', 'epics:false', 'tickets:false']);
     expect(document.indexOf('data-panel="kanban"')).toBeLessThan(document.indexOf('data-panel="progress"'));
     expect(document.indexOf('data-panel="progress"')).toBeLessThan(document.indexOf('data-panel="tickets"'));
     expect(document.indexOf('data-panel="tickets"')).toBeLessThan(document.indexOf('data-panel="epics"'));

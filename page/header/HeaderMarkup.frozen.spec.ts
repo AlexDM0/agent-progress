@@ -20,7 +20,7 @@ const FROZEN_STATISTICS_CASES: readonly FrozenStatisticsCase[] = [
   {
     name:       'the template sample, with a limit and a paused build',
     statistics: {
-      runningTaskCount: 4, agentLimit: 5, pausedBuildCount: 1, deliveredTodayCount: 12, tokensToday: 21_400_000, waitingInQueueCount: 6
+      runningTaskCount: 4, runningReviewCount: 2, agentLimit: 5, pausedBuildCount: 1, deliveredTodayCount: 12, tokensToday: 21_400_000, waitingInQueueCount: 6
     },
     markup: [
       '<button type="button" class="ap-stat" data-kanban-lane="progress" aria-label="Show 4 / 5 agents working on Kanban">'
@@ -37,7 +37,7 @@ const FROZEN_STATISTICS_CASES: readonly FrozenStatisticsCase[] = [
   {
     name:       'no limit and nothing paused',
     statistics: {
-      runningTaskCount: 0, agentLimit: null, pausedBuildCount: 0, deliveredTodayCount: 0, tokensToday: 0, waitingInQueueCount: 3
+      runningTaskCount: 0, runningReviewCount: 0, agentLimit: null, pausedBuildCount: 0, deliveredTodayCount: 0, tokensToday: 0, waitingInQueueCount: 3
     },
     markup: [
       '<button type="button" class="ap-stat" data-kanban-lane="progress" aria-label="Show 0 agents working on Kanban">'

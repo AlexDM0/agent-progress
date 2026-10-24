@@ -26,12 +26,13 @@ opens ticket #004 in the side panel with one click and runs from the tab row dow
 shot stops under the board (taken at a short viewport, since the lanes stretch with it), the detail shot
 clicks task #2 once and is framed around the side panel. The Dependencies shot points at #012 to light
 its chain and stops under the graph; the Epics shot stops under the first card; the Kanban-by-wave shot
-presses the Checkout redesign epic chip and "by wave", then points at #012 and waits for its arrows. If
-an id, class or attribute the jobs rely on is renamed (`#ap-rows`, `.ap-row`, `#ap-chart`, `.ap-range`,
-`.ap-tab-bar`, `#ap-ticket-rows`, `#ap-ticket-table`, `#ap-kanban-frame`, `#ap-detail`, `#ap-task-2`,
-`#ap-dependencies`, `.ap-dependency-node[data-open-ticket]`, `#ap-epics > .ap-card`,
-`#ap-kanban-epic [data-epic-chip]`, `[data-todo-order]`, `.ap-kanban-card[data-ticket-id]`), update the
-selectors in `compose.py` (its constants, `base_jobs`, `pages`).
+opens the filter menu from its line, presses the Checkout redesign epic row and "by wave", closes the
+menu, then points at #012 and waits for its arrows. If an id, class or attribute the jobs rely on is
+renamed (`#ap-rows`, `.ap-row`, `#ap-chart`, `.ap-range`, `.ap-tab-bar`, `#ap-ticket-rows`,
+`#ap-ticket-table`, `#ap-kanban-frame`, `#ap-detail`, `#ap-task-2`, `#ap-dependencies`,
+`.ap-dependency-node[data-open-ticket]`, `#ap-epics > .ap-card`, `#ap-filter-line`,
+`#ap-filter-menu [data-epic-chip]`, `#ap-filter-menu [data-todo-order]`, `.ap-kanban-card[data-ticket-id]`),
+update the selectors in `compose.py` (its constants, `base_jobs`, `pages`).
 
 ## Requirements
 

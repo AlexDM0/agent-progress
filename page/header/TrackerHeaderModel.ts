@@ -1,9 +1,9 @@
 /** The tracker page's header model: its four summary statistics in the design's order, and a paused figure while a build is paused. */
 
-import { TokenCountUtil }                         from '../../src/lib/token-count/TokenCountUtil.ts';
-import type { KanbanLane }                        from '../kanban/@types/KanbanLane.ts';
-import type { HeaderModel, HeaderStatisticModel } from './@types/HeaderModel.ts';
-import type { HeaderStatistics }                  from './utils/HeaderFigureUtil.ts';
+import { TokenCountUtil }                                           from '../../src/lib/token-count/TokenCountUtil.ts';
+import type { KanbanLane }                                          from '../kanban/@types/KanbanLane.ts';
+import type { HeaderModel, HeaderStatisticModel, SummaryLineModel } from './@types/HeaderModel.ts';
+import type { HeaderStatistics }                                    from './utils/HeaderFigureUtil.ts';
 
 function laneStatistic(lane: KanbanLane, figure: string, label: string, state: 'paused' | null = null): HeaderStatisticModel {
   return {
@@ -27,9 +27,20 @@ export function trackerHeaderStatisticsOf(statistics: HeaderStatistics): HeaderS
   ];
 }
 
-/** The embedded page's one line of today's figures, formatted as the statistics format them. */
-export function trackerTodayFiguresText(statistics: HeaderStatistics): string {
-  return `${statistics.deliveredTodayCount} done today · ${TokenCountUtil.formatTokenCount(statistics.tokensToday)} tokens today`;
+/** The embedded page's summary line: the board's states on the left, today's figures on the right, formatted as the statistics format them. */
+export function trackerSummaryLineOf(statistics: HeaderStatistics): SummaryLineModel {
+  return {
+    states: [
+      { figure: String(statistics.runningTaskCount - statistics.runningReviewCount), label: 'building', state: 'in-progress' },
+      { figure: String(statistics.runningReviewCount), label: 'reviewing', state: 'reviewing' },
+      { figure: String(statistics.waitingInQueueCount), label: 'waiting in queue', state: 'pending' },
+      { figure: String(statistics.pausedBuildCount), label: 'paused', state: 'paused' },
+    ],
+    today: [
+      { figure: String(statistics.deliveredTodayCount), label: 'done today', state: 'delivered' },
+      { figure: TokenCountUtil.formatTokenCount(statistics.tokensToday), label: 'tokens today', state: null },
+    ],
+  };
 }
 
 export function trackerHeaderModelOf(projectTitle: string, statistics: HeaderStatistics): HeaderModel {

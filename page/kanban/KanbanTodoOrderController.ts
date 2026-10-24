@@ -1,4 +1,4 @@
-/** The Kanban's "Order To do" switch: filed or by wave, kept per viewer; hidden, and filed, on a board without dependencies. */
+/** The filter menu's "Order To do" switch for the Kanban: filed or by wave, kept per viewer; hidden, and filed, on a board without dependencies. */
 
 import type { TodoOrderChoice, ViewerPreferences } from '../@types/ViewerChoices.ts';
 import { DomUtil }                                 from '../utils/DomUtil.ts';
@@ -17,6 +17,8 @@ interface KanbanTodoOrderSources {
 export interface KanbanTodoOrderController {
   wire(): void;
   readOrder(): TodoOrderChoice;
+  /** Back to filed, stored, without laying the board out again. */
+  reset(): void;
 }
 
 export function createKanbanTodoOrderController(sources: KanbanTodoOrderSources): KanbanTodoOrderController {
@@ -46,5 +48,13 @@ export function createKanbanTodoOrderController(sources: KanbanTodoOrderSources)
       });
     },
     readOrder: () => (boardHasDependencies ? order : 'filed'),
+    reset:     () => {
+      if (order === 'filed') {
+        return;
+      }
+      order = 'filed';
+      preferences.writeTodoOrder(order);
+      render();
+    },
   };
 }

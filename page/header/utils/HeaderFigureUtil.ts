@@ -17,6 +17,8 @@ export const LIVE_AGE_LIMIT_MILLISECONDS = LIVE_AGE_LIMIT_MINUTES * MILLISECONDS
 
 export interface HeaderStatistics {
   runningTaskCount:    number;
+  /** The running rows that are review passes (they carry `reviewOf`); the rest of the running rows are builds. */
+  runningReviewCount:  number;
   /** Null when the payload carries no concurrency limit, and the header shows the running count alone. */
   agentLimit:          number | null;
   deliveredTodayCount: number;
@@ -48,6 +50,7 @@ function statisticsOf(source: HeaderStatisticsSource): HeaderStatistics {
   const tasksOfToday = source.tasks.filter((task) => taskIsRunning(task) || isToday(task.end));
   return {
     runningTaskCount:    source.tasks.filter(taskIsRunning).length,
+    runningReviewCount:  source.tasks.filter((task) => taskIsRunning(task) && task.reviewOf !== undefined).length,
     agentLimit:          source.agentLimit,
     deliveredTodayCount: source.tickets.filter((ticket) => isToday(ticket.delivered)).length,
     tokensToday:         tasksOfToday.reduce((total, task) => total + (task.tokens ?? 0), 0),

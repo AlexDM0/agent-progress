@@ -589,7 +589,7 @@ missing stamp, as a render from an older CLI, a hand deletion or a failed stamp 
 as one browser network line (`404` or `ERR_FILE_NOT_FOUND`) per page load, not a script error; no
 script can suppress that line, and the next render ends it.
 
-The tabs are **Kanban · Progress · Tickets · Epics · Waves**, in that order; the chosen one is kept in
+The tabs are **Kanban · Waves · Progress · Epics · Tickets**, in that order; the chosen one is kept in
 the browser, Epics is hidden on a board without epics, and Waves on one where no ticket waits on
 another.
 
@@ -600,9 +600,9 @@ another.
   is waiting for (`paused since 11:45 · 1h 51m`, `no reviewer yet · 16m`, `reviewer since 13:05`). Done
   and Abandoned run newest first and show the latest 15, then 25 more at a time; Abandoned is collapsed
   until clicked. The finished-work switch decides what both closed lanes hold, and each ends with how
-  many earlier cards it leaves out and a "show all". On a board with epics, an epic strip above the
-  lanes narrows the board to the epics pressed, each with its roll-up; the choice is kept in the
-  browser. On a board with dependencies, "Order To do" switches To do between filed and by wave: the
+  many earlier cards it leaves out and a "show all". On a board with epics, the filter menu's Epic
+  section narrows the board to the epics pressed, each with its roll-up; the choice is kept in the
+  browser. On a board with dependencies, the menu's "Order To do" switches To do between filed and by wave: the
   lane says how many of its cards are ready and how many wait, then one group per dependency wave,
   headed with how wide the wave is (the first also with how many are ready), a one-ticket wave marked
   "one at a time", and a pending low-priority ticket, in no wave, closing the lane; the choice is kept
@@ -651,13 +651,15 @@ another.
   paused builds, only while there are some. Each figure but the tokens opens its Kanban lane. Below
   them, the activity banner lists every running row, longest-running first, as `BUILDING` or, for a
   row with `--review-of`, `REVIEWING`, with its ticket and a running timer; a snapshot freezes the
-  timers at the moment the page was generated. The tab row holds the tabs and the finished-work
-  switch.
+  timers at the moment the page was generated. The tab row holds the tabs and, at its right end, the
+  filter line.
 - **Embedded mode**, for a dashboard framing the page: `progress.html?embedded=dashboard` (that
-  literal value only, read once at load) hides the status line, the project name, the four figures
-  and the theme switch, folds the activity banner to one compact line, and ends the tab row with
-  `<n> done today · <tokens> tokens today`. The theme switch stays in the document, undisplayed, so
-  a framing page can still click it. Any other value, or none, is the normal page.
+  literal value only, read once at load) hides the status line, the project name, the four figures,
+  the theme switch and the activity banner, whose job the Kanban's live cards take over, and puts one
+  summary line above the tab row: `N building`, `N reviewing`, `N waiting in queue` and `N paused`,
+  the building and reviewing dots pulsing while the page is live, then `N done today` and `N tokens
+  today`. The theme switch stays in the document, undisplayed, so a framing page can still click it.
+  Any other value, or none, is the normal page.
 - **Click any row**, in the chart or the ticket table, or press Enter or Space on it, for the whole
   story of that task in the detail panel on the right: its facts, every phase it went through with
   how long it sat in each, the ticket with its body, and the log lines about either (a line the tool
@@ -675,12 +677,16 @@ another.
   finished-work switch or the data changes; the default stored by `agent-progress range` takes its
   place when there is one. Any other choice holds until Fit is pressed again, and is kept in the
   browser. Bars outside the window are clipped and marked, never dropped.
-- **Finished work** (delivered or abandoned) is shown by one switch in the tab row, shared by Kanban,
-  Progress, Tickets and Epics: the last hour, the last day (the default), or a custom 6 hours,
-  12 hours, 3 days, all, or since a day. Unfinished work, awaiting merge included, always shows; the
-  ticket search looks through every ticket. A note says how many tickets are hidden, and epics when
-  any are (`218 tickets · 1 epic hidden`), never task rows, and shows it all when clicked; the choice
-  is kept in the browser.
+- **The filter line** at the end of the tab row names what is hidden (`Hiding closed > 1 day`,
+  `before 09-24`, `Showing all closed` when nothing is) and, on Kanban with an epic pressed, that
+  epic; it opens a menu of three sections, every choice applying at once and kept in the browser.
+  **Finished work** (delivered or abandoned), on every tab, is one choice shared by Kanban, Progress,
+  Tickets and Epics: the last hour, day (the default), 3 days, all, or since a day; a 6 or 12 hours
+  chosen before still applies. Unfinished work, awaiting merge included, always shows; the ticket
+  search looks through every ticket. It says how many tickets are hidden, and epics when any are
+  (`218 tickets · 1 epic hidden`), never task rows, with a "show all". **Epic** and **Order To do**
+  show only on Kanban, the latter only on a board with dependencies. "Reset filters" puts all three
+  back; Esc, a click outside or the line closes the menu.
 - **Stamps are as short as the day allows**: one from today shows only its clock (`21:56`), one from
   another day of the year its month and day too (`09-17 23:48`), one from another year the full date;
   hover a shortened one for the full stamp.

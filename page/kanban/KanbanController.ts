@@ -37,6 +37,8 @@ export interface KanbanControllerSources {
 export interface KanbanController {
   showCards(cards: readonly KanbanCard[]): void;
   readVisibleCards(): readonly KanbanCard[];
+  /** Puts To do back in filed order without laying the board out again; the caller redraws it. */
+  resetTodoOrder(): void;
   readonly laneBoard: LaneBoardController;
   wire(): void;
 }
@@ -144,6 +146,7 @@ export function createKanbanController(sources: KanbanControllerSources): Kanban
       showKanban();
     },
     readVisibleCards: () => visibleCards,
+    resetTodoOrder:   () => todoOrder.reset(),
     laneBoard,
     wire,
   };

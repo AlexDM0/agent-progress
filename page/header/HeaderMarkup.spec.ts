@@ -1,18 +1,25 @@
 /**
  * The header's words. The cases that matter: the four statistics come in the design's order with the design's labels, every state figure is
- * a button naming the lane it opens while the token figure is plain text, a missing limit prints the running count alone, and a live page
+ * a button naming the lane it opens while the token figure is plain text, a missing limit prints the running count alone, the embedded
+ * summary line splits the running rows into building and reviewing and prints today's figures as the statistics do, and a live page
  * leads with its age while a snapshot leads with its stamp.
  */
 
-import { describe, expect, test }                                from 'bun:test';
-import { MILLISECONDS_PER_MINUTE }                               from '../../src/lib/local-time/LocalTimeUtil.ts';
-import { TimeUtil }                                              from '../utils/TimeUtil.ts';
-import { freshnessLabel, freshnessText, headerStatisticsMarkup } from './HeaderMarkup.ts';
-import { trackerHeaderStatisticsOf, trackerTodayFiguresText }    from './TrackerHeaderModel.ts';
-import type { HeaderStatistics }                                 from './utils/HeaderFigureUtil.ts';
+import { describe, expect, test }  from 'bun:test';
+import { MILLISECONDS_PER_MINUTE } from '../../src/lib/local-time/LocalTimeUtil.ts';
+import { TimeUtil }                from '../utils/TimeUtil.ts';
+import {
+  freshnessLabel,
+  freshnessText,
+  headerStatisticsMarkup,
+  summaryLineMarkup
+} from './HeaderMarkup.ts';
+import { trackerHeaderStatisticsOf, trackerSummaryLineOf } from './TrackerHeaderModel.ts';
+import type { HeaderStatistics }                           from './utils/HeaderFigureUtil.ts';
 
 const EXAMPLE_STATISTICS: HeaderStatistics = {
   runningTaskCount:    1,
+  runningReviewCount:  0,
   agentLimit:          6,
   deliveredTodayCount: 34,
   tokensToday:         358_200_000,
@@ -20,14 +27,34 @@ const EXAMPLE_STATISTICS: HeaderStatistics = {
   pausedBuildCount:    0,
 };
 
-describe('trackerTodayFiguresText', () => {
-  test('prints the done-today and tokens-today figures the statistics print, on one line', () => {
-    const markup  = headerStatisticsMarkup(trackerHeaderStatisticsOf(EXAMPLE_STATISTICS));
-    const figures = [...markup.matchAll(/<span class="ap-stat-n">([^<]*)<\/span><span class="ap-stat-label">(done today|tokens today)<\/span>/g)]
+describe('summaryLineMarkup', () => {
+  const statistics: HeaderStatistics = {
+    ...EXAMPLE_STATISTICS, runningTaskCount: 3, runningReviewCount: 1, waitingInQueueCount: 6, pausedBuildCount: 2
+  };
+  const figuresOf = (markup: string): string[] => [...markup.matchAll(/<span class="ap-summary-line-n">([^<]*)<\/span><span class="ap-summary-line-label">([^<]*)<\/span>/g)]
+    .map((match) => `${match[1]} ${match[2]}`);
+
+  test('prints building, reviewing, waiting in queue and paused, then a spacer, then done today and tokens today', () => {
+    const markup = summaryLineMarkup(trackerSummaryLineOf(statistics));
+
+    expect(figuresOf(markup)).toEqual(['2 building', '1 reviewing', '6 waiting in queue', '2 paused', '34 done today', '358.2M tokens today']);
+    expect(markup.indexOf('ap-summary-line-spacer')).toBeGreaterThan(markup.indexOf('paused'));
+    expect(markup.indexOf('ap-summary-line-spacer')).toBeLessThan(markup.indexOf('done today'));
+    expect(markup.match(/ap-summary-line-divider/g)).toHaveLength(1);
+  });
+
+  test('prints the done-today and tokens-today figures the statistics print', () => {
+    const statisticsFigures = [...headerStatisticsMarkup(trackerHeaderStatisticsOf(statistics))
+      .matchAll(/<span class="ap-stat-n">([^<]*)<\/span><span class="ap-stat-label">(done today|tokens today)<\/span>/g)]
       .map((match) => `${match[1]} ${match[2]}`);
 
-    expect(trackerTodayFiguresText(EXAMPLE_STATISTICS)).toBe(figures.join(' · '));
-    expect(trackerTodayFiguresText(EXAMPLE_STATISTICS)).toBe('34 done today · 358.2M tokens today');
+    expect(figuresOf(summaryLineMarkup(trackerSummaryLineOf(statistics))).slice(-2)).toEqual(statisticsFigures);
+  });
+
+  test('gives each state its lane colour dot and the token figure none', () => {
+    const dotStates = [...summaryLineMarkup(trackerSummaryLineOf(statistics)).matchAll(/class="ap-summary-line-dot" data-state="([^"]*)"/g)].map((match) => match[1]);
+
+    expect(dotStates).toEqual(['in-progress', 'reviewing', 'pending', 'paused', 'delivered']);
   });
 });
 

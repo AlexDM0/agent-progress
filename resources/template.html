@@ -45,7 +45,7 @@
                                  #ap-status over #ap-project, then .ap-head-stats: #ap-theme
                                  vertically centred one stats gap before #ap-summary, the pair
                                  wrapping under the title when the row is too narrow), #ap-activity,
-                                 .ap-tab-bar
+                                 .ap-tab-bar; embedded, #ap-summary-line then .ap-tab-bar, 6px apart
  #ap-status               el     the status line, data-freshness="live|snapshot": live while the page
                                  is under 10 minutes old (twice the CLI's write interval), judged
                                  at load and every 60 s after, so a page turns Snapshot without a
@@ -62,7 +62,7 @@
                                  todo) with aria-label "Show <figure> <label> on Kanban", which selects
                                  the Kanban tab and marks that .ap-lane[data-highlighted] for 1.2 s; the
                                  token stat stays a span
- #ap-activity             html   the activity banner, always shown, role="status" aria-live="polite",
+ #ap-activity             html   the activity banner, shown except embedded, role="status" aria-live="polite",
                                  data-freshness as on #ap-status. One .ap-activity-row per running
                                  row (in-progress, no end), longest-running first, at most two
                                  columns and one under 628px of inner width, never scrolled:
@@ -91,59 +91,80 @@
                                  Left/Up and Right/Down move and check the choice, wrapping
  #ap-error                el     [hidden] unless the layout script threw
  #ap-error-text           text   message shown in the error banner
- .ap-tab-bar              el     the tab row inside the header, #ap-tabs, #ap-finished, then
-                                 #ap-hidden-note, then #ap-today, a 1px rule under it: 32px at least
-                                 between the tabs and the switch at the right, the note centred
-                                 between them on the tabs' baseline; below 1320px the tabs fill the
-                                 first line and #ap-finished starts the second and the note is
-                                 hidden; #ap-detail docks under its bottom edge
- #ap-today                text   span.ap-tab-today, "4 done today · 182k tokens today", shown only
-                                 in embedded mode, where it ends the tab row
+ .ap-tab-bar              el     the tab row inside the header, one line at 1320px and wider: #ap-tabs,
+                                 then #ap-filter at the right end, a 1px rule under it; below 900px
+                                 #ap-filter starts a second line; #ap-detail docks under its bottom edge
+ #ap-summary-line         html   shown only embedded, 30px high, the surface ground, a 1px line border,
+                                 8px radius: four .ap-summary-line-item, "N building", "N reviewing"
+                                 (running rows without and with reviewOf), "N waiting in queue",
+                                 "N paused", then .ap-summary-line-spacer, "N done today",
+                                 .ap-summary-line-divider, "N tokens today". An item is
+                                 .ap-summary-line-dot[data-state] (7px, its lane colour; none on the
+                                 token figure), .ap-summary-line-n (13px monospace, ink) and
+                                 .ap-summary-line-label (12px, muted). The in-progress and reviewing
+                                 dots pulse at --pulse-activity with a glow of their own colour, only
+                                 while html[data-freshness="live"] and motion is allowed
  html[data-embedded]      attr   "dashboard", set by the head script before first paint only for
                                  ?embedded=dashboard (agent-dashboard's frame): #ap-status,
-                                 #ap-project, #ap-summary and #ap-theme are undisplayed (the theme
-                                 radios stay clickable by script), the activity banner folds to one
-                                 line and #ap-today shows
- #ap-tabs                 el     buttons carry data-tab="kanban|progress|tickets|epics|dependencies",
+                                 #ap-project, #ap-summary, #ap-theme and #ap-activity are undisplayed
+                                 (the theme radios stay clickable by script), #ap-summary-line shows,
+                                 and the body's padding is 18px 20px 24px
+ #ap-tabs                 el     buttons in the order Kanban, Waves, Progress, Epics, Tickets, carrying
+                                 data-tab="kanban|dependencies|progress|epics|tickets",
                                  aria-selected, and id="ap-tab-…" with aria-controls naming the
-                                 panel; the arrow keys, Home and End move to a shown tab and select
-                                 it. #ap-tab-epics is [hidden] on a board without epics,
-                                 #ap-tab-dependencies on one where no ticket has dependsOn
+                                 panel; the arrow keys, Home and End move to a shown tab in that
+                                 order and select it. #ap-tab-epics is [hidden] on a board without
+                                 epics, #ap-tab-dependencies on one where no ticket has dependsOn
  [data-panel="…"]         el     matching panel, role="tabpanel", id="ap-panel-…" and
                                  aria-labelledby naming its tab; [hidden] when not selected; each
                                  starts --sp-5 (24px) below .ap-tab-bar's rule
- #ap-finished             el     the finished-work switch, one choice shared by Kanban, Progress,
-                                 Tickets and Epics and remembered per viewer: .ap-finished-label,
-                                 then .ap-finished-anchor holding the switch and its popover, then
-                                 #ap-finished-status. "Finished" is delivered or abandoned, an epic
-                                 once every one of its tickets is; unfinished work always shows.
-                                 Its note, #ap-hidden-note, counts the tickets and epics it hides,
-                                 never task rows. It replaces the retired
-                                 #ap-visibility Hide / Show all buttons (data-visibility="recent|all"),
-                                 whose stored recent reads as last day and all as custom all
- #ap-finished-switch      el     role="radiogroup" of three role="radio" pills (roving tabindex; the
-                                 arrow keys move and check), data-finished="1h|1d|custom", 1d the
-                                 default; each pill is .ap-finished-line (.ap-finished-name,
-                                 .ap-finished-count: the finished tasks it lets through on Progress,
-                                 the tickets elsewhere) over .ap-finished-reach > i, its width
-                                 --reach on one log scale, now at the right end. .ap-finished-thumb
-                                 sits under the checked pill, placed by --thumb-x / --thumb-w and
-                                 shown once [data-thumb-ready]; [data-thumb-empty] hides it. The
-                                 custom pill #ap-finished-custom reads "custom" until checked, then
-                                 its choice ("6 hours", "since 09-24"), with .ap-finished-caret;
-                                 aria-expanded while #ap-finished-popover is open
- #ap-finished-popover     dialog [hidden] unless the custom pill opened it, hung from the switch's
-                                 right edge (its left once the bar wraps): #ap-finished-presets, a
-                                 second radiogroup in the same pills, data-custom-preset="6h|12h|3d|all",
-                                 then #ap-finished-since, input type="date" meaning finished on or
-                                 after that local day's start, [data-chosen] while it holds the
-                                 choice, and #ap-finished-since-resolved under it. A pill clears the
-                                 day and a day unchecks every pill; each applies at once. Esc, Enter
-                                 in the day field and a click outside close it
- #ap-hidden-note          button link-styled, "218 tickets · 1 epic hidden", [hidden] when nothing is,
-                                 and not shown once the tab bar wraps (below 1320px); a click checks
-                                 custom on all. [data-changed] flashes it once
- #ap-finished-status      text   visually hidden, aria-live: what the switch now shows
+ #ap-filter               el     the filter line and its menu, right-aligned at the end of the tab
+                                 row: #ap-filter-line, #ap-filter-menu, #ap-finished-status. Its
+                                 finished-work choice is one, shared by Kanban, Progress, Tickets and
+                                 Epics and remembered per viewer. "Finished" is delivered or
+                                 abandoned, an epic once every one of its tickets is; unfinished work
+                                 always shows. A stored 6h or 12h choice still applies, and the line
+                                 names it, though the menu no longer offers it
+ #ap-filter-line          button the surface ground, a 1px line border, 8px radius, aria-haspopup
+                                 "dialog", aria-expanded while the menu is open: .ap-filter-icon (a
+                                 funnel), #ap-filter-range ("Hiding closed > <strong>1 day</strong>",
+                                 "> 1 hour", "> 3 days", "before <strong>09-24</strong>", "Showing all
+                                 closed" when nothing is hidden), #ap-filter-epic, .ap-filter-caret
+ #ap-filter-epic          el     [hidden] unless the Kanban is selected with an epic filter on:
+                                 "·", .ap-epic-swatch[data-epic-slot] (undisplayed under
+                                 [data-no-swatch], for no epic), then
+                                 .ap-filter-epic-name, the first pressed epic's title ("+N" for the
+                                 others), shrinking with an ellipsis between 96 and 200px before the
+                                 range wording does
+ #ap-filter-menu          dialog [hidden] unless the line opened it; 340px, hung from the line's
+                                 right edge, 8px radius; data-tab names the selected tab. Three
+                                 .ap-filter-section (head: .ap-range-label and .ap-filter-scope),
+                                 then .ap-filter-foot (#ap-filter-reset "Reset filters", "Esc
+                                 closes"). Every choice applies at once; Esc, a click outside or the
+                                 line closes it, Esc and the line returning focus to the line.
+                                 .ap-filter-kanban-only sections show only while data-tab="kanban"
+ #ap-finished-spans       el     in the Finished work section, after .ap-filter-lede: an .ap-seg of
+                                 button[data-finished="1h|1d|3d|all"][aria-pressed] ("hour", "day",
+                                 "3 days", "all"), each with .ap-chip-count, the finished tasks it lets
+                                 through on Progress, the tickets elsewhere; 1d the default. Then
+                                 .ap-finished-since-field: "or since" and #ap-finished-since, input
+                                 type="date" meaning finished on or after that local day's start,
+                                 [data-chosen] while it holds the choice, #ap-finished-since-resolved
+                                 under it. A span clears the day and a day unpresses every span
+ #ap-hidden-count         text   in .ap-filter-result: "218 tickets · 1 epic hidden" (never task
+                                 rows), "Nothing hidden" when nothing is; #ap-show-all-finished, a
+                                 link-styled "show all", [hidden] when nothing is, chooses all
+ #ap-finished-status      text   visually hidden, aria-live: what the menu now shows
+ #ap-kanban-epics         el     the menu's Epic section, Kanban only, [hidden] on a board without
+ #ap-kanban-epic                 an epic holding open work: one row per such epic, the epic chips of
+                                 #ap-ticket-epic drawn as checkable rows (swatch, title, count), then
+                                 "no epic"; they narrow the board (remembered per viewer), and each
+                                 pressed epic's .ap-epic-strip-rollup (bar, "2 of 4 done · 4.1M
+                                 tokens") follows its row
+ #ap-kanban-order         el     the menu's Order To do section, Kanban only, [hidden] on a board
+                                 without dependencies (To do is then filed): .ap-seg of
+                                 button[data-todo-order=filed|by-wave][aria-pressed] (remembered per
+                                 viewer), then .ap-kanban-order-hint
  #ap-range-button         button the chart head's first control, in its pinned cell: #ap-range-summary
                                  then a ▾; aria-expanded while #ap-range-menu is open; carries
                                  [data-refit] (a dot) as #ap-range-fit does. The custom range
@@ -239,7 +260,7 @@
                                  data-epic-chip (the key, or "no epic") and data-epic-slot, inside
                                  #ap-ticket-epic-filter, [hidden] on a board without epics. None
                                  pressed = all; OR inside a group, AND across groups and with the
-                                 search. Unnarrowed, the table obeys #ap-finished; a search or a
+                                 search. Unnarrowed, the table obeys #ap-filter; a search or a
                                  pressed chip looks through every ticket, and a chip counts what
                                  pressing it would add
  #ap-ticket-clear         button [hidden] unless a search or a chip narrows the table
@@ -247,17 +268,9 @@
                                  aria-sort (default id, descending); a second press reverses it; the
                                  epic th sorts by the primary epic's title and is [hidden] on a board
                                  without epics. Search, chips and sort ride the reload snapshot
- .ap-kanban-toolbar       el     above the board, holding the two below side by side; gone when both are
- #ap-kanban-epics         el     .ap-epic-strip, [hidden] on a board without epics:
- #ap-kanban-epic                 epic chips as in #ap-ticket-epic narrow the board (remembered per
- #ap-kanban-epic-rollups         viewer), and each pressed epic's .ap-epic-strip-rollup follows
- #ap-kanban-order         el     .ap-toolbar-group "Order To do", [hidden] on a board without
-                                 dependencies (To do is then filed): .ap-seg of
-                                 button[data-todo-order=filed|by-wave][aria-pressed] (remembered per
-                                 viewer), then .ap-kanban-order-hint
  #ap-epics                html   the Epics tab: one article.ap-card[data-epic-slot] per epic, open
                                  ones first; a finished epic (at least one ticket, all delivered or
-                                 abandoned) whose span ended before #ap-finished's cutoff has no
+                                 abandoned) whose span ended before #ap-filter's cutoff has no
                                  card, and open epics keep theirs whole; when none is left it holds
                                  one .ap-empty "No epic finished <window>." instead: .ap-epic-card-head
                                  (button.ap-epic-title[data-open-epic], .ap-epic-key,
@@ -368,7 +381,7 @@
                           then .ap-lane-cards#ap-lane-<lane>-cards, then, in Done and Abandoned,
                           .ap-lane-more: the paging when capped, then .ap-lane-hidden-line ("19
                           earlier hidden" and button[data-show-all-finished] "show all", which
-                          checks custom on all) while #ap-finished leaves cards of the lane out
+                          chooses all) while #ap-filter leaves cards of the lane out
  .ap-lane[data-collapsed] Abandoned only: a strip; its head is one button.ap-lane-toggle[aria-expanded]
  .ap-lane[data-highlighted] set by the script for 1.2 s after a summary stat jumps to it, with
                           --lane-highlight-edge (inline) copied from its head's --s-edge
@@ -451,7 +464,7 @@
  --now-x        on #ap-now: left offset as a percentage of the axis box.
  [hidden]       an element the page script hides through the attribute is display: none
                 while hidden: a class that sets display on it has its own .class[hidden]
-                rule after it (.ap-epic-strip, .ap-toolbar-group, .ap-banner, …); there
+                rule after it (.ap-filter-section, .ap-toolbar-group, .ap-banner, …); there
                 is no global [hidden] rule
  data-motion    "ready" on <html> once the bootstrap has let the first frames paint;
                 until then every motion token is 0ms. data-entering marks the panel a
@@ -494,8 +507,7 @@
               src/services/render/TemplateColourTokens.spec.ts fails on any literal elsewhere.
               bg, lane-bg (a Kanban lane), surface, surface-2, surface-selected (the chosen theme option),
               status-live (the live status and activity dots), ink, ink-muted, line, line-strong, link,
-              link-tint / link-soft (a focused date part, a hovered reach mark),
-              reach-track (under the finished-work switch's reach marks),
+              link-tint (a focused date part),
               warn-* and err-* (tint, edge, ink), shadow-control / -popover / -panel / -card-lift,
               hatch-live / hatch-idle (bar stripes), flare-light (mixed into a live card's halo),
               awaiting-review-fill (an awaiting-review card's bar, the reviewing fill),
@@ -521,15 +533,15 @@
               --motion-base 160ms: the tab underline, [data-panel][data-entering] (the
               incoming tab's fade and 4px rise), --col-name (registered, so Expand eases the
               name column), pill and badge colours, and the page script's Kanban lane width
-              and height changes and .ap-lane-count tween, the finished-work switch's
-              thumb and reach marks, the Dependencies lineage fade; --motion-slow 220ms for panels and #ap-hidden-note's
-              flash when its count changes;
+              and height changes and .ap-lane-count tween, the Dependencies lineage fade;
+              --motion-slow 220ms for panels;
               --ease-out for all. Every one is 0ms until the bootstrap sets
               data-motion="ready" on <html> after the first frames, and under
               prefers-reduced-motion, so nothing plays on a first render or a reload.
               Focus rings are in no transition.
               --pulse-status 1.6s (.ap-status-dot) and --pulse-activity 1.4s (.ap-activity-dot,
-              with its 12px glow): one ap-pulse cycle each, only while [data-freshness="live"]
+              with its 12px glow, and the summary line's building and reviewing dots, with an 8px
+              glow of their own colour): one ap-pulse cycle each, only while [data-freshness="live"]
               and never under prefers-reduced-motion, which keeps the colours alone;
               --pulse-status also times .ap-state-dot's ap-state-ring on a working chart row,
               a ring growing to twice the dot and fading, never under reduced motion;
@@ -578,8 +590,6 @@
   --line-strong: oklch(0.81 0.018 240);
   --link:        oklch(0.48 0.13 255);
   --link-tint:   oklch(0.48 0.13 255 / 0.10);
-  --link-soft:   oklch(0.48 0.13 255 / 0.45);
-  --reach-track: oklch(0.905 0.008 265);
   --surface-selected: oklch(0.93 0.008 262);
   --status-live: oklch(0.62 0.17 150);
 
@@ -645,8 +655,6 @@
     --line-strong: oklch(0.42 0.016 265);
     --link:        oklch(0.78 0.10 255);
     --link-tint:   oklch(0.78 0.10 255 / 0.14);
-    --link-soft:   oklch(0.78 0.10 255 / 0.50);
-    --reach-track: oklch(0.36 0.014 265);
     --surface-selected: oklch(0.25 0.022 262);
     --status-live: oklch(0.76 0.18 150);
 
@@ -768,52 +776,51 @@ button.ap-stat:focus-visible { outline: 2px solid var(--ink); outline-offset: 2p
 }
 
 /* ------------------------------------------------------------------- tabs -- */
-/* Tabs, then the hidden-count note centred in the room left, then the one shared finished-work switch at the right, the same row
-   in every view; the note shares the tabs' last baseline. When the row is too narrow, the switch starts the second line under
-   the tabs and the note is hidden. */
+/* Tabs, then the filter line at the right end, one row in every view; below 900px the line starts a second row under the tabs. */
 .ap-tab-bar {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-areas: "tabs note finished";
-  align-items: center;
+  display: flex; flex-wrap: nowrap; align-items: center;
   gap: var(--sp-2) var(--sp-6);
   border-bottom: 1px solid var(--line);
 }
-.ap-tab-bar > .ap-tabs { grid-area: tabs; align-self: last baseline; }
-.ap-tab-bar > #ap-hidden-note { grid-area: note; justify-self: center; align-self: last baseline; }
-.ap-tab-bar > .ap-finished { grid-area: finished; justify-self: end; }
-@media (max-width: 1320px) {
-  .ap-tab-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); padding-bottom: var(--sp-3); }
+.ap-tab-bar > .ap-tabs { flex: none; }
+.ap-tab-bar > .ap-filter { margin-left: auto; }
+@media (max-width: 900px) {
+  .ap-tab-bar { flex-wrap: wrap; padding-bottom: var(--sp-3); }
   .ap-tab-bar > .ap-tabs { flex-basis: 100%; }
-  .ap-tab-bar > #ap-hidden-note { display: none; }
-  .ap-tab-bar > .ap-finished { justify-content: flex-start; }
+  .ap-tab-bar > .ap-filter { margin-left: 0; }
 }
-.ap-tab-bar > .ap-tab-today { display: none; }
+
+/* ------------------------------------------------------------ summary line -- */
+/* The embedded page's one line of board figures: the states at the left, today's figures at the right after a spacer. */
+.ap-summary-line { display: none; }
+.ap-summary-line-item { display: inline-flex; align-items: center; gap: 6px; }
+.ap-summary-line-dot { flex: none; width: 7px; height: 7px; border-radius: var(--r-pill); background: var(--s-fill); }
+.ap-summary-line-n { font: 600 13px/1 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink); }
+.ap-summary-line-spacer { flex: 1 1 auto; }
+.ap-summary-line-divider { flex: none; width: 1px; height: 14px; background: var(--line); }
+@media (prefers-reduced-motion: no-preference) {
+  html[data-freshness="live"] .ap-summary-line-dot:is([data-state="in-progress"], [data-state="reviewing"]) {
+    box-shadow: 0 0 8px var(--s-fill); animation: ap-pulse var(--pulse-activity) ease-in-out infinite;
+  }
+}
 
 /* --------------------------------------------------------- embedded mode -- */
 /* Framed by agent-dashboard (the root's data-embedded, set by the head script): the dashboard shows the status, the project title,
-   the statistics and a theme switch of its own, so those hide, the activity banner folds to one line and the tab row ends with
-   today's figures. The theme switch stays in the document, only undisplayed: the dashboard sets the theme by clicking its buttons. */
-html[data-embedded="dashboard"] .ap-head { gap: 12px; }
+   the agents working and a theme switch of its own, so those hide; the live Kanban cards stand in for the activity banner, and the
+   summary line tops the tab row. The theme switch stays in the document, only undisplayed: the dashboard sets the theme by clicking
+   its buttons. */
+html[data-embedded="dashboard"] body { padding: 18px 20px 24px; }
+html[data-embedded="dashboard"] .ap-head { gap: 6px; }
 html[data-embedded="dashboard"] .ap-head-title-row { display: none; }
 html[data-embedded="dashboard"] #ap-status { display: none; }
 html[data-embedded="dashboard"] #ap-project { display: none; }
 html[data-embedded="dashboard"] #ap-summary { display: none; }
 html[data-embedded="dashboard"] #ap-theme { display: none; }
-html[data-embedded="dashboard"] .ap-activity {
-  display: flex; flex-wrap: nowrap; align-items: center; gap: 24px; overflow: hidden;
-  padding: 6px 12px; border-radius: 10px;
-}
-html[data-embedded="dashboard"] .ap-activity[hidden] { display: none; }
-html[data-embedded="dashboard"] .ap-activity-row { flex: 0 1 auto; gap: 8px; font-size: var(--fs-small); }
-html[data-embedded="dashboard"] .ap-activity-title { flex: 0 1 auto; max-width: 320px; }
-html[data-embedded="dashboard"] .ap-tab-bar {
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
-  grid-template-areas: "tabs note finished today";
-}
-html[data-embedded="dashboard"] .ap-tab-bar > .ap-tab-today {
-  display: block; grid-area: today; justify-self: end; margin-left: auto;
-  font: 400 var(--fs-small)/1.5 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink-muted); white-space: nowrap;
+html[data-embedded="dashboard"] #ap-activity { display: none; }
+html[data-embedded="dashboard"] .ap-summary-line {
+  display: flex; align-items: center; gap: 18px; height: 30px; padding: 0 12px; overflow: hidden;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--surface);
+  font: 400 12px/1 var(--font-ui); color: var(--ink-muted); white-space: nowrap;
 }
 .ap-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
 /* The selected tab's 2px underline overlaps the row's 1px rule. */
@@ -848,83 +855,60 @@ html[data-embedded="dashboard"] .ap-tab-bar > .ap-tab-today {
 .ap-theme button[aria-checked="true"] { background: var(--surface-selected); color: var(--ink); }
 .ap-theme button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
-/* ---------------------------------------------------- finished-work switch -- */
-.ap-finished { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--sp-2) var(--sp-3); min-width: 0; }
-.ap-finished-anchor { position: relative; }
-.ap-finished-label { font-size: var(--fs-micro); font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-muted); }
-.ap-finished-switch {
-  position: relative; isolation: isolate;
-  display: flex; gap: 2px; padding: 3px;
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  border-radius: var(--r-2);
-}
-/* The thumb slides under the checked choice; the page script sets its x and width from the pill it sits under. */
-.ap-finished-thumb {
-  position: absolute; z-index: -1; top: 3px; bottom: 3px; left: 0;
-  width: var(--thumb-w, 0px);
-  transform: translateX(var(--thumb-x, 0px));
-  background: var(--surface);
-  border-radius: var(--r-1);
-  box-shadow: 0 1px 2px var(--shadow-control), 0 0 0 1px var(--line);
-  opacity: 0;
-  transition: transform var(--motion-base) var(--ease-out), width var(--motion-base) var(--ease-out);
-}
-.ap-finished-switch[data-thumb-ready] .ap-finished-thumb { opacity: 1; }
-.ap-finished-switch:not([data-thumb-ready]) .ap-finished-thumb { transition: none; }
-/* With a day chosen no pill in the popover is checked, so there is nothing for the thumb to sit under. */
-.ap-finished-switch[data-thumb-empty] .ap-finished-thumb { opacity: 0; }
-/* A pill is its box: the line centred with equal room either side and the reach mark spanning the same inner width, so the thumb,
-   which takes the pill's box, hugs both. */
-.ap-finished-switch button {
-  display: flex; flex-direction: column; align-items: stretch;
-  row-gap: 5px;
-  min-width: 84px;
-  padding: 6px 11px 5px;
-  font: 600 var(--fs-small)/1 var(--font-ui);
-  color: var(--ink-muted);
-  background: transparent;
-  border: 0; border-radius: var(--r-1);
+/* -------------------------------------------------------------- filter line -- */
+/* The line shrinks from its epic name first (down to 96px), then its range wording; the menu hangs from its right edge. */
+.ap-filter { position: relative; display: flex; justify-content: flex-end; min-width: 0; }
+.ap-filter-line {
+  display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%;
+  height: 32px; padding: 0 10px 0 12px;
+  font: 400 var(--fs-small)/1 var(--font-ui); color: var(--ink-muted); white-space: nowrap;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
   cursor: pointer;
-  white-space: nowrap;
 }
-.ap-finished-line { display: flex; align-items: baseline; justify-content: center; column-gap: 6px; }
-.ap-finished-switch button:hover,
-.ap-finished-switch button[aria-checked="true"],
-.ap-finished-switch button[aria-expanded="true"] { color: var(--ink); }
-.ap-finished-switch button:focus-visible { outline: 2px solid var(--link); outline-offset: 1px; }
-.ap-finished-count { font: 500 var(--fs-micro)/1 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink-muted); }
-.ap-finished-count:empty { display: none; }
-.ap-finished-switch button[aria-checked="true"] .ap-finished-count { color: var(--link); }
-.ap-finished-caret { align-self: center; width: 0; height: 0; border-inline: 3.5px solid transparent; border-top: 4px solid currentColor; opacity: 0.7; }
-/* How far back the choice reaches, on one log scale for every pill: now at the right end, the oldest finished work at the left. */
-.ap-finished-reach { position: relative; height: 3px; border-radius: var(--r-pill); background: var(--reach-track); overflow: hidden; }
-.ap-finished-reach i {
-  position: absolute; top: 0; right: 0; bottom: 0;
-  width: var(--reach, 0%);
-  border-radius: inherit;
-  background: var(--line-strong);
-  transition: width var(--motion-base) var(--ease-out), background-color var(--motion-base) var(--ease-out);
-}
-.ap-finished-switch button:hover .ap-finished-reach i { background: var(--link-soft); }
-.ap-finished-switch button[aria-checked="true"] .ap-finished-reach i { background: var(--link); }
-
-#ap-hidden-note { font-size: var(--fs-small); color: var(--ink-muted); border-radius: var(--r-1); padding: 1px 4px; }
-#ap-hidden-note:hover { color: var(--link); }
-#ap-hidden-note[data-changed] { animation: ap-note-changed var(--motion-slow) var(--ease-out); }
-@keyframes ap-note-changed { from { background: var(--link-tint); color: var(--link); } to { background: transparent; } }
+.ap-filter-line:hover, .ap-filter-line[aria-expanded="true"] { color: var(--ink); border-color: var(--line-strong); }
+.ap-filter-line:focus-visible { outline: 2px solid var(--link); outline-offset: 1px; }
+.ap-filter-icon { flex: none; width: 14px; height: 14px; }
+.ap-filter-range { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
+.ap-filter-range strong { font-weight: 600; }
+.ap-filter-epic { flex: 0 10000 auto; display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--ink); }
+.ap-filter-epic[hidden] { display: none; }
+.ap-filter-epic[data-no-swatch] .ap-epic-swatch { display: none; }
+.ap-filter-epic-name { min-width: 96px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+.ap-filter-caret { flex: none; width: 0; height: 0; border-inline: 4px solid transparent; border-top: 5px solid currentColor; opacity: 0.8; }
 .ap-visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+/* Pinned inside the filter's box: left where the line ends, the 1px status would widen the tab row past its edge. */
+.ap-filter > .ap-visually-hidden { top: 0; left: 0; }
 
-/* Hangs from the switch's right edge, under the custom pill (from its left edge once the bar wraps); the pill row sets its width. */
-.ap-popover.ap-finished-popover { top: calc(100% + 6px); right: 0; width: max-content; min-width: 300px; }
-.ap-finished-popover .ap-finished-switch button { flex: 1 1 0; min-width: 76px; }
-.ap-finished-or {
-  display: flex; align-items: center; gap: var(--sp-2);
-  margin: var(--sp-3) 0 var(--sp-2);
-  font-size: var(--fs-micro); font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em;
-  color: var(--ink-muted);
+.ap-popover.ap-filter-menu { top: calc(100% + 6px); right: 0; width: 340px; padding: 0; border-radius: 8px; white-space: normal; }
+.ap-filter-section { padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--line); }
+.ap-filter-section[hidden] { display: none; }
+.ap-filter-menu:not([data-tab="kanban"]) .ap-filter-kanban-only { display: none; }
+.ap-filter-section-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: var(--sp-2); }
+.ap-filter-scope { font-size: var(--fs-micro); color: var(--ink-muted); }
+.ap-filter-lede { margin: 0 0 var(--sp-2); font-size: var(--fs-small); line-height: 1.5; color: var(--ink-muted); }
+.ap-filter-menu .ap-seg { width: max-content; margin-bottom: var(--sp-3); }
+.ap-filter-menu .ap-seg button { font-family: var(--font-ui); }
+.ap-filter-menu .ap-seg .ap-chip-count { margin-left: 3px; color: var(--ink-muted); }
+.ap-filter-result { display: flex; align-items: baseline; gap: var(--sp-2); margin: var(--sp-2) 0 0; font-size: var(--fs-small); color: var(--ink); }
+.ap-filter-result .ap-link-button[hidden] { display: none; }
+.ap-filter-epic-list { display: flex; flex-direction: column; gap: 2px; }
+/* An epic chip drawn as a checkable row: box, swatch, title, then its count at the far end. */
+.ap-filter-epic-list .ap-chip {
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 4px;
+  border: 0; border-radius: var(--r-1); background: transparent; color: var(--ink); text-align: left;
 }
-.ap-finished-or::before, .ap-finished-or::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+.ap-filter-epic-list .ap-chip::before {
+  content: ""; flex: none; order: -2; width: 12px; height: 12px; border: 1px solid var(--line-strong); border-radius: 3px;
+}
+.ap-filter-epic-list .ap-chip .ap-epic-swatch { order: -1; }
+.ap-filter-epic-list .ap-chip:not([data-epic-slot])::after { content: ""; flex: none; order: -1; width: 8px; }
+.ap-filter-epic-list .ap-chip[aria-pressed="true"] { background: transparent; color: var(--ink); font-weight: 400; }
+.ap-filter-epic-list .ap-chip[aria-pressed="true"]::before { border-color: var(--link); background: var(--link); box-shadow: inset 0 0 0 2px var(--surface); }
+.ap-filter-epic-list .ap-chip:hover { background: var(--surface-2); }
+.ap-filter-epic-list .ap-chip .ap-chip-count { margin-left: auto; }
+.ap-filter-epic-list .ap-epic-strip-rollup { padding: 0 4px 6px 24px; }
+.ap-filter-epic-list .ap-epic-strip-rollup .ap-epic-progress { width: 96px; }
+.ap-filter-foot { display: flex; align-items: baseline; justify-content: space-between; padding: var(--sp-3) var(--sp-4); }
 .ap-finished-since-field { display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: var(--sp-2); row-gap: 4px; }
 .ap-finished-since-field label { font-size: var(--fs-small); color: var(--ink-muted); }
 /* The native field and its calendar follow the resolved theme through the root's color-scheme, not the OS. */
@@ -953,8 +937,9 @@ html[data-embedded="dashboard"] .ap-tab-bar > .ap-tab-today {
 .ap-finished-since-field input:focus-visible { outline: 2px solid var(--link); outline-offset: 1px; }
 .ap-finished-since-field input[aria-invalid="true"] { border-color: var(--err-edge); box-shadow: none; }
 .ap-finished-since-field .ap-resolved { grid-column: 2; min-height: 1.5em; }
-@media (max-width: 1320px) {
-  .ap-popover.ap-finished-popover { right: auto; left: 0; }
+.ap-finished-since-field .ap-resolved:empty { display: none; }
+@media (max-width: 900px) {
+  .ap-popover.ap-filter-menu { right: auto; left: 0; }
 }
 
 /* ------------------------------------------------------------------ cards -- */
@@ -1500,8 +1485,6 @@ a.ap-num:hover { color: var(--ink); }
   .ap-detail { transition: none; }
   .ap-detail-scroll[data-swapped] { animation: none; }
   .ap-kanban-frame::after { transition: none; }
-  .ap-finished-thumb, .ap-finished-reach i { transition: none; }
-  #ap-hidden-note[data-changed] { animation: none; }
 }
 .ap-detail-head {
   display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3);
@@ -1582,11 +1565,7 @@ a.ap-num:hover { color: var(--ink); }
   .ap-kanban-arrow-line { animation: none; stroke-dashoffset: 0; }
   .ap-kanban-arrow-head { animation: none; opacity: 1; }
 }
-.ap-kanban-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-5); margin: 0 0 var(--sp-3); }
-.ap-kanban-toolbar > .ap-epic-strip { margin: 0; }
-.ap-kanban-toolbar:not(:has(> :not([hidden]))) { display: none; }
-.ap-kanban-order-hint { font-size: var(--fs-small); color: var(--ink-muted); }
-.ap-kanban-toolbar .ap-seg button { font-family: var(--font-ui); }
+.ap-kanban-order-hint { margin: 0; font-size: var(--fs-small); line-height: 1.5; color: var(--ink-muted); }
 .ap-lane-more { display: flex; flex-direction: column; gap: 6px; padding: var(--sp-2); border-top: 1px solid var(--line); font: var(--fs-micro)/1.5 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink-muted); }
 .ap-lane-more > span { padding-left: var(--sp-1); }
 .ap-lane-more .ap-seg button { flex: 1; }
@@ -2022,9 +2001,6 @@ button.ap-epic-title:hover { text-decoration: underline; text-underline-offset: 
 .ap-epic-group-line .ap-ticket-meta { padding: 0; }
 .ap-epic-group-line .ap-card-note { margin: 0; }
 .ap-card-head > .ap-seg { margin-left: auto; }
-.ap-epic-strip { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-4); margin: 0 0 var(--sp-3); }
-.ap-epic-strip[hidden] { display: none; }
-.ap-epic-strip-rollups { display: contents; }
 .ap-epic-strip-rollup { display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--sp-3); font-size: var(--fs-small); color: var(--ink-muted); }
 .ap-epic-strip-rollup .ap-epic-progress { width: 140px; }
 
@@ -2097,69 +2073,73 @@ button.ap-epic-title:hover { text-decoration: underline; text-underline-offset: 
     <div class="ap-activity-row" data-state="reviewing"><span class="ap-activity-dot" aria-hidden="true"></span><span class="ap-activity-kind">Reviewing</span><span class="ap-activity-id">#058</span><span class="ap-activity-title">Rate-limit resets</span><span class="ap-activity-elapsed" aria-hidden="true">31m 17s</span></div>
   </div>
 
+  <div class="ap-summary-line" id="ap-summary-line">
+    <span class="ap-summary-line-item"><span class="ap-summary-line-dot" data-state="in-progress" aria-hidden="true"></span><span class="ap-summary-line-n">2</span><span class="ap-summary-line-label">building</span></span>
+    <span class="ap-summary-line-item"><span class="ap-summary-line-dot" data-state="reviewing" aria-hidden="true"></span><span class="ap-summary-line-n">2</span><span class="ap-summary-line-label">reviewing</span></span>
+    <span class="ap-summary-line-item"><span class="ap-summary-line-dot" data-state="pending" aria-hidden="true"></span><span class="ap-summary-line-n">6</span><span class="ap-summary-line-label">waiting in queue</span></span>
+    <span class="ap-summary-line-item"><span class="ap-summary-line-dot" data-state="paused" aria-hidden="true"></span><span class="ap-summary-line-n">1</span><span class="ap-summary-line-label">paused</span></span>
+    <span class="ap-summary-line-spacer"></span>
+    <span class="ap-summary-line-item"><span class="ap-summary-line-dot" data-state="delivered" aria-hidden="true"></span><span class="ap-summary-line-n">12</span><span class="ap-summary-line-label">done today</span></span>
+    <span class="ap-summary-line-divider" aria-hidden="true"></span>
+    <span class="ap-summary-line-item"><span class="ap-summary-line-n">21.4M</span><span class="ap-summary-line-label">tokens today</span></span>
+  </div>
+
   <div class="ap-tab-bar">
     <div class="ap-tabs" id="ap-tabs" role="tablist" aria-label="Views">
       <button type="button" role="tab" id="ap-tab-kanban" aria-controls="ap-panel-kanban" data-tab="kanban" aria-selected="true">Kanban</button>
-      <button type="button" role="tab" id="ap-tab-progress" aria-controls="ap-panel-progress" data-tab="progress" aria-selected="false">Progress</button>
-      <button type="button" role="tab" id="ap-tab-tickets" aria-controls="ap-panel-tickets" data-tab="tickets" aria-selected="false">Tickets</button>
-      <button type="button" role="tab" id="ap-tab-epics" aria-controls="ap-panel-epics" data-tab="epics" aria-selected="false">Epics</button>
       <button type="button" role="tab" id="ap-tab-dependencies" aria-controls="ap-panel-dependencies" data-tab="dependencies" aria-selected="false">Waves</button>
+      <button type="button" role="tab" id="ap-tab-progress" aria-controls="ap-panel-progress" data-tab="progress" aria-selected="false">Progress</button>
+      <button type="button" role="tab" id="ap-tab-epics" aria-controls="ap-panel-epics" data-tab="epics" aria-selected="false">Epics</button>
+      <button type="button" role="tab" id="ap-tab-tickets" aria-controls="ap-panel-tickets" data-tab="tickets" aria-selected="false">Tickets</button>
     </div>
-    <div class="ap-finished" id="ap-finished">
-      <span class="ap-finished-label" id="ap-finished-label">Finished work</span>
-      <div class="ap-finished-anchor">
-        <div class="ap-finished-switch" id="ap-finished-switch" role="radiogroup" aria-labelledby="ap-finished-label">
-          <span class="ap-finished-thumb" aria-hidden="true"></span>
-          <button type="button" role="radio" data-finished="1h" aria-checked="false" tabindex="-1" title="Unfinished work, and work finished in the last hour"><span class="ap-finished-line"><span class="ap-finished-name">last hour</span><span class="ap-finished-count">3</span></span><span class="ap-finished-reach" aria-hidden="true"><i style="--reach: 32%"></i></span></button>
-          <button type="button" role="radio" data-finished="1d" aria-checked="true" tabindex="0" title="Unfinished work, and work finished in the last day"><span class="ap-finished-line"><span class="ap-finished-name">last day</span><span class="ap-finished-count">12</span></span><span class="ap-finished-reach" aria-hidden="true"><i style="--reach: 68%"></i></span></button>
-          <button type="button" role="radio" data-finished="custom" id="ap-finished-custom" aria-checked="false" tabindex="-1" aria-haspopup="dialog" aria-expanded="false" aria-controls="ap-finished-popover" title="Unfinished work, and work finished in a span or since a day you pick"><span class="ap-finished-line"><span class="ap-finished-name">custom</span><span class="ap-finished-count"></span><span class="ap-finished-caret" aria-hidden="true"></span></span><span class="ap-finished-reach" aria-hidden="true"><i></i></span></button>
-        </div>
-        <div class="ap-popover ap-finished-popover" id="ap-finished-popover" role="dialog" aria-labelledby="ap-finished-popover-title" hidden>
-          <p class="ap-popover-title" id="ap-finished-popover-title">Show work finished in the last</p>
-          <div class="ap-finished-switch" id="ap-finished-presets" role="radiogroup" aria-labelledby="ap-finished-popover-title">
-            <span class="ap-finished-thumb" aria-hidden="true"></span>
-            <button type="button" role="radio" data-custom-preset="6h" aria-checked="false" tabindex="0" title="Work finished in the last 6 hours"><span class="ap-finished-line"><span class="ap-finished-name">6 hours</span><span class="ap-finished-count"></span></span><span class="ap-finished-reach" aria-hidden="true"><i></i></span></button>
-            <button type="button" role="radio" data-custom-preset="12h" aria-checked="false" tabindex="-1" title="Work finished in the last 12 hours"><span class="ap-finished-line"><span class="ap-finished-name">12 hours</span><span class="ap-finished-count"></span></span><span class="ap-finished-reach" aria-hidden="true"><i></i></span></button>
-            <button type="button" role="radio" data-custom-preset="3d" aria-checked="false" tabindex="-1" title="Work finished in the last 3 days"><span class="ap-finished-line"><span class="ap-finished-name">3 days</span><span class="ap-finished-count"></span></span><span class="ap-finished-reach" aria-hidden="true"><i></i></span></button>
-            <button type="button" role="radio" data-custom-preset="all" aria-checked="false" tabindex="-1" title="All finished work"><span class="ap-finished-line"><span class="ap-finished-name">all</span><span class="ap-finished-count"></span></span><span class="ap-finished-reach" aria-hidden="true"><i></i></span></button>
+    <div class="ap-filter" id="ap-filter">
+      <button type="button" class="ap-filter-line" id="ap-filter-line" aria-haspopup="dialog" aria-expanded="false" aria-controls="ap-filter-menu">
+        <svg class="ap-filter-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12l-4.6 5.4V13l-2.8-1.4V8.4z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"></path></svg>
+        <span class="ap-filter-range" id="ap-filter-range" title="Unfinished work always shows; work finished in the last day shows beside it">Hiding closed &gt; <strong>1 day</strong></span>
+        <span class="ap-filter-epic" id="ap-filter-epic"><span aria-hidden="true">·</span><span class="ap-epic-swatch" data-epic-slot="1"></span><span class="ap-filter-epic-name" title="Checkout redesign">Checkout redesign</span></span>
+        <span class="ap-filter-caret" aria-hidden="true"></span>
+      </button>
+      <div class="ap-popover ap-filter-menu" id="ap-filter-menu" role="dialog" aria-label="Filters" data-tab="kanban" hidden>
+        <section class="ap-filter-section" id="ap-filter-finished">
+          <div class="ap-filter-section-head"><span class="ap-range-label" id="ap-finished-label">Finished work</span><span class="ap-filter-scope">every tab</span></div>
+          <p class="ap-filter-lede">Unfinished work always shows. Also show what finished in the last</p>
+          <div class="ap-seg" id="ap-finished-spans" role="group" aria-labelledby="ap-finished-label">
+            <button type="button" data-finished="1h" aria-pressed="false">hour <span class="ap-chip-count">3</span></button>
+            <button type="button" data-finished="1d" aria-pressed="true">day <span class="ap-chip-count">12</span></button>
+            <button type="button" data-finished="3d" aria-pressed="false">3 days <span class="ap-chip-count">31</span></button>
+            <button type="button" data-finished="all" aria-pressed="false">all <span class="ap-chip-count">79</span></button>
           </div>
-          <p class="ap-finished-or" aria-hidden="true">or</p>
           <div class="ap-finished-since-field">
-            <label for="ap-finished-since">on or after</label>
+            <label for="ap-finished-since">or since</label>
             <input id="ap-finished-since" type="date" aria-describedby="ap-finished-since-resolved">
             <span class="ap-resolved" id="ap-finished-since-resolved" aria-live="polite"></span>
           </div>
-        </div>
+          <p class="ap-filter-result"><span id="ap-hidden-count">67 tickets · 1 epic hidden</span><button type="button" class="ap-link-button" id="ap-show-all-finished">show all</button></p>
+        </section>
+        <section class="ap-filter-section ap-filter-kanban-only" id="ap-kanban-epics">
+          <div class="ap-filter-section-head"><span class="ap-range-label" id="ap-kanban-epic-label">Epic</span><span class="ap-filter-scope">Kanban</span></div>
+          <div class="ap-chips ap-filter-epic-list" id="ap-kanban-epic" role="group" aria-labelledby="ap-kanban-epic-label">
+            <button type="button" class="ap-chip" data-epic-chip="checkout-redesign" data-epic-slot="1" aria-pressed="true"><span class="ap-epic-swatch"></span>Checkout redesign <span class="ap-chip-count">4</span></button><div class="ap-epic-strip-rollup" data-epic-slot="1"><div class="ap-epic-progress" role="img" aria-label="2 of 4 done tickets"><span data-state="delivered" style="flex-grow:2" title="Done: 2"></span><span data-state="in-progress" style="flex-grow:1" title="In progress: 1"></span><span data-state="pending" style="flex-grow:1" title="To do: 1"></span></div><span>2 of 4 done · 4.1M tokens</span><button type="button" class="ap-link-button" data-open-epic="checkout-redesign">Checkout redesign details</button></div>
+            <button type="button" class="ap-chip" data-epic-chip="order-emails" data-epic-slot="2" aria-pressed="false"><span class="ap-epic-swatch"></span>Order emails <span class="ap-chip-count">2</span></button>
+            <button type="button" class="ap-chip" data-epic-chip="no epic" aria-pressed="false">no epic <span class="ap-chip-count">3</span></button>
+          </div>
+        </section>
+        <section class="ap-filter-section ap-filter-kanban-only" id="ap-kanban-order">
+          <div class="ap-filter-section-head"><span class="ap-range-label" id="ap-kanban-order-label">Order To do</span><span class="ap-filter-scope">Kanban</span></div>
+          <div class="ap-seg" role="group" aria-labelledby="ap-kanban-order-label">
+            <button type="button" data-todo-order="filed" aria-pressed="true">filed</button>
+            <button type="button" data-todo-order="by-wave" aria-pressed="false">by wave</button>
+          </div>
+          <p class="ap-kanban-order-hint">↦ N on a card: tickets that wait on it, directly or further down the chain.</p>
+        </section>
+        <div class="ap-filter-foot"><button type="button" class="ap-link-button" id="ap-filter-reset">Reset filters</button><span class="ap-filter-scope">Esc closes</span></div>
       </div>
       <span class="ap-visually-hidden" id="ap-finished-status" aria-live="polite"></span>
     </div>
-    <button type="button" class="ap-link-button" id="ap-hidden-note" title="Show all finished work">2 tickets hidden</button>
-    <span class="ap-tab-today" id="ap-today">4 done today · 182k tokens today</span>
   </div>
 </header>
 
 <section data-panel="kanban" role="tabpanel" id="ap-panel-kanban" aria-labelledby="ap-tab-kanban">
-  <div class="ap-kanban-toolbar">
-    <div class="ap-epic-strip" id="ap-kanban-epics">
-      <div class="ap-toolbar-group">
-        <span class="ap-range-label" id="ap-kanban-epic-label">Epic</span>
-        <div class="ap-chips" id="ap-kanban-epic" role="group" aria-labelledby="ap-kanban-epic-label">
-          <button type="button" class="ap-chip" data-epic-chip="checkout-redesign" data-epic-slot="1" aria-pressed="true"><span class="ap-epic-swatch"></span>Checkout redesign <span class="ap-chip-count">4</span></button>
-          <button type="button" class="ap-chip" data-epic-chip="order-emails" data-epic-slot="2" aria-pressed="false"><span class="ap-epic-swatch"></span>Order emails <span class="ap-chip-count">2</span></button>
-          <button type="button" class="ap-chip" data-epic-chip="no epic" aria-pressed="false">no epic <span class="ap-chip-count">3</span></button>
-        </div>
-      </div>
-      <div class="ap-epic-strip-rollups" id="ap-kanban-epic-rollups"><div class="ap-epic-strip-rollup" data-epic-slot="1"><div class="ap-epic-progress" role="img" aria-label="2 of 4 done tickets"><span data-state="delivered" style="flex-grow:2" title="Done: 2"></span><span data-state="in-progress" style="flex-grow:1" title="In progress: 1"></span><span data-state="pending" style="flex-grow:1" title="To do: 1"></span></div><span>2 of 4 done · 4.1M tokens</span><button type="button" class="ap-link-button" data-open-epic="checkout-redesign">Checkout redesign details</button></div></div>
-    </div>
-    <div class="ap-toolbar-group" id="ap-kanban-order">
-      <span class="ap-range-label" id="ap-kanban-order-label">Order To do</span>
-      <div class="ap-seg" role="group" aria-labelledby="ap-kanban-order-label">
-        <button type="button" data-todo-order="filed" aria-pressed="true">filed</button>
-        <button type="button" data-todo-order="by-wave" aria-pressed="false">by wave</button>
-      </div>
-      <span class="ap-kanban-order-hint">↦ N: tickets that wait on this one, directly or further down the chain</span>
-    </div>
-  </div>
   <div class="ap-kanban-frame" id="ap-kanban-frame">
     <div class="ap-kanban" id="ap-kanban">
       <section class="ap-card ap-lane" data-lane="todo" aria-label="To do"><div class="ap-card-head" data-state="pending" title="1 waiting · 1 held · 2 no row"><span class="ap-card-title">To do</span><span class="ap-lane-count">6</span></div><div class="ap-lane-cards" id="ap-lane-todo-cards"><div class="ap-lane-group" data-priority="high">High <span class="ap-lane-group-count">1</span></div><article class="ap-kanban-card" id="ap-kanban-064" data-ticket-id="064" data-state="pending" tabindex="0" aria-label="#064 Checkout button double-submits on a slow network, To do, high priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#064</span><span class="ap-waiting" data-priority="high" title="High priority: dispatched before every normal ticket">high</span><span class="ap-detail-type" data-type="bug">bug</span></div><p class="ap-kanban-title" title="Checkout button double-submits on a slow network">Checkout button double-submits on a slow network</p><div class="ap-kanban-state"></div><span class="ap-kanban-stamp" title="filed 2026-09-25 13:02">filed 13:02</span></article><div class="ap-lane-group" data-priority="normal">Normal <span class="ap-lane-group-count">3</span></div><article class="ap-kanban-card" id="ap-kanban-066" data-ticket-id="066" data-state="pending" tabindex="0" aria-label="#066 Rename basket to cart in order e-mails, To do, normal priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#066</span></div><p class="ap-kanban-title" title="Rename basket to cart in order e-mails">Rename basket to cart in order e-mails</p><div class="ap-kanban-marks"><span class="ap-kanban-held" title="Held: Waiting for copy from marketing">held</span></div><div class="ap-kanban-state"></div><span class="ap-kanban-stamp" title="filed 2026-09-25 09:50">filed 09:50</span></article><article class="ap-kanban-card" id="ap-kanban-067" data-ticket-id="067" data-state="pending" tabindex="0" aria-label="#067 Sort orders by delivery date, To do, normal priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#067</span></div><p class="ap-kanban-title" title="Sort orders by delivery date">Sort orders by delivery date</p><div class="ap-kanban-state"></div><span class="ap-kanban-stamp" title="filed 2026-09-25 10:12">filed 10:12</span></article><article class="ap-kanban-card" id="ap-kanban-065" data-ticket-id="065" data-state="pending" tabindex="0" aria-label="#065 Wishlist share link, To do, normal priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#065</span></div><p class="ap-kanban-title" title="Wishlist share link">Wishlist share link</p><div class="ap-kanban-marks"><span class="ap-waiting">waiting on <a href="#ap-kanban-060" data-ticket-link="060">#060</a></span></div><div class="ap-kanban-state"></div><span class="ap-kanban-stamp" title="filed 2026-09-25 11:20">filed 11:20</span></article><div class="ap-lane-group" data-priority="low">Low <span class="ap-lane-group-count">2</span></div><article class="ap-kanban-card" id="ap-kanban-068" data-ticket-id="068" data-state="pending" data-row="none" tabindex="0" aria-label="#068 Footer links wrap on tablets, To do, low priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#068</span><span class="ap-ticket-badge" data-priority="low" title="Low priority: no row on the chart until it is started, and worked once every normal and high ticket is done">low</span><span class="ap-detail-type" data-type="bug">bug</span></div><p class="ap-kanban-title" title="Footer links wrap on tablets">Footer links wrap on tablets</p><div class="ap-kanban-marks"><span class="ap-kanban-no-row" title="Low priority: it gets a row on the Progress chart once it is started">no row yet</span></div><div class="ap-kanban-state"></div><span class="ap-kanban-stamp" title="filed 2026-09-24 17:40">filed 09-24 17:40</span></article><article class="ap-kanban-card" id="ap-kanban-069" data-ticket-id="069" data-state="pending" data-row="none" tabindex="0" aria-label="#069 Admin table column widths jump on sort, To do, low priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#069</span><span class="ap-ticket-badge" data-priority="low" title="Low priority: no row on the chart until it is started, and worked once every normal and high ticket is done">low</span><span class="ap-detail-type" data-type="bug">bug</span></div><p class="ap-kanban-title" title="Admin table column widths jump on sort">Admin table column widths jump on sort</p><div class="ap-kanban-marks"><span class="ap-kanban-no-row" title="Low priority: it gets a row on the Progress chart once it is started">no row yet</span></div><div class="ap-kanban-state"></div><span class="ap-kanban-stamp" title="filed 2026-09-25 12:05">filed 12:05</span></article></div></section>

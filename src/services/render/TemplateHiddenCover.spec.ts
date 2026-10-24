@@ -5,9 +5,10 @@
  * the element in `resources/template.html`, and fails when a rule that can reach the element declares a `display` other than `none` with
  * no `display: none` rule matching the hidden element at a specificity that wins. Only modules the page entry reaches are scanned. What
  * matters: the real template and page modules pass with every collected id found in the template; each hiding form is collected; and
- * removing the epic strip's cover fails.
+ * removing the filter menu section's cover under a planted display fails.
  * Embedded mode hides elements through the template's rules under `html[data-embedded="dashboard"]`, the mark its head script sets only
- * for `?embedded=dashboard`: each element they hide must lose every other `display` to one, the four header parts must be among them,
+ * for `?embedded=dashboard`: each element they hide must lose every other `display` to one, the four header parts and the activity
+ * banner must be among them,
  * the `hidden` covers must still win with the root marked, and a rule under the mark reaches nothing while the root is unmarked.
  */
 
@@ -385,7 +386,7 @@ describe('every element the page hides is display: none while hidden', () => {
     expect(offencesOf(templateText, elementIds)).toEqual([]);
   });
 
-  test('the epic strip, the Tickets epic filter, the Epics tab and the Dependencies tab are among the ids checked', () => {
+  test('the Kanban epic section, the Tickets epic filter, the Epics tab and the Dependencies tab are among the ids checked', () => {
     const { elementIds } = hidingSitesOf(pageSourcesReachedFrom(SCANNER.graph, TRACKER_ENTRY_PATH));
     expect([...elementIds]).toEqual(expect.arrayContaining(['ap-kanban-epics', 'ap-ticket-epic-filter', 'ap-tab-epics', 'ap-tab-dependencies']));
   });
@@ -413,10 +414,13 @@ describe('every element the page hides is display: none while hidden', () => {
     expect(unresolvedSites).toEqual(['page/Planted.ts: header']);
   });
 
-  test('removing the epic strip cover fails on the strip', () => {
-    const uncovered = templateText.replace(/\.ap-epic-strip\[hidden\][^{]*\{[^}]*\}/, '');
-    expect(uncovered.length).toBeLessThan(templateText.length);
-    expect(offencesOf(uncovered, ['ap-kanban-epics'])).toEqual(['#ap-kanban-epics: .ap-epic-strip { display: flex }']);
+  test('removing the filter menu section cover fails on the Kanban epic section', () => {
+    const uncovered = templateText
+      .replace(/\.ap-filter-section\[hidden\][^{]*\{[^}]*\}/, '')
+      .replace('.ap-filter-section { padding', '.ap-filter-section { display: block; padding');
+    expect(uncovered).not.toContain('.ap-filter-section[hidden]');
+    expect(uncovered).toContain('.ap-filter-section { display: block; padding');
+    expect(offencesOf(uncovered, ['ap-kanban-epics'])).toEqual(['#ap-kanban-epics: .ap-filter-section { display: block }']);
   });
 
   test('a cover earlier in the sheet at a lower specificity loses, and an !important one wins', () => {
@@ -470,8 +474,8 @@ describe('every element embedded mode hides is display: none in embedded mode', 
     expect(appendingSources).toEqual([]);
   });
 
-  test('the status line, the project title, the statistics and the theme switch are the elements it hides', () => {
-    expect(embeddedHiddenIdsOf(templateText)).toEqual(['ap-project', 'ap-status', 'ap-summary', 'ap-theme']);
+  test('the status line, the project title, the statistics, the theme switch and the activity banner are the elements it hides', () => {
+    expect(embeddedHiddenIdsOf(templateText)).toEqual(['ap-activity', 'ap-project', 'ap-status', 'ap-summary', 'ap-theme']);
   });
 
   test('each element it hides has a winning embedded rule over each display its rules set', () => {
@@ -483,13 +487,13 @@ describe('every element embedded mode hides is display: none in embedded mode', 
     expect(offencesOf(embeddedTemplateText, elementIds)).toEqual([]);
   });
 
-  test('removing the theme switch rule fails on the theme switch, and the activity banner hidden cover on the banner', () => {
+  test('removing the theme switch rule fails on the theme switch, and the activity banner rule on the banner', () => {
     const withoutThemeRule = templateMarkedEmbedded(templateText.replace(/^.*#ap-theme \{ display: none; \}$/m, ''));
     expect(withoutThemeRule.length).toBeLessThan(embeddedTemplateText.length);
     expect(offencesOf(withoutThemeRule, ['ap-theme'], 'embedded-dashboard')).toEqual(['#ap-theme: .ap-theme { display: flex }']);
-    const withoutBannerCover = templateMarkedEmbedded(templateText.replace(/^html\[data-embedded="dashboard"\] \.ap-activity\[hidden\].*$/m, ''));
-    expect(withoutBannerCover.length).toBeLessThan(embeddedTemplateText.length);
-    expect(offencesOf(withoutBannerCover, ['ap-activity'])).toEqual(['#ap-activity: html[data-embedded="dashboard"] .ap-activity { display: flex }']);
+    const withoutBannerRule = templateMarkedEmbedded(templateText.replace(/^html\[data-embedded="dashboard"\] #ap-activity \{ display: none; \}$/m, ''));
+    expect(withoutBannerRule.length).toBeLessThan(embeddedTemplateText.length);
+    expect(offencesOf(withoutBannerRule, ['ap-activity'], 'embedded-dashboard')).toEqual(['#ap-activity: .ap-activity { display: grid }']);
   });
 
   test('a rule under the embedded mark reaches nothing while the root is unmarked', () => {

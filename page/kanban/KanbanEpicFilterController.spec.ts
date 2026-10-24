@@ -1,8 +1,9 @@
 /**
- * The Kanban's epic strip lists only epics still holding an open ticket. What matters: an epic whose tickets are all delivered, abandoned
- * or a mix of both gets no chip, while one holding only a reviewed or in-review ticket keeps its chip; a remembered selection of an unlisted
- * epic leaves the board unfiltered without rewriting the stored choice; and with no listed epic the strip stays hidden. The page has no DOM
- * under Bun, so `document` is a map of the strip's three containers carrying only what the controller writes.
+ * The filter menu's Kanban Epic section lists only epics still holding an open ticket. What matters: an epic whose tickets are all
+ * delivered, abandoned or a mix of both gets no row, while one holding only a reviewed or in-review ticket keeps its row; a remembered
+ * selection of an unlisted epic leaves the board unfiltered without rewriting the stored choice; a pressed epic's roll-up sits under its
+ * own row and the filter line names it; a reset clears and stores the choice; and with no listed epic the section stays hidden. The page
+ * has no DOM under Bun, so `document` is a map of the section's two containers carrying only what the controller writes.
  */
 
 import {
@@ -29,7 +30,6 @@ interface FakeContainer {
 
 const STRIP_ELEMENT_ID   = 'ap-kanban-epics';
 const CHIPS_ELEMENT_ID   = 'ap-kanban-epic';
-const ROLLUPS_ELEMENT_ID = 'ap-kanban-epic-rollups';
 
 function exampleTicket(id: string, changes: Partial<PageTicket>): PageTicket {
   return {
@@ -135,11 +135,11 @@ afterAll(() => {
 });
 
 beforeEach(() => {
-  containers  = new Map([STRIP_ELEMENT_ID, CHIPS_ELEMENT_ID, ROLLUPS_ELEMENT_ID].map((elementId) => [elementId, fakeContainer()]));
+  containers  = new Map([STRIP_ELEMENT_ID, CHIPS_ELEMENT_ID].map((elementId) => [elementId, fakeContainer()]));
   storedItems = new Map();
 });
 
-describe('the Kanban epic strip', () => {
+describe('the Kanban epic filter', () => {
   test('lists an epic holding an open ticket and none whose tickets are all delivered, abandoned or a mix of both', () => {
     wiredController(MIXED_BOARD);
     const shown = chipValuesShown();
@@ -159,8 +159,34 @@ describe('the Kanban epic strip', () => {
     const storedBefore = [...storedItems];
     const controller   = wiredController(MIXED_BOARD);
     expect(MIXED_BOARD.tickets.every((ticket) => controller.keeps(ticket))).toBe(true);
-    expect(containerOf(ROLLUPS_ELEMENT_ID).innerHTML).toBe('');
+    expect(containerOf(CHIPS_ELEMENT_ID).innerHTML).not.toContain('ap-epic-strip-rollup');
+    expect(controller.readLabel()).toBeNull();
     expect([...storedItems]).toEqual(storedBefore);
+  });
+
+  test('a pressed epic\'s roll-up follows its own row, before the next row, and the filter line names it', () => {
+    examplePreferences().writeKanbanEpicFilter(['open']);
+    const controller = wiredController(MIXED_BOARD);
+    const rows       = containerOf(CHIPS_ELEMENT_ID).innerHTML;
+    const rollupAt   = rows.indexOf('class="ap-epic-strip-rollup"');
+    expect(rows.indexOf('data-epic-chip="open"')).toBeLessThan(rollupAt);
+    expect(rows.indexOf('data-epic-chip="reviewed"')).toBeGreaterThan(rollupAt);
+    expect(rows.match(/class="ap-epic-strip-rollup"/g)).toHaveLength(1);
+    expect(controller.readLabel()).toEqual({ title: 'Example open', slot: 1 });
+  });
+
+  test('names a second pressed row as +1 and no epic without a swatch', () => {
+    examplePreferences().writeKanbanEpicFilter(['no epic', 'open']);
+    expect(wiredController(MIXED_BOARD).readLabel()).toEqual({ title: 'no epic +1', slot: null });
+  });
+
+  test('a reset unpresses every row and stores the empty choice', () => {
+    examplePreferences().writeKanbanEpicFilter(['open']);
+    const controller = wiredController(MIXED_BOARD);
+    controller.reset();
+    expect(controller.readLabel()).toBeNull();
+    expect(examplePreferences().readKanbanEpicFilter()).toEqual([]);
+    expect(containerOf(CHIPS_ELEMENT_ID).innerHTML).not.toContain('ap-epic-strip-rollup');
   });
 
   test('stays hidden when no epic holds an open ticket', () => {

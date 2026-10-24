@@ -139,10 +139,14 @@ function epicGroupRowMarkup(epic: BoardEpic | null, columnCount: number, format:
     + `<span class="ap-card-note">${HtmlEscapeUtil.escapeHtml(doneTextOf(epic))}</span>${epicRollupFactsMarkup(epic, format)}`);
 }
 
-/** One chip per epic in shown order, then the no-epic chip; the counts and pressed states are the controller's to set. */
-function epicFilterChipsMarkup(epics: readonly BoardEpic[]): string {
+/**
+ * One chip per epic in shown order, each followed by what `markupAfterChipOf` gives it, then the no-epic chip; the counts and pressed
+ * states are the controller's to set.
+ */
+function epicFilterChipsMarkup(epics: readonly BoardEpic[], markupAfterChipOf: (epic: BoardEpic) => string = () => ''): string {
   const { filterChipAttribute, noGroupChip } = EPIC_MARK_VOCABULARY;
-  const chips = epicsInShownOrder(epics).map((epic) => filterChipMarkup(filterChipAttribute, { value: epic.key, label: epic.title, slot: epic.slot }));
+  const chips = epicsInShownOrder(epics)
+    .map((epic) => filterChipMarkup(filterChipAttribute, { value: epic.key, label: epic.title, slot: epic.slot }) + markupAfterChipOf(epic));
   if (noGroupChip !== null) {
     chips.push(filterChipMarkup(filterChipAttribute, { value: noGroupChip.key, label: noGroupChip.label }));
   }

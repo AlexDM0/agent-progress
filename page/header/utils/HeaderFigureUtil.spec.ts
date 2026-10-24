@@ -59,6 +59,21 @@ describe('statisticsOf', () => {
     expect(statistics.agentLimit).toBe(6);
   });
 
+  test('counts a running review pass as reviewing, and a finished one not at all', () => {
+    const statistics = statisticsFor([
+      exampleTask({ id: 1, status: 'in-progress', end: null }),
+      exampleTask({
+        id: 2, status: 'in-progress', end: null, reviewOf: '001'
+      }),
+      exampleTask({
+        id: 3, status: 'reviewed', end: `${TODAY}T08:00:00+02:00`, reviewOf: '001'
+      }),
+    ], []);
+
+    expect(statistics.runningTaskCount).toBe(2);
+    expect(statistics.runningReviewCount).toBe(1);
+  });
+
   test('keeps a missing limit missing', () => {
     expect(statisticsFor([], [], null).agentLimit).toBeNull();
   });
@@ -110,7 +125,7 @@ describe('statisticsOf', () => {
 
   test('reads an empty board as zero everywhere', () => {
     expect(statisticsFor([], [])).toEqual({
-      runningTaskCount: 0, agentLimit: 6, deliveredTodayCount: 0, tokensToday: 0, waitingInQueueCount: 0, pausedBuildCount: 0
+      runningTaskCount: 0, runningReviewCount: 0, agentLimit: 6, deliveredTodayCount: 0, tokensToday: 0, waitingInQueueCount: 0, pausedBuildCount: 0
     });
   });
 });

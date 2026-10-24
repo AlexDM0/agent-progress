@@ -16,18 +16,20 @@ export const DEFAULT_FINISHED_WORK_CHOICE: FinishedWorkChoice = '1d';
 
 export const FINISHED_WORK_SPANS: readonly FinishedWorkSpan[] = ['1h', '1d', '6h', '12h', '3d', 'all'];
 
-/** The spans the custom popover offers as pills; `1h` and `1d` are the switch's own. */
-export const CUSTOM_FINISHED_WORK_SPANS: readonly FinishedWorkSpan[] = ['6h', '12h', '3d', 'all'];
+/** The spans the filter menu offers; a stored `6h` or `12h` still applies and the filter line names it. */
+export const MENU_FINISHED_WORK_SPANS: readonly FinishedWorkSpan[] = ['1h', '1d', '3d', 'all'];
+
+const HIDING_WINDOW_TEXT: Readonly<Record<Exclude<FinishedWorkSpan, 'all'>, string>> = {
+  '1h':  '1 hour',
+  '1d':  '1 day',
+  '6h':  '6 hours',
+  '12h': '12 hours',
+  '3d':  '3 days',
+};
 
 const SINCE_CHOICE_PREFIX = 'since-';
 
 const CALENDAR_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
-
-/** The reach marks share one log scale; this bends it so the first hours still read apart from each other. */
-const REACH_SCALE_MINUTES = 10;
-
-/** The scale reaches at least this far back, so a board whose oldest finished work is minutes old does not fill every mark. */
-const REACH_MINIMUM_OLDEST_AGE_MINUTES = 60;
 
 const SPAN_LABEL: Readonly<Record<FinishedWorkSpan, string>> = {
   '1h':  'last hour',
@@ -80,10 +82,6 @@ function choiceFrom(value: unknown): FinishedWorkChoice | null {
 }
 
 /** Everything but the switch's own two pills sits under its custom pill. */
-function choiceIsCustom(choice: FinishedWorkChoice): boolean {
-  return choice !== '1h' && choice !== '1d';
-}
-
 /** Finished work at or after this moment shows; `-Infinity` for all. */
 function cutoffEpochMillisecondsOf(choice: FinishedWorkChoice, nowEpochMilliseconds: number, units: DurationUnits): number {
   const calendarDate = sinceCalendarDateOf(choice);
@@ -207,17 +205,17 @@ function windowPhraseOf(choice: FinishedWorkChoice): string {
   return sinceCalendarDateOf(choice) === null ? `in the last ${labelOf(choice)}` : labelOf(choice);
 }
 
-/** Where a reach mark ends, as a percentage of its track: now at 0, the oldest finished work at 100, on one log scale for every mark. */
-function reachPercentOf(cutoffEpochMilliseconds: number, oldestFinishedEpochMilliseconds: number | null, nowEpochMilliseconds: number): number {
-  if (!Number.isFinite(cutoffEpochMilliseconds)) {
-    return 100;
+/** What the filter line reads for a choice: "Hiding closed > 1 day", "Hiding closed before 09-24", or "Showing all closed" when nothing is hidden. */
+function filterLineTextOf(choice: FinishedWorkChoice, hiddenItemCount: number): { lead: string; window: string } {
+  if (hiddenItemCount === 0 || choice === 'all') {
+    return { lead: 'Showing all closed', window: '' };
   }
-  const ageMinutes       = Math.max(0, (nowEpochMilliseconds - cutoffEpochMilliseconds) / MILLISECONDS_PER_MINUTE);
-  const oldestAgeMinutes = Math.max(
-    REACH_MINIMUM_OLDEST_AGE_MINUTES,
-    oldestFinishedEpochMilliseconds === null ? 0 : (nowEpochMilliseconds - oldestFinishedEpochMilliseconds) / MILLISECONDS_PER_MINUTE,
-  );
-  return Math.min(100, (100 * Math.log1p(ageMinutes / REACH_SCALE_MINUTES)) / Math.log1p(oldestAgeMinutes / REACH_SCALE_MINUTES));
+  const calendarDate = sinceCalendarDateOf(choice);
+  if (calendarDate !== null) {
+    return { lead: 'Hiding closed before ', window: calendarDate.slice(calendarDate.indexOf('-') + 1) };
+  }
+  const span = spanOf(choice);
+  return { lead: 'Hiding closed > ', window: span === null || span === 'all' ? '' : HIDING_WINDOW_TEXT[span] };
 }
 
 export const FinishedWorkUtil = {
@@ -225,7 +223,6 @@ export const FinishedWorkUtil = {
   sinceChoiceFor,
   sinceCalendarDateOf,
   dayStartEpochMillisecondsOf,
-  choiceIsCustom,
   cutoffEpochMillisecondsOf,
   taskFinishedEpochMillisecondsOf,
   ticketFinishedEpochMillisecondsOf,
@@ -237,5 +234,5 @@ export const FinishedWorkUtil = {
   hiddenCountOf,
   labelOf,
   windowPhraseOf,
-  reachPercentOf,
+  filterLineTextOf,
 } as const;

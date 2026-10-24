@@ -1,7 +1,7 @@
 /**
  * That `resources/template.html` filled with a fixed fixture stays byte for byte the page main rendered before the spec view's second
- * edition, both with a page script and with the banner-only fallback. The expected digests were retaken on the commit that folded the range bar into
- * the chart head. To retake them, check out the commit to
+ * edition, both with a page script and with the banner-only fallback. The expected digests were retaken on the commit that gave the embedded header
+ * its summary line and the tab row its filter menu. To retake them, check out the commit to
  * compare against, run this spec, and copy each actual digest its failure prints into `FROZEN_PAGE_DIGESTS`.
  */
 import { createHash } from 'node:crypto';
@@ -15,8 +15,8 @@ import { createMarkdownRenderer } from './MarkdownRenderer.ts';
 import { fillPageTemplate }       from './PageTemplateFill.ts';
 
 const FROZEN_PAGE_DIGESTS = {
-  withPageScript: 'ac8b3908b83f8fe5a14a24fadb11a034a4848278aea3a09779314ab0e5754c86',
-  bannerOnly:     '4eb6176d0293a2461902b435563cf8d52fb91f6f4c50b5e45b120e1c6805aa4d',
+  withPageScript: '55c37ab92e21841dd43a634ab09cf1fe8335190ba2cea4f0e4f8df7522be7ee4',
+  bannerOnly:     '8e9388b30bb07bd356f55a7189e581b5a1aa26b6fb59c085948e141c5b694114',
 } as const;
 
 const FROZEN_PROGRESS: TrackerProgress = {

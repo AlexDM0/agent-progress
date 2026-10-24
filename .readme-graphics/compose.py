@@ -35,11 +35,16 @@ KANBAN_BOTTOM_PADDING = 24
 KANBAN_VIEWPORT_HEIGHT = 500
 # The shot runs on past the board in page background, so the panel's taller window has no blank band.
 KANBAN_SHOT_BOTTOM_PADDING = 400
-# Narrowed to one epic so #012 sits high in To do; hovering it draws arrows from To do and Done. The wait lets them finish drawing in.
-KANBAN_NARROWED_EPIC_SELECTOR = '#ap-kanban-epic [data-epic-chip="checkout-redesign"]'
+# Narrowed to one epic so #012 sits high in To do; hovering it draws arrows from To do and Done. The filter line opens the menu, its
+# Epic row and "by wave" are pressed, and the line closes it again before the hover. The wait lets the arrows finish drawing in.
+FILTER_LINE_SELECTOR = '#ap-filter-line'
+KANBAN_NARROWED_EPIC_SELECTOR = '#ap-filter-menu [data-epic-chip="checkout-redesign"]'
+KANBAN_BY_WAVE_SELECTOR = '#ap-filter-menu [data-todo-order="by-wave"]'
 KANBAN_HOVERED_CARD_SELECTOR = '.ap-kanban-card[data-ticket-id="012"]'
-KANBAN_WAVES_HOVER_SCRIPT = (f"(async () => {{ document.querySelector('{KANBAN_NARROWED_EPIC_SELECTOR}').click();"
-                             " document.querySelector('[data-todo-order=\"by-wave\"]').click();"
+KANBAN_WAVES_HOVER_SCRIPT = (f"(async () => {{ document.querySelector('{FILTER_LINE_SELECTOR}').click();"
+                             f" document.querySelector('{KANBAN_NARROWED_EPIC_SELECTOR}').click();"
+                             f" document.querySelector('{KANBAN_BY_WAVE_SELECTOR}').click();"
+                             f" document.querySelector('{FILTER_LINE_SELECTOR}').click();"
                              " await new Promise((resolve) => setTimeout(resolve, 400));"
                              f" document.querySelector('{KANBAN_HOVERED_CARD_SELECTOR}').dispatchEvent(new MouseEvent('mouseover', {{ bubbles: true }}));"
                              " await new Promise((resolve) => setTimeout(resolve, 1500)); return true; })()")
