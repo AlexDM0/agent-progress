@@ -60,7 +60,7 @@ then `draft close` it with their ids; later changes edit the tickets. A session 
 open files nothing from it and runs `draft release`, so the board shows it resumable once answered. A
 withdrawn request is `draft abandon`ed.
 
-**Resuming "continue D7"** needs no earlier transcript: `draft claim D7`; refused because another
+**Resuming "continue D7"** needs no earlier transcript: `draft claim D7`, owner this session; refused as another
 owner holds it, take over with `--force` only when the user says that session is gone, never judging
 by elapsed time. `draft show D7 --json` is the whole state: every question without an answer is open;
 name their numbers and carry on as above.
