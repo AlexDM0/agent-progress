@@ -104,7 +104,8 @@ output never carries either.
                               no ticket's own row and no review bar; tickets and the log stay.
                               The token total is also given per owner, grouped case-insensitively
                               on the trimmed owner under its most common spelling, rows without an
-                              owner apart; --json carries it as \`tokensByOwner\`.
+                              owner apart; --json carries it as \`tokensByOwner\`, and then
+                              \`ticketCountByStatus\`, every ticket counted per status.
 
   task add "<name>"           Add a Gantt row. --start marks it in-progress at --at (default
       [--owner <who>]         now), --ticket links it to a ticket that has no row of its own, --note

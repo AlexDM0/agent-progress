@@ -22,8 +22,9 @@ import { createInitializedScratchRepository } from '../../testing/InitializedScr
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
 type StatusDocument = WordedProgressDocument & {
-  tickets:       Array<TicketFrontmatter & { filePath: string }>;
-  omitted?:      { settledTasks: number; settledTickets: number; olderLogEntries: number; freeStandingTasks?: number };
+  tickets:             Array<TicketFrontmatter & { filePath: string }>;
+  omitted?:            { settledTasks: number; settledTickets: number; olderLogEntries: number; freeStandingTasks?: number };
+  ticketCountByStatus: Record<string, number>;
   tokensByOwner: {
     owners:        Array<{ owner: string; tokens: number; rows: number }>;
     withoutOwner:  { tokens: number; rows: number };
@@ -153,6 +154,20 @@ describeWhenGitIsPresent('the --json working view', () => {
     expect(document.tasks.map((task) => task.name)).toEqual(['#001 Double-click a role to edit it']);
     expect(document.tickets.map((ticket) => ticket.id)).toEqual(['001']);
     expect(document.omitted).toEqual({ settledTasks: 2, settledTickets: 1, olderLogEntries: 0 });
+  });
+
+  // The dashboard totals every board from this count, so it must keep the settled tickets the view itself leaves out.
+  test('counts every ticket by status, the settled ones it leaves out included, as --full does', async () => {
+    await run(['ticket', 'add', '--type', 'ticket', 'Rename the export button']);
+    await run(['ticket', 'abandon', '2', '--reason', 'Out of scope']);
+
+    const document     = JSON.parse((await run(['status', '--json'])).outputText()) as StatusDocument;
+    const fullDocument = JSON.parse((await run(['status', '--json', '--full'])).outputText()) as StatusDocument;
+
+    expect(document.ticketCountByStatus).toEqual({
+      'pending': 0, 'in-progress': 1, 'in-review': 0, 'reviewed': 0, 'delivered': 0, 'abandoned': 1,
+    });
+    expect(fullDocument.ticketCountByStatus).toEqual(document.ticketCountByStatus);
   });
 
   test('keeps in-review and reviewed rows, which still wait on the orchestrator', async () => {
@@ -429,7 +444,7 @@ describeWhenGitIsPresent('the dispatch fields both --json documents carry', () =
   test('come last in both documents, after every key in the order the documents had before', async () => {
     const { working, full } = await bothDocuments();
     const progressKeys      = ['version', 'trackerId', 'project', 'startedAt', 'view', 'nextTaskId', 'concurrencyLimit', 'tasks', 'log'];
-    const dispatchKeys      = ['reviewWaitingTickets', 'pausedBuilds', 'ticketRows', 'tokensByOwner'];
+    const dispatchKeys      = ['reviewWaitingTickets', 'pausedBuilds', 'ticketRows', 'tokensByOwner', 'ticketCountByStatus'];
 
     expect(Object.keys(working)).toEqual([...progressKeys, 'tickets', 'epics', 'concurrency', 'readyTickets', 'omitted', ...dispatchKeys]);
     expect(Object.keys(full)).toEqual([...progressKeys, 'tickets', 'epics', 'concurrency', 'readyTickets', ...dispatchKeys]);

@@ -379,6 +379,11 @@ export class Board {
     return this.displayQueries.ticketIsSettled(ticket);
   }
 
+  /** Over every ticket, settled ones included. */
+  ticketCountByStatus(): Record<TicketStatus, number> {
+    return this.displayQueries.ticketCountByStatusOf(this.records.ticketRecords);
+  }
+
   reviewBarsOf(ticketId: string): readonly Readonly<Task>[] {
     return this.displayQueries.reviewBarsOf(ticketId);
   }

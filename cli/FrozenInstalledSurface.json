@@ -341,9 +341,9 @@
       "--json", "--main", "--model", "--no-hooks", "--no-workflow", "--note", "--owner", "--priority", "--reason", "--rebased-from", "--remove",
       "--restamp", "--review-of", "--root", "--run", "--since", "--start", "--start-review", "--status", "--ticket", "--title", "--to",
       "--tokens", "--type", "--worktree"],
-    "statusJsonFields": ["abandonedAt", "agent", "agentsInFlight", "claimedBodyHash", "concurrency", "delivered", "dispatcherState", "effort", "epics",
-      "filed", "finished", "freeSlots", "group", "held", "heldTicketIds", "history", "hold", "id", "inProgressReviewOfIds", "inProgressTicketIds", "limit",
-      "model", "note", "pausedBuilds", "priority", "readyTicketIds", "readyTickets", "reviewBars", "reviewOf", "reviewWaitingTickets", "reviewed", "round",
-      "row", "start", "started", "status", "task", "ticket", "ticketRows", "tickets", "title", "type", "updated"]
+    "statusJsonFields": ["abandoned", "abandonedAt", "agent", "agentsInFlight", "claimedBodyHash", "concurrency", "delivered", "dispatcherState", "effort",
+      "epics", "filed", "finished", "freeSlots", "group", "held", "heldTicketIds", "history", "hold", "id", "inProgressReviewOfIds", "inProgressTicketIds",
+      "limit", "model", "note", "pausedBuilds", "pending", "priority", "readyTicketIds", "readyTickets", "reviewBars", "reviewOf", "reviewWaitingTickets",
+      "reviewed", "round", "row", "start", "started", "status", "task", "ticket", "ticketRows", "tickets", "title", "type", "updated"]
   }
 }

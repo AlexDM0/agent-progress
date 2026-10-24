@@ -1,6 +1,7 @@
 /**
  * A ticket reference resolves however it is padded or prefixed, and the ready and held lists keep the order callers rely on. A settled
- * check judges the record handed in, never another found by its id.
+ * check judges the record handed in, never another found by its id. The status counts cover every ticket, so a reader of the working view
+ * can total the board without the full document.
  */
 import { expect, test } from 'bun:test';
 
@@ -181,4 +182,19 @@ test('the settled checks read the record handed in, so a hand-duplicated id cann
 
   expect([board.taskIsSettled(deliveredRow), board.taskIsSettled(pendingRow)]).toEqual([true, false]);
   expect([board.ticketIsSettled(settledTicket), board.ticketIsSettled(unsettledTicket)]).toEqual([true, false]);
+});
+
+test('the ticket count by status covers every ticket, settled ones included, and names every status even at zero', () => {
+  const { board } = boardFixture({
+    tickets: [
+      ticketFixture({ id: '001', status: 'delivered' }),
+      ticketFixture({ id: '002', status: 'delivered' }),
+      ticketFixture({ id: '003', status: 'abandoned' }),
+      ticketFixture({ id: '004', status: 'in-progress' }),
+    ],
+  });
+
+  expect(board.ticketCountByStatus()).toEqual({
+    'pending': 0, 'in-progress': 1, 'in-review': 0, 'reviewed': 0, 'delivered': 2, 'abandoned': 1,
+  });
 });

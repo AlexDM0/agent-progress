@@ -30,21 +30,26 @@ function selectedTasksOf(board: Board, showsTicketsOnly: boolean): readonly Read
 
 /**
  * The whole progress file plus every ticket in the version 1 document shape, with the derived `concurrency` and `readyTickets` beside it,
- * then the dispatch fields `reviewWaitingTickets`, `pausedBuilds` and `ticketRows`, and `tokensByOwner` over every row.
+ * then the dispatch fields `reviewWaitingTickets`, `pausedBuilds` and `ticketRows`, `tokensByOwner` over every row and `ticketCountByStatus`
+ * over every ticket.
  */
 export function fullDocumentOf(progress: TrackerProgress, wordedLog: readonly WordedLogEntry[], board: Board, showsTicketsOnly: boolean): object {
   const progressDocument = ProgressFileMappingUtil.wordedDocumentOf(progress, wordedLog);
   return {
     ...(showsTicketsOnly ? { ...progressDocument, tasks: selectedTasksOf(board, true) } : progressDocument),
-    tickets:       board.tickets().map(TicketJsonUtil.ticketDocumentOf),
-    epics:         board.epicRollups(),
+    tickets:             board.tickets().map(TicketJsonUtil.ticketDocumentOf),
+    epics:               board.epicRollups(),
     ...derivedDocumentOf(board),
     ...StatusDocumentUtil.boardWorkOf(board, board.tickets()),
-    tokensByOwner: ownerTokenTotalsOf(progress.tasks),
+    tokensByOwner:       ownerTokenTotalsOf(progress.tasks),
+    ticketCountByStatus: board.ticketCountByStatus(),
   };
 }
 
-/** What an agent opening a session needs: unsettled rows and tickets, the recent log newest first, and counts of what was left out. */
+/**
+ * What an agent opening a session needs: unsettled rows and tickets, the recent log newest first, counts of what was left out, and the
+ * board-wide totals, so a reader counting the whole board needs no `--full`.
+ */
 export function workingDocumentOf(progress: TrackerProgress, logNewestFirst: readonly WordedLogEntry[], board: Board, showsTicketsOnly: boolean): object {
   const tickets          = board.tickets();
   const selectedTasks    = selectedTasksOf(board, showsTicketsOnly);
@@ -64,6 +69,7 @@ export function workingDocumentOf(progress: TrackerProgress, logNewestFirst: rea
       ...(showsTicketsOnly ? { freeStandingTasks: progress.tasks.length - selectedTasks.length } : {}),
     },
     ...StatusDocumentUtil.boardWorkOf(board, unsettledTickets),
-    tokensByOwner: ownerTokenTotalsOf(progress.tasks),
+    tokensByOwner:       ownerTokenTotalsOf(progress.tasks),
+    ticketCountByStatus: board.ticketCountByStatus(),
   };
 }

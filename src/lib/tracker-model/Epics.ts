@@ -10,12 +10,10 @@ import type {
   EpicRollup
 } from './@types/Epic.ts';
 import type { Task }           from './@types/Task.ts';
-import type { TicketStatus }   from './@types/Ticket.ts';
 import type { BoardRecords }   from './BoardRecords.ts';
 import { BoardRefusal }        from './BoardRefusal.ts';
 import type { DisplayQueries } from './DisplayQueries.ts';
 import { editedBodyOf }        from './MarkdownBodyEdit.ts';
-import { TICKET_STATUSES }     from './constants/Statuses.ts';
 import { EpicUtil }            from './utils/EpicUtil.ts';
 
 export class Epics {
@@ -107,11 +105,9 @@ export class Epics {
   epicRollupOf(epic: Readonly<Epic>): EpicRollup {
     const { key, title, slot } = epic.frontmatter;
     const ticketIds            = this.ticketIdsNaming(key);
-    const ticketCountByStatus  = Object.fromEntries(TICKET_STATUSES.map((status) => [status, 0])) as Record<TicketStatus, number>;
+    const ticketCountByStatus  = this.displayQueries.ticketCountByStatusOf(ticketIds.map((ticketId) => this.records.requireTicket(ticketId)));
     const rows: Readonly<Task>[] = [];
     for (const ticketId of ticketIds) {
-      const ticket = this.records.requireTicket(ticketId);
-      ticketCountByStatus[ticket.frontmatter.status]++;
       const ownRow = this.displayQueries.ownRowOf(ticketId);
       rows.push(...(ownRow === null ? [] : [ownRow]), ...this.displayQueries.reviewRowsOf(ticketId).filter((row) => row !== ownRow));
     }

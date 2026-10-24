@@ -1,9 +1,9 @@
 /** How the Board's rows and tickets read on the chart: which rows belong to a ticket, whether a record is settled, and its display state. */
-import type { DisplayState, Task, TaskStatus }            from './@types/Task.ts';
-import type { Ticket, TicketStatus }                      from './@types/Ticket.ts';
-import type { BoardRecords }                              from './BoardRecords.ts';
-import type { ReviewBars }                                from './ReviewBars.ts';
-import { SETTLED_TASK_STATUSES, SETTLED_TICKET_STATUSES } from './constants/Statuses.ts';
+import type { DisplayState, Task, TaskStatus }                             from './@types/Task.ts';
+import type { Ticket, TicketStatus }                                       from './@types/Ticket.ts';
+import type { BoardRecords }                                               from './BoardRecords.ts';
+import type { ReviewBars }                                                 from './ReviewBars.ts';
+import { SETTLED_TASK_STATUSES, SETTLED_TICKET_STATUSES, TICKET_STATUSES } from './constants/Statuses.ts';
 
 export class DisplayQueries {
   constructor(
@@ -43,6 +43,13 @@ export class DisplayQueries {
 
   ticketIsSettled(ticket: Readonly<Ticket>): boolean {
     return SETTLED_TICKET_STATUSES.includes(ticket.frontmatter.status);
+  }
+
+  /** Every status carries its count, zero included. */
+  ticketCountByStatusOf(tickets: readonly Readonly<Ticket>[]): Record<TicketStatus, number> {
+    const ticketCountByStatus = Object.fromEntries(TICKET_STATUSES.map((status) => [status, 0])) as Record<TicketStatus, number>;
+    for (const ticket of tickets) ticketCountByStatus[ticket.frontmatter.status]++;
+    return ticketCountByStatus;
   }
 
   /** Read on the record handed in, like `taskIsSettled`. */
