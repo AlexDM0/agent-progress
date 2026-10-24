@@ -16,9 +16,7 @@ export const DEFAULT_FINISHED_WORK_CHOICE: FinishedWorkChoice = '1d';
 
 export const FINISHED_WORK_SPANS: readonly FinishedWorkSpan[] = ['1h', '1d', '6h', '12h', '3d', 'all'];
 
-/** The spans the filter menu offers; a stored `6h` or `12h` still applies and the filter line names it. */
-export const MENU_FINISHED_WORK_SPANS: readonly FinishedWorkSpan[] = ['1h', '1d', '3d', 'all'];
-
+/** A stored `6h` or `12h`, which the filter menu no longer offers, still applies and the filter line names it. */
 const HIDING_WINDOW_TEXT: Readonly<Record<Exclude<FinishedWorkSpan, 'all'>, string>> = {
   '1h':  '1 hour',
   '1d':  '1 day',
