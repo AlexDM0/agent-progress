@@ -47,18 +47,17 @@ export type GanttChartPreferences = Pick<ViewerPreferences,
 export type ReviewRowsPreference = Pick<ViewerPreferences, 'readReviewRowsAreShown' | 'writeReviewRowsAreShown'>;
 
 export interface GanttChartControllerSources<Row extends ChartRowSource> {
-  progress:              ChartProgress;
-  limits:                PageLimits;
-  rows:                  readonly Row[];
+  progress:             ChartProgress;
+  limits:               PageLimits;
+  rows:                 readonly Row[];
   /** Null draws the rows ungrouped. */
-  rowGrouping:           NoInfer<RowGroupingSource<Row>> | null;
-  waitingOnOf:           (row: Row) => readonly string[];
-  trailingNameMarkupOf?: (row: Row) => string;
+  rowGrouping:          NoInfer<RowGroupingSource<Row>> | null;
+  waitingOnOf:          (row: Row) => readonly string[];
   /** A parameter, never the clock read here: the live page draws the present, a snapshot the moment it was taken. */
-  nowEpochMilliseconds:  () => number;
-  preferences:           GanttChartPreferences;
+  nowEpochMilliseconds: () => number;
+  preferences:          GanttChartPreferences;
   /** Absent, review passes are always drawn as segments and the control is never wired. */
-  reviewRows?:           ReviewRowsPreference;
+  reviewRows?:          ReviewRowsPreference;
 }
 
 export interface GanttChartController<Row extends ChartRowSource> {
@@ -119,16 +118,12 @@ function markCoveredAxisLabels(chartIsOnScreen: boolean): void {
 function taskRowsFor<Row extends ChartRowSource>(
   visibleRows: readonly Row[],
   timeline: Timeline,
-  sources: Pick<GanttChartControllerSources<Row>, 'waitingOnOf' | 'trailingNameMarkupOf'>,
+  sources: Pick<GanttChartControllerSources<Row>, 'waitingOnOf'>,
 ): TaskRow[] {
-  const { waitingOnOf, trailingNameMarkupOf } = sources;
+  const { waitingOnOf } = sources;
   return visibleRows.flatMap((task, index) => {
     const bar = timeline.bars[index];
-    if (bar === undefined) {
-      return [];
-    }
-    const row: TaskRow = { task, bar, waitingOn: waitingOnOf(task) };
-    return [trailingNameMarkupOf === undefined ? row : { ...row, trailingNameMarkup: trailingNameMarkupOf(task) }];
+    return bar === undefined ? [] : [{ task, bar, waitingOn: waitingOnOf(task) }];
   });
 }
 

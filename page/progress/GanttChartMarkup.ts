@@ -48,11 +48,9 @@ export interface ChartRowSource extends TimelineRowSource {
 }
 
 export interface TaskRow {
-  task:                ChartRowSource;
-  bar:                 TimelineBar;
-  waitingOn:           readonly string[];
-  /** Markup closing the name cell, after every tracker mark. */
-  trailingNameMarkup?: string;
+  task:      ChartRowSource;
+  bar:       TimelineBar;
+  waitingOn: readonly string[];
 }
 
 export interface PlacedTick extends TimelineTick {
@@ -255,7 +253,7 @@ function taskRowMarkup(placed: PlacedTaskRow, drawing: TaskRowsDrawing): string 
     `<div class="ap-grid-row ap-row" tabindex="0"${identities} ${MarkupUtil.attribute('data-state', state)}${nesting}>`,
     `<div class="ap-cell-name">${numberCell}`,
     `<span class="ap-name" ${MarkupUtil.attribute('title', nameTitleOf(task, row.waitingOn))}>${HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.displayedRowNameOf(task))}</span>`,
-    `${row.trailingNameMarkup ?? ''}${stateChipMarkup(task, row.waitingOn, drawing.slices)}</div>`,
+    `${stateChipMarkup(task, row.waitingOn, drawing.slices)}</div>`,
     `<div class="ap-cell-track"><span class="ap-clip-l"${clippedLeft ? '' : ' hidden'}></span>`,
     ownBarMarkup(task, bar, reviewPassRound),
     `${reviewSegmentsMarkup(reviewSegments, drawing)}<span class="ap-clip-r"${clippedRight ? '' : ' hidden'}></span></div>`,
