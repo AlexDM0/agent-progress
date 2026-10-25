@@ -1,7 +1,7 @@
 /**
  * That `resources/template.html` filled with a fixed fixture stays byte for byte the page main rendered before the spec view's second
- * edition, both with a page script and with the banner-only fallback. The expected digests were retaken on the commit that widened the Progress
- * state chip to 156px. To retake them, check out the commit to
+ * edition, both with a page script and with the banner-only fallback. The expected digests were retaken on the commit that dated the range button's
+ * ends across days. To retake them, check out the commit to
  * compare against, run this spec, and copy each actual digest its failure prints into `FROZEN_PAGE_DIGESTS`.
  */
 import { createHash } from 'node:crypto';
@@ -15,8 +15,8 @@ import { createMarkdownRenderer } from './MarkdownRenderer.ts';
 import { fillPageTemplate }       from './PageTemplateFill.ts';
 
 const FROZEN_PAGE_DIGESTS = {
-  withPageScript: '49e0f017e11d6ab175cda90cfd1099ae78acf9efd08bf59cdbf7baa8a894eefb',
-  bannerOnly:     '57cb7986b739bc568fa6a4a6256a3f7474a4e86cfc5decd56af5fe7ba00fa985',
+  withPageScript: '40cacd7b2a1c0fcd6eb3bae34d0d5ce09e04ffef927591e5dda708f99782070f',
+  bannerOnly:     '42022e0ae888a82fbc92cf16c800d4b7bf1aa6cb60fb4eeda14760f75985809b',
 } as const;
 
 const FROZEN_PROGRESS: TrackerProgress = {

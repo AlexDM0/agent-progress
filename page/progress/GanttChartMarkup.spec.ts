@@ -750,12 +750,26 @@ describe('hiddenWorkNoteText', () => {
 });
 
 describe('rangeSummaryMarkup', () => {
-  test('leads with Fit, or marks a held preset, escapes the mode once, and ends with the two clock times', () => {
+  test('leads with Fit, or marks a held preset, escapes the mode once, and ends a same-day range with the two clock times', () => {
     const from = new Date(2026, 8, 18, 20, 30).getTime();
-    const to   = new Date(2026, 8, 19, 22, 15).getTime();
+    const to   = new Date(2026, 8, 18, 22, 15).getTime();
 
     expect(rangeSummaryMarkup('Fit', false, from, to)).toMatch(/^<span class="ap-range-mode" title="Fitted[^"]*">Fit<\/span><span class="ap-range-ends">20:30 → 22:15<\/span>$/);
     expect(rangeSummaryMarkup('4h', true, from, to)).toMatch(/^<span class="ap-range-mode" data-held title="Held[^"]*">4h<\/span>/);
     expect(rangeSummaryMarkup('<b>', true, from, to)).toContain('>&lt;b&gt;</span>');
+  });
+
+  test('dates both ends of a seven-day range, which clock times alone would show as the same time twice', () => {
+    const from = new Date(2026, 9, 18, 0, 20).getTime();
+    const to   = new Date(2026, 9, 25, 0, 20).getTime();
+
+    expect(rangeSummaryMarkup('7d', true, from, to)).toMatch(/<span class="ap-range-ends">10-18 00:20 → 10-25 00:20<\/span>$/);
+  });
+
+  test('dates both ends of a range that crosses local midnight by a minute', () => {
+    const from = new Date(2026, 9, 24, 23, 59).getTime();
+    const to   = new Date(2026, 9, 25, 0, 0).getTime();
+
+    expect(rangeSummaryMarkup('Fit', false, from, to)).toMatch(/<span class="ap-range-ends">10-24 23:59 → 10-25 00:00<\/span>$/);
   });
 });
