@@ -1,5 +1,5 @@
 /**
- * The Dependencies tab's graph, frozen before its markup moved onto the wave graph both pages share. A moved attribute or a lost space would
+ * The Waves tab's graph, frozen before its markup moved onto the wave graph both pages share. A moved attribute or a lost space would
  * pass the behaviour specs' substring checks, so `MARKUP`, `HELD_AND_LOW_MARKUP`, a reviewed base under an in-review ticket and the empty
  * line are held byte for byte. Taken at 45bf683 by running `page/testing/DependencyGraphFrozenCases.ts`; retake only in a commit meant to
  * change the graph, with `bun -e 'import { dependencyGraphFrozenCases } from "./page/testing/DependencyGraphFrozenCases.ts"; await

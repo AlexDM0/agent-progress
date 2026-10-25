@@ -1,5 +1,5 @@
 /**
- * The finished-work switch's rules. The cases that matter: on one constructed board with work finished 30 minutes, 5 hours, 10 hours,
+ * The finished-work choice's rules. The cases that matter: on one constructed board with work finished 30 minutes, 5 hours, 10 hours,
  * 2 days and 5 days ago, every choice lets through exactly the finished items it reaches and never hides unfinished work; a picked day
  * starts at its local midnight; a ticket is dated by its closing stamp, an epic by its span's end once every ticket is settled; stored
  * and clicked values read back only as real choices; and the filter line names every window, a stored one the menu no longer offers

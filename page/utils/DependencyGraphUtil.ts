@@ -1,5 +1,5 @@
 /**
- * The dependency model the Dependencies tab, the epic cards and the Kanban's wave order share: waves, Held, the pace path and Unlocks.
+ * The dependency model the Waves tab, the epic cards and the Kanban's wave order share: waves, Held, the pace path and Unlocks.
  * Which ticket is ready is the Board's, read from `PageBoard.readyTicketIds`; a wave says only what stands in front of a ticket.
  */
 

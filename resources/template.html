@@ -182,7 +182,7 @@
                                  #ap-range-fit "Fit", the default, spans the rows shown from their
                                  earliest start to now, a margin of 3% of the span (at least 5m) at
                                  both ends, ticks chosen for the span, and re-fits whenever the
-                                 finished-work switch or the data changes; any other preset or a
+                                 finished-work choice or the data changes; any other preset or a
                                  custom range holds until Fit is pressed again, and Fit carries
                                  [data-refit] (a dot) once the rows changed under a held range.
                                  The last, #ap-range-custom "Custom…", is pressed while a typed
@@ -1910,7 +1910,7 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
 .ap-epics > .ap-card { margin-bottom: 0; }
 .ap-epics > .ap-empty { grid-column: 1 / -1; }
 
-/* The Dependencies tab: the page script places every column, band, node and edge on the canvas in pixels; only the look lives here. */
+/* The Waves tab: the page script places every column, band, node and edge on the canvas in pixels; only the look lives here. */
 .ap-dependencies { padding: 20px; overflow-x: auto; }
 .ap-dependency-canvas { position: relative; }
 .ap-dependency-band { position: absolute; border-radius: var(--r-3); background: var(--surface-2); }
@@ -2200,11 +2200,11 @@ button.ap-epic-title:hover { text-decoration: underline; text-underline-offset: 
     <div id="ap-chart">
       <div class="ap-grid-row ap-chart-head">
         <div class="ap-cell-name">
-          <button type="button" class="ap-range-button" id="ap-range-button" aria-haspopup="dialog" aria-expanded="false" aria-controls="ap-range-menu"><span id="ap-range-summary"><span class="ap-range-mode" title="Fitted to the rows shown; re-fits when the finished-work switch changes">Fit</span><span class="ap-range-ends">20:30 → 22:15</span></span><span class="ap-range-caret" aria-hidden="true">▾</span></button>
+          <button type="button" class="ap-range-button" id="ap-range-button" aria-haspopup="dialog" aria-expanded="false" aria-controls="ap-range-menu"><span id="ap-range-summary"><span class="ap-range-mode" title="Fitted to the rows shown; re-fits when the finished-work choice changes">Fit</span><span class="ap-range-ends">20:30 → 22:15</span></span><span class="ap-range-caret" aria-hidden="true">▾</span></button>
           <div class="ap-popover ap-head-menu" id="ap-range-menu" role="dialog" aria-label="Range" hidden>
             <div class="ap-range-readout" id="ap-range-note" title="Fit · 2026-09-18 20:30 → 2026-09-18 22:15 · 15m ticks">20:30 → 22:15 · 15m ticks</div>
             <div id="ap-range-presets">
-              <button type="button" class="ap-menu-item" data-preset="fit" id="ap-range-fit" aria-pressed="true" title="Fit the range to the rows shown: from the earliest start to now. Follows the finished-work switch."><span>Fit</span><span class="ap-menu-hint">the rows shown</span></button>
+              <button type="button" class="ap-menu-item" data-preset="fit" id="ap-range-fit" aria-pressed="true" title="Fit the range to the rows shown: from the earliest start to now. Follows the finished-work choice."><span>Fit</span><span class="ap-menu-hint">the rows shown</span></button>
               <button type="button" class="ap-menu-item" data-preset="1h" aria-pressed="false"><span>1h</span></button>
               <button type="button" class="ap-menu-item" data-preset="4h" aria-pressed="false"><span>4h</span></button>
               <button type="button" class="ap-menu-item" data-preset="12h" aria-pressed="false"><span>12h</span></button>

@@ -78,7 +78,7 @@ function pagingMarkup(laneKey: string, paging: LanePaging): string {
   return `<span>${paging.shownCount} of ${paging.laneCount} shown</span><div class="ap-seg">${buttons}</div>`;
 }
 
-/** The paging while the lane holds more than a page, then what the finished-work switch leaves out of it, with a way to show it all. */
+/** The paging while the lane holds more than a page, then what the finished-work choice leaves out of it, with a way to show it all. */
 export function laneFooterMarkup(laneKey: string, footer: LaneFooter | null): string {
   if (footer === null) {
     return '';

@@ -177,7 +177,7 @@ snapshot
 at 13:29; tracker ticket claim 10 --owner opus --note "Built by the dispatcher on ticket-010"
 snapshot
 
-# Filed after the last review row, so every task id above stays put; they give the Dependencies tab its waves:
+# Filed after the last review row, so every task id above stays put; they give the Waves tab its waves:
 # two chains (#004 and #008 → #011) meeting in a one-ticket wave (#012), which frees a ticket in each epic,
 # and #016 ready beside them (the low tickets wait while normal work is pending).
 at 13:31

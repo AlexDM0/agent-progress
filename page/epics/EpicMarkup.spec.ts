@@ -2,7 +2,7 @@
  * The epic marks. The cases that matter: a chip carries its key and colour slot and escapes its title once, a card shows two chips then
  * "+N"; the roll-up bar and facts come from the Board's counts; an epic's ticket list opens each ticket and names its other epics; the
  * detail carries the rendered description unescaped; open epics come before settled ones; and the filter chips end with the no-epic chip.
- * The finished-work switch drops a finished epic's card past its cutoff, never an open or empty epic's, and leaves a kept card unchanged;
+ * The finished-work choice drops a finished epic's card past its cutoff, never an open or empty epic's, and leaves a kept card unchanged;
  * when it drops every card the tab says so in one empty-state line naming the window.
  * A card's dependency rows count each ticket under its primary epic alone, say so when there is nothing, and draw the global waves.
  */
@@ -134,7 +134,7 @@ describe('epicCardsMarkup', () => {
   });
 });
 
-describe('epicCardsMarkup under the finished-work switch', () => {
+describe('epicCardsMarkup under the finished-work choice', () => {
   const NOW = Date.parse('2026-09-20T12:00:00+02:00');
 
   function exampleRow(id: number, ticket: string, end: string): Task {

@@ -26,7 +26,7 @@ function overrideWith(changes: Partial<StoredViewOverride>): StoredViewOverride 
 }
 
 describe('storedOverrideFrom', () => {
-  test('reads back everything the range bar wrote', () => {
+  test('reads back everything the range menu wrote', () => {
     const stored = {
       presetKey:   '1h',
       fromText:    '-1h',

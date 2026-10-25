@@ -147,12 +147,13 @@ accepted. A row that never gets there is a row the chart shows as still owed.
 
 A row filed with `task add … --review-of <id>`, or by `ticket finish --start-review`, stores the
 ticket it reviews in its `reviewOf` field. On the Progress tab a review pass is drawn as a segment
-on that ticket's own row; with the **Review rows** button pressed each review row sits directly
-above it instead, indented one level, latest round first, so round 1 is right above the ticket,
-with its own bar, pill and times. A bundle's review, `Review 1 #13, #5 — …`, sits once, with the
-ticket its `reviewOf` names. A review whose ticket has no row on the chart — a low ticket not
-started, or one hidden as long done — is drawn where its filing puts it. `--review-of` is not
-`--ticket`: the ticket keeps its own row, and the review row moves through the `task` verbs.
+on that ticket's own row; with **Review passes as rows** pressed in the chart head's Row options menu
+each review row sits directly above it instead, indented one level, latest round first, so round 1
+is right above the ticket, with its own bar, pill and times. A bundle's review,
+`Review 1 #13, #5 — …`, sits once, with the ticket its `reviewOf` names. A review whose ticket has
+no row on the chart — a low ticket not started, or one hidden as long done — is drawn where its
+filing puts it. `--review-of` is not `--ticket`: the ticket keeps its own row, and the review row
+moves through the `task` verbs.
 
 ## A row's tokens
 
@@ -175,7 +176,7 @@ pause loses its key, so a reopened bundle ticket is a new agent.
 
 `agent-progress range` sets the tracker's stored default and every browser sees it. A relative bound
 is stored as you wrote it and resolved on each refresh, so `--from -2h --to now` always means the
-last two hours. The page itself carries a range bar with the presets **Fit · 1h · 4h · 12h · 24h ·
+last two hours. The page itself carries a range menu with the presets **Fit · 1h · 4h · 12h · 24h ·
 7d**, and Custom… with From and To text inputs for an exact window and a tick-step selector; a
 viewer's choice is kept in their browser and survives the refresh, and **Fit** hands control back to
 the stored default, or without one fits the rows shown. Bars outside the window are clipped and

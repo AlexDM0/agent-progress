@@ -1,4 +1,4 @@
-/** The tracker page's Dependencies tab: its tickets as the shared wave graph's nodes, with the board's slot meter and its Done wording. */
+/** The tracker page's Waves tab: its tickets as the shared wave graph's nodes, with the board's slot meter and its Done wording. */
 
 import type { DependencyGraph }                                                 from '../@types/DependencyGraph.ts';
 import type { BoardTicket }                                                     from '../@types/PageBoard.ts';

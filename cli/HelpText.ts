@@ -566,7 +566,7 @@ output never carries either.
         [--tick <15m|1h|1d>]  refresh. A pair that is not in order is refused at exit 1 when both
                               are timestamps or both are relative to now; a pair naming \`start\`
                               or mixing the two is not judged. One log line per stored range.
-                              The page's own range bar overrides this per browser.
+                              The page's own range menu overrides this per browser.
   range --auto                Reset the axis to the automatic span; it takes no --from, --to or
                               --tick, and any of them beside it is refused at exit 1.
 

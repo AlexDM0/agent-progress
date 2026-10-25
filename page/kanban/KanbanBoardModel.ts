@@ -81,7 +81,7 @@ const EMPTY_CLOSED_LANE_TEXT_UNDER_ALL: Record<ClosedKanbanLane, string> = {
   abandoned: 'Nothing abandoned.',
 };
 
-/** The closed lanes hold what the finished-work switch lets through, and their empty text says how far back that reaches. */
+/** The closed lanes hold what the finished-work choice lets through, and their empty text says how far back that reaches. */
 function emptyClosedLaneText(lane: ClosedKanbanLane, finishedWork: FinishedWorkChoice): string {
   return finishedWork === 'all' ? EMPTY_CLOSED_LANE_TEXT_UNDER_ALL[lane] : `Nothing ${CLOSED_LANE_VERB[lane]} ${FinishedWorkUtil.windowPhraseOf(finishedWork)}.`;
 }
@@ -268,7 +268,7 @@ function laneBodyOf(lane: KanbanLane, members: readonly KanbanCard[], shown: rea
   return { kind: 'groups', groups: ticketGroupsOf(lane, members, shown, input) };
 }
 
-/** The paging while the lane holds more than a page, then what the finished-work switch leaves out of it; `null` when there is neither. */
+/** The paging while the lane holds more than a page, then what the finished-work choice leaves out of it; `null` when there is neither. */
 export function kanbanLaneFooterOf(shownCount: number, laneCount: number, hiddenCount: number): LaneFooter | null {
   const paging = laneCount <= CAPPED_LANE_FIRST_PAGE_CARDS
     ? null

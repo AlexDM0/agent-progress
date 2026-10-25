@@ -1,7 +1,7 @@
 /**
  * That `resources/template.html` filled with a fixed fixture stays byte for byte the page main rendered before the spec view's second
- * edition, both with a page script and with the banner-only fallback. The expected digests were retaken on the commit that dated the range button's
- * ends across days. To retake them, check out the commit to
+ * edition, both with a page script and with the banner-only fallback. The expected digests were retaken on the commit that reworded the
+ * range titles to name the finished-work choice. To retake them, check out the commit to
  * compare against, run this spec, and copy each actual digest its failure prints into `FROZEN_PAGE_DIGESTS`.
  */
 import { createHash } from 'node:crypto';
@@ -15,8 +15,8 @@ import { createMarkdownRenderer } from './MarkdownRenderer.ts';
 import { fillPageTemplate }       from './PageTemplateFill.ts';
 
 const FROZEN_PAGE_DIGESTS = {
-  withPageScript: '40cacd7b2a1c0fcd6eb3bae34d0d5ce09e04ffef927591e5dda708f99782070f',
-  bannerOnly:     '42022e0ae888a82fbc92cf16c800d4b7bf1aa6cb60fb4eeda14760f75985809b',
+  withPageScript: 'dd9d9a18d6506a7c5122efcb8173706545e55076a6fcdbc233efddba196037f2',
+  bannerOnly:     '85391d4b7e7252921606299d65dd2f48aa07d2656300a84912c50961deb9c03d',
 } as const;
 
 const FROZEN_PROGRESS: TrackerProgress = {

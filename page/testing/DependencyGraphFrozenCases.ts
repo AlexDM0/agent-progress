@@ -1,5 +1,5 @@
 /**
- * The Dependencies tab's whole graph markup over the two boards `page/dependencies/DependencyMarkup.spec.ts` builds as `MARKUP` and
+ * The Waves tab's whole graph markup over the two boards `page/dependencies/DependencyMarkup.spec.ts` builds as `MARKUP` and
  * `HELD_AND_LOW_MARKUP`, rebuilt here because a spec cannot be imported. `page/dependencies/DependencyMarkup.frozen.spec.ts` compares it
  * against `page/testing/FrozenDependencyGraphs.json`. Test-only: nothing that ships may import `page/testing/`.
  */

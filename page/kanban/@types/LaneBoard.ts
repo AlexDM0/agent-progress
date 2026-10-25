@@ -40,7 +40,7 @@ export interface LanePaging {
 
 export interface LaneFooter {
   paging:      LanePaging | null;
-  /** The lane's cards the finished-work switch leaves out, with a way to show them all. */
+  /** The lane's cards the finished-work choice leaves out, with a way to show them all. */
   hiddenCount: number;
 }
 

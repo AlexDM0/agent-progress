@@ -116,7 +116,7 @@ function epicCardsMarkup(
   return epicsInShownOrder(epics).map((epic) => epicCardMarkup(epic, ticketById, graph, format)).join('');
 }
 
-/** The Epics tab's content: the shown epics' cards, or one empty-state line naming the window when the switch hid them all. */
+/** The Epics tab's content: the shown epics' cards, or one empty-state line naming the window when the finished-work choice hid them all. */
 function epicsTabMarkup(
   shownEpics: readonly BoardEpic[],
   ticketById: ReadonlyMap<string, BoardTicket>,

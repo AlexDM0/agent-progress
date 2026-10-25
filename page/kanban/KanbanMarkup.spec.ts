@@ -301,7 +301,7 @@ describe('the capped lanes', () => {
 });
 
 describe('the empty lanes', () => {
-  test('say how far back the finished-work switch reaches, and nothing of it under all', () => {
+  test('say how far back the finished-work choice reaches, and nothing of it under all', () => {
     const lastDay = kanbanBoardMarkup(boardInput([], []));
     const since   = kanbanBoardMarkup(boardInput([], [], { finishedWork: 'since-2026-09-24' }));
     const all     = kanbanBoardMarkup(boardInput([], [], { finishedWork: 'all' }));

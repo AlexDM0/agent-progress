@@ -17,7 +17,7 @@ function pressedPresetOf(override: StoredViewOverride): string {
   return presetKey !== FIT_RANGE_PRESET && presetKey !== RETIRED_AUTOMATIC_PRESET && Object.hasOwn(RANGE_PRESET_BOUNDS, presetKey) ? presetKey : CUSTOM_RANGE_PRESET;
 }
 
-/** Every preset but Fit holds its range whatever the finished-work switch shows. */
+/** Every preset but Fit holds its range whatever the finished-work choice shows. */
 function rangeIsHeld(override: StoredViewOverride): boolean {
   return pressedPresetOf(override) !== FIT_RANGE_PRESET;
 }

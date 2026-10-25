@@ -152,7 +152,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   // Declared before the filter menu, since the epic filter's change renames the filter line.
   let renderFilterLine = (): void => undefined;
   const ticketById = new Map(board.tickets.map((ticket) => [ticket.id, ticket]));
-  // The graph spans every ticket, finished ones included, so the finished-work switch never reshapes the waves.
+  // The graph spans every ticket, finished ones included, so the finished-work choice never reshapes the waves.
   const dependencyGraph      = DependencyGraphUtil.dependencyGraphOf(board.tickets, payload.concurrency.limit);
   const boardHasDependencies = DependencyMarkup.boardHasDependencies(board.tickets);
   const kanbanController = createKanbanController({
@@ -197,7 +197,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     updateKanbanOverflow:  () => kanbanController.laneBoard.updateOverflow(),
   });
 
-  // The switch hides a finished epic's whole card, but a card it shows counts all its tickets, finished ones included.
+  // The finished-work choice hides a finished epic's whole card, but a card it shows counts all its tickets, finished ones included.
   const showEpicsTab = (cutoff: number): void => {
     if (board.epics.length > 0) {
       const shownEpics = FinishedWorkUtil.shownEpicsOf(board.epics, ticketFinishedMomentById, cutoff);

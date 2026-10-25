@@ -17,7 +17,7 @@ export function kanbanCardMarkup(card: KanbanCard, lane: KanbanLane, format: Kan
   return laneCardMarkup(kanbanCardModelOf(card, lane, format));
 }
 
-/** The paging while the lane holds more than a page, then what the finished-work switch leaves out of it, with a way to show it all. */
+/** The paging while the lane holds more than a page, then what the finished-work choice leaves out of it, with a way to show it all. */
 export function cappedLaneFooterMarkup(lane: ClosedKanbanLane, shownCount: number, laneCount: number, hiddenCount = 0): string {
   return laneFooterMarkup(lane, kanbanLaneFooterOf(shownCount, laneCount, hiddenCount));
 }

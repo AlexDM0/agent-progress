@@ -538,7 +538,7 @@ comment is code, and a file type it does not know counts every non-blank line.
 
 | command | what it does |
 |---|---|
-| `range --from <when> --to <when> [--tick <15m\|1h\|1d>]` | Store the default axis of the chart, with one log line. `--tick` takes any positive whole number of minutes, hours or days (`15m`, `2h`, `1d`), or a bare number of minutes. Besides a `<when>`, a bound may be `start`, the earliest visible row. A relative bound is stored as written, so `--from -2h` keeps meaning "the last two hours" on every refresh. A pair that is not in order is refused at exit 1 when both are timestamps or both are relative to now; a pair naming `start` or mixing the two is not judged. The page's own range bar overrides it per browser. |
+| `range --from <when> --to <when> [--tick <15m\|1h\|1d>]` | Store the default axis of the chart, with one log line. `--tick` takes any positive whole number of minutes, hours or days (`15m`, `2h`, `1d`), or a bare number of minutes. Besides a `<when>`, a bound may be `start`, the earliest visible row. A relative bound is stored as written, so `--from -2h` keeps meaning "the last two hours" on every refresh. A pair that is not in order is refused at exit 1 when both are timestamps or both are relative to now; a pair naming `start` or mixing the two is not judged. The page's own range menu overrides it per browser. |
 | `range --auto` | Reset the axis to the automatic span. It takes no `--from`, `--to` or `--tick`; any of them beside it is refused at exit 1. |
 | `render` | Regenerate `progress.html` from the progress file, `log.jsonl` and the tickets, changing nothing else — for a page lost to a crash, or after a ticket body was edited by hand. An unreadable tracker is exit 2. |
 | `open` | Open `progress.html` in the default browser (`open` on macOS, `xdg-open` elsewhere), rendering it first when it is missing; a page that cannot be rendered is exit 2, as for `render`. |
@@ -599,7 +599,7 @@ another.
   tokens, epic chips, waiting-on links, `held`, `no row yet` for a low ticket never started, and what it
   is waiting for (`paused since 11:45 · 1h 51m`, `no reviewer yet · 16m`, `reviewer since 13:05`). Done
   and Abandoned run newest first and show the latest 15, then 25 more at a time; Abandoned is collapsed
-  until clicked. The finished-work switch decides what both closed lanes hold, and each ends with how
+  until clicked. The finished-work choice decides what both closed lanes hold, and each ends with how
   many earlier cards it leaves out and a "show all". On a board with epics, the filter menu's Epic
   section narrows the board to the epics pressed, each with its roll-up; the choice is kept in the
   browser. On a board with dependencies, the menu's "Order To do" switches To do between filed and by wave: the
@@ -609,15 +609,15 @@ another.
   in the browser. Pointing at a card draws arrows from the cards
   it waits on directly and marks them "needed first"; an open card's `↦ N` counts the tickets that
   wait on it, directly or further down the chain.
-- **Progress tab**: the Gantt chart, filling the window below the range bar and scrolling its rows
+- **Progress tab**: the Gantt chart, filling the window below its head and scrolling its rows
   inside it, one row per task, newest on top, each with its number, name, ticket badge, token count,
   status pill and bar, one segment per phase it went through; and a now-marker. The log shows only in
   the detail panel, per row and ticket. A ticket's review passes are drawn as segments on its own row;
-  the review-rows button in the chart's header draws each as a row of its own instead, indented
+  "Review passes as rows" in the chart head's Row options menu draws each as a row of its own instead, indented
   directly above the ticket it reviews, latest round first, a bundle's review, `Review 1 #13, #5 — …`,
   once above the first ticket it names. A review whose ticket has no row on the chart — a low ticket
   not started, or one hidden as long done — is always a row of its own, drawn where its filing puts
-  it. Beside that button, another widens the name column; both are kept in the browser. On a board
+  it. Beside it in that menu, "Wide titles" widens the name column; both are kept in the browser. On a board
   with epics the rows are grouped under a head per epic, a ticket under its primary epic only, then
   "No epic"; a head folds its rows away, and the folds are kept in the browser.
 - **Tickets tab**: a table of the tickets with a count above it, searched by id, title, epic,
@@ -629,7 +629,7 @@ another.
   opens the epic in the detail panel and a ticket opens that ticket. The rows, by primary epic: "Waits
   on", the other epics' tickets its own wait on; its tickets in the board's waves, Done first, a
   pending low-priority ticket left out; and
-  "Frees", the epics waiting on it, with the tickets they wait through. The finished-work switch hides
+  "Frees", the epics waiting on it, with the tickets they wait through. The finished-work choice hides
   a finished epic, one with tickets that are all delivered or abandoned, whose span ended before its
   window; an open or empty epic always shows, its card whole. When it hides every epic, the tab says
   so in one line naming the window, such as "No epic finished in the last day."
@@ -671,10 +671,11 @@ another.
   abandonment — with the time spent in each state under it, then its description. The Filed bar is
   drawn only there, never on the Progress chart. **Click an epic** for its roll-up, description and
   tickets. Esc, ×, a link inside the panel or a second click on the open item closes it.
-- **Range bar**: the presets Fit · 1h · 4h · 12h · 24h · 7d, then Custom… with free-text bounds that
-  accept `start`, `now` and `-2h` as well as timestamps, and a tick-step selector. Fit, the default,
+- **The range menu**, opened from the range button in the chart's head: the presets Fit · 1h · 4h ·
+  12h · 24h · 7d, then Custom… with free-text bounds that accept `start`, `now` and `-2h` as well as
+  timestamps, and a tick-step selector. Fit, the default,
   spans the rows shown from their earliest start to now with a small margin, and re-fits whenever the
-  finished-work switch or the data changes; the default stored by `agent-progress range` takes its
+  finished-work choice or the data changes; the default stored by `agent-progress range` takes its
   place when there is one. Any other choice holds until Fit is pressed again, and is kept in the
   browser. Bars outside the window are clipped and marked, never dropped.
 - **The filter line** at the end of the tab row names what is hidden (`Hiding closed > 1 day`,

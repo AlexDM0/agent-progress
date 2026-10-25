@@ -4,7 +4,7 @@ import type { ClosedKanbanLane } from '../kanban/constants/KanbanBoardLayout.ts'
 
 export type NameColumnWidth = 'normal' | 'wide';
 
-/** How far back finished work reaches: the switch's own two, then the custom popover's pills. */
+/** How far back finished work reaches: the filter menu's last hour, day, 3 days and all, and the 6 or 12 hours an earlier choice may have stored. */
 export type FinishedWorkSpan = '1h' | '1d' | '6h' | '12h' | '3d' | 'all';
 
 /** Which finished work shows beside the unfinished: a span back from now, or everything finished on or after a local calendar day. */

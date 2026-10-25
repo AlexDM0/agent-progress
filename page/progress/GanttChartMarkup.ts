@@ -399,8 +399,8 @@ export function rangeNoteText(
   return MarkupUtil.shortenedText(`${shortEnds} \u00b7 ${step}`, `${fullEnds} \u00b7 ${step}`);
 }
 
-const FITTED_RANGE_TITLE = 'Fitted to the rows shown; re-fits when the finished-work switch changes';
-const HELD_RANGE_TITLE   = 'Held: this range stays when the finished-work switch changes; Fit follows the rows again';
+const FITTED_RANGE_TITLE = 'Fitted to the rows shown; re-fits when the finished-work choice changes';
+const HELD_RANGE_TITLE   = 'Held: this range stays when the finished-work choice changes; Fit follows the rows again';
 
 /**
  * The range button's label: its mode, "Fit", or the held preset ("4h") or "Custom" in the held colour, then the range's two ends, dated

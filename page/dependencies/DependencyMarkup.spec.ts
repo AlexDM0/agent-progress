@@ -1,5 +1,5 @@
 /**
- * The Dependencies tab's waves graph. The cases that matter: the tab exists only where a ticket depends on another; Done comes first and
+ * The Waves tab's graph. The cases that matter: the tab exists only where a ticket depends on another; Done comes first and
  * holds only the settled tickets open work was built on; a one-ticket wave is narrow and says so in its head, band and slot meter, whose
  * bar count is the board's slots; the pace path's edges are marked, an edge from a settled ticket is dashed; rows put the pace path first
  * and then follow their parents; nodes carry the ready chip only where the Board lists the ticket ready (a held one shows Held, a low
@@ -95,7 +95,7 @@ function nodeTopOf(markup: string, ticketId: string): number {
   return Number(/top:(\d+)px/.exec(nodeOf(markup, ticketId))?.[1]);
 }
 
-describe('the Dependencies tab is there only where a ticket depends on another', () => {
+describe('the Waves tab is there only where a ticket depends on another', () => {
   test('a board with a dependsOn has the tab, one without has none', () => {
     expect(DependencyMarkup.boardHasDependencies(BOARD.tickets)).toBe(true);
     expect(DependencyMarkup.boardHasDependencies(pageBoardFixture({ tasks: [], tickets: [exampleTicket({})] }).tickets)).toBe(false);

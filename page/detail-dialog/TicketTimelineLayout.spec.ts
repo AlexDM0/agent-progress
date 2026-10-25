@@ -165,7 +165,7 @@ describe('the design’s #059, in its second review at the design’s now', () =
     expect(timeline.buildTimeText).toBe('1h 33m');
   });
 
-  test('it has two Review rows, oldest first, and only the second is live', () => {
+  test('it has two review-pass rows, oldest first, and only the second is live', () => {
     expect(timeline.reviews.map((review) => [review.label, review.state, review.isLive])).toEqual([
       ['Review 1', 'reviewing', false],
       ['Review 2', 're-review', true],

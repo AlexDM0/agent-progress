@@ -1,5 +1,5 @@
 /**
- * The finished-work switch as pure rules: which delivered or abandoned tasks, tickets and epics a choice lets through beside the unfinished work,
+ * The finished-work choice as pure rules: which delivered or abandoned tasks, tickets and epics a choice lets through beside the unfinished work,
  * how a choice reads, and how far back it reaches. DOM-free; the clock arrives as a parameter.
  */
 
@@ -178,7 +178,7 @@ function hiddenCountOf(finishedMoments: readonly (number | null)[], cutoffEpochM
   return finishedMoments.filter((moment) => !finishedMomentIsShown(moment, cutoffEpochMilliseconds)).length;
 }
 
-/** What the switch's custom pill, or the switch's own pill, reads for a choice: "last hour", "6 hours", "since 09-24". */
+/** What a finished-work choice reads as: "last hour", "6 hours", "since 09-24". */
 function labelOf(choice: FinishedWorkChoice): string {
   const calendarDate = sinceCalendarDateOf(choice);
   if (calendarDate !== null) {

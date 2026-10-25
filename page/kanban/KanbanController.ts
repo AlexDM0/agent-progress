@@ -32,7 +32,7 @@ export interface KanbanControllerSources {
   showAllFinishedWork:         () => void;
   dependencyGraph:             DependencyGraph;
   readyTicketIds:              ReadonlySet<string>;
-  /** Shown at the top of To do whatever the epic filter and the finished-work switch let through, since a draft has neither. */
+  /** Shown at the top of To do whatever the epic filter and the finished-work choice let through, since a draft has neither. */
   drafts:                      readonly KanbanDraft[];
   boardHasDependencies:        boolean;
 }

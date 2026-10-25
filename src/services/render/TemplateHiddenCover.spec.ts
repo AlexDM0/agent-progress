@@ -386,7 +386,7 @@ describe('every element the page hides is display: none while hidden', () => {
     expect(offencesOf(templateText, elementIds)).toEqual([]);
   });
 
-  test('the Kanban epic section, the Tickets epic filter, the Epics tab and the Dependencies tab are among the ids checked', () => {
+  test('the Kanban epic section, the Tickets epic filter, the Epics tab and the Waves tab are among the ids checked', () => {
     const { elementIds } = hidingSitesOf(pageSourcesReachedFrom(SCANNER.graph, TRACKER_ENTRY_PATH));
     expect([...elementIds]).toEqual(expect.arrayContaining(['ap-kanban-epics', 'ap-ticket-epic-filter', 'ap-tab-epics', 'ap-tab-dependencies']));
   });

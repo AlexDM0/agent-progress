@@ -46,7 +46,7 @@ github-markdown-css from jsDelivr. Diagrams additionally need the `diagrams` ski
 | file | what it does |
 |---|---|
 | `regenerate.sh` | The one command: seed → base screenshots with measurements → panels, frames, icon, story strips, animation frames → the two GIFs → copy the images the root README.md references into `docs/images/`; the rest stay in `build/images/`. |
-| `seed-demo.sh` | The synthetic day, 08:58–13:36, as real CLI commands run under a pinned clock: two epics, sixteen tickets (the last six filed at 13:31 with the dependencies the Dependencies tab draws: two chains meeting in a one-ticket wave that frees a ticket in each epic, and one ready ticket beside them), real git branches, commits and `release`s in a throwaway repository, `task update --tokens` and the hook's log lines. Snapshots `progress.html` after every step. Edit the story here. |
+| `seed-demo.sh` | The synthetic day, 08:58–13:36, as real CLI commands run under a pinned clock: two epics, sixteen tickets (the last six filed at 13:31 with the dependencies the Waves tab draws: two chains meeting in a one-ticket wave that frees a ticket in each epic, and one ready ticket beside them), real git branches, commits and `release`s in a throwaway repository, `task update --tokens` and the hook's log lines. Snapshots `progress.html` after every step. Edit the story here. |
 | `demo-bodies/` | The mock ticket bodies. `NNN.md` is filed with the ticket; `NNN.handoff.md` and `NNN.reviewN.md` are appended when the builder and each reviewer would write them, which is what numbers the review rows. |
 | `freeze-clock.js` | Preloaded into the CLI (`bun --preload`): every `Date` reads the story time in `STORY_CLOCK`. |
 | `shoot.js` | Headless Chrome over the DevTools protocol, from a JSON job list: frozen clock, colour scheme, time zone, pre-seeded `localStorage` (theme, tab), an in-page action (the click that opens the side panel, the hover that lights a chain), clips by selector, and element measurements written to `build/measurements.json`. |
@@ -86,7 +86,7 @@ elsewhere, once replaced this repository's own board.
 | `panel-kanban.png` | "Every ticket on one board." — the Kanban tab, light. | README.md |
 | `panel-story.png` | "Click for the whole story." — the detail panel of #002 with its six phases. | README.md |
 | `panel-tickets.png` | "Tickets an agent can build unasked." — the Tickets tab with #004's body in the side panel. | README.md |
-| `panel-dependencies.png` | "See what waits on what." — the Dependencies tab, #012 pointed at so its chain is lit. | README.md |
+| `panel-dependencies.png` | "See what waits on what." — the Waves tab, #012 pointed at so its chain is lit. | README.md |
 | `panel-epic-waves.png` | "Every epic, wave by wave." — the Epics tab's two cards with their dependency rows. | README.md |
 | `panel-kanban-waves.png` | "Point at a card, see its prerequisites." — the Kanban tab narrowed to Checkout redesign, To do by wave, #012 hovered with its arrows. | README.md |
 | `panel-themes.png` | "Light or dark. Your call." — the Progress tab split diagonally, light and dark. | README.md, keynote, day on the board |

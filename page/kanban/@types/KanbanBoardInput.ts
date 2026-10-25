@@ -12,7 +12,7 @@ export interface KanbanBoardInput extends NoteFormat {
   /** Every open draft, in draft-number order: To do shows them first, above every ticket card. */
   drafts:                  readonly KanbanDraft[];
   finishedWork:            FinishedWorkChoice;
-  /** The lane's tickets the finished-work switch leaves out. */
+  /** The lane's tickets the finished-work choice leaves out. */
   hiddenCountByClosedLane: Readonly<Record<ClosedKanbanLane, number>>;
   shownCountByClosedLane:  Readonly<Record<ClosedKanbanLane, number>>;
   abandonedLaneIsOpen:     boolean;
