@@ -352,7 +352,7 @@
                             .ap-name is ellipsised; it drops a leading "#NNN " .ap-num shows, and
                             its title is the full name, then on lines of their own the type, "Waiting
                             on #003, #004" and "N tokens", each when the row has it
- .ap-state-chip[title]    96x20 soft chip, 6px from the column's rule: .ap-state-dot (pulsing on
+ .ap-state-chip[title]   156x20 soft chip, 6px from the column's rule: .ap-state-dot (pulsing on
                           in-progress, reviewing and re-review rows; a dashed ring on pending
                           ones), then .ap-state-word: the state label, "Waiting" for a pending
                           row with unmet dependencies, "Done ✓" for a delivered row reviewed
@@ -1185,7 +1185,7 @@ a.ap-num:hover { color: var(--ink); }
 /* Every chip is the same box, so chips line up down the column and a state change never shifts the title. */
 .ap-state-chip {
   flex: none; display: inline-flex; align-items: center; gap: 6px;
-  width: 96px; height: 20px; margin-left: 6px; padding: 0 8px;
+  width: 156px; height: 20px; margin-left: 6px; padding: 0 8px;
   font: 500 var(--fs-small)/1 var(--font-ui);
   white-space: nowrap;
   border-radius: var(--r-1);
