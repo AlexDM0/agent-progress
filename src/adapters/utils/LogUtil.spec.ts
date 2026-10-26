@@ -127,7 +127,7 @@ const SENTENCE_FOR_RECORD: readonly (readonly [LogRecordContent, string])[] = [
   ],
 ];
 
-const RECORD_KIND_COUNT = 30;
+const RECORD_KIND_COUNT = 31;
 
 test('every kind of record reads as the sentence the log held before there were records', () => {
   expect(new Set(SENTENCE_FOR_RECORD.map(([record]) => record.kind)).size, 'the table covers every kind').toBe(RECORD_KIND_COUNT);
@@ -204,6 +204,7 @@ describe('the entry the page reads', () => {
         { kind: 'ticket-agents-changed', ticketId: '001', fields: { from: { model: 'opus', effort: 'medium' }, to: { model: 'sonnet', effort: 'low' } } },
         { taskIds: [], ticketIds: ['001'] },
       ],
+      [{ kind: 'ticket-size-changed', ticketId: '003', fields: { to: 'S' } }, { taskIds: [], ticketIds: ['003'] }],
       [{ kind: 'ticket-held', ticketId: '003', fields: { reason: 'waits on #005' } }, { taskIds: [], ticketIds: ['003'] }],
       [{ kind: 'ticket-unheld', ticketId: '001', fields: {} }, { taskIds: [], ticketIds: ['001'] }],
       [{ kind: 'ticket-release-marked', ticketId: '007', fields: { group: 'release #002' } }, { taskIds: [], ticketIds: ['007'] }],
