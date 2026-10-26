@@ -235,9 +235,9 @@ output never carries either.
                               findings file (\`-\` reads standard input) is a JSON object: verdict,
                               claims (item, result, handoffContradicted) and findings (class,
                               severity, file, summary, evidence, outcome, then commit or
-                              filedTicketId); docs/cli.md lists
-                              the words each takes. A word outside them, a missing field, or a
-                              ticket with no in-progress review bar is refused, recording nothing.
+                              filedTicketId); docs/cli.md lists the words each takes. A word
+                              outside them, a missing field, or a ticket with no in-progress
+                              review bar is refused, recording nothing.
 
   review-stats [--json]       What the recorded reviews catch, miss and cost: every ticket with a
                               review-recorded line, summed over all of them and split by ticket
