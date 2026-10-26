@@ -5,17 +5,20 @@
  * input event, so the template's idle reload never mistakes them for the viewer's activity.
  */
 
-import type { PagePayload, PageTicket } from '../../src/shared/@types/PagePayload.ts';
-import { DomUtil }                      from '../utils/DomUtil.ts';
-import { ElapsedTimeUtil }              from '../utils/ElapsedTimeUtil.ts';
-import { TimeUtil }                     from '../utils/TimeUtil.ts';
-import { activityBannerMarkup }         from './ActivityBannerMarkup.ts';
-import { showStatusLine }               from './StatusLine.ts';
-import { ActivityBannerUtil }           from './utils/ActivityBannerUtil.ts';
-import type { PageFreshness }           from './utils/HeaderFigureUtil.ts';
-import { HeaderFigureUtil }             from './utils/HeaderFigureUtil.ts';
+import type { PagePayload, PageTicket }            from '../../src/shared/@types/PagePayload.ts';
+import { DomUtil }                                 from '../utils/DomUtil.ts';
+import { ElapsedTimeUtil }                         from '../utils/ElapsedTimeUtil.ts';
+import { TimeUtil }                                from '../utils/TimeUtil.ts';
+import { activityBannerMarkup, staleNoticeMarkup } from './ActivityBannerMarkup.ts';
+import { showStatusLine }                          from './StatusLine.ts';
+import { ActivityBannerUtil }                      from './utils/ActivityBannerUtil.ts';
+import type { PageFreshness }                      from './utils/HeaderFigureUtil.ts';
+import { HeaderFigureUtil }                        from './utils/HeaderFigureUtil.ts';
 
 const ACTIVITY_ELEMENT_ID = 'ap-activity';
+
+/** Shown by the template's rules alone, only on an embedded page whose root reads snapshot. */
+const STALE_NOTICE_ELEMENT_ID = 'ap-stale-notice';
 
 const ELAPSED_TICK_INTERVAL_MILLISECONDS    = 1000;
 const FRESHNESS_CHECK_INTERVAL_MILLISECONDS = 60_000;
@@ -105,6 +108,7 @@ export function createLiveHeaderController(payload: PagePayload, tickets: readon
     const freshness            = showFreshness(nowEpochMilliseconds);
     DomUtil.setMarkup(ACTIVITY_ELEMENT_ID, activityBannerMarkup(entries, elapsedReferenceOf(freshness, nowEpochMilliseconds), payload.limits));
     DomUtil.setHidden(ACTIVITY_ELEMENT_ID, false);
+    DomUtil.setMarkup(STALE_NOTICE_ELEMENT_ID, staleNoticeMarkup());
     if (!document.hidden) {
       resume();
     }

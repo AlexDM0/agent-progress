@@ -6,8 +6,11 @@ import { MarkupUtil }                       from '../utils/MarkupUtil.ts';
 import type { DurationUnits }               from '../utils/TimeUtil.ts';
 import type { ActivityEntry, ActivityKind } from './utils/ActivityBannerUtil.ts';
 import { ActivityBannerUtil }               from './utils/ActivityBannerUtil.ts';
+import { LIVE_AGE_LIMIT_MINUTES }           from './utils/HeaderFigureUtil.ts';
 
 export const IDLE_ACTIVITY_TEXT = 'No agent is working right now.';
+
+export const STALE_NOTICE_TEXT = `Not updated for the last ${LIVE_AGE_LIMIT_MINUTES} minutes`;
 
 const KIND_LABELS: Readonly<Record<ActivityKind, string>> = { building: 'Building', reviewing: 'Reviewing' };
 
@@ -32,4 +35,12 @@ export function activityBannerMarkup(entries: readonly ActivityEntry[], referenc
     return `<div class="ap-activity-idle">${IDLE_ACTIVITY_TEXT}</div>`;
   }
   return entries.map((entry) => activityRowMarkup(entry, referenceEpochMilliseconds, units)).join('');
+}
+
+/** The embedded page's stale notice, one banner row in the banner's snapshot look. */
+export function staleNoticeMarkup(): string {
+  return '<div class="ap-activity-row">'
+    + '<span class="ap-activity-dot" aria-hidden="true"></span>'
+    + `<span class="ap-activity-title">${STALE_NOTICE_TEXT}</span>`
+    + '</div>';
 }

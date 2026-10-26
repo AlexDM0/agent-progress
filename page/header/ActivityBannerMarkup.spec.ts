@@ -1,13 +1,20 @@
 /**
  * The activity banner's markup. The cases that matter: no agent prints the one idle line; a builder and a reviewer carry the chart's own
  * state colours; a free-standing row has no ticket id; values are escaped; and the elapsed time is hidden from the live region, so a tick is
- * never announced.
+ * never announced. The embedded stale notice takes its minutes from the one live age limit, never a second literal.
  */
 
-import { describe, expect, test }                   from 'bun:test';
-import { EXAMPLE_PAGE_LIMITS }                      from '../testing/PageLimitsFixture.ts';
-import { activityBannerMarkup, IDLE_ACTIVITY_TEXT } from './ActivityBannerMarkup.ts';
-import type { ActivityEntry }                       from './utils/ActivityBannerUtil.ts';
+import { describe, expect, test }  from 'bun:test';
+import { MILLISECONDS_PER_MINUTE } from '../../src/lib/local-time/LocalTimeUtil.ts';
+import { EXAMPLE_PAGE_LIMITS }     from '../testing/PageLimitsFixture.ts';
+import {
+  activityBannerMarkup,
+  IDLE_ACTIVITY_TEXT,
+  STALE_NOTICE_TEXT,
+  staleNoticeMarkup
+} from './ActivityBannerMarkup.ts';
+import type { ActivityEntry }                                  from './utils/ActivityBannerUtil.ts';
+import { LIVE_AGE_LIMIT_MILLISECONDS, LIVE_AGE_LIMIT_MINUTES } from './utils/HeaderFigureUtil.ts';
 
 const START = 1_000_000;
 
@@ -16,6 +23,15 @@ function exampleEntry(changes: Partial<ActivityEntry> = {}): ActivityEntry {
     taskId: 1, kind: 'building', ticketId: '060', title: 'Account pages dark mode', startEpochMilliseconds: START, ...changes
   };
 }
+
+describe('staleNoticeMarkup', () => {
+  test('names the live age limit in one banner row with a dot', () => {
+    expect(STALE_NOTICE_TEXT).toBe(`Not updated for the last ${LIVE_AGE_LIMIT_MINUTES} minutes`);
+    expect(LIVE_AGE_LIMIT_MILLISECONDS).toBe(LIVE_AGE_LIMIT_MINUTES * MILLISECONDS_PER_MINUTE);
+    expect(staleNoticeMarkup()).toBe('<div class="ap-activity-row"><span class="ap-activity-dot" aria-hidden="true"></span>'
+      + `<span class="ap-activity-title">${STALE_NOTICE_TEXT}</span></div>`);
+  });
+});
 
 describe('activityBannerMarkup', () => {
   test('prints the idle line when no agent works', () => {

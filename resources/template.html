@@ -77,6 +77,14 @@
                                  in status-live, the Live dot's green;
                                  a snapshot greys the dots and freezes the times at generation.
                                  The page script's intervals all stop while the tab is hidden
+ #ap-stale-notice         html   the embedded page's stale notice, an .ap-activity (role="status"
+                                 aria-live="polite", data-freshness="snapshot", so its dot is grey),
+                                 empty here: the page script fills one .ap-activity-row > -dot and
+                                 -title "Not updated for the last N minutes", N the live age limit.
+                                 Undisplayed unless html[data-embedded="dashboard"] and
+                                 html[data-freshness="snapshot"]; then fixed, centred in the
+                                 viewport, a 1px line border and the popover shadow, pointer-events
+                                 none, so it comes and goes with the minute's freshness re-judge
  #ap-generated            text   "generated 3 min ago · 13:33" while live, "generated 09-23 13:33 ·
                                  2 days ago" as a snapshot (monospace), title "generated 2026-09-25 13:33".
                                  Every stamp on the page follows one rule against the viewer's
@@ -108,7 +116,8 @@
                                  ?embedded=dashboard (agent-dashboard's frame): #ap-status,
                                  #ap-project, #ap-summary, #ap-theme and #ap-activity are undisplayed
                                  (the theme radios stay clickable by script), #ap-summary-line shows,
-                                 and the body's padding is 18px 20px 24px
+                                 the body's padding is 18px 20px 24px, and a snapshot shows
+                                 #ap-stale-notice centred over the board
  #ap-tabs                 el     buttons in the order Kanban, Waves, Progress, Epics, Tickets, carrying
                                  data-tab="kanban|dependencies|progress|epics|tickets",
                                  aria-selected, and id="ap-tab-…" with aria-controls naming the
@@ -850,6 +859,13 @@ html[data-embedded="dashboard"] #ap-project { display: none; }
 html[data-embedded="dashboard"] #ap-summary { display: none; }
 html[data-embedded="dashboard"] #ap-theme { display: none; }
 html[data-embedded="dashboard"] #ap-activity { display: none; }
+/* A stale embedded board says so in the activity banner's snapshot look, centred over the board and never in the way of a click. */
+#ap-stale-notice { display: none; }
+html[data-embedded="dashboard"][data-freshness="snapshot"] #ap-stale-notice {
+  display: grid; grid-template-columns: auto; position: fixed; top: 50%; left: 50%; z-index: 30;
+  width: max-content; max-width: calc(100vw - 40px); transform: translate(-50%, -50%); pointer-events: none;
+  border: 1px solid var(--line); box-shadow: 0 10px 28px var(--shadow-popover);
+}
 html[data-embedded="dashboard"] .ap-summary-line {
   display: flex; align-items: center; gap: 18px; height: 30px; padding: 0 12px; overflow: hidden;
   border: 1px solid var(--line); border-radius: 8px; background: var(--surface);
@@ -2132,6 +2148,7 @@ button.ap-epic-title:hover { text-decoration: underline; text-underline-offset: 
     <div class="ap-activity-row" data-state="reviewing"><span class="ap-activity-dot" aria-hidden="true"></span><span class="ap-activity-kind">Reviewing</span><span class="ap-activity-id">#058</span><span class="ap-activity-title">Rate-limit resets</span><span class="ap-activity-elapsed" aria-hidden="true">31m 17s</span></div>
   </div>
 
+  <div class="ap-activity" id="ap-stale-notice" role="status" aria-live="polite" data-freshness="snapshot"></div>
   <div class="ap-summary-line" id="ap-summary-line">
     <span class="ap-summary-line-item"><span class="ap-summary-line-dot" data-state="in-progress" aria-hidden="true"></span><span class="ap-summary-line-n">2</span><span class="ap-summary-line-label">building</span></span>
     <span class="ap-summary-line-item"><span class="ap-summary-line-dot" data-state="reviewing" aria-hidden="true"></span><span class="ap-summary-line-n">2</span><span class="ap-summary-line-label">reviewing</span></span>

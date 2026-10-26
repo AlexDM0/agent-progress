@@ -11,7 +11,7 @@ import type { DurationUnits, TimestampSlices } from '../../utils/TimeUtil.ts';
 import { TimeUtil }                            from '../../utils/TimeUtil.ts';
 
 /** Twice the CLI's five-minute write interval: a page older than this has missed a write and is a snapshot. */
-const LIVE_AGE_LIMIT_MINUTES = 10;
+export const LIVE_AGE_LIMIT_MINUTES = 10;
 
 export const LIVE_AGE_LIMIT_MILLISECONDS = LIVE_AGE_LIMIT_MINUTES * MILLISECONDS_PER_MINUTE;
 
