@@ -10,6 +10,7 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
     tickets: [
       ticketFixture({ id: '001', title: 'Example checkout page' }),
       ticketFixture({ id: '002', title: 'Example cart', group: 'example-shop' }),
+      ticketFixture({ id: '004', title: 'Example cart total is wrong', type: 'bug' }),
     ],
   });
   board.recordNote('Example note from the orchestrator', at);
@@ -88,6 +89,7 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
   board.rereviewTicket('001', at);
   board.moveTicket('001', 'reviewed', { checksLegality: true }, at);
   board.moveTicket('001', 'delivered', { checksLegality: true }, at);
+  board.setTicketIntroducedBy('004', '001', at);
   board.moveTicket('001', 'pending', { checksLegality: false }, at);
   board.moveTicket('003', 'abandoned', { checksLegality: true, reason: 'superseded by #001' }, at);
   board.setChartRange({

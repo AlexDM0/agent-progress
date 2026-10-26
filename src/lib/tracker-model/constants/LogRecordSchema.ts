@@ -56,6 +56,8 @@ export const LOG_RECORD_SCHEMA = {
   'ticket-rereviewed':               { subject: 'ticket', fields: { round: 'review-round' } },
   'ticket-priority-changed':         { subject: 'ticket', fields: { from: 'priority', to: 'priority' } },
   'ticket-dependencies-set':         { subject: 'ticket', fields: { dependsOn: 'ticket-ids' } },
+  // `introducedBy` is absent when the cause was cleared.
+  'ticket-introduced-by-set':        { subject: 'ticket', fields: { introducedBy: 'optional-text' } },
   'ticket-agents-changed':           { subject: 'ticket', fields: { from: 'agent-pair', to: 'agent-pair' } },
   'ticket-held':                     { subject: 'ticket', fields: { reason: 'text' } },
   'ticket-unheld':                   { subject: 'ticket', fields: NO_FIELDS },

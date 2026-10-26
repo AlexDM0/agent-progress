@@ -52,7 +52,8 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
    small, you report and do not fix, a few lines each with where and what you would do; so is a
    finding that needs a product or design decision or touches a file out of bounds. A dispatched
    reviewer files each itself,
-   `agent-progress ticket add "<what and where>" --type ticket|bug --priority low --body "<what you saw>"`; by hand
+   `agent-progress ticket add "<what and where>" --type ticket|bug --priority low --found-in-review <id>
+   --body "<what you saw>"`, in a bundle the id of the ticket whose change held the finding; by hand
    the orchestrator files what you report.
 3. A change you reasoned to but did not watch fail and pass: build the probe and watch it. A doubt
    still open at the budget is `does not hold`, never a caveat.

@@ -71,6 +71,7 @@ import { TicketClaims }                                     from './TicketClaims
 import { TicketDependencies }                               from './TicketDependencies.ts';
 import type { TicketEdit, TicketEdited }                    from './TicketEdits.ts';
 import { TicketEdits }                                      from './TicketEdits.ts';
+import { TicketLinks }                                      from './TicketLinks.ts';
 import { TicketMoves }                                      from './TicketMoves.ts';
 import { TicketSettings }                                   from './TicketSettings.ts';
 import { TokenCredits }                                     from './TokenCredits.ts';
@@ -97,6 +98,8 @@ export class Board {
   private readonly ticketMoves: TicketMoves;
 
   private readonly ticketDependencies: TicketDependencies;
+
+  private readonly ticketLinks: TicketLinks;
 
   private readonly ticketSettings: TicketSettings;
 
@@ -125,6 +128,7 @@ export class Board {
     this.dispatchQueries    = new DispatchQueries(this.records, this.groupReleases);
     this.displayQueries     = new DisplayQueries(this.records, this.reviewBars);
     this.ticketDependencies = new TicketDependencies(this.records);
+    this.ticketLinks        = new TicketLinks(this.records);
     this.ticketMoves        = new TicketMoves(this.records, this.reviewBars, this.ticketDependencies, this.groupReleases);
     this.ticketClaims       = new TicketClaims(this.records, this.ticketMoves, this.reviewBars, this.dispatchQueries, this.groupReleases);
     this.ticketSettings     = new TicketSettings(this.records);
@@ -183,7 +187,13 @@ export class Board {
 
   fileTicket(ticket: Ticket, at: string): TicketChanged {
     this.epicRules.refuseUnknownEpicKeys(ticket.frontmatter.epics ?? []);
+    this.ticketLinks.refuseUnworkableLinksOfAFiledTicket(ticket.frontmatter);
     return this.ticketMoves.fileTicket(ticket, at);
+  }
+
+  /** A `null` cause clears the link. */
+  setTicketIntroducedBy(ticketId: string, causeTicketId: string | null, at: string): TicketChanged {
+    return this.ticketLinks.setIntroducedBy(ticketId, causeTicketId, at);
   }
 
   addEpic(addition: EpicAddition, at: string): EpicChanged {

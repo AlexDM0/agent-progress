@@ -17,7 +17,7 @@ import type { TicketSubcommandHandler }          from './@types/TicketSubcommand
 import { TICKET_USAGE }                          from './constants/TicketUsage.ts';
 import { TicketArgumentUtil }                    from './utils/TicketArgumentUtil.ts';
 
-const ADD_OPTION_NAMES = ['type', 'priority', 'model', 'effort', 'group', 'depends-on', 'epic', 'body', 'body-file', 'at', 'json'];
+const ADD_OPTION_NAMES = ['type', 'priority', 'model', 'effort', 'group', 'depends-on', 'epic', 'introduced-by', 'found-in-review', 'body', 'body-file', 'at', 'json'];
 
 const TICKET_BODY_TEMPLATE_PATH = ['templates', 'TicketBody.md'];
 
@@ -50,6 +50,8 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
   const group     = commandArguments.option('group');
   const dependsOn = TicketArgumentUtil.dependencyListFrom([commandArguments.option('depends-on') ?? '']);
   const epics     = TicketArgumentUtil.epicKeyListFrom([commandArguments.option('epic') ?? '']);
+  const introducedBy  = TicketArgumentUtil.linkedTicketIdFrom(commandArguments.option('introduced-by'));
+  const foundInReview = TicketArgumentUtil.linkedTicketIdFrom(commandArguments.option('found-in-review'));
 
   // Read before the lock: `--body-file -` waits on a pipe the caller may hold open indefinitely. The id is not: only the lock hold makes it this ticket's.
   requireWorkspace(context.currentDirectory);
@@ -66,6 +68,8 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
     });
     if (dependsOn.length > 0) ticket.frontmatter.dependsOn = dependsOn;
     if (epics.length > 0) ticket.frontmatter.epics = epics;
+    if (introducedBy !== null) ticket.frontmatter.introducedBy = introducedBy;
+    if (foundInReview !== null) ticket.frontmatter.foundInReview = foundInReview;
     if (model !== undefined) ticket.frontmatter.model = model;
     if (effort !== undefined) ticket.frontmatter.effort = effort;
     return change.board.fileTicket(ticket, change.at);

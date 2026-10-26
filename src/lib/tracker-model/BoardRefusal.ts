@@ -1,6 +1,11 @@
 /** Why the Board refused a change: a reason code and the facts, never a sentence. The caller words it. */
-import type { TaskStatus }                              from './@types/Task.ts';
-import type { AgentPair, TicketPriority, TicketStatus } from './@types/Ticket.ts';
+import type { TaskStatus } from './@types/Task.ts';
+import type {
+  AgentPair,
+  TicketPriority,
+  TicketStatus,
+  TicketType
+} from './@types/Ticket.ts';
 
 export type BoardRefusalDetail =
   | { reason: 'unknown-task'; taskId: number }
@@ -25,6 +30,10 @@ export type BoardRefusalDetail =
   | { reason: 'concurrency-limit-reached'; ticketIds: readonly string[]; agentsInFlight: number; inProgressRowCount: number; limit: number }
   | { reason: 'unknown-dependency'; missingTicketIds: readonly string[] }
   | { reason: 'dependency-loop'; loopTicketIds: readonly string[] }
+  | { reason: 'unknown-linked-ticket'; missingTicketId: string }
+  | { reason: 'introduced-by-on-a-non-bug'; ticketId: string; type: TicketType }
+  | { reason: 'introduced-by-itself'; ticketId: string }
+  | { reason: 'introduced-by-an-undelivered-ticket'; ticketId: string; causeTicketId: string; status: TicketStatus }
   | { reason: 'priority-unchanged'; ticketId: string; status: TicketStatus; priority: TicketPriority }
   | { reason: 'lowering-a-ticket-that-is-not-pending'; ticketId: string; status: TicketStatus }
   | { reason: 'edit-of-a-ticket-past-pending'; ticketId: string; status: TicketStatus }

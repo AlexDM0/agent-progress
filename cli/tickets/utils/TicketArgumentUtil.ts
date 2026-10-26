@@ -56,13 +56,24 @@ function epicKeyListFrom(texts: readonly string[]): string[] {
 function dependencyListFrom(texts: readonly string[]): string[] {
   const dependsOn: string[] = [];
   for (const reference of texts.flatMap((text) => text.split(LIST_SEPARATOR_PATTERN)).filter((part) => part !== '')) {
-    const identifier = TicketIdUtil.parseTicketReference(reference);
-    if (identifier === null) {
-      throw new OperationRefusal('refused', `"${reference}" is not a ticket id. Write it as \`3\`, \`003\` or \`#3\`.`);
-    }
+    const identifier = requireTicketId(reference);
     if (!dependsOn.includes(identifier)) dependsOn.push(identifier);
   }
   return dependsOn;
+}
+
+function requireTicketId(reference: string): string {
+  const identifier = TicketIdUtil.parseTicketReference(reference);
+  if (identifier === null) {
+    throw new OperationRefusal('refused', `"${reference}" is not a ticket id. Write it as \`3\`, \`003\` or \`#3\`.`);
+  }
+  return identifier;
+}
+
+/** One ticket id, or `null` for an absent or blank one; whether it names a ticket is the Board's to judge. */
+function linkedTicketIdFrom(writtenReference: string | undefined): string | null {
+  if (writtenReference === undefined || writtenReference.trim() === '') return null;
+  return requireTicketId(writtenReference.trim());
 }
 
 function refuseAnUnknownTicketStatus(writtenStatus: string): never {
@@ -77,5 +88,6 @@ export const TicketArgumentUtil = {
   agentEffortFrom,
   dependencyListFrom,
   epicKeyListFrom,
+  linkedTicketIdFrom,
   refuseAnUnknownTicketStatus,
 } as const;

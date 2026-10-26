@@ -11,7 +11,7 @@ import type { LogRecord }              from './@types/LogRecord.ts';
 
 const LOGGED_AT = '2026-09-26T10:15:00+02:00';
 
-const RECORD_KIND_COUNT = 41;
+const RECORD_KIND_COUNT = 42;
 
 /**
  * Two kinds are logged twice: `draft-claimed`, plainly and as a forced takeover, since the two store different fields, and `draft-opened`,
@@ -61,6 +61,7 @@ const FROZEN_STORED_LINES = [
   '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-approved","ticketId":"001","fields":{}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"review-bar-closed","taskId":3,"ticketId":"001","fields":{"name":"Review 1 #001 — Example checkout page"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-delivered","ticketId":"001","fields":{}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-introduced-by-set","ticketId":"004","fields":{"introducedBy":"001"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-reopened","ticketId":"001","fields":{}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-abandoned","ticketId":"003","fields":{"reason":"superseded by #001"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"chart-range-set","fields":{"view":{"kind":"relative","from":"-2h","to":"now","tickMinutes":15}}}',

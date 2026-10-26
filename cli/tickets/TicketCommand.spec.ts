@@ -768,6 +768,7 @@ describeWhenGitIsPresent('the subcommand groups', () => {
       'epic',
       'finish',
       'hold',
+      'introduced-by',
       'link',
       'list',
       'priority',

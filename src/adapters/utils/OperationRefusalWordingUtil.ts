@@ -92,6 +92,15 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
         + `and the concurrency limit is ${detail.limit} ${detail.limit === 1 ? 'agent' : 'agents'}. Nothing was written; claim once an agent has finished.`;
     case 'unknown-dependency':
       return `There is no ticket ${TicketPhraseUtil.ticketReferencesText(detail.missingTicketIds)}. Run \`agent-progress ticket list\` to see what this tracker holds.`;
+    case 'unknown-linked-ticket':
+      return `There is no ticket #${detail.missingTicketId}. ${NOTHING_WAS_WRITTEN} Run \`agent-progress ticket list\` to see what this tracker holds.`;
+    case 'introduced-by-on-a-non-bug':
+      return `Ticket #${detail.ticketId} is a ${detail.type}, and only a bug names the ticket that introduced it. ${NOTHING_WAS_WRITTEN}`;
+    case 'introduced-by-itself':
+      return `Ticket #${detail.ticketId} cannot be introduced by itself. ${NOTHING_WAS_WRITTEN}`;
+    case 'introduced-by-an-undelivered-ticket':
+      return `Ticket #${detail.ticketId} cannot be introduced by #${detail.causeTicketId}: it is ${detail.status}, `
+        + `and only a delivered ticket's change lets a bug escape. ${NOTHING_WAS_WRITTEN}`;
     case 'malformed-epic-key':
       return `"${detail.epicKey}" is not a usable epic key: a key is lower-case letters and digits, in words joined by single hyphens, `
         + `such as \`checkout-redesign\`. ${NOTHING_WAS_WRITTEN}`;

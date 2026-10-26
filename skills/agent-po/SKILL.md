@@ -117,7 +117,14 @@ BODY
 ```
 
 `--type` is required: `bug` for a defect, `research` for a question to settle, `ticket` for anything
-else. The Acceptance is the builder's stop condition, so write things that are true or false, never a
+else.
+
+**A bug names its cause**: a subagent finds the delivered ticket that introduced it (`git log -S`,
+blame, the `#<id>` in commit subjects), passed as `--introduced-by <id>` (after filing,
+`ticket introduced-by <bug> <id>`), and the Wanted says `Assumed: introduced by #<id>` or
+`Assumed: introducing ticket not found`.
+
+The Acceptance is the builder's stop condition, so write things that are true or false, never a
 direction of travel; number its items `A1.`, `A2.`, … and never renumber or reuse one, since the
 reviewer writes a verdict per number and a release refuses an item left unaccounted. **Every ticket
 carries a `## Brief`**: without one its builder pays to rediscover what you already found.

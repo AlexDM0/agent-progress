@@ -11,6 +11,7 @@ import type { TicketSubcommandHandler }                                 from './
 import { setTicketDependencies }                                        from './TicketDepends.ts';
 import { setTicketEpics }                                               from './TicketEpic.ts';
 import { holdOrUnholdTicket }                                           from './TicketHold.ts';
+import { setTicketIntroducedBy }                                        from './TicketIntroducedBy.ts';
 import { markOrClearReleaseTicket }                                     from './TicketReleaseMarker.ts';
 import { TICKET_USAGE }                                                 from './constants/TicketUsage.ts';
 import { TicketArgumentUtil }                                           from './utils/TicketArgumentUtil.ts';
@@ -90,12 +91,13 @@ async function setTicketAgent(commandArguments: ArgumentParser, context: Command
 }
 
 export const TICKET_SETTING_SUBCOMMANDS: Readonly<Record<string, TicketSubcommandHandler>> = {
-  link:         linkOneTicket,
-  depends:      setTicketDependencies,
-  epic:         setTicketEpics,
-  priority:     setTicketPriority,
-  agent:        setTicketAgent,
-  hold:         async (commandArguments, context) => holdOrUnholdTicket(true, commandArguments, context),
-  unhold:       async (commandArguments, context) => holdOrUnholdTicket(false, commandArguments, context),
-  'release-of': markOrClearReleaseTicket,
+  link:            linkOneTicket,
+  depends:         setTicketDependencies,
+  epic:            setTicketEpics,
+  'introduced-by': setTicketIntroducedBy,
+  priority:        setTicketPriority,
+  agent:           setTicketAgent,
+  hold:            async (commandArguments, context) => holdOrUnholdTicket(true, commandArguments, context),
+  unhold:          async (commandArguments, context) => holdOrUnholdTicket(false, commandArguments, context),
+  'release-of':    markOrClearReleaseTicket,
 };

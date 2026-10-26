@@ -86,6 +86,10 @@ function sentenceOf(record: LogRecordContent): string {
         ? `Ticket #${record.ticketId} waits on no other ticket`
         : `Ticket #${record.ticketId} waits on ${TicketPhraseUtil.ticketReferencesText(dependsOn)}`;
     }
+    case 'ticket-introduced-by-set':
+      return record.fields.introducedBy === undefined
+        ? `Ticket #${record.ticketId} introduced by no named ticket`
+        : `Ticket #${record.ticketId} introduced by #${record.fields.introducedBy}`;
     case 'ticket-agents-changed':
       return `Ticket #${record.ticketId} agents ${TicketPhraseUtil.agentPairText(record.fields.from)} → ${TicketPhraseUtil.agentPairText(record.fields.to)}`;
     case 'ticket-held':
@@ -163,6 +167,7 @@ function taskIdsConcernedBy(record: LogRecordContent): number[] {
 
 function ticketIdsConcernedBy(record: LogRecordContent): string[] {
   if (record.kind === 'ticket-dependencies-set') return [...new Set([record.ticketId, ...record.fields.dependsOn])];
+  if (record.kind === 'ticket-introduced-by-set' && record.fields.introducedBy !== undefined) return [record.ticketId, record.fields.introducedBy];
   if (record.kind === 'draft-closed') return [...record.fields.ticketIds];
   return 'ticketId' in record ? [record.ticketId] : [];
 }

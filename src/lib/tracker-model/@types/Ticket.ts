@@ -45,6 +45,10 @@ export interface TicketFrontmatter {
   dependsOn?:       string[];
   /** The keys of the epics the ticket belongs to, its primary epic first; absent when it belongs to none. */
   epics?:           string[];
+  /** On a bug only: the padded id of the delivered ticket whose change introduced it; absent when none was named. */
+  introducedBy?:    string;
+  /** The padded id of the ticket whose review found this one; absent on a ticket no review filed. */
+  foundInReview?:   string;
   /** The content hash of the body as it read when the ticket was last claimed or started; absent on a ticket never claimed or started. */
   claimedBodyHash?: string;
   task:             number | null;

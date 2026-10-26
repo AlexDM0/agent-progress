@@ -297,11 +297,15 @@ output never carries either.
       [--group <name>]        its own frontmatter, plus a pending Gantt row. The body comes from
       [--depends-on <ids>]    the template, from --body, or from --body-file (\`-\` reads standard
       [--epic <keys>]         input); an empty body falls back to the template, and afterwards the
-      [--body <markdown>]     body is preserved byte for byte, so an agent may edit everything
-      [--body-file <path|->]  below the frontmatter freely. --depends-on files it already waiting
-      [--at <when>]           on other tickets (\`3,4\`), as \`ticket depends\` does; --epic files it
-                              in existing epics (\`checkout-redesign,loyalty-programme\`, the first
-                              its primary one), as \`ticket epic\` does. --priority
+      [--introduced-by <id>]  body is preserved byte for byte, so an agent may edit everything
+      [--found-in-review <id>]
+      [--body <markdown>]     below the frontmatter freely. --depends-on files it already waiting
+      [--body-file <path|->]  on other tickets (\`3,4\`), as \`ticket depends\` does; --epic files it
+      [--at <when>]           in existing epics (\`checkout-redesign,loyalty-programme\`, the first
+                              its primary one), as \`ticket epic\` does. --introduced-by names the
+                              delivered ticket whose change introduced a bug, as
+                              \`ticket introduced-by\` does; --found-in-review names the ticket
+                              whose review found this one, a ticket that must exist. --priority
                               defaults to normal; a low ticket is filed with no row and takes no
                               task id until it is started. --model (haiku, sonnet, opus, fable)
                               and --effort (low, medium, high, xhigh, max) name what the agents
@@ -459,6 +463,13 @@ output never carries either.
                               written. One log line; \`updated\` is not stamped. --json carries the
                               ticket with \`added\` and \`dropped\`. Epics never affect dispatch,
                               claiming, concurrency or release: that is \`--group\`.
+
+  ticket introduced-by <id> [<cause id>] [--at <when>] [--json]
+                              Name the delivered ticket whose change introduced a bug, stored as
+                              its \`introducedBy\`; no cause, or an empty one, clears it. Refused at
+                              exit 1 with nothing written when the ticket is not a bug, or the
+                              cause does not exist, is the ticket itself or is not delivered. One
+                              log line; \`updated\` is not stamped.
 
   epic add <key> "<title>"    Add an epic, a larger feature tickets are grouped under:
       [--body <markdown>]     \`.agent-progress/epics/<key>.md\` holding its key, title and colour

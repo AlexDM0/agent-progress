@@ -51,6 +51,8 @@ const RELEASES_GROUP_VALUE = 'true';
 
 const CLAIMED_BODY_HASH_KEY = 'claimedBodyHash';
 
+const TICKET_LINK_KEYS = ['introducedBy', 'foundInReview'] as const;
+
 const KNOWN_KEYS = new Set<string>([
   'id',
   'title',
@@ -70,6 +72,7 @@ const KNOWN_KEYS = new Set<string>([
   RELEASES_GROUP_KEY,
   'dependsOn',
   'epics',
+  ...TICKET_LINK_KEYS,
   CLAIMED_BODY_HASH_KEY,
   'task',
 ]);
@@ -198,6 +201,13 @@ function ticketDocumentTextOf(frontmatter: TicketFrontmatter, body: string, line
 
   if (frontmatter.epics !== undefined && frontmatter.epics.length > 0) {
     lines.push(`epics: ${JSON.stringify(frontmatter.epics.join(FRONTMATTER_LIST_JOINER))}`);
+  }
+
+  for (const key of TICKET_LINK_KEYS) {
+    const linkedTicketId = frontmatter[key];
+    if (linkedTicketId !== undefined) {
+      lines.push(`${key}: ${JSON.stringify(linkedTicketId)}`);
+    }
   }
 
   if (frontmatter.claimedBodyHash !== undefined) {
@@ -364,6 +374,7 @@ function frontmatterFrom(
     ...releasesGroupField(knownValues),
     ...dependencyField(knownValues),
     ...epicsField(knownValues),
+    ...ticketLinkFields(knownValues),
     ...claimedBodyHashField(knownValues),
     task:        nullableInteger(knownValues, 'task'),
     extra,
@@ -465,6 +476,21 @@ function dependencyField(knownValues: Map<string, KnownValue>): Pick<TicketFront
     }
   }
   return dependsOn.length === 0 ? {} : { dependsOn };
+}
+
+/** Each written `"005"`, one ticket id read like a `dependsOn` entry; absent or `null` names no ticket. */
+function ticketLinkFields(knownValues: Map<string, KnownValue>): Pick<TicketFrontmatter, typeof TICKET_LINK_KEYS[number]> {
+  const fields: Pick<TicketFrontmatter, typeof TICKET_LINK_KEYS[number]> = {};
+  for (const key of TICKET_LINK_KEYS) {
+    const found = knownValues.get(key);
+    if (found === undefined || found.value === null) continue;
+    const identifier = TicketIdUtil.parseTicketReference(String(found.value));
+    if (identifier === null) {
+      throw new FrontmatterProblem(`\`${key}\` names something that is not a ticket number: ${found.value}`, found.line);
+    }
+    fields[key] = identifier;
+  }
+  return fields;
 }
 
 /** Written `"loyalty-programme, checkout-redesign"` and read like `dependsOn`; the order is kept, since the first key is the primary epic. */
