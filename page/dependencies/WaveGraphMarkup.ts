@@ -42,6 +42,8 @@ export interface DependencyNodeModel {
   /** The node's `data-state`, which colours its stripe. */
   tone:       DisplayState;
   isInReview: boolean;
+  /** An agent works on it now; the node pulses while the page is live. */
+  isLive:     boolean;
   /** Drawn only on a node outside the Done column. */
   chips:      readonly DependencyNodeChip[];
 }
@@ -187,7 +189,7 @@ function nodeMarkup(node: DependencyNodeModel, place: NodePlace, isDone: boolean
   const chips       = isDone ? '' : node.chips.map(chipMarkup).join('');
   const extraChip   = options.extraChipMarkupOf?.(node.id) ?? '';
   return `<button type="button" class="ap-dependency-node" ${MarkupUtil.attribute(options.openAttribute, node.id)} `
-    + `${MarkupUtil.attribute('data-state', node.tone)}${isDone ? ' data-done' : ''}${node.isInReview ? ' data-in-review' : ''} `
+    + `${MarkupUtil.attribute('data-state', node.tone)}${isDone ? ' data-done' : ''}${node.isInReview ? ' data-in-review' : ''}${node.isLive ? ' data-live' : ''} `
     + `${MarkupUtil.attribute('aria-label', `${node.idLabel} ${node.title}`)} style="left:${pixels(place.left)};top:${pixels(place.top)}">`
     + `<span class="ap-dependency-node-head"><span class="ap-ticket-id">${HtmlEscapeUtil.escapeHtml(node.idLabel)}</span>`
     + `${chips}${extraChip}${waitMarkup(heldCount)}</span>`

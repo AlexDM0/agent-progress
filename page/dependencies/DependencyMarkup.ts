@@ -2,6 +2,7 @@
 
 import type { DependencyGraph }                                                 from '../@types/DependencyGraph.ts';
 import type { BoardTicket }                                                     from '../@types/PageBoard.ts';
+import { LiveStateUtil }                                                        from '../utils/LiveStateUtil.ts';
 import type { DependencyGraphOptions, DependencyNodeChip, DependencyNodeModel } from './WaveGraphMarkup.ts';
 import { waveGraphMarkup }                                                      from './WaveGraphMarkup.ts';
 
@@ -31,6 +32,7 @@ function dependencyNodeOf(ticket: BoardTicket, readyTicketIds: ReadonlySet<strin
     dependsOn:  ticket.dependsOn ?? [],
     tone:       ticket.displayState,
     isInReview: ticket.status === 'in-review',
+    isLive:     LiveStateUtil.displayStateIsLive(ticket.displayState),
     chips:      chipsOf(ticket, readyTicketIds),
   };
 }

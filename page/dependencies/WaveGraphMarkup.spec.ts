@@ -33,6 +33,7 @@ function exampleNode(item: ExampleItem): DependencyNodeModel {
     dependsOn:  item.dependsOn,
     tone:       item.isDone ? 'delivered' : 'pending',
     isInReview: false,
+    isLive:     false,
     chips:      [{ kind: 'state', displayState: 'pending' }],
   };
 }

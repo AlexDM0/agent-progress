@@ -10,6 +10,7 @@ import { CLOSING_EVENT_WORD }              from '../constants/ClosingEventWords.
 import { STATE_LABEL_FOR_DISPLAY_STATE }   from '../constants/StateLabels.ts';
 import { EPIC_MARK_VOCABULARY }            from '../epics/EpicMarkVocabulary.ts';
 import { FinishedWorkUtil }                from '../utils/FinishedWorkUtil.ts';
+import { LiveStateUtil }                   from '../utils/LiveStateUtil.ts';
 import { TemplateIdUtil }                  from '../utils/TemplateIdUtil.ts';
 import { WorkItemMarkupUtil }              from '../utils/WorkItemMarkupUtil.ts';
 import type { KanbanBoardInput }           from './@types/KanbanBoardInput.ts';
@@ -36,9 +37,6 @@ const NO_ROW_TITLE = 'Low priority: it gets a row on the Progress chart once it 
 
 /** From this many tickets waiting on a card, its `↦ N` reads in full ink. */
 const HEAVY_HELD_COUNT = 5;
-
-/** A card an agent is at work on: a build or a review running. */
-const LIVE_STATES: ReadonlySet<DisplayState> = new Set(['in-progress', 'reviewing', 're-review']);
 
 const STATE_GROUP_TITLE: Record<KanbanStateGroup, string> = {
   'building':        'Building',
@@ -152,7 +150,7 @@ export function kanbanCardModelOf(card: KanbanCard, lane: KanbanLane, format: Ka
     note:          subStateNoteOf(card, format),
     reviewedTitle: reviewedTitleOf(card, lane, format),
     stamp,
-    isLive:        LIVE_STATES.has(card.state),
+    isLive:        LiveStateUtil.displayStateIsLive(card.state),
     elapsedStamp,
     opensDetail:   true,
   };

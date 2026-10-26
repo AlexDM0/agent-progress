@@ -9,6 +9,7 @@ import type { GroupItemRowModel }      from '../@types/GroupMarks.ts';
 import type { GroupMarkupFormat }      from '../@types/GroupMarks.ts';
 import type { GroupRollupModel }       from '../@types/GroupMarks.ts';
 import type { BoardEpic, BoardTicket } from '../@types/PageBoard.ts';
+import { LiveStateUtil }               from '../utils/LiveStateUtil.ts';
 import { MarkupUtil }                  from '../utils/MarkupUtil.ts';
 import { TimeUtil }                    from '../utils/TimeUtil.ts';
 import { WorkItemMarkupUtil }          from '../utils/WorkItemMarkupUtil.ts';
@@ -83,7 +84,15 @@ function epicItemRowsOf(epic: BoardEpic, ticketById: ReadonlyMap<string, BoardTi
       otherGroups: ticket.memberOfEpics.filter((other) => other.key !== epic.key),
       badge:       { stateToken: ticket.displayState, label: WorkItemMarkupUtil.stateLabelOf(ticket.displayState, ticket.ownRow?.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND) },
       note:        null,
+      isLive:      LiveStateUtil.displayStateIsLive(ticket.displayState),
     }));
+}
+
+function epicHasLiveTicket(epic: BoardEpic, ticketById: ReadonlyMap<string, BoardTicket>): boolean {
+  return epic.ticketIds.some((ticketId) => {
+    const ticket = ticketById.get(ticketId);
+    return ticket !== undefined && LiveStateUtil.displayStateIsLive(ticket.displayState);
+  });
 }
 
 /** Open epics first, then the settled ones, each part in the Board's key order. */
@@ -95,6 +104,7 @@ export const EpicGroupMarks = {
   epicRollupOf,
   epicFactsOf,
   epicItemRowsOf,
+  epicHasLiveTicket,
   doneTicketCountOf,
   openTicketCountOf,
   doneTextOf,

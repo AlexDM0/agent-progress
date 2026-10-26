@@ -63,6 +63,8 @@ export interface GroupItemRowModel {
   otherGroups: readonly GroupMark[];
   badge:       GroupItemBadge | null;
   note:        string | null;
+  /** Work on the item runs now; its line pulses while the page is live. */
+  isLive:      boolean;
 }
 
 export interface GroupCardHeadModel {
@@ -79,6 +81,8 @@ export interface GroupCardModel {
   ariaLabel: string;
   head:      GroupCardHeadModel;
   bodyParts: readonly string[];
+  /** Work on one of its items runs now; its head's colour square pulses while the page is live. */
+  isLive:    boolean;
 }
 
 /** A group's detail: its head, coloured by `slot`, and its body's parts in order, each already escaped. */

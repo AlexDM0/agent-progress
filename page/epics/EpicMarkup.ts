@@ -104,6 +104,7 @@ function epicCardMarkup(epic: BoardEpic, ticketById: ReadonlyMap<string, BoardTi
       EpicDependencyMarkup.epicDependencyRowsMarkup(epic, graph, ticketById),
       epicTicketListMarkup(epic, ticketById),
     ],
+    isLive: EpicGroupMarks.epicHasLiveTicket(epic, ticketById),
   });
 }
 

@@ -83,9 +83,10 @@ function groupItemRowMarkup(row: GroupItemRowModel, vocabulary: GroupMarkVocabul
   const content = `<span class="ap-ticket-id">${HtmlEscapeUtil.escapeHtml(row.leadText)}</span>`
     + `<span class="ap-epic-ticket-title">${HtmlEscapeUtil.escapeHtml(row.title)}${otherGroupSquaresMarkup(row.otherGroups, 'also in ')}${note}</span>`
     + (row.badge === null ? '' : WorkItemMarkupUtil.stateBadgeMarkup(row.badge.stateToken, row.badge.label));
+  const live = row.isLive ? ' data-live' : '';
   return row.opener === null
-    ? `<li><span class="ap-epic-ticket">${content}</span></li>`
-    : `<li><button type="button" class="ap-epic-ticket" ${MarkupUtil.attribute(vocabulary.itemOpenerAttribute, row.opener)}>${content}</button></li>`;
+    ? `<li><span class="ap-epic-ticket"${live}>${content}</span></li>`
+    : `<li><button type="button" class="ap-epic-ticket" ${MarkupUtil.attribute(vocabulary.itemOpenerAttribute, row.opener)}${live}>${content}</button></li>`;
 }
 
 function groupItemListMarkup(rows: readonly GroupItemRowModel[], vocabulary: GroupMarkVocabulary): string {
@@ -108,7 +109,7 @@ function groupCardMarkup(card: GroupCardModel): string {
   const slot      = card.slot === null ? '' : `${MarkupUtil.attribute('data-epic-slot', String(card.slot))} `;
   const doneTitle = head.doneTitleText === null ? '' : ` ${MarkupUtil.attribute('title', head.doneTitleText)}`;
   return [
-    `<article class="ap-card" ${slot}${MarkupUtil.attribute('aria-label', card.ariaLabel)}>`,
+    `<article class="ap-card" ${slot}${MarkupUtil.attribute('aria-label', card.ariaLabel)}${card.isLive ? ' data-live' : ''}>`,
     `<div class="ap-epic-card-head">${head.titleMarkup}<span class="ap-epic-key">${HtmlEscapeUtil.escapeHtml(head.keyText)}</span>`,
     `<span class="ap-epic-done-mark"${doneTitle}>${HtmlEscapeUtil.escapeHtml(head.doneText)}</span></div>`,
     '<div class="ap-epic-card-body">',

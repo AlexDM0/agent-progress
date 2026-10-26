@@ -13,6 +13,7 @@ import type { BoardEpic }                               from '../@types/PageBoar
 import type { ResolvedSpan, TimelineBar, TimelineTick } from '../@types/Timeline.ts';
 import type { TimelineRowSource }                       from '../@types/Timeline.ts';
 import { BarPhaseUtil }                                 from '../utils/BarPhaseUtil.ts';
+import { LiveStateUtil }                                from '../utils/LiveStateUtil.ts';
 import type { ShortenedText }                           from '../utils/MarkupUtil.ts';
 import { MarkupUtil }                                   from '../utils/MarkupUtil.ts';
 import { TemplateIdUtil }                               from '../utils/TemplateIdUtil.ts';
@@ -250,7 +251,7 @@ function taskRowMarkup(placed: PlacedTaskRow, drawing: TaskRowsDrawing): string 
   const clippedLeft  = drawnBars.some((drawnBar) => drawnBar.clippedLeft);
   const clippedRight = drawnBars.some((drawnBar) => drawnBar.clippedRight);
   return [
-    `<div class="ap-grid-row ap-row" tabindex="0"${identities} ${MarkupUtil.attribute('data-state', state)}${nesting}>`,
+    `<div class="ap-grid-row ap-row" tabindex="0"${identities} ${MarkupUtil.attribute('data-state', state)}${nesting}${LiveStateUtil.liveAttributeOf(state)}>`,
     `<div class="ap-cell-name">${numberCell}`,
     `<span class="ap-name" ${MarkupUtil.attribute('title', nameTitleOf(task, row.waitingOn))}>${HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.displayedRowNameOf(task))}</span>`,
     `${stateChipMarkup(task, row.waitingOn, drawing.slices)}</div>`,

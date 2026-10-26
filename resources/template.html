@@ -282,11 +282,13 @@
                                  [data-open-ticket][data-epic-slot] or .ap-epic-link-empty);
                                  .ap-epic-waves of .ap-epic-wave[data-narrow?][data-done?]
                                  (-wave-name, button.ap-epic-wave-pill[data-open-ticket][data-state]
-                                 [data-done?][data-narrow?]); .ap-epic-link-row "Frees" (chips
+                                 [data-live?][data-done?][data-narrow?]); .ap-epic-link-row "Frees" (chips
                                  [data-frees][data-open-epic], .ap-epic-link-via)
  epic marks               .ap-epic-chip[data-epic][data-epic-slot] (neutral, a rounded square
                           .ap-epic-swatch, never round) and [data-open-epic] open the epic in
-                          #ap-detail; button.ap-epic-ticket[data-open-ticket] opens its ticket.
+                          #ap-detail; button.ap-epic-ticket[data-open-ticket][data-live?] opens its
+                          ticket. An Epics card is article.ap-card[data-live] while any of its
+                          tickets is live.
                           The roll-up: .ap-epic-progress (one span[data-state] per ticket status,
                           flex-grow its count), ul.ap-epic-legend, .ap-ticket-meta (open, done,
                           abandoned?, tokens, span)
@@ -299,7 +301,7 @@
                                  [data-narrow] on both for a one-ticket wave. svg.ap-dependency-edges
                                  holds path.ap-dependency-edge[data-from][data-to][data-pace?]
                                  [data-settled?]; button.ap-dependency-node[data-open-ticket]
-                                 [data-state][data-done?][data-in-review?] holds
+                                 [data-state][data-done?][data-in-review?][data-live?] holds
                                  .ap-dependency-node-head (.ap-ticket-id, a .ap-badge for ready,
                                  in-progress or in-review work or the Kanban's .ap-kanban-held
                                  "Held" on a held pending ticket, .ap-dependency-wait "N wait",
@@ -341,6 +343,8 @@
                                  (.ap-ticket-gantt) and the Description section
  ---------------------------------------------------------------- row markup ---
  .ap-row[data-state]      state goes on the ROW; the chip inherits its colours, a bar segment never
+ .ap-row[data-live]       on an in-progress, reviewing or re-review row: its chip and its
+                          [data-live] bars pulse (see --pulse-card)
  .ap-row[data-review-of]  only while #ap-review-rows is pressed: a review pass, drawn directly
                           above the row of the ticket it names (value = that ticket's id), latest
                           round first, its name cell indented one level; a review whose ticket has
@@ -565,12 +569,17 @@
               with its 12px glow, and the summary line's building and reviewing dots, with an 8px
               glow of their own colour): one ap-pulse cycle each, only while [data-freshness="live"]
               and never under prefers-reduced-motion, which keeps the colours alone;
-              --pulse-status also times .ap-state-dot's ap-state-ring on a working chart row,
-              a ring growing to twice the dot and fading, never under reduced motion;
+              --pulse-status also times .ap-state-dot's ap-state-ring on a .ap-row[data-live],
+              a ring growing to twice the dot and fading, by the same gates as --pulse-card;
               --pulse-card 3.2s (.ap-kanban-card[data-live]: the bar flares to its peak at 12%,
-              brightness 1.18 and a 3px halo; the sheen leaves the bar at 7% and crosses by 67%),
+              brightness 1.18 and a 3px halo; the sheen leaves the bar at 7% and crosses by 67%;
+              .ap-dependency-node[data-live] the same; ap-card-flare alone on the stripe of
+              .ap-epic-wave-pill[data-live], on .ap-row[data-live]'s .ap-state-chip, on the badge
+              of .ap-epic-ticket[data-live] and on the swatch of .ap-card[data-live]'s
+              .ap-epic-card-head; flare and sheen on .ap-row[data-live]'s .ap-bar[data-live]),
               only while html[data-freshness="live"], set by the page script, and never under
-              prefers-reduced-motion.
+              prefers-reduced-motion. data-live marks every view's live items by one rule,
+              `page/utils/LiveStateUtil.ts`: in-progress, reviewing or re-review.
 ===============================================================================
 -->
 
@@ -1197,7 +1206,7 @@ a.ap-num:hover { color: var(--ink); }
 .ap-state-dot { position: relative; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--s-fill); }
 .ap-row[data-state="pending"] .ap-state-dot { background: transparent; border: 1.5px dashed var(--s-ink); }
 @media (prefers-reduced-motion: no-preference) {
-  .ap-row:is([data-state="in-progress"], [data-state="reviewing"], [data-state="re-review"]) .ap-state-dot::after {
+  :root[data-freshness="live"] .ap-row[data-live] .ap-state-dot::after {
     content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--s-fill);
     animation: ap-state-ring var(--pulse-status) ease-out infinite;
   }
@@ -1831,10 +1840,15 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
   border-color: var(--link);
 }
 
-/* A card an agent works on pulses while the page is live: its bar flares, then a sheen leaves the bar and crosses the card. */
+/* A card an agent works on pulses while the page is live: its bar flares, then a sheen leaves the bar and crosses the card. A Waves node
+   does the same; a wave pill flares its stripe, and a chart row's live bar, its state chip, an epic's ticket badge and its square flare. */
 @media (prefers-reduced-motion: no-preference) {
-  :root[data-freshness="live"] .ap-kanban-card[data-live]::before { animation: ap-card-flare var(--pulse-card) ease-in-out infinite; }
-  :root[data-freshness="live"] .ap-kanban-card[data-live]::after {
+  :root[data-freshness="live"] :is(.ap-kanban-card, .ap-dependency-node, .ap-epic-wave-pill)[data-live]::before,
+  :root[data-freshness="live"] #ap-rows .ap-row[data-live] :is(.ap-bar[data-live], .ap-state-chip),
+  :root[data-freshness="live"] .ap-epic-ticket[data-live] .ap-badge,
+  :root[data-freshness="live"] .ap-card[data-live] > .ap-epic-card-head .ap-epic-swatch { animation: ap-card-flare var(--pulse-card) ease-in-out infinite; }
+  :root[data-freshness="live"] :is(.ap-kanban-card, .ap-dependency-node)[data-live]::after,
+  :root[data-freshness="live"] #ap-rows .ap-row[data-live] .ap-bar[data-live]::after {
     content: "";
     position: absolute;
     inset: -1px;
@@ -2283,7 +2297,7 @@ button.ap-epic-title:hover { text-decoration: underline; text-underline-offset: 
             <div class="ap-cell-name"><span class="ap-num">TASK</span><span class="ap-name" title="Rewrite the range-bar copy&#10;1.9k tokens">Rewrite the range-bar copy</span><span class="ap-state-chip" title="Paused"><span class="ap-state-dot" aria-hidden="true"></span><span class="ap-state-word">Paused</span></span></div>
             <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar ap-bar-segment" data-state="in-progress" style="left:71.5%;width:3.0%"></div><div class="ap-bar ap-bar-segment" data-state="paused" data-live style="left:74.5%;width:4.0%"></div><span class="ap-clip-r" hidden></span></div>
           </div>
-          <div class="ap-grid-row ap-row" tabindex="0" id="ap-task-5" data-task-id="5" data-state="in-progress">
+          <div class="ap-grid-row ap-row" tabindex="0" id="ap-task-5" data-task-id="5" data-state="in-progress" data-live>
             <div class="ap-cell-name"><a class="ap-num" href="#ap-ticket-004">#004</a><span class="ap-name" title="Brighter colours&#10;ticket&#10;6.1k tokens">Brighter colours</span><span class="ap-state-chip" title="In progress"><span class="ap-state-dot" aria-hidden="true"></span><span class="ap-state-word">In progress</span></span></div>
             <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar ap-bar-segment" data-state="in-progress" data-live style="left:62.0%;width:16.5%"></div><span class="ap-clip-r" hidden></span></div>
           </div>
@@ -2291,7 +2305,7 @@ button.ap-epic-title:hover { text-decoration: underline; text-underline-offset: 
             <div class="ap-cell-name"><span class="ap-num">TASK</span><span class="ap-name" title="Regenerate the timeline fixtures&#10;4.2k tokens">Regenerate the timeline fixtures</span><span class="ap-state-chip" title="Awaiting review"><span class="ap-state-dot" aria-hidden="true"></span><span class="ap-state-word">Awaiting review</span></span></div>
             <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:49.0%;width:14.5%"></div><span class="ap-clip-r" hidden></span></div>
           </div>
-          <div class="ap-grid-row ap-row" tabindex="0" id="ap-task-3" data-task-id="3" data-state="reviewing">
+          <div class="ap-grid-row ap-row" tabindex="0" id="ap-task-3" data-task-id="3" data-state="reviewing" data-live>
             <div class="ap-cell-name"><a class="ap-num" href="#ap-ticket-003">#003</a><span class="ap-name" title="Split the exporter into two passes so the tick ladder can be reused&#10;ticket&#10;12.3k tokens">Split the exporter into two passes so the tick ladder can be reused</span><span class="ap-state-chip" title="Reviewing"><span class="ap-state-dot" aria-hidden="true"></span><span class="ap-state-word">Reviewing</span></span></div>
             <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar ap-bar-segment" data-state="in-progress" style="left:31.0%;width:14.0%"></div><div class="ap-bar ap-bar-segment" data-state="paused" style="left:45.0%;width:8.0%"></div><div class="ap-bar ap-bar-segment" data-state="in-progress" style="left:53.0%;width:12.0%"></div><div class="ap-bar ap-bar-review" data-state="reviewing" data-live style="left:66.0%;width:12.0%" title="Review 1 · 21:45 → now"></div><span class="ap-clip-r" hidden></span></div>
           </div>
@@ -2379,7 +2393,7 @@ button.ap-epic-title:hover { text-decoration: underline; text-underline-offset: 
 
 <section data-panel="dependencies" role="tabpanel" id="ap-panel-dependencies" aria-labelledby="ap-tab-dependencies" hidden>
   <div class="ap-card ap-dependencies" id="ap-dependencies">
-    <div class="ap-dependency-canvas" style="width:908px;height:238px"><div class="ap-dependency-band" data-done style="left:2px;top:48px;width:208px;height:96px"></div><div class="ap-dependency-band" style="left:234px;top:48px;width:208px;height:188px"></div><div class="ap-dependency-band" data-narrow style="left:466px;top:48px;width:208px;height:96px"></div><div class="ap-dependency-band" data-narrow style="left:698px;top:48px;width:208px;height:96px"></div><svg class="ap-dependency-edges" width="908" height="238" viewBox="0 0 908 238" aria-hidden="true"><path class="ap-dependency-edge" data-from="001" data-to="002" data-settled d="M202 96 C226 96 218 96 242 96"></path><path class="ap-dependency-edge" data-from="002" data-to="004" data-pace d="M434 96 C458 96 450 96 474 96"></path><path class="ap-dependency-edge" data-from="003" data-to="004" d="M434 188 C458 188 450 96 474 96"></path><path class="ap-dependency-edge" data-from="004" data-to="005" data-pace d="M666 96 C690 96 682 96 706 96"></path></svg><div class="ap-dependency-head" data-done style="left:10px;width:192px"><span class="ap-dependency-head-name">Done</span><span class="ap-dependency-head-count">1 delivered</span></div><div class="ap-dependency-head" style="left:242px;width:192px"><span class="ap-dependency-head-name">Now</span><span class="ap-dependency-head-count">2 side by side</span><span class="ap-dependency-slots" role="img" aria-label="2 of 6 slots in use"><span class="ap-dependency-slot" data-filled></span><span class="ap-dependency-slot" data-filled></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span></span></div><div class="ap-dependency-head" data-narrow style="left:474px;width:192px"><span class="ap-dependency-head-name">Wave 2</span><span class="ap-dependency-head-count">one at a time</span><span class="ap-dependency-slots" role="img" aria-label="1 of 6 slots in use"><span class="ap-dependency-slot" data-filled></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span></span></div><div class="ap-dependency-head" data-narrow style="left:706px;width:192px"><span class="ap-dependency-head-name">Wave 3</span><span class="ap-dependency-head-count">one at a time</span><span class="ap-dependency-slots" role="img" aria-label="1 of 6 slots in use"><span class="ap-dependency-slot" data-filled></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span></span></div><button type="button" class="ap-dependency-node" data-open-ticket="001" data-state="delivered" data-done aria-label="#001 Single-page checkout" style="left:10px;top:56px"><span class="ap-dependency-node-head"><span class="ap-ticket-id">#001</span></span><span class="ap-dependency-node-title">Single-page checkout</span></button><button type="button" class="ap-dependency-node" data-open-ticket="002" data-state="in-review" data-in-review aria-label="#002 Cache ticket bodies between runs" style="left:242px;top:56px"><span class="ap-dependency-node-head"><span class="ap-ticket-id">#002</span><span class="ap-badge" data-state="in-review">Awaiting review</span><span class="ap-dependency-wait">2 wait</span></span><span class="ap-dependency-node-title">Cache ticket bodies between runs</span><span class="ap-dependency-weight" style="width:166px"></span></button><button type="button" class="ap-dependency-node" data-open-ticket="003" data-state="in-progress" aria-label="#003 Split the exporter into two passes" style="left:242px;top:148px"><span class="ap-dependency-node-head"><span class="ap-ticket-id">#003</span><span class="ap-badge" data-state="in-progress">In progress</span><span class="ap-dependency-wait">2 wait</span></span><span class="ap-dependency-node-title">Split the exporter into two passes</span><span class="ap-dependency-weight" style="width:166px"></span></button><button type="button" class="ap-dependency-node" data-open-ticket="004" data-state="pending" aria-label="#004 Reuse the tick ladder in the exporter" style="left:474px;top:56px"><span class="ap-dependency-node-head"><span class="ap-ticket-id">#004</span><span class="ap-dependency-wait">1 wait</span></span><span class="ap-dependency-node-title">Reuse the tick ladder in the exporter</span><span class="ap-dependency-weight" style="width:83px"></span></button><button type="button" class="ap-dependency-node" data-open-ticket="005" data-state="pending" aria-label="#005 Export the chart as one image" style="left:706px;top:56px"><span class="ap-dependency-node-head"><span class="ap-ticket-id">#005</span></span><span class="ap-dependency-node-title">Export the chart as one image</span></button></div><ul class="ap-dependency-legend"><li><span class="ap-dependency-legend-line" data-pace></span>sets the pace</li><li><span class="ap-dependency-legend-line"></span>waits on</li><li><span class="ap-dependency-legend-line" data-settled></span>built on (done)</li><li><span class="ap-dependency-slot" data-filled></span>slot in use (of 6)</li></ul>
+    <div class="ap-dependency-canvas" style="width:908px;height:238px"><div class="ap-dependency-band" data-done style="left:2px;top:48px;width:208px;height:96px"></div><div class="ap-dependency-band" style="left:234px;top:48px;width:208px;height:188px"></div><div class="ap-dependency-band" data-narrow style="left:466px;top:48px;width:208px;height:96px"></div><div class="ap-dependency-band" data-narrow style="left:698px;top:48px;width:208px;height:96px"></div><svg class="ap-dependency-edges" width="908" height="238" viewBox="0 0 908 238" aria-hidden="true"><path class="ap-dependency-edge" data-from="001" data-to="002" data-settled d="M202 96 C226 96 218 96 242 96"></path><path class="ap-dependency-edge" data-from="002" data-to="004" data-pace d="M434 96 C458 96 450 96 474 96"></path><path class="ap-dependency-edge" data-from="003" data-to="004" d="M434 188 C458 188 450 96 474 96"></path><path class="ap-dependency-edge" data-from="004" data-to="005" data-pace d="M666 96 C690 96 682 96 706 96"></path></svg><div class="ap-dependency-head" data-done style="left:10px;width:192px"><span class="ap-dependency-head-name">Done</span><span class="ap-dependency-head-count">1 delivered</span></div><div class="ap-dependency-head" style="left:242px;width:192px"><span class="ap-dependency-head-name">Now</span><span class="ap-dependency-head-count">2 side by side</span><span class="ap-dependency-slots" role="img" aria-label="2 of 6 slots in use"><span class="ap-dependency-slot" data-filled></span><span class="ap-dependency-slot" data-filled></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span></span></div><div class="ap-dependency-head" data-narrow style="left:474px;width:192px"><span class="ap-dependency-head-name">Wave 2</span><span class="ap-dependency-head-count">one at a time</span><span class="ap-dependency-slots" role="img" aria-label="1 of 6 slots in use"><span class="ap-dependency-slot" data-filled></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span></span></div><div class="ap-dependency-head" data-narrow style="left:706px;width:192px"><span class="ap-dependency-head-name">Wave 3</span><span class="ap-dependency-head-count">one at a time</span><span class="ap-dependency-slots" role="img" aria-label="1 of 6 slots in use"><span class="ap-dependency-slot" data-filled></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span></span></div><button type="button" class="ap-dependency-node" data-open-ticket="001" data-state="delivered" data-done aria-label="#001 Single-page checkout" style="left:10px;top:56px"><span class="ap-dependency-node-head"><span class="ap-ticket-id">#001</span></span><span class="ap-dependency-node-title">Single-page checkout</span></button><button type="button" class="ap-dependency-node" data-open-ticket="002" data-state="in-review" data-in-review aria-label="#002 Cache ticket bodies between runs" style="left:242px;top:56px"><span class="ap-dependency-node-head"><span class="ap-ticket-id">#002</span><span class="ap-badge" data-state="in-review">Awaiting review</span><span class="ap-dependency-wait">2 wait</span></span><span class="ap-dependency-node-title">Cache ticket bodies between runs</span><span class="ap-dependency-weight" style="width:166px"></span></button><button type="button" class="ap-dependency-node" data-open-ticket="003" data-state="in-progress" data-live aria-label="#003 Split the exporter into two passes" style="left:242px;top:148px"><span class="ap-dependency-node-head"><span class="ap-ticket-id">#003</span><span class="ap-badge" data-state="in-progress">In progress</span><span class="ap-dependency-wait">2 wait</span></span><span class="ap-dependency-node-title">Split the exporter into two passes</span><span class="ap-dependency-weight" style="width:166px"></span></button><button type="button" class="ap-dependency-node" data-open-ticket="004" data-state="pending" aria-label="#004 Reuse the tick ladder in the exporter" style="left:474px;top:56px"><span class="ap-dependency-node-head"><span class="ap-ticket-id">#004</span><span class="ap-dependency-wait">1 wait</span></span><span class="ap-dependency-node-title">Reuse the tick ladder in the exporter</span><span class="ap-dependency-weight" style="width:83px"></span></button><button type="button" class="ap-dependency-node" data-open-ticket="005" data-state="pending" aria-label="#005 Export the chart as one image" style="left:706px;top:56px"><span class="ap-dependency-node-head"><span class="ap-ticket-id">#005</span></span><span class="ap-dependency-node-title">Export the chart as one image</span></button></div><ul class="ap-dependency-legend"><li><span class="ap-dependency-legend-line" data-pace></span>sets the pace</li><li><span class="ap-dependency-legend-line"></span>waits on</li><li><span class="ap-dependency-legend-line" data-settled></span>built on (done)</li><li><span class="ap-dependency-slot" data-filled></span>slot in use (of 6)</li></ul>
   </div>
 </section>
 

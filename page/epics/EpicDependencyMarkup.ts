@@ -7,6 +7,7 @@
 import { HtmlEscapeUtil }              from '../../src/lib/html-escape/HtmlEscapeUtil.ts';
 import type { DependencyGraph }        from '../@types/DependencyGraph.ts';
 import type { BoardEpic, BoardTicket } from '../@types/PageBoard.ts';
+import { LiveStateUtil }               from '../utils/LiveStateUtil.ts';
 import { MarkupUtil }                  from '../utils/MarkupUtil.ts';
 
 const WAITS_ON_LABEL         = 'Waits on';
@@ -92,7 +93,8 @@ function waveColumnsOf(epic: BoardEpic, graph: DependencyGraph, ticketById: Read
 
 function wavePillMarkup(ticket: BoardTicket, column: EpicWaveColumn): string {
   return `<button type="button" class="ap-epic-wave-pill" ${MarkupUtil.attribute('data-open-ticket', ticket.id)} `
-    + `${MarkupUtil.attribute('data-state', ticket.displayState)}${column.isDone ? ' data-done' : ''}${column.isNarrow ? ' data-narrow' : ''} `
+    + `${MarkupUtil.attribute('data-state', ticket.displayState)}${LiveStateUtil.liveAttributeOf(ticket.displayState)}`
+    + `${column.isDone ? ' data-done' : ''}${column.isNarrow ? ' data-narrow' : ''} `
     + `${MarkupUtil.attribute('title', ticket.title)}><span class="ap-ticket-id">#${HtmlEscapeUtil.escapeHtml(ticket.id)}</span>`
     + `<span class="ap-epic-wave-title">${HtmlEscapeUtil.escapeHtml(ticket.title)}</span></button>`;
 }
