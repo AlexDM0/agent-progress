@@ -1,5 +1,6 @@
 import type { DisplayState }        from '../../../src/lib/tracker-model/@types/Task.ts';
 import type { TicketPriority }      from '../../../src/lib/tracker-model/@types/Ticket.ts';
+import type { TicketSize }          from '../../../src/lib/tracker-model/@types/Ticket.ts';
 import type { TicketType }          from '../../../src/lib/tracker-model/@types/Ticket.ts';
 import type { GroupMark }           from '../../@types/GroupMarks.ts';
 import type { GroupMarkVocabulary } from '../../@types/GroupMarks.ts';
@@ -66,6 +67,8 @@ export interface LaneCardHeldCount {
 
 export interface LaneCardHead {
   idText:         string;
+  /** Null on an unsized ticket's card and on a card that is not a ticket's, which show no size mark. */
+  size:           TicketSize | null;
   /** Null on a card that is not a ticket's, which shows no priority mark. */
   priority:       TicketPriority | null;
   /** Null on a card that is not a ticket's, which shows no type mark. */

@@ -133,6 +133,7 @@ export function kanbanCardModelOf(card: KanbanCard, lane: KanbanLane, format: Ka
     ariaLabel:  `#${ticket.id} ${ticket.title}, ${stateLabelOf(card)}, ${priority} priority`,
     head:       {
       idText:         `#${ticket.id}`,
+      size:           ticket.size ?? null,
       priority,
       ticketType:     ticket.type === 'ticket' ? null : ticket.type,
       slotMarkup:     null,

@@ -2,6 +2,7 @@
 
 import { HtmlEscapeUtil }                    from '../../src/lib/html-escape/HtmlEscapeUtil.ts';
 import { TokenCountUtil }                    from '../../src/lib/token-count/TokenCountUtil.ts';
+import type { TicketSize }                   from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { CARD_EPIC_CHIP_LIMIT, GroupMarkup } from '../epics/GroupMarkup.ts';
 import { MarkupUtil }                        from '../utils/MarkupUtil.ts';
 import { WorkItemMarkupUtil }                from '../utils/WorkItemMarkupUtil.ts';
@@ -21,10 +22,17 @@ function headTailMarkup(head: LaneCardHead): string {
   return `${neededFirst}${headEnd === '' ? '' : `<span class="ap-kanban-head-end">${headEnd}</span>`}`;
 }
 
+/** The size borrows the quiet ticket badge, as the low priority mark does: the template has no size style of its own. */
+function sizeMarkup(size: TicketSize | null): string {
+  return size === null
+    ? ''
+    : `<span class="ap-ticket-badge" ${MarkupUtil.attribute('data-size', size)} ${MarkupUtil.attribute('title', `Size ${size}`)}>${HtmlEscapeUtil.escapeHtml(size)}</span>`;
+}
+
 function headMarkup(head: LaneCardHead): string {
   const priorityMark = head.priority === null ? '' : WorkItemMarkupUtil.priorityLevelMarkMarkup(head.priority);
   return [
-    `<div class="ap-kanban-card-head"><span class="ap-ticket-id">${HtmlEscapeUtil.escapeHtml(head.idText)}</span>${priorityMark}`,
+    `<div class="ap-kanban-card-head"><span class="ap-ticket-id">${HtmlEscapeUtil.escapeHtml(head.idText)}</span>${sizeMarkup(head.size)}${priorityMark}`,
     `${head.ticketType === null ? '' : WorkItemMarkupUtil.ticketTypeMarkMarkup(head.ticketType)}${head.slotMarkup ?? ''}${headTailMarkup(head)}</div>`,
   ].join('');
 }

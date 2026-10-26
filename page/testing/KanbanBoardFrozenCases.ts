@@ -1,7 +1,7 @@
 /**
  * One fixture board drawn whole by `page/kanban/KanbanMarkup.ts` under each view the viewer can choose: every lane, To do by priority and
- * by wave, Abandoned closed and open, the Done paging footer with its hidden line, the empty lanes and the open drafts. `KanbanMarkup.frozen.spec.ts`
- * compares it against `page/testing/FrozenKanbanBoards.json`. Test-only: nothing that ships may import `page/testing/`.
+ * by wave, Abandoned closed and open, the Done paging footer with its hidden line, the empty lanes, the open drafts and sized tickets.
+ * `KanbanMarkup.frozen.spec.ts` compares it against `page/testing/FrozenKanbanBoards.json`. Test-only: nothing that ships may import `page/testing/`.
  */
 import type { Draft }            from '../../src/lib/tracker-model/@types/Draft.ts';
 import type { EpicFrontmatter }  from '../../src/lib/tracker-model/@types/Epic.ts';
@@ -185,6 +185,29 @@ function boardInputOf(
   };
 }
 
+/** Every size, on cards with and without priority and type marks, in To do, In progress and Done. */
+const SIZED_TICKETS: PageTicket[] = [
+  exampleTicket('201', { size: 'XS' }),
+  exampleTicket('202', { size: 'S', priority: 'low' }),
+  exampleTicket('203', {
+    size: 'M', type: 'bug', priority: 'high', status: 'in-progress', started: at('09:00'), task: 203
+  }),
+  exampleTicket('204', { size: 'L', type: 'research' }),
+  exampleTicket('205', {
+    size: 'XL', status: 'delivered', task: 205, delivered: at('11:00')
+  }),
+  exampleTicket('206', {
+    size: 'XXL', type: 'bug', priority: 'high', filed: at('09:30')
+  }),
+];
+
+const SIZED_ROWS: Task[] = [
+  exampleRow(203, {
+    ticket: '203', status: 'in-progress', start: at('09:00'), tokens: 1_200_000
+  }),
+  exampleRow(205, { ticket: '205', status: 'delivered' }),
+];
+
 const FULL_TICKETS = [...OPEN_TICKETS, ...DELIVERED_TICKETS];
 const FULL_ROWS    = [...OPEN_ROWS, ...DELIVERED_ROWS];
 
@@ -202,5 +225,6 @@ export function kanbanBoardFrozenCases(): Record<string, string> {
     'open drafts above the To do tickets, by priority':   kanbanBoardMarkup(boardInputOf(FULL_TICKETS, FULL_ROWS, {}, DRAFTS)),
     'open drafts above the To do tickets, by wave':       kanbanBoardMarkup(boardInputOf(FULL_TICKETS, FULL_ROWS, { todoOrder: 'by-wave' }, DRAFTS)),
     'open drafts in an otherwise empty To do':            kanbanBoardMarkup(boardInputOf([], [], {}, DRAFTS)),
+    'sized tickets beside their priority and type marks': kanbanBoardMarkup(boardInputOf(SIZED_TICKETS, SIZED_ROWS)),
   };
 }

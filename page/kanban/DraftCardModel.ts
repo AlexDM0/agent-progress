@@ -22,6 +22,7 @@ export function draftCardModelOf(draft: KanbanDraft): LaneCardModel {
     ariaLabel:  `Draft ${draft.id} ${draft.title}, ${stateLine}`,
     head:       {
       idText:         draft.id,
+      size:           null,
       priority:       null,
       ticketType:     null,
       slotMarkup:     null,

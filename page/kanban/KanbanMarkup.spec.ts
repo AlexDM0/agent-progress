@@ -127,6 +127,7 @@ const TODO_TICKETS: PageTicket[] = [
     title:    'Checkout button double-submits on a slow network',
     type:     'bug',
     priority: 'high',
+    size:     'XXL',
     filed:    at('13:02'),
     task:     22,
   }),
@@ -139,6 +140,7 @@ const TODO_TICKETS: PageTicket[] = [
   exampleTicket('066', {
     title: 'Rename basket to cart in order e-mails',
     type:  'ticket',
+    size:  'M',
     filed: at('09:50'),
     task:  16,
     hold:  'Waiting for copy from marketing',
@@ -387,6 +389,31 @@ describe('the lane heads', () => {
 
   test('Abandoned carries "newest first" as the hover beside its toggle', () => {
     expect(laneHeadOf(kanbanLaneMarkup('abandoned', boardInput([], [])))).toBe('<div class="ap-card-head" data-state="abandoned" title="newest first">');
+  });
+});
+
+describe('a card’s size', () => {
+  function cardHeadOf(ticket: PageTicket): string {
+    const input  = boardInput([ticket], []);
+    const [card] = input.cards;
+    const markup = card === undefined ? '' : kanbanCardMarkup(card, 'todo', kanbanCardFormatOf(input));
+    return /<div class="ap-kanban-card-head">[\s\S]*?<\/div>/.exec(markup)?.[0] ?? '';
+  }
+
+  for (const size of ['XS', 'S', 'M', 'L', 'XL', 'XXL'] as const) {
+    test(`shows ${size} titled "Size ${size}" right after the number, before the priority and type marks`, () => {
+      const head = cardHeadOf(exampleTicket('073', { size, priority: 'low', type: 'research' }));
+
+      expect(head).toStartWith(
+        `<div class="ap-kanban-card-head"><span class="ap-ticket-id">#073</span><span class="ap-ticket-badge" data-size="${size}" title="Size ${size}">${size}</span>`
+        + '<span class="ap-ticket-badge" data-priority="low"',
+      );
+      expect(head).toContain('<span class="ap-detail-type" data-type="research">');
+    });
+  }
+
+  test('shows nothing after the number on an unsized ticket', () => {
+    expect(cardHeadOf(exampleTicket('074'))).toBe('<div class="ap-kanban-card-head"><span class="ap-ticket-id">#074</span></div>');
   });
 });
 
