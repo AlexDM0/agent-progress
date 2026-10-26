@@ -114,11 +114,14 @@ const CLAUDE_CODE_SENTENCES: Readonly<Record<string, string>> = {
     + '  checkout, keeping its task id:\n'
     + '  `while sleep 300 && board=$(agent-progress status --json)'
     + ' && ! printf \'%s\' "$board" | grep -q \'"dispatcherState": "stopped"\''
-    + ' && printf \'%s\' "$board" | grep -Eq \'"dispatcherState": "running"|"agentsInFlight": [1-9]\';'
+    + ' && printf \'%s\' "$board" | grep -Eq \'"dispatcherState": "running"|"agentsInFlight": [1-9]\''
+    + ' && printf \'%s\' "$board" | sed -n \'/^  "ticketCountByStatus"/,/}/p\''
+    + ' | grep -Eq \'"(pending|in-progress|in-review|reviewed)": [1-9]\';'
     + ' do agent-progress render >/dev/null 2>&1; done`.\n'
     + '  Every 300 s it reads the board and renders; a failed render is ignored and tried again next interval. Waiting\n'
     + '  first gives a just-launched run time to claim its first ticket. It ends by itself once the board reads `stopped`,\n'
-    + '  or neither `running` nor any agent in flight; that exit\'s notification needs nothing. Stop it by stopping that\n'
+    + '  or neither `running` nor any agent in flight, or no ticket is open (every one `delivered` or `abandoned`, read\n'
+    + '  from the top-level `ticketCountByStatus`); that exit\'s notification needs nothing. Stop it by stopping that\n'
     + '  background task by its id.',
   agentByHand: 'the Agent tool with `subagent_type: \'agent-progress-worker\'`, the installed definition\n'
     + '  `.claude/agents/agent-progress-worker.md` that carries the default model and effort.',

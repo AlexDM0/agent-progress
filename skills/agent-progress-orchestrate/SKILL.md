@@ -137,8 +137,9 @@ longer than the page's live limit without a tracker command, and the heartbeat r
 right after recording a launched or resumed run's id, and for a single-ticket or group run right after its launch
 returns, unless this session's heartbeat is already going: one heartbeat serves every run of this session, and it
 keeps going while any of them is live. Stop it when the last of them returns, whatever its summary, when you stop one
-outright, or when the host reports it died; a relaunch or resume starts it again. Never start it for a run this
-session did not launch.
+outright, or when the host reports it died; a relaunch or resume starts it again. Stop it too the moment no ticket on
+the board is open, every one delivered or abandoned, low ones included, whatever the dispatcher state reads. Never
+start it for a run this session did not launch.
 
 **The whole-board run is the default; a high ticket has a fast lane.** A **high-priority** ticket filed
 while a whole-board run is going gets a single-ticket run of its own at once, **only when the Next line
