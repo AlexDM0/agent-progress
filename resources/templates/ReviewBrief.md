@@ -89,9 +89,10 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
    `filedTicketId`). Run
    `agent-progress review record <id> --worktree <worktree> --since <review start> --findings-file <file>`,
    adding `--rebased-from <pre-rebase tip> --main <main line>` for each rebase of this pass (a bundle:
-   once per ticket, each with its own claims). It counts the rework itself and prints the total:
-   that total is your `reworkedLines`, so add no counts yourself. A refusal records nothing: fix the
-   file and run it again.
+   once per ticket, each with its own claims, every run adding `--bar <row>` with the row your
+   `agent-progress row:` line names, the bundle's one review bar). It counts the rework itself and
+   prints the total: that total is your `reworkedLines`, so add no counts yourself. A refusal
+   records nothing: fix the file and run it again.
 7. The first that applies:
    a. A gap you could not close: `does not hold`.
    b. Over {{reworkThresholdLines}} lines of code reworked — the total `review record` printed; it counts code only, never

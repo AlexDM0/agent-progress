@@ -274,8 +274,8 @@ export class Board {
     return this.reviewBars.startReviewBar(ticketId, request, at);
   }
 
-  recordReview(ticketId: string, recording: ReviewRecording, at: string): ReviewRecorded {
-    return this.reviewBars.recordReview(ticketId, recording, at);
+  recordReview(ticketId: string, recording: ReviewRecording, at: string, bundleBarTaskId: number | null = null): ReviewRecorded {
+    return this.reviewBars.recordReview(ticketId, recording, at, bundleBarTaskId);
   }
 
   setTicketDependencies(ticketId: string, dependsOn: readonly string[], at: string): TicketDependenciesChanged {

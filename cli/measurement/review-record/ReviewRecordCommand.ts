@@ -10,6 +10,7 @@ import type { CommandHandler }   from '../../CommandHandler.ts';
 import { openTrackerForWriting } from '../../OpenTrackerForWriting.ts';
 import { DEFAULT_MAIN_LINE }     from '../../constants/GitDefaults.ts';
 import { TicketLookupUtil }      from '../../tickets/utils/TicketLookupUtil.ts';
+import { OptionValueUtil }       from '../../utils/OptionValueUtil.ts';
 import { OutputUtil }            from '../../utils/OutputUtil.ts';
 import { readFindingsFile }      from './FindingsFileReading.ts';
 import { measureReviewPass }     from './ReviewPassMeasurement.ts';
@@ -17,15 +18,25 @@ import type { RebaseRequest }    from './ReviewPassMeasurement.ts';
 import { recordedLine }          from './ReviewRecordText.ts';
 
 const USAGE = 'agent-progress review record <id> --worktree <path> --since <review start> --findings-file <path|-> '
-  + '[--rebased-from <pre-rebase tip> ...] [--main <main line> ...] [--json]';
+  + '[--rebased-from <pre-rebase tip> ...] [--main <main line> ...] [--bar <row>] [--json]';
 
 const RECORD_SUBCOMMAND = 'record';
 
-const KNOWN_OPTION_NAMES = ['worktree', 'since', 'findings-file', 'rebased-from', 'main', 'json'];
+const KNOWN_OPTION_NAMES = ['worktree', 'since', 'findings-file', 'rebased-from', 'main', 'bar', 'json'];
 
 function requiredOption(value: string | undefined, name: string): string {
   if (value === undefined || value.trim() === '') throw new OperationRefusal('refused', `agent-progress review record needs --${name}.\n  Usage: ${USAGE}`);
   return value;
+}
+
+/** A bundle's review runs on one bar, which `--bar` names for each of its tickets; without it the ticket's own bar is found. */
+function bundleBarTaskIdFrom(written: string | undefined): number | null {
+  if (written === undefined) return null;
+  const taskId = OptionValueUtil.taskIdOf(written);
+  if (taskId === null) {
+    throw new OperationRefusal('refused', `--bar "${written}" is not a row id. A row id is the whole number of the review bar, for example \`--bar 18\`.\n  Usage: ${USAGE}`);
+  }
+  return taskId;
 }
 
 /** One `--main` names the main line of every rebase; otherwise each `--rebased-from` takes the `--main` given in the same place. */
@@ -55,6 +66,7 @@ export const reviewCommand: CommandHandler = async (commandArguments, context) =
   const findingsFile      = requiredOption(commandArguments.option('findings-file'), 'findings-file');
   const mainLines         = commandArguments.optionValues('main');
   const rebases           = rebaseRequestsOf(commandArguments.optionValues('rebased-from'), mainLines);
+  const bundleBarTaskId   = bundleBarTaskIdFrom(commandArguments.option('bar'));
 
   // Read and counted before the lock: `--findings-file -` waits on a pipe, and git may take a while.
   const reviewFindings = await readFindingsFile(findingsFile, context);
@@ -75,7 +87,7 @@ export const reviewCommand: CommandHandler = async (commandArguments, context) =
       builderDeletions:        measured.builderChange.deletions,
       claims:                  reviewFindings.claims,
       findings:                reviewFindings.findings,
-    }, change.at);
+    }, change.at, bundleBarTaskId);
     return { ticketId, taskId: review.taskId, round: review.round };
   });
 

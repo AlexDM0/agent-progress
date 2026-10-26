@@ -1,7 +1,8 @@
 /**
  * The joins `review-stats` stands on, each on a small Board: a ticket counts once however many passes it has, the change-size bucket
  * edges sit on the stated bounds, only free-standing review bars count as review tokens, a record naming no ticket on the board is left
- * out, and a ratio over nothing is null. The full hand-computed table over every split is `cli/measurement/review-stats/ReviewStatsCommand.spec.ts`.
+ * out, a bundle's tickets recorded on its one bar count apart, and a ratio over nothing is null. The full hand-computed table over every
+ * split is `cli/measurement/review-stats/ReviewStatsCommand.spec.ts`.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -79,6 +80,42 @@ describe('a recorded ticket', () => {
     expect(report.recordedTicketCount).toBe(1);
     expect(report.unrecordedTicketCount).toBe(1);
     expect(report.byType.map((group) => group.statistics.ticketCount)).toEqual([1]);
+  });
+});
+
+describe('a bundle reviewed on one bar', () => {
+  // Each ticket of the bundle has its own record on the one bar; the bar's tokens count once, under the ticket it reviews.
+  test('counts each ticket with its own pass, and the bar\'s tokens once', () => {
+    const { board } = boardFixture({
+      tasks: [
+        taskFixture({
+          id: 1, status: 'in-review', ticket: '001', agent: '001,002', tokens: 1000
+        }),
+        taskFixture({
+          id: 2, status: 'in-review', ticket: '002', agent: '001,002', tokens: 2000
+        }),
+        taskFixture({
+          id: 3, status: 'in-progress', reviewOf: '001', reviewBarRound: 1, tokens: 400
+        }),
+      ],
+      tickets: [ticketFixture({ id: '001', status: 'in-review', task: 1 }), ticketFixture({ id: '002', status: 'in-review', task: 2 })],
+    });
+    const recordedOnTheBar = ['001', '002'].flatMap((ticketId) => {
+      const record = reviewRecorded(ticketId, 1, { insertions: 10, deletions: 0 }, ticketId === '002' ? [SERIOUS_FINDING] : []);
+      if (record.kind !== 'review-recorded') throw new Error('The example record is a review-recorded one.');
+      const { round: _round, ...recording } = record.fields;
+      return board.recordReview(ticketId, recording, RECORDED_AT, 3).logged;
+    });
+    expect(recordedOnTheBar).toMatchObject([{ ticketId: '001', taskId: 3 }, { ticketId: '002', taskId: 3 }]);
+
+    const report = board.reviewStatisticsOf(recordedOnTheBar);
+
+    expect(report.recordedTicketCount).toBe(2);
+    expect(report.all.reviewPassCount).toBe(2);
+    expect(report.all.roundsPerTicket).toBe(1);
+    expect(report.all.seriousFindingCount).toBe(1);
+    expect(report.all.reviewTokens).toBe(400);
+    expect(report.all.builderTokens).toBe(3000);
   });
 });
 

@@ -251,6 +251,15 @@ describeWhenGitIsPresent('recording a review pass', () => {
     expect(storedLogTextOf(repositoryDirectory)).toBe(logBefore);
   });
 
+  test('a --bar that is not a row id is refused with the usage', async () => {
+    const reviewStart = await buildTheTicketUnderReview();
+    const { exitCode, error } = await run([
+      'review', 'record', '1', '--worktree', repositoryDirectory, '--since', reviewStart, '--findings-file', findingsFileWith(VALID_FINDINGS), '--bar', 'first',
+    ]);
+    expect(exitCode).toBe(1);
+    expect(error).toContain('--bar "first" is not a row id');
+  });
+
   test('a word other than record, or a missing --since, is refused with the usage', async () => {
     const wrongSubcommand = await run(['review', 'start', '1']);
     expect(wrongSubcommand.exitCode).toBe(1);
@@ -259,4 +268,72 @@ describeWhenGitIsPresent('recording a review pass', () => {
     expect(missingSince.exitCode).toBe(1);
     expect(missingSince.error).toContain('needs --since');
   });
+});
+
+/**
+ * Tickets 001 and 002 claimed as one bundle, built on the branch and finished, 001's finish starting the bundle's one review bar (row 3);
+ * 003 is built and reviewed on its own bar (row 5), outside the bundle. Returns the review's start.
+ */
+async function buildABundleUnderReview(): Promise<string> {
+  const reviewStart = await buildTheBranchOnly();
+  for (const commandArguments of [
+    ['ticket', 'add', 'Example checkout page', '--type', 'ticket'],
+    ['ticket', 'add', 'Example cart', '--type', 'ticket'],
+    ['ticket', 'claim', '1', '2'],
+    ['ticket', 'finish', '1', '--start-review'],
+    ['ticket', 'finish', '2'],
+    ['ticket', 'add', 'Example invoice', '--type', 'ticket'],
+    ['ticket', 'start', '3'],
+    ['ticket', 'finish', '3', '--start-review'],
+  ]) {
+    const { exitCode, error } = await run(commandArguments);
+    expect(exitCode, `${commandArguments.join(' ')}: ${error}`).toBe(0);
+  }
+  return reviewStart;
+}
+
+async function buildTheBranchOnly(): Promise<string> {
+  gitOrFail(['checkout', '-q', '-B', 'main']);
+  writeRepositoryFile('lib/shared.ts', SHARED_BEFORE);
+  commitEverything('Base');
+  gitOrFail(['checkout', '-q', '-b', 'feature']);
+  writeRepositoryFile('lib/builder.ts', 'export const builderValue = 1;\n');
+  return commitEverything('Builder');
+}
+
+describeWhenGitIsPresent('recording a bundle review on its one bar with --bar', () => {
+  test('both tickets of the bundle get their own review-recorded line on the bundle\'s bar, at its round', async () => {
+    const reviewStart = await buildABundleUnderReview();
+    for (const ticketId of ['1', '2']) {
+      const { exitCode, error } = await run([
+        'review', 'record', ticketId, '--worktree', repositoryDirectory, '--since', reviewStart, '--findings-file', findingsFileWith(VALID_FINDINGS), '--bar', '3',
+      ]);
+      expect(exitCode, error).toBe(0);
+    }
+    const recorded = storedLogTextOf(repositoryDirectory).trim().split('\n')
+      .map((line) => JSON.parse(line) as { kind: string; taskId?: number; ticketId?: string; fields?: { round?: number } })
+      .filter((record) => record.kind === 'review-recorded')
+      .map((record) => [record.ticketId, record.taskId, record.fields?.round]);
+    expect(recorded).toEqual([['001', 3, 1], ['002', 3, 1]]);
+  });
+
+  const WRONG_BARS: readonly (readonly [string, string, string, string])[] = [
+    ['the ticket\'s own row, which is no review bar', '2', '2', 'Row #2 is not an in-progress review bar'],
+    ['a row the board does not hold', '2', '99', 'Row #99 is not an in-progress review bar'],
+    ['the review bar of a ticket outside the bundle', '2', '5', 'Review bar #5 reviews ticket #003, which was not claimed with ticket #002'],
+    ['the bundle\'s bar, for a ticket outside the bundle', '3', '3', 'Review bar #3 reviews ticket #001, which was not claimed with ticket #003'],
+  ];
+
+  for (const [named, ticketId, barTaskId, reasonText] of WRONG_BARS) {
+    test(`--bar naming ${named} is refused at exit 1 and leaves log.jsonl byte-identical`, async () => {
+      const reviewStart = await buildABundleUnderReview();
+      const logBefore   = storedLogTextOf(repositoryDirectory);
+      const { exitCode, error } = await run([
+        'review', 'record', ticketId, '--worktree', repositoryDirectory, '--since', reviewStart, '--findings-file', findingsFileWith(VALID_FINDINGS), '--bar', barTaskId,
+      ]);
+      expect(exitCode).toBe(1);
+      expect(error).toContain(reasonText);
+      expect(storedLogTextOf(repositoryDirectory)).toBe(logBefore);
+    });
+  }
 });

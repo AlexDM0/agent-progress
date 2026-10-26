@@ -101,6 +101,18 @@ const MESSAGE_FOR_REFUSAL: readonly (readonly [BoardRefusalDetail, string])[] = 
     + 'Start the pass on a bar of its own with `agent-progress task add "<name>" --review-of 006 --start`.',
   ],
   [
+    { reason: 'review-record-on-a-row-that-is-not-a-review-bar', ticketId: '006', taskId: 7 },
+    'Row #7 is not an in-progress review bar, so the review of ticket #006 cannot be recorded on it and nothing was logged. '
+    + 'Pass --bar the row your review runs on, the `agent-progress row:` line of your prompt.',
+  ],
+  [
+    {
+      reason: 'review-record-on-a-bar-outside-the-bundle', ticketId: '006', taskId: 7, reviewOf: '004'
+    },
+    'Review bar #7 reviews ticket #004, which was not claimed with ticket #006, so the review cannot be recorded on it and nothing was logged. '
+    + 'Pass --bar the review bar of the bundle holding the ticket.',
+  ],
+  [
     { reason: 'rereview-outside-review', ticketId: '001', status: 'pending' },
     'Ticket #001 is pending, and another review pass needs a ticket that is in-review.',
   ],
@@ -314,7 +326,7 @@ const MESSAGE_FOR_REFUSAL: readonly (readonly [BoardRefusalDetail, string])[] = 
   ],
 ];
 
-const REFUSAL_REASON_COUNT = 37;
+const REFUSAL_REASON_COUNT = 39;
 
 test('every reason words as the refusal the command printed before the Board refused for it', () => {
   expect(new Set(MESSAGE_FOR_REFUSAL.map(([detail]) => detail.reason)).size, 'the table covers every reason').toBe(REFUSAL_REASON_COUNT);

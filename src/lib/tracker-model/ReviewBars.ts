@@ -66,10 +66,13 @@ export class ReviewBars {
     return { bars, logged };
   }
 
-  /** Recorded on the ticket's newest in-progress review bar, the pass now running, whose stored round it takes. */
-  recordReview(ticketId: string, recording: ReviewRecording, at: string): ReviewRecorded {
-    this.records.requireTicket(ticketId);
-    const bar = this.inProgressReviewBarsOf([ticketId]).at(-1);
+  /**
+   * Recorded on the ticket's newest in-progress review bar, the pass now running, whose stored round it takes. A bundle's review runs on
+   * one bar, so `bundleBarTaskId` names it for each of the bundle's tickets.
+   */
+  recordReview(ticketId: string, recording: ReviewRecording, at: string, bundleBarTaskId: number | null = null): ReviewRecorded {
+    const ticket = this.records.requireTicket(ticketId);
+    const bar    = bundleBarTaskId === null ? this.inProgressReviewBarsOf([ticketId]).at(-1) : this.bundleReviewBarOf(ticket, bundleBarTaskId);
     if (bar === undefined) throw new BoardRefusal({ reason: 'review-record-without-a-review-bar', ticketId });
     const round = bar.reviewBarRound;
     if (round === undefined) throw new BoardRefusal({ reason: 'review-bar-without-a-round', ticketId, taskId: bar.id });
@@ -92,6 +95,26 @@ export class ReviewBars {
     return this.records.progress.tasks
       .filter((task): task is ReviewBar => task.ticket === null && task.reviewOf === ticketId)
       .toSorted((a, b) => a.id - b.id);
+  }
+
+  /** The bar must be an in-progress review bar of the ticket itself or of a ticket claimed with it, their own rows sharing one agent key. */
+  private bundleReviewBarOf(ticket: Readonly<Ticket>, barTaskId: number): ReviewBar {
+    const ticketId = ticket.frontmatter.id;
+    const bar      = this.records.taskRecordById(barTaskId);
+    if (bar?.status !== 'in-progress' || bar.reviewOf === undefined) {
+      throw new BoardRefusal({ reason: 'review-record-on-a-row-that-is-not-a-review-bar', ticketId, taskId: barTaskId });
+    }
+    const reviewBar: ReviewBar = { ...bar, reviewOf: bar.reviewOf };
+    if (reviewBar.reviewOf === ticketId) return reviewBar;
+    const barTicket        = this.records.ticketRecordById(reviewBar.reviewOf);
+    const ticketAgentKey   = this.records.linkedTaskRecordOf(ticket)?.agent;
+    const barTicketAgentKey = barTicket === undefined ? undefined : this.records.linkedTaskRecordOf(barTicket)?.agent;
+    if (ticketAgentKey === undefined || ticketAgentKey !== barTicketAgentKey) {
+      throw new BoardRefusal({
+        reason: 'review-record-on-a-bar-outside-the-bundle', ticketId, taskId: barTaskId, reviewOf: reviewBar.reviewOf
+      });
+    }
+    return reviewBar;
   }
 
   /** A bundle is one agent, so its reviewer takes no second slot while the builder still holds the claim's slot for the bundle's other tickets. */

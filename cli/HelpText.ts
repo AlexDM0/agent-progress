@@ -226,13 +226,16 @@ output never carries either.
       --findings-file <file>  itself, as \`rework\` does: the commits since <review start> up to the
       [--rebased-from <tip>]  first --rebased-from (HEAD without one), and each rebase from its
       [--main <line>]         pre-rebase tip, given once per rebase, up to the next one's (HEAD for
-      [--json]                the last), and prints the total to report as reworkedLines. It takes
-                              the builder's change size, \`git diff --shortstat <main>...<review
+      [--bar <row>]           the last), and prints the total to report as reworkedLines. It takes
+      [--json]                the builder's change size, \`git diff --shortstat <main>...<review
                               start>\`. One --main names every rebase's main line (default \`main\`),
-                              or one per --rebased-from. The findings file (\`-\` reads standard
-                              input) is a JSON object: verdict, claims (item, result,
-                              handoffContradicted) and findings (class, severity, file, summary,
-                              evidence, outcome, then commit or filedTicketId); docs/cli.md lists
+                              or one per --rebased-from. A bundle's review runs on one bar: --bar
+                              names it, run once per ticket of the bundle, and is refused unless it
+                              is an in-progress review bar of a ticket claimed with <id>. The
+                              findings file (\`-\` reads standard input) is a JSON object: verdict,
+                              claims (item, result, handoffContradicted) and findings (class,
+                              severity, file, summary, evidence, outcome, then commit or
+                              filedTicketId); docs/cli.md lists
                               the words each takes. A word outside them, a missing field, or a
                               ticket with no in-progress review bar is refused, recording nothing.
 

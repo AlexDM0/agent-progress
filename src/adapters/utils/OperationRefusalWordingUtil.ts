@@ -63,6 +63,12 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
     case 'review-bar-without-a-round':
       return `Review bar #${detail.taskId} of ticket #${detail.ticketId} stores no round, so the pass cannot be recorded and nothing was logged. `
         + `Start the pass on a bar of its own with \`agent-progress task add "<name>" --review-of ${detail.ticketId} --start\`.`;
+    case 'review-record-on-a-row-that-is-not-a-review-bar':
+      return `Row #${detail.taskId} is not an in-progress review bar, so the review of ticket #${detail.ticketId} cannot be recorded on it and nothing was logged. `
+        + 'Pass --bar the row your review runs on, the `agent-progress row:` line of your prompt.';
+    case 'review-record-on-a-bar-outside-the-bundle':
+      return `Review bar #${detail.taskId} reviews ticket #${detail.reviewOf}, which was not claimed with ticket #${detail.ticketId}, `
+        + 'so the review cannot be recorded on it and nothing was logged. Pass --bar the review bar of the bundle holding the ticket.';
     case 'unclaimable-status':
       return `Ticket #${detail.ticketId} is ${detail.status}, `
         + `and \`agent-progress ticket claim\` takes a ticket that is ${legalSourcesText('in-progress')}. `
