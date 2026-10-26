@@ -37,7 +37,7 @@ output never carries either.
       [--project <name>]      file and log, a \`tickets/\` folder and \`agent-brief.md\` — the brief to fill in
       [--root <path>]         before spawning an implementing agent — a \`.gitignore\` entry for it,
       [--no-claude-md]        a managed block in the repository's CLAUDE.md telling an agent to track
-      [--no-hooks]            its work through this tool, the two hooks below, and the
+      [--no-hooks]            its work through this tool, the three hooks below, and the
       [--no-workflow]         dispatcher workflow at \`.agent-progress/agent-progress-dispatch.js\`,
       [--no-agent-definition] generated from this tool's dispatcher, and the Claude Code agent
                               definition \`.claude/agents/agent-progress-worker.md\`, whose
@@ -63,7 +63,7 @@ output never carries either.
 
   update                      Refresh what the tool wrote into a repository it already tracks: the
       [--no-claude-md]        managed CLAUDE.md block, \`agent-brief.md\` — guidance shipped with the
-      [--no-hooks]            tool rather than a file a project edits — the two hooks and the
+      [--no-hooks]            tool rather than a file a project edits — the three hooks and the
       [--no-workflow]         dispatcher workflow, generated anew, and the agent definition, a hand
       [--no-agent-definition] edit to either of which is undone, the other briefs, \`reference.md\` and
                               the two skills, removing what an earlier version installed in a
@@ -170,6 +170,12 @@ output never carries either.
                               runs \`agent-progress checks\` with a line, --clear or --restamp.
                               A read (\`checks\`, \`checks --json\`), every other call, and every
                               call from the main session pass at exit 0, unreadable input too.
+
+  hook post-tool-use          Keep the page live while agents work: wired with
+                              \`hook subagent-stop\` for every tool call, it regenerates the page as
+                              \`render\` does only when the page is more than 5 minutes old. It
+                              never waits on the lock (a held one skips the render), never prints
+                              and always exits 0.
 
   usage [--since <when>]      What this repository's subagents cost, read out of the transcripts the
       [--transcripts <folder>]

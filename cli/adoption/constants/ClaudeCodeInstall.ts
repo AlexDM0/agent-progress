@@ -73,6 +73,14 @@ const PRE_TOOL_USE_HOOK: CommandHook = {
   timeoutSeconds: 10,
 };
 
+/** Every tool call of every agent, so the page stays live while any works; the hook never waits on the lock, so it needs no lock time. */
+const POST_TOOL_USE_HOOK: CommandHook = {
+  event:          'PostToolUse',
+  matcher:        '',
+  command:        'agent-progress hook post-tool-use',
+  timeoutSeconds: 10,
+};
+
 const CLAUDE_CODE_SENTENCES: Readonly<Record<string, string>> = {
   tokenHookClause: 'and the\n'
     + '  `SubagentStop` hook adds every token the agent processed to that row when it stops, so where the\n'
@@ -95,10 +103,11 @@ const CLAUDE_CODE_SENTENCES: Readonly<Record<string, string>> = {
   finishTokensNote:       '`--tokens <subagent_tokens>` only without the hook; ',
   dispatcherWorkflowName: '`.agent-progress/agent-progress-dispatch.js`',
   installCheck:           'read `.claude/settings.local.json` and `.claude/settings.json` for\n'
-    + '  `agent-progress hook subagent-stop`. `init` and `update` write it into the local file by default, so it is\n'
-    + '  normally in one of them and there is nothing to say. If it is in neither — the repository was adopted before the\n'
-    + '  hook existed, or somebody ran `--no-hooks` — say so once and offer `agent-progress update`: it is what puts every\n'
-    + '  agent\'s cost on its row; without it a workflow\'s agents reach no row at all. Then check\n'
+    + '  `agent-progress hook subagent-stop` and `agent-progress hook post-tool-use`. `init` and `update` write both into\n'
+    + '  the local file by default, so each is normally in one of them and there is nothing to say. If either is in\n'
+    + '  neither — the repository was adopted before the hook existed, or somebody ran `--no-hooks` — say so once and offer\n'
+    + '  `agent-progress update`: it is what puts every agent\'s cost on its row, without which a workflow\'s agents reach\n'
+    + '  no row at all, and what keeps the page live while agents work. Then check\n'
     + '  `.agent-progress/agent-progress-dispatch.js` exists. If not — adopted before the dispatcher, or `--no-workflow` —\n'
     + '  say so once and offer `agent-progress update` the same way; until then only the manual path is open.',
   askingTheUser:    'the AskUserQuestion tool, up to four questions per call.',
@@ -109,21 +118,8 @@ const CLAUDE_CODE_SENTENCES: Readonly<Record<string, string>> = {
     + '  returns, with its summary, or that it was stopped or died.',
   dispatcherResume: '`Workflow({ scriptPath: \'<mainCheckout>/.agent-progress/agent-progress-dispatch.js\',\n'
     + '  resumeFromRunId: \'<the stored run id>\', args: <the launch\'s args> })`, its result naming the new `runId`.',
-  dispatcherStop:      'stop the Workflow task itself.',
-  dispatcherHeartbeat: 'start it as a background Bash command (`run_in_background: true`) in the main\n'
-    + '  checkout, keeping its task id:\n'
-    + '  `while sleep 300 && board=$(agent-progress status --json)'
-    + ' && ! printf \'%s\' "$board" | grep -q \'"dispatcherState": "stopped"\''
-    + ' && printf \'%s\' "$board" | grep -Eq \'"dispatcherState": "running"|"agentsInFlight": [1-9]\''
-    + ' && printf \'%s\' "$board" | sed -n \'/^  "ticketCountByStatus"/,/}/p\''
-    + ' | grep -Eq \'"(pending|in-progress|in-review|reviewed)": [1-9]\';'
-    + ' do agent-progress render >/dev/null 2>&1; done`.\n'
-    + '  Every 300 s it reads the board and renders; a failed render is ignored and tried again next interval. Waiting\n'
-    + '  first gives a just-launched run time to claim its first ticket. It ends by itself once the board reads `stopped`,\n'
-    + '  or neither `running` nor any agent in flight, or no ticket is open (every one `delivered` or `abandoned`, read\n'
-    + '  from the top-level `ticketCountByStatus`); that exit\'s notification needs nothing. Stop it by stopping that\n'
-    + '  background task by its id.',
-  agentByHand: 'the Agent tool with `subagent_type: \'agent-progress-worker\'`, the installed definition\n'
+  dispatcherStop: 'stop the Workflow task itself.',
+  agentByHand:    'the Agent tool with `subagent_type: \'agent-progress-worker\'`, the installed definition\n'
     + '  `.claude/agents/agent-progress-worker.md` that carries the default model and effort.',
 };
 
@@ -150,7 +146,7 @@ export const CLAUDE_CODE_INSTALL: ClaudeCodeInstall = {
       writing:     'claude-settings-hooks',
       reportLabel: 'hooks',
       optOutFlag:  'no-hooks',
-      hooks:       [SUBAGENT_STOP_HOOK, PRE_TOOL_USE_HOOK],
+      hooks:       [SUBAGENT_STOP_HOOK, PRE_TOOL_USE_HOOK, POST_TOOL_USE_HOOK],
     },
     {
       writing:     'rewritten-files',

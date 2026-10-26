@@ -213,6 +213,31 @@ export function withLock<ActionResult>(
   return withLockAt(workspace.lockDirectoryPath, action, now);
 }
 
+export type LockIfFreeOutcome<ActionResult> = { verdict: 'ran'; result: ActionResult } | { verdict: 'held' };
+
+/** `withLock` that never waits: a lock another process holds is the `held` verdict at once, and `action` never runs. */
+export async function withLockIfFree<ActionResult>(
+  workspace: Workspace,
+  action: () => Promise<ActionResult> | ActionResult,
+  now: () => Date,
+): Promise<LockIfFreeOutcome<ActionResult>> {
+  const payload: LockPayload = { acquiredAt: LocalTimeUtil.formatLocalIso(now()), processId: process.pid };
+
+  let heldGeneration: number | null = null;
+  for (let attempt = 0; attempt < LIMITS.LOCK_RETRY_COUNT && heldGeneration === null; attempt++) {
+    const attemptResult = attemptedAcquire(workspace.lockDirectoryPath, payload, now().getTime());
+    if (attemptResult.verdict === 'held') return { verdict: 'held' };
+    if (attemptResult.verdict === 'acquired') heldGeneration = attemptResult.generation;
+  }
+  if (heldGeneration === null) return { verdict: 'held' };
+
+  try {
+    return { verdict: 'ran', result: await action() };
+  } finally {
+    release(workspace.lockDirectoryPath, heldGeneration, { acquiredAt: LocalTimeUtil.formatLocalIso(now()), processId: process.pid });
+  }
+}
+
 /** `withLock` on any lock directory, for a file several trackers' commands share; held, it throws the same refusal. */
 export async function withLockAt<ActionResult>(
   lockDirectoryPath: string,

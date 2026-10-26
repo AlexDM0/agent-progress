@@ -2,6 +2,7 @@
  * The hooks. `SubagentStop` logs what a finished subagent cost and adds it to the rows its brief names, every failure one sentence on
  * standard error at exit 0, since the agent has already stopped and a non-zero exit would prevent nothing. `PreToolUse` is the check
  * command's guard.
+ * `PostToolUse` re-renders a stale page, silently.
  */
 import { agentDescriptionBeside, transcriptTextAt, workflowRunIdentifierOf } from '../../../src/lib/claude-code/ClaudeTranscripts.ts';
 import type { TranscriptUsageTotals }                                        from '../../../src/lib/claude-code/utils/TranscriptUsageUtil.ts';
@@ -19,13 +20,18 @@ import {
   readHookInput,
   readStringField
 }                                                        from './HookInput.ts';
+import { renderAStalePage }   from './PostToolUseRender.ts';
 import { recordInTheTracker } from './TokenCreditRecording.ts';
 
-const USAGE = 'agent-progress hook subagent-stop|pre-tool-use  (the hook JSON arrives on standard input)';
+const USAGE = 'agent-progress hook subagent-stop|pre-tool-use|post-tool-use  (the hook JSON arrives on standard input)';
 
 const SUBAGENT_STOP_EVENT = 'subagent-stop';
 
 const PRE_TOOL_USE_EVENT = 'pre-tool-use';
+
+const POST_TOOL_USE_EVENT = 'post-tool-use';
+
+const HOOK_EVENTS: readonly string[] = [SUBAGENT_STOP_EVENT, PRE_TOOL_USE_EVENT, POST_TOOL_USE_EVENT];
 
 const KNOWN_OPTION_NAMES: readonly string[] = [];
 
@@ -89,12 +95,13 @@ export const hookCommand: CommandHandler = async (commandArguments, context) => 
   commandArguments.rejectUnknownOptions(KNOWN_OPTION_NAMES, USAGE);
 
   const event = commandArguments.positional();
-  if (event !== SUBAGENT_STOP_EVENT && event !== PRE_TOOL_USE_EVENT) {
+  if (event === undefined || !HOOK_EVENTS.includes(event)) {
     const named = event === undefined ? 'no hook event' : `"${event}"`;
     throw new OperationRefusal('refused', `agent-progress hook takes one event and was given ${named}.\n  Usage: ${USAGE}`);
   }
   commandArguments.rejectExtraPositionals(1, USAGE);
 
   if (event === PRE_TOOL_USE_EVENT) await guardTheCheckCommand(context);
+  else if (event === POST_TOOL_USE_EVENT) await renderAStalePage(context);
   else await recordSubagentStop(commandArguments, context);
 };

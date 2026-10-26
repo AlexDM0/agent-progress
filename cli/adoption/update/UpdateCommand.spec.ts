@@ -196,6 +196,9 @@ describeWhenGitIsPresent('updating a tracked repository', () => {
     expect(localSettings.hooks['PreToolUse']).toEqual([
       { matcher: 'Bash', hooks: [{ type: 'command', command: 'agent-progress hook pre-tool-use', timeout: 10 }] },
     ]);
+    expect(localSettings.hooks['PostToolUse']).toEqual([
+      { matcher: '', hooks: [{ type: 'command', command: 'agent-progress hook post-tool-use', timeout: 10 }] },
+    ]);
     expect(existsSync(settingsFilePathIn(repositoryDirectory, SHARED_SETTINGS)), 'nothing lands in the file colleagues share').toBe(false);
     expect(context.outputText()).toContain('settings.local.json (installed)');
   });

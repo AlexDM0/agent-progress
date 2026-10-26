@@ -9,7 +9,8 @@ import { renderDashboardDocument }  from '../render/DashboardDocument.ts';
 import type { RenderState }         from '../render/RenderState.ts';
 import type { MalformedEpicFile }   from './EpicStore.ts';
 import type { MalformedTicketFile } from './TicketStore.ts';
-import { withLock }                 from './TrackerLock.ts';
+import type { LockIfFreeOutcome }   from './TrackerLock.ts';
+import { withLock, withLockIfFree } from './TrackerLock.ts';
 import { readTracker }              from './TrackerReader.ts';
 import type { Workspace }           from './Workspace.ts';
 
@@ -45,6 +46,11 @@ export async function renderDashboard(workspace: Workspace, generatedAt: Date, r
     };
   }
   return { verdict: 'rendered', malformedTickets: listing.malformed, malformedEpics };
+}
+
+/** For `hook post-tool-use`: renders only when the lock is free this instant, so a busy tracker is skipped rather than waited on. */
+export function renderDashboardIfLockIsFree(workspace: Workspace, now: () => Date, renderState: RenderState): Promise<LockIfFreeOutcome<DashboardRenderOutcome>> {
+  return withLockIfFree(workspace, () => renderDashboard(workspace, now(), renderState), now);
 }
 
 /** For `render` and `open`: under the lock, so a concurrent write cannot leave the older picture on disk. */
