@@ -84,7 +84,8 @@
                                  Undisplayed unless html[data-embedded="dashboard"] and
                                  html[data-freshness="snapshot"]; then fixed, centred in the
                                  viewport, a 1px line border and the popover shadow, pointer-events
-                                 none, so it comes and goes with the minute's freshness re-judge
+                                 none, so it comes and goes with the minute's freshness re-judge;
+                                 undisplayed again while #ap-detail is open, back once it closes
  #ap-generated            text   "generated 3 min ago · 13:33" while live, "generated 09-23 13:33 ·
                                  2 days ago" as a snapshot (monospace), title "generated 2026-09-25 13:33".
                                  Every stamp on the page follows one rule against the viewer's
@@ -117,7 +118,8 @@
                                  #ap-project, #ap-summary, #ap-theme and #ap-activity are undisplayed
                                  (the theme radios stay clickable by script), #ap-summary-line shows,
                                  the body's padding is 18px 20px 24px, and a snapshot shows
-                                 #ap-stale-notice centred over the board
+                                 #ap-stale-notice centred over the board, hidden while #ap-detail
+                                 is open
  #ap-tabs                 el     buttons in the order Kanban, Waves, Progress, Epics, Tickets, carrying
                                  data-tab="kanban|dependencies|progress|epics|tickets",
                                  aria-selected, and id="ap-tab-…" with aria-controls naming the
@@ -866,6 +868,8 @@ html[data-embedded="dashboard"][data-freshness="snapshot"] #ap-stale-notice {
   width: max-content; max-width: calc(100vw - 40px); transform: translate(-50%, -50%); pointer-events: none;
   border: 1px solid var(--line); box-shadow: 0 10px 28px var(--shadow-popover);
 }
+/* It would lie over an open detail panel's contents, so it waits for the panel to close. */
+html:has(#ap-detail[open]) #ap-stale-notice { display: none; }
 html[data-embedded="dashboard"] .ap-summary-line {
   display: flex; align-items: center; gap: 18px; height: 30px; padding: 0 12px; overflow: hidden;
   border: 1px solid var(--line); border-radius: 8px; background: var(--surface);
