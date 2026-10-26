@@ -1847,6 +1847,8 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
   :root[data-freshness="live"] #ap-rows .ap-row[data-live] :is(.ap-bar[data-live], .ap-state-chip),
   :root[data-freshness="live"] .ap-epic-ticket[data-live] .ap-badge,
   :root[data-freshness="live"] .ap-card[data-live] > .ap-epic-card-head .ap-epic-swatch { animation: ap-card-flare var(--pulse-card) ease-in-out infinite; }
+  /* The flare's halo reads --s-fill, which no state sets on an epic's head: without it the filter is invalid and nothing shows. */
+  .ap-card[data-live] > .ap-epic-card-head .ap-epic-swatch { --s-fill: var(--epic-fill); }
   :root[data-freshness="live"] :is(.ap-kanban-card, .ap-dependency-node)[data-live]::after,
   :root[data-freshness="live"] #ap-rows .ap-row[data-live] .ap-bar[data-live]::after {
     content: "";
