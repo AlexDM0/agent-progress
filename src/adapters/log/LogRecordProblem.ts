@@ -62,6 +62,7 @@ const CHECK_FOR_FIELD_SHAPE: Readonly<Record<LogFieldShape, FieldShapeCheck>> = 
   'optional-text':     (value, path) => (value === undefined ? null : textProblem(value, path)),
   'priority':          priorityProblem,
   'ticket-size':       ticketSizeProblem,
+  'optional-size':     (value, path) => (value === undefined ? null : ticketSizeProblem(value, path)),
   'agent-pair':        agentPairProblem,
   'ticket-ids':        (value, path) => listOfTextProblem(value, path, 'ticket ids'),
   'epic-keys':         (value, path) => listOfTextProblem(value, path, 'epic keys'),

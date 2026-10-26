@@ -12,6 +12,7 @@ export type LogFieldShape =
   | 'optional-text'
   | 'priority'
   | 'ticket-size'
+  | 'optional-size'
   | 'agent-pair'
   | 'ticket-ids'
   | 'epic-keys'
@@ -57,7 +58,7 @@ export const LOG_RECORD_SCHEMA = {
   'ticket-rereviewed':               { subject: 'ticket', fields: { round: 'review-round' } },
   'ticket-priority-changed':         { subject: 'ticket', fields: { from: 'priority', to: 'priority' } },
   // `from` is absent when the ticket had no size.
-  'ticket-size-changed':             { subject: 'ticket', fields: { from: 'optional-text', to: 'ticket-size' } },
+  'ticket-size-changed':             { subject: 'ticket', fields: { from: 'optional-size', to: 'ticket-size' } },
   'ticket-dependencies-set':         { subject: 'ticket', fields: { dependsOn: 'ticket-ids' } },
   // `introducedBy` is absent when the cause was cleared.
   'ticket-introduced-by-set':        { subject: 'ticket', fields: { introducedBy: 'optional-text' } },

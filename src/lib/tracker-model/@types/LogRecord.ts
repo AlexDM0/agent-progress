@@ -13,6 +13,7 @@ interface ValueOfFieldShape {
   'optional-text':     string;
   'priority':          TicketPriority;
   'ticket-size':       TicketSize;
+  'optional-size':     TicketSize;
   'agent-pair':        AgentPair;
   'ticket-ids':        readonly string[];
   'epic-keys':         readonly string[];
@@ -35,7 +36,7 @@ export type LogRecordKind = keyof Schema;
 
 type FieldShapes = Readonly<Record<string, LogFieldShape>>;
 
-type OptionalFieldNames<Shapes extends FieldShapes> = { [Name in keyof Shapes]: Shapes[Name] extends 'optional-text' ? Name : never }[keyof Shapes];
+type OptionalFieldNames<Shapes extends FieldShapes> = { [Name in keyof Shapes]: Shapes[Name] extends 'optional-text' | 'optional-size' ? Name : never }[keyof Shapes];
 
 type Flattened<Value> = { [Key in keyof Value]: Value[Key] };
 
