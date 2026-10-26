@@ -374,6 +374,7 @@
     "statusJsonFields": ["abandoned", "abandonedAt", "agent", "agentsInFlight", "claimedBodyHash", "concurrency", "delivered", "dispatcherState", "drafts",
       "effort", "epics", "filed", "finished", "freeSlots", "group", "held", "heldTicketIds", "history", "hold", "id", "inProgressReviewOfIds",
       "inProgressTicketIds", "limit", "model", "note", "pausedBuilds", "pending", "priority", "readyTicketIds", "readyTickets", "reviewBars", "reviewOf",
-      "reviewWaitingTickets", "reviewed", "round", "row", "start", "started", "status", "task", "ticket", "ticketRows", "tickets", "title", "type", "updated"]
+      "reviewWaitingTickets", "reviewed", "round", "row", "start", "started", "status", "task", "ticket", "ticketCountByStatus", "ticketRows", "tickets",
+      "title", "type", "updated"]
   }
 }
