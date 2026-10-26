@@ -1,10 +1,16 @@
 /** The Board's review bars: the free-standing rows a reviewer works in, started one per pass and closed by every move that ends the review. */
-import type { ReviewBarRequest, ReviewBarStarted } from './@types/BoardChanges.ts';
-import type { LogRecord }                          from './@types/LogRecord.ts';
-import type { Task }                               from './@types/Task.ts';
-import type { Ticket }                             from './@types/Ticket.ts';
-import type { BoardRecords }                       from './BoardRecords.ts';
-import { TicketChartUtil }                         from './utils/TicketChartUtil.ts';
+import type {
+  ReviewBarRequest,
+  ReviewBarStarted,
+  ReviewRecorded,
+  ReviewRecording
+} from './@types/BoardChanges.ts';
+import type { LogRecord }    from './@types/LogRecord.ts';
+import type { Task }         from './@types/Task.ts';
+import type { Ticket }       from './@types/Ticket.ts';
+import type { BoardRecords } from './BoardRecords.ts';
+import { BoardRefusal }      from './BoardRefusal.ts';
+import { TicketChartUtil }   from './utils/TicketChartUtil.ts';
 
 export type ReviewBar = Task & { reviewOf: string };
 
@@ -58,6 +64,22 @@ export class ReviewBars {
       }, at));
     }
     return { bars, logged };
+  }
+
+  /** Recorded on the ticket's newest in-progress review bar, the pass now running, whose stored round it takes. */
+  recordReview(ticketId: string, recording: ReviewRecording, at: string): ReviewRecorded {
+    this.records.requireTicket(ticketId);
+    const bar = this.inProgressReviewBarsOf([ticketId]).at(-1);
+    if (bar === undefined) throw new BoardRefusal({ reason: 'review-record-without-a-review-bar', ticketId });
+    const round = bar.reviewBarRound;
+    if (round === undefined) throw new BoardRefusal({ reason: 'review-bar-without-a-round', ticketId, taskId: bar.id });
+    const recorded = this.records.logger.log({
+      kind:   'review-recorded',
+      taskId: bar.id,
+      ticketId,
+      fields: { round, ...recording },
+    }, at);
+    return { logged: [recorded], taskId: bar.id, round };
   }
 
   /** Matches `reviewOf` on any row, unlike `reviewBarRecordsOf`, so a ticket-owned row storing it is closed and blocks a claim too; in file order. */

@@ -1,6 +1,7 @@
 /** What each agent's reply reads as once `WorkflowInputUtil` has mapped it in. */
-import type { TicketPriority }                        from '../../src/lib/tracker-model/@types/Ticket.ts';
-import type { AgentModelAndEffort, ReadyTicketEntry } from './DispatchSettings.ts';
+import type { ReviewFindingClass, ReviewFindingSeverity } from '../../src/lib/tracker-model/@types/ReviewRecord.ts';
+import type { TicketPriority }                            from '../../src/lib/tracker-model/@types/Ticket.ts';
+import type { AgentModelAndEffort, ReadyTicketEntry }     from './DispatchSettings.ts';
 
 export interface StatusReading {
   limit:                 number;
@@ -34,10 +35,12 @@ export interface SurveyReading {
   dirtyMainCheckoutFiles: string[] | 'unlisted';
 }
 
+/** `review record`'s class and severity words; `unstated` only for a word the reply schema should have refused, so no finding is dropped from a count. */
 export interface ReviewFinding {
-  class:   string;
-  file:    string;
-  summary: string;
+  class:    ReviewFindingClass | 'unstated';
+  severity: ReviewFindingSeverity | 'unstated';
+  file:     string;
+  summary:  string;
 }
 
 export type BuilderOutcome = 'in-review' | 'claim-refused' | 'failed';

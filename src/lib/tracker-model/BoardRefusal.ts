@@ -12,6 +12,8 @@ export type BoardRefusalDetail =
   | { reason: 'abandon-without-reason'; ticketId: string }
   | { reason: 'tokens-without-a-row'; ticketId: string }
   | { reason: 'rereview-outside-review'; ticketId: string; status: TicketStatus }
+  | { reason: 'review-record-without-a-review-bar'; ticketId: string }
+  | { reason: 'review-bar-without-a-round'; ticketId: string; taskId: number }
   | { reason: 'unclaimable-status'; ticketId: string; status: TicketStatus }
   | { reason: 'claim-waits-on-dependencies'; ticketId: string; unsettledTicketIds: readonly string[] }
   | { reason: 'claim-of-a-held-ticket'; ticketId: string }

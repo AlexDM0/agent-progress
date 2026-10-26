@@ -3,13 +3,18 @@
  * the page through `identifiedEntryOf`, which also carries every task and ticket id the record concerns, so a detail panel never reads ids
  * out of the sentence.
  */
-import { TokenCountUtil }                               from '../../lib/token-count/TokenCountUtil.ts';
-import type { AgentUsage, LogRecord, LogRecordContent } from '../../lib/tracker-model/@types/LogRecord.ts';
-import type { DispatcherState, ViewRange }              from '../../lib/tracker-model/@types/TrackerProgress.ts';
-import type { IdentifiedLogEntry, WordedLogEntry }      from '../../shared/@types/WordedLogEntry.ts';
-import type { MovedToStatus }                           from './StatusWordingUtil.ts';
-import { StatusWordingUtil }                            from './StatusWordingUtil.ts';
-import { TicketPhraseUtil }                             from './TicketPhraseUtil.ts';
+import { TokenCountUtil } from '../../lib/token-count/TokenCountUtil.ts';
+import type {
+  AgentUsage,
+  LogRecord,
+  LogRecordContent,
+  LogRecordFieldsOf
+} from '../../lib/tracker-model/@types/LogRecord.ts';
+import type { DispatcherState, ViewRange }         from '../../lib/tracker-model/@types/TrackerProgress.ts';
+import type { IdentifiedLogEntry, WordedLogEntry } from '../../shared/@types/WordedLogEntry.ts';
+import type { MovedToStatus }                      from './StatusWordingUtil.ts';
+import { StatusWordingUtil }                       from './StatusWordingUtil.ts';
+import { TicketPhraseUtil }                        from './TicketPhraseUtil.ts';
 
 type TicketMoveKind = 'ticket-reopened' | 'ticket-started' | 'ticket-finished' | 'ticket-approved' | 'ticket-delivered';
 
@@ -42,6 +47,12 @@ function agentStoppedTextOf(usage: AgentUsage): string {
     + `end context ${TokenCountUtil.formatTokenCount(usage.endContextTokens)}, `
     + `input ${TokenCountUtil.formatTokenCount(usage.totalInputTokens)} (cache read ${TokenCountUtil.formatTokenCount(usage.cacheReadInputTokens)}), `
     + `output ${TokenCountUtil.formatTokenCount(usage.outputTokens)}`;
+}
+
+function reviewRecordedTextOf(ticketId: string, review: LogRecordFieldsOf<'review-recorded'>): string {
+  const findingWord = review.findings.length === 1 ? 'finding' : 'findings';
+  return `Review ${review.round} of #${ticketId} recorded: ${review.verdict}, ${review.findings.length} ${findingWord}, `
+    + `${review.totalReworkedCodeLines} lines of code reworked (${review.fixReworkedCodeLines} fixing, ${review.rebaseReworkedCodeLines} rebasing)`;
 }
 
 function epicsText(epicKeys: readonly string[]): string {
@@ -125,6 +136,8 @@ function sentenceOf(record: LogRecordContent): string {
       return `Review row #${record.taskId} started: ${record.fields.name}`;
     case 'review-bar-closed':
       return `Closed the review row #${record.taskId}, delivered: ${record.fields.name}`;
+    case 'review-recorded':
+      return reviewRecordedTextOf(record.ticketId, record.fields);
     case 'chart-range-set':
       return `Chart range: ${chartRangeTextOf(record.fields.view)}`;
     case 'concurrency-limit-set':

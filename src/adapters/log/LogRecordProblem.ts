@@ -1,14 +1,15 @@
 /** Whether one parsed log.jsonl line is a well-formed record of a known kind, and if not, the reason naming the offending field. */
-import { JsonRecordUtil }                            from '../../lib/json-record/JsonRecordUtil.ts';
-import type { LogRecordKind }                        from '../../lib/tracker-model/@types/LogRecord.ts';
-import { DISPATCHER_STATES }                         from '../../lib/tracker-model/constants/DispatcherStates.ts';
-import type { LogFieldShape }                        from '../../lib/tracker-model/constants/LogRecordSchema.ts';
-import { LOG_RECORD_SCHEMA, LOG_RECORD_SUBJECT_IDS } from '../../lib/tracker-model/constants/LogRecordSchema.ts';
-import { FIRST_REPEAT_REVIEW_ROUND }                 from '../../lib/tracker-model/constants/ReviewRounds.ts';
-import { TICKET_PRIORITIES }                         from '../../lib/tracker-model/constants/TicketFields.ts';
-import { BoardSettingsUtil }                         from '../../lib/tracker-model/utils/BoardSettingsUtil.ts';
-import { VocabularyUtil }                            from '../../lib/tracker-model/utils/VocabularyUtil.ts';
-import { StoredValueUtil }                           from '../utils/StoredValueUtil.ts';
+import { JsonRecordUtil }                                    from '../../lib/json-record/JsonRecordUtil.ts';
+import type { LogRecordKind }                                from '../../lib/tracker-model/@types/LogRecord.ts';
+import { DISPATCHER_STATES }                                 from '../../lib/tracker-model/constants/DispatcherStates.ts';
+import type { LogFieldShape }                                from '../../lib/tracker-model/constants/LogRecordSchema.ts';
+import { LOG_RECORD_SCHEMA, LOG_RECORD_SUBJECT_IDS }         from '../../lib/tracker-model/constants/LogRecordSchema.ts';
+import { FIRST_REPEAT_REVIEW_ROUND, FIRST_REVIEW_BAR_ROUND } from '../../lib/tracker-model/constants/ReviewRounds.ts';
+import { TICKET_PRIORITIES }                                 from '../../lib/tracker-model/constants/TicketFields.ts';
+import { BoardSettingsUtil }                                 from '../../lib/tracker-model/utils/BoardSettingsUtil.ts';
+import { VocabularyUtil }                                    from '../../lib/tracker-model/utils/VocabularyUtil.ts';
+import { StoredValueUtil }                                   from '../utils/StoredValueUtil.ts';
+import { ReviewRecordFieldsUtil }                            from './utils/ReviewRecordFieldsUtil.ts';
 
 type UnknownObject = Record<string, unknown>;
 
@@ -41,6 +42,10 @@ function reviewRoundProblem(value: unknown, path: string): string | null {
   return StoredValueUtil.wholeNumberIsAtLeast(value, FIRST_REPEAT_REVIEW_ROUND) ? null : `${path} is not a whole round of at least ${FIRST_REPEAT_REVIEW_ROUND}`;
 }
 
+function reviewBarRoundProblem(value: unknown, path: string): string | null {
+  return StoredValueUtil.wholeNumberIsAtLeast(value, FIRST_REVIEW_BAR_ROUND) ? null : `${path} is not a whole round of at least ${FIRST_REVIEW_BAR_ROUND}`;
+}
+
 function dispatcherStateProblem(value: unknown, path: string): string | null {
   return BoardSettingsUtil.dispatcherStateIsKnown(value) ? null : `${path} is ${JSON.stringify(value)}, which is not one of ${DISPATCHER_STATES.join(', ')}`;
 }
@@ -61,6 +66,10 @@ const CHECK_FOR_FIELD_SHAPE: Readonly<Record<LogFieldShape, FieldShapeCheck>> = 
   'dispatcher-run-id': (value, path) => (value === null || BoardSettingsUtil.dispatcherRunIdIsWellFormed(value) ? null : `${path} is neither null nor a run id`),
   'check-command':     (value, path) => (value === null || BoardSettingsUtil.checkCommandIsWellFormed(value) ? null : `${path} is neither null nor a shell line that is not blank`),
   'count':             (value, path) => (StoredValueUtil.wholeNumberIsAtLeast(value, 0) ? null : `${path} is not a whole number of at least 0`),
+  'review-bar-round':  reviewBarRoundProblem,
+  'review-verdict':    ReviewRecordFieldsUtil.verdictProblem,
+  'review-claims':     ReviewRecordFieldsUtil.claimsProblem,
+  'review-findings':   ReviewRecordFieldsUtil.findingsProblem,
 };
 
 function kindIsKnown(kind: unknown): kind is LogRecordKind {

@@ -1,6 +1,7 @@
 /**
- * Which commits were made on a worktree since a given commit, and what a rebase changed in a branch's own work, as diff text for a caller
- * to count. Every diff is asked for with its options spelled out, so the user's git configuration cannot change the diff text.
+ * Which commits were made on a worktree since a given commit, and what a rebase changed in a branch's own work, as diff text for a
+ * caller to count, and how large a branch's own change is. Every diff is asked for with its options spelled out, so the user's git
+ * configuration cannot change the diff text.
  */
 import { GitProcess }                from './GitProcess.ts';
 import { NOT_AN_ANCESTOR_EXIT_CODE } from './constants/GitConventions.ts';
@@ -59,19 +60,22 @@ export function readWorktreeHead(directory: string): WorktreeHeadReading {
   return headCommit === null ? { verdict: 'no-commits' } : { verdict: 'read', headCommit };
 }
 
-/** Every commit in `<since>..HEAD`. A merge among them is a verdict of its own: work is rebased, and a merge would count the main line's commits. */
-export function readCommitsDiff(directory: string, since: string): CommitsDiffReading {
+/**
+ * Every commit in `<since>..<until>`, `until` HEAD unless a caller names an earlier tip. A merge among them is a verdict of its own: work is
+ * rebased, and a merge would count the main line's commits.
+ */
+export function readCommitsDiff(directory: string, since: string, until = 'HEAD'): CommitsDiffReading {
   const sinceCommit = GitProcess.resolvedCommitOf(directory, since);
   if (sinceCommit === null) return { verdict: 'unknown-commit' };
 
-  const ancestryArguments = ['merge-base', '--is-ancestor', sinceCommit, 'HEAD'];
+  const ancestryArguments = ['merge-base', '--is-ancestor', sinceCommit, until];
   const ancestry          = GitProcess.run(directory, ancestryArguments);
   if (ancestry === null || (!GitProcess.succeeded(ancestry) && ancestry.exitCode !== NOT_AN_ANCESTOR_EXIT_CODE)) {
     return { verdict: 'git-failed', reason: GitProcess.failureReasonOf(ancestry, ancestryArguments) };
   }
   if (ancestry.exitCode === NOT_AN_ANCESTOR_EXIT_CODE) return { verdict: 'not-an-ancestor', sinceCommit };
 
-  const range           = `${sinceCommit}..HEAD`;
+  const range           = `${sinceCommit}..${until}`;
   const mergesArguments = ['rev-list', '--merges', range];
   const merges          = GitProcess.run(directory, mergesArguments);
   if (!GitProcess.succeeded(merges)) return { verdict: 'git-failed', reason: GitProcess.failureReasonOf(merges, mergesArguments) };
@@ -141,5 +145,34 @@ export function readRebaseDiffs(directory: string, oldTip: string, mainLine: str
     newBaseCommit:  newBase.base,
     beforeDiffText: before.diffText,
     afterDiffText:  after.diffText,
+  };
+}
+
+export type ResolvedCommitReading = { verdict: 'read'; commit: string } | { verdict: 'unknown-commit' };
+
+export function readResolvedCommit(directory: string, revision: string): ResolvedCommitReading {
+  const commit = GitProcess.resolvedCommitOf(directory, revision);
+  return commit === null ? { verdict: 'unknown-commit' } : { verdict: 'read', commit };
+}
+
+export type ChangeSizeReading =
+  | { verdict: 'read'; changedFiles: number; insertions: number; deletions: number }
+  | { verdict: 'git-failed'; reason: string };
+
+function shortStatCountOf(shortStat: string, pattern: RegExp): number {
+  const match = pattern.exec(shortStat);
+  return match === null ? 0 : Number(match[1]);
+}
+
+/** The size of a branch's own change as `git diff --shortstat <mainLine>...<tip>` gives it: from where it left the main line up to `tip`. */
+export function readChangeSize(directory: string, mainLine: string, tip: string): ChangeSizeReading {
+  const shortStatArguments = ['diff', '--shortstat', '--no-color', '--no-ext-diff', '--no-textconv', '--no-relative', '--find-renames', `${mainLine}...${tip}`];
+  const run                = GitProcess.run(directory, shortStatArguments);
+  if (!GitProcess.succeeded(run)) return { verdict: 'git-failed', reason: GitProcess.failureReasonOf(run, shortStatArguments) };
+  return {
+    verdict:      'read',
+    changedFiles: shortStatCountOf(run.standardOutput, /(\d+) files? changed/),
+    insertions:   shortStatCountOf(run.standardOutput, /(\d+) insertions?\(\+\)/),
+    deletions:    shortStatCountOf(run.standardOutput, /(\d+) deletions?\(-\)/),
   };
 }

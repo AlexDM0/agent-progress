@@ -208,9 +208,12 @@ function reviewerPrompt(settings: DispatchSettings, request: ReviewerPromptReque
     'A release refused with `main-moved` is yours to handle, as step 8 says. On `round-requested`, and on `not-released` for `main-moved`, leave your bar running: '
       + 'the next round\'s `ticket rereview --start-review` closes it, so the ticket\'s slot stays held. On every other verdict than released, close your own bar: '
       + '`agent-progress task finish <bar>`, then `agent-progress task deliver <bar>`.',
+    'On every outcome, before step 7, write the findings file and run `agent-progress review record` as the review brief says, once per ticket: '
+      + 'it counts the rework itself and prints the total, so add no counts yourself.',
     'Return `verdict` (released, round-requested, does-not-hold or not-released), `releaseReason` (the release\'s reason when not-released, empty otherwise), '
       + '`blockingFiles` (the refused release\'s `blockingFiles`, empty otherwise), '
-      + '`reworkedLines` (both rework counts together), `findings` (every finding of this round, each with a one-word `class`, its `file` and a one-line `summary`), '
+      + '`reworkedLines` (the total `review record` printed), `findings` (every finding of this round, each with the `class` and `severity` '
+      + 'words of the review brief\'s findings file, its `file` and a one-line `summary`), '
       + `and \`filedTicketIds\`. ${STATUS_RETURN_TEXT}`,
   );
   return lines.join('\n');

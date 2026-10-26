@@ -14,6 +14,9 @@ const INTEGRATED_LINE_OPENING = 'Integrated: ';
 
 const GROUP_BRANCH_PREFIX = 'group-';
 
+const FINDING_RETURN_TEXT = 'every finding of this round, each with the `class` and `severity` words of the review brief\'s findings file, its `file` '
+  + 'and a one-line `summary`';
+
 const {
   branchOf,
   worktreeOf,
@@ -238,7 +241,7 @@ function bundleReviewerPrompt(settings: DispatchSettings, placement: GroupPlacem
       + '`agent-progress task finish <bar>`, then `agent-progress task deliver <bar>`.',
     'Return `verdict` (integrated, round-requested, does-not-hold or not-released), `releaseReason` (the reason when not-released, empty otherwise), '
       + '`integratedCommit` (the commit of your `Integrated:` line when integrated, empty otherwise), `reworkedLines` (every rework count together), '
-      + '`findings` (every finding of this round, each with a one-word `class`, its `file` and a one-line `summary`), '
+      + `\`findings\` (${FINDING_RETURN_TEXT}), `
       + `and \`filedTicketIds\`. ${statusReturnText()}`,
   ].join('\n');
 }
@@ -290,7 +293,7 @@ function releaseReviewerPrompt(settings: DispatchSettings, placement: GroupPlace
       + '`agent-progress task finish <bar>`, then `agent-progress task deliver <bar>`.',
     'Return `verdict` (released, round-requested, does-not-hold or not-released), `releaseReason` (the release\'s reason when not-released, empty otherwise), '
       + '`blockingFiles` (the refused release\'s `blockingFiles`, empty otherwise), `reworkedLines` (every rework count together), '
-      + '`findings` (every finding of this round, each with a one-word `class`, its `file` and a one-line `summary`), '
+      + `\`findings\` (${FINDING_RETURN_TEXT}), `
       + `and \`filedTicketIds\`. ${statusReturnText()}`,
   ].join('\n');
 }

@@ -1,9 +1,18 @@
-/** The git reads `rework` counts from: the worktree's head, the commits since a review started, and what a rebase changed. */
-import { readCommitsDiff, readRebaseDiffs, readWorktreeHead } from '../../../src/lib/git/BranchDiffs.ts';
-import { OperationRefusal }                                   from '../../../src/shared/OperationRefusal.ts';
-import { OutputUtil }                                         from '../../utils/OutputUtil.ts';
-import { ReworkCountUtil }                                    from '../utils/ReworkCountUtil.ts';
-import type { FileRework }                                    from '../utils/ReworkCountUtil.ts';
+/**
+ * The git reads `rework` and `review record` count from: the worktree's head, the commits since a review started, what a rebase changed,
+ * and the size of the builder's change.
+ */
+import {
+  readChangeSize,
+  readCommitsDiff,
+  readRebaseDiffs,
+  readResolvedCommit,
+  readWorktreeHead
+} from '../../src/lib/git/BranchDiffs.ts';
+import { OperationRefusal } from '../../src/shared/OperationRefusal.ts';
+import { OutputUtil }       from '../utils/OutputUtil.ts';
+import { ReworkCountUtil }  from './utils/ReworkCountUtil.ts';
+import type { FileRework }  from './utils/ReworkCountUtil.ts';
 
 export interface CommitsPart {
   sinceCommit: string;
@@ -20,15 +29,17 @@ export interface RebasePart {
   files:            FileRework[];
 }
 
-export function countCommits(worktreeDirectory: string, since: string): CommitsPart {
-  const reading = readCommitsDiff(worktreeDirectory, since);
+/** `until` is HEAD unless the caller counts up to an earlier tip, such as the branch's tip before a rebase rewrote it. */
+export function countCommits(worktreeDirectory: string, since: string, until = 'HEAD'): CommitsPart {
+  const reading = readCommitsDiff(worktreeDirectory, since, until);
   switch (reading.verdict) {
     case 'unknown-commit':
       throw new OperationRefusal('refused', `--since "${since}" does not name a commit in ${worktreeDirectory}.`);
     case 'not-an-ancestor':
       throw new OperationRefusal(
         'refused',
-        `--since ${OutputUtil.shortCommitOf(reading.sinceCommit)} is not an ancestor of HEAD in ${worktreeDirectory}, so there is no line of commits since it to count. `
+        `--since ${OutputUtil.shortCommitOf(reading.sinceCommit)} is not an ancestor of ${until === 'HEAD' ? until : OutputUtil.shortCommitOf(until)} `
+          + `in ${worktreeDirectory}, so there is no line of commits since it to count. `
           + 'A rebase rewrites the commits after it: count --since before rebasing, and the rebase itself with --rebased-from ORIG_HEAD after.',
       );
     case 'merge-found': {
@@ -84,6 +95,24 @@ export function countRebase(worktreeDirectory: string, oldTip: string, mainLine:
     newBaseCommit: reading.newBaseCommit,
     files:         ReworkCountUtil.combineFileReworks([changedByTheRebase.map((file) => ReworkCountUtil.reworkOfFile(file))]),
   };
+}
+
+export function resolvedCommitIn(worktreeDirectory: string, revision: string, optionName: string): string {
+  const reading = readResolvedCommit(worktreeDirectory, revision);
+  if (reading.verdict === 'unknown-commit') throw new OperationRefusal('refused', `--${optionName} "${revision}" does not name a commit in ${worktreeDirectory}.`);
+  return reading.commit;
+}
+
+export interface ChangeSize {
+  changedFiles: number;
+  insertions:   number;
+  deletions:    number;
+}
+
+export function changeSizeOf(worktreeDirectory: string, mainLine: string, tip: string): ChangeSize {
+  const reading = readChangeSize(worktreeDirectory, mainLine, tip);
+  if (reading.verdict === 'git-failed') throw new OperationRefusal('unrepaired', reading.reason);
+  return { changedFiles: reading.changedFiles, insertions: reading.insertions, deletions: reading.deletions };
 }
 
 export function worktreeHeadCommit(worktreeDirectory: string): string {

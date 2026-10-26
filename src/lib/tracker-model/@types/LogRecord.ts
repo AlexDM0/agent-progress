@@ -3,6 +3,7 @@
  * `src/lib/tracker-model/constants/LogRecordSchema.ts`, so a new kind is an entry there plus its wording in `src/adapters/utils/LogUtil.ts`.
  */
 import type { LogFieldShape, LOG_RECORD_SCHEMA, LOG_RECORD_SUBJECT_IDS } from '../constants/LogRecordSchema.ts';
+import type { ReviewClaim, ReviewFinding, ReviewVerdict }                from './ReviewRecord.ts';
 import type { AgentPair, TicketPriority }                                from './Ticket.ts';
 import type { DispatcherState, ViewRange }                               from './TrackerProgress.ts';
 
@@ -21,6 +22,10 @@ interface ValueOfFieldShape {
   'dispatcher-run-id': string | null;
   'check-command':     string | null;
   'count':             number;
+  'review-bar-round':  number;
+  'review-verdict':    ReviewVerdict;
+  'review-claims':     readonly ReviewClaim[];
+  'review-findings':   readonly ReviewFinding[];
 }
 
 type Schema = typeof LOG_RECORD_SCHEMA;

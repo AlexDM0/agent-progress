@@ -15,6 +15,8 @@
     "../src/shared/utils/DispatcherClaimNoteUtil.ts",
     "../src/lib/tracker-model/constants/AgentSettings.ts",
     "../src/lib/tracker-model/constants/ConcurrencyLimits.ts",
+    "../src/lib/tracker-model/constants/ReviewRecordVocabulary.ts",
+    "../src/lib/tracker-model/@types/ReviewRecord.ts",
     "../src/lib/tracker-model/@types/Ticket.ts",
     "../src/lib/tracker-model/@types/Task.ts",
     "../src/lib/tracker-model/@types/TrackerProgress.ts"

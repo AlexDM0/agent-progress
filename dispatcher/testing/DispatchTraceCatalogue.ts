@@ -1,4 +1,5 @@
 /** Every scenario the frozen trace table holds, keyed: the claim suites' and plain tests' scenarios, a grid, the argument entries and the levers. */
+import type { ReviewFinding } from '../@types/AgentReadings.ts';
 import type {
   AgentMisbehaviour,
   BuilderReply,
@@ -49,13 +50,21 @@ const BUILDER_BEHAVIOURS: readonly BuilderBehaviour[] = [
   { name: 'returns nothing', reply: () => null },
 ];
 
-const ROUND_ONE_FINDING = { class: 'naming', file: 'a.ts', summary: 'naming in a.ts' };
+const ROUND_ONE_FINDING: ReviewFinding = {
+  class: 'convention', severity: 'quality', file: 'a.ts', summary: 'convention in a.ts',
+};
 
-const FOUR_ROUND_ONE_FINDINGS = [
+const FOUR_ROUND_ONE_FINDINGS: ReviewFinding[] = [
   ROUND_ONE_FINDING,
-  { class: 'typing', file: 'b.ts', summary: 'typing in b.ts' },
-  { class: 'wording', file: 'c.ts', summary: 'wording in c.ts' },
-  { class: 'ordering', file: 'd.ts', summary: 'ordering in d.ts' },
+  {
+    class: 'correctness', severity: 'quality', file: 'b.ts', summary: 'correctness in b.ts',
+  },
+  {
+    class: 'docs', severity: 'quality', file: 'c.ts', summary: 'docs in c.ts',
+  },
+  {
+    class: 'test-gap', severity: 'quality', file: 'd.ts', summary: 'test-gap in d.ts',
+  },
 ];
 
 function roundRequestedOnRoundOne(reworkedLines: number): (ticketId: string, round: number) => ReviewerReply {

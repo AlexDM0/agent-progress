@@ -1,8 +1,8 @@
 /** What `rework` prints for a person: one summary sentence, and with `--files` the files with code in them. */
 import { OutputUtil }                    from '../../utils/OutputUtil.ts';
+import type { CommitsPart, RebasePart }  from '../ReworkReading.ts';
 import { ReworkCountUtil }               from '../utils/ReworkCountUtil.ts';
 import type { FileRework, ReworkTotals } from '../utils/ReworkCountUtil.ts';
-import type { CommitsPart, RebasePart }  from './ReworkReading.ts';
 
 interface CountedScope {
   scope:  string;

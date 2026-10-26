@@ -11,7 +11,7 @@ import type { LogRecord }              from './@types/LogRecord.ts';
 
 const LOGGED_AT = '2026-09-26T10:15:00+02:00';
 
-const RECORD_KIND_COUNT = 40;
+const RECORD_KIND_COUNT = 41;
 
 /**
  * Two kinds are logged twice: `draft-claimed`, plainly and as a forced takeover, since the two store different fields, and `draft-opened`,
@@ -51,6 +51,12 @@ const FROZEN_STORED_LINES = [
   '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-body-changed-after-claim","ticketId":"001","fields":{}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-finished","ticketId":"001","fields":{}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"review-bar-started","taskId":3,"ticketId":"001","fields":{"name":"Review 1 #001 — Example checkout page"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"review-recorded","taskId":3,"ticketId":"001","fields":{"round":1,"verdict":"round-requested",'
+    + '"reviewStartCommit":"a1b2c3d4e5f60718293a4b5c6d7e8f9012345678","fixReworkedCodeLines":12,"rebaseReworkedCodeLines":4,"totalReworkedCodeLines":16,'
+    + '"builderChangedFiles":3,"builderInsertions":120,"builderDeletions":8,"claims":[{"item":"A1","result":"holds","handoffContradicted":false}],'
+    + '"findings":[{"class":"test-gap","severity":"quality","file":"src/example/ExampleCheckout.ts","summary":"The empty cart had no spec",'
+    + '"evidence":"watched-fail","outcome":"fixed","commit":"b2c3d4e"},{"class":"out-of-scope","severity":"nit","file":"docs/example.md",'
+    + '"summary":"An example sentence wraps late","evidence":"reading","outcome":"filed","filedTicketId":"004"}]}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-rereviewed","ticketId":"001","fields":{"round":2}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-approved","ticketId":"001","fields":{}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"review-bar-closed","taskId":3,"ticketId":"001","fields":{"name":"Review 1 #001 — Example checkout page"}}',

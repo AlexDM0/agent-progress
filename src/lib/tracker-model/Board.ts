@@ -16,6 +16,8 @@ import type {
   Logged,
   ReviewBarRequest,
   ReviewBarStarted,
+  ReviewRecorded,
+  ReviewRecording,
   TaskAddition,
   TaskAnnotation,
   TaskCorrection,
@@ -254,6 +256,10 @@ export class Board {
 
   startReviewBar(ticketId: string, request: ReviewBarRequest, at: string): ReviewBarStarted {
     return this.reviewBars.startReviewBar(ticketId, request, at);
+  }
+
+  recordReview(ticketId: string, recording: ReviewRecording, at: string): ReviewRecorded {
+    return this.reviewBars.recordReview(ticketId, recording, at);
   }
 
   setTicketDependencies(ticketId: string, dependsOn: readonly string[], at: string): TicketDependenciesChanged {

@@ -50,11 +50,13 @@ const REVIEW_WORK: DispatchWork = {
 };
 
 const REVIEWER_REPLY = {
-  round:          1,
-  verdict:        'released',
-  releaseReason:  '',
-  reworkedLines:  0,
-  findings:       [{ class: 'naming', file: 'a.ts', summary: 'naming in a.ts' }],
+  round:         1,
+  verdict:       'released',
+  releaseReason: '',
+  reworkedLines: 0,
+  findings:      [{
+    class: 'convention', severity: 'nit', file: 'a.ts', summary: 'convention in a.ts',
+  }],
   filedTicketIds: ['010'],
   status:         STATUS_BLOCK,
 };
@@ -438,9 +440,26 @@ describe('a finished agent\'s reply', () => {
       verdict:        'released',
       releaseRefusal: { statedReason: '', blockingFiles: [] },
       reworkedLines:  0,
-      findings:       [{ class: 'naming', file: 'a.ts', summary: 'naming in a.ts' }],
+      findings:       [{
+        class: 'convention', severity: 'nit', file: 'a.ts', summary: 'convention in a.ts',
+      }],
       filedTicketIds: ['010'],
       status:         statusReadingOf(STATUS_BLOCK),
+    });
+  });
+
+  // Kept rather than dropped, so a finding the schema should have refused still counts toward the halving rule.
+  test('a finding whose class or severity is not one of review record\'s words is kept, as unstated', () => {
+    const offWordReply = {
+      ...REVIEWER_REPLY,
+      findings: [{
+        class: 'naming', severity: 'major', file: 'a.ts', summary: 'naming in a.ts'
+      }]
+    };
+    expect(finishedReadingOf(REVIEW_WORK, offWordReply)).toMatchObject({
+      findings: [{
+        class: 'unstated', severity: 'unstated', file: 'a.ts', summary: 'naming in a.ts',
+      }],
     });
   });
 

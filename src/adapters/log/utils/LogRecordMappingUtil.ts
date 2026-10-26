@@ -5,6 +5,7 @@ import type { ViewRange }                            from '../../../lib/tracker-
 import type { LogFieldShape }                        from '../../../lib/tracker-model/constants/LogRecordSchema.ts';
 import { LOG_RECORD_SCHEMA, LOG_RECORD_SUBJECT_IDS } from '../../../lib/tracker-model/constants/LogRecordSchema.ts';
 import type { LogFileReading, StoredLogReading }     from '../@types/StoredLog.ts';
+import { ReviewRecordFieldsUtil }                    from './ReviewRecordFieldsUtil.ts';
 
 type UnknownObject = Record<string, unknown>;
 
@@ -46,6 +47,10 @@ const COPY_FOR_FIELD_SHAPE: Readonly<Record<LogFieldShape, (value: unknown) => u
   'dispatcher-run-id': sameValue,
   'check-command':     sameValue,
   'count':             sameValue,
+  'review-bar-round':  sameValue,
+  'review-verdict':    sameValue,
+  'review-claims':     ReviewRecordFieldsUtil.claimsCopyOf,
+  'review-findings':   ReviewRecordFieldsUtil.findingsCopyOf,
 };
 
 /** Copies into `target` each value `shapes` names, in the schema's order, leaving out an optional one that is absent. */

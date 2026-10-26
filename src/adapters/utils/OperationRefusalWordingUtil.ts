@@ -57,6 +57,12 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
       return `Ticket #${detail.ticketId} is ${detail.status}, `
         + `and another review pass needs a ticket that is in-review.${firstReviewAdvice}`;
     }
+    case 'review-record-without-a-review-bar':
+      return `Ticket #${detail.ticketId} has no in-progress review bar, so there is no review pass to record and nothing was logged. `
+        + `A review is recorded on its own bar: \`agent-progress task add "<name>" --review-of ${detail.ticketId} --start\` starts one.`;
+    case 'review-bar-without-a-round':
+      return `Review bar #${detail.taskId} of ticket #${detail.ticketId} stores no round, so the pass cannot be recorded and nothing was logged. `
+        + `Start the pass on a bar of its own with \`agent-progress task add "<name>" --review-of ${detail.ticketId} --start\`.`;
     case 'unclaimable-status':
       return `Ticket #${detail.ticketId} is ${detail.status}, `
         + `and \`agent-progress ticket claim\` takes a ticket that is ${legalSourcesText('in-progress')}. `

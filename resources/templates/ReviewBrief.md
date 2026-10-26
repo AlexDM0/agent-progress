@@ -60,29 +60,40 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
    `AGENT_PROGRESS_ROOT=<scratch>` before every agent-progress command in it, `cd <scratch> && …`
    joined with `&&`, never `;`); `--root` is `init`'s alone, and any other command refuses it.
    Never write into any `.git` directory by hand.
-4. Count your fixes before you rebase, since the rebase rewrites <review start>:
-   `agent-progress rework --since <review start> --worktree <worktree>`. When HEAD is still
-   <review start>, you changed nothing: leave this pass's mark as one empty commit,
+4. When HEAD is still <review start>, you changed nothing: leave this pass's mark as one empty commit,
    `git -C <worktree> commit --allow-empty -m "Review round <N> of #<id>: no changes"` (a bundle
    names every id), so every pass shows apart on the branch.
 5. Record `git -C <worktree> rev-parse HEAD` as <pre-rebase tip>, then `git rebase <main line>`,
    never `-i`, keeping every commit, the empty one included: resolve with Edit, `git add`,
    `GIT_EDITOR=true git rebase --continue`. Run `<full check command> 2>&1 | tail -20` until green,
-   commit what is uncommitted. Step 3 covers hunks you resolved by hand. Count what the rebase changed:
-   `agent-progress rework --rebased-from <pre-rebase tip> --main <main line> --worktree <worktree>`.
+   commit what is uncommitted. Step 3 covers hunks you resolved by hand.
    The rebase is exempt from the budget: past it, finish the rebase anyway, never
    `git rebase --abort`; a big resolution is what step 7b is for.
 6. When the ticket's `## Acceptance` holds no line starting `A<n>.`, number its existing conditions
    first: `A1.`, `A2.`, … in written order, no word changed, below the frontmatter only.
    Append `## Review` at the end of the ticket, under 15 lines plus one per Acceptance item: each
    finding in one line with its file, your commits, what the rebase touched and what you resolved by
-   hand, and both counts; then one line per item, at the start of the line:
+   hand, and the reworked total; then one line per item, at the start of the line:
    `A2 holds — <evidence: spec file › test title, watched fail, or the probe>`,
    `A2 does not hold — <gap>`, or `A3 waived — <reason>`. An item the Acceptance already marks
    `Waived:` needs no line. `release` reads only this latest `## Review`.
+   Then record the pass, on every outcome. Write a findings file outside <worktree>, a JSON object:
+   `verdict` (`released`, `round-requested`, `does-not-hold`, `not-released`, `integrated`: the one
+   step 7 is about to give), `claims` (one per Fails-review claim and Acceptance item: `item`,
+   `result` `holds|does-not-hold|waived`, `handoffContradicted` true when your own measurement
+   disagreed with the Handoff), and `findings` (each with `class` `correctness|acceptance-gap|
+   test-gap|handoff-claim-false|convention|docs|rebase|out-of-scope`, `severity`
+   `would-ship-a-bug|acceptance-fails|quality|nit`, `file`, `summary`, `evidence`
+   `watched-fail|probe|reading`, and `outcome` `fixed` with its `commit` or `filed` with its
+   `filedTicketId`). Run
+   `agent-progress review record <id> --worktree <worktree> --since <review start> --findings-file <file>`,
+   adding `--rebased-from <pre-rebase tip> --main <main line>` for each rebase of this pass (a bundle:
+   once per ticket, each with its own claims). It counts the rework itself and prints the total:
+   that total is your `reworkedLines`, so add no counts yourself. A refusal records nothing: fix the
+   file and run it again.
 7. The first that applies:
    a. A gap you could not close: `does not hold`.
-   b. Over {{reworkThresholdLines}} lines of code reworked — the two counts together; the tool counts code only, never
+   b. Over {{reworkThresholdLines}} lines of code reworked — the total `review record` printed; it counts code only, never
       a comment, a blank line or documentation: request round <N+1>, stating the count and whether
       the branch holds as it stands. Nothing else is a reason for another review.
    c. Otherwise release: step 8.
@@ -99,16 +110,16 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
    - `"released": true`: done. Name any `cleanup` step that is `left`, and the files it lists.
    - `"reason": "main-moved"`: another branch went in first. If the step you ran first made a
      commit, drop it the way the root `CLAUDE.md` says. Repeat step 5 — record the tip, rebase,
-     checks, `agent-progress rework --rebased-from` — add that count to your total and to your
-     `## Review`, and apply step 7 again: over {{reworkThresholdLines}} now requests the next round; otherwise run
-     this step again.
+     checks — then run `review record` again with every `--rebased-from` of this pass (the latest
+     record of a round is the one that counts), put its total in your `## Review`, and apply step 7
+     again: over {{reworkThresholdLines}} now requests the next round; otherwise run this step again.
    - `"reason": "checks-failed"` whose lines show the command itself cannot run (command not found,
      a failed `cd`, a shell syntax error): change no code and report
      `holds, not released: check command broken` with its `detail`; the line is the orchestrator's.
    - `"reason": "checks-failed"` otherwise: the check command failed on your tip; `detail` ends with its last
-     lines. Fix it as step 2 says and commit, count the fix with
-     `agent-progress rework --since <checked tip>`, add that to your total and your `## Review`,
-     apply step 7 again, and run this step again. When you cannot fix it, report
+     lines. Fix it as step 2 says and commit, run `review record` again with the same arguments
+     (a fix after the last rebase counts in it), put its total in your `## Review`, apply step 7
+     again, and run this step again. When you cannot fix it, report
      `holds, not released: checks-failed` with its `detail`.
    - `worktree-dirty`, `worktree-not-at-tip` or `branch-moved`: commit what is yours, delete your
      probes, and run this step again.

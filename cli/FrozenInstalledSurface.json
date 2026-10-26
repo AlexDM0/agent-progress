@@ -347,5 +347,19 @@
       "epics", "filed", "finished", "freeSlots", "group", "held", "heldTicketIds", "history", "hold", "id", "inProgressReviewOfIds", "inProgressTicketIds",
       "limit", "model", "note", "pausedBuilds", "pending", "priority", "readyTicketIds", "readyTickets", "reviewBars", "reviewOf", "reviewWaitingTickets",
       "reviewed", "round", "row", "start", "started", "status", "task", "ticket", "ticketRows", "tickets", "title", "type", "updated"]
+  },
+  "13": {
+    "commands": ["checks", "dispatcher", "draft", "draft open", "epic list", "help", "hook pre-tool-use", "hook subagent-stop", "init", "log",
+      "open", "range", "release", "review", "review record", "rework", "status", "task add", "task deliver", "task finish", "task pause", "task start",
+      "ticket", "ticket add", "ticket approve", "ticket claim", "ticket finish", "ticket hold", "ticket list", "ticket release-of", "ticket show",
+      "ticket start", "ticket unhold", "update"],
+    "flags": ["--add", "--after", "--assumption", "--at", "--body", "--body-file", "--branch", "--depends-on", "--effort", "--epic", "--findings-file",
+      "--force", "--from", "--group", "--json", "--main", "--model", "--multiple", "--no-hooks", "--no-workflow", "--note", "--owner", "--priority",
+      "--reason", "--rebased-from", "--remove", "--request-file", "--restamp", "--review-of", "--root", "--run", "--since", "--start", "--start-review",
+      "--status", "--ticket", "--title", "--to", "--tokens", "--type", "--under", "--worktree"],
+    "statusJsonFields": ["abandoned", "abandonedAt", "agent", "agentsInFlight", "claimedBodyHash", "concurrency", "delivered", "dispatcherState", "drafts",
+      "effort", "epics", "filed", "finished", "freeSlots", "group", "held", "heldTicketIds", "history", "hold", "id", "inProgressReviewOfIds",
+      "inProgressTicketIds", "limit", "model", "note", "pausedBuilds", "pending", "priority", "readyTicketIds", "readyTickets", "reviewBars", "reviewOf",
+      "reviewWaitingTickets", "reviewed", "round", "row", "start", "started", "status", "task", "ticket", "ticketRows", "tickets", "title", "type", "updated"]
   }
 }

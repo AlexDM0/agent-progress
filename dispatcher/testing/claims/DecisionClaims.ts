@@ -2,6 +2,7 @@
  * The dispatcher's decisions as claims, shared by the decision suite: each a scenario, what must hold after it, and the mutant that breaks exactly
  * that decision.
  */
+import type { ReviewFindingClass }                   from '../../../src/lib/tracker-model/@types/ReviewRecord.ts';
 import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../../src/lib/tracker-model/constants/AgentSettings.ts';
 import { TicketIdUtil }                              from '../../../src/lib/tracker-model/utils/TicketIdUtil.ts';
 import { DISPATCH_PROTOCOL }                         from '../../../src/shared/constants/DispatchProtocol.ts';
@@ -34,13 +35,15 @@ function parkedIds(run: RecordedDispatchRun): string[] {
   return RecordedDispatchRunUtil.mainSummaryOf(run).parked.map((parkedTicket) => parkedTicket.id);
 }
 
-function finding(findingClass: string, file: string): ReviewFinding {
-  return { class: findingClass, file, summary: `${findingClass} in ${file}` };
+function finding(findingClass: ReviewFindingClass, file: string): ReviewFinding {
+  return {
+    class: findingClass, severity: 'quality', file, summary: `${findingClass} in ${file}`,
+  };
 }
 
 /** Round 1 asks for round 2 with four findings; round 2 asks for round 3 with the findings given. */
 function roundThreeScenario(roundTwoFindings: ReviewFinding[]): DispatchScenario {
-  const roundOneFindings = [finding('naming', 'a.ts'), finding('naming', 'b.ts'), finding('ordering', 'a.ts'), finding('ordering', 'b.ts')];
+  const roundOneFindings = [finding('convention', 'a.ts'), finding('convention', 'b.ts'), finding('correctness', 'a.ts'), finding('correctness', 'b.ts')];
   return {
     limit:          2,
     readyTicketIds: ['001'],
@@ -308,25 +311,25 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
   },
   {
     name:        'round 3 is refused when round 2 found more than half of round 1\'s findings',
-    scenarioFor: () => roundThreeScenario([finding('spacing', 'a.ts'), finding('spacing', 'b.ts'), finding('typing', 'a.ts')]),
+    scenarioFor: () => roundThreeScenario([finding('docs', 'a.ts'), finding('docs', 'b.ts'), finding('test-gap', 'a.ts')]),
     holds:       (run) => RecordedDispatchRunUtil.reviewCountOf(run, '001') === 2 && parkedIds(run).includes('001'),
     mutant:      GRANT_ROUND_THREE_WITHOUT_CONVERGENCE,
   },
   {
     name:        'round 3 is refused when round 2 repeats a class an earlier round found',
-    scenarioFor: () => roundThreeScenario([finding('naming', 'a.ts')]),
+    scenarioFor: () => roundThreeScenario([finding('convention', 'a.ts')]),
     holds:       (run) => RecordedDispatchRunUtil.reviewCountOf(run, '001') === 2 && parkedIds(run).includes('001'),
     mutant:      GRANT_ROUND_THREE_WITHOUT_CONVERGENCE,
   },
   {
     name:        'round 3 is refused when round 2 names a file no earlier round named',
-    scenarioFor: () => roundThreeScenario([finding('spacing', 'c.ts')]),
+    scenarioFor: () => roundThreeScenario([finding('docs', 'c.ts')]),
     holds:       (run) => RecordedDispatchRunUtil.reviewCountOf(run, '001') === 2 && parkedIds(run).includes('001'),
     mutant:      GRANT_ROUND_THREE_WITHOUT_CONVERGENCE,
   },
   {
     name:        'round 3 is granted when round 2 converges: at most half the findings, a new class, known files',
-    scenarioFor: () => roundThreeScenario([finding('spacing', 'a.ts'), finding('typing', 'b.ts')]),
+    scenarioFor: () => roundThreeScenario([finding('docs', 'a.ts'), finding('test-gap', 'b.ts')]),
     holds:       (run) => RecordedDispatchRunUtil.reviewCountOf(run, '001') === 3 && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.includes('001'),
     mutant:      {
       modulePath: ROUND_VERDICT,
@@ -345,11 +348,11 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
           return {
             verdict:       'round-requested',
             reworkedLines: 900,
-            findings:      [finding('naming', 'a.ts'), finding('ordering', 'b.ts'), finding('spacing', 'c.ts'), finding('typing', 'd.ts')],
+            findings:      [finding('convention', 'a.ts'), finding('correctness', 'b.ts'), finding('docs', 'c.ts'), finding('test-gap', 'd.ts')],
           };
         }
-        if (round === 2) return { verdict: 'round-requested', reworkedLines: 900, findings: [finding('logging', 'a.ts'), finding('caching', 'a.ts')] };
-        if (round === 3) return { verdict: 'round-requested', reworkedLines: 900, findings: [finding('validation', 'b.ts')] };
+        if (round === 2) return { verdict: 'round-requested', reworkedLines: 900, findings: [finding('acceptance-gap', 'a.ts'), finding('handoff-claim-false', 'a.ts')] };
+        if (round === 3) return { verdict: 'round-requested', reworkedLines: 900, findings: [finding('rebase', 'b.ts')] };
         return { verdict: 'released' };
       },
     }),
@@ -363,9 +366,11 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
   {
     name:        'a reviewer\'s stated round overrides the round the dispatcher counted',
     scenarioFor: () => ({
-      limit:             2,
-      readyTicketIds:    ['001'],
-      reviewerReply:     (_ticketId, round) => (round === 1 ? { verdict: 'round-requested', reworkedLines: 900, findings: [finding('naming', 'a.ts')] } : { verdict: 'released' }),
+      limit:          2,
+      readyTicketIds: ['001'],
+      reviewerReply:  (_ticketId, round) => (round === 1
+        ? { verdict: 'round-requested', reworkedLines: 900, findings: [finding('convention', 'a.ts')] }
+        : { verdict: 'released' }),
       agentMisbehaviour: (call) => (call.kind === 'review' && call.ordinal === 1 ? { replacesFields: { round: 3 } } : undefined),
     }),
     holds:  (run) => RecordedDispatchRunUtil.reviewCountOf(run, '001') === 1 && parkedIds(run).includes('001'),
@@ -1044,7 +1049,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       readyTicketIds:            ticketIdsFrom(1, 3),
       statusOmitsInProgressRows: true,
       reviewerReply:             (ticketId, round) => (ticketId === '001' && round === 1
-        ? { verdict: 'round-requested', reworkedLines: 900, findings: [finding('naming', 'a.ts')] }
+        ? { verdict: 'round-requested', reworkedLines: 900, findings: [finding('convention', 'a.ts')] }
         : { verdict: 'released' }),
     }),
     holds: (run) => {

@@ -6,17 +6,20 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { DISPATCH_PROTOCOL }  from '../../src/shared/constants/DispatchProtocol.ts';
-import type { ReviewFinding } from '../@types/AgentReadings.ts';
-import { nextRoundVerdictOf } from './RoundVerdict.ts';
+import type { ReviewFindingClass } from '../../src/lib/tracker-model/@types/ReviewRecord.ts';
+import { DISPATCH_PROTOCOL }       from '../../src/shared/constants/DispatchProtocol.ts';
+import type { ReviewFinding }      from '../@types/AgentReadings.ts';
+import { nextRoundVerdictOf }      from './RoundVerdict.ts';
 
 const OVER_THE_THRESHOLD_LINES = DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES + 1;
 
-function finding(findingClass: string, file: string): ReviewFinding {
-  return { class: findingClass, file, summary: `${findingClass} in ${file}` };
+function finding(findingClass: ReviewFindingClass, file: string): ReviewFinding {
+  return {
+    class: findingClass, severity: 'quality', file, summary: `${findingClass} in ${file}`,
+  };
 }
 
-const ROUND_ONE_FINDINGS = [finding('naming', 'a.ts'), finding('error-handling', 'b.ts'), finding('tests', 'c.ts'), finding('layout', 'd.ts')];
+const ROUND_ONE_FINDINGS = [finding('convention', 'a.ts'), finding('correctness', 'b.ts'), finding('test-gap', 'c.ts'), finding('docs', 'd.ts')];
 
 describe('the rework threshold', () => {
   test('rework of exactly the threshold is refused, naming the count and the round asked for', () => {
@@ -51,12 +54,12 @@ describe('round 3 and later', () => {
   const roundOne = { round: 1, findings: ROUND_ONE_FINDINGS };
 
   test('is granted when the findings halved, no class came back and every file was named before', () => {
-    const current = { round: 2, findings: [finding('performance', 'a.ts')], reworkedLines: OVER_THE_THRESHOLD_LINES };
+    const current = { round: 2, findings: [finding('acceptance-gap', 'a.ts')], reworkedLines: OVER_THE_THRESHOLD_LINES };
     expect(nextRoundVerdictOf([roundOne, current], current)).toEqual({ granted: true });
   });
 
   test('is refused when the previous round was not reviewed in this run', () => {
-    const current = { round: 3, findings: [finding('performance', 'a.ts')], reworkedLines: OVER_THE_THRESHOLD_LINES };
+    const current = { round: 3, findings: [finding('acceptance-gap', 'a.ts')], reworkedLines: OVER_THE_THRESHOLD_LINES };
     expect(nextRoundVerdictOf([roundOne, current], current)).toEqual({
       granted: false,
       refusal: { reason: 'previous-round-not-reviewed-in-this-run', requestedRound: 4 },
@@ -64,7 +67,8 @@ describe('round 3 and later', () => {
   });
 
   test('is refused when the findings did not halve, naming both counts', () => {
-    const current = { round: 2, findings: [finding('performance', 'a.ts'), finding('security', 'b.ts'), finding('logging', 'c.ts')], reworkedLines: OVER_THE_THRESHOLD_LINES };
+    const threeFindings = [finding('acceptance-gap', 'a.ts'), finding('handoff-claim-false', 'b.ts'), finding('rebase', 'c.ts')];
+    const current = { round: 2, findings: threeFindings, reworkedLines: OVER_THE_THRESHOLD_LINES };
     expect(nextRoundVerdictOf([roundOne, current], current)).toEqual({
       granted: false,
       refusal: {
@@ -77,15 +81,15 @@ describe('round 3 and later', () => {
   });
 
   test('is refused when a class of an earlier round came back, naming the first one that did', () => {
-    const current = { round: 2, findings: [finding('performance', 'a.ts'), finding('tests', 'b.ts')], reworkedLines: OVER_THE_THRESHOLD_LINES };
+    const current = { round: 2, findings: [finding('acceptance-gap', 'a.ts'), finding('test-gap', 'b.ts')], reworkedLines: OVER_THE_THRESHOLD_LINES };
     expect(nextRoundVerdictOf([roundOne, current], current)).toEqual({
       granted: false,
-      refusal: { reason: 'finding-class-returned', requestedRound: 3, findingClass: 'tests' },
+      refusal: { reason: 'finding-class-returned', requestedRound: 3, findingClass: 'test-gap' },
     });
   });
 
   test('is refused when a finding names a file no earlier round named, naming the first such file', () => {
-    const current = { round: 2, findings: [finding('performance', 'a.ts'), finding('security', 'e.ts')], reworkedLines: OVER_THE_THRESHOLD_LINES };
+    const current = { round: 2, findings: [finding('acceptance-gap', 'a.ts'), finding('handoff-claim-false', 'e.ts')], reworkedLines: OVER_THE_THRESHOLD_LINES };
     expect(nextRoundVerdictOf([roundOne, current], current)).toEqual({
       granted: false,
       refusal: { reason: 'new-file-named', requestedRound: 3, file: 'e.ts' },
@@ -94,28 +98,34 @@ describe('round 3 and later', () => {
 
   // Every round before the current one counts, not only the previous: a class from round 1 returning in round 3 is not converging.
   test('a class from any earlier round counts as coming back, not only the previous round\'s', () => {
-    const roundTwo = { round: 2, findings: [finding('performance', 'a.ts'), finding('security', 'b.ts')] };
-    const current = { round: 3, findings: [finding('naming', 'a.ts')], reworkedLines: OVER_THE_THRESHOLD_LINES };
-    expect(nextRoundVerdictOf([roundOne, roundTwo, current], current)).toMatchObject({ granted: false, refusal: { reason: 'finding-class-returned', findingClass: 'naming' } });
+    const roundTwo = { round: 2, findings: [finding('acceptance-gap', 'a.ts'), finding('handoff-claim-false', 'b.ts')] };
+    const current = { round: 3, findings: [finding('convention', 'a.ts')], reworkedLines: OVER_THE_THRESHOLD_LINES };
+    expect(nextRoundVerdictOf([roundOne, roundTwo, current], current)).toMatchObject({ granted: false, refusal: { reason: 'finding-class-returned', findingClass: 'convention' } });
   });
 
   // A file named only in round 1 is still known in round 3: convergence reads every earlier round's files, not only the previous round's.
   test('a file from any earlier round counts as named before, not only the previous round\'s', () => {
-    const roundTwo = { round: 2, findings: [finding('performance', 'a.ts'), finding('security', 'a.ts')] };
-    const current = { round: 3, findings: [finding('logging', 'b.ts')], reworkedLines: OVER_THE_THRESHOLD_LINES };
+    const roundTwo = { round: 2, findings: [finding('acceptance-gap', 'a.ts'), finding('handoff-claim-false', 'a.ts')] };
+    const current = { round: 3, findings: [finding('rebase', 'b.ts')], reworkedLines: OVER_THE_THRESHOLD_LINES };
     expect(nextRoundVerdictOf([roundOne, roundTwo, current], current)).toEqual({ granted: true });
   });
 
   test('the current round in the list is not read as an earlier one', () => {
-    const current = { round: 2, findings: [finding('performance', 'a.ts')], reworkedLines: OVER_THE_THRESHOLD_LINES };
+    const current = { round: 2, findings: [finding('acceptance-gap', 'a.ts')], reworkedLines: OVER_THE_THRESHOLD_LINES };
     expect(nextRoundVerdictOf([roundOne, current], current)).toEqual(nextRoundVerdictOf([roundOne], current));
   });
 
   // A reviewer can state a round already on record, leaving two records of it; the halving is judged against the first.
   test('when a round is on record twice, the findings are halved against its first record', () => {
-    const firstRoundTwo = { round: 2, findings: [finding('performance', 'a.ts'), finding('security', 'b.ts'), finding('logging', 'c.ts'), finding('style', 'd.ts')] };
-    const secondRoundTwo = { round: 2, findings: [finding('caching', 'a.ts')] };
-    const current = { round: 3, findings: [finding('concurrency', 'a.ts'), finding('validation', 'b.ts')], reworkedLines: OVER_THE_THRESHOLD_LINES };
+    const firstRoundTwoFindings = [
+      finding('acceptance-gap', 'a.ts'),
+      finding('handoff-claim-false', 'b.ts'),
+      finding('acceptance-gap', 'c.ts'),
+      finding('handoff-claim-false', 'd.ts'),
+    ];
+    const firstRoundTwo = { round: 2, findings: firstRoundTwoFindings };
+    const secondRoundTwo = { round: 2, findings: [finding('acceptance-gap', 'a.ts')] };
+    const current = { round: 3, findings: [finding('rebase', 'a.ts'), finding('out-of-scope', 'b.ts')], reworkedLines: OVER_THE_THRESHOLD_LINES };
     expect(nextRoundVerdictOf([roundOne, firstRoundTwo, secondRoundTwo, current], current)).toEqual({ granted: true });
   });
 });

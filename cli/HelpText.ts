@@ -214,6 +214,22 @@ output never carries either.
                               working tree to read instead of the current directory; --files adds
                               the per-file breakdown. It needs no tracker and writes nothing.
 
+  review record <id>          Record one review pass as a review-recorded line in the log, on the
+      --worktree <path>       ticket's in-progress review bar, whose stored round it takes. A
+      --since <review start>  reviewer runs it once per pass, on every outcome. It counts the rework
+      --findings-file <file>  itself, as \`rework\` does: the commits since <review start> up to the
+      [--rebased-from <tip>]  first --rebased-from (HEAD without one), and each rebase from its
+      [--main <line>]         pre-rebase tip, given once per rebase, up to the next one's (HEAD for
+      [--json]                the last), and prints the total to report as reworkedLines. It takes
+                              the builder's change size, \`git diff --shortstat <main>...<review
+                              start>\`. One --main names every rebase's main line (default \`main\`),
+                              or one per --rebased-from. The findings file (\`-\` reads standard
+                              input) is a JSON object: verdict, claims (item, result,
+                              handoffContradicted) and findings (class, severity, file, summary,
+                              evidence, outcome, then commit or filedTicketId); docs/cli.md lists
+                              the words each takes. A word outside them, a missing field, or a
+                              ticket with no in-progress review bar is refused, recording nothing.
+
   release <id> --branch <b>   Release a reviewed branch: fast-forward the main checkout — the
       [--worktree <path>]     tracker's root, wherever this runs from — to <b>, then approve the
       [--main <line>]         ticket and deliver it with --branch <b> and --commit set

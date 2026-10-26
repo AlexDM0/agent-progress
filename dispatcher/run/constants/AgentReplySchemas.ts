@@ -2,9 +2,10 @@
  * The reply schema of each agent the dispatcher starts. Key and array orders are part of the wire contract the frozen table hashes, and the
  * field names mirror the `status --json` fields the prompts ask the agents to copy, with `worktreeNames` the survey's own `ls`.
  */
-import type { DispatcherState }                 from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
-import type { BuilderOutcome, ReviewerVerdict } from '../../@types/AgentReadings.ts';
-import type { JsonSchema }                      from '../../@types/WorkflowRuntime.ts';
+import type { DispatcherState }                              from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
+import { REVIEW_FINDING_CLASSES, REVIEW_FINDING_SEVERITIES } from '../../../src/lib/tracker-model/constants/ReviewRecordVocabulary.ts';
+import type { BuilderOutcome, ReviewerVerdict }              from '../../@types/AgentReadings.ts';
+import type { JsonSchema }                                   from '../../@types/WorkflowRuntime.ts';
 
 const READY_TICKET_SCHEMA: JsonSchema = {
   type:       'object',
@@ -55,10 +56,16 @@ const PAUSED_BUILD_SCHEMA: JsonSchema = {
 
 const WORKTREE_NAMES_SCHEMA: JsonSchema = { type: 'array', items: { type: 'string' } };
 
+/** The class and severity words are `review record`'s own, so the reply and the stored record agree. */
 const FINDING_SCHEMA: JsonSchema = {
   type:       'object',
-  properties: { class: { type: 'string' }, file: { type: 'string' }, summary: { type: 'string' } },
-  required:   ['class', 'file', 'summary'],
+  properties: {
+    class:    { type: 'string', enum: [...REVIEW_FINDING_CLASSES] },
+    severity: { type: 'string', enum: [...REVIEW_FINDING_SEVERITIES] },
+    file:     { type: 'string' },
+    summary:  { type: 'string' },
+  },
+  required: ['class', 'severity', 'file', 'summary'],
 };
 
 const SURVEY: JsonSchema = {

@@ -2,7 +2,7 @@
 import type { Concurrency }                     from './Concurrency.ts';
 import type { Draft }                           from './Draft.ts';
 import type { Epic }                            from './Epic.ts';
-import type { LogRecord }                       from './LogRecord.ts';
+import type { LogRecord, LogRecordFieldsOf }    from './LogRecord.ts';
 import type { Task, TaskStatus }                from './Task.ts';
 import type { AgentEffort, AgentModel, Ticket } from './Ticket.ts';
 import type { DispatcherState }                 from './TrackerProgress.ts';
@@ -78,6 +78,14 @@ export interface TicketRelease {
 
 export interface Logged {
   logged: readonly LogRecord[];
+}
+
+/** What a review pass records beside the round, which the Board takes from the review bar it is recorded on. */
+export type ReviewRecording = Omit<LogRecordFieldsOf<'review-recorded'>, 'round'>;
+
+export interface ReviewRecorded extends Logged {
+  taskId: number;
+  round:  number;
 }
 
 export interface TicketChanged extends Logged {

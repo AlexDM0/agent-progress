@@ -15,7 +15,8 @@ const { boardRefusalMessageOf: messageOf } = OperationRefusalWordingUtil;
  * a worktree, run the refused command with `bun run <worktree>/agent-progress.ts` in a scratch git repository after `init`, and copy its
  * standard error. Rows no command reaches easily (the singular limit, a ticket-owned row sent to re-review, a held-back ticket with one
  * blocker) are read from the wording in bc42604:cli/task/TaskCommand.ts, bc42604:cli/ticket/TicketCommand.ts and
- * bc42604:lib/tickets/TicketTransitions.ts.
+ * bc42604:lib/tickets/TicketTransitions.ts. The two review-record reasons are newer than bc42604, and their rows were taken from the wording util
+ * when they were added.
  */
 const MESSAGE_FOR_REFUSAL: readonly (readonly [BoardRefusalDetail, string])[] = [
   [{ reason: 'unknown-task', taskId: 99 }, 'There is no task #99. Run `agent-progress status` to see the rows this tracker holds.'],
@@ -88,6 +89,16 @@ const MESSAGE_FOR_REFUSAL: readonly (readonly [BoardRefusalDetail, string])[] = 
   [
     { reason: 'tokens-without-a-row', ticketId: '006' },
     'Ticket #006 has no row, so --tokens has nowhere to be recorded: a low-priority ticket gets its row when it is started. Drop --tokens.',
+  ],
+  [
+    { reason: 'review-record-without-a-review-bar', ticketId: '006' },
+    'Ticket #006 has no in-progress review bar, so there is no review pass to record and nothing was logged. '
+    + 'A review is recorded on its own bar: `agent-progress task add "<name>" --review-of 006 --start` starts one.',
+  ],
+  [
+    { reason: 'review-bar-without-a-round', ticketId: '006', taskId: 7 },
+    'Review bar #7 of ticket #006 stores no round, so the pass cannot be recorded and nothing was logged. '
+    + 'Start the pass on a bar of its own with `agent-progress task add "<name>" --review-of 006 --start`.',
   ],
   [
     { reason: 'rereview-outside-review', ticketId: '001', status: 'pending' },
@@ -294,7 +305,7 @@ const MESSAGE_FOR_REFUSAL: readonly (readonly [BoardRefusalDetail, string])[] = 
   ],
 ];
 
-const REFUSAL_REASON_COUNT = 34;
+const REFUSAL_REASON_COUNT = 36;
 
 test('every reason words as the refusal the command printed before the Board refused for it', () => {
   expect(new Set(MESSAGE_FOR_REFUSAL.map(([detail]) => detail.reason)).size, 'the table covers every reason').toBe(REFUSAL_REASON_COUNT);

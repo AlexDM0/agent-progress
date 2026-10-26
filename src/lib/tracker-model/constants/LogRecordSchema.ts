@@ -20,7 +20,11 @@ export type LogFieldShape =
   | 'dispatcher-state'
   | 'dispatcher-run-id'
   | 'check-command'
-  | 'count';
+  | 'count'
+  | 'review-bar-round'
+  | 'review-verdict'
+  | 'review-claims'
+  | 'review-findings';
 
 export interface LogRecordKindSchema {
   subject: LogRecordSubject;
@@ -77,13 +81,30 @@ export const LOG_RECORD_SCHEMA = {
   // A review bar's `name` is carried because the sentence prints the row's stored name, which an edit may have made anything.
   'review-bar-started':              { subject: 'review-bar', fields: { name: 'text' } },
   'review-bar-closed':               { subject: 'review-bar', fields: { name: 'text' } },
-  'chart-range-set':                 { subject: 'board', fields: { view: 'chart-range' } },
-  'concurrency-limit-set':           { subject: 'board', fields: { limit: 'concurrency-limit' } },
-  'dispatcher-set':                  { subject: 'board', fields: { state: 'dispatcher-state', runId: 'dispatcher-run-id' } },
-  'check-command-set':               { subject: 'board', fields: { command: 'check-command' } },
-  'tracker-cleared':                 { subject: 'board', fields: NO_FIELDS },
+  // One reviewer pass: the rework is code lines only, the fix and rebase parts apart, and the builder's change is measured at the review's start.
+  'review-recorded':                 {
+    subject: 'review-bar',
+    fields:  {
+      round:                   'review-bar-round',
+      verdict:                 'review-verdict',
+      reviewStartCommit:       'text',
+      fixReworkedCodeLines:    'count',
+      rebaseReworkedCodeLines: 'count',
+      totalReworkedCodeLines:  'count',
+      builderChangedFiles:     'count',
+      builderInsertions:       'count',
+      builderDeletions:        'count',
+      claims:                  'review-claims',
+      findings:                'review-findings',
+    },
+  },
+  'chart-range-set':       { subject: 'board', fields: { view: 'chart-range' } },
+  'concurrency-limit-set': { subject: 'board', fields: { limit: 'concurrency-limit' } },
+  'dispatcher-set':        { subject: 'board', fields: { state: 'dispatcher-state', runId: 'dispatcher-run-id' } },
+  'check-command-set':     { subject: 'board', fields: { command: 'check-command' } },
+  'tracker-cleared':       { subject: 'board', fields: NO_FIELDS },
   // `totalInputTokens` is fresh input plus cache read plus cache creation; the run id and label are stored only for an agent a workflow run spawned.
-  'agent-stopped':                   {
+  'agent-stopped':         {
     subject: 'board',
     fields:  {
       agentId:              'text',

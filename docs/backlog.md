@@ -19,18 +19,6 @@ Each item is agreed in principle and deliberately not done, with the reason it w
 Not started because they are internal moves with no behaviour change, left when step 7 closed with
 the features regrouped; they wait for the next change to ticket filing, `ticket show` or `clear --all`.
 
-## A combined rework count
-
-A reviewer adds the `rework --since` count and each `rework --rebased-from` count itself, the
-repeats after `main-moved` included, to report `reworkedLines`: the review brief's steps 4, 5, 7b
-and 8 in `resources/templates/ReviewBrief.md` and the reviewer prompt in
-`dispatcher/run/utils/AgentPromptUtil.ts` tell it to. Agreed: one count from the tool, so the
-reviewer has nothing to add.
-
-Not started because it changes what the reviewer is told, so it waits for a commit meant to change
-the brief and the prompts, which retakes `dispatcher/testing/FrozenDispatchTraces.json`; the
-dispatcher port kept the old script's instructions.
-
 ## Redrawing two README diagrams
 
 `docs/images/terminal-init.svg` and the `terminal-init.png` built from it show init's report as it was

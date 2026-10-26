@@ -2,10 +2,11 @@
  * The dispatcher's one input edge: the Workflow arguments and every agent's reply, mapped into internal values. Each guard reads a malformed
  * shape as `dispatcher/testing/FrozenDispatchTraces.json` pins it, so a reply the schema admits maps to exactly what the run acts on.
  */
-import type { TicketPriority }                       from '../../src/lib/tracker-model/@types/Ticket.ts';
-import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../src/lib/tracker-model/constants/AgentSettings.ts';
-import type { ReleaseRefusalReason }                 from '../../src/shared/@types/ReleaseRefusalReason.ts';
-import { DispatcherClaimNoteUtil }                   from '../../src/shared/utils/DispatcherClaimNoteUtil.ts';
+import type { TicketPriority }                               from '../../src/lib/tracker-model/@types/Ticket.ts';
+import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL }         from '../../src/lib/tracker-model/constants/AgentSettings.ts';
+import { REVIEW_FINDING_CLASSES, REVIEW_FINDING_SEVERITIES } from '../../src/lib/tracker-model/constants/ReviewRecordVocabulary.ts';
+import type { ReleaseRefusalReason }                         from '../../src/shared/@types/ReleaseRefusalReason.ts';
+import { DispatcherClaimNoteUtil }                           from '../../src/shared/utils/DispatcherClaimNoteUtil.ts';
 import type {
   AgentReading,
   BuilderOutcome,
@@ -265,9 +266,10 @@ function ticketSettingsLookupOf(lookup: unknown): TicketSettingsLookup | 'unread
 function findingsOf(value: unknown): ReviewFinding[] {
   if (!Array.isArray(value)) return [];
   return value.filter(valueIsAnObject).map((finding) => ({
-    class:   String(finding['class']),
-    file:    String(finding['file']),
-    summary: String(finding['summary']),
+    class:    REVIEW_FINDING_CLASSES.find((findingClass) => findingClass === finding['class']) ?? 'unstated',
+    severity: REVIEW_FINDING_SEVERITIES.find((severity) => severity === finding['severity']) ?? 'unstated',
+    file:     String(finding['file']),
+    summary:  String(finding['summary']),
   }));
 }
 

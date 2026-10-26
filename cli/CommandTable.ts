@@ -16,6 +16,7 @@ export const COMMAND_TABLE = {
   hook:        async () => (await import('./measurement/hook/HookCommand.ts')).hookCommand,
   usage:       async () => (await import('./measurement/usage/UsageCommand.ts')).usageCommand,
   rework:      async () => (await import('./measurement/rework/ReworkCommand.ts')).reworkCommand,
+  review:      async () => (await import('./measurement/review-record/ReviewRecordCommand.ts')).reviewCommand,
   release:     async () => (await import('./dispatch/release/ReleaseCommand.ts')).releaseCommand,
   ticket:      async () => (await import('./tickets/TicketCommand.ts')).ticketCommand,
   epic:        async () => (await import('./epics/EpicCommand.ts')).epicCommand,

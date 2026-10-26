@@ -8,19 +8,15 @@ import { OperationRefusal }                              from '../../../src/shar
 import type { CommandHandler }                           from '../../CommandHandler.ts';
 import { DEFAULT_MAIN_LINE }                             from '../../constants/GitDefaults.ts';
 import { OutputUtil }                                    from '../../utils/OutputUtil.ts';
+import { countCommits, countRebase, worktreeHeadCommit } from '../ReworkReading.ts';
 import { ReworkCountUtil }                               from '../utils/ReworkCountUtil.ts';
-import type { FileRework, ReworkTotals }                 from '../utils/ReworkCountUtil.ts';
-import { countCommits, countRebase, worktreeHeadCommit } from './ReworkReading.ts';
 import { fileBreakdownLines, summaryLine }               from './ReworkText.ts';
+
+const { partReworkOf } = ReworkCountUtil;
 
 const USAGE = 'agent-progress rework [--since <commit>] [--rebased-from <old tip>] [--main <branch>] [--worktree <path>] [--files] [--json]';
 
 const KNOWN_OPTION_NAMES = ['since', 'rebased-from', 'main', 'worktree', 'files', 'json'];
-
-function partReworkOf(files: readonly FileRework[]): Pick<ReworkTotals, 'reworkedCodeLines' | 'addedCodeLines' | 'removedCodeLines'> {
-  const { addedCodeLines, removedCodeLines, reworkedCodeLines } = ReworkCountUtil.totalReworkOf(files);
-  return { reworkedCodeLines, addedCodeLines, removedCodeLines };
-}
 
 export const reworkCommand: CommandHandler = (commandArguments, context) => {
   commandArguments.rejectUnknownOptions(KNOWN_OPTION_NAMES, USAGE);

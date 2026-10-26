@@ -515,7 +515,14 @@ function totalReworkOf(files: readonly FileRework[]): ReworkTotals {
   return totals;
 }
 
+/** One part of a count, the commits or a rebase, as the code lines it reworked, added and removed. */
+function partReworkOf(files: readonly FileRework[]): Pick<ReworkTotals, 'reworkedCodeLines' | 'addedCodeLines' | 'removedCodeLines'> {
+  const { addedCodeLines, removedCodeLines, reworkedCodeLines } = totalReworkOf(files);
+  return { reworkedCodeLines, addedCodeLines, removedCodeLines };
+}
+
 export const ReworkCountUtil = {
+  partReworkOf,
   classifyFileLines,
   readDiff,
   addedLinesInOnlyOne,

@@ -54,6 +54,37 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
   board.editTicket('001', { body: { text: 'Example rewritten report.\n', appends: false }, allowsPastPending: true }, at);
   board.moveTicket('001', 'in-review', { checksLegality: true }, at);
   board.startReviewBar('001', { round: 1 }, at);
+  board.recordReview('001', {
+    verdict:                 'round-requested',
+    reviewStartCommit:       'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678',
+    fixReworkedCodeLines:    12,
+    rebaseReworkedCodeLines: 4,
+    totalReworkedCodeLines:  16,
+    builderChangedFiles:     3,
+    builderInsertions:       120,
+    builderDeletions:        8,
+    claims:                  [{ item: 'A1', result: 'holds', handoffContradicted: false }],
+    findings:                [
+      {
+        class:    'test-gap',
+        severity: 'quality',
+        file:     'src/example/ExampleCheckout.ts',
+        summary:  'The empty cart had no spec',
+        evidence: 'watched-fail',
+        outcome:  'fixed',
+        commit:   'b2c3d4e',
+      },
+      {
+        class:         'out-of-scope',
+        severity:      'nit',
+        file:          'docs/example.md',
+        summary:       'An example sentence wraps late',
+        evidence:      'reading',
+        outcome:       'filed',
+        filedTicketId: '004',
+      },
+    ],
+  }, at);
   board.rereviewTicket('001', at);
   board.moveTicket('001', 'reviewed', { checksLegality: true }, at);
   board.moveTicket('001', 'delivered', { checksLegality: true }, at);
