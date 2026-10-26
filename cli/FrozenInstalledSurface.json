@@ -335,8 +335,9 @@
   },
   "12": {
     "commands": ["checks", "dispatcher", "draft", "draft open", "epic list", "help", "hook pre-tool-use", "hook subagent-stop", "init", "log",
-      "open", "range", "release", "rework", "status", "task add", "task deliver", "task finish", "task pause", "task start", "ticket", "ticket add", "ticket approve",
-      "ticket claim", "ticket finish", "ticket hold", "ticket list", "ticket release-of", "ticket show", "ticket start", "ticket unhold", "update"],
+      "open", "range", "release", "render", "rework", "status", "task add", "task deliver", "task finish", "task pause", "task start", "ticket", "ticket add",
+      "ticket approve", "ticket claim", "ticket finish", "ticket hold", "ticket list", "ticket release-of", "ticket show", "ticket start", "ticket unhold",
+      "update"],
     "flags": ["--add", "--after", "--assumption", "--at", "--body", "--body-file", "--branch", "--depends-on", "--effort", "--epic", "--force",
       "--from", "--group", "--json", "--main", "--model", "--multiple", "--no-hooks", "--no-workflow", "--note", "--owner", "--priority", "--reason",
       "--rebased-from", "--remove", "--request-file", "--restamp", "--review-of", "--root", "--run", "--since", "--start", "--start-review",

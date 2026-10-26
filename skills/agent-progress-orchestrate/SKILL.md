@@ -132,6 +132,14 @@ ticket commands and leave the run alone. Stopping the run for intake loses the a
 the user stops a run, and then through `agent-progress dispatcher stopped` (The user saying stop,
 below).
 
+**Keep the page live while a run of this session is going** (Host mechanics: Keeping the page live): a builder may go
+longer than the page's live limit without a tracker command, and the heartbeat re-renders the page meanwhile. Start it
+right after recording a launched or resumed run's id, and for a single-ticket or group run right after its launch
+returns, unless this session's heartbeat is already going: one heartbeat serves every run of this session, and it
+keeps going while any of them is live. Stop it when the last of them returns, whatever its summary, when you stop one
+outright, or when the host reports it died; a relaunch or resume starts it again. Never start it for a run this
+session did not launch.
+
 **The whole-board run is the default; a high ticket has a fast lane.** A **high-priority** ticket filed
 while a whole-board run is going gets a single-ticket run of its own at once, **only when the Next line
 after filing shows a free slot**: the launch, with the args
@@ -192,7 +200,7 @@ checkout, naming them, and relaunch on their go; never commit or stash them your
 to triage (Low-priority work, below). `pausedBuilds` and `reviewsLeft` wait for the next whole-board launch, a low
 paused build for the one with `includeLowPriority: true`.
 `held`, each `{ id, waitingFor: 'build' | 'review' }`, you list to the user, and relaunch for only
-after an unhold. Then:
+after an unhold. Stop the heartbeat first when no other run of this session is still going. Then:
 
 1. `agent-progress dispatcher finished` — unless the summary carries `stoppedByBoard`: that is the
    user's stop taking effect, and the state stays `stopped`. With `stoppedByFailures`, run
@@ -249,7 +257,8 @@ A launch or relaunch happens only in a turn that is the user's go or the host's 
 session's run ended, never in a turn answering an unrelated request.
 
 **Recovering a run that died or was killed: resume it, never launch fresh.** Its agents in flight left
-their tickets claimed, their bars running and partial work in their worktrees. Resume it with the run
+their tickets claimed, their bars running and partial work in their worktrees. The heartbeat stopped with it, as
+Keep the page live says, and starts again with the resume or launch below. Resume it with the run
 id the board stored (`concurrency.dispatcherRunId`) and the same args as its launch (Host mechanics:
 Resuming a run), then `agent-progress dispatcher running --run <the new run id>`. Only when there is no stored id or
 the resume is refused: for every `in-progress` row no agent is behind, `agent-progress task pause` a
@@ -270,7 +279,8 @@ alone — whether one is still relevant, which of two survives — is a question
 to return with `stoppedByBoard` and handle it as When it returns says. Stopping the run outright (Host
 mechanics: Stopping a run outright) happens only on the user's explicit instruction to do exactly that, or on an
 install version refusal (When agent-progress itself changes): it abandons agents mid-work, with their
-claims, bars and worktrees, and the run is then resumed as Recovering says.
+claims, bars and worktrees; stop the heartbeat with it unless another run of this session is going, and the run is
+then resumed as Recovering says.
 
 **By hand.** Only while the dispatcher is stopped and the user asks for one ticket by hand: create its
 worktree off the main line (`git -C <main checkout> worktree add <path> -b <branch> <main line>`), start

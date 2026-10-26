@@ -25,6 +25,7 @@ when; these say with what. The dispatcher is {{dispatcherWorkflowName}}.
 - **Noticing the end of a run**: {{dispatcherRunEnd}}
 - **Resuming a run**: {{dispatcherResume}}
 - **Stopping a run outright**: {{dispatcherStop}}
+- **Keeping the page live**: {{dispatcherHeartbeat}}
 - **Starting an agent by hand**: {{agentByHand}}
 
 ## Scope
