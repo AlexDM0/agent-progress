@@ -48,7 +48,7 @@ import type {
   EpicEdit,
   EpicRollup
 }                                                           from './@types/Epic.ts';
-import type { AgentUsage }                     from './@types/LogRecord.ts';
+import type { AgentUsage, LogRecord }          from './@types/LogRecord.ts';
 import type { DisplayState, Task, TaskStatus } from './@types/Task.ts';
 import type {
   ReadyTicket,
@@ -66,6 +66,8 @@ import { Epics }                                            from './Epics.ts';
 import { GroupReleases }                                    from './GroupReleases.ts';
 import type { Logger }                                      from './Logger.ts';
 import { ReviewBars }                                       from './ReviewBars.ts';
+import type { ReviewStatisticsReport }                      from './ReviewStatistics.ts';
+import { ReviewStatistics }                                 from './ReviewStatistics.ts';
 import { TaskRows }                                         from './TaskRows.ts';
 import { TicketClaims }                                     from './TicketClaims.ts';
 import { TicketDependencies }                               from './TicketDependencies.ts';
@@ -115,6 +117,8 @@ export class Board {
 
   private readonly displayQueries: DisplayQueries;
 
+  private readonly reviewStatistics: ReviewStatistics;
+
   private readonly epicRules: Epics;
 
   private readonly draftRules: Drafts;
@@ -127,6 +131,7 @@ export class Board {
     this.groupReleases      = new GroupReleases(this.records);
     this.dispatchQueries    = new DispatchQueries(this.records, this.groupReleases);
     this.displayQueries     = new DisplayQueries(this.records, this.reviewBars);
+    this.reviewStatistics   = new ReviewStatistics(this.records, this.reviewBars);
     this.ticketDependencies = new TicketDependencies(this.records);
     this.ticketLinks        = new TicketLinks(this.records);
     this.ticketMoves        = new TicketMoves(this.records, this.reviewBars, this.ticketDependencies, this.groupReleases);
@@ -440,6 +445,11 @@ export class Board {
 
   reviewRowsOf(ticketId: string): readonly Readonly<Task>[] {
     return this.displayQueries.reviewRowsOf(ticketId);
+  }
+
+  /** The log is the caller's to hand in, since the Board holds no log records. */
+  reviewStatisticsOf(logRecords: readonly LogRecord[]): ReviewStatisticsReport {
+    return this.reviewStatistics.reviewStatisticsOf(logRecords);
   }
 
   reviewWaitingTickets(): readonly Readonly<Ticket>[] {

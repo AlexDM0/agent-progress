@@ -58,6 +58,7 @@ describe('the command table', () => {
       'release',
       'render',
       'review',
+      'review-stats',
       'rework',
       'status',
       'task',

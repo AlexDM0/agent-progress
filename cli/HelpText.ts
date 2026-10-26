@@ -230,6 +230,21 @@ output never carries either.
                               the words each takes. A word outside them, a missing field, or a
                               ticket with no in-progress review bar is refused, recording nothing.
 
+  review-stats [--json]       What the recorded reviews catch, miss and cost: every ticket with a
+                              review-recorded line, summed over all of them and split by ticket
+                              type, by the builder's change size (insertions plus deletions its
+                              first recorded pass measured: up to 50, 200, 750, or above) and by
+                              its resolved model and effort. Per group: tickets, passes, rounds per
+                              ticket, verdicts, findings by class and severity, serious findings
+                              (would-ship-a-bug or acceptance-fails) per ticket, review and builder
+                              tokens per ticket, review tokens per serious finding, escaped bugs
+                              (bugs whose introducedBy names the ticket) per delivered ticket split
+                              by whether its last pass had a serious finding, tickets filed from
+                              its reviews (foundInReview), the share of claims contradicting the
+                              Handoff, and fix and rebase lines per ticket; docs/cli.md defines
+                              each. Tickets with no recorded review are counted on one line. It
+                              takes no lock and writes and renders nothing, as \`status\` does.
+
   release <id> --branch <b>   Release a reviewed branch: fast-forward the main checkout — the
       [--worktree <path>]     tracker's root, wherever this runs from — to <b>, then approve the
       [--main <line>]         ticket and deliver it with --branch <b> and --commit set
