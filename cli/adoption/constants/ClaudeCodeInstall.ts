@@ -112,13 +112,14 @@ const CLAUDE_CODE_SENTENCES: Readonly<Record<string, string>> = {
   dispatcherStop:      'stop the Workflow task itself.',
   dispatcherHeartbeat: 'start it as a background Bash command (`run_in_background: true`) in the main\n'
     + '  checkout, keeping its task id:\n'
-    + '  `while board=$(agent-progress status --json)'
+    + '  `while sleep 300 && board=$(agent-progress status --json)'
     + ' && ! printf \'%s\' "$board" | grep -q \'"dispatcherState": "stopped"\''
     + ' && printf \'%s\' "$board" | grep -Eq \'"dispatcherState": "running"|"agentsInFlight": [1-9]\';'
-    + ' do agent-progress render >/dev/null 2>&1; sleep 300; done`.\n'
-    + '  It renders every 300 s; a failed render is ignored and tried again next interval. It ends by itself once the board\n'
-    + '  reads `stopped`, or neither `running` nor any agent in flight; that exit\'s notification needs nothing. Stop it by\n'
-    + '  stopping that background task by its id.',
+    + ' do agent-progress render >/dev/null 2>&1; done`.\n'
+    + '  Every 300 s it reads the board and renders; a failed render is ignored and tried again next interval. Waiting\n'
+    + '  first gives a just-launched run time to claim its first ticket. It ends by itself once the board reads `stopped`,\n'
+    + '  or neither `running` nor any agent in flight; that exit\'s notification needs nothing. Stop it by stopping that\n'
+    + '  background task by its id.',
   agentByHand: 'the Agent tool with `subagent_type: \'agent-progress-worker\'`, the installed definition\n'
     + '  `.claude/agents/agent-progress-worker.md` that carries the default model and effort.',
 };
