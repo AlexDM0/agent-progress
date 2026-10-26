@@ -3,6 +3,7 @@ import type { TaskStatus } from './@types/Task.ts';
 import type {
   AgentPair,
   TicketPriority,
+  TicketSize,
   TicketStatus,
   TicketType
 } from './@types/Ticket.ts';
@@ -35,6 +36,7 @@ export type BoardRefusalDetail =
   | { reason: 'introduced-by-itself'; ticketId: string }
   | { reason: 'introduced-by-an-undelivered-ticket'; ticketId: string; causeTicketId: string; status: TicketStatus }
   | { reason: 'priority-unchanged'; ticketId: string; status: TicketStatus; priority: TicketPriority }
+  | { reason: 'size-unchanged'; ticketId: string; status: TicketStatus; size: TicketSize }
   | { reason: 'lowering-a-ticket-that-is-not-pending'; ticketId: string; status: TicketStatus }
   | { reason: 'edit-of-a-ticket-past-pending'; ticketId: string; status: TicketStatus }
   | { reason: 'agents-of-a-settled-ticket'; ticketId: string; status: TicketStatus }

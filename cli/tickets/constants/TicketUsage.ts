@@ -1,5 +1,5 @@
 export const TICKET_USAGE = [
-  'agent-progress ticket add "<title>" --type ticket|bug|research [--priority low|normal|high] [--model <m>] [--effort <e>] [--group <name>] '
+  'agent-progress ticket add "<title>" --type ticket|bug|research [--priority low|normal|high] [--size XS|S|M|L|XL|XXL] [--model <m>] [--effort <e>] [--group <name>] '
   + '[--depends-on <ids>] [--epic <keys>] [--introduced-by <id>] [--found-in-review <id>] [--body <markdown> | --body-file <path|->] [--at <when>]',
   'agent-progress ticket list [--status <s>] [--priority <p>] [--json]',
   'agent-progress ticket show <id> [--json]',
@@ -14,6 +14,7 @@ export const TICKET_USAGE = [
   'agent-progress ticket epic <id> [<key>...] | --add <keys> | --remove <keys> [--at <when>] [--json]',
   'agent-progress ticket introduced-by <id> [<cause id>] [--at <when>] [--json]',
   'agent-progress ticket priority <id> low|normal|high [--at <when>]',
+  'agent-progress ticket size <id> XS|S|M|L|XL|XXL [--at <when>]',
   'agent-progress ticket agent <id> [--model <m>] [--effort <e>] [--at <when>]',
   'agent-progress ticket hold <id> [--reason <text>] [--at <when>]',
   'agent-progress ticket unhold <id> [--at <when>]',

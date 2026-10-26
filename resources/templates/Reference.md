@@ -53,7 +53,7 @@ owner: Alex Example
 | key | written | value |
 |---|---|---|
 | `id`, `title`, `type`, `status`, `filed`, `updated` | always; required | `type`: ticket, bug, research; a stored change or feature reads as ticket and is written back as stored. `status`: pending, in-progress, in-review, reviewed, delivered, abandoned. `updated` is stamped on every move. |
-| `priority`, `model`, `effort` | only once named | `priority`: low, normal, high. `model`: haiku, sonnet, opus, fable. `effort`: low, medium, high, xhigh, max. Absent reads as normal, and as opus and medium, so an older ticket is never rewritten to gain them. |
+| `priority`, `size`, `model`, `effort` | only once named | `priority`: low, normal, high. `size`: XS, S, M, L, XL, XXL, in capitals. `model`: haiku, sonnet, opus, fable. `effort`: low, medium, high, xhigh, max. Absent reads as normal, as no size, and as opus and medium, so an older ticket is never rewritten to gain them. |
 | `hold` | only while held | the hold's reason, empty without one; any value but `null`, a bare `hold:` included, is held. Set and remove it with `ticket hold` and `unhold`. |
 | `started`, `finished`, `delivered`, `abandonedAt` | always | a timestamp or `null`; an absent one reads as `null` |
 | `group`, `branch`, `commit`, `reason` | when given | text; `reason` is dropped by `reopen` |

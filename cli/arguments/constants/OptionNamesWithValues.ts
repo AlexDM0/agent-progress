@@ -16,6 +16,7 @@ export const OPTION_NAMES_WITH_VALUES = new Set<string>([
   'tokens',
   'type',
   'priority',
+  'size',
   'model',
   'effort',
   'group',

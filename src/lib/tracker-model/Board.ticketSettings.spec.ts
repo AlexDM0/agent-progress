@@ -108,6 +108,33 @@ describe('linkTicketToTask', () => {
   });
 });
 
+describe('setTicketSize', () => {
+  test('sizing an unsized ticket logs only the new size, and resizing logs both', () => {
+    const { board, tickets, records } = boardFixture({ tickets: [ticketFixture({ id: '001', status: 'delivered' })] });
+    board.setTicketSize('001', 'M', CHANGED_AT);
+    const resized = board.setTicketSize('001', 'XL', CHANGED_AT);
+
+    expect(tickets[0]?.frontmatter.size).toBe('XL');
+    expect(records).toEqual([
+      {
+        at: CHANGED_AT, kind: 'ticket-size-changed', ticketId: '001', fields: { to: 'M' }
+      },
+      {
+        at: CHANGED_AT, kind: 'ticket-size-changed', ticketId: '001', fields: { from: 'M', to: 'XL' }
+      },
+    ]);
+    expect(board.changedTickets()).toEqual([resized.ticket]);
+  });
+
+  test('naming the size a ticket already has is refused as unchanged, with nothing written', () => {
+    const fixture = boardFixture({ tickets: [ticketFixture({ id: '001', size: 'S' })] });
+    const detail  = expectRefusedWithNothingChanged(fixture, () => fixture.board.setTicketSize('001', 'S', CHANGED_AT), 'size-unchanged');
+    expect(detail).toEqual({
+      reason: 'size-unchanged', ticketId: '001', status: 'pending', size: 'S'
+    });
+  });
+});
+
 describe('setTicketAgents', () => {
   test('naming a new model changes only the model and logs both resolved pairs', () => {
     const {

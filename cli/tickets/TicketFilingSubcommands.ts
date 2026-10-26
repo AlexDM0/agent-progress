@@ -17,7 +17,7 @@ import type { TicketSubcommandHandler }          from './@types/TicketSubcommand
 import { TICKET_USAGE }                          from './constants/TicketUsage.ts';
 import { TicketArgumentUtil }                    from './utils/TicketArgumentUtil.ts';
 
-const ADD_OPTION_NAMES = ['type', 'priority', 'model', 'effort', 'group', 'depends-on', 'epic', 'introduced-by', 'found-in-review', 'body', 'body-file', 'at', 'json'];
+const ADD_OPTION_NAMES = ['type', 'priority', 'size', 'model', 'effort', 'group', 'depends-on', 'epic', 'introduced-by', 'found-in-review', 'body', 'body-file', 'at', 'json'];
 
 const TICKET_BODY_TEMPLATE_PATH = ['templates', 'TicketBody.md'];
 
@@ -45,6 +45,7 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
     throw new OperationRefusal('refused', `agent-progress ticket add needs --type ${TICKET_TYPES.join('|')}.\n  Usage: ${TICKET_USAGE}`);
   }
   const priority  = TicketArgumentUtil.priorityFrom(commandArguments.option('priority'));
+  const size      = TicketArgumentUtil.sizeFrom(commandArguments.option('size'));
   const model     = TicketArgumentUtil.agentModelFrom(commandArguments.option('model'));
   const effort    = TicketArgumentUtil.agentEffortFrom(commandArguments.option('effort'));
   const group     = commandArguments.option('group');
@@ -70,6 +71,7 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
     if (epics.length > 0) ticket.frontmatter.epics = epics;
     if (introducedBy !== null) ticket.frontmatter.introducedBy = introducedBy;
     if (foundInReview !== null) ticket.frontmatter.foundInReview = foundInReview;
+    if (size !== undefined) ticket.frontmatter.size = size;
     if (model !== undefined) ticket.frontmatter.model = model;
     if (effort !== undefined) ticket.frontmatter.effort = effort;
     return change.board.fileTicket(ticket, change.at);

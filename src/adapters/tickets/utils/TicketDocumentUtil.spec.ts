@@ -386,6 +386,22 @@ describe('model and effort', () => {
     expect(TicketDocumentUtil.ticketDocumentTextOf(frontmatter, body)).toBe(withAgent.replace('model: sonnet', 'model: "sonnet"'));
   });
 
+  test('a size reads back quoted or bare and is written after the priority; an absent one writes no key', () => {
+    const sized = FULL_TICKET.replace('type: "bug"\n', 'type: "bug"\npriority: "high"\nsize: XL\n');
+    const { frontmatter, body } = parsedDocument(sized);
+    const unsized = parsedDocument(FULL_TICKET);
+
+    expect(frontmatter.size).toBe('XL');
+    expect(TicketDocumentUtil.ticketDocumentTextOf(frontmatter, body)).toBe(sized.replace('size: XL', 'size: "XL"'));
+    expect(unsized.frontmatter.size).toBeUndefined();
+    expect(TicketDocumentUtil.ticketDocumentTextOf(unsized.frontmatter, unsized.body)).toBe(FULL_TICKET);
+  });
+
+  test('a lowercase or unknown size is malformed and names its line', () => {
+    expect(TicketDocumentUtil.parsedTicketDocumentOf(FULL_TICKET.replace('type: "bug"\n', 'type: "bug"\nsize: "m"\n')))
+      .toEqual({ verdict: 'malformed', reason: '`size` is not a known ticket size: m', line: 5 });
+  });
+
   test('a model or an effort the tool does not know is malformed and names its line', () => {
     expect(TicketDocumentUtil.parsedTicketDocumentOf(FULL_TICKET.replace('type: "bug"\n', 'type: "bug"\nmodel: "claude-opus-5-5"\n')))
       .toEqual({ verdict: 'malformed', reason: '`model` is not a known agent model: claude-opus-5-5', line: 5 });

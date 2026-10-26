@@ -2,14 +2,15 @@ import type {
   AgentEffort,
   AgentModel,
   TicketPriority,
+  TicketSize,
   TicketType
 } from '../../../src/lib/tracker-model/@types/Ticket.ts';
-import { AGENT_EFFORTS, AGENT_MODELS }     from '../../../src/lib/tracker-model/constants/AgentSettings.ts';
-import { TICKET_STATUSES }                 from '../../../src/lib/tracker-model/constants/Statuses.ts';
-import { TICKET_PRIORITIES, TICKET_TYPES } from '../../../src/lib/tracker-model/constants/TicketFields.ts';
-import { TicketIdUtil }                    from '../../../src/lib/tracker-model/utils/TicketIdUtil.ts';
-import { VocabularyUtil }                  from '../../../src/lib/tracker-model/utils/VocabularyUtil.ts';
-import { OperationRefusal }                from '../../../src/shared/OperationRefusal.ts';
+import { AGENT_EFFORTS, AGENT_MODELS }                   from '../../../src/lib/tracker-model/constants/AgentSettings.ts';
+import { TICKET_STATUSES }                               from '../../../src/lib/tracker-model/constants/Statuses.ts';
+import { TICKET_PRIORITIES, TICKET_SIZES, TICKET_TYPES } from '../../../src/lib/tracker-model/constants/TicketFields.ts';
+import { TicketIdUtil }                                  from '../../../src/lib/tracker-model/utils/TicketIdUtil.ts';
+import { VocabularyUtil }                                from '../../../src/lib/tracker-model/utils/VocabularyUtil.ts';
+import { OperationRefusal }                              from '../../../src/shared/OperationRefusal.ts';
 
 const LIST_SEPARATOR_PATTERN = /[\s,]+/;
 
@@ -22,6 +23,17 @@ function requirePriority(writtenPriority: string): TicketPriority {
 
 function priorityFrom(writtenPriority: string | undefined): TicketPriority | undefined {
   return writtenPriority === undefined ? undefined : requirePriority(writtenPriority);
+}
+
+function requireSize(writtenSize: string): TicketSize {
+  if (!VocabularyUtil.ticketSizeIsKnown(writtenSize)) {
+    throw new OperationRefusal('refused', `"${writtenSize}" is not a ticket size. The sizes are ${TICKET_SIZES.join(', ')}, in capitals.`);
+  }
+  return writtenSize;
+}
+
+function sizeFrom(writtenSize: string | undefined): TicketSize | undefined {
+  return writtenSize === undefined ? undefined : requireSize(writtenSize);
 }
 
 function ticketTypeFrom(writtenType: string | undefined): TicketType | undefined {
@@ -83,6 +95,8 @@ function refuseAnUnknownTicketStatus(writtenStatus: string): never {
 export const TicketArgumentUtil = {
   requirePriority,
   priorityFrom,
+  requireSize,
+  sizeFrom,
   ticketTypeFrom,
   agentModelFrom,
   agentEffortFrom,

@@ -50,6 +50,8 @@ const SENTENCE_FOR_RECORD: readonly (readonly [LogRecordContent, string])[] = [
     { kind: 'ticket-agents-changed', ticketId: '001', fields: { from: { model: 'opus', effort: 'medium' }, to: { model: 'sonnet', effort: 'low' } } },
     'Ticket #001 agents opus/medium → sonnet/low',
   ],
+  [{ kind: 'ticket-size-changed', ticketId: '001', fields: { to: 'M' } }, 'Ticket #001 sized M'],
+  [{ kind: 'ticket-size-changed', ticketId: '001', fields: { from: 'M', to: 'XL' } }, 'Ticket #001 size M → XL'],
   [{ kind: 'ticket-held', ticketId: '001', fields: { reason: 'waiting on design' } }, 'Ticket #001 held: waiting on design'],
   [{ kind: 'ticket-held', ticketId: '001', fields: { reason: '' } }, 'Ticket #001 held'],
   [{ kind: 'ticket-unheld', ticketId: '001', fields: {} }, 'Ticket #001 unheld'],

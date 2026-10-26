@@ -19,7 +19,8 @@ import { TicketLookupUtil }                                             from './
 
 const LINK_OPTION_NAMES     = ['force', 'json'];
 const PRIORITY_OPTION_NAMES = ['at', 'json'];
-const AGENT_OPTION_NAMES    = ['model', 'effort', 'at', 'json'];
+const SIZE_OPTION_NAMES     = ['at', 'json'];
+const AGENT_OPTION_NAMES  = ['model', 'effort', 'at', 'json'];
 
 async function linkOneTicket(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
   commandArguments.rejectUnknownOptions(LINK_OPTION_NAMES, TICKET_USAGE);
@@ -64,6 +65,25 @@ async function setTicketPriority(commandArguments: ArgumentParser, context: Comm
   OutputUtil.printEntityThenNextLine(commandArguments, context, TicketJsonUtil.ticketAsJson(changed.ticket), OutputUtil.loggedSentencesOf(changed.logged), closingLines);
 }
 
+async function setTicketSize(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
+  commandArguments.rejectUnknownOptions(SIZE_OPTION_NAMES, TICKET_USAGE);
+  commandArguments.rejectExtraPositionals(SUBCOMMAND_WITH_TWO_ARGUMENTS_POSITIONAL_COUNT, TICKET_USAGE);
+
+  const [, reference, writtenSize] = commandArguments.positionals();
+  if (reference === undefined || writtenSize === undefined) {
+    throw new OperationRefusal('refused', `agent-progress ticket size needs a ticket id and a size.\n  Usage: ${TICKET_USAGE}`);
+  }
+  const size = TicketArgumentUtil.requireSize(writtenSize);
+
+  const changed = await openTrackerForWriting(
+    commandArguments,
+    context,
+    (change) => change.board.setTicketSize(TicketLookupUtil.requireTicket(change, reference).frontmatter.id, size, change.at),
+  );
+
+  OutputUtil.printEntity(commandArguments, context, TicketJsonUtil.ticketAsJson(changed.ticket), OutputUtil.loggedSentencesOf(changed.logged));
+}
+
 async function setTicketAgent(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
   commandArguments.rejectUnknownOptions(AGENT_OPTION_NAMES, TICKET_USAGE);
   commandArguments.rejectExtraPositionals(2, TICKET_USAGE);
@@ -96,6 +116,7 @@ export const TICKET_SETTING_SUBCOMMANDS: Readonly<Record<string, TicketSubcomman
   epic:            setTicketEpics,
   'introduced-by': setTicketIntroducedBy,
   priority:        setTicketPriority,
+  size:            setTicketSize,
   agent:           setTicketAgent,
   hold:            async (commandArguments, context) => holdOrUnholdTicket(true, commandArguments, context),
   unhold:          async (commandArguments, context) => holdOrUnholdTicket(false, commandArguments, context),

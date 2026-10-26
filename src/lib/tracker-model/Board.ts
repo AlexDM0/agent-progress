@@ -54,8 +54,9 @@ import type {
   ReadyTicket,
   Ticket,
   TicketPriority,
+  TicketSize,
   TicketStatus
-}                                                           from './@types/Ticket.ts';
+}                                                         from './@types/Ticket.ts';
 import type { DispatcherState, TrackerProgress, ViewRange } from './@types/TrackerProgress.ts';
 import { BoardRecords }                                     from './BoardRecords.ts';
 import { DispatchQueries }                                  from './DispatchQueries.ts';
@@ -303,6 +304,10 @@ export class Board {
 
   setTicketPriority(ticketId: string, priority: TicketPriority, at: string): TicketChanged {
     return this.ticketSettings.setTicketPriority(ticketId, priority, at);
+  }
+
+  setTicketSize(ticketId: string, size: TicketSize, at: string): TicketChanged {
+    return this.ticketSettings.setTicketSize(ticketId, size, at);
   }
 
   setTicketAgents(ticketId: string, agents: AgentChoice, at: string): TicketChanged {

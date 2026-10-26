@@ -58,6 +58,7 @@ const KNOWN_KEYS = new Set<string>([
   'title',
   'type',
   'priority',
+  'size',
   'model',
   'effort',
   'hold',
@@ -172,6 +173,7 @@ function ticketDocumentTextOf(frontmatter: TicketFrontmatter, body: string, line
     `title: ${JSON.stringify(frontmatter.title)}`,
     `type: ${JSON.stringify(writtenType)}`,
     ...(frontmatter.priority === undefined ? [] : [`priority: ${JSON.stringify(frontmatter.priority)}`]),
+    ...(frontmatter.size === undefined ? [] : [`size: ${JSON.stringify(frontmatter.size)}`]),
     ...(frontmatter.model === undefined ? [] : [`model: ${JSON.stringify(frontmatter.model)}`]),
     ...(frontmatter.effort === undefined ? [] : [`effort: ${JSON.stringify(frontmatter.effort)}`]),
     ...(frontmatter.hold === undefined ? [] : [`hold: ${JSON.stringify(frontmatter.hold)}`]),
@@ -361,6 +363,7 @@ function frontmatterFrom(
     title:       requiredText(knownValues, 'title', closingFenceLine),
     type:        typeIsRetired ? 'ticket' : typeText,
     ...priorityField(knownValues),
+    ...sizeField(knownValues),
     ...agentFields(knownValues),
     ...holdField(knownValues),
     status:      statusText,
@@ -417,6 +420,19 @@ function priorityField(knownValues: Map<string, KnownValue>): Pick<TicketFrontma
     throw new FrontmatterProblem(`\`priority\` is not a known ticket priority: ${priorityText}`, found.line);
   }
   return { priority: priorityText };
+}
+
+/** Absent or `null` stays absent like `priority`; a size is written in capitals, and `m` is refused like any unknown value. */
+function sizeField(knownValues: Map<string, KnownValue>): Pick<TicketFrontmatter, 'size'> {
+  const found = knownValues.get('size');
+  if (found === undefined || found.value === null) {
+    return {};
+  }
+  const sizeText = textOf(found, 'size');
+  if (!VocabularyUtil.ticketSizeIsKnown(sizeText)) {
+    throw new FrontmatterProblem(`\`size\` is not a known ticket size: ${sizeText}`, found.line);
+  }
+  return { size: sizeText };
 }
 
 /** Absent or `null` stays absent like `priority`, so a ticket filed before agents were named is never rewritten with the default. */

@@ -313,6 +313,7 @@ output never carries either.
   ticket add "<title>"        File a ticket: a markdown file under \`.agent-progress/tickets/\` with
       --type ticket|bug|research
       [--priority low|normal|high]
+      [--size XS|S|M|L|XL|XXL]
       [--model <m>]
       [--effort <e>]
       [--group <name>]        its own frontmatter, plus a pending Gantt row. The body comes from
@@ -331,8 +332,10 @@ output never carries either.
                               task id until it is started. --model (haiku, sonnet, opus, fable)
                               and --effort (low, medium, high, xhigh, max) name what the agents
                               building and reviewing it run on; left off, they are opus and
-                              medium. Anything else is refused at exit 1, and so are --body and
-                              --body-file together.
+                              medium. --size, in capitals, is the expected change in code lines
+                              (XS ≤ 20, S ≤ 100, M ≤ 300, L ≤ 750, XL ≤ 1500, XXL beyond); left
+                              off, the ticket has no size. Anything else is refused at exit 1, and
+                              so are --body and --body-file together.
 
   ticket list [--status <s>]  The tickets with their status, priority, type and row id, and the
                               model and effort after the title where the ticket names them. --status
@@ -395,6 +398,11 @@ output never carries either.
                               low ticket that has no row gives it one at once. A low ticket gets
                               its row when \`ticket start\` or \`ticket claim\` starts it, and keeps
                               it; abandoning a low ticket that has none creates none.
+
+  ticket size <id> XS|S|M|L|XL|XXL [--at <when>]
+                              Change a ticket's size, in any status, with one log line. Refused at
+                              exit 1 on a value outside the list under \`ticket add\` and when
+                              nothing would change.
 
   ticket start|finish|approve|deliver|abandon|reopen <id> [--branch <b>] [--commit <sha>]
       [--reason <text>] [--tokens <n>] [--at <when>]

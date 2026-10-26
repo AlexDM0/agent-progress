@@ -37,6 +37,7 @@ const COPY_FOR_FIELD_SHAPE: Readonly<Record<LogFieldShape, (value: unknown) => u
   'task-id':           sameValue,
   'optional-text':     sameValue,
   'priority':          sameValue,
+  'ticket-size':       sameValue,
   'agent-pair':        (value) => agentPairOf(value as AgentPair),
   'ticket-ids':        listCopyOf,
   'epic-keys':         listCopyOf,

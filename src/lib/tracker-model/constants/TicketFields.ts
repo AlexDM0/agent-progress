@@ -8,6 +8,8 @@ export const RETIRED_TICKET_TYPES = ['change', 'feature'] as const;
 
 export const TICKET_PRIORITIES = ['low', 'normal', 'high'] as const;
 
+export const TICKET_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'] as const;
+
 export const DEFAULT_TICKET_PRIORITY: TicketPriority = 'normal';
 
 /** The number the first ticket is filed under; ticket ids start at 001. */

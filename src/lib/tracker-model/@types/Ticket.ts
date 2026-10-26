@@ -5,7 +5,9 @@ export type RetiredTicketType = 'change' | 'feature';
 /** The task ladder without the two states only a row reaches. */
 export type TicketStatus   = Exclude<TaskStatus, 'paused' | 're-review'>;
 export type TicketPriority = 'low' | 'normal' | 'high';
-export type LineEnding     = '\n' | '\r\n';
+/** The expected change in code lines, comments and docs not counted: XS ≤ 20, S ≤ 100, M ≤ 300, L ≤ 750, XL ≤ 1500, XXL beyond. */
+export type TicketSize     = 'XS' | 'S' | 'M' | 'L' | 'XL' | 'XXL';
+export type LineEnding    = '\n' | '\r\n';
 
 /** The model aliases a Claude Code agent definition's `model` key accepts, as an agent working a ticket runs on. */
 export type AgentModel  = 'haiku' | 'sonnet' | 'opus' | 'fable';
@@ -23,6 +25,8 @@ export interface TicketFrontmatter {
   type:             TicketType;
   /** Absent on every ticket filed before priorities existed, and on one filed without a priority; absent reads as `normal`. */
   priority?:        TicketPriority;
+  /** Absent unless the filer sized it; it only feeds the page's statistics. */
+  size?:            TicketSize;
   /** Absent unless somebody named one; absent reads as the default for builders and reviewers. */
   model?:           AgentModel;
   effort?:          AgentEffort;

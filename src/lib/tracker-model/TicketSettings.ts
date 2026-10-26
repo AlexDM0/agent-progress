@@ -1,10 +1,15 @@
 /** What a ticket is set to run with, outside its moves: its priority, which gives or takes its row, its agent pair, and its hold. */
-import type { AgentChoice, TicketChanged }        from './@types/BoardChanges.ts';
-import type { AgentPair, Ticket, TicketPriority } from './@types/Ticket.ts';
-import type { BoardRecords }                      from './BoardRecords.ts';
-import { BoardRefusal }                           from './BoardRefusal.ts';
-import { SETTLED_TICKET_STATUSES }                from './constants/Statuses.ts';
-import { TicketDefaultsUtil }                     from './utils/TicketDefaultsUtil.ts';
+import type { AgentChoice, TicketChanged } from './@types/BoardChanges.ts';
+import type {
+  AgentPair,
+  Ticket,
+  TicketPriority,
+  TicketSize
+} from './@types/Ticket.ts';
+import type { BoardRecords }       from './BoardRecords.ts';
+import { BoardRefusal }            from './BoardRefusal.ts';
+import { SETTLED_TICKET_STATUSES } from './constants/Statuses.ts';
+import { TicketDefaultsUtil }      from './utils/TicketDefaultsUtil.ts';
 
 export class TicketSettings {
   constructor(private readonly records: BoardRecords) {}
@@ -40,6 +45,21 @@ export class TicketSettings {
     }
     this.records.markChanged(ticket);
     return { logged: [this.records.logger.log({ kind: 'ticket-priority-changed', ticketId, fields: { from: currentPriority, to: priority } }, at)], ticket };
+  }
+
+  /** Allowed in every status, since a settled ticket's size still feeds the statistics. */
+  setTicketSize(ticketId: string, size: TicketSize, at: string): TicketChanged {
+    const ticket          = this.records.requireTicket(ticketId);
+    const { frontmatter } = ticket;
+    const currentSize     = frontmatter.size;
+    if (currentSize === size) throw new BoardRefusal({
+      reason: 'size-unchanged', ticketId, status: frontmatter.status, size
+    });
+
+    frontmatter.size = size;
+    this.records.markChanged(ticket);
+    const fields = currentSize === undefined ? { to: size } : { from: currentSize, to: size };
+    return { logged: [this.records.logger.log({ kind: 'ticket-size-changed', ticketId, fields }, at)], ticket };
   }
 
   /** Judged on the resolved pair, so naming the default a ticket already runs on is refused as no change. */

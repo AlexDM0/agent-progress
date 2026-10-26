@@ -4,7 +4,7 @@
  */
 import type { LogFieldShape, LOG_RECORD_SCHEMA, LOG_RECORD_SUBJECT_IDS } from '../constants/LogRecordSchema.ts';
 import type { ReviewClaim, ReviewFinding, ReviewVerdict }                from './ReviewRecord.ts';
-import type { AgentPair, TicketPriority }                                from './Ticket.ts';
+import type { AgentPair, TicketPriority, TicketSize }                    from './Ticket.ts';
 import type { DispatcherState, ViewRange }                               from './TrackerProgress.ts';
 
 interface ValueOfFieldShape {
@@ -12,6 +12,7 @@ interface ValueOfFieldShape {
   'task-id':           number;
   'optional-text':     string;
   'priority':          TicketPriority;
+  'ticket-size':       TicketSize;
   'agent-pair':        AgentPair;
   'ticket-ids':        readonly string[];
   'epic-keys':         readonly string[];

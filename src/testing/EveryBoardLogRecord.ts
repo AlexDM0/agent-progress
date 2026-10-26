@@ -17,6 +17,7 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
   board.fileTicket(ticketFixture({ id: '003', title: 'Example search page' }), at);
   board.editTicket('003', { title: 'Example search results page' }, at);
   board.setTicketPriority('001', 'high', at);
+  board.setTicketSize('001', 'M', at);
   board.setTicketDependencies('002', ['001'], at);
   board.setTicketAgents('001', { model: 'sonnet', effort: 'high' }, at);
   board.holdTicket('001', 'waiting on Example Agency', at);

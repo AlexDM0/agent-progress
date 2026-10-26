@@ -370,7 +370,7 @@
     "flags": ["--add", "--after", "--assumption", "--at", "--body", "--body-file", "--branch", "--depends-on", "--effort", "--epic", "--findings-file",
       "--force", "--found-in-review", "--from", "--group", "--introduced-by", "--json", "--main", "--model", "--multiple", "--no-hooks", "--no-workflow",
       "--note", "--owner", "--priority", "--reason", "--rebased-from", "--remove", "--request-file", "--restamp", "--review-of", "--root", "--run", "--since",
-      "--start", "--start-review", "--status", "--ticket", "--title", "--to", "--tokens", "--type", "--under", "--worktree"],
+      "--size", "--start", "--start-review", "--status", "--ticket", "--title", "--to", "--tokens", "--type", "--under", "--worktree"],
     "statusJsonFields": ["abandoned", "abandonedAt", "agent", "agentsInFlight", "claimedBodyHash", "concurrency", "delivered", "dispatcherState", "drafts",
       "effort", "epics", "filed", "finished", "freeSlots", "group", "held", "heldTicketIds", "history", "hold", "id", "inProgressReviewOfIds",
       "inProgressTicketIds", "limit", "model", "note", "pausedBuilds", "pending", "priority", "readyTicketIds", "readyTickets", "reviewBars", "reviewOf",

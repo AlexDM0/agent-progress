@@ -199,6 +199,15 @@ const MESSAGE_FOR_REFUSAL: readonly (readonly [BoardRefusalDetail, string])[] = 
   ],
   [
     {
+      reason:   'size-unchanged',
+      ticketId: '003',
+      status:   'delivered',
+      size:     'M',
+    },
+    'Ticket #003 is delivered, and its size was not changed: it is already M. Nothing was written.',
+  ],
+  [
+    {
       reason:   'agents-unchanged',
       ticketId: '003',
       status:   'in-progress',

@@ -80,6 +80,10 @@ function sentenceOf(record: LogRecordContent): string {
       return `Ticket #${record.ticketId} ${StatusWordingUtil.movedPhraseFor('in-review')}, round ${record.fields.round}`;
     case 'ticket-priority-changed':
       return `Ticket #${record.ticketId} priority ${record.fields.from} → ${record.fields.to}`;
+    case 'ticket-size-changed':
+      return record.fields.from === undefined
+        ? `Ticket #${record.ticketId} sized ${record.fields.to}`
+        : `Ticket #${record.ticketId} size ${record.fields.from} → ${record.fields.to}`;
     case 'ticket-dependencies-set': {
       const { dependsOn } = record.fields;
       return dependsOn.length === 0

@@ -5,12 +5,18 @@ import type {
   AgentModel,
   RetiredTicketType,
   TicketPriority,
+  TicketSize,
   TicketStatus,
   TicketType
 } from '../@types/Ticket.ts';
-import { AGENT_EFFORTS, AGENT_MODELS }                           from '../constants/AgentSettings.ts';
-import { TASK_STATUSES, TICKET_STATUSES }                        from '../constants/Statuses.ts';
-import { RETIRED_TICKET_TYPES, TICKET_PRIORITIES, TICKET_TYPES } from '../constants/TicketFields.ts';
+import { AGENT_EFFORTS, AGENT_MODELS }    from '../constants/AgentSettings.ts';
+import { TASK_STATUSES, TICKET_STATUSES } from '../constants/Statuses.ts';
+import {
+  RETIRED_TICKET_TYPES,
+  TICKET_PRIORITIES,
+  TICKET_SIZES,
+  TICKET_TYPES
+} from '../constants/TicketFields.ts';
 
 /** A membership test, not a record lookup: `constructor` is a truthy, callable property of every object and outside text can spell it. */
 function taskStatusIsKnown(text: string): text is TaskStatus {
@@ -33,6 +39,10 @@ function ticketPriorityIsKnown(text: string): text is TicketPriority {
   return (TICKET_PRIORITIES as readonly string[]).includes(text);
 }
 
+function ticketSizeIsKnown(text: string): text is TicketSize {
+  return (TICKET_SIZES as readonly string[]).includes(text);
+}
+
 function agentModelIsKnown(text: string): text is AgentModel {
   return (AGENT_MODELS as readonly string[]).includes(text);
 }
@@ -47,6 +57,7 @@ export const VocabularyUtil = {
   ticketTypeIsKnown,
   retiredTicketTypeIsKnown,
   ticketPriorityIsKnown,
+  ticketSizeIsKnown,
   agentModelIsKnown,
   agentEffortIsKnown,
 } as const;

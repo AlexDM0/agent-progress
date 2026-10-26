@@ -37,6 +37,7 @@ const EXACT_REASONS: readonly (readonly [string, Record<string, unknown>, string
   ['text', withFields('ticket-retitled', { to: null }), 'fields.to is not a string'],
   ['optional text', withFields('agent-stopped', { agentLabel: null }), 'fields.agentLabel is not a string'],
   ['priority', withFields('ticket-priority-changed', { to: 'urgent' }), 'fields.to is "urgent", which is not one of low, normal, high'],
+  ['ticket size', withFields('ticket-size-changed', { to: 'm' }), 'fields.to is "m", which is not one of XS, S, M, L, XL, XXL'],
   ['agent pair', withFields('ticket-agents-changed', { from: { model: 'gpt', effort: 'low' } }), 'fields.from.model is "gpt", which is not a known model'],
   ['agent pair effort', withFields('ticket-agents-changed', { to: { model: 'opus', effort: 'extreme' } }), 'fields.to.effort is "extreme", which is not a known effort'],
   ['ticket ids', withFields('ticket-dependencies-set', { dependsOn: ['001', 2] }), 'fields.dependsOn is not a list of ticket ids'],

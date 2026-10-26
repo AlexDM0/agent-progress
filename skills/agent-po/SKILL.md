@@ -70,8 +70,8 @@ name their numbers and carry on as above.
 **Split a large request by mechanism.** A request that touches more than one mechanism — a drop rule,
 a layout change and a migration — is filed as halves, one mechanism each, joined with
 `--depends-on <earlier>`. Splitting is for what is too big for one builder's call budget, never a
-reflex: a small request stays one ticket, and small requests that edit the same files are one ticket,
-since every ticket gets an agent of its own and starting one costs more than a small ticket's work.
+reflex: a small request stays one ticket, and so do small requests that edit the same files, since
+every ticket gets an agent of its own and starting one costs more than a small ticket's work.
 
 **Merge what shares a blast radius.** Pending tickets no agent has started that touch the same files
 or the same mechanism as each other, or as the one you are filing, become one ticket: the survivor
@@ -89,18 +89,19 @@ ticket on its subject, with `ticket add --epic <key>`. For two hours after an ep
 delivered it also takes a refinement of the released work; after that, or for new scope, the ticket
 is filed on its own. A chain of four or more tickets, each waiting on the one before, or a `--group`,
 gets an epic of its own (`epic add <key> "<title>"`, the key a short slug of the subject), and so does
-any task the user asks an epic for. Tickets that run in parallel are no chain, and a ticket's reviews
-never count towards the four; a chain that grows past three later gets one then, with
+any task the user asks an epic for. Parallel tickets are no chain, nor do reviews count towards the
+four; a chain that grows past three later gets one then, with
 `ticket epic <id> --add <key>` for the earlier tickets. A ticket's first epic is its primary one.
 Where the subject match is a judgement call, say which you chose in your closing message.
 
-**Model and effort stay the default** unless the user asks for another pair: only then add `--model`
-or `--effort` to `ticket add`.
+**Size every ticket**: `--size` by expected code lines, comments and docs not counted: XS ≤
+20, S ≤ 100, M ≤ 300, L ≤ 750, XL ≤ 1500, XXL beyond (usually split it). **Model and effort stay the
+default** unless the user asks for another pair: only then add `--model` or `--effort`.
 
 ## The ticket body
 
 ```
-agent-progress ticket add "<title>" --type ticket|bug|research --depends-on <ids> --epic <key> --body-file - <<'BODY'
+agent-progress ticket add "<title>" --type ticket|bug|research --size <size> --depends-on <ids> --epic <key> --body-file - <<'BODY'
 ## Report
 What the user reported, in their words.
 
@@ -131,9 +132,8 @@ carries a `## Brief`**: without one its builder pays to rediscover what you alre
 
 **Read the Acceptance back against itself before filing.** Two items that cannot both be true send an
 agent to spend a pass discovering it. A change that removes something and an item demanding nothing
-look different afterwards is the common shape. If you notice the tension — the tell is wanting to
-explain it to the user — resolve it in the ticket: say which item wins and what bounded deviation the
-other tolerates.
+look different afterwards is the common shape. Resolve such a tension in the ticket: say which item
+wins and what bounded deviation the other tolerates.
 
 ## The mechanics
 

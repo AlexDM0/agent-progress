@@ -148,6 +148,9 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
     case 'priority-unchanged':
       return `Ticket #${detail.ticketId} is ${detail.status}, and its priority was not changed: `
         + `it is already ${detail.priority} priority. ${NOTHING_WAS_WRITTEN}`;
+    case 'size-unchanged':
+      return `Ticket #${detail.ticketId} is ${detail.status}, and its size was not changed: `
+        + `it is already ${detail.size}. ${NOTHING_WAS_WRITTEN}`;
     case 'lowering-a-ticket-that-is-not-pending':
       return `Ticket #${detail.ticketId} is ${detail.status}, and its priority was not changed: `
         + 'only a pending ticket can be lowered to low, '

@@ -5,7 +5,7 @@ import { DISPATCHER_STATES }                                 from '../../lib/tra
 import type { LogFieldShape }                                from '../../lib/tracker-model/constants/LogRecordSchema.ts';
 import { LOG_RECORD_SCHEMA, LOG_RECORD_SUBJECT_IDS }         from '../../lib/tracker-model/constants/LogRecordSchema.ts';
 import { FIRST_REPEAT_REVIEW_ROUND, FIRST_REVIEW_BAR_ROUND } from '../../lib/tracker-model/constants/ReviewRounds.ts';
-import { TICKET_PRIORITIES }                                 from '../../lib/tracker-model/constants/TicketFields.ts';
+import { TICKET_PRIORITIES, TICKET_SIZES }                   from '../../lib/tracker-model/constants/TicketFields.ts';
 import { BoardSettingsUtil }                                 from '../../lib/tracker-model/utils/BoardSettingsUtil.ts';
 import { VocabularyUtil }                                    from '../../lib/tracker-model/utils/VocabularyUtil.ts';
 import { StoredValueUtil }                                   from '../utils/StoredValueUtil.ts';
@@ -28,6 +28,11 @@ function listOfTextProblem(value: unknown, path: string, itemsAre: string): stri
 function priorityProblem(value: unknown, path: string): string | null {
   if (typeof value === 'string' && VocabularyUtil.ticketPriorityIsKnown(value)) return null;
   return `${path} is ${JSON.stringify(value)}, which is not one of ${TICKET_PRIORITIES.join(', ')}`;
+}
+
+function ticketSizeProblem(value: unknown, path: string): string | null {
+  if (typeof value === 'string' && VocabularyUtil.ticketSizeIsKnown(value)) return null;
+  return `${path} is ${JSON.stringify(value)}, which is not one of ${TICKET_SIZES.join(', ')}`;
 }
 
 function agentPairProblem(value: unknown, path: string): string | null {
@@ -56,6 +61,7 @@ const CHECK_FOR_FIELD_SHAPE: Readonly<Record<LogFieldShape, FieldShapeCheck>> = 
   'task-id':           (value, path) => (StoredValueUtil.valueIsAWholeNumber(value) ? null : `${path} is not a whole number`),
   'optional-text':     (value, path) => (value === undefined ? null : textProblem(value, path)),
   'priority':          priorityProblem,
+  'ticket-size':       ticketSizeProblem,
   'agent-pair':        agentPairProblem,
   'ticket-ids':        (value, path) => listOfTextProblem(value, path, 'ticket ids'),
   'epic-keys':         (value, path) => listOfTextProblem(value, path, 'epic keys'),
