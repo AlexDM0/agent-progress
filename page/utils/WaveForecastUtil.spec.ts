@@ -129,6 +129,15 @@ describe('playing the board forward', () => {
     expect(forecast.get('001')).toBeNull();
     expect(forecast.get('002')).toBeNull();
   });
+
+  test('a held or paused running ticket and its dependents have no forecast, and take no slot', () => {
+    const heldInReview = { ...runningTicket('001', 10), status: 'in-review' as const, hold: '' };
+    const pausedBuild  = { ...runningTicket('002', 10), ownRow: { status: 'paused' as const } };
+    const tickets      = [...history, heldInReview, pausedBuild, pendingTicket('003', { dependsOn: ['001'] }), pendingTicket('004')];
+    const forecast     = WaveForecastUtil.ticketFinishForecastsOf(tickets, { concurrencyLimit: 1, pacePathTicketIds: [], nowEpochMilliseconds: NOW });
+    expect([forecast.get('001'), forecast.get('002'), forecast.get('003')]).toEqual([null, null, null]);
+    expect(minutesUntilFinish(tickets, '004', 1).p50).toBe(30);
+  });
 });
 
 describe('a wave forecast', () => {

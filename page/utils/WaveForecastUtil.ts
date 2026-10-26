@@ -131,7 +131,8 @@ function ticketIsRunning(ticket: ForecastTicket): boolean {
 
 /**
  * Plays the open tickets forward at one quantile: a running ticket holds a slot from now, a pending one starts once its dependencies are
- * done and a slot is free, low priority last, then the pace path, then the lowest id. A held ticket never starts, nor does one waiting on it.
+ * done and a slot is free, low priority last, then the pace path, then the lowest id. A held ticket never starts or finishes, nor does one
+ * waiting on it; a held or paused one holds no slot.
  */
 function finishesAt(
   openTickets: readonly ForecastTicket[],
@@ -153,6 +154,10 @@ function finishesAt(
   let clock               = situation.nowEpochMilliseconds;
 
   for (const ticket of openTickets.filter(ticketIsRunning)) {
+    if (ticket.hold !== undefined || ticket.ownRow?.status === 'paused') {
+      finishById.set(ticket.id, null);
+      continue;
+    }
     const remaining = remainingOf(ticket);
     const finish    = remaining === null ? null : clock + remaining;
     finishById.set(ticket.id, finish);
