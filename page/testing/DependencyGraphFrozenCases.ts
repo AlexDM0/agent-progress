@@ -3,10 +3,11 @@
  * `HELD_AND_LOW_MARKUP`, rebuilt here because a spec cannot be imported. `page/dependencies/DependencyMarkup.frozen.spec.ts` compares it
  * against `page/testing/FrozenDependencyGraphs.json`. Test-only: nothing that ships may import `page/testing/`.
  */
-import type { PageTicket }     from '../../src/shared/@types/PagePayload.ts';
-import { DependencyMarkup }    from '../dependencies/DependencyMarkup.ts';
-import { DependencyGraphUtil } from '../utils/DependencyGraphUtil.ts';
-import { pageBoardFixture }    from './PageBoardFixture.ts';
+import type { Task, TaskPhase, TaskStatus } from '../../src/lib/tracker-model/@types/Task.ts';
+import type { PageTicket }                  from '../../src/shared/@types/PagePayload.ts';
+import { DependencyMarkup }                 from '../dependencies/DependencyMarkup.ts';
+import { DependencyGraphUtil }              from '../utils/DependencyGraphUtil.ts';
+import { pageBoardFixture }                 from './PageBoardFixture.ts';
 
 const BOARD_SLOTS = 3;
 
@@ -30,10 +31,52 @@ function exampleTicket(changes: Partial<PageTicket>): PageTicket {
   };
 }
 
-function graphMarkupOf(tickets: readonly PageTicket[]): string {
-  const board = pageBoardFixture({ tasks: [], tickets: [...tickets] });
+const FORECAST_NOW_EPOCH_MILLISECONDS = Date.parse('2026-09-18T22:00:00+02:00');
+const FORECAST_UNITS                  = { hourMinutes: 60, dayMinutes: 1440 };
+
+function exampleRow(id: number, ticket: string, status: TaskStatus, history: TaskPhase[]): Task {
+  return {
+    id, name: `Ticket #${ticket}`, status, start: history[0]?.at ?? null, end: null, owner: '', note: '', ticket, tokens: null, history,
+  };
+}
+
+function graphMarkupOf(tickets: readonly PageTicket[], tasks: readonly Task[] = [], forecasts = false): string {
+  const board = pageBoardFixture({ tasks: [...tasks], tickets: [...tickets] });
   const graph = DependencyGraphUtil.dependencyGraphOf(board.tickets, BOARD_SLOTS);
-  return DependencyMarkup.dependencyGraphMarkup(graph, new Map(board.tickets.map((ticket) => [ticket.id, ticket])), board.readyTicketIds);
+  const forecastRequest = forecasts ? { nowEpochMilliseconds: FORECAST_NOW_EPOCH_MILLISECONDS, units: FORECAST_UNITS } : null;
+  return DependencyMarkup.dependencyGraphMarkup(graph, new Map(board.tickets.map((ticket) => [ticket.id, ticket])), board.readyTicketIds, forecastRequest);
+}
+
+/** Two delivered tickets built in 30 and 60 minutes, one build running for 10, and a pending chain after the first. */
+function forecastWavesMarkup(): string {
+  const deliveredAt = '2026-09-18T12:00:00+02:00';
+  return graphMarkupOf([
+    exampleTicket({
+      id: '050', title: 'Delivered quickly', status: 'delivered', delivered: deliveredAt, task: 1
+    }),
+    exampleTicket({
+      id: '051', title: 'Delivered slowly', status: 'delivered', delivered: deliveredAt, task: 2
+    }),
+    exampleTicket({
+      id: '052', title: 'Next step', dependsOn: ['050'], task: 3
+    }),
+    exampleTicket({
+      id: '053', title: 'Running build', status: 'in-progress', started: '2026-09-18T21:50:00+02:00', task: 4
+    }),
+    exampleTicket({
+      id: '054', title: 'After the next step', dependsOn: ['052'], task: 5
+    }),
+  ], [
+    exampleRow(1, '050', 'delivered', [
+      { status: 'in-progress', at: '2026-09-18T10:00:00+02:00' }, { status: 'in-review', at: '2026-09-18T10:30:00+02:00' }, { status: 'delivered', at: deliveredAt },
+    ]),
+    exampleRow(2, '051', 'delivered', [
+      { status: 'in-progress', at: '2026-09-18T10:00:00+02:00' }, { status: 'in-review', at: '2026-09-18T11:00:00+02:00' }, { status: 'delivered', at: deliveredAt },
+    ]),
+    exampleRow(3, '052', 'pending', []),
+    exampleRow(4, '053', 'in-progress', [{ status: 'in-progress', at: '2026-09-18T21:50:00+02:00' }]),
+    exampleRow(5, '054', 'pending', []),
+  ], true);
 }
 
 export function dependencyGraphFrozenCases(): Record<string, string> {
@@ -73,6 +116,7 @@ export function dependencyGraphFrozenCases(): Record<string, string> {
       }),
       exampleTicket({ id: '032', title: 'After review', dependsOn: ['031'] }),
     ]),
-    empty: graphMarkupOf([exampleTicket({ id: '040', title: 'Alone' })]),
+    empty:         graphMarkupOf([exampleTicket({ id: '040', title: 'Alone' })]),
+    forecastWaves: forecastWavesMarkup(),
   };
 }

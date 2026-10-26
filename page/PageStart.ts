@@ -263,7 +263,9 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   showTabButton(EPICS_TAB_ELEMENT_ID, board.epics.length > 0, KANBAN_TAB_NAME);
 
   if (boardHasDependencies) {
-    DomUtil.setMarkup(DEPENDENCIES_CARD_ELEMENT_ID, DependencyMarkup.dependencyGraphMarkup(dependencyGraph, ticketById, board.readyTicketIds));
+    // Reading the clock for the wave forecast is a stated clock exception: the forecast is only shown, never decides anything.
+    const forecastRequest = progress.dispatcherState === 'running' ? { nowEpochMilliseconds: Date.now(), units: limits } : null;
+    DomUtil.setMarkup(DEPENDENCIES_CARD_ELEMENT_ID, DependencyMarkup.dependencyGraphMarkup(dependencyGraph, ticketById, board.readyTicketIds, forecastRequest));
   }
   createDependencyLineageController({ containerElementId: DEPENDENCIES_CARD_ELEMENT_ID, readGraph: () => dependencyGraph }).wire();
   showTabButton(DEPENDENCIES_TAB_ELEMENT_ID, boardHasDependencies, KANBAN_TAB_NAME);

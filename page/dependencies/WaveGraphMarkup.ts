@@ -16,6 +16,8 @@ const NODE_GAP_PIXELS            = 12;
 const COLUMN_GAP_PIXELS          = 40;
 const CANVAS_PADDING_PIXELS      = 10;
 const COLUMN_HEAD_HEIGHT_PIXELS  = 56;
+/** A head that also carries a wave's forecast line. */
+const FORECAST_HEAD_HEIGHT_PIXELS = 72;
 const BAND_OUTSET_PIXELS         = 8;
 /** The node's left and right padding together with its stripe, which the weight bar stays inside. */
 const WEIGHT_BAR_INSET_PIXELS    = 26;
@@ -50,14 +52,16 @@ export interface DependencyNodeModel {
 
 export interface DependencyGraphOptions {
   /** Each wave's head carries a slot meter and the legend a slot line. */
-  showsSlots:         boolean;
+  showsSlots:          boolean;
   /** The Done column's count, from its node ids. */
-  doneCountTextOf:    (doneNodeIds: readonly string[]) => string;
+  doneCountTextOf:     (doneNodeIds: readonly string[]) => string;
   /** The attribute naming the node's id, which a click opens and the lineage reads. */
-  openAttribute:      string;
-  emptyText:          string;
+  openAttribute:       string;
+  emptyText:           string;
   /** Markup already escaped, drawn after the node's chips. */
-  extraChipMarkupOf?: (nodeId: string) => string;
+  extraChipMarkupOf?:  (nodeId: string) => string;
+  /** A wave head's forecast line from its node ids, or null for none; the Done column never asks. */
+  waveForecastTextOf?: (waveNodeIds: readonly string[]) => string | null;
 }
 
 interface DependencyColumn {
@@ -81,8 +85,8 @@ function columnLeftOf(columnIndex: number): number {
   return CANVAS_PADDING_PIXELS + columnIndex * (NODE_WIDTH_PIXELS + COLUMN_GAP_PIXELS);
 }
 
-function nodeTopOf(rowIndex: number): number {
-  return COLUMN_HEAD_HEIGHT_PIXELS + rowIndex * (NODE_HEIGHT_PIXELS + NODE_GAP_PIXELS);
+function nodeTopOf(rowIndex: number, headHeight: number): number {
+  return headHeight + rowIndex * (NODE_HEIGHT_PIXELS + NODE_GAP_PIXELS);
 }
 
 /** The settled nodes an open node depends on directly, lowest id first as the graph lists them. */
@@ -135,21 +139,27 @@ function slotMeterMarkup(nodeCount: number, boardSlots: number): string {
   return `<span class="ap-dependency-slots" role="img" ${MarkupUtil.attribute('aria-label', label)}>${slots.join('')}</span>`;
 }
 
+function forecastTextOf(column: DependencyColumn, options: DependencyGraphOptions): string | null {
+  return column.isDone ? null : options.waveForecastTextOf?.(column.nodeIds) ?? null;
+}
+
 function columnHeadMarkup(column: DependencyColumn, columnIndex: number, graph: DependencyGraph, options: DependencyGraphOptions): string {
-  const countText = column.isDone
+  const countText    = column.isDone
     ? options.doneCountTextOf(column.nodeIds)
     : column.isNarrow ? 'one at a time' : `${column.nodeIds.length} side by side`;
-  const style     = `left:${pixels(columnLeftOf(columnIndex))};width:${pixels(NODE_WIDTH_PIXELS)}`;
-  const slotMeter = column.isDone || !options.showsSlots ? '' : slotMeterMarkup(column.nodeIds.length, graph.boardSlots);
+  const style        = `left:${pixels(columnLeftOf(columnIndex))};width:${pixels(NODE_WIDTH_PIXELS)}`;
+  const slotMeter    = column.isDone || !options.showsSlots ? '' : slotMeterMarkup(column.nodeIds.length, graph.boardSlots);
+  const forecastText = forecastTextOf(column, options);
+  const forecastLine = forecastText === null ? '' : `<span class="ap-dependency-head-count">${HtmlEscapeUtil.escapeHtml(forecastText)}</span>`;
   return `<div class="ap-dependency-head"${narrowAttribute(column)}${column.isDone ? ' data-done' : ''} style="${style}">`
     + `<span class="ap-dependency-head-name">${HtmlEscapeUtil.escapeHtml(column.label)}</span>`
     + `<span class="ap-dependency-head-count">${HtmlEscapeUtil.escapeHtml(countText)}</span>`
-    + `${slotMeter}</div>`;
+    + `${forecastLine}${slotMeter}</div>`;
 }
 
-function columnBandMarkup(column: DependencyColumn, columnIndex: number): string {
+function columnBandMarkup(column: DependencyColumn, columnIndex: number, headHeight: number): string {
   const nodesHeight = column.nodeIds.length * (NODE_HEIGHT_PIXELS + NODE_GAP_PIXELS) - NODE_GAP_PIXELS;
-  const style       = `left:${pixels(columnLeftOf(columnIndex) - BAND_OUTSET_PIXELS)};top:${pixels(COLUMN_HEAD_HEIGHT_PIXELS - BAND_OUTSET_PIXELS)};`
+  const style       = `left:${pixels(columnLeftOf(columnIndex) - BAND_OUTSET_PIXELS)};top:${pixels(headHeight - BAND_OUTSET_PIXELS)};`
     + `width:${pixels(NODE_WIDTH_PIXELS + BAND_OUTSET_PIXELS * 2)};height:${pixels(nodesHeight + BAND_OUTSET_PIXELS * 2)}`;
   return `<div class="ap-dependency-band"${narrowAttribute(column)}${column.isDone ? ' data-done' : ''} style="${style}"></div>`;
 }
@@ -252,6 +262,7 @@ export function waveGraphMarkup(graph: DependencyGraph, nodeById: ReadonlyMap<st
   if (columns.length === 0) {
     return `<p class="ap-dependency-empty">${HtmlEscapeUtil.escapeHtml(options.emptyText)}</p>`;
   }
+  const headHeight       = columns.some((column) => forecastTextOf(column, options) !== null) ? FORECAST_HEAD_HEIGHT_PIXELS : COLUMN_HEAD_HEIGHT_PIXELS;
   const largestHeldCount = graph.openNodeIds.reduce((largest, nodeId) => Math.max(largest, graph.heldOfNode.get(nodeId)?.size ?? 0), 0);
   const placeOfNode      = new Map<string, NodePlace>();
   const nodes: string[]  = [];
@@ -261,16 +272,16 @@ export function waveGraphMarkup(graph: DependencyGraph, nodeById: ReadonlyMap<st
       if (node === undefined) {
         return;
       }
-      const place = { columnIndex, left: columnLeftOf(columnIndex), top: nodeTopOf(rowIndex) };
+      const place = { columnIndex, left: columnLeftOf(columnIndex), top: nodeTopOf(rowIndex, headHeight) };
       placeOfNode.set(nodeId, place);
       nodes.push(nodeMarkup(node, place, column.isDone, { graph, options, largestHeldCount }));
     });
   });
   const tallestColumnLength = Math.max(...columns.map((column) => column.nodeIds.length));
   const width  = columns.length * NODE_WIDTH_PIXELS + (columns.length - 1) * COLUMN_GAP_PIXELS + CANVAS_PADDING_PIXELS * 2;
-  const height = nodeTopOf(tallestColumnLength) - NODE_GAP_PIXELS + CANVAS_PADDING_PIXELS;
+  const height = nodeTopOf(tallestColumnLength, headHeight) - NODE_GAP_PIXELS + CANVAS_PADDING_PIXELS;
   return `<div class="ap-dependency-canvas" style="width:${pixels(width)};height:${pixels(height)}">`
-    + columns.map((column, columnIndex) => columnBandMarkup(column, columnIndex)).join('')
+    + columns.map((column, columnIndex) => columnBandMarkup(column, columnIndex, headHeight)).join('')
     + edgesMarkup(graph, nodeById, placeOfNode, width, height)
     + columns.map((column, columnIndex) => columnHeadMarkup(column, columnIndex, graph, options)).join('')
     + nodes.join('')

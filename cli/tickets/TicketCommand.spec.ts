@@ -776,6 +776,7 @@ describeWhenGitIsPresent('the subcommand groups', () => {
       'reopen',
       'rereview',
       'show',
+      'size',
       'start',
       'status',
       'unhold',

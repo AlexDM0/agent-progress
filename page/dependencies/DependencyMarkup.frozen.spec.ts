@@ -17,7 +17,7 @@ const currentGraphs = dependencyGraphFrozenCases();
 
 describe('the dependency graph, frozen', () => {
   test('the frozen table holds the two chains, the held and low board, the reviewed base and the empty line', () => {
-    expect(Object.keys(frozenGraphs).toSorted()).toEqual(['empty', 'heldAndLow', 'reviewedAndInReview', 'twoChainsOnADeliveredBase']);
+    expect(Object.keys(frozenGraphs).toSorted()).toEqual(['empty', 'forecastWaves', 'heldAndLow', 'reviewedAndInReview', 'twoChainsOnADeliveredBase']);
   });
 
   for (const [caseName, frozenMarkup] of Object.entries(frozenGraphs)) {
