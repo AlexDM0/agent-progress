@@ -49,13 +49,26 @@ describe('a recorded ticket', () => {
 
     const report = board.reviewStatisticsOf([
       reviewRecorded('001', 1, { insertions: 10, deletions: 0 }),
-      reviewRecorded('001', 1, { insertions: 10, deletions: 0 }),
+      reviewRecorded('001', 2, { insertions: 10, deletions: 0 }),
     ]);
 
     expect(report.recordedTicketCount).toBe(1);
     expect(report.all.ticketCount).toBe(1);
     expect(report.all.reviewPassCount).toBe(2);
+    expect(report.all.roundsPerTicket).toBe(2);
+  });
+
+  test('recorded twice in one round, after a main-moved rebase say, counts one pass, the latest record', () => {
+    const { board } = boardFixture({ tickets: [ticketFixture({ id: '001' })] });
+
+    const report = board.reviewStatisticsOf([
+      reviewRecorded('001', 1, { insertions: 10, deletions: 0 }, [SERIOUS_FINDING]),
+      reviewRecorded('001', 1, { insertions: 10, deletions: 0 }),
+    ]);
+
+    expect(report.all.reviewPassCount).toBe(1);
     expect(report.all.roundsPerTicket).toBe(1);
+    expect(report.all.seriousFindingCount).toBe(0);
   });
 
   test('with no record is counted apart and in no group, and a record naming a ticket the board lacks is left out', () => {

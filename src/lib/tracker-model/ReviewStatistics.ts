@@ -83,19 +83,23 @@ export class ReviewStatistics {
     private readonly reviewBars: ReviewBars,
   ) {}
 
-  /** Records naming a ticket the board does not hold are left out, as they belong to no ticket to report. */
+  /**
+   * Records naming a ticket the board does not hold are left out, as they belong to no ticket to report. A round recorded again, after a
+   * `main-moved` rebase or a `checks-failed` fix, is one pass: its latest record counts, in that record's log position.
+   */
   reviewStatisticsOf(logRecords: readonly LogRecord[]): ReviewStatisticsReport {
-    const passesByTicketId = new Map<string, ReviewRecordedEntry[]>();
+    const passByRoundByTicketId = new Map<string, Map<number, ReviewRecordedEntry>>();
     for (const logRecord of logRecords) {
       if (logRecord.kind !== 'review-recorded') continue;
-      const passes = passesByTicketId.get(logRecord.ticketId) ?? [];
-      passes.push(logRecord);
-      passesByTicketId.set(logRecord.ticketId, passes);
+      const passByRound = passByRoundByTicketId.get(logRecord.ticketId) ?? new Map<number, ReviewRecordedEntry>();
+      passByRound.delete(logRecord.fields.round);
+      passByRound.set(logRecord.fields.round, logRecord);
+      passByRoundByTicketId.set(logRecord.ticketId, passByRound);
     }
 
     const recordedTickets = this.records.ticketRecords.flatMap((ticket) => {
-      const passes = passesByTicketId.get(ticket.frontmatter.id);
-      return passes === undefined ? [] : [this.recordedTicketOf(ticket, passes)];
+      const passByRound = passByRoundByTicketId.get(ticket.frontmatter.id);
+      return passByRound === undefined ? [] : [this.recordedTicketOf(ticket, [...passByRound.values()])];
     });
 
     const builderKeyOf = (recorded: RecordedTicket): string => `${builderModelOf(recorded)}/${builderEffortOf(recorded)}`;
