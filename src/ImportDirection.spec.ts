@@ -64,7 +64,7 @@ const LAYER_REACH: Readonly<Record<Layer, readonly Layer[]>> = {
  * Exact both ways: every `testing/` folder in the tree has an entry, and every importer folder is used by at least one import.
  */
 const TESTING_FOLDER_IMPORTERS: Readonly<Record<string, readonly string[]>> = {
-  'src/testing/':                   ['src/', 'cli/', 'page/'],
+  'src/testing/':                   ['src/', 'cli/', 'page/', 'dispatcher/'],
   'src/lib/tracker-model/testing/': ['src/lib/tracker-model/'],
   'src/adapters/progress/testing/': ['src/adapters/'],
   'src/services/tracker/testing/':  ['src/services/tracker/'],
@@ -420,7 +420,7 @@ describe('the guard still names each violation, planted in memory', () => {
   test('a test-only folder imported by shipped code, by a spec outside its allowlist or with no entry at all, and not by an allowed spec', () => {
     expect(plantedSentencesOf({ 'src/shared/PlantedValue.ts': importing('../testing/ScratchWorkspace.ts') })).toEqual([
       'test-helper-imported-outside-its-allowlist — src/shared/PlantedValue.ts:1 imports src/testing/ScratchWorkspace.ts: '
-        + 'src/testing/ is test-only and may be imported by only the specs of src/, cli/, page/',
+        + 'src/testing/ is test-only and may be imported by only the specs of src/, cli/, page/, dispatcher/',
     ]);
     expect(plantedSentencesOf({ 'page/PlantedView.spec.ts': importing('../cli/testing/CliProcess.ts') })).toEqual([
       'test-helper-imported-outside-its-allowlist — page/PlantedView.spec.ts:1 imports cli/testing/CliProcess.ts: '
