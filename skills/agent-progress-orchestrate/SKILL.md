@@ -9,7 +9,7 @@ description: >-
   ready ticket with clean agents within the board's limit; relaunch a run it
   launched itself when that run finished and work is ready, and wait for the
   user when they stopped it. Use this skill only when the user says
-  "/agent-progress-orchestrate", asks you to orchestrate, run the board, work
+  "/{{skillName}}", asks you to orchestrate, run the board, work
   through the tickets, manage the queue or "take tickets from me". Filing or
   editing a ticket is not one of them.
 disable-model-invocation: true
