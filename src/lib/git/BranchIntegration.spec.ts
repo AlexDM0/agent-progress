@@ -13,7 +13,8 @@ import {
   createScratchGitRepository,
   currentBranchOf,
   gitOutputIn,
-  removeScratchDirectory
+  removeScratchDirectory,
+  SCRATCH_COMMIT_IDENTITY_ARGUMENTS
 } from '../../testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent } from '../../testing/ToolGuard.ts';
 import {
@@ -171,7 +172,7 @@ describeWhenGitIsPresent('the fast-forward', () => {
     commitFile(repositoryDirectory, 'before.md', 'one\ntwo\nthree\nfour\n');
     gitOutputIn(repositoryDirectory, ['checkout', '-q', '-b', 'feature']);
     gitOutputIn(repositoryDirectory, ['mv', 'before.md', 'after.md']);
-    gitOutputIn(repositoryDirectory, ['commit', '-q', '-m', 'Rename the file']);
+    gitOutputIn(repositoryDirectory, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'commit', '-q', '-m', 'Rename the file']);
     const branchCommit = gitOutputIn(repositoryDirectory, ['rev-parse', 'HEAD']);
     gitOutputIn(repositoryDirectory, ['checkout', '-q', mainLine]);
     writeFileSync(join(repositoryDirectory, 'before.md'), 'edited by hand\n');
