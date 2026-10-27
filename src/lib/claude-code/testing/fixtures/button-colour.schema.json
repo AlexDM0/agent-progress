@@ -1,0 +1,1 @@
+{"type":"object","properties":{"colour":{"type":"string","enum":["Red","Blue"]}},"required":["colour"],"additionalProperties":false}
