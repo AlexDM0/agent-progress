@@ -49,8 +49,8 @@ export function countCommits(worktreeDirectory: string, since: string, until = '
       throw new OperationRefusal(
         'refused',
         `The commits since ${OutputUtil.shortCommitOf(since)} include the ${mergeWord} ${shortMergeCommits}. `
-          + 'Work is rebased onto the main line rather than merged with it, and a merge would bring the main line\'s own commits into the count: '
-          + 'rebase the branch, or name a --since after the merge.',
+          + 'A merge would bring the main line\'s own commits into the count: '
+          + 'name a --since after the merge, and count the merge\'s resolution with --merge.',
       );
     }
     case 'git-failed':
