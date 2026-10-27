@@ -1,6 +1,7 @@
 /** What `status` prints for a person: the counts, the rows table and the recent log. */
 import { TokenCountUtil }                                        from '../../../src/lib/token-count/TokenCountUtil.ts';
 import type { Task, TaskStatus }                                 from '../../../src/lib/tracker-model/@types/Task.ts';
+import type { TicketStatus }                                     from '../../../src/lib/tracker-model/@types/Ticket.ts';
 import type { TrackerProgress }                                  from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import type { Board }                                            from '../../../src/lib/tracker-model/Board.ts';
 import { SETTLED_TASK_STATUSES, TASK_STATUSES, TICKET_STATUSES } from '../../../src/lib/tracker-model/constants/Statuses.ts';
@@ -26,7 +27,7 @@ const TASK_COLUMN_WIDTHS_CHARACTERS = {
   tokens:     8,
 };
 
-function countsByStatus(statuses: readonly TaskStatus[], statusOfEach: readonly TaskStatus[]): string {
+function countsByStatus<Status extends TaskStatus | TicketStatus>(statuses: readonly Status[], statusOfEach: readonly Status[]): string {
   const present = statuses
     .map((status) => ({ count: statusOfEach.filter((occurring) => occurring === status).length, status }))
     .filter((entry) => entry.count > 0)

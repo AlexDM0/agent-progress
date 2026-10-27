@@ -29,6 +29,7 @@ import type {
   TicketMoveRequest,
   TicketRelease,
   TicketsClaimed,
+  TicketsReadied,
   TicketsReleased,
   TokenCredit,
   TrackerCleared
@@ -51,6 +52,7 @@ import type {
 import type { AgentUsage, LogRecord }          from './@types/LogRecord.ts';
 import type { DisplayState, Task, TaskStatus } from './@types/Task.ts';
 import type {
+  ReadinessGap,
   ReadyTicket,
   Ticket,
   TicketPriority,
@@ -268,6 +270,11 @@ export class Board {
 
   rereviewTicket(ticketId: string, at: string): TicketChanged {
     return this.ticketMoves.rereviewTicket(ticketId, at);
+  }
+
+  /** The caller reads each body for its gaps, since what a complete ticket holds is its document's format, not a Board rule. */
+  readyDraftTickets(ticketIds: readonly string[], readinessGapsOf: (body: string) => readonly ReadinessGap[], at: string): TicketsReadied {
+    return this.ticketMoves.readyDraftTickets(ticketIds, readinessGapsOf, at);
   }
 
   startReviewBar(ticketId: string, request: ReviewBarRequest, at: string): ReviewBarStarted {

@@ -11,9 +11,9 @@ import {
   taskFixture,
   ticketFixture
 } from '../../testing/BoardFixtures.ts';
-import type { TicketStatus } from './@types/Ticket.ts';
-import { TICKET_STATUSES }   from './constants/Statuses.ts';
-import { TicketMoveUtil }    from './utils/TicketMoveUtil.ts';
+import type { RowedTicketStatus, TicketStatus } from './@types/Ticket.ts';
+import { TICKET_STATUSES }                      from './constants/Statuses.ts';
+import { TicketMoveUtil }                       from './utils/TicketMoveUtil.ts';
 
 const FILED_AT     = '2026-09-18T09:00:00+02:00';
 const STARTED_AT   = '2026-09-18T10:00:00+02:00';
@@ -185,9 +185,10 @@ describe('refusals', () => {
   });
 
   // The table itself is pinned beside it; this pins that the Board consults it for every pair, and for nothing else.
-  test('every pair of statuses is moved or refused exactly as the legality table says', () => {
-    for (const status of TICKET_STATUSES) {
-      for (const targetStatus of TICKET_STATUSES.filter((candidate) => candidate !== status)) {
+  test('every pair of statuses with a row is moved or refused exactly as the legality table says', () => {
+    const rowedStatuses = TICKET_STATUSES.filter((candidate): candidate is RowedTicketStatus => candidate !== 'draft');
+    for (const status of rowedStatuses) {
+      for (const targetStatus of rowedStatuses.filter((candidate) => candidate !== status)) {
         const { board } = boardFixture({ tickets: [ticketFixture({ id: '003', status, started: status === 'pending' ? null : FILED_AT })] });
         const move      = (): unknown => board.moveTicket('003', targetStatus, { checksLegality: true, reason: 'Example reason' }, STARTED_AT);
         const pair      = `${status} → ${targetStatus}`;
@@ -201,6 +202,32 @@ describe('refusals', () => {
             status,
             targetStatus,
           });
+        }
+      }
+    }
+  });
+
+  test('no move returns a ticket of any status to draft, not even the override, and nothing is written', () => {
+    for (const status of TICKET_STATUSES.filter((candidate) => candidate !== 'draft')) {
+      for (const checksLegality of [true, false]) {
+        const { board, progress, records } = boardFixture({ tickets: [ticketFixture({ id: '003', status })] });
+        expect(refusalDetailOf(() => board.moveTicket('003', 'draft', { checksLegality }, STARTED_AT)), `${status} checked ${checksLegality}`)
+          .toEqual({ reason: 'move-to-draft', ticketId: '003', status });
+        expect(progress.tasks).toEqual([]);
+        expect(records).toEqual([]);
+      }
+    }
+  });
+
+  test('a draft moves only to abandoned; every other move, the override included, is refused for `ticket ready`', () => {
+    for (const targetStatus of TICKET_STATUSES.filter((candidate) => candidate !== 'draft')) {
+      for (const checksLegality of [true, false]) {
+        const { board } = boardFixture({ tickets: [ticketFixture({ id: '003', status: 'draft' })] });
+        const move      = (): unknown => board.moveTicket('003', targetStatus, { checksLegality, reason: EXAMPLE_REASON }, STARTED_AT);
+        if (targetStatus === 'abandoned') {
+          expect(move, `checked ${checksLegality}`).not.toThrow();
+        } else {
+          expect(refusalDetailOf(move), `${targetStatus} checked ${checksLegality}`).toEqual({ reason: 'move-of-a-draft', ticketId: '003', targetStatus });
         }
       }
     }

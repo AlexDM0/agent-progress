@@ -24,6 +24,7 @@ function stampsAfterMoveOf(frontmatter: Readonly<TicketStamps>, targetStatus: Ti
     abandonedAt,
   } = frontmatter;
   switch (targetStatus) {
+    case 'draft':
     case 'pending':
       return {
         started:      null,

@@ -13,6 +13,7 @@ import { CLOSED_KANBAN_LANES }   from '../constants/KanbanBoardLayout.ts';
 
 /** A card's lane is the pill its ticket's own row shows on the Progress tab. */
 const LANE_FOR_DISPLAY_STATE: Record<DisplayState, KanbanLane> = {
+  'draft':       'todo',
   'pending':     'todo',
   'in-progress': 'progress',
   'paused':      'progress',

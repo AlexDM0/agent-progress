@@ -22,7 +22,7 @@ function namingThisProgram(message: string): string {
  * standard error. Rows no command reaches easily (the singular limit, a ticket-owned row sent to re-review, a held-back ticket with one
  * blocker) are read from the wording in bc42604:cli/task/TaskCommand.ts, bc42604:cli/ticket/TicketCommand.ts and
  * bc42604:lib/tickets/TicketTransitions.ts. The two review-record reasons are newer than bc42604, and their rows were taken from the wording util
- * when they were added.
+ * when they were added, as were the four draft reasons and the lowering row's "draft or pending".
  */
 const MESSAGE_FOR_REFUSAL: readonly (readonly [BoardRefusalDetail, string])[] = [
   [{ reason: 'unknown-task', taskId: 99 }, 'There is no task #99. Run `agent-progress status` to see the rows this tracker holds.'],
@@ -208,8 +208,31 @@ const MESSAGE_FOR_REFUSAL: readonly (readonly [BoardRefusalDetail, string])[] = 
   ],
   [
     { reason: 'lowering-a-ticket-that-is-not-pending', ticketId: '003', status: 'in-progress' },
-    'Ticket #003 is in-progress, and its priority was not changed: only a pending ticket can be lowered to low, since a low ticket has no row until it is started. '
+    'Ticket #003 is in-progress, and its priority was not changed: only a draft or pending ticket can be lowered to low, since a low ticket has no row until it is started. '
     + 'Nothing was written.',
+  ],
+  [
+    { reason: 'move-to-draft', ticketId: '003', status: 'pending' },
+    'Ticket #003 is pending, and no move returns a ticket to draft: filing is the only way in. '
+    + 'Run `agent-progress ticket hold 003` to keep it from being built for now.',
+  ],
+  [
+    { reason: 'move-of-a-draft', ticketId: '003', targetStatus: 'in-progress' },
+    'Ticket #003 is a draft ticket, so it was not moved: '
+    + 'run `agent-progress ticket ready 003` to ready it to build, which checks its Acceptance and Brief.',
+  ],
+  [
+    { reason: 'ready-of-a-ticket-not-in-draft', ticketId: '003', status: 'in-review' },
+    'Ticket #003 is in-review, not a draft ticket, so nothing was readied: only a draft ticket is readied. Nothing was written.',
+  ],
+  [
+    {
+      reason:            'incomplete-tickets',
+      incompleteTickets: [{ ticketId: '003', gaps: ['acceptance-unnumbered'] }, { ticketId: '004', gaps: ['acceptance-unnumbered', 'brief-missing'] }],
+    },
+    'Nothing was readied: ticket #003 is incomplete: its `## Acceptance` holds no numbered item (acceptance-unnumbered); '
+    + 'ticket #004 is incomplete: its `## Acceptance` holds no numbered item (acceptance-unnumbered), and it has no `## Brief` with a non-blank line (brief-missing). '
+    + 'Number every Acceptance item as `A1.` at the start of a line and write a `## Brief`, then ready them again.',
   ],
   [
     { reason: 'agents-of-a-settled-ticket', ticketId: '004', status: 'delivered' },
@@ -332,7 +355,7 @@ const MESSAGE_FOR_REFUSAL: readonly (readonly [BoardRefusalDetail, string])[] = 
   ],
 ];
 
-const REFUSAL_REASON_COUNT = 39;
+const REFUSAL_REASON_COUNT = 43;
 
 test('every reason words as the refusal the command printed before the Board refused for it', () => {
   expect(new Set(MESSAGE_FOR_REFUSAL.map(([detail]) => detail.reason)).size, 'the table covers every reason').toBe(REFUSAL_REASON_COUNT);

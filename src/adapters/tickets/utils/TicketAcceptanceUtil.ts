@@ -3,6 +3,7 @@
  * item. It only reads: a body it cannot make sense of is a verdict, never a throw.
  */
 
+import type { ReadinessGap }       from '../../../lib/tracker-model/@types/Ticket.ts';
 import { TICKET_SECTION_PATTERNS } from '../../../shared/constants/TicketSectionPatterns.ts';
 
 export interface AcceptanceItem {
@@ -33,6 +34,7 @@ export type AcceptanceVerdict =
 
 const LINE_BREAK_PATTERN        = /\r?\n/;
 const REVIEW_HEADING            = /^## Review[ \t]*$/;
+const BRIEF_HEADING             = /^## Brief[ \t]*$/;
 const WAIVED_MARKER_PATTERN     = /^Waived:[ \t]*(.*)$/;
 const REVIEW_LINE_PATTERN       = /^[ \t]*(?:[-*+][ \t]+)?A(\d+)[ \t]+(holds|does not hold|waived)\b(.*)$/;
 const VERDICT_SEPARATOR_PATTERN = /^[\s—–:-]+/;
@@ -125,4 +127,18 @@ function acceptanceVerdictOf(body: string): AcceptanceVerdict {
   return { verdict: 'accounted-for' };
 }
 
-export const TicketAcceptanceUtil = { acceptanceItemsOf, latestReviewLinesOf, acceptanceVerdictOf } as const;
+/** What `ticket ready` refuses a draft for: the Acceptance read as the release reads it, and the first `## Brief` holding a non-blank line. */
+function readinessGapsOf(body: string): ReadinessGap[] {
+  const gaps: ReadinessGap[] = [];
+  if (acceptanceItemsOf(body).length === 0) gaps.push('acceptance-unnumbered');
+  const briefLines = sectionsUnder(body, BRIEF_HEADING)[0] ?? [];
+  if (briefLines.every((line) => line.trim() === '')) gaps.push('brief-missing');
+  return gaps;
+}
+
+export const TicketAcceptanceUtil = {
+  acceptanceItemsOf,
+  latestReviewLinesOf,
+  acceptanceVerdictOf,
+  readinessGapsOf,
+} as const;

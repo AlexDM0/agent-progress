@@ -66,6 +66,8 @@ function sentenceOf(record: LogRecordContent): string {
       return record.fields.text;
     case 'ticket-filed':
       return `Ticket #${record.ticketId} filed: ${record.fields.title}`;
+    case 'ticket-readied':
+      return `Ticket #${record.ticketId} ready to build`;
     case 'ticket-reopened':
     case 'ticket-started':
     case 'ticket-finished':

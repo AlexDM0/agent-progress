@@ -2,7 +2,10 @@
  * The command line's words for a status that differ from the value: the verb a refusal tells the reader to run, and the phrase a move
  * ends on. Every other status, type, priority and dispatcher state prints as its value.
  */
-import type { TaskStatus } from '../../lib/tracker-model/@types/Task.ts';
+import type { TaskStatus }   from '../../lib/tracker-model/@types/Task.ts';
+import type { TicketStatus } from '../../lib/tracker-model/@types/Ticket.ts';
+
+const DRAFT_TICKET_TEXT = 'a draft ticket';
 
 /** Abandoning is worded with its reason, never as a bare phrase, so it has no moved phrase. */
 export type MovedToStatus = Exclude<TaskStatus, 'abandoned'>;
@@ -33,7 +36,13 @@ function movedPhraseFor(status: MovedToStatus): string {
   return MOVED_PHRASE_FOR_STATUS[status] ?? status;
 }
 
+/** A status as a sentence's complement: `Ticket #3 is pending`, `Ticket #3 is a draft ticket`. */
+function statusTextFor(status: TaskStatus | TicketStatus): string {
+  return status === 'draft' ? DRAFT_TICKET_TEXT : status;
+}
+
 export const StatusWordingUtil = {
   verbFor,
   movedPhraseFor,
+  statusTextFor,
 } as const;

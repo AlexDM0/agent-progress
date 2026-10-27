@@ -2,6 +2,8 @@
  * The named verbs enforce the legality matrix of `src/lib/tracker-model/constants/TicketMoveLegality.ts`; `ticket status` is the
  * documented override that skips it.
  */
+import { TicketAcceptanceUtil }                                               from '../../src/adapters/tickets/utils/TicketAcceptanceUtil.ts';
+import { TicketJsonUtil }                                                     from '../../src/adapters/utils/TicketJsonUtil.ts';
 import type { TicketStatus }                                                  from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { VocabularyUtil }                                                     from '../../src/lib/tracker-model/utils/VocabularyUtil.ts';
 import { OperationRefusal }                                                   from '../../src/shared/OperationRefusal.ts';
@@ -30,6 +32,7 @@ const TRANSITION_VERBS: readonly (readonly [string, TicketStatus])[] = [
 
 const REVIEW_OPTION_NAMES   = [...TRANSITION_OPTION_NAMES, ...REVIEW_BAR_OPTION_NAMES];
 const REREVIEW_OPTION_NAMES = ['at', 'json', ...REVIEW_BAR_OPTION_NAMES];
+const READY_OPTION_NAMES    = ['at', 'json'];
 
 function requireTicketReference(commandArguments: ArgumentParser, subcommand: string): string {
   commandArguments.rejectExtraPositionals(2, TICKET_USAGE);
@@ -79,8 +82,27 @@ async function rereviewOneTicket(commandArguments: ArgumentParser, context: Comm
   OutputUtil.printEntityThenNextLine(commandArguments, context, document, humanText, nextLine);
 }
 
+/** Every named draft moves on in one hold or none does; `3`, `003` and `#3` ready one ticket once. */
+async function readyTheNamedTickets(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
+  commandArguments.rejectUnknownOptions(READY_OPTION_NAMES, TICKET_USAGE);
+  const references = commandArguments.positionals().slice(1);
+  if (references.length === 0) throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} ticket ready needs a ticket id.\n  Usage: ${TICKET_USAGE}`);
+
+  const { result: readied, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
+    const ticketIds = references.map((reference) => TicketLookupUtil.requireTicket(change, reference).frontmatter.id);
+    return change.board.readyDraftTickets(ticketIds, TicketAcceptanceUtil.readinessGapsOf, change.at);
+  });
+
+  const [onlyTicket] = readied.tickets;
+  const document     = readied.tickets.length === 1 && onlyTicket !== undefined
+    ? TicketJsonUtil.ticketAsJson(onlyTicket)
+    : readied.tickets.map(TicketJsonUtil.ticketAsJson);
+  OutputUtil.printEntityThenNextLine(commandArguments, context, document, OutputUtil.loggedSentencesOf(readied.logged), nextLine);
+}
+
 export const TICKET_MOVE_SUBCOMMANDS: Readonly<Record<string, TicketSubcommandHandler>> = {
   ...Object.fromEntries(TRANSITION_VERBS.map(([verb, targetStatus]) => [verb, transitionHandlerFor(targetStatus)])),
   status:   setTicketStatus,
   rereview: rereviewOneTicket,
+  ready:    readyTheNamedTickets,
 };

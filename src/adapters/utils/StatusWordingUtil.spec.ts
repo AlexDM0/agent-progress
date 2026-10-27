@@ -38,7 +38,7 @@ const EXPECTED_MOVED_PHRASE_FOR_STATUS: Readonly<Record<MovedToStatus, string>> 
 
 test('every row status and every ticket status has a lowercase verb', () => {
   expect(TASK_STATUSES.length, 'the statuses were enumerated').toBeGreaterThan(5);
-  for (const status of [...TASK_STATUSES, ...TICKET_STATUSES]) expect(StatusWordingUtil.verbFor(status), status).toMatch(/^[a-z]+$/);
+  for (const status of [...TASK_STATUSES, ...TICKET_STATUSES.filter((candidate) => candidate !== 'draft')]) expect(StatusWordingUtil.verbFor(status), status).toMatch(/^[a-z]+$/);
 });
 
 test('no two statuses share a verb, so a verb names exactly one status', () => {
@@ -55,4 +55,9 @@ test('each status a move reaches is worded as the phrase it has always been', ()
   const movedToStatuses = TASK_STATUSES.filter((status): status is MovedToStatus => status !== 'abandoned');
   expect(Object.keys(EXPECTED_MOVED_PHRASE_FOR_STATUS).sort()).toEqual([...movedToStatuses].sort());
   for (const status of movedToStatuses) expect(StatusWordingUtil.movedPhraseFor(status), status).toBe(EXPECTED_MOVED_PHRASE_FOR_STATUS[status]);
+});
+
+test('a draft ticket is worded as "a draft ticket", so a sentence never calls a filing draft and a ticket the same, and every other status as its value', () => {
+  expect(StatusWordingUtil.statusTextFor('draft')).toBe('a draft ticket');
+  for (const status of TASK_STATUSES) expect(StatusWordingUtil.statusTextFor(status), status).toBe(status);
 });

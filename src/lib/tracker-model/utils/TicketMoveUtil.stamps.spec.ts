@@ -30,7 +30,7 @@ const FULLY_STAMPED: TicketStamps = {
 };
 
 test('each move stamps only the moment it reaches, and only when that stamp is still empty', () => {
-  const expectedForUnstamped: Record<Exclude<TicketStatus, 'pending'>, TicketStamps> = {
+  const expectedForUnstamped: Record<Exclude<TicketStatus, 'pending' | 'draft'>, TicketStamps> = {
     'in-progress': { ...UNSTAMPED, started: MOVED_AT },
     'in-review':   { ...UNSTAMPED, finished: MOVED_AT },
     reviewed:      { ...UNSTAMPED, finished: MOVED_AT },

@@ -162,7 +162,7 @@ describe('the roll-up', () => {
       slot:                1,
       ticketIds:           ['001', '002'],
       ticketCountByStatus: {
-        'pending': 0, 'in-progress': 0, 'in-review': 1, 'reviewed': 0, 'delivered': 1, 'abandoned': 0
+        'draft': 0, 'pending': 0, 'in-progress': 0, 'in-review': 1, 'reviewed': 0, 'delivered': 1, 'abandoned': 0
       },
       tokens: 140,
       // Text order would pick the other stamp each time: 07:30Z is 09:30+02:00, after the 09:00 start; 09:45Z is 11:45+02:00, the last end.

@@ -1,11 +1,13 @@
 /** Why the Board refused a change: a reason code and the facts, never a sentence. The caller words it. */
 import type { TaskStatus } from './@types/Task.ts';
 import type {
+  IncompleteTicket,
   AgentPair,
   TicketPriority,
   TicketSize,
   TicketStatus,
-  TicketType
+  TicketType,
+  RowedTicketStatus
 } from './@types/Ticket.ts';
 
 export type BoardRefusalDetail =
@@ -14,7 +16,11 @@ export type BoardRefusalDetail =
   | { reason: 'ticket-already-has-row'; ticketId: string; taskId: number; taskName: string }
   | { reason: 'task-belongs-to-another-ticket'; taskId: number; owningTicketId: string; ticketId: string }
   | { reason: 'ticket-already-in-status'; ticketId: string; status: TicketStatus }
-  | { reason: 'illegal-ticket-move'; ticketId: string; status: TicketStatus; targetStatus: TicketStatus }
+  | { reason: 'illegal-ticket-move'; ticketId: string; status: TicketStatus; targetStatus: RowedTicketStatus }
+  | { reason: 'move-to-draft'; ticketId: string; status: TicketStatus }
+  | { reason: 'move-of-a-draft'; ticketId: string; targetStatus: RowedTicketStatus }
+  | { reason: 'ready-of-a-ticket-not-in-draft'; ticketId: string; status: TicketStatus }
+  | { reason: 'incomplete-tickets'; incompleteTickets: readonly IncompleteTicket[] }
   | { reason: 'abandon-without-reason'; ticketId: string }
   | { reason: 'tokens-without-a-row'; ticketId: string }
   | { reason: 'rereview-outside-review'; ticketId: string; status: TicketStatus }

@@ -6,7 +6,9 @@ import { TicketDefaultsUtil }                   from './TicketDefaultsUtil.ts';
 /** A low ticket that was never started lives off the chart; once started it keeps the row it was given. */
 const TICKET_STATUSES_A_LOW_TICKET_WAITS_OFF_THE_CHART_IN: readonly TicketStatus[] = ['pending', 'abandoned'];
 
+/** A draft at any priority lives off the chart too: `ticket ready` files its row. */
 function ticketStaysOffTheChart(frontmatter: Pick<TicketFrontmatter, 'priority' | 'started' | 'status'>): boolean {
+  if (frontmatter.status === 'draft') return true;
   return TicketDefaultsUtil.ticketPriorityOf(frontmatter) === 'low'
     && frontmatter.started === null
     && TICKET_STATUSES_A_LOW_TICKET_WAITS_OFF_THE_CHART_IN.includes(frontmatter.status);
@@ -25,7 +27,8 @@ function seededFilingOf(frontmatter: Readonly<TicketFrontmatter>): TaskFiling {
   return {
     name:   rowNameOf(frontmatter),
     ticket: frontmatter.id,
-    status: frontmatter.status,
+    // A draft stays off the chart, so it is never seeded; were one seeded, it would wait as a pending row.
+    status: frontmatter.status === 'draft' ? 'pending' : frontmatter.status,
     ...(frontmatter.started === null ? {} : { start: frontmatter.started }),
     ...(endTimestamp === null ? {} : { end: endTimestamp }),
     ...(frontmatter.status === 'reviewed' || frontmatter.status === 'delivered' ? { reviewed: frontmatter.finished ?? frontmatter.updated } : {}),

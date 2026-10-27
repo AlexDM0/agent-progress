@@ -116,3 +116,29 @@ describe('acceptanceVerdictOf', () => {
     expect(acceptanceVerdictOf('## Acceptance\r\nA1. Holds.\r\n## Review\r\nA1 holds\r\n')).toEqual({ verdict: 'accounted-for' });
   });
 });
+
+// `ticket ready` refuses on these, so the Acceptance is read exactly as the release reads it and a Brief must hold a non-blank line.
+describe('readinessGapsOf', () => {
+  const BRIEF = '## Brief\nWork belongs in: `src/example/ExampleCheckout.ts`.\n';
+
+  test('a numbered Acceptance and a Brief with text leave no gap, CRLF lines too', () => {
+    expect(TicketAcceptanceUtil.readinessGapsOf(`${ACCEPTANCE}\n${BRIEF}`)).toEqual([]);
+    expect(TicketAcceptanceUtil.readinessGapsOf('## Acceptance\r\nA1. Holds.\r\n## Brief\r\nExample.\r\n')).toEqual([]);
+  });
+
+  test('an Acceptance with no `A<n>.` item, or none at all, is acceptance-unnumbered', () => {
+    for (const acceptance of ['', '## Acceptance\n- The export names Alex Example.\n', '## Acceptance\n1. The export works.\n']) {
+      expect(TicketAcceptanceUtil.readinessGapsOf(`${acceptance}${BRIEF}`), acceptance).toEqual(['acceptance-unnumbered']);
+    }
+  });
+
+  test('no Brief, an empty one, a blank one and one only inside a code fence are brief-missing', () => {
+    for (const brief of ['', '## Brief\n', '## Brief\n   \n\t\n## Handoff\nDone.\n', '```\n## Brief\nExample.\n```\n']) {
+      expect(TicketAcceptanceUtil.readinessGapsOf(`${ACCEPTANCE}\n${brief}`), brief).toEqual(['brief-missing']);
+    }
+  });
+
+  test('a body with neither names both gaps, Acceptance first', () => {
+    expect(TicketAcceptanceUtil.readinessGapsOf('## Report\nExample.\n')).toEqual(['acceptance-unnumbered', 'brief-missing']);
+  });
+});

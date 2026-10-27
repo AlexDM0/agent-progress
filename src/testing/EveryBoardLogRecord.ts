@@ -14,8 +14,9 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
     ],
   });
   board.recordNote('Example note from the orchestrator', at);
-  board.fileTicket(ticketFixture({ id: '003', title: 'Example search page' }), at);
+  board.fileTicket(ticketFixture({ id: '003', title: 'Example search page', status: 'draft' }), at);
   board.editTicket('003', { title: 'Example search results page' }, at);
+  board.readyDraftTickets(['003'], () => [], at);
   board.setTicketPriority('001', 'high', at);
   board.setTicketSize('001', 'M', at);
   board.setTicketDependencies('002', ['001'], at);

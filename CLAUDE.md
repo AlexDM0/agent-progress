@@ -211,6 +211,9 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   other line.
 - A ticket is its frontmatter `id`, never its file name. Ticket and task ids are never reused or gap-filled.
 - Only a transition stamps `updated`. The named verbs enforce the legality matrix; `ticket status` skips it on purpose.
+- `ticket add` files a draft ticket, `draft`, with no row at any priority; only `ticket ready`, after the readiness
+  reading `release` shares (`TicketAcceptanceUtil`), moves it to `pending` and files its row, and no move returns a
+  ticket to `draft`, not even `ticket status`. The filing cabinet's drafts are "filing drafts" in help and wording.
 - A ticket's `epics` is an ordered list, the first its primary epic, written only when non-empty. An epic has no
   lifecycle: its progress is a Board roll-up over its tickets, and it never touches dispatch, claiming, concurrency or
   release, which stay `group`'s.

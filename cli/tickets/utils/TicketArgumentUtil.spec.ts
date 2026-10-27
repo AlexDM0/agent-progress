@@ -72,7 +72,7 @@ describe('TicketArgumentUtil.refuseAnUnknownTicketStatus', () => {
 
       expect(refusal.status).toBe('refused');
       expect(refusal.message).toBe(
-        `"${writtenStatus}" is not a ticket status. The statuses are pending, in-progress, in-review, reviewed, delivered, abandoned.`,
+        `"${writtenStatus}" is not a ticket status. The statuses are draft, pending, in-progress, in-review, reviewed, delivered, abandoned.`,
       );
     }
   });

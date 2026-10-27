@@ -80,6 +80,6 @@ export class DisplayQueries {
 }
 
 /** A ticket handed in reads `in-review`, awaiting review, until a review bar of it is in progress. */
-function displayStateFor(status: TaskStatus, ticketStatus: TicketStatus | null, reviewIsRunning: boolean): DisplayState {
+function displayStateFor(status: TaskStatus | 'draft', ticketStatus: TicketStatus | null, reviewIsRunning: boolean): DisplayState {
   return status === 'in-review' && ticketStatus === 'in-review' && reviewIsRunning ? 'reviewing' : status;
 }

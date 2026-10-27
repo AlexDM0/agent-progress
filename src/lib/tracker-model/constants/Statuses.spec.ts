@@ -4,18 +4,19 @@
  */
 import { expect, test } from 'bun:test';
 
-import type { TaskStatus }                from '../@types/Task.ts';
-import type { TicketStatus }              from '../@types/Ticket.ts';
-import type { TupleCoversTheUnion }       from '../testing/TupleCoversTheUnion.ts';
-import { VocabularyUtil }                 from '../utils/VocabularyUtil.ts';
-import { TASK_STATUSES, TICKET_STATUSES } from './Statuses.ts';
+import type { TaskStatus }                      from '../@types/Task.ts';
+import type { RowedTicketStatus, TicketStatus } from '../@types/Ticket.ts';
+import type { TupleCoversTheUnion }             from '../testing/TupleCoversTheUnion.ts';
+import { VocabularyUtil }                       from '../utils/VocabularyUtil.ts';
+import { TASK_STATUSES, TICKET_STATUSES }       from './Statuses.ts';
 
 const { taskStatusIsKnown } = VocabularyUtil;
 
 /** A tuple member the union has never heard of fails `bun run typecheck` rather than a test. */
 const TASK_STATUS_TUPLE_MATCHES_THE_UNION = TASK_STATUSES satisfies readonly TaskStatus[];
 const TICKET_STATUS_TUPLE_MATCHES_THE_UNION = TICKET_STATUSES satisfies readonly TicketStatus[];
-const TICKET_STATUS_TUPLE_FITS_THE_TASK_LADDER = TICKET_STATUSES satisfies readonly TaskStatus[];
+const ROWED_TICKET_STATUSES = TICKET_STATUSES.filter((status): status is RowedTicketStatus => status !== 'draft');
+const TICKET_STATUS_TUPLE_FITS_THE_TASK_LADDER = ROWED_TICKET_STATUSES satisfies readonly TaskStatus[];
 
 const TASK_STATUS_TUPLE_COVERS_THE_UNION: TupleCoversTheUnion<TaskStatus, typeof TASK_STATUSES> = true;
 const TICKET_STATUS_TUPLE_COVERS_THE_UNION: TupleCoversTheUnion<TicketStatus, typeof TICKET_STATUSES> = true;
@@ -56,10 +57,10 @@ test('no name appears twice in a ladder, so an index into it identifies one stat
   expect(new Set(TICKET_STATUSES).size).toBe(TICKET_STATUSES.length);
 });
 
-// A ticket moves its row to the same word, so a ticket status the task ladder lacks would leave that row nowhere to go.
-test('every ticket status is also a task status', () => {
-  expect(TICKET_STATUS_TUPLE_FITS_THE_TASK_LADDER.length).toBe(TICKET_STATUSES.length);
-  expect(TICKET_STATUSES.filter((status) => !taskStatusIsKnown(status))).toEqual([]);
+// A ticket moves its row to the same word, so a ticket status the task ladder lacks would leave that row nowhere to go; a draft has no row.
+test('every ticket status but draft is also a task status', () => {
+  expect(TICKET_STATUS_TUPLE_FITS_THE_TASK_LADDER.length).toBe(TICKET_STATUSES.length - 1);
+  expect(TICKET_STATUSES.filter((status) => !taskStatusIsKnown(status))).toEqual(['draft']);
 });
 
 test('paused and re-review are the only task statuses a ticket never takes', () => {

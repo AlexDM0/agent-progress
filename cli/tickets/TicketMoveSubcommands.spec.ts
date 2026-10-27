@@ -10,5 +10,8 @@ import { TICKET_MOVE_SUBCOMMANDS } from './TicketMoveSubcommands.ts';
 
 test('every verb a refusal names for a ticket status is a ticket subcommand', () => {
   expect(TICKET_STATUSES.length, 'the statuses were enumerated').toBeGreaterThan(5);
-  for (const status of TICKET_STATUSES) expect(Object.hasOwn(TICKET_MOVE_SUBCOMMANDS, StatusWordingUtil.verbFor(status)), status).toBe(true);
+  // No verb reaches `draft`: filing is the only way in, so no refusal names one.
+  for (const status of TICKET_STATUSES.filter((candidate) => candidate !== 'draft')) {
+    expect(Object.hasOwn(TICKET_MOVE_SUBCOMMANDS, StatusWordingUtil.verbFor(status)), status).toBe(true);
+  }
 });

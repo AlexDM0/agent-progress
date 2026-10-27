@@ -28,7 +28,9 @@ function bodyForNewTicket(suppliedBody: string | undefined, ticketId: string, ti
   return filledTemplateOf(readFileSync(resourceFilePathOf(...TICKET_BODY_TEMPLATE_PATH), 'utf8'), { id: ticketId, title });
 }
 
-const LOW_PRIORITY_FILING_NOTE = ' (low priority: no row until it is started)';
+function draftFilingNoteOf(ticketId: string): string {
+  return `\nIt is a draft ticket, with no row: \`${PRODUCT_NAMES.PROGRAM} ticket ready ${ticketId}\` readies it to build.`;
+}
 
 async function addOneTicket(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
   commandArguments.rejectUnknownOptions(ADD_OPTION_NAMES, TICKET_USAGE);
@@ -82,7 +84,7 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
     commandArguments,
     context,
     TicketJsonUtil.ticketAsJson(filed.ticket),
-    `${OutputUtil.loggedSentencesOf(filed.logged)}${priority === 'low' ? LOW_PRIORITY_FILING_NOTE : ''}\n  ${filed.ticket.filePath}`,
+    `${OutputUtil.loggedSentencesOf(filed.logged)}${draftFilingNoteOf(filed.ticket.frontmatter.id)}\n  ${filed.ticket.filePath}`,
     NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState),
   );
 }

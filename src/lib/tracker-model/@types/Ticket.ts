@@ -2,8 +2,10 @@ import type { TaskStatus } from './Task.ts';
 
 export type TicketType     = 'ticket' | 'bug' | 'research';
 export type RetiredTicketType = 'change' | 'feature';
-/** The task ladder without the two states only a row reaches. */
-export type TicketStatus   = Exclude<TaskStatus, 'paused' | 're-review'>;
+/** The task ladder without the two states only a row reaches, behind `draft`: a filed ticket not yet ready, which has no row. */
+export type TicketStatus   = 'draft' | Exclude<TaskStatus, 'paused' | 're-review'>;
+/** Every ticket status a row can share, which is all of them but `draft`. */
+export type RowedTicketStatus = Exclude<TicketStatus, 'draft'>;
 export type TicketPriority = 'low' | 'normal' | 'high';
 /** The expected change in code lines, comments and docs not counted: XS ≤ 20, S ≤ 100, M ≤ 300, L ≤ 750, XL ≤ 1500, XXL beyond. */
 export type TicketSize     = 'XS' | 'S' | 'M' | 'L' | 'XL' | 'XXL';
@@ -68,6 +70,14 @@ export interface Ticket {
   lineEnding?: LineEnding;
   /** A retired type the file holds, which reads as `ticket` and every rewrite keeps; absent on a ticket stored with a current type. */
   storedType?: RetiredTicketType;
+}
+
+/** What keeps a draft from being readied: no numbered Acceptance item, or no `## Brief` with a non-blank line. */
+export type ReadinessGap = 'acceptance-unnumbered' | 'brief-missing';
+
+export interface IncompleteTicket {
+  ticketId: string;
+  gaps:     readonly ReadinessGap[];
 }
 
 /** A ready ticket with its priority and agents resolved to their defaults where the ticket names none. */

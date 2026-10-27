@@ -31,11 +31,13 @@ export class TicketSettings {
         priority,
       });
     }
-    if (priority === 'low' && status !== 'pending') throw new BoardRefusal({ reason: 'lowering-a-ticket-that-is-not-pending', ticketId, status });
+    if (priority === 'low' && status !== 'pending' && status !== 'draft') throw new BoardRefusal({ reason: 'lowering-a-ticket-that-is-not-pending', ticketId, status });
 
     frontmatter.priority = priority;
     const linkedTask     = this.records.linkedTaskRecordOf(ticket);
-    if (priority === 'low') {
+    if (status === 'draft') {
+      // A draft has no row at any priority: `ticket ready` files it.
+    } else if (priority === 'low') {
       if (linkedTask !== undefined) this.records.removeTaskRecord(linkedTask);
       frontmatter.task = null;
     } else if (linkedTask === undefined && status === 'pending') {

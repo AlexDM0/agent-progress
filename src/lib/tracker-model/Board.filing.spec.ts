@@ -49,6 +49,17 @@ describe('fileTicket', () => {
     expect(progress.nextTaskId).toBe(1);
   });
 
+  test('a draft gets no row at any priority, and no task id is spent on it', () => {
+    for (const priority of ['low', 'normal', 'high'] as const) {
+      const { board, progress } = boardFixture();
+      const filed               = board.fileTicket(ticketFixture({ id: '001', status: 'draft', priority }), FILED_AT);
+
+      expect(filed.ticket.frontmatter.task, priority).toBeNull();
+      expect(progress.tasks, priority).toEqual([]);
+      expect(progress.nextTaskId, priority).toBe(1);
+    }
+  });
+
   test('a dependency on a ticket the board does not hold is refused, the new ticket\'s own id among them, and nothing changes', () => {
     for (const dependsOn of [['007'], ['001', '007'], ['002']]) {
       const {

@@ -5,6 +5,7 @@ import type { DisplayState } from '../../src/lib/tracker-model/@types/Task.ts';
  * `WorkItemMarkupUtil.stateLabelOf` appends.
  */
 export const STATE_LABEL_FOR_DISPLAY_STATE: Readonly<Record<DisplayState, string>> = {
+  'draft':       'Draft',
   'pending':     'To do',
   'in-progress': 'In progress',
   'paused':      'Paused',

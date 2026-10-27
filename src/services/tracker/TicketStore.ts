@@ -138,7 +138,7 @@ export function createTicket(workspace: Workspace, input: CreateTicketInput): Ti
     title:       input.title,
     type:        input.type,
     ...(input.priority === undefined ? {} : { priority: input.priority }),
-    status:      'pending',
+    status:      'draft',
     filed:       input.at,
     updated:     input.at,
     started:     null,

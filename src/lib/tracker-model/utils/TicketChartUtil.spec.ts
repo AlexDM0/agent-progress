@@ -56,11 +56,20 @@ describe('ticketStaysOffTheChart', () => {
     expect(ticketStaysOffTheChart(frontmatterFixture({ priority: 'low', status: 'reviewed' }))).toBe(false);
   });
 
-  test('a normal or high ticket, or one that names no priority, is always on the chart', () => {
-    for (const status of TICKET_STATUSES) {
+  test('a normal or high ticket, or one that names no priority, is always on the chart once out of draft', () => {
+    for (const status of TICKET_STATUSES.filter((candidate) => candidate !== 'draft')) {
       expect(ticketStaysOffTheChart(frontmatterFixture({ status })), status).toBe(false);
       expect(ticketStaysOffTheChart(frontmatterFixture({ status, priority: 'normal' })), status).toBe(false);
       expect(ticketStaysOffTheChart(frontmatterFixture({ status, priority: 'high' })), status).toBe(false);
+    }
+  });
+});
+
+describe('a draft', () => {
+  test('stays off the chart at every priority: `ticket ready` files its row', () => {
+    for (const priority of [undefined, 'low', 'normal', 'high'] as const) {
+      const frontmatter = frontmatterFixture({ status: 'draft', ...(priority === undefined ? {} : { priority }) });
+      expect(ticketStaysOffTheChart(frontmatter), String(priority)).toBe(true);
     }
   });
 });

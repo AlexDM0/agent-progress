@@ -7,18 +7,25 @@ import type {
   TicketMoved,
   TicketMoveRequest,
   TicketRelease,
+  TicketsReadied,
   TicketsReleased
 }                                         from './@types/BoardChanges.ts';
-import type { LogRecord }                               from './@types/LogRecord.ts';
-import type { Ticket, TicketFrontmatter, TicketStatus } from './@types/Ticket.ts';
-import type { BoardRecords }                            from './BoardRecords.ts';
-import { BoardRefusal }                                 from './BoardRefusal.ts';
-import type { GroupReleases }                           from './GroupReleases.ts';
-import type { ReviewBars, ReviewBarsClosed }            from './ReviewBars.ts';
-import type { TicketDependencies }                      from './TicketDependencies.ts';
-import { FIRST_REPEAT_REVIEW_ROUND }                    from './constants/ReviewRounds.ts';
-import { TicketBodyHashUtil }                           from './utils/TicketBodyHashUtil.ts';
-import { TicketMoveUtil }                               from './utils/TicketMoveUtil.ts';
+import type { LogRecord } from './@types/LogRecord.ts';
+import type {
+  ReadinessGap,
+  RowedTicketStatus,
+  Ticket,
+  TicketFrontmatter,
+  TicketStatus
+} from './@types/Ticket.ts';
+import type { BoardRecords }                 from './BoardRecords.ts';
+import { BoardRefusal }                      from './BoardRefusal.ts';
+import type { GroupReleases }                from './GroupReleases.ts';
+import type { ReviewBars, ReviewBarsClosed } from './ReviewBars.ts';
+import type { TicketDependencies }           from './TicketDependencies.ts';
+import { FIRST_REPEAT_REVIEW_ROUND }         from './constants/ReviewRounds.ts';
+import { TicketBodyHashUtil }                from './utils/TicketBodyHashUtil.ts';
+import { TicketMoveUtil }                    from './utils/TicketMoveUtil.ts';
 
 type TicketMoveFields = Pick<TicketMoveRequest, 'branch' | 'commit' | 'reason'>;
 
@@ -48,6 +55,9 @@ export class TicketMoves {
     const ticket     = this.records.requireTicket(ticketId);
     const { status } = ticket.frontmatter;
     if (status === targetStatus) throw new BoardRefusal({ reason: 'ticket-already-in-status', ticketId, status });
+    // Filing is the only way into `draft` and `ticket ready` the only way on, even past the legality table: readying checks the body.
+    if (targetStatus === 'draft') throw new BoardRefusal({ reason: 'move-to-draft', ticketId, status });
+    if (status === 'draft' && targetStatus !== 'abandoned') throw new BoardRefusal({ reason: 'move-of-a-draft', ticketId, targetStatus });
     if (request.checksLegality && !TicketMoveUtil.ticketMoveIsLegal(status, targetStatus)) {
       throw new BoardRefusal({
         reason: 'illegal-ticket-move',
@@ -85,6 +95,33 @@ export class TicketMoves {
     this.records.markChanged(ticket);
     const round         = task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND;
     return { logged: [this.records.logger.log({ kind: 'ticket-rereviewed', ticketId, fields: { round } }, at)], ticket };
+  }
+
+  /**
+   * Every named draft moves to `pending` with a row at any priority, or none does: a ticket not in `draft` is refused first, then
+   * every ticket the reading finds gaps in, all named at once.
+   */
+  readyDraftTickets(ticketIds: readonly string[], readinessGapsOf: (body: string) => readonly ReadinessGap[], at: string): TicketsReadied {
+    const readiedTickets = [...new Set(ticketIds)].map((ticketId) => this.records.requireTicket(ticketId));
+    const notADraft      = readiedTickets.find((ticket) => ticket.frontmatter.status !== 'draft');
+    if (notADraft !== undefined) {
+      throw new BoardRefusal({ reason: 'ready-of-a-ticket-not-in-draft', ticketId: notADraft.frontmatter.id, status: notADraft.frontmatter.status });
+    }
+    const incompleteTickets = readiedTickets.flatMap((ticket) => {
+      const gaps = readinessGapsOf(ticket.body);
+      return gaps.length === 0 ? [] : [{ ticketId: ticket.frontmatter.id, gaps }];
+    });
+    if (incompleteTickets.length > 0) throw new BoardRefusal({ reason: 'incomplete-tickets', incompleteTickets });
+
+    const logged = readiedTickets.map((ticket) => {
+      const { frontmatter } = ticket;
+      frontmatter.status    = 'pending';
+      frontmatter.updated   = at;
+      this.records.ensureTaskForTicket(ticket, at);
+      this.records.markChanged(ticket);
+      return this.records.logger.log({ kind: 'ticket-readied', ticketId: frontmatter.id, fields: {} }, at);
+    });
+    return { logged, tickets: readiedTickets };
   }
 
   /**
@@ -128,7 +165,7 @@ export class TicketMoves {
   }
 
   /** The move itself, unchecked: the status, its stamps and the fields given, and the row taking the same status. */
-  applyTicketMove(ticket: Ticket, targetStatus: TicketStatus, fields: TicketMoveFields, at: string): LogRecord {
+  applyTicketMove(ticket: Ticket, targetStatus: RowedTicketStatus, fields: TicketMoveFields, at: string): LogRecord {
     const { frontmatter } = ticket;
     frontmatter.status      = targetStatus;
     frontmatter.updated     = at;
@@ -151,7 +188,7 @@ export class TicketMoves {
   }
 
   /** `pending` is logged as a reopen: a ticket's first `pending` is its filing, which `fileTicket` logs. */
-  private logTicketMove(frontmatter: Readonly<TicketFrontmatter>, targetStatus: TicketStatus, at: string): LogRecord {
+  private logTicketMove(frontmatter: Readonly<TicketFrontmatter>, targetStatus: RowedTicketStatus, at: string): LogRecord {
     const ticketId = frontmatter.id;
     const { logger } = this.records;
     switch (targetStatus) {

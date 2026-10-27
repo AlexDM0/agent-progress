@@ -47,6 +47,7 @@ export const LOG_RECORD_SUBJECT_IDS = {
 export const LOG_RECORD_SCHEMA = {
   'note':                            { subject: 'board', fields: { text: 'text' } },
   'ticket-filed':                    { subject: 'ticket', fields: { title: 'text' } },
+  'ticket-readied':                  { subject: 'ticket', fields: NO_FIELDS },
   'ticket-reopened':                 { subject: 'ticket', fields: NO_FIELDS },
   'ticket-started':                  { subject: 'ticket', fields: NO_FIELDS },
   'ticket-finished':                 { subject: 'ticket', fields: NO_FIELDS },

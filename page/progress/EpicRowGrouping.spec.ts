@@ -12,6 +12,7 @@ import { NO_EPIC_CHIP }       from '../constants/EpicChips.ts';
 import { rowGroupingOfEpics } from './EpicRowGrouping.ts';
 
 const NO_TICKETS: BoardEpic['ticketCountByStatus'] = {
+  'draft':       0,
   'pending':     0,
   'in-progress': 0,
   'in-review':   0,

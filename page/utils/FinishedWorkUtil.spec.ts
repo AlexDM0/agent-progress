@@ -40,7 +40,7 @@ const DAY_MILLISECONDS       = 24 * HOUR_MILLISECONDS;
 const NOW_EPOCH_MILLISECONDS = new Date(2026, 8, 25, 13, 36).getTime();
 
 const NO_TICKET_COUNTS: Record<TicketStatus, number> = {
-  'pending': 0, 'in-progress': 0, 'in-review': 0, 'reviewed': 0, 'delivered': 0, 'abandoned': 0,
+  'draft': 0, 'pending': 0, 'in-progress': 0, 'in-review': 0, 'reviewed': 0, 'delivered': 0, 'abandoned': 0,
 };
 
 function stampBefore(milliseconds: number): string {

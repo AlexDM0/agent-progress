@@ -2,17 +2,17 @@
  * Words an `OperationRefusal` wherever the command line prints one: its own message, or its detail. A Board refusal carries only its reason
  * code and facts, and the install-version mismatch is worded as one paragraph, so the SubagentStop hook's one-report rule holds.
  */
-import type { TicketStatus }                       from '../../lib/tracker-model/@types/Ticket.ts';
-import type { BoardRefusalDetail }                 from '../../lib/tracker-model/BoardRefusal.ts';
-import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS } from '../../lib/tracker-model/constants/TicketMoveLegality.ts';
-import { TicketMoveUtil }                          from '../../lib/tracker-model/utils/TicketMoveUtil.ts';
-import { ROOT_OVERRIDE_VARIABLE }                  from '../../shared/Environment.ts';
-import type { OperationRefusal }                   from '../../shared/OperationRefusal.ts';
-import type { OperationRefusalDetail }             from '../../shared/OperationRefusal.ts';
-import { PRODUCT_NAMES }                           from '../../shared/constants/ProductNames.ts';
-import { StatusWordingUtil }                       from './StatusWordingUtil.ts';
-import { TicketPhraseUtil }                        from './TicketPhraseUtil.ts';
-import { TrackerReadingWordingUtil }               from './TrackerReadingWordingUtil.ts';
+import type { IncompleteTicket, ReadinessGap, TicketStatus } from '../../lib/tracker-model/@types/Ticket.ts';
+import type { BoardRefusalDetail }                           from '../../lib/tracker-model/BoardRefusal.ts';
+import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS }           from '../../lib/tracker-model/constants/TicketMoveLegality.ts';
+import { TicketMoveUtil }                                    from '../../lib/tracker-model/utils/TicketMoveUtil.ts';
+import { ROOT_OVERRIDE_VARIABLE }                            from '../../shared/Environment.ts';
+import type { OperationRefusal }                             from '../../shared/OperationRefusal.ts';
+import type { OperationRefusalDetail }                       from '../../shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }                                     from '../../shared/constants/ProductNames.ts';
+import { StatusWordingUtil }                                 from './StatusWordingUtil.ts';
+import { TicketPhraseUtil }                                  from './TicketPhraseUtil.ts';
+import { TrackerReadingWordingUtil }                         from './TrackerReadingWordingUtil.ts';
 
 type InstallVersionMismatchDetail = Extract<OperationRefusalDetail, { kind: 'install-version-mismatch' }>;
 
@@ -27,6 +27,15 @@ function countedText(count: number, singularNoun: string): string {
 
 function legalSourcesText(targetStatus: TicketStatus): string {
   return LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS[targetStatus].join(' or ');
+}
+
+const READINESS_GAP_TEXT: Readonly<Record<ReadinessGap, string>> = {
+  'acceptance-unnumbered': 'its `## Acceptance` holds no numbered item (acceptance-unnumbered)',
+  'brief-missing':         'it has no `## Brief` with a non-blank line (brief-missing)',
+};
+
+function incompleteTicketText(incompleteTicket: IncompleteTicket): string {
+  return `ticket #${incompleteTicket.ticketId} is incomplete: ${incompleteTicket.gaps.map((gap) => READINESS_GAP_TEXT[gap]).join(', and ')}`;
 }
 
 function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
@@ -45,9 +54,21 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
     case 'ticket-already-in-status':
       return `Ticket #${detail.ticketId} is already ${detail.status}, so nothing was changed and nothing was logged.`;
     case 'illegal-ticket-move':
-      return `Ticket #${detail.ticketId} is ${detail.status}, `
+      return `Ticket #${detail.ticketId} is ${StatusWordingUtil.statusTextFor(detail.status)}, `
         + `and \`${PRODUCT_NAMES.PROGRAM} ticket ${StatusWordingUtil.verbFor(detail.targetStatus)}\` moves a ticket that is ${legalSourcesText(detail.targetStatus)}. `
         + `Run \`${PRODUCT_NAMES.PROGRAM} ticket status ${detail.ticketId} ${detail.targetStatus}\` if you mean to set it directly.`;
+    case 'move-to-draft':
+      return `Ticket #${detail.ticketId} is ${StatusWordingUtil.statusTextFor(detail.status)}, and no move returns a ticket to draft: `
+        + `filing is the only way in. Run \`${PRODUCT_NAMES.PROGRAM} ticket hold ${detail.ticketId}\` to keep it from being built for now.`;
+    case 'move-of-a-draft':
+      return `Ticket #${detail.ticketId} is a draft ticket, so it was not moved: `
+        + `run \`${PRODUCT_NAMES.PROGRAM} ticket ready ${detail.ticketId}\` to ready it to build, which checks its Acceptance and Brief.`;
+    case 'ready-of-a-ticket-not-in-draft':
+      return `Ticket #${detail.ticketId} is ${StatusWordingUtil.statusTextFor(detail.status)}, not a draft ticket, `
+        + `so nothing was readied: only a draft ticket is readied. ${NOTHING_WAS_WRITTEN}`;
+    case 'incomplete-tickets':
+      return `Nothing was readied: ${detail.incompleteTickets.map(incompleteTicketText).join('; ')}. `
+        + `Number every Acceptance item as \`A1.\` at the start of a line and write a \`## Brief\`, then ready ${detail.incompleteTickets.length === 1 ? 'it' : 'them'} again.`;
     case 'abandon-without-reason':
       return `Ticket #${detail.ticketId} was not moved: abandon needs --reason. `
         + `Say why the work was dropped, for example \`${PRODUCT_NAMES.PROGRAM} ticket abandon 3 --reason "superseded by #7"\`.`;
@@ -58,7 +79,7 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
       const firstReviewAdvice = TicketMoveUtil.ticketMoveIsLegal(detail.status, 'in-review')
         ? ` Run \`${PRODUCT_NAMES.PROGRAM} ticket finish ${detail.ticketId}\` to send it to its first reviewer.`
         : '';
-      return `Ticket #${detail.ticketId} is ${detail.status}, `
+      return `Ticket #${detail.ticketId} is ${StatusWordingUtil.statusTextFor(detail.status)}, `
         + `and another review pass needs a ticket that is in-review.${firstReviewAdvice}`;
     }
     case 'review-record-without-a-review-bar':
@@ -74,7 +95,7 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
       return `Review bar #${detail.taskId} reviews ticket #${detail.reviewOf}, which was not claimed with ticket #${detail.ticketId}, `
         + 'so the review cannot be recorded on it and nothing was logged. Pass --bar the review bar of the bundle holding the ticket.';
     case 'unclaimable-status':
-      return `Ticket #${detail.ticketId} is ${detail.status}, `
+      return `Ticket #${detail.ticketId} is ${StatusWordingUtil.statusTextFor(detail.status)}, `
         + `and \`${PRODUCT_NAMES.PROGRAM} ticket claim\` takes a ticket that is ${legalSourcesText('in-progress')}. `
         + NOTHING_WAS_WRITTEN;
     case 'claim-waits-on-dependencies':
@@ -88,7 +109,7 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
     case 'claim-under-review':
       return `Ticket #${detail.ticketId} is under review: its review row #${detail.reviewBarTaskId} is in progress. ${NOTHING_WAS_WRITTEN}`;
     case 'claim-after-a-ticket-not-in-review':
-      return `Ticket #${detail.ticketId} was not claimed after #${detail.afterTicketId}: #${detail.afterTicketId} is ${detail.status}, `
+      return `Ticket #${detail.ticketId} was not claimed after #${detail.afterTicketId}: #${detail.afterTicketId} is ${StatusWordingUtil.statusTextFor(detail.status)}, `
         + `and --after names a predecessor that is in-review. ${NOTHING_WAS_WRITTEN}`;
     case 'claim-after-a-ticket-outside-the-bundle':
       return `Ticket #${detail.ticketId} was not claimed after #${detail.afterTicketId}: `
@@ -109,7 +130,7 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
     case 'introduced-by-itself':
       return `Ticket #${detail.ticketId} cannot be introduced by itself. ${NOTHING_WAS_WRITTEN}`;
     case 'introduced-by-an-undelivered-ticket':
-      return `Ticket #${detail.ticketId} cannot be introduced by #${detail.causeTicketId}: it is ${detail.status}, `
+      return `Ticket #${detail.ticketId} cannot be introduced by #${detail.causeTicketId}: it is ${StatusWordingUtil.statusTextFor(detail.status)}, `
         + `and only a delivered ticket's change lets a bug escape. ${NOTHING_WAS_WRITTEN}`;
     case 'malformed-epic-key':
       return `"${detail.epicKey}" is not a usable epic key: a key is lower-case letters and digits, in words joined by single hyphens, `
@@ -156,33 +177,33 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
     case 'dependency-loop':
       return `That would make tickets wait on each other in a circle: ${detail.loopTicketIds.map((ticketId) => `#${ticketId}`).join(' → ')}.`;
     case 'priority-unchanged':
-      return `Ticket #${detail.ticketId} is ${detail.status}, and its priority was not changed: `
+      return `Ticket #${detail.ticketId} is ${StatusWordingUtil.statusTextFor(detail.status)}, and its priority was not changed: `
         + `it is already ${detail.priority} priority. ${NOTHING_WAS_WRITTEN}`;
     case 'size-unchanged':
-      return `Ticket #${detail.ticketId} is ${detail.status}, and its size was not changed: `
+      return `Ticket #${detail.ticketId} is ${StatusWordingUtil.statusTextFor(detail.status)}, and its size was not changed: `
         + `it is already ${detail.size}. ${NOTHING_WAS_WRITTEN}`;
     case 'lowering-a-ticket-that-is-not-pending':
-      return `Ticket #${detail.ticketId} is ${detail.status}, and its priority was not changed: `
-        + 'only a pending ticket can be lowered to low, '
+      return `Ticket #${detail.ticketId} is ${StatusWordingUtil.statusTextFor(detail.status)}, and its priority was not changed: `
+        + 'only a draft or pending ticket can be lowered to low, '
         + `since a low ticket has no row until it is started. ${NOTHING_WAS_WRITTEN}`;
     case 'edit-of-a-ticket-past-pending':
-      return `Ticket #${detail.ticketId} is ${detail.status}, and it was not edited: an agent may already be working from it. `
+      return `Ticket #${detail.ticketId} is ${StatusWordingUtil.statusTextFor(detail.status)}, and it was not edited: an agent may already be working from it. `
         + `${NOTHING_WAS_WRITTEN} Pass --force to edit it anyway; the change shows as the body changed since the claim.`;
     case 'agents-of-a-settled-ticket':
-      return `Ticket #${detail.ticketId} is ${detail.status}, `
+      return `Ticket #${detail.ticketId} is ${StatusWordingUtil.statusTextFor(detail.status)}, `
         + `and its agents were not changed: no agent will work it again. ${NOTHING_WAS_WRITTEN}`;
     case 'agents-unchanged':
-      return `Ticket #${detail.ticketId} is ${detail.status}, and its agents were not changed: `
+      return `Ticket #${detail.ticketId} is ${StatusWordingUtil.statusTextFor(detail.status)}, and its agents were not changed: `
         + `they already run on ${TicketPhraseUtil.agentPairText(detail.agents)}. ${NOTHING_WAS_WRITTEN}`;
     case 'hold-of-a-settled-ticket':
-      return `Ticket #${detail.ticketId} is ${detail.status}, `
+      return `Ticket #${detail.ticketId} is ${StatusWordingUtil.statusTextFor(detail.status)}, `
         + `and no agent will work it again, so there is nothing to ${detail.action}. ${NOTHING_WAS_WRITTEN}`;
     case 'ticket-already-held':
       return `Ticket #${detail.ticketId} is already held. ${NOTHING_WAS_WRITTEN}`;
     case 'ticket-not-held':
       return `Ticket #${detail.ticketId} is not held. ${NOTHING_WAS_WRITTEN}`;
     case 'release-mark-of-a-settled-ticket':
-      return `Ticket #${detail.ticketId} is ${detail.status}, and its release mark was not ${detail.action === 'mark' ? 'set' : 'cleared'}: `
+      return `Ticket #${detail.ticketId} is ${StatusWordingUtil.statusTextFor(detail.status)}, and its release mark was not ${detail.action === 'mark' ? 'set' : 'cleared'}: `
         + `no agent will work it again. ${NOTHING_WAS_WRITTEN}`;
     case 'release-mark-of-an-ungrouped-ticket':
       return `Ticket #${detail.ticketId} belongs to no group, so it cannot be a group's release ticket. ${NOTHING_WAS_WRITTEN}`;
@@ -194,7 +215,8 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
     case 'ticket-is-not-a-release-ticket':
       return `Ticket #${detail.ticketId} is not its group's release ticket. ${NOTHING_WAS_WRITTEN}`;
     case 'reopen-beside-an-open-release-ticket':
-      return `Ticket #${detail.ticketId} is ${detail.status} and carries the release mark of group ${detail.group}, so it was not moved to ${detail.targetStatus}: `
+      return `Ticket #${detail.ticketId} is ${StatusWordingUtil.statusTextFor(detail.status)} `
+        + `and carries the release mark of group ${detail.group}, so it was not moved to ${detail.targetStatus}: `
         + `the group already has its open release ticket, #${detail.releaseTicketId}, and a group has one. `
         + `Clear that mark with \`${PRODUCT_NAMES.PROGRAM} ticket release-of ${detail.releaseTicketId} --clear\` first. ${NOTHING_WAS_WRITTEN}`;
   }

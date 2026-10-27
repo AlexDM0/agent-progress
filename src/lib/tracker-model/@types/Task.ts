@@ -5,8 +5,11 @@
 
 export type TaskStatus = 'pending' | 'in-progress' | 'paused' | 'in-review' | 're-review' | 'reviewed' | 'delivered' | 'abandoned';
 
-/** What a row, or a ticket through its row, shows: its status, except that an in-review row of an in-review ticket is being reviewed. */
-export type DisplayState = TaskStatus | 'reviewing';
+/**
+ * What a row, or a ticket through its row, shows: its status, except that an in-review row of an in-review ticket is being reviewed. A
+ * draft ticket has no row and shows `draft`.
+ */
+export type DisplayState = TaskStatus | 'reviewing' | 'draft';
 
 /** One status a row actually reached, and when. A correction never files one: a correction is not something that happened. */
 export interface TaskPhase {

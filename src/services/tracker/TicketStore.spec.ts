@@ -80,7 +80,7 @@ describe('createTicket and listTickets', () => {
     expect(listing.tickets.map((ticket) => ticket.frontmatter.id)).toEqual(['001', '002', '003']);
   });
 
-  test('a new ticket opens with no timeline and no task row of its own', () => {
+  test('a new ticket opens as a draft with no timeline and no task row of its own', () => {
     const workspace = scratchWorkspace();
     const ticket    = createTicket(workspace, {
       title:   'Fix the export dialog',
@@ -90,7 +90,7 @@ describe('createTicket and listTickets', () => {
       at:      FILED_AT,
     });
 
-    expect(ticket.frontmatter.status).toBe('pending');
+    expect(ticket.frontmatter.status).toBe('draft');
     expect(ticket.frontmatter.filed).toBe(FILED_AT);
     expect(ticket.frontmatter.updated).toBe(FILED_AT);
     expect(ticket.frontmatter.started).toBeNull();

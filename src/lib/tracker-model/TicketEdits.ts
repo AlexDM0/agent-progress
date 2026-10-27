@@ -2,15 +2,16 @@
  * A ticket's title and body edited, leaving its status and `updated` stamp alone: only a transition stamps it. A new
  * title renames the ticket's own row and the body's generated heading, never a review bar, whose name records the title it was started under.
  */
-import type { Logged }           from './@types/BoardChanges.ts';
-import type { LogRecord }        from './@types/LogRecord.ts';
-import type { Ticket }           from './@types/Ticket.ts';
-import type { BoardRecords }     from './BoardRecords.ts';
-import { BoardRefusal }          from './BoardRefusal.ts';
-import type { MarkdownBodyEdit } from './MarkdownBodyEdit.ts';
-import { editedBodyOf }          from './MarkdownBodyEdit.ts';
-import { TicketBodyHashUtil }    from './utils/TicketBodyHashUtil.ts';
-import { TicketChartUtil }       from './utils/TicketChartUtil.ts';
+import type { Logged }                            from './@types/BoardChanges.ts';
+import type { LogRecord }                         from './@types/LogRecord.ts';
+import type { Ticket }                            from './@types/Ticket.ts';
+import type { BoardRecords }                      from './BoardRecords.ts';
+import { BoardRefusal }                           from './BoardRefusal.ts';
+import type { MarkdownBodyEdit }                  from './MarkdownBodyEdit.ts';
+import { editedBodyOf }                           from './MarkdownBodyEdit.ts';
+import { TICKET_STATUSES_EDITABLE_WITHOUT_FORCE } from './constants/Statuses.ts';
+import { TicketBodyHashUtil }                     from './utils/TicketBodyHashUtil.ts';
+import { TicketChartUtil }                        from './utils/TicketChartUtil.ts';
 
 export interface TicketEdit {
   title?:             string;
@@ -51,7 +52,8 @@ export class TicketEdits {
   editTicket(ticketId: string, edit: TicketEdit, at: string): TicketEdited {
     const ticket            = this.records.requireTicket(ticketId);
     const { frontmatter }   = ticket;
-    if (frontmatter.status !== 'pending' && edit.allowsPastPending !== true) {
+    const pastPending       = !TICKET_STATUSES_EDITABLE_WITHOUT_FORCE.includes(frontmatter.status);
+    if (pastPending && edit.allowsPastPending !== true) {
       throw new BoardRefusal({ reason: 'edit-of-a-ticket-past-pending', ticketId, status: frontmatter.status });
     }
     const previousTitle     = frontmatter.title;
@@ -73,7 +75,7 @@ export class TicketEdits {
       if (ownRow !== undefined) ownRow.name = TicketChartUtil.rowNameOf(frontmatter);
       logged.push(this.records.logger.log({ kind: 'ticket-retitled', ticketId, fields: { from: previousTitle, to: title } }, at));
     }
-    if (frontmatter.status !== 'pending' && body !== retitledBody && TicketBodyHashUtil.bodyChangedSinceClaimOf(ticket) !== undefined) {
+    if (pastPending && body !== retitledBody && TicketBodyHashUtil.bodyChangedSinceClaimOf(ticket) !== undefined) {
       logged.push(this.records.logger.log({ kind: 'ticket-body-changed-after-claim', ticketId, fields: {} }, at));
     }
     return { logged, ticket, changed: true };

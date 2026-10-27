@@ -176,7 +176,7 @@ describe('moving a settled release ticket back open', () => {
             ]
           });
           const detail = refusalDetailOf(() => fixture.board.moveTicket('001', targetStatus, request, CHANGED_AT));
-          const refusalReasons = request.checksLegality ? ['illegal-ticket-move', 'reopen-beside-an-open-release-ticket'] : ['reopen-beside-an-open-release-ticket'];
+          const refusalReasons = [...request.checksLegality ? ['illegal-ticket-move'] : [], 'reopen-beside-an-open-release-ticket', 'move-to-draft'];
           expect(refusalReasons, `${settledStatus} -> ${targetStatus}`).toContain(detail.reason);
           expect(openReleaseTicketIdsOf(fixture), `${settledStatus} -> ${targetStatus}`).toEqual(['002']);
           triedMoveCount++;

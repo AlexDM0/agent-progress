@@ -324,7 +324,8 @@ output never carries either.
       [--size XS|S|M|L|XL|XXL]
       [--model <m>]
       [--effort <e>]
-      [--group <name>]        its own frontmatter, plus a pending Gantt row. The body comes from
+      [--group <name>]        its own frontmatter, as a draft ticket with no Gantt row until
+                              \`ticket ready\` readies it. The body comes from
       [--depends-on <ids>]    the template, from --body, or from --body-file (\`-\` reads standard
       [--epic <keys>]         input); an empty body falls back to the template, and afterwards the
       [--introduced-by <id>]  body is preserved byte for byte, so an agent may edit everything
@@ -402,7 +403,8 @@ output never carries either.
 
   ticket priority <id> low|normal|high [--at <when>]
                               Change a ticket's priority, with one log line. Lowering to low is
-                              refused unless the ticket is pending, and removes its row; raising a
+                              refused unless the ticket is a draft ticket or pending, and removes
+                              its row; a draft ticket has none at any priority; raising a
                               low ticket that has no row gives it one at once. A low ticket gets
                               its row when \`ticket start\` or \`ticket claim\` starts it, and keeps
                               it; abandoning a low ticket that has none creates none.
@@ -412,6 +414,15 @@ output never carries either.
                               exit 1 on a value outside the list under \`ticket add\` and when
                               nothing would change.
 
+  ticket ready <id> [<id>...] [--at <when>] [--json]
+                              Ready draft tickets to build, all or nothing: each becomes pending
+                              with a pending row at any priority, one log line each. Refused at
+                              exit 1 with nothing written when a ticket named is not a draft
+                              ticket, or is incomplete: \`acceptance-unnumbered\` with no numbered
+                              Acceptance item, \`brief-missing\` with no \`## Brief\` holding a
+                              non-blank line, each ticket named. \`ticket add\` files every ticket
+                              as a draft ticket, with no row; no move returns a ticket there.
+
   ticket start|finish|approve|deliver|abandon|reopen <id> [--branch <b>] [--commit <sha>]
       [--reason <text>] [--tokens <n>] [--at <when>]
                               Move a ticket and its Gantt row together, stamping both. Each verb
@@ -419,7 +430,8 @@ output never carries either.
                               pending or in-review, finish from in-progress, approve from
                               in-progress or in-review, deliver from reviewed, abandon from
                               anything not already delivered or abandoned, reopen from anything
-                              but pending.
+                              but a draft ticket or pending. A draft ticket moves only through
+                              \`ticket ready\` or \`abandon\`.
                               Moving a ticket to the status it already has is refused and logs
                               nothing — \`ticket rereview\` below is the one exception. Every
                               move out of in-review finishes and delivers the ticket's in-progress
@@ -532,7 +544,7 @@ output never carries either.
   epic remove <key> [--at <when>] [--json]
                               Delete an epic's file. Refused at exit 1 while any ticket names it.
 
-  draft open "<title>"        Open a draft, the working record a filing session builds tickets
+  draft open "<title>"        Open a filing draft, the working record a filing session builds tickets
       --owner <who>           from: \`${PRODUCT_NAMES.DATA_FOLDER}/filing-cabinet/D<n>.json\` holding its title,
       [--request <text>]      the request from --request or --request-file (\`-\` reads standard
       [--request-file <path|->]

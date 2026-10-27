@@ -136,6 +136,10 @@ export interface TicketsClaimed extends Logged {
   concurrency: Concurrency;
 }
 
+export interface TicketsReadied extends Logged {
+  tickets: readonly Readonly<Ticket>[];
+}
+
 export interface TicketsReleased extends Logged {
   tickets:          readonly Readonly<Ticket>[];
   closedReviewBars: readonly Readonly<Task>[];
