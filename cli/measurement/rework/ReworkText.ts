@@ -1,8 +1,8 @@
 /** What `rework` prints for a person: one summary sentence, and with `--files` the files with code in them. */
-import { OutputUtil }                    from '../../utils/OutputUtil.ts';
-import type { CommitsPart, RebasePart }  from '../ReworkReading.ts';
-import { ReworkCountUtil }               from '../utils/ReworkCountUtil.ts';
-import type { FileRework, ReworkTotals } from '../utils/ReworkCountUtil.ts';
+import { OutputUtil }                              from '../../utils/OutputUtil.ts';
+import type { CommitsPart, MergePart, RebasePart } from '../ReworkReading.ts';
+import { ReworkCountUtil }                         from '../utils/ReworkCountUtil.ts';
+import type { FileRework, ReworkTotals }           from '../utils/ReworkCountUtil.ts';
 
 interface CountedScope {
   scope:  string;
@@ -18,6 +18,10 @@ function rebaseScope(part: RebasePart): CountedScope {
   return { scope: `in the rebase from ${OutputUtil.shortCommitOf(part.oldTipCommit)} onto ${part.mainLine}`, totals: ReworkCountUtil.totalReworkOf(part.files) };
 }
 
+function mergeScope(part: MergePart): CountedScope {
+  return { scope: `in the resolution of the merge ${OutputUtil.shortCommitOf(part.mergeCommit)}`, totals: ReworkCountUtil.totalReworkOf(part.files) };
+}
+
 function addedAndRemovedOf(totals: ReworkTotals): string {
   return `${totals.addedCodeLines} added, ${totals.removedCodeLines} removed`;
 }
@@ -27,10 +31,11 @@ function linesOfCode(count: number): string {
 }
 
 /** One scope reads as one sentence; two name each part's share of the total. */
-export function summaryLine(totals: ReworkTotals, commitsPart: CommitsPart | undefined, rebasePart: RebasePart | undefined): string {
+export function summaryLine(totals: ReworkTotals, commitsPart: CommitsPart | undefined, rebasePart: RebasePart | undefined, mergePart: MergePart | undefined): string {
   const scopes = [
     ...(commitsPart === undefined ? [] : [commitsScope(commitsPart)]),
     ...(rebasePart === undefined ? [] : [rebaseScope(rebasePart)]),
+    ...(mergePart === undefined ? [] : [mergeScope(mergePart)]),
   ];
   const [onlyScope] = scopes;
   if (scopes.length === 1 && onlyScope !== undefined) {

@@ -3,7 +3,8 @@
  * measured by: a builder's commit, a reviewer's commit, the main line moving underneath with a conflicting
  * change, and a rebase whose conflict is resolved by hand. The claims that matter are the ones a threshold
  * rests on: the main line's own work is in neither count, the hand resolution is in the rebase count and
- * nowhere else, a rebase without conflicts counts nothing, and comments and documentation never count.
+ * nowhere else, a rebase or merge without conflicts counts nothing, a merge's resolution counts against git's own
+ * merge without its conflict markers, and comments and documentation never count.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join }            from 'node:path';
@@ -37,6 +38,7 @@ interface ReworkDocument extends ReworkPartDocument {
   notCounted:   { commentLines: number; blankLines: number; documentationLines: number };
   since?:       ReworkPartDocument & { commit: string; commitCount: number };
   rebasedFrom?: ReworkPartDocument & { oldTipCommit: string; mainLine: string; oldBaseCommit: string; newBaseCommit: string };
+  merge?:       ReworkPartDocument & { mergeCommit: string; parentCommits: [string, string]; automaticMergeConflicted: boolean };
   files:        Array<{ path: string; addedCodeLines: number; removedCodeLines: number; commentLines: number; documentationLines: number }>;
 }
 
@@ -242,6 +244,52 @@ describeWhenGitIsPresent('counting what a rebase changed', () => {
     expect(exitCode).toBe(0);
     expect(output).toBe(`Reworked 3 lines of code: 1 in 1 commit since ${rebasedTip.slice(0, 8)} (1 added, 0 removed) `
       + `and 2 in the rebase from ${oldTip.slice(0, 8)} onto main (2 added, 0 removed).`);
+  });
+});
+
+describeWhenGitIsPresent('counting what a merge\'s resolution changed', () => {
+  function mergeTheMainLineWithAHandResolution(): string {
+    const { exitCode } = git(['merge', '-q', '--no-edit', 'main']);
+    expect(exitCode, 'the merge stops on the conflict it was built to have').not.toBe(0);
+    writeRepositoryFile('lib/shared.ts', 'export function greet(): string {\n  // settled between the builder and main\n  return \'hello from both\';\n}\n');
+    gitOrFail(['add', 'lib/shared.ts']);
+    gitOrFail(['commit', '-q', '--no-edit']);
+    return gitOrFail(['rev-parse', 'HEAD']);
+  }
+
+  test('a merge git made by itself counts nothing', async () => {
+    buildTheFeatureBranch();
+    gitOrFail(['checkout', '-q', 'main']);
+    writeRepositoryFile('lib/mainOnly.ts', 'export const one = 1;\n');
+    commitEverything('Main moves elsewhere');
+    gitOrFail(['checkout', '-q', 'feature']);
+    gitOrFail(['merge', '-q', '--no-edit', 'main']);
+    const mergeCommit = gitOrFail(['rev-parse', 'HEAD']);
+
+    const { exitCode, output } = await rework(['--merge', mergeCommit]);
+    expect(exitCode).toBe(0);
+    expect(output).toBe(`Reworked 0 lines of code in the resolution of the merge ${mergeCommit.slice(0, 8)}: 0 added, 0 removed.`);
+  });
+
+  // Both sides' versions leave and the resolution enters; the markers git wrote are not code anyone wrote, and main's clean file is no part of it.
+  test('a conflicted merge counts the resolution against git\'s automatic merge, not the conflict markers or the comment written into it', async () => {
+    buildTheFeatureBranch();
+    moveTheMainLine();
+    const mergeCommit = mergeTheMainLineWithAHandResolution();
+
+    const document = await reworkDocument(['--merge', mergeCommit]);
+    expect(document.merge).toMatchObject({
+      mergeCommit, automaticMergeConflicted: true, reworkedCodeLines: 3, addedCodeLines: 1, removedCodeLines: 2
+    });
+    expect(document.notCounted.commentLines).toBe(1);
+    expect(document.files.map(({ path }) => path)).toEqual(['lib/shared.ts']);
+  });
+
+  test('a commit that is not a merge is refused at exit 1, naming its parent count', async () => {
+    const builderCommit = buildTheFeatureBranch();
+    const { exitCode, error } = await rework(['--merge', builderCommit]);
+    expect(exitCode).toBe(1);
+    expect(error).toContain(`--merge ${builderCommit.slice(0, 8)} has 1 parent`);
   });
 });
 

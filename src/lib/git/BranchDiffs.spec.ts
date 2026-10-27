@@ -15,8 +15,13 @@ import {
   removeScratchDirectory,
   SCRATCH_COMMIT_IDENTITY_ARGUMENTS
 } from '../../testing/ScratchWorkspace.ts';
-import { describeWhenGitIsPresent }                           from '../../testing/ToolGuard.ts';
-import { readCommitsDiff, readRebaseDiffs, readWorktreeHead } from './BranchDiffs.ts';
+import { describeWhenGitIsPresent } from '../../testing/ToolGuard.ts';
+import {
+  readCommitsDiff,
+  readMergeResolutionDiff,
+  readRebaseDiffs,
+  readWorktreeHead
+} from './BranchDiffs.ts';
 
 const CONTEXT_FILE_LINE_COUNT = 60;
 
@@ -196,5 +201,55 @@ describeWhenGitIsPresent('what a rebase changed in a branch\'s own work', () => 
     const orphanCommit = commitFile(repositoryDirectory, 'orphan.txt', 'orphan\n');
 
     expect(readRebaseDiffs(repositoryDirectory, oldTipCommit, mainLine, orphanCommit)).toEqual({ verdict: 'no-common-base', role: 'rebased-tip' });
+  });
+});
+
+describeWhenGitIsPresent('what a merge\'s resolution changed against git\'s automatic merge', () => {
+  function divergedRepository(prefix: string, sideFile: string, sideContent: string): string {
+    const repositoryDirectory = scratchGitRepository(prefix);
+    const mainLine            = currentBranchOf(repositoryDirectory);
+    commitFile(repositoryDirectory, 'shared.txt', 'base\n');
+    gitOutputIn(repositoryDirectory, ['checkout', '-q', '-b', 'side']);
+    commitFile(repositoryDirectory, sideFile, sideContent);
+    gitOutputIn(repositoryDirectory, ['checkout', '-q', mainLine]);
+    commitFile(repositoryDirectory, 'shared.txt', 'main\n');
+    return repositoryDirectory;
+  }
+
+  test('a merge git made by itself reads an empty diff, not conflicted', () => {
+    const repositoryDirectory = divergedRepository('branch-diffs-clean-merge', 'side-only.txt', 'side only\n');
+    gitOutputIn(repositoryDirectory, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'merge', '-q', '--no-ff', '-m', 'Merge side', 'side']);
+
+    const reading = readMergeResolutionDiff(repositoryDirectory, 'HEAD');
+    expect(reading).toMatchObject({
+      verdict: 'read', mergeCommit: headCommitOf(repositoryDirectory), automaticMergeConflicted: false, diffText: ''
+    });
+  });
+
+  // The diff runs from git's conflicted tree, markers in it, to the tree the merge committed, whatever merge.conflictStyle says.
+  test('a conflicted merge reads the diff from the conflict markers to the resolution, in the plain two-sided marker style', () => {
+    const repositoryDirectory = divergedRepository('branch-diffs-conflicted-merge', 'shared.txt', 'side\n');
+    gitOutputIn(repositoryDirectory, ['config', 'merge.conflictStyle', 'diff3']);
+    const mergeRun = Bun.spawnSync(['git', ...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'merge', '-q', 'side'], { cwd: repositoryDirectory, stdout: 'pipe', stderr: 'pipe' });
+    expect(mergeRun.exitCode, 'the merge stops on the conflict it was built to have').not.toBe(0);
+    commitFile(repositoryDirectory, 'shared.txt', 'settled\n');
+
+    const reading = readMergeResolutionDiff(repositoryDirectory, 'HEAD');
+    expect(reading.verdict).toBe('read');
+    if (reading.verdict !== 'read') return;
+    expect(reading.automaticMergeConflicted).toBe(true);
+    expect(reading.diffText).toContain('-<<<<<<< ');
+    expect(reading.diffText).not.toContain('-||||||| ');
+    expect(reading.diffText).toContain('+settled');
+  });
+
+  test('a commit with one parent reads not-a-two-parent-merge with its parent count', () => {
+    const repositoryDirectory = scratchGitRepository('branch-diffs-not-a-merge');
+    const commit              = commitFile(repositoryDirectory, 'plain.txt', 'plain\n');
+    expect(readMergeResolutionDiff(repositoryDirectory, commit)).toEqual({ verdict: 'not-a-two-parent-merge', mergeCommit: commit, parentCount: 1 });
+  });
+
+  test('a revision that names no commit reads unknown-commit', () => {
+    expect(readMergeResolutionDiff(scratchGitRepository('branch-diffs-unknown-merge'), 'no-such-merge')).toEqual({ verdict: 'unknown-commit' });
   });
 });

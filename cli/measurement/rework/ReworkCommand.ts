@@ -4,19 +4,24 @@
  */
 import { resolve } from 'node:path';
 
-import { OperationRefusal }                              from '../../../src/shared/OperationRefusal.ts';
-import type { CommandHandler }                           from '../../CommandHandler.ts';
-import { DEFAULT_MAIN_LINE }                             from '../../constants/GitDefaults.ts';
-import { OutputUtil }                                    from '../../utils/OutputUtil.ts';
-import { countCommits, countRebase, worktreeHeadCommit } from '../ReworkReading.ts';
-import { ReworkCountUtil }                               from '../utils/ReworkCountUtil.ts';
-import { fileBreakdownLines, summaryLine }               from './ReworkText.ts';
+import { OperationRefusal }    from '../../../src/shared/OperationRefusal.ts';
+import type { CommandHandler } from '../../CommandHandler.ts';
+import { DEFAULT_MAIN_LINE }   from '../../constants/GitDefaults.ts';
+import { OutputUtil }          from '../../utils/OutputUtil.ts';
+import {
+  countCommits,
+  countMerge,
+  countRebase,
+  worktreeHeadCommit
+} from '../ReworkReading.ts';
+import { ReworkCountUtil }                 from '../utils/ReworkCountUtil.ts';
+import { fileBreakdownLines, summaryLine } from './ReworkText.ts';
 
 const { partReworkOf } = ReworkCountUtil;
 
-const USAGE = 'agent-progress rework [--since <commit>] [--rebased-from <old tip>] [--main <branch>] [--worktree <path>] [--files] [--json]';
+const USAGE = 'agent-progress rework [--since <commit>] [--rebased-from <old tip>] [--main <branch>] [--merge <commit>] [--worktree <path>] [--files] [--json]';
 
-const KNOWN_OPTION_NAMES = ['since', 'rebased-from', 'main', 'worktree', 'files', 'json'];
+const KNOWN_OPTION_NAMES = ['since', 'rebased-from', 'main', 'merge', 'worktree', 'files', 'json'];
 
 export const reworkCommand: CommandHandler = (commandArguments, context) => {
   commandArguments.rejectUnknownOptions(KNOWN_OPTION_NAMES, USAGE);
@@ -25,10 +30,12 @@ export const reworkCommand: CommandHandler = (commandArguments, context) => {
   const since       = commandArguments.option('since');
   const rebasedFrom = commandArguments.option('rebased-from');
   const mainOption  = commandArguments.option('main');
-  if (since === undefined && rebasedFrom === undefined) {
+  const merge       = commandArguments.option('merge');
+  if (since === undefined && rebasedFrom === undefined && merge === undefined) {
     throw new OperationRefusal(
       'refused',
-      `Name what to count: --since <commit> for the commits a review made, --rebased-from <old tip> for what a rebase changed, or both.\n  Usage: ${USAGE}`,
+      'Name what to count: --since <commit> for the commits a review made, --rebased-from <old tip> for what a rebase changed, '
+        + `--merge <commit> for what a merge's resolution changed, or several.\n  Usage: ${USAGE}`,
     );
   }
   if (mainOption !== undefined && rebasedFrom === undefined) {
@@ -40,8 +47,9 @@ export const reworkCommand: CommandHandler = (commandArguments, context) => {
   const commitsPart       = since === undefined ? undefined : countCommits(worktreeDirectory, since);
   const rebasedTipCommit  = commitsPart?.sinceCommit ?? headCommit;
   const rebasePart        = rebasedFrom === undefined ? undefined : countRebase(worktreeDirectory, rebasedFrom, mainOption ?? DEFAULT_MAIN_LINE, rebasedTipCommit);
+  const mergePart         = merge === undefined ? undefined : countMerge(worktreeDirectory, merge);
 
-  const files  = ReworkCountUtil.combineFileReworks([commitsPart?.files ?? [], rebasePart?.files ?? []]);
+  const files  = ReworkCountUtil.combineFileReworks([commitsPart?.files ?? [], rebasePart?.files ?? [], mergePart?.files ?? []]);
   const totals = ReworkCountUtil.totalReworkOf(files);
 
   const document = {
@@ -68,10 +76,18 @@ export const reworkCommand: CommandHandler = (commandArguments, context) => {
         ...partReworkOf(rebasePart.files),
       },
     }),
+    ...(mergePart === undefined ? {} : {
+      merge: {
+        mergeCommit:              mergePart.mergeCommit,
+        parentCommits:            mergePart.parentCommits,
+        automaticMergeConflicted: mergePart.automaticMergeConflicted,
+        ...partReworkOf(mergePart.files),
+      },
+    }),
     files,
   };
 
-  const lines = [summaryLine(totals, commitsPart, rebasePart)];
+  const lines = [summaryLine(totals, commitsPart, rebasePart, mergePart)];
   if (commandArguments.flag('files')) lines.push(...fileBreakdownLines(files, totals));
   OutputUtil.printEntity(commandArguments, context, document, lines.join('\n'));
   return Promise.resolve();

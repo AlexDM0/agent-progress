@@ -39,6 +39,7 @@ export const OPTION_NAMES_WITH_VALUES = new Set<string>([
   'transcripts',
   'rebased-from',
   'main',
+  'merge',
   'worktree',
   'run',
   'after',

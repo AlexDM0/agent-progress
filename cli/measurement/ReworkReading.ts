@@ -1,18 +1,19 @@
 /**
  * The git reads `rework` and `review record` count from: the worktree's head, the commits since a review started, what a rebase changed,
- * and the size of the builder's change.
+ * what a merge's resolution changed, and the size of the builder's change.
  */
 import {
   readChangeSize,
   readCommitsDiff,
+  readMergeResolutionDiff,
   readRebaseDiffs,
   readResolvedCommit,
   readWorktreeHead
 } from '../../src/lib/git/BranchDiffs.ts';
-import { OperationRefusal } from '../../src/shared/OperationRefusal.ts';
-import { OutputUtil }       from '../utils/OutputUtil.ts';
-import { ReworkCountUtil }  from './utils/ReworkCountUtil.ts';
-import type { FileRework }  from './utils/ReworkCountUtil.ts';
+import { OperationRefusal }                  from '../../src/shared/OperationRefusal.ts';
+import { OutputUtil }                        from '../utils/OutputUtil.ts';
+import { ReworkCountUtil }                   from './utils/ReworkCountUtil.ts';
+import type { FileChangedLines, FileRework } from './utils/ReworkCountUtil.ts';
 
 export interface CommitsPart {
   sinceCommit: string;
@@ -94,6 +95,45 @@ export function countRebase(worktreeDirectory: string, oldTip: string, mainLine:
     oldBaseCommit: reading.oldBaseCommit,
     newBaseCommit: reading.newBaseCommit,
     files:         ReworkCountUtil.combineFileReworks([changedByTheRebase.map((file) => ReworkCountUtil.reworkOfFile(file))]),
+  };
+}
+
+export interface MergePart {
+  mergeCommit:              string;
+  parentCommits:            [string, string];
+  automaticMergeConflicted: boolean;
+  files:                    FileRework[];
+}
+
+// The markers are git's annotation of a conflict, never code anyone wrote, so taking them out is no rework.
+const CONFLICT_MARKER_PATTERN = /^(?:<{7}|={7}|>{7}|\|{7})(?: |$)/;
+
+function withoutRemovedConflictMarkers(file: FileChangedLines): FileChangedLines {
+  return { path: file.path, lines: file.lines.filter((line) => line.side === 'added' || !CONFLICT_MARKER_PATTERN.test(line.text)) };
+}
+
+export function countMerge(worktreeDirectory: string, merge: string): MergePart {
+  const reading = readMergeResolutionDiff(worktreeDirectory, merge);
+  switch (reading.verdict) {
+    case 'unknown-commit':
+      throw new OperationRefusal('refused', `--merge "${merge}" does not name a commit in ${worktreeDirectory}.`);
+    case 'not-a-two-parent-merge':
+      throw new OperationRefusal(
+        'refused',
+        `--merge ${OutputUtil.shortCommitOf(reading.mergeCommit)} has ${reading.parentCount} ${reading.parentCount === 1 ? 'parent' : 'parents'}: `
+          + 'only a merge of two parents has an automatic merge to compare its resolution with.',
+      );
+    case 'git-failed':
+      throw new OperationRefusal('unrepaired', reading.reason);
+    case 'read':
+      break;
+  }
+  const resolvedFiles = ReworkCountUtil.readDiff(reading.diffText).map((file) => withoutRemovedConflictMarkers(file));
+  return {
+    mergeCommit:              reading.mergeCommit,
+    parentCommits:            reading.parentCommits,
+    automaticMergeConflicted: reading.automaticMergeConflicted,
+    files:                    ReworkCountUtil.combineFileReworks([resolvedFiles.map((file) => ReworkCountUtil.reworkOfFile(file))]),
   };
 }
 

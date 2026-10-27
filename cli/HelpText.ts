@@ -200,10 +200,10 @@ output never carries either.
   rework [--since <commit>]   How many lines of code a review reworked on a branch: added plus
       [--rebased-from <old tip>]
       [--main <branch>]       removed lines, never blank lines, comments or documentation (*.md,
-      [--worktree <path>]     *.mdx, *.rst, *.txt and anything under the repository's docs/). It
-      [--files] [--json]      counts; no threshold is built in. --since counts every commit in
-                              <commit>..HEAD, and is refused when <commit> is not an ancestor of HEAD
-                              or a merge lies in between: work is rebased, not merged. --rebased-from
+      [--merge <commit>]      *.mdx, *.rst, *.txt and anything under the repository's docs/). It
+      [--worktree <path>]     counts; no threshold is built in. --since counts every commit in
+      [--files] [--json]      <commit>..HEAD, and is refused when <commit> is not an ancestor of HEAD
+                              or a merge lies in between: count a merge with --merge. --rebased-from
                               counts what a rebase changed in the branch's own work — the hand
                               resolution — as the added lines in which the branch's patch against
                               --main (default \`main\`) differs before and after, so a line resolved
@@ -213,7 +213,10 @@ output never carries either.
                               before rebasing and --rebased-from ORIG_HEAD after it, or rebase first
                               and take <commit> from the rebased tip: both in one call then measure
                               the rebase up to <commit> and print one total and the two parts,
-                              counting nothing twice. Comments are read per file
+                              counting nothing twice. --merge counts what a merge commit's
+                              resolution changed against git's automatic merge of its two parents
+                              (git merge-tree --write-tree), leaving out the conflict markers git
+                              wrote: a merge git made by itself counts 0. Comments are read per file
                               type (// and /* */, #, <!-- -->, docstrings, a <script> or <style> in
                               HTML); a line of code with a trailing comment is code, and a file type
                               it does not know counts every non-blank line. --worktree names the

@@ -1,7 +1,7 @@
 /**
- * Which commits were made on a worktree since a given commit, and what a rebase changed in a branch's own work, as diff text for a
- * caller to count, and how large a branch's own change is. Every diff is asked for with its options spelled out, so the user's git
- * configuration cannot change the diff text.
+ * Which commits were made on a worktree since a given commit, what a rebase changed in a branch's own work, and what a merge's
+ * resolution changed against git's automatic merge, as diff text for a caller to count, and how large a branch's own change is.
+ * Every diff is asked for with its options spelled out, so the user's git configuration cannot change the diff text.
  */
 import { GitProcess }                from './GitProcess.ts';
 import { NOT_AN_ANCESTOR_EXIT_CODE } from './constants/GitConventions.ts';
@@ -145,6 +145,55 @@ export function readRebaseDiffs(directory: string, oldTip: string, mainLine: str
     newBaseCommit:  newBase.base,
     beforeDiffText: before.diffText,
     afterDiffText:  after.diffText,
+  };
+}
+
+export type MergeResolutionReading =
+  | { verdict: 'read'; mergeCommit: string; parentCommits: [string, string]; automaticMergeConflicted: boolean; diffText: string }
+  | { verdict: 'unknown-commit' }
+  | { verdict: 'not-a-two-parent-merge'; mergeCommit: string; parentCount: number }
+  | { verdict: 'git-failed'; reason: string };
+
+const TWO_PARENT_MERGE_PARENT_COUNT = 2;
+
+/** `git merge-tree --write-tree` exits 1 when it wrote a tree holding conflicts, and above 1 when it could not merge at all. */
+const MERGE_TREE_CONFLICTED_EXIT_CODE = 1;
+
+/**
+ * What a merge commit's resolution changed against git's automatic merge of its two parents: the diff from the tree
+ * `git merge-tree --write-tree` writes, conflict markers and all, to the merge commit's own tree. The markers are always
+ * written in the plain two-sided style, whatever the user's configuration says.
+ */
+export function readMergeResolutionDiff(directory: string, merge: string): MergeResolutionReading {
+  const mergeCommit = GitProcess.resolvedCommitOf(directory, merge);
+  if (mergeCommit === null) return { verdict: 'unknown-commit' };
+
+  const parentsArguments = ['rev-list', '--parents', '--max-count=1', mergeCommit];
+  const parents          = GitProcess.run(directory, parentsArguments);
+  if (!GitProcess.succeeded(parents)) return { verdict: 'git-failed', reason: GitProcess.failureReasonOf(parents, parentsArguments) };
+  const [, ...parentCommits]        = parents.standardOutput.trim().split(/\s+/);
+  const [firstParent, secondParent] = parentCommits;
+  if (firstParent === undefined || secondParent === undefined || parentCommits.length !== TWO_PARENT_MERGE_PARENT_COUNT) {
+    return { verdict: 'not-a-two-parent-merge', mergeCommit, parentCount: parentCommits.length };
+  }
+
+  const mergeTreeArguments = ['-c', 'merge.conflictStyle=merge', 'merge-tree', '--write-tree', '--no-messages', '--name-only', firstParent, secondParent];
+  const mergeTree          = GitProcess.run(directory, mergeTreeArguments);
+  const automaticMergeConflicted = mergeTree?.exitCode === MERGE_TREE_CONFLICTED_EXIT_CODE;
+  if (!GitProcess.succeeded(mergeTree) && !automaticMergeConflicted) {
+    return { verdict: 'git-failed', reason: GitProcess.failureReasonOf(mergeTree, mergeTreeArguments) };
+  }
+  const [automaticTree] = linesOf(mergeTree?.standardOutput ?? '');
+  if (automaticTree === undefined) return { verdict: 'git-failed', reason: GitProcess.failureReasonOf(mergeTree, mergeTreeArguments) };
+
+  const resolution = diffBetween(directory, automaticTree, mergeCommit);
+  if (resolution.verdict === 'git-failed') return resolution;
+  return {
+    verdict:       'read',
+    mergeCommit,
+    parentCommits: [firstParent, secondParent],
+    automaticMergeConflicted,
+    diffText:      resolution.diffText,
   };
 }
 
