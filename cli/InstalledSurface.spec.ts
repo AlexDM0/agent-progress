@@ -63,7 +63,18 @@ const REPLY_SCHEMA_PATH = 'dispatcher/run/constants/AgentReplySchemas.ts';
 
 /** Flags of the git commands the installed files spell out; exact both ways, and none of them is the CLI's. */
 const FOREIGN_TOOL_FLAGS = [
-  '--abort', '--allow-empty', '--amend', '--autosquash', '--continue', '--ff-only', '--porcelain', '--show-current', '--stat',
+  '--abort',
+  '--allow-empty',
+  '--amend',
+  '--autosquash',
+  '--continue',
+  '--ff-only',
+  '--is-ancestor',
+  '--merges',
+  '--no-edit',
+  '--porcelain',
+  '--show-current',
+  '--stat',
 ];
 
 const FLAG_PATTERN = /--[a-z][a-z-]*[a-z]/g;
