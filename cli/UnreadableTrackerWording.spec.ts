@@ -140,7 +140,7 @@ describeWhenGitIsPresent('a progress file that cannot be read', () => {
 
     expect(finished.exitCode).toBe(0);
     expect(finished.errorText).toBe(
-      `agent-progress hook subagent-stop: the line could not be recorded in ${repositoryDirectory}: ${progressFilePath} cannot be read: ${BROKEN_PROGRESS_REASON}`,
+      `${PRODUCT_NAMES.PROGRAM} hook subagent-stop: the line could not be recorded in ${repositoryDirectory}: ${progressFilePath} cannot be read: ${BROKEN_PROGRESS_REASON}`,
     );
   });
 });

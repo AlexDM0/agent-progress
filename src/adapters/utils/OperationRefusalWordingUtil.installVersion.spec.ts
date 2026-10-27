@@ -5,12 +5,17 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import type { InstallVersionMismatch } from '../../shared/@types/InstallVersionMismatch.ts';
-import { OperationRefusalWordingUtil } from './OperationRefusalWordingUtil.ts';
+import type { InstallVersionMismatch }           from '../../shared/@types/InstallVersionMismatch.ts';
+import { ORIGINAL_PRODUCT_NAMES, PRODUCT_NAMES } from '../../shared/constants/ProductNames.ts';
+import { OperationRefusalWordingUtil }           from './OperationRefusalWordingUtil.ts';
 
 const ROOT_DIRECTORY     = '/example/repository';
 const MANIFEST_FILE_PATH = '/example/repository/.agent-progress/version.json';
 
+/**
+ * The expected paragraphs name the released program they were written with, so the build's name is read back to it here; that the
+ * wording takes the name from the constant at all is `src/ProductNameLiterals.spec.ts`'s claim.
+ */
 function messageFor(mismatch: InstallVersionMismatch): string {
   return OperationRefusalWordingUtil.installVersionMismatchMessageOf({
     kind:             'install-version-mismatch',
@@ -18,7 +23,7 @@ function messageFor(mismatch: InstallVersionMismatch): string {
     manifestFilePath: MANIFEST_FILE_PATH,
     installVersion:   3,
     mismatch,
-  });
+  }).replaceAll(PRODUCT_NAMES.PROGRAM, ORIGINAL_PRODUCT_NAMES.PROGRAM);
 }
 
 describe('OperationRefusalWordingUtil.installVersionMismatchMessageOf', () => {

@@ -120,8 +120,8 @@ describeWhenGitIsPresent('filing a ticket', () => {
     const exitCode = await runCommandLine(['ticket', 'add', 'Fix the axis'], context);
 
     expect(exitCode).toBe(1);
-    expect(context.errorText()).toContain('agent-progress ticket add needs --type ticket|bug|research.');
-    expect(context.errorText()).toContain('Usage: agent-progress ticket add "<title>" --type ticket|bug|research');
+    expect(context.errorText()).toContain(`${PRODUCT_NAMES.PROGRAM} ticket add needs --type ticket|bug|research.`);
+    expect(context.errorText()).toContain(`Usage: ${PRODUCT_NAMES.PROGRAM} ticket add "<title>" --type ticket|bug|research`);
     expect(JSON.parse((await run(['ticket', 'list', '--json'])).outputText())).toEqual([]);
   });
 
@@ -367,7 +367,7 @@ describeWhenGitIsPresent('a second review pass', () => {
     const context = contextHere();
     await runCommandLine(['ticket', 'rereview', '2'], context);
 
-    expect(context.errorText()).toContain('agent-progress ticket finish 002');
+    expect(context.errorText()).toContain(`${PRODUCT_NAMES.PROGRAM} ticket finish 002`);
   });
 
   test('rereview takes no --tokens, so the figure on the row stays the builder\'s', async () => {
@@ -466,7 +466,7 @@ describeWhenGitIsPresent('the transition matrix', () => {
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('Ticket #001 is pending');
     expect(context.errorText()).toContain('moves a ticket that is reviewed');
-    expect(context.errorText()).toContain('agent-progress ticket status 001 delivered');
+    expect(context.errorText()).toContain(`${PRODUCT_NAMES.PROGRAM} ticket status 001 delivered`);
   });
 
   test('a refused move writes no log line and leaves the ticket where it was', async () => {
@@ -528,7 +528,7 @@ describeWhenGitIsPresent('the transition matrix', () => {
     const exitCode = await runCommandLine(['ticket', 'constructor', '1'], context);
 
     expect(exitCode).toBe(1);
-    expect(context.errorText()).toContain('is not an agent-progress ticket subcommand');
+    expect(context.errorText()).toContain(`is not a ${PRODUCT_NAMES.PROGRAM} ticket subcommand`);
   });
 });
 
@@ -789,7 +789,7 @@ describeWhenGitIsPresent('the subcommand groups', () => {
     const exitCode = await runCommandLine(['ticket', 'constructor', '1'], context);
 
     expect(exitCode).toBe(1);
-    expect(context.errorText()).toStartWith('"constructor" is not an agent-progress ticket subcommand.\n  Usage: agent-progress ticket add "<title>"');
+    expect(context.errorText()).toStartWith(`"constructor" is not a ${PRODUCT_NAMES.PROGRAM} ticket subcommand.\n  Usage: ${PRODUCT_NAMES.PROGRAM} ticket add "<title>"`);
     expect(context.outputText()).toBe('');
   });
 });

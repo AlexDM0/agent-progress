@@ -423,7 +423,7 @@ describeWhenGitIsPresent('the tickets the brief names', () => {
     expect(await runCommandLine(['hook', 'subagent-stop'], context)).toBe(0);
 
     expect(context.errorText().trim()).toBe(
-      'agent-progress hook subagent-stop: the brief names ticket #042, which the tracker does not hold, so its share of the tokens was not recorded.',
+      `${PRODUCT_NAMES.PROGRAM} hook subagent-stop: the brief names ticket #042, which the tracker does not hold, so its share of the tokens was not recorded.`,
     );
     expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toContain('Agent agent_42');
   });
@@ -576,7 +576,7 @@ describeWhenGitIsPresent('the ticket a reviewer\'s brief names', () => {
     expect(await runCommandLine(['hook', 'subagent-stop'], context)).toBe(0);
 
     expect(context.errorText().trim()).toBe(
-      'agent-progress hook subagent-stop: the brief names the review of ticket #007, which has no review row, so its share of the tokens was not recorded.',
+      `${PRODUCT_NAMES.PROGRAM} hook subagent-stop: the brief names the review of ticket #007, which has no review row, so its share of the tokens was not recorded.`,
     );
     expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toContain('Agent agent_42');
   });
@@ -706,7 +706,7 @@ describeWhenGitIsPresent('every way it can fail', () => {
         installVersion:   INSTALL_VERSION,
         mismatch:         { reason: 'unversioned' },
       });
-      expect(context.errorText()).toBe(`agent-progress hook subagent-stop: the line could not be recorded in ${repositoryDirectory}: ${mismatchParagraph}`);
+      expect(context.errorText()).toBe(`${PRODUCT_NAMES.PROGRAM} hook subagent-stop: the line could not be recorded in ${repositoryDirectory}: ${mismatchParagraph}`);
       expect(storedLogEntriesOf(repositoryDirectory).map((entry) => entry.text).filter((text) => text.startsWith('Agent '))).toEqual([]);
       expect(storedTokensOf(rowIdentifier)).toBeNull();
       expect(context.outputText()).toBe('');
@@ -723,7 +723,7 @@ describeWhenGitIsPresent('the one thing it does refuse', () => {
 
       expect(await runCommandLine(commandLineArguments, context), commandLineArguments.join(' ')).toBe(1);
 
-      expect(context.errorText()).toContain('agent-progress hook takes one event');
+      expect(context.errorText()).toContain(`${PRODUCT_NAMES.PROGRAM} hook takes one event`);
       expect(storedLogEntriesOf(repositoryDirectory)).toEqual([]);
     }
   });

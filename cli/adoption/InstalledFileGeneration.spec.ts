@@ -15,6 +15,7 @@ import { OperationRefusal }                              from '../../src/shared/
 import { resourceFilePathOf }                            from '../../src/shared/ResourceFilePath.ts';
 import { DISPATCH_PROTOCOL }                             from '../../src/shared/constants/DispatchProtocol.ts';
 import { PRODUCT_NAMES }                                 from '../../src/shared/constants/ProductNames.ts';
+import { filledTemplateOf, productNameTemplateValuesOf } from '../FilledTemplate.ts';
 import { installedFilePathsIn }                          from '../InstalledFiles.ts';
 import { dispatcherScriptTextOf, installedFileTextsFor } from './InstalledFileGeneration.ts';
 import { CLAUDE_CODE_INSTALL }                           from './constants/ClaudeCodeInstall.ts';
@@ -52,11 +53,11 @@ describe('the installed texts', () => {
   // Each dispatched agent reads only its own brief, so a block in the wrong one is either missing for its reader or paid for by the other.
   test('the builder\'s blocks and the reviewer\'s block each sit in their own brief only', () => {
     expect(TEXTS.builderBrief).toContain('## Ready to merge');
-    expect(TEXTS.builderBrief).not.toContain('agent-progress release <id>');
-    expect(TEXTS.reviewBrief).toContain('agent-progress release <id>');
+    expect(TEXTS.builderBrief).not.toContain(`${PRODUCT_NAMES.PROGRAM} release <id>`);
+    expect(TEXTS.reviewBrief).toContain(`${PRODUCT_NAMES.PROGRAM} release <id>`);
     expect(TEXTS.reviewBrief).not.toContain('## Ready to merge');
     expect(TEXTS.agentBrief).not.toContain('## Ready to merge');
-    expect(TEXTS.agentBrief).not.toContain('agent-progress release <id>');
+    expect(TEXTS.agentBrief).not.toContain(`${PRODUCT_NAMES.PROGRAM} release <id>`);
   });
 
   test('the agent definition is named for the type the dispatcher starts its workers as, and loads no skill nor the Skill tool', () => {
@@ -84,7 +85,7 @@ describe('the installed texts', () => {
     expect(referencePathInRepository).toBe(`${PRODUCT_NAMES.DATA_FOLDER}/reference.md`);
     expect(TEXTS.builderBrief).toContain(`\`${referencePathInRepository}\``);
     expect(TEXTS.reviewBrief).toContain(`\`${referencePathInRepository}\``);
-    expect(TEXTS.reference).toBe(readFileSync(resourceFilePathOf('templates', 'Reference.md'), 'utf8'));
+    expect(TEXTS.reference).toBe(filledTemplateOf(readFileSync(resourceFilePathOf('templates', 'Reference.md'), 'utf8'), productNameTemplateValuesOf(PRODUCT_NAMES)));
   });
 
   /** No agent preloads a skill: what a builder or reviewer needs is in its brief and its definition, read on every call anyway. */

@@ -4,6 +4,7 @@ import { readingBoardOf }          from '../../src/lib/tracker-model/ReadingBoar
 import { requireTracker }          from '../../src/services/tracker/TrackerReader.ts';
 import { requireWorkspace }        from '../../src/services/tracker/Workspace.ts';
 import { OperationRefusal }        from '../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }           from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }     from '../CommandContext.ts';
 import type { CommandHandler }     from '../CommandHandler.ts';
 import type { ArgumentParser }     from '../arguments/ArgumentParser.ts';
@@ -39,7 +40,7 @@ function showEpic(commandArguments: ArgumentParser, context: CommandContext): Pr
   commandArguments.rejectUnknownOptions(READING_OPTION_NAMES, EPIC_USAGE);
   commandArguments.rejectExtraPositionals(2, EPIC_USAGE);
   const key = commandArguments.positionals()[1];
-  if (key === undefined) throw new OperationRefusal('refused', `agent-progress epic show needs an epic key.\n  Usage: ${EPIC_USAGE}`);
+  if (key === undefined) throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} epic show needs an epic key.\n  Usage: ${EPIC_USAGE}`);
 
   const board = readingBoardFor(context);
   const epic  = board.epicByKey(key);
@@ -64,6 +65,7 @@ export const epicCommand: CommandHandler = async (commandArguments, context) => 
 
   throw new OperationRefusal(
     'refused',
-    `${subcommand === undefined ? 'agent-progress epic needs a subcommand' : `"${subcommand}" is not an agent-progress epic subcommand`}.\n  Usage: ${EPIC_USAGE}`,
+    `${subcommand === undefined ? `${PRODUCT_NAMES.PROGRAM} epic needs a subcommand` : `"${subcommand}" is not a ${PRODUCT_NAMES.PROGRAM} epic subcommand`}.`
+      + `\n  Usage: ${EPIC_USAGE}`,
   );
 };

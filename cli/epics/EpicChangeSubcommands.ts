@@ -2,6 +2,7 @@
 import { epicFilePathOf }                                 from '../../src/services/tracker/EpicStore.ts';
 import { requireWorkspace }                               from '../../src/services/tracker/Workspace.ts';
 import { OperationRefusal }                               from '../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }                                  from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                            from '../CommandContext.ts';
 import { openTrackerForWriting }                          from '../OpenTrackerForWriting.ts';
 import { suppliedMarkdownBodyOf }                         from '../SuppliedMarkdownBody.ts';
@@ -17,7 +18,7 @@ const REMOVE_OPTION_NAMES = ['at', 'json'];
 
 function refuseBothBodyOptions(commandArguments: ArgumentParser, subcommand: string): void {
   if (commandArguments.option('body') !== undefined && commandArguments.option('body-file') !== undefined) {
-    throw new OperationRefusal('refused', `agent-progress epic ${subcommand} takes --body or --body-file, not both.\n  Usage: ${EPIC_USAGE}`);
+    throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} epic${subcommand} takes --body or --body-file, not both.\n  Usage: ${EPIC_USAGE}`);
   }
 }
 
@@ -26,7 +27,7 @@ async function addEpic(commandArguments: ArgumentParser, context: CommandContext
   commandArguments.rejectExtraPositionals(SUBCOMMAND_WITH_TWO_ARGUMENTS_POSITIONAL_COUNT, EPIC_USAGE);
   const [, key, title] = commandArguments.positionals();
   if (key === undefined || title === undefined || title.trim() === '') {
-    throw new OperationRefusal('refused', `agent-progress epic add needs a key and a title.\n  Usage: ${EPIC_USAGE}`);
+    throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} epic add needs a key and a title.\n  Usage: ${EPIC_USAGE}`);
   }
   refuseBothBodyOptions(commandArguments, 'add');
 
@@ -59,16 +60,16 @@ async function editEpic(commandArguments: ArgumentParser, context: CommandContex
   commandArguments.rejectUnknownOptions(EDIT_OPTION_NAMES, EPIC_USAGE);
   commandArguments.rejectExtraPositionals(2, EPIC_USAGE);
   const key = commandArguments.positionals()[1];
-  if (key === undefined) throw new OperationRefusal('refused', `agent-progress epic edit needs an epic key.\n  Usage: ${EPIC_USAGE}`);
+  if (key === undefined) throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} epic edit needs an epic key.\n  Usage: ${EPIC_USAGE}`);
   refuseBothBodyOptions(commandArguments, 'edit');
   const title   = commandArguments.option('title');
   const appends = commandArguments.flag('append');
-  if (title?.trim() === '') throw new OperationRefusal('refused', `agent-progress epic edit was given an empty --title.\n  Usage: ${EPIC_USAGE}`);
+  if (title?.trim() === '') throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} epic edit was given an empty --title.\n  Usage: ${EPIC_USAGE}`);
 
   requireWorkspace(context.currentDirectory);
   const text = await suppliedMarkdownBodyOf(commandArguments, context);
   if (title === undefined && text === undefined) {
-    throw new OperationRefusal('refused', `agent-progress epic edit needs --title, --body or --body-file.\n  Usage: ${EPIC_USAGE}`);
+    throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} epic edit needs --title, --body or --body-file.\n  Usage: ${EPIC_USAGE}`);
   }
   if (text !== undefined && !appends && text.trim() === '') {
     throw new OperationRefusal('refused', 'An empty body would erase the epic\'s description, so it is refused; to add to the description, pass --append.');
@@ -89,7 +90,7 @@ async function removeEpic(commandArguments: ArgumentParser, context: CommandCont
   commandArguments.rejectUnknownOptions(REMOVE_OPTION_NAMES, EPIC_USAGE);
   commandArguments.rejectExtraPositionals(2, EPIC_USAGE);
   const key = commandArguments.positionals()[1];
-  if (key === undefined) throw new OperationRefusal('refused', `agent-progress epic remove needs an epic key.\n  Usage: ${EPIC_USAGE}`);
+  if (key === undefined) throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} epic remove needs an epic key.\n  Usage: ${EPIC_USAGE}`);
 
   const removed = await openTrackerForWriting(commandArguments, context, (change) => change.board.removeEpic(key, change.at));
   OutputUtil.printEntity(commandArguments, context, { key, removed: true, filePath: removed.epic.filePath }, OutputUtil.loggedSentencesOf(removed.logged));

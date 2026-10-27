@@ -2,6 +2,7 @@
 import { TicketPhraseUtil }                      from '../../src/adapters/utils/TicketPhraseUtil.ts';
 import type { AgentAssignment }                  from '../../src/lib/tracker-model/@types/BoardChanges.ts';
 import type { TicketStatus }                     from '../../src/lib/tracker-model/@types/Ticket.ts';
+import { PRODUCT_NAMES }                         from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                   from '../CommandContext.ts';
 import { openTrackerForWritingThenReadNextLine } from '../OpenTrackerForWriting.ts';
 import type { ArgumentParser }                   from '../arguments/ArgumentParser.ts';
@@ -61,7 +62,7 @@ export async function transitionOneTicket(
     context.standardError(`Ticket #${id} is ${TicketPhraseUtil.waitingOnText(moved.unsettled)}, ${notSettledYetText}.`);
   }
   if (move.ticket.frontmatter.hold !== undefined) {
-    context.standardError(`Ticket #${id} is held; it was started anyway, and \`agent-progress ticket unhold ${id}\` lifts the hold.`);
+    context.standardError(`Ticket #${id} is held; it was started anyway, and \`${PRODUCT_NAMES.PROGRAM} ticket unhold ${id}\` lifts the hold.`);
   }
   if (moved.holdingBackTicketIds.length > 0) {
     context.standardError(`${TicketPhraseUtil.lowPriorityHeldBackText(id, moved.holdingBackTicketIds)}; it was started anyway.`);

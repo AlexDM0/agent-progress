@@ -1,6 +1,7 @@
 import { TicketJsonUtil }                        from '../../src/adapters/utils/TicketJsonUtil.ts';
 import { TicketPhraseUtil }                      from '../../src/adapters/utils/TicketPhraseUtil.ts';
 import { OperationRefusal }                      from '../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }                         from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                   from '../CommandContext.ts';
 import { openTrackerForWritingThenReadNextLine } from '../OpenTrackerForWriting.ts';
 import type { ArgumentParser }                   from '../arguments/ArgumentParser.ts';
@@ -54,10 +55,10 @@ async function claimTheNamedTickets(commandArguments: ArgumentParser, context: C
   commandArguments.rejectUnknownOptions(CLAIM_OPTION_NAMES, TICKET_USAGE);
   const references = commandArguments.positionals().slice(1);
   if (references.length === 0) {
-    throw new OperationRefusal('refused', `agent-progress ticket claim needs a ticket id, or every id of a bundle.\n  Usage: ${TICKET_USAGE}`);
+    throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} ticket claim needs a ticket id, or every id of a bundle.\n  Usage: ${TICKET_USAGE}`);
   }
   if (commandArguments.option('after') !== undefined && references.length > 1) {
-    throw new OperationRefusal('refused', `agent-progress ticket claim --after claims one ticket, the successor of the one it names.\n  Usage: ${TICKET_USAGE}`);
+    throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} ticket claim --after claims one ticket, the successor of the one it names.\n  Usage: ${TICKET_USAGE}`);
   }
   return claimTickets(references, commandArguments, context);
 }

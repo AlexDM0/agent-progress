@@ -1,6 +1,7 @@
 /** `ticket epic`: replaces, adds to or removes from the epics a ticket belongs to, mirroring `ticket depends`; the first key is its primary epic. */
 import { TicketJsonUtil }        from '../../src/adapters/utils/TicketJsonUtil.ts';
 import { OperationRefusal }      from '../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }         from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }   from '../CommandContext.ts';
 import { openTrackerForWriting } from '../OpenTrackerForWriting.ts';
 import type { ArgumentParser }   from '../arguments/ArgumentParser.ts';
@@ -18,7 +19,7 @@ function epicListEditFrom(commandArguments: ArgumentParser, epicKeyTexts: readon
   const addedText   = commandArguments.option('add');
   const removedText = commandArguments.option('remove');
   if (addedText !== undefined && removedText !== undefined) {
-    throw new OperationRefusal('refused', `agent-progress ticket epic takes --add or --remove, not both: run it once for each.\n  Usage: ${TICKET_USAGE}`);
+    throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} ticket epic takes --add or --remove, not both: run it once for each.\n  Usage: ${TICKET_USAGE}`);
   }
   const editedText = addedText ?? removedText;
   if (editedText === undefined) return { kind: 'replace', epicKeys: TicketArgumentUtil.epicKeyListFrom(epicKeyTexts) };
@@ -26,7 +27,7 @@ function epicListEditFrom(commandArguments: ArgumentParser, epicKeyTexts: readon
   if (epicKeyTexts.length > 0) {
     throw new OperationRefusal(
       'refused',
-      `agent-progress ticket epic was given ${optionToken} and bare keys, which is ambiguous: `
+      `${PRODUCT_NAMES.PROGRAM} ticket epic was given ${optionToken} and bare keys, which is ambiguous: `
       + `list every key in the option, as \`${optionToken} checkout-redesign,loyalty-programme\`, or give bare keys alone to replace the list.\n  Usage: ${TICKET_USAGE}`,
     );
   }
@@ -38,7 +39,7 @@ export async function setTicketEpics(commandArguments: ArgumentParser, context: 
 
   const [, reference, ...epicKeyTexts] = commandArguments.positionals();
   if (reference === undefined) {
-    throw new OperationRefusal('refused', `agent-progress ticket epic needs a ticket id, then the keys of its epics (none clears the list).\n  Usage: ${TICKET_USAGE}`);
+    throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} ticket epic needs a ticket id, then the keys of its epics (none clears the list).\n  Usage: ${TICKET_USAGE}`);
   }
   const edit = epicListEditFrom(commandArguments, epicKeyTexts);
 

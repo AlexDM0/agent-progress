@@ -1,13 +1,13 @@
-## Progress tracking with agent-progress
+## Progress tracking with {{program}}
 
-This repository tracks its work with the `agent-progress` CLI. The tracker lives in the git-ignored
+This repository tracks its work with the `{{program}}` CLI. The tracker lives in the git-ignored
 `{{dataFolder}}/` folder at the repository root and is shared by every worktree of it, so subagents
 in separate checkouts all write to the same chart.
 
-- Run `agent-progress status --json` at the start of a session to find out what was already in
+- Run `{{program}} status --json` at the start of a session to find out what was already in
   flight. When the user asks to file, report or track a ticket, bug or research question, load the
-  `agent-po` skill. Only when the user asks this session to run the board — orchestrate, work through
-  the tickets, take tickets from them — load `agent-progress-orchestrate`; it loads `agent-po` itself.
+  `{{productOwnerSkill}}` skill. Only when the user asks this session to run the board — orchestrate, work through
+  the tickets, take tickets from them — load `{{orchestrateSkill}}`; it loads `{{productOwnerSkill}}` itself.
   Filing or editing a ticket does not make a session the orchestrator and is never a reason to load
   that skill. `{{dataFolder}}/reference.md` holds the ticket format, the moves and the exit codes.
 - Only the orchestrator runs agents for tickets, and it runs them through the dispatcher workflow,
@@ -24,15 +24,15 @@ in separate checkouts all write to the same chart.
 - A review is a clean agent following the review brief in `{{dataFolder}}/review-brief.md`. It starts
   from the Handoff rather than redoing the work, fixes what it finds in the branch's change and the
   ticket's Acceptance, settles its own doubts, rebases onto the main line again, and releases the
-  branch itself with `agent-progress release`, which lets one branch into main at a time. Anything
+  branch itself with `{{program}} release`, which lets one branch into main at a time. Anything
   outside that, however small, is filed unfixed as a low-priority ticket. A second review is only for
   a pass that reworked over {{reworkThresholdLines}} lines of code (comments and documentation not counted) in its fixes
   and rebase, and is asked for, never scheduled by the reviewer.
-- File every bug, change, feature or research question the user reports as a ticket (`agent-progress ticket add
-  "<title>" --type ticket|bug|research`) and move it with `agent-progress ticket start|finish|approve|deliver <id>`.
-- Record milestones with `agent-progress log "<what happened>"`; `--at -5m` backfills a stamp nobody
+- File every bug, change, feature or research question the user reports as a ticket (`{{program}} ticket add
+  "<title>" --type ticket|bug|research`) and move it with `{{program}} ticket start|finish|approve|deliver <id>`.
+- Record milestones with `{{program}} log "<what happened>"`; `--at -5m` backfills a stamp nobody
   registered at the time.
 - Never edit `{{dataFolder}}/progress.json` by hand, and edit a ticket only below its frontmatter —
-  `agent-progress ticket show <id>` prints the file path to edit.
-- Run `agent-progress open` once per session so the user has the dashboard; it reloads itself within
+  `{{program}} ticket show <id>` prints the file path to edit.
+- Run `{{program}} open` once per session so the user has the dashboard; it reloads itself within
   a minute of new data when idle as the work moves.

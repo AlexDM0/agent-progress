@@ -6,6 +6,7 @@ import { createTicket }                          from '../../src/services/tracke
 import { requireWorkspace }                      from '../../src/services/tracker/Workspace.ts';
 import { OperationRefusal }                      from '../../src/shared/OperationRefusal.ts';
 import { resourceFilePathOf }                    from '../../src/shared/ResourceFilePath.ts';
+import { PRODUCT_NAMES }                         from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                   from '../CommandContext.ts';
 import { filledTemplateOf }                      from '../FilledTemplate.ts';
 import { openTrackerForWritingThenReadNextLine } from '../OpenTrackerForWriting.ts';
@@ -35,14 +36,14 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
 
   const title = commandArguments.positionals()[1];
   if (title === undefined || title.trim() === '') {
-    throw new OperationRefusal('refused', `agent-progress ticket add needs a title.\n  Usage: ${TICKET_USAGE}`);
+    throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} ticket add needs a title.\n  Usage: ${TICKET_USAGE}`);
   }
   if (commandArguments.option('body') !== undefined && commandArguments.option('body-file') !== undefined) {
-    throw new OperationRefusal('refused', `agent-progress ticket add takes --body or --body-file, not both.\n  Usage: ${TICKET_USAGE}`);
+    throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} ticket add takes --body or --body-file, not both.\n  Usage: ${TICKET_USAGE}`);
   }
   const type      = TicketArgumentUtil.ticketTypeFrom(commandArguments.option('type'));
   if (type === undefined) {
-    throw new OperationRefusal('refused', `agent-progress ticket add needs --type ${TICKET_TYPES.join('|')}.\n  Usage: ${TICKET_USAGE}`);
+    throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} ticket add needs --type ${TICKET_TYPES.join('|')}.\n  Usage: ${TICKET_USAGE}`);
   }
   const priority  = TicketArgumentUtil.priorityFrom(commandArguments.option('priority'));
   const size      = TicketArgumentUtil.sizeFrom(commandArguments.option('size'));

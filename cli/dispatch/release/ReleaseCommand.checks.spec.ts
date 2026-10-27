@@ -373,7 +373,7 @@ describeWhenGitIsPresent('a ticket stamped with the check command it started und
 
     expect(document.detail).toContain('`false`');
     expect(document.detail).toContain(`\`${MARKER_COMMAND}\``);
-    expect(document.detail).toContain(`agent-progress checks "${MARKER_COMMAND}" --restamp`);
+    expect(document.detail).toContain(`${PRODUCT_NAMES.PROGRAM} checks "${MARKER_COMMAND}" --restamp`);
     expect((document.detail ?? '').split('Nothing was changed.').length - 1, 'said once').toBe(1);
     expect(existsSync(markerPath()), 'refused before the command runs').toBe(false);
 
@@ -395,7 +395,7 @@ describeWhenGitIsPresent('a ticket stamped with the check command it started und
     delete progressWithoutTheLine['checkCommand'];
     writeFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'), `${JSON.stringify(progressWithoutTheLine, null, 2)}\n`);
     const cleared = await expectRefusedChangingNothing(stamped, 'check-command-differs-from-start');
-    expect(cleared.detail).toContain('agent-progress checks --clear --restamp');
+    expect(cleared.detail).toContain(`${PRODUCT_NAMES.PROGRAM} checks --clear --restamp`);
   });
 
   test('one ticket of a release whose stamp differs refuses the whole release', async () => {

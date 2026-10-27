@@ -1,5 +1,6 @@
 import { TicketJsonUtil }                                               from '../../src/adapters/utils/TicketJsonUtil.ts';
 import { OperationRefusal }                                             from '../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }                                                from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                                          from '../CommandContext.ts';
 import { openTrackerForWriting, openTrackerForWritingThenReadNextLine } from '../OpenTrackerForWriting.ts';
 import type { ArgumentParser }                                          from '../arguments/ArgumentParser.ts';
@@ -28,7 +29,7 @@ async function linkOneTicket(commandArguments: ArgumentParser, context: CommandC
 
   const [, ticketReference, taskReference] = commandArguments.positionals();
   if (ticketReference === undefined || taskReference === undefined) {
-    throw new OperationRefusal('refused', `agent-progress ticket link needs a ticket id and a task id.\n  Usage: ${TICKET_USAGE}`);
+    throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} ticket link needs a ticket id and a task id.\n  Usage: ${TICKET_USAGE}`);
   }
   const taskId = OptionValueUtil.taskIdOf(taskReference);
   if (taskId === null) {
@@ -51,7 +52,7 @@ async function setTicketPriority(commandArguments: ArgumentParser, context: Comm
 
   const [, reference, writtenPriority] = commandArguments.positionals();
   if (reference === undefined || writtenPriority === undefined) {
-    throw new OperationRefusal('refused', `agent-progress ticket priority needs a ticket id and a priority.\n  Usage: ${TICKET_USAGE}`);
+    throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} ticket priority needs a ticket id and a priority.\n  Usage: ${TICKET_USAGE}`);
   }
   const priority = TicketArgumentUtil.requirePriority(writtenPriority);
 
@@ -71,7 +72,7 @@ async function setTicketSize(commandArguments: ArgumentParser, context: CommandC
 
   const [, reference, writtenSize] = commandArguments.positionals();
   if (reference === undefined || writtenSize === undefined) {
-    throw new OperationRefusal('refused', `agent-progress ticket size needs a ticket id and a size.\n  Usage: ${TICKET_USAGE}`);
+    throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} ticket size needs a ticket id and a size.\n  Usage: ${TICKET_USAGE}`);
   }
   const size = TicketArgumentUtil.requireSize(writtenSize);
 
@@ -90,12 +91,12 @@ async function setTicketAgent(commandArguments: ArgumentParser, context: Command
 
   const reference = commandArguments.positionals()[1];
   if (reference === undefined) {
-    throw new OperationRefusal('refused', `agent-progress ticket agent needs a ticket id.\n  Usage: ${TICKET_USAGE}`);
+    throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} ticket agent needs a ticket id.\n  Usage: ${TICKET_USAGE}`);
   }
   const model  = TicketArgumentUtil.agentModelFrom(commandArguments.option('model'));
   const effort = TicketArgumentUtil.agentEffortFrom(commandArguments.option('effort'));
   if (model === undefined && effort === undefined) {
-    throw new OperationRefusal('refused', `agent-progress ticket agent needs --model, --effort or both.\n  Usage: ${TICKET_USAGE}`);
+    throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} ticket agent needs --model, --effort or both.\n  Usage: ${TICKET_USAGE}`);
   }
 
   const { result: changed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {

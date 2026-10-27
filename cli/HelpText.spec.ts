@@ -7,6 +7,7 @@ import { readFileSync }           from 'node:fs';
 import { join }                   from 'node:path';
 import { describe, expect, test } from 'bun:test';
 import { ROOT_OVERRIDE_VARIABLE } from '../src/shared/Environment.ts';
+import { PRODUCT_NAMES }          from '../src/shared/constants/ProductNames.ts';
 
 import { COMMAND_NAMES } from './CommandTable.ts';
 import { helpText }      from './HelpText.ts';
@@ -55,7 +56,7 @@ describe('the command reference', () => {
   });
 
   test('it says how to invoke the tool, since a reader arriving at the help has not managed to', () => {
-    expect(HELP_TEXT).toContain('Usage: agent-progress <command> [options]');
+    expect(HELP_TEXT).toContain(`Usage: ${PRODUCT_NAMES.PROGRAM} <command> [options]`);
   });
 
   test('it names the install version refusal, the commands it spares and the command that lifts it', () => {
@@ -63,7 +64,7 @@ describe('the command reference', () => {
     expect(flattenedHelp).toContain(
       'Every command but init, update, help and status refuses, with exit 1, while the files installed here are of another install version',
     );
-    expect(flattenedHelp).toContain('update rewrites them, and it and `init` refuse files a newer agent-progress installed');
+    expect(flattenedHelp).toContain(`update rewrites them, and it and \`init\` refuse files a newer ${PRODUCT_NAMES.PROGRAM} installed`);
   });
 
   test('the delivered state is offered on both the task and the ticket side', () => {
@@ -146,8 +147,8 @@ describe('the bundled skills leave the command reference to the tool', () => {
 
   test('both skills send their reader to the help for a flag and to the installed reference for the formats', () => {
     for (const { path, text } of [BUNDLED_SKILL_FILES[0], BUNDLED_SKILL_FILES[2]]) {
-      expect(text, `${path}: an agent that is not told to run it will guess the flag instead`).toContain('`agent-progress help` prints every command and flag');
-      expect(text, `${path}: a reference nothing mentions is a file no agent opens`).toContain('`.agent-progress/reference.md`');
+      expect(text, `${path}: an agent that is not told to run it will guess the flag instead`).toContain('`{{program}} help` prints every command and flag');
+      expect(text, `${path}: a reference nothing mentions is a file no agent opens`).toContain('`{{dataFolder}}/reference.md`');
     }
   });
 
@@ -169,7 +170,7 @@ describe('the two skills stay split by audience', () => {
 
   /** A sentence of the filing procedure found in the orchestrator skill is a second copy that drifts from the first. */
   test('the orchestrator skill loads the filing one rather than restating it, and loads the retired one nowhere', () => {
-    expect(ORCHESTRATE_TEXT).toContain('the `agent-po` skill says');
+    expect(ORCHESTRATE_TEXT).toContain('the `{{productOwnerSkill}}` skill says');
     for (const filingSentence of ['Split a large request by mechanism', 'Read the Acceptance back against itself', 'File into an epic']) {
       expect(FILING_SKILL_TEXT, filingSentence).toContain(filingSentence);
       expect(ORCHESTRATE_TEXT, filingSentence).not.toContain(filingSentence);
@@ -178,13 +179,13 @@ describe('the two skills stay split by audience', () => {
   });
 
   test('the filing skill files and stops: it loads no other skill and dispatches nothing', () => {
-    expect(FILING_SKILL_TEXT).toContain('you never load `agent-progress-orchestrate`');
+    expect(FILING_SKILL_TEXT).toContain('you never load `{{orchestrateSkill}}`');
     expect(FILING_SKILL_TEXT).not.toContain('`agent-progress` skill');
     expect(FILING_SKILL_TEXT).not.toContain('dispatcher running');
   });
 
   test('the orchestrator skill is the one that tells its reader to record what an agent cost', () => {
     expect(ORCHESTRATE_TEXT).toContain('--tokens');
-    expect(ORCHESTRATE_TEXT).toContain('`.agent-progress/agent-brief.md`\'s Orchestrator checklist');
+    expect(ORCHESTRATE_TEXT).toContain('`{{dataFolder}}/agent-brief.md`\'s Orchestrator checklist');
   });
 });

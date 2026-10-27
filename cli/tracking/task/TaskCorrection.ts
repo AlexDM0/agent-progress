@@ -3,6 +3,7 @@ import type { TaskStatus }                        from '../../../src/lib/tracker
 import { TASK_STATUSES }                          from '../../../src/lib/tracker-model/constants/Statuses.ts';
 import { VocabularyUtil }                         from '../../../src/lib/tracker-model/utils/VocabularyUtil.ts';
 import { OperationRefusal }                       from '../../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }                          from '../../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                    from '../../CommandContext.ts';
 import { openTrackerForWriting }                  from '../../OpenTrackerForWriting.ts';
 import type { ArgumentParser }                    from '../../arguments/ArgumentParser.ts';
@@ -31,7 +32,7 @@ export async function updateOneTask(commandArguments: ArgumentParser, context: C
   if (!changesSomething) {
     throw new OperationRefusal(
       'refused',
-      `agent-progress task update needs at least one of --name, --owner, --note, --status or --tokens.\n  Usage: ${TASK_USAGE}`,
+      `${PRODUCT_NAMES.PROGRAM} task update needs at least one of --name, --owner, --note, --status or --tokens.\n  Usage: ${TASK_USAGE}`,
     );
   }
 

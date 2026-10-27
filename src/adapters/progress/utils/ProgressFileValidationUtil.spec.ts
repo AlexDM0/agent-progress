@@ -5,6 +5,7 @@
  */
 import { expect, test } from 'bun:test';
 
+import { PRODUCT_NAMES }              from '../../../shared/constants/ProductNames.ts';
 import { fileRow }                    from '../../../testing/ProgressFixtures.ts';
 import { OLDER_FORMAT_ADVICE }        from '../../constants/OlderFormatAdvice.ts';
 import { emptyDocument }              from '../testing/ProgressFileFixtures.ts';
@@ -38,9 +39,9 @@ test('a version 2 document that holds a log is a problem, because its log is log
 
 test('the validator reads only version 2, and names it for any other version, 1 included', () => {
   expect(ProgressFileValidationUtil.documentProblemOf({ ...emptyDocument(), version: 1, log: [] }))
-    .toBe(`version is 1, and this build of agent-progress reads version 2; ${OLDER_FORMAT_ADVICE}`);
+    .toBe(`version is 1, and this build of ${PRODUCT_NAMES.PROGRAM} reads version 2; ${OLDER_FORMAT_ADVICE}`);
   expect(ProgressFileValidationUtil.documentProblemOf({ ...emptyDocument(), version: 3 }))
-    .toBe(`version is 3, and this build of agent-progress reads version 2; ${OLDER_FORMAT_ADVICE}`);
+    .toBe(`version is 3, and this build of ${PRODUCT_NAMES.PROGRAM} reads version 2; ${OLDER_FORMAT_ADVICE}`);
 });
 
 test('the header is checked before the rows, and the rows name the first broken one', () => {

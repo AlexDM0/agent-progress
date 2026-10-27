@@ -556,7 +556,7 @@ comment is code, and a file type it does not know counts every non-blank line.
 | code | meaning | examples |
 |---|---|---|
 | **0** | done, or there was nothing to do | also a store write whose page could not be rebuilt (reported on standard error, with an error banner on the page when only its script failed; `render` rebuilds it), a release whose cleanup git declined, every `hook subagent-stop` run as `init` and `update` wire it (a wrong event word, an extra argument or an option is refused at exit 1), every `hook pre-tool-use` run it lets through, and every `hook post-tool-use` run |
-| **1** | a refusal the caller can act on | no tracker here (run `agent-progress init`), no such task or ticket, a missing `--reason`, a move the matrix refuses, a claim with no free slot or on a held-back low ticket, lowering a ticket that is not pending, a release refused (`main-moved` among them), installed files of another install version (every command but `init`, `update`, `help`, `status` and `hook subagent-stop`, which reports it at exit 0; run `agent-progress update`), `init` or `update` over files a newer agent-progress installed or a `version.json` naming a retired agent host, `hook` given a wrong event word, an extra argument or an option, and an unknown command |
+| **1** | a refusal the caller can act on | no tracker here (run `{{program}} init`), no such task or ticket, a missing `--reason`, a move the matrix refuses, a claim with no free slot or on a held-back low ticket, lowering a ticket that is not pending, a release refused (`main-moved` among them), installed files of another install version (every command but `init`, `update`, `help`, `status` and `hook subagent-stop`, which reports it at exit 0; run `{{program}} update`), `init` or `update` over files a newer {{program}} installed or a `version.json` naming a retired agent host, `hook` given a wrong event word, an extra argument or an option, and an unknown command |
 | **2** | a state the tool will not repair on its own | an unreadable or malformed progress file, an unreadable or malformed log.jsonl, a malformed ticket file a command names, a lock it could not take, a release reason `git-failed` or `tracker-failed`, `hook pre-tool-use` blocking a subagent's change to the check command (exit 2 is how Claude Code reads a block), and any error the tool did not expect |
 
 Check the code rather than the wording.
@@ -934,7 +934,7 @@ order. A file whose `version` is newer than 1 is left untouched and a warning is
 and rewritten with every entry that is still an object, plus this one. A registry that cannot be read or written, its
 lock included, is a warning on standard error: the command keeps its exit code, 0 when it succeeded.
 
-### `.agent-progress/tickets/003-double-click-a-role-to-edit-it.md`
+### `{{dataFolder}}/tickets/003-double-click-a-role-to-edit-it.md`
 
 The file name is the padded id and a slug of the title; the ticket is known by its frontmatter `id`.
 The CLI writes its keys in this order, omitting an optional key it does not have:
@@ -998,7 +998,7 @@ item or a bare word. There are no nested maps, lists or block scalars. The closi
 is dropped and CRLF is kept.
 
 A ticket stored with a status that is not a ticket status, the retired `open` or `done` included, is
-malformed at its status line, the reason ending in the advice to run `agent-progress update` with a
+malformed at its status line, the reason ending in the advice to run `{{program}} update` with a
 release that still reads it.
 
 **Unknown keys, comments and blank lines are kept and written back**, so a field you add by hand —

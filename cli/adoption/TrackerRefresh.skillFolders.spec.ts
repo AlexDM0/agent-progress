@@ -19,7 +19,7 @@ import { workspacePathsFor }                                                    
 import { PRODUCT_NAMES }                                                          from '../../src/shared/constants/ProductNames.ts';
 import { createScratchGitRepository, removeScratchDirectory }                     from '../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }                                               from '../../src/testing/ToolGuard.ts';
-import { filledTemplateOf }                                                       from '../FilledTemplate.ts';
+import { filledTemplateOf, productNameTemplateValuesOf }                          from '../FilledTemplate.ts';
 import { runCommandLine }                                                         from '../Main.ts';
 import { createCapturedCommandContext }                                           from '../testing/CapturedCommandContext.ts';
 import { repositoryFileContentsOf }                                               from '../testing/RepositoryFileContents.ts';
@@ -78,7 +78,8 @@ describeWhenGitIsPresent('the installed skill folders', () => {
     for (const [sourceFolderName, installedName] of SKILLS) {
       const installedFolder = join(repositoryDirectory, '.claude', 'skills', installedName);
       const sourceFiles     = repositoryFileContentsOf(skillSourceDirectoryOf(sourceFolderName));
-      expect(repositoryFileContentsOf(installedFolder)).toEqual(new Map([...sourceFiles].map(([path, text]) => [path, filledTemplateOf(text, { skillName: installedName })])));
+      const fillValues      = { ...productNameTemplateValuesOf(PRODUCT_NAMES), skillName: installedName };
+      expect(repositoryFileContentsOf(installedFolder)).toEqual(new Map([...sourceFiles].map(([path, text]) => [path, filledTemplateOf(text, fillValues)])));
       expect(readFileSync(join(installedFolder, 'SKILL.md'), 'utf8')).toContain(`\nname: ${installedName}\n`);
       expect(gitIgnores(repositoryDirectory, `.claude/skills/${installedName}/SKILL.md`), installedName).toBe(true);
     }

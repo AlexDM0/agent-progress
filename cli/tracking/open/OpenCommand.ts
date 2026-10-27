@@ -1,11 +1,12 @@
 import { existsSync } from 'node:fs';
 
 import { requireWorkspace }        from '../../../src/services/tracker/Workspace.ts';
+import { PRODUCT_NAMES }           from '../../../src/shared/constants/ProductNames.ts';
 import type { CommandHandler }     from '../../CommandHandler.ts';
 import { openInTheDefaultBrowser } from '../../OpenInTheDefaultBrowser.ts';
 import { renderDashboardOrRefuse } from '../RenderDashboardOrRefuse.ts';
 
-const USAGE = 'agent-progress open';
+const USAGE = `${PRODUCT_NAMES.PROGRAM} open`;
 
 const KNOWN_OPTION_NAMES: readonly string[] = [];
 

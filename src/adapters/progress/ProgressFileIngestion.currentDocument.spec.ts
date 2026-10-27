@@ -9,6 +9,7 @@ import { afterAll, expect, test }      from 'bun:test';
 
 import { JsonRecordUtil }                                 from '../../lib/json-record/JsonRecordUtil.ts';
 import { TASK_STATUSES }                                  from '../../lib/tracker-model/constants/Statuses.ts';
+import { PRODUCT_NAMES }                                  from '../../shared/constants/ProductNames.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
 import type { StoredProgressFile }                        from './@types/StoredProgressFile.ts';
 import { ProgressFileIngestion }                          from './ProgressFileIngestion.ts';
@@ -123,7 +124,7 @@ test('a malformed current document is refused with the current validator\'s reas
 test('a version 1 document, and a row in a retired status word, are refused saying to run update with a release that still reads them', () => {
   const currentDocument = JsonRecordUtil.recordOf(JSON.parse(currentDocumentText()));
   const olderDocuments: Array<[document: unknown, reasonStart: string]> = [
-    [{ ...currentDocument, version: 1, log: [{ at: FILED_AT, text: 'Example note' }] }, 'version is 1, and this build of agent-progress reads version 2; '],
+    [{ ...currentDocument, version: 1, log: [{ at: FILED_AT, text: 'Example note' }] }, `version is 1, and this build of ${PRODUCT_NAMES.PROGRAM} reads version 2; `],
     [{ ...currentDocument, tasks: [storedRow(1, { status: 'running' })] }, 'tasks[0].status is "running", which is not one of '],
   ];
   for (const [document, reasonStart] of olderDocuments) {
@@ -132,6 +133,6 @@ test('a version 1 document, and a row in a retired status word, are refused sayi
     const reading = new ProgressFileIngestion(progressFilePath).read();
 
     expect(reading.verdict === 'unreadable' ? reading.reason : '').toStartWith(reasonStart);
-    expect(reading.verdict === 'unreadable' ? reading.reason : '').toEndWith('run `agent-progress update` with a release that still reads it, then use this one');
+    expect(reading.verdict === 'unreadable' ? reading.reason : '').toEndWith(`run \`${PRODUCT_NAMES.PROGRAM} update\` with a release that still reads it, then use this one`);
   }
 });

@@ -6,6 +6,7 @@
 import { describe, expect, test } from 'bun:test';
 
 import type { MalformedTicketFile }    from '../../../src/services/tracker/TicketStore.ts';
+import { PRODUCT_NAMES }               from '../../../src/shared/constants/ProductNames.ts';
 import { boardFixture, ticketFixture } from '../../../src/testing/BoardFixtures.ts';
 import { refusalFrom }                 from '../../testing/RefusalFrom.ts';
 import { TicketLookupUtil }            from './TicketLookupUtil.ts';
@@ -34,7 +35,8 @@ describe('TicketLookupUtil.requireTicket', () => {
 
     expect(refusal.status).toBe('refused');
     expect(refusal.message).toBe(
-      'There is no readable ticket 2. Run `agent-progress ticket list` to see what this tracker holds; a file that will not parse is reported there as malformed.',
+      `There is no readable ticket 2. Run \`${PRODUCT_NAMES.PROGRAM} ticket list\` to see what this tracker holds; `
+      + 'a file that will not parse is reported there as malformed.',
     );
   });
 

@@ -5,6 +5,7 @@
 import type { TicketStatus }                                                  from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { VocabularyUtil }                                                     from '../../src/lib/tracker-model/utils/VocabularyUtil.ts';
 import { OperationRefusal }                                                   from '../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }                                                      from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                                                from '../CommandContext.ts';
 import { openTrackerForWritingThenReadNextLine }                              from '../OpenTrackerForWriting.ts';
 import type { ArgumentParser }                                                from '../arguments/ArgumentParser.ts';
@@ -33,7 +34,7 @@ const REREVIEW_OPTION_NAMES = ['at', 'json', ...REVIEW_BAR_OPTION_NAMES];
 function requireTicketReference(commandArguments: ArgumentParser, subcommand: string): string {
   commandArguments.rejectExtraPositionals(2, TICKET_USAGE);
   const reference = commandArguments.positionals()[1];
-  if (reference === undefined) throw new OperationRefusal('refused', `agent-progress ticket ${subcommand} needs a ticket id.\n  Usage: ${TICKET_USAGE}`);
+  if (reference === undefined) throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} ticket ${subcommand} needs a ticket id.\n  Usage: ${TICKET_USAGE}`);
   return reference;
 }
 
@@ -53,7 +54,7 @@ async function setTicketStatus(commandArguments: ArgumentParser, context: Comman
 
   const [, reference, writtenStatus] = commandArguments.positionals();
   if (reference === undefined || writtenStatus === undefined) {
-    throw new OperationRefusal('refused', `agent-progress ticket status needs a ticket id and a status.\n  Usage: ${TICKET_USAGE}`);
+    throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} ticket status needs a ticket id and a status.\n  Usage: ${TICKET_USAGE}`);
   }
   if (!VocabularyUtil.ticketStatusIsKnown(writtenStatus)) {
     return TicketArgumentUtil.refuseAnUnknownTicketStatus(writtenStatus);

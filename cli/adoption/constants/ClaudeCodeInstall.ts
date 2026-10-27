@@ -119,10 +119,10 @@ const CLAUDE_CODE_SENTENCES: Readonly<Record<string, string>> = {
     + `  \`${SUBAGENT_STOP_HOOK.command}\` and \`${POST_TOOL_USE_HOOK.command}\`. \`init\` and \`update\` write both into\n`
     + '  the local file by default, so each is normally in one of them and there is nothing to say. If either is in\n'
     + '  neither — the repository was adopted before the hook existed, or somebody ran `--no-hooks` — say so once and offer\n'
-    + '  `agent-progress update`: it is what puts every agent\'s cost on its row, without which a workflow\'s agents reach\n'
+    + `  \`${PRODUCT_NAMES.PROGRAM} update\`: it is what puts every agent's cost on its row, without which a workflow's agents reach\n`
     + '  no row at all, and what keeps the page live while agents work. Then check\n'
     + `  \`${DISPATCHER_PATH_IN_REPOSITORY}\` exists. If not — adopted before the dispatcher, or \`--no-workflow\` —\n`
-    + '  say so once and offer `agent-progress update` the same way; until then only the manual path is open.',
+    + `  say so once and offer \`${PRODUCT_NAMES.PROGRAM} update\` the same way; until then only the manual path is open.`,
   askingTheUser:    'the AskUserQuestion tool, up to four questions per call.',
   dispatcherLaunch: `\`Workflow({ scriptPath: '<mainCheckout>/${DISPATCHER_PATH_IN_REPOSITORY}',\n`
     + '  args: <the args> })`, by this path only: it has no name to launch it by. The result names the run\'s `runId`.\n'

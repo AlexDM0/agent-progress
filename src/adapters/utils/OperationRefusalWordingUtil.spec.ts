@@ -10,6 +10,7 @@ import type { BoardRefusalDetail }     from '../../lib/tracker-model/BoardRefusa
 import type { UnreadableTracker }      from '../../shared/@types/UnreadableTracker.ts';
 import { ROOT_OVERRIDE_VARIABLE }      from '../../shared/Environment.ts';
 import { OperationRefusal }            from '../../shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }               from '../../shared/constants/ProductNames.ts';
 import { OperationRefusalWordingUtil } from './OperationRefusalWordingUtil.ts';
 import { TrackerReadingWordingUtil }   from './TrackerReadingWordingUtil.ts';
 
@@ -34,8 +35,8 @@ test('no tracker at the AGENT_PROGRESS_ROOT directory is worded naming the varia
   const refusal = new OperationRefusal('refused', { kind: 'no-tracker-at-override', overrideDirectory: '/example/empty' });
   const message = OperationRefusalWordingUtil.messageOf(refusal);
   expect(message).toBe(
-    `No agent-progress tracker was found in /example/empty, which ${ROOT_OVERRIDE_VARIABLE} names. `
-    + `Run \`agent-progress init\` there, or unset ${ROOT_OVERRIDE_VARIABLE} to search upwards from the current directory instead.`,
+    `No ${PRODUCT_NAMES.PROGRAM} tracker was found in /example/empty, which ${ROOT_OVERRIDE_VARIABLE} names. `
+    + `Run \`${PRODUCT_NAMES.PROGRAM} init\` there, or unset ${ROOT_OVERRIDE_VARIABLE} to search upwards from the current directory instead.`,
   );
   expect(message).toContain(ROOT_OVERRIDE_VARIABLE);
 });
@@ -57,7 +58,8 @@ test('an older program\'s data folder at the root is worded naming the folder, b
 test('no tracker found above the start directory is worded naming that directory and `agent-progress init`', () => {
   const refusal = new OperationRefusal('refused', { kind: 'no-tracker-found', searchedFrom: '/example/untracked' });
   expect(OperationRefusalWordingUtil.messageOf(refusal)).toBe(
-    'No agent-progress tracker was found in /example/untracked or any directory above it. Run `agent-progress init` in the repository you want tracked.',
+    `No ${PRODUCT_NAMES.PROGRAM} tracker was found in /example/untracked or any directory above it. `
+    + `Run \`${PRODUCT_NAMES.PROGRAM} init\` in the repository you want tracked.`,
   );
 });
 
@@ -65,7 +67,8 @@ test('a held lock is worded naming the lock directory as a path to remove, never
   const refusal = new OperationRefusal('unrepaired', { kind: 'tracker-lock-held', lockDirectoryPath: '/example/.agent-progress/.lock' });
   const message = OperationRefusalWordingUtil.messageOf(refusal);
   expect(message).toBe(
-    'Another agent-progress command is holding /example/.agent-progress/.lock and did not release it. If nothing else is running, remove that path and try again.',
+    `Another ${PRODUCT_NAMES.PROGRAM} command is holding /example/.agent-progress/.lock and did not release it. `
+    + 'If nothing else is running, remove that path and try again.',
   );
   expect(message).not.toContain('that file');
 });

@@ -10,6 +10,7 @@ import {
   test
 } from 'bun:test';
 
+import { ORIGINAL_PRODUCT_NAMES, PRODUCT_NAMES }          from '../../../src/shared/constants/ProductNames.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
 import { runCommandLine }                                 from '../../Main.ts';
 import { createCapturedCommandContext }                   from '../../testing/CapturedCommandContext.ts';
@@ -36,6 +37,11 @@ async function exitCodeFor(standardInputText: string): Promise<{ exitCode: numbe
   return { exitCode, errorText: context.errorText() };
 }
 
+/** The lines are written with the released program's name and run with the name this build is linked by. */
+function namingThisProgram(commandLine: string): string {
+  return commandLine.replaceAll(`${ORIGINAL_PRODUCT_NAMES.PROGRAM} `, `${PRODUCT_NAMES.PROGRAM} `);
+}
+
 const CHANGING_COMMAND_LINES = [
   'agent-progress checks --clear',
   'agent-progress checks "bun test"',
@@ -56,7 +62,7 @@ const CHANGING_COMMAND_LINES = [
   'eval agent-progress checks --clear',
   'bash -c "eval \'agent-progress checks --clear\'"',
   'sh -c "bash -c \\"agent-progress checks --restamp \'bun test\'\\""',
-];
+].map(namingThisProgram);
 
 const PASSING_COMMAND_LINES = [
   'agent-progress checks',
@@ -72,7 +78,7 @@ const PASSING_COMMAND_LINES = [
   'bash -c "agent-progress checks --json"',
   'eval \'agent-progress checks --json\'',
   'bash script.sh "agent-progress checks --clear"',
-];
+].map(namingThisProgram);
 
 describe('a subagent\'s Bash call', () => {
   test.each(CHANGING_COMMAND_LINES)('changing the check command is blocked at exit 2 with the reason on standard error: %s', async (commandLine) => {
@@ -101,6 +107,6 @@ describe('an input the guard cannot judge', () => {
 
     const unreadable = await exitCodeFor('not json');
     expect(unreadable.exitCode).toBe(0);
-    expect(unreadable.errorText).toContain('agent-progress hook pre-tool-use: the hook input on standard input is not JSON, so the call was let through.');
+    expect(unreadable.errorText).toContain(`${PRODUCT_NAMES.PROGRAM} hook pre-tool-use: the hook input on standard input is not JSON, so the call was let through.`);
   });
 });

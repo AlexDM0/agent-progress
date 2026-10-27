@@ -13,7 +13,7 @@ import { OperationRefusal }                                          from '../..
 import { resourceFilePathOf }                                        from '../../src/shared/ResourceFilePath.ts';
 import { DISPATCH_PROTOCOL }                                         from '../../src/shared/constants/DispatchProtocol.ts';
 import { PRODUCT_NAMES }                                             from '../../src/shared/constants/ProductNames.ts';
-import { filledTemplateOf }                                          from '../FilledTemplate.ts';
+import { filledTemplateOf, productNameTemplateValuesOf }             from '../FilledTemplate.ts';
 import {
   CLAUDE_CODE_INSTALL,
   type InstalledFile,
@@ -76,7 +76,7 @@ function skillFileTextsOf(sourceDirectory: string, installedName: string): Reado
     if (filePaths.length === 0) throw unreadable();
     return new Map(filePaths.map((filePath) => [
       relative(sourceDirectory, filePath).split(sep).join('/'),
-      filledTemplateOf(readFileSync(filePath, 'utf8'), { skillName: installedName }),
+      filledTemplateOf(readFileSync(filePath, 'utf8'), { ...productNameTemplateValuesOf(PRODUCT_NAMES), skillName: installedName }),
     ]));
   } catch (error) {
     if (error instanceof OperationRefusal) throw error;
@@ -106,7 +106,7 @@ export async function installedFileTextsFor(request: { generatesTheDispatcherScr
     reviewerApiCallBudget: String(DISPATCH_PROTOCOL.REVIEWER_API_CALL_BUDGET),
     reworkThresholdLines:  String(DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES),
     workerAgentType:       DISPATCH_PROTOCOL.WORKER_AGENT_TYPE,
-    dataFolder:            PRODUCT_NAMES.DATA_FOLDER,
+    ...productNameTemplateValuesOf(PRODUCT_NAMES),
     ...CLAUDE_CODE_INSTALL.sentences,
   };
   const texts: Partial<Record<InstalledFileName, string>> = {};

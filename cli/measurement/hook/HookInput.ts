@@ -1,9 +1,10 @@
 /** The hook JSON the harness writes on standard input; anything unreadable is one sentence on standard error and no input. */
 import { JsonRecordUtil }      from '../../../src/lib/json-record/JsonRecordUtil.ts';
+import { PRODUCT_NAMES }       from '../../../src/shared/constants/ProductNames.ts';
 import type { CommandContext } from '../../CommandContext.ts';
 
 /** The prefix on every sentence the hook writes, so a line in a harness log says which command produced it. */
-export const REPORT_PREFIX = 'agent-progress hook subagent-stop:';
+export const REPORT_PREFIX = `${PRODUCT_NAMES.PROGRAM} hook subagent-stop:`;
 
 /** Logged for an agent id or type the hook input does not carry. */
 export const UNKNOWN_AGENT = 'unknown';

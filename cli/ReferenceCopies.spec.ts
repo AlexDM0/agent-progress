@@ -3,7 +3,8 @@
  * cannot read the docs: the ticket file, the ticket moves and the exit codes. Each copy must hold its source's body byte for byte, so an edit
  * to either side alone fails here. The Reference section may add lines of its own around the copy (a path line above the ticket file, a
  * paragraph after the moves), never inside it. The scan is fence-aware, because the ticket file's example holds markdown headings that would
- * otherwise end its section early.
+ * otherwise end its section early. Both sides name the program and the data folder through the same `{{program}}` and `{{dataFolder}}`
+ * placeholders the install fills, so the raw texts are compared and a rename of either name touches neither file.
  */
 import { readFileSync }           from 'node:fs';
 import { join }                   from 'node:path';
@@ -18,7 +19,7 @@ const SMALLEST_COPIED_SECTION_CHARACTERS = 1_000;
 /** Each section with a phrase that occurs once in it and a word of that phrase the mutation tests swap. */
 const COPIED_SECTIONS = [
   {
-    sourceHeading: '### `.agent-progress/tickets/003-double-click-a-role-to-edit-it.md`',
+    sourceHeading: '### `{{dataFolder}}/tickets/003-double-click-a-role-to-edit-it.md`',
     copyHeading:   '## The ticket file',
     mutation:      { phrase: 'The frontmatter is a deliberately small YAML subset.', word: 'small' },
   },
@@ -83,6 +84,17 @@ describe('resources/templates/Reference.md copies its three docs/cli.md sections
       expect(sectionBodyOf(REFERENCE_TEXT, copyHeading), `\`${copyHeading}\` in resources/templates/Reference.md`).not.toBeNull();
       expect(source?.length ?? 0, `characters under \`${sourceHeading}\``).toBeGreaterThan(SMALLEST_COPIED_SECTION_CHARACTERS);
     }
+  });
+
+  test('both sides name the program and the data folder only through placeholders', () => {
+    const literalNamePattern = /(?<![\w./{-])\.?agent-progress(?![\w.:/-])/;
+    for (const { sourceHeading, copyHeading } of COPIED_SECTIONS) {
+      const source = sectionBodyOf(DOCUMENTATION_TEXT, sourceHeading) ?? '';
+      const copy   = sectionBodyOf(REFERENCE_TEXT, copyHeading) ?? '';
+      expect(literalNamePattern.exec(`${sourceHeading}\n${source}`)?.[0], `a literal name in docs/cli.md under \`${sourceHeading}\``).toBeUndefined();
+      expect(literalNamePattern.exec(copy)?.[0], `a literal name in resources/templates/Reference.md under \`${copyHeading}\``).toBeUndefined();
+    }
+    expect(`${DOCUMENTATION_TEXT}${REFERENCE_TEXT}`).toContain('{{program}} init');
   });
 
   test('the ticket file section runs past the markdown headings inside its example', () => {

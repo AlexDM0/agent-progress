@@ -77,7 +77,7 @@ describeWhenGitIsPresent('init with AGENT_PROGRESS_ROOT set', () => {
     });
 
     expect(result.exitCode).toBe(0);
-    expect(result.standardOutput).toContain('agent-progress is already initialised');
+    expect(result.standardOutput).toContain(`${PRODUCT_NAMES.PROGRAM} is already initialised`);
     expect(trackerFilesHashOf(trackedDirectory)).toBe(hashBefore);
   }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
@@ -88,7 +88,7 @@ describeWhenGitIsPresent('init with AGENT_PROGRESS_ROOT set', () => {
     const result = await runAgentProgress(['init'], { currentDirectory: trackedDirectory, environment: {} });
 
     expect(result.exitCode).toBe(0);
-    expect(result.standardOutput).toContain('agent-progress is already initialised');
+    expect(result.standardOutput).toContain(`${PRODUCT_NAMES.PROGRAM} is already initialised`);
     expect(trackerFilesHashOf(trackedDirectory)).toBe(hashBefore);
   }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 

@@ -19,6 +19,7 @@ import {
   test
 }                                                                             from 'bun:test';
 import type { CohortSummary }                                 from '../../../src/lib/claude-code/utils/TranscriptCohortUtil.ts';
+import { PRODUCT_NAMES }                                      from '../../../src/shared/constants/ProductNames.ts';
 import { createScratchGitRepository, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }                           from '../../../src/testing/ToolGuard.ts';
 import { runCommandLine }                                     from '../../Main.ts';
@@ -423,7 +424,7 @@ describeWhenGitIsPresent('what the command does not do', () => {
     const exitCode = await runCommandLine(['usage', '--transcripts', transcriptsDirectory], context);
 
     expect(exitCode).toBe(1);
-    expect(context.errorText()).toContain('agent-progress init');
+    expect(context.errorText()).toContain(`${PRODUCT_NAMES.PROGRAM} init`);
     removeScratchDirectory(outsideDirectory);
   });
 

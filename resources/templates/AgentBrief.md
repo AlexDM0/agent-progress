@@ -16,8 +16,8 @@ definition carries the defaults, so a ticket that overrides them goes through th
 
 ## Host mechanics
 
-How this repository's agent host does what the orchestrate and agent-po skills ask for by name. The skills decide
-when; these say with what. The dispatcher is {{dispatcherWorkflowName}}.
+How this repository's agent host does what the orchestrate and {{productOwnerSkill}} skills ask for by name. The skills
+decide when; these say with what. The dispatcher is {{dispatcherWorkflowName}}.
 
 - **Install check**: {{installCheck}}
 - **Asking the user**: {{askingTheUser}}
@@ -59,7 +59,7 @@ Everything you do happens in that worktree: every edit, every command, every com
 Task: <the one ticket, the half of it this agent owns, or the bundle: #a, #b, #c in this order>.
 agent-progress row: <the ticket's rowId, when you started it yourself>
 agent-progress ticket: <instead of the row line when the builder claims: the same ids as its claim, 22, 20>
-<when the builder claims:> FIRST command, before anything else: `agent-progress ticket claim <the id,
+<when the builder claims:> FIRST command, before anything else: `{{program}} ticket claim <the id,
 or every id of the bundle in ONE call: 22 20> --owner <model> --note "<what it will do>"`. If it
 exits 1, stop at once and report its message verbatim.
 A bundle is worked one ticket at a time: finish, verify and commit each before starting the next.
@@ -143,9 +143,9 @@ line; {{tokenHookPassage}} The review is a clean agent briefed
 from the review brief, never the orchestrator reading the diff.
 
 ```
-agent-progress ticket claim <id> --owner <model> --note "<what the agent will do>"   # starts the ticket's own row
-agent-progress ticket show <id>                # its `task:` is the rowId on the brief's `agent-progress row:` line
-agent-progress ticket finish <id>              # moves that row to in-review, {{finishTokensNote}}then a clean reviewer in its own row
-agent-progress task add "Review <N> #<id> — <ticket title>" --review-of <id> --owner opus --start   # the review's row, drawn above the ticket's
-agent-progress task finish <reviewRowId>       # then `task deliver <reviewRowId>`: for every verdict but `released`, which delivered it
+{{program}} ticket claim <id> --owner <model> --note "<what the agent will do>"   # starts the ticket's own row
+{{program}} ticket show <id>                # its `task:` is the rowId on the brief's `agent-progress row:` line
+{{program}} ticket finish <id>              # moves that row to in-review, {{finishTokensNote}}then a clean reviewer in its own row
+{{program}} task add "Review <N> #<id> — <ticket title>" --review-of <id> --owner opus --start   # the review's row, drawn above the ticket's
+{{program}} task finish <reviewRowId>       # then `task deliver <reviewRowId>`: for every verdict but `released`, which delivered it
 ```

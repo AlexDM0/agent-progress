@@ -3,13 +3,14 @@
  * The layout is load-bearing: an entry begins at column 2 and every continuation line is indented past it.
  */
 import { ROOT_OVERRIDE_VARIABLE } from '../src/shared/Environment.ts';
+import { PRODUCT_NAMES }          from '../src/shared/constants/ProductNames.ts';
 
 export function helpText(): string {
-  return `agent-progress — tasks, tickets and a Gantt dashboard for one repository
+  return `${PRODUCT_NAMES.PROGRAM} — tasks, tickets and a Gantt dashboard for one repository
 
-Usage: agent-progress <command> [options]
+Usage: ${PRODUCT_NAMES.PROGRAM} <command> [options]
 
-The tracker lives in \`.agent-progress/\` at the repository root and is shared by every worktree of
+The tracker lives in \`${PRODUCT_NAMES.DATA_FOLDER}/\` at the repository root and is shared by every worktree of
 it. Every mutating command takes the lock, writes the progress file atomically and regenerates
 \`progress.html\`, which reloads itself within a minute of new data when idle. \`<when>\` is an ISO 8601 timestamp, \`now\`,
 or an offset from now: \`-5m\`, \`-2h\`, \`-1d\`, \`+30m\`. \`<n>\` on --tokens is a whole number or a
@@ -34,21 +35,21 @@ one more line after it: the run
 picks the change up at its next agent's return and is never stopped or relaunched for it. --json
 output never carries either.
 
-  init                        Create the tracker here: \`.agent-progress/\` with an empty progress
+  init                        Create the tracker here: \`${PRODUCT_NAMES.DATA_FOLDER}/\` with an empty progress
       [--project <name>]      file and log, a \`tickets/\` folder and \`agent-brief.md\` — the brief to fill in
       [--root <path>]         before spawning an implementing agent — a \`.gitignore\` entry for it,
       [--no-claude-md]        a managed block in the repository's CLAUDE.md telling an agent to track
       [--no-hooks]            its work through this tool, the three hooks below, and the
-      [--no-workflow]         dispatcher workflow at \`.agent-progress/agent-progress-dispatch.js\`,
+      [--no-workflow]         dispatcher workflow at \`${PRODUCT_NAMES.DATA_FOLDER}/agent-progress-dispatch.js\`,
       [--no-agent-definition] generated from this tool's dispatcher, and the Claude Code agent
                               definition \`.claude/agents/agent-progress-worker.md\`, whose
                               frontmatter sets the default model and effort for builders and
                               reviewers (opus, medium). Beside the brief go the builder and review
                               briefs and \`reference.md\` (the ticket format, the moves and the exit
                               codes, which the briefs cite), and two skills go into
-                              \`.claude/skills/\`: agent-po, which a session asked to file a ticket
-                              loads, and agent-progress-orchestrate, for the session running the
-                              board, which loads agent-po for intake. Refused when an ancestor
+                              \`.claude/skills/\`: ${PRODUCT_NAMES.PRODUCT_OWNER_SKILL}, which a session asked to file a ticket
+                              loads, and ${PRODUCT_NAMES.ORCHESTRATE_SKILL}, for the session running the
+                              board, which loads ${PRODUCT_NAMES.PRODUCT_OWNER_SKILL} for intake. Refused when an ancestor
                               already holds a tracker, when --root is not an existing directory,
                               and inside a bare repository, which has no working tree to track.
                               Re-running only refreshes what \`update\` refreshes, and
@@ -69,11 +70,11 @@ output never carries either.
       [--no-agent-definition] edit to either of which is undone, the other briefs, \`reference.md\` and
                               the two skills, removing what an earlier version installed in a
                               skill folder this one retired. The tracker itself is left alone:
-                              a tracker an earlier agent-progress wrote in a format this one no
+                              a tracker an earlier ${PRODUCT_NAMES.PROGRAM} wrote in a format this one no
                               longer reads is refused at exit 2 by every command that reads it,
                               saying to run \`update\` with a release that still reads it. It creates no tracker, so it takes no
                               --project and no --root, and it is refused with exit 1 where there
-                              is none — \`agent-progress init\` makes one.
+                              is none — \`${PRODUCT_NAMES.PROGRAM} init\` makes one.
                               Each line says whether that file changed, so a session that read the
                               brief at its start learns that its copy is now stale. It takes the same
                               --no-claude-md, --no-hooks, --no-workflow and --no-agent-definition
@@ -81,9 +82,9 @@ output never carries either.
                               or with it over a dispatcher lacking its definition, the same way.
                               Every command but init, update, help and status refuses, with exit
                               1, while the files installed here are of another install version
-                              than this agent-progress (the SubagentStop hook reports it and exits
+                              than this ${PRODUCT_NAMES.PROGRAM} (the SubagentStop hook reports it and exits
                               0); update rewrites them, and it and \`init\` refuse files a newer
-                              agent-progress installed.
+                              ${PRODUCT_NAMES.PROGRAM} installed.
 
   status [--json] [--full]    The project, the counts, the rows that are not delivered or
                               abandoned, and the last five log entries newest first. --json prints the
@@ -168,7 +169,7 @@ output never carries either.
                               \`hook subagent-stop\` for Bash calls, it blocks at exit 2, the reason
                               on standard error, a subagent's call (its hook JSON carries
                               \`agent_id\`, which Claude Code sets only on a subagent's call) that
-                              runs \`agent-progress checks\` with a line, --clear or --restamp.
+                              runs \`${PRODUCT_NAMES.PROGRAM} checks\` with a line, --clear or --restamp.
                               A read (\`checks\`, \`checks --json\`), every other call, and every
                               call from the main session pass at exit 0, unreadable input too.
 
@@ -317,7 +318,7 @@ output never carries either.
                               Allowing this command is the release permission: a reviewer never
                               runs \`git merge\` itself.
 
-  ticket add "<title>"        File a ticket: a markdown file under \`.agent-progress/tickets/\` with
+  ticket add "<title>"        File a ticket: a markdown file under \`${PRODUCT_NAMES.DATA_FOLDER}/tickets/\` with
       --type ticket|bug|research
       [--priority low|normal|high]
       [--size XS|S|M|L|XL|XXL]
@@ -508,7 +509,7 @@ output never carries either.
                               log line; \`updated\` is not stamped.
 
   epic add <key> "<title>"    Add an epic, a larger feature tickets are grouped under:
-      [--body <markdown>]     \`.agent-progress/epics/<key>.md\` holding its key, title and colour
+      [--body <markdown>]     \`${PRODUCT_NAMES.DATA_FOLDER}/epics/<key>.md\` holding its key, title and colour
       [--body-file <path|->]  slot, then the description from --body or --body-file (\`-\` reads
       [--at <when>] [--json]  standard input), kept byte for byte. The key is lower-case letters
                               and digits in words joined by single hyphens (\`checkout-redesign\`);
@@ -532,7 +533,7 @@ output never carries either.
                               Delete an epic's file. Refused at exit 1 while any ticket names it.
 
   draft open "<title>"        Open a draft, the working record a filing session builds tickets
-      --owner <who>           from: \`.agent-progress/filing-cabinet/D<n>.json\` holding its title,
+      --owner <who>           from: \`${PRODUCT_NAMES.DATA_FOLDER}/filing-cabinet/D<n>.json\` holding its title,
       [--request <text>]      the request from --request or --request-file (\`-\` reads standard
       [--request-file <path|->]
       [--json]                input) kept byte for byte, and the claim held by <who>. Prints the

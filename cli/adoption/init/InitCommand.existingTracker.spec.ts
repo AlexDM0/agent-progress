@@ -20,14 +20,14 @@ import { createCapturedCommandContext }                       from '../../testin
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
 const REFRESH_LINE_PATTERNS = [
-  /^agent-progress is already initialised in \S+\.$/m,
+  new RegExp(`^${RegExp.escape(PRODUCT_NAMES.PROGRAM)} is already initialised in \\S+\\.$`, 'm'),
   /^ {2}CLAUDE\.md: {3}unchanged$/m,
   new RegExp(`^ {2}brief: {7}unchanged \\(\\S+/${RegExp.escape(PRODUCT_NAMES.DATA_FOLDER)}/agent-brief\\.md\\)$`, 'm'),
   /^ {2}hooks: {7}\S+\/\.claude\/settings\.local\.json \(unchanged\)$/m,
   new RegExp(`^ {2}workflow: {4}unchanged \\(\\S+/${RegExp.escape(PRODUCT_NAMES.DATA_FOLDER)}/agent-progress-dispatch\\.js\\)$`, 'm'),
   new RegExp(`^ {2}agent: {7}unchanged \\(\\S+/\\.claude/agents/${RegExp.escape(DISPATCH_PROTOCOL.WORKER_AGENT_TYPE)}\\.md\\)$`, 'm'),
   new RegExp(`^ {2}dashboard: {3}\\S+/${RegExp.escape(PRODUCT_NAMES.DATA_FOLDER)}/progress\\.html$`, 'm'),
-  /^ {2}`agent-progress update` is the command for this refresh; `init` only creates a tracker\.$/m,
+  new RegExp(`^ {2}\`${RegExp.escape(PRODUCT_NAMES.PROGRAM)} update\` is the command for this refresh; \`init\` only creates a tracker\\.$`, 'm'),
 ];
 
 let repositoryDirectory = '';
@@ -66,8 +66,8 @@ describeWhenGitIsPresent('init on an existing tracker in the current format', ()
   test('takes every current option, each leaving its own file alone and the tracker byte for byte', async () => {
     const filesBefore = storedFileContentsOf(workspacePathsFor(repositoryDirectory));
     const optionsWithTheirLines: Array<[optionArguments: string[], line: string]> = [
-      [['--project', 'Example Other'], 'agent-progress is already initialised in '],
-      [['--root', repositoryDirectory], 'agent-progress is already initialised in '],
+      [['--project', 'Example Other'], `${PRODUCT_NAMES.PROGRAM} is already initialised in `],
+      [['--root', repositoryDirectory], `${PRODUCT_NAMES.PROGRAM} is already initialised in `],
       [['--no-claude-md'], '  CLAUDE.md:   left alone (--no-claude-md)'],
       [['--no-hooks'], '  hooks:       left alone (--no-hooks)'],
       [['--no-workflow'], '  workflow:    left alone (--no-workflow)'],

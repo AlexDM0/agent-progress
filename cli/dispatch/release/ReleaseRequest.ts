@@ -1,12 +1,13 @@
 /** What `release` was asked to do, read from its arguments and refused before anything is touched when it cannot be meant. */
 import { resolve } from 'node:path';
 
+import { PRODUCT_NAMES }       from '../../../src/shared/constants/ProductNames.ts';
 import type { CommandContext } from '../../CommandContext.ts';
 import type { ArgumentParser } from '../../arguments/ArgumentParser.ts';
 import { DEFAULT_MAIN_LINE }   from '../../constants/GitDefaults.ts';
 import { refuseTheRelease }    from './ReleaseRefusal.ts';
 
-const USAGE = 'agent-progress release <id> [<id>...] --branch <branch> [--worktree <path>] [--main <line>] [--json]';
+const USAGE = `${PRODUCT_NAMES.PROGRAM} release <id> [<id>...] --branch <branch> [--worktree <path>] [--main <line>] [--json]`;
 
 const KNOWN_OPTION_NAMES = ['branch', 'worktree', 'main', 'json'];
 
@@ -26,7 +27,7 @@ export function releaseRequestFrom(commandArguments: ArgumentParser, context: Co
   const references = [...new Set(commandArguments.positionals())];
   const branch     = commandArguments.option('branch');
   if (references.length === 0 || branch === undefined || branch.trim() === '') {
-    refuseTheRelease('invalid-request', `agent-progress release needs a ticket id and --branch: ${USAGE}.`);
+    refuseTheRelease('invalid-request', `${PRODUCT_NAMES.PROGRAM} release needs a ticket id and --branch: ${USAGE}.`);
   }
   const mainLine = commandArguments.option('main') ?? DEFAULT_MAIN_LINE;
   // A name git would read as an option is refused here, since `git branch -d` is handed it verbatim.

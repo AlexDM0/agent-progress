@@ -271,7 +271,7 @@ testWhenGitIsPresent('A4: a registry of a newer version is left byte-identical, 
   const context = registeringContext(repositoryDirectory);
   await requireExitZero(['render'], context);
   expect(registryText()).toBe(newerText);
-  expect(context.errorText()).toContain('is version 2, newer than this agent-progress writes; it was left untouched');
+  expect(context.errorText()).toContain(`is version 2, newer than this ${PRODUCT_NAMES.PROGRAM} writes; it was left untouched`);
 });
 
 testWhenGitIsPresent('A4: unknown keys at the top level and on an entry survive a write, in order', async () => {

@@ -5,6 +5,7 @@
 import { resolve } from 'node:path';
 
 import { OperationRefusal }    from '../../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }       from '../../../src/shared/constants/ProductNames.ts';
 import type { CommandHandler } from '../../CommandHandler.ts';
 import { DEFAULT_MAIN_LINE }   from '../../constants/GitDefaults.ts';
 import { OutputUtil }          from '../../utils/OutputUtil.ts';
@@ -19,7 +20,8 @@ import { fileBreakdownLines, summaryLine } from './ReworkText.ts';
 
 const { partReworkOf } = ReworkCountUtil;
 
-const USAGE = 'agent-progress rework [--since <commit>] [--rebased-from <old tip>] [--main <branch>] [--merge <commit>] [--worktree <path>] [--files] [--json]';
+const USAGE = `${PRODUCT_NAMES.PROGRAM} rework`
+  + ' [--since <commit>] [--rebased-from <old tip>] [--main <branch>] [--merge <commit>] [--worktree <path>] [--files] [--json]';
 
 const KNOWN_OPTION_NAMES = ['since', 'rebased-from', 'main', 'merge', 'worktree', 'files', 'json'];
 

@@ -5,6 +5,7 @@
 import type { DashboardRenderOutcome } from '../src/services/tracker/DashboardRendering.ts';
 import { registerWithTheMonitor }      from '../src/services/tracker/MonitorRegistration.ts';
 import type { Workspace }              from '../src/services/tracker/Workspace.ts';
+import { PRODUCT_NAMES }               from '../src/shared/constants/ProductNames.ts';
 import type { CommandContext }         from './CommandContext.ts';
 
 /** An unreadable tracker writes no page, so it registers nothing. */
@@ -23,7 +24,7 @@ export async function registerWrittenDashboard(context: CommandContext, workspac
     );
   } else if (outcome.verdict === 'not-registered-newer-version') {
     context.standardError(
-      `The monitor registry ${outcome.registryFilePath} is version ${outcome.version}, newer than this agent-progress writes; it was left untouched.`,
+      `The monitor registry ${outcome.registryFilePath} is version ${outcome.version}, newer than this ${PRODUCT_NAMES.PROGRAM} writes; it was left untouched.`,
     );
   } else if (outcome.verdict === 'not-registered-unwritable') {
     context.standardError(`The monitor registry ${outcome.registryFilePath} could not be updated: ${outcome.reason}`);

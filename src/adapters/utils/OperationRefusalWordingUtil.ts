@@ -9,6 +9,7 @@ import { TicketMoveUtil }                          from '../../lib/tracker-model
 import { ROOT_OVERRIDE_VARIABLE }                  from '../../shared/Environment.ts';
 import type { OperationRefusal }                   from '../../shared/OperationRefusal.ts';
 import type { OperationRefusalDetail }             from '../../shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }                           from '../../shared/constants/ProductNames.ts';
 import { StatusWordingUtil }                       from './StatusWordingUtil.ts';
 import { TicketPhraseUtil }                        from './TicketPhraseUtil.ts';
 import { TrackerReadingWordingUtil }               from './TrackerReadingWordingUtil.ts';
@@ -31,10 +32,10 @@ function legalSourcesText(targetStatus: TicketStatus): string {
 function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
   switch (detail.reason) {
     case 'unknown-task':
-      return `There is no task #${detail.taskId}. Run \`agent-progress status\` to see the rows this tracker holds.`;
+      return `There is no task #${detail.taskId}. Run \`${PRODUCT_NAMES.PROGRAM} status\` to see the rows this tracker holds.`;
     case 'ticket-owned-row':
       return `Task #${detail.taskId} belongs to ticket #${detail.ticketId}, so moving it here would leave the row and the ticket disagreeing. `
-        + `Run \`agent-progress ticket ${StatusWordingUtil.verbFor(detail.targetStatus)} ${detail.ticketId}\` instead, which moves both, `
+        + `Run \`${PRODUCT_NAMES.PROGRAM} ticket ${StatusWordingUtil.verbFor(detail.targetStatus)} ${detail.ticketId}\` instead, which moves both, `
         + 'or pass --force to move only the row.';
     case 'ticket-already-has-row':
       return `Ticket #${detail.ticketId} already has task #${detail.taskId} ("${detail.taskName}"). `
@@ -45,27 +46,27 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
       return `Ticket #${detail.ticketId} is already ${detail.status}, so nothing was changed and nothing was logged.`;
     case 'illegal-ticket-move':
       return `Ticket #${detail.ticketId} is ${detail.status}, `
-        + `and \`agent-progress ticket ${StatusWordingUtil.verbFor(detail.targetStatus)}\` moves a ticket that is ${legalSourcesText(detail.targetStatus)}. `
-        + `Run \`agent-progress ticket status ${detail.ticketId} ${detail.targetStatus}\` if you mean to set it directly.`;
+        + `and \`${PRODUCT_NAMES.PROGRAM} ticket ${StatusWordingUtil.verbFor(detail.targetStatus)}\` moves a ticket that is ${legalSourcesText(detail.targetStatus)}. `
+        + `Run \`${PRODUCT_NAMES.PROGRAM} ticket status ${detail.ticketId} ${detail.targetStatus}\` if you mean to set it directly.`;
     case 'abandon-without-reason':
       return `Ticket #${detail.ticketId} was not moved: abandon needs --reason. `
-        + 'Say why the work was dropped, for example `agent-progress ticket abandon 3 --reason "superseded by #7"`.';
+        + `Say why the work was dropped, for example \`${PRODUCT_NAMES.PROGRAM} ticket abandon 3 --reason "superseded by #7"\`.`;
     case 'tokens-without-a-row':
       return `Ticket #${detail.ticketId} has no row, so --tokens has nowhere to be recorded: `
         + 'a low-priority ticket gets its row when it is started. Drop --tokens.';
     case 'rereview-outside-review': {
       const firstReviewAdvice = TicketMoveUtil.ticketMoveIsLegal(detail.status, 'in-review')
-        ? ` Run \`agent-progress ticket finish ${detail.ticketId}\` to send it to its first reviewer.`
+        ? ` Run \`${PRODUCT_NAMES.PROGRAM} ticket finish ${detail.ticketId}\` to send it to its first reviewer.`
         : '';
       return `Ticket #${detail.ticketId} is ${detail.status}, `
         + `and another review pass needs a ticket that is in-review.${firstReviewAdvice}`;
     }
     case 'review-record-without-a-review-bar':
       return `Ticket #${detail.ticketId} has no in-progress review bar, so there is no review pass to record and nothing was logged. `
-        + `A review is recorded on its own bar: \`agent-progress task add "<name>" --review-of ${detail.ticketId} --start\` starts one.`;
+        + `A review is recorded on its own bar: \`${PRODUCT_NAMES.PROGRAM} task add "<name>" --review-of ${detail.ticketId} --start\` starts one.`;
     case 'review-bar-without-a-round':
       return `Review bar #${detail.taskId} of ticket #${detail.ticketId} stores no round, so the pass cannot be recorded and nothing was logged. `
-        + `Start the pass on a bar of its own with \`agent-progress task add "<name>" --review-of ${detail.ticketId} --start\`.`;
+        + `Start the pass on a bar of its own with \`${PRODUCT_NAMES.PROGRAM} task add "<name>" --review-of ${detail.ticketId} --start\`.`;
     case 'review-record-on-a-row-that-is-not-a-review-bar':
       return `Row #${detail.taskId} is not an in-progress review bar, so the review of ticket #${detail.ticketId} cannot be recorded on it and nothing was logged. `
         + 'Pass --bar the row your review runs on, the `agent-progress row:` line of your prompt.';
@@ -74,16 +75,16 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
         + 'so the review cannot be recorded on it and nothing was logged. Pass --bar the review bar of the bundle holding the ticket.';
     case 'unclaimable-status':
       return `Ticket #${detail.ticketId} is ${detail.status}, `
-        + `and \`agent-progress ticket claim\` takes a ticket that is ${legalSourcesText('in-progress')}. `
+        + `and \`${PRODUCT_NAMES.PROGRAM} ticket claim\` takes a ticket that is ${legalSourcesText('in-progress')}. `
         + NOTHING_WAS_WRITTEN;
     case 'claim-waits-on-dependencies':
       return `Ticket #${detail.ticketId} is ${TicketPhraseUtil.waitingOnText(detail.unsettledTicketIds)}, `
         + `which must be reviewed or delivered before it is claimed. ${NOTHING_WAS_WRITTEN}`;
     case 'claim-of-a-held-ticket':
-      return `Ticket #${detail.ticketId} is held, so it is not claimed. Nothing was written; \`agent-progress ticket unhold ${detail.ticketId}\` lets it be claimed.`;
+      return `Ticket #${detail.ticketId} is held, so it is not claimed. Nothing was written; \`${PRODUCT_NAMES.PROGRAM} ticket unhold ${detail.ticketId}\` lets it be claimed.`;
     case 'claim-of-held-back-low-ticket':
       return `${TicketPhraseUtil.lowPriorityHeldBackText(detail.ticketId, detail.holdingBackTicketIds)}, so it is not claimed. `
-        + `Nothing was written; \`agent-progress ticket start ${detail.ticketId}\` starts it regardless.`;
+        + `Nothing was written; \`${PRODUCT_NAMES.PROGRAM} ticket start ${detail.ticketId}\` starts it regardless.`;
     case 'claim-under-review':
       return `Ticket #${detail.ticketId} is under review: its review row #${detail.reviewBarTaskId} is in progress. ${NOTHING_WAS_WRITTEN}`;
     case 'claim-after-a-ticket-not-in-review':
@@ -100,9 +101,9 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
         + `${countedText(detail.agentsInFlight, 'agent')} in flight (${countedText(detail.inProgressRowCount, 'row')} in progress) `
         + `and the concurrency limit is ${detail.limit} ${detail.limit === 1 ? 'agent' : 'agents'}. Nothing was written; claim once an agent has finished.`;
     case 'unknown-dependency':
-      return `There is no ticket ${TicketPhraseUtil.ticketReferencesText(detail.missingTicketIds)}. Run \`agent-progress ticket list\` to see what this tracker holds.`;
+      return `There is no ticket ${TicketPhraseUtil.ticketReferencesText(detail.missingTicketIds)}. Run \`${PRODUCT_NAMES.PROGRAM} ticket list\` to see what this tracker holds.`;
     case 'unknown-linked-ticket':
-      return `There is no ticket #${detail.missingTicketId}. ${NOTHING_WAS_WRITTEN} Run \`agent-progress ticket list\` to see what this tracker holds.`;
+      return `There is no ticket #${detail.missingTicketId}. ${NOTHING_WAS_WRITTEN} Run \`${PRODUCT_NAMES.PROGRAM} ticket list\` to see what this tracker holds.`;
     case 'introduced-by-on-a-non-bug':
       return `Ticket #${detail.ticketId} is a ${detail.type}, and only a bug names the ticket that introduced it. ${NOTHING_WAS_WRITTEN}`;
     case 'introduced-by-itself':
@@ -114,30 +115,30 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
       return `"${detail.epicKey}" is not a usable epic key: a key is lower-case letters and digits, in words joined by single hyphens, `
         + `such as \`checkout-redesign\`. ${NOTHING_WAS_WRITTEN}`;
     case 'epic-already-exists':
-      return `There is already an epic ${detail.epicKey}. Nothing was written; \`agent-progress epic edit ${detail.epicKey}\` changes it.`;
+      return `There is already an epic ${detail.epicKey}. Nothing was written; \`${PRODUCT_NAMES.PROGRAM} epic edit ${detail.epicKey}\` changes it.`;
     case 'unknown-epic':
-      return `There is no epic ${detail.missingEpicKeys.join(', ')}. Nothing was written; run \`agent-progress epic list\` to see what this tracker holds.`;
+      return `There is no epic ${detail.missingEpicKeys.join(', ')}. Nothing was written; run \`${PRODUCT_NAMES.PROGRAM} epic list\` to see what this tracker holds.`;
     case 'epic-still-named':
       return `Epic ${detail.epicKey} was not removed: ${TicketPhraseUtil.ticketReferencesText(detail.ticketIds)} still `
         + `${detail.ticketIds.length === 1 ? 'names' : 'name'} it. Nothing was written; `
-        + `\`agent-progress ticket epic <id> --remove ${detail.epicKey}\` takes it off a ticket.`;
+        + `\`${PRODUCT_NAMES.PROGRAM} ticket epic <id> --remove ${detail.epicKey}\` takes it off a ticket.`;
     case 'unknown-draft':
-      return `There is no open draft ${detail.draftId}. ${NOTHING_WAS_WRITTEN} Run \`agent-progress draft list\` to see what this tracker holds.`;
+      return `There is no open draft ${detail.draftId}. ${NOTHING_WAS_WRITTEN} Run \`${PRODUCT_NAMES.PROGRAM} draft list\` to see what this tracker holds.`;
     case 'draft-claimed-by-another-owner':
       return `Draft ${detail.draftId} was not claimed: ${detail.owner} holds it. ${NOTHING_WAS_WRITTEN} `
-        + `Add --force to take it over, or wait for \`agent-progress draft release ${detail.draftId}\`.`;
+        + `Add --force to take it over, or wait for \`${PRODUCT_NAMES.PROGRAM} draft release ${detail.draftId}\`.`;
     case 'draft-closed-into-unknown-tickets':
       return `Draft ${detail.draftId} was not closed: there is no ticket ${detail.missingTicketReferences.join(', ')}. ${NOTHING_WAS_WRITTEN} `
         + 'File the tickets first, then close the draft into their ids.';
     case 'draft-has-open-questions':
       return `Draft ${detail.draftId} was not closed: ${detail.openQuestionIds.join(', ')} ${detail.openQuestionIds.length === 1 ? 'is' : 'are'} `
-        + `still open. ${NOTHING_WAS_WRITTEN} Answer them with \`agent-progress draft answer\`, or drop the moot ones with \`agent-progress draft drop\`.`;
+        + `still open. ${NOTHING_WAS_WRITTEN} Answer them with \`${PRODUCT_NAMES.PROGRAM} draft answer\`, or drop the moot ones with \`${PRODUCT_NAMES.PROGRAM} draft drop\`.`;
     case 'unknown-draft-question':
       return `Draft ${detail.draftId} has no question ${detail.questionId}. ${NOTHING_WAS_WRITTEN} `
-        + `Run \`agent-progress draft show ${detail.draftId}\` to see its questions.`;
+        + `Run \`${PRODUCT_NAMES.PROGRAM} draft show ${detail.draftId}\` to see its questions.`;
     case 'unknown-draft-item':
       return `Draft ${detail.draftId} has no note or question ${detail.itemId}. ${NOTHING_WAS_WRITTEN} `
-        + `Run \`agent-progress draft show ${detail.draftId}\` to see what it holds.`;
+        + `Run \`${PRODUCT_NAMES.PROGRAM} draft show ${detail.draftId}\` to see what it holds.`;
     case 'draft-question-option-count':
       return `A question takes ${detail.minimum} to ${detail.maximum} options, and ${detail.optionCount} ${detail.optionCount === 1 ? 'was' : 'were'} given. `
         + NOTHING_WAS_WRITTEN;
@@ -189,13 +190,13 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
       return detail.releaseTicketId === detail.ticketId
         ? `Ticket #${detail.ticketId} is already the release ticket of group ${detail.group}. ${NOTHING_WAS_WRITTEN}`
         : `Group ${detail.group} already has its release ticket, #${detail.releaseTicketId}: `
-          + `clear it with \`agent-progress ticket release-of ${detail.releaseTicketId} --clear\` first. ${NOTHING_WAS_WRITTEN}`;
+          + `clear it with \`${PRODUCT_NAMES.PROGRAM} ticket release-of ${detail.releaseTicketId} --clear\` first. ${NOTHING_WAS_WRITTEN}`;
     case 'ticket-is-not-a-release-ticket':
       return `Ticket #${detail.ticketId} is not its group's release ticket. ${NOTHING_WAS_WRITTEN}`;
     case 'reopen-beside-an-open-release-ticket':
       return `Ticket #${detail.ticketId} is ${detail.status} and carries the release mark of group ${detail.group}, so it was not moved to ${detail.targetStatus}: `
         + `the group already has its open release ticket, #${detail.releaseTicketId}, and a group has one. `
-        + `Clear that mark with \`agent-progress ticket release-of ${detail.releaseTicketId} --clear\` first. ${NOTHING_WAS_WRITTEN}`;
+        + `Clear that mark with \`${PRODUCT_NAMES.PROGRAM} ticket release-of ${detail.releaseTicketId} --clear\` first. ${NOTHING_WAS_WRITTEN}`;
   }
 }
 
@@ -206,29 +207,30 @@ function installVersionMismatchMessageOf(detail: InstallVersionMismatchDetail): 
     installVersion,
     mismatch,
   } = detail;
-  const runUpdateSentence = `Run \`agent-progress update\` in ${rootDirectory}.`;
+  const runUpdateSentence = `Run \`${PRODUCT_NAMES.PROGRAM} update\` in ${rootDirectory}.`;
   switch (mismatch.reason) {
     case 'older':
-      return `The files agent-progress installed in ${rootDirectory} are install version ${mismatch.installedVersion}, from an older agent-progress, `
+      return `The files ${PRODUCT_NAMES.PROGRAM} installed in ${rootDirectory} are install version ${mismatch.installedVersion}, from an older ${PRODUCT_NAMES.PROGRAM}, `
         + `and this one needs install version ${installVersion}, so nothing was done. ${runUpdateSentence}`;
     case 'newer':
-      return `The files agent-progress installed in ${rootDirectory} are install version ${mismatch.installedVersion}, from a newer agent-progress `
-        + `than this one (install version ${installVersion}), so nothing was done. Update agent-progress itself, then run \`agent-progress update\` in ${rootDirectory}.`;
+      return `The files ${PRODUCT_NAMES.PROGRAM} installed in ${rootDirectory} are install version ${mismatch.installedVersion}, from a newer ${PRODUCT_NAMES.PROGRAM} `
+        + `than this one (install version ${installVersion}), so nothing was done. Update ${PRODUCT_NAMES.PROGRAM} itself, `
+        + `then run \`${PRODUCT_NAMES.PROGRAM} update\` in ${rootDirectory}.`;
     case 'unversioned':
-      return `The files agent-progress installed in ${rootDirectory} carry no install version (${manifestFilePath} is missing), so they are from `
-        + `an agent-progress older than this one, which needs install version ${installVersion}; nothing was done. ${runUpdateSentence}`;
+      return `The files ${PRODUCT_NAMES.PROGRAM} installed in ${rootDirectory} carry no install version (${manifestFilePath} is missing), so they are from `
+        + `an ${PRODUCT_NAMES.PROGRAM} older than this one, which needs install version ${installVersion}; nothing was done. ${runUpdateSentence}`;
     case 'unreadable':
-      return `${manifestFilePath} gives no install version: ${mismatch.manifestProblem}. So the install version of the files agent-progress installed in `
+      return `${manifestFilePath} gives no install version: ${mismatch.manifestProblem}. So the install version of the files ${PRODUCT_NAMES.PROGRAM} installed in `
         + `${rootDirectory} is unknown and nothing was done. ${runUpdateSentence}`;
     case 'manifest-is-a-directory':
-      return `${manifestFilePath} is a directory where agent-progress keeps its install version file, so nothing was done. `
-        + `Remove that directory, then run \`agent-progress update\` in ${rootDirectory}.`;
+      return `${manifestFilePath} is a directory where ${PRODUCT_NAMES.PROGRAM} keeps its install version file, so nothing was done. `
+        + `Remove that directory, then run \`${PRODUCT_NAMES.PROGRAM} update\` in ${rootDirectory}.`;
   }
 }
 
 function noTrackerAtOverrideText(overrideDirectory: string): string {
-  return `No agent-progress tracker was found in ${overrideDirectory}, which ${ROOT_OVERRIDE_VARIABLE} names. `
-    + `Run \`agent-progress init\` there, or unset ${ROOT_OVERRIDE_VARIABLE} to search upwards from the current directory instead.`;
+  return `No ${PRODUCT_NAMES.PROGRAM} tracker was found in ${overrideDirectory}, which ${ROOT_OVERRIDE_VARIABLE} names. `
+    + `Run \`${PRODUCT_NAMES.PROGRAM} init\` there, or unset ${ROOT_OVERRIDE_VARIABLE} to search upwards from the current directory instead.`;
 }
 
 function olderProgramPresentText({
@@ -239,11 +241,11 @@ function olderProgramPresentText({
 }
 
 function noTrackerFoundText(searchedFrom: string): string {
-  return `No agent-progress tracker was found in ${searchedFrom} or any directory above it. Run \`agent-progress init\` in the repository you want tracked.`;
+  return `No ${PRODUCT_NAMES.PROGRAM} tracker was found in ${searchedFrom} or any directory above it. Run \`${PRODUCT_NAMES.PROGRAM} init\` in the repository you want tracked.`;
 }
 
 function trackerLockHeldText(lockDirectoryPath: string): string {
-  return `Another agent-progress command is holding ${lockDirectoryPath} and did not release it. If nothing else is running, remove that path and try again.`;
+  return `Another ${PRODUCT_NAMES.PROGRAM} command is holding ${lockDirectoryPath} and did not release it. If nothing else is running, remove that path and try again.`;
 }
 
 function templateTokenNotUniqueText(templateFilePath: string, token: string, occurrenceCount: number): string {

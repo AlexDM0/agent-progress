@@ -4,13 +4,14 @@ import { readBranchDescent, readCurrentBranch }    from '../../../src/lib/git/Br
 import type { Ticket }                             from '../../../src/lib/tracker-model/@types/Ticket.ts';
 import type { Board }                              from '../../../src/lib/tracker-model/Board.ts';
 import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS } from '../../../src/lib/tracker-model/constants/TicketMoveLegality.ts';
+import { PRODUCT_NAMES }                           from '../../../src/shared/constants/ProductNames.ts';
 import { OutputUtil }                              from '../../utils/OutputUtil.ts';
 import { ReleaseRefusal, refuseTheRelease }        from './ReleaseRefusal.ts';
 
 function namedTicket(board: Board, reference: string): Readonly<Ticket> {
   const ticket = board.ticketByReference(reference);
   if (ticket === undefined) {
-    refuseTheRelease('unknown-ticket', `There is no readable ticket ${reference}. Run \`agent-progress ticket list\` to see what this tracker holds.`);
+    refuseTheRelease('unknown-ticket', `There is no readable ticket ${reference}. Run \`${PRODUCT_NAMES.PROGRAM} ticket list\` to see what this tracker holds.`);
   }
   return ticket;
 }
@@ -43,7 +44,7 @@ export function requireStampsMatchingTheCheckCommand(board: Board, tickets: read
   for (const { frontmatter } of tickets) {
     const stampedCheckCommand = board.linkedRowOf(frontmatter.id)?.checkCommand ?? null;
     if (stampedCheckCommand === storedCheckCommand) continue;
-    const remedy = storedCheckCommand === null ? 'agent-progress checks --clear --restamp' : `agent-progress checks "${storedCheckCommand}" --restamp`;
+    const remedy = storedCheckCommand === null ? `${PRODUCT_NAMES.PROGRAM} checks --clear --restamp` : `${PRODUCT_NAMES.PROGRAM} checks "${storedCheckCommand}" --restamp`;
     refuseTheRelease(
       'check-command-differs-from-start',
       `Ticket #${frontmatter.id} was started under the check command ${checkCommandText(stampedCheckCommand)}, and the tracker's is now `
@@ -109,7 +110,7 @@ export function branchCommitToRelease(mainCheckout: string, branch: string, main
         'main-moved',
         `Main moved: ${branch} (${OutputUtil.shortCommitOf(reading.branchCommit)}) `
         + `does not descend from ${mainLine} (${OutputUtil.shortCommitOf(reading.mainLineCommit)}), `
-        + `so it cannot be fast-forwarded. Rebase ${branch} onto ${mainLine}, run the checks again, and run \`agent-progress release\` again.`,
+        + `so it cannot be fast-forwarded. Rebase ${branch} onto ${mainLine}, run the checks again, and run \`${PRODUCT_NAMES.PROGRAM} release\` again.`,
       );
     case 'descendant':
       return reading.branchCommit;

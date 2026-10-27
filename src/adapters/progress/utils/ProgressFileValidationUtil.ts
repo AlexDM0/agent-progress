@@ -8,6 +8,7 @@ import { TASK_STATUSES }                                     from '../../../lib/
 import { FIRST_TASK_ID }                                     from '../../../lib/tracker-model/constants/TaskIds.ts';
 import { BoardSettingsUtil }                                 from '../../../lib/tracker-model/utils/BoardSettingsUtil.ts';
 import { VocabularyUtil }                                    from '../../../lib/tracker-model/utils/VocabularyUtil.ts';
+import { PRODUCT_NAMES }                                     from '../../../shared/constants/ProductNames.ts';
 import { OLDER_FORMAT_ADVICE }                               from '../../constants/OlderFormatAdvice.ts';
 import { StoredValueUtil }                                   from '../../utils/StoredValueUtil.ts';
 import type { StoredProgressFile, StoredTaskPhase }          from '../@types/StoredProgressFile.ts';
@@ -89,7 +90,7 @@ function documentHeaderProblemOf(candidate: unknown): string | null {
   if (!JsonRecordUtil.valueIsAPlainObject(candidate)) return 'the document is not a JSON object';
   const { version } = candidate;
   if (version !== CURRENT_PROGRESS_FILE_VERSION) {
-    return `version is ${JSON.stringify(version)}, and this build of agent-progress reads version ${CURRENT_PROGRESS_FILE_VERSION}; ${OLDER_FORMAT_ADVICE}`;
+    return `version is ${JSON.stringify(version)}, and this build of ${PRODUCT_NAMES.PROGRAM} reads version ${CURRENT_PROGRESS_FILE_VERSION}; ${OLDER_FORMAT_ADVICE}`;
   }
   if (!textFieldIsPresent(candidate, 'trackerId')) return 'trackerId is not a string';
   if (!textFieldIsPresent(candidate, 'project')) return 'project is not a string';

@@ -3,8 +3,10 @@
  * split into words the way a shell quotes them and cut at every operator, so `cd <dir> && agent-progress checks --clear` is found too. Only a
  * shell wrapper's string (`bash -c`, `sh -c`, `zsh -c`, `eval`) is split again, recursively; any other quoted argument stays one word.
  */
+import { PRODUCT_NAMES } from '../../../src/shared/constants/ProductNames.ts';
 
-const AGENT_PROGRESS_PROGRAM_NAMES = new Set(['agent-progress', 'agent-progress.ts']);
+/** The program as linked, and its entry point as a checkout runs it. */
+const AGENT_PROGRESS_PROGRAM_NAMES = new Set([PRODUCT_NAMES.PROGRAM, 'agent-progress.ts']);
 
 const CHECKS_COMMAND_WORD = 'checks';
 

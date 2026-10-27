@@ -3,6 +3,7 @@ import { TicketJsonUtil }                        from '../../src/adapters/utils/
 import { TicketPhraseUtil }                      from '../../src/adapters/utils/TicketPhraseUtil.ts';
 import type { TicketDependenciesChanged }        from '../../src/lib/tracker-model/@types/BoardChanges.ts';
 import { OperationRefusal }                      from '../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }                         from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                   from '../CommandContext.ts';
 import { openTrackerForWritingThenReadNextLine } from '../OpenTrackerForWriting.ts';
 import type { ArgumentParser }                   from '../arguments/ArgumentParser.ts';
@@ -21,7 +22,7 @@ function dependencyEditFrom(commandArguments: ArgumentParser, dependencyTexts: r
   const addedText   = commandArguments.option('add');
   const removedText = commandArguments.option('remove');
   if (addedText !== undefined && removedText !== undefined) {
-    throw new OperationRefusal('refused', `agent-progress ticket depends takes --add or --remove, not both: run it once for each.\n  Usage: ${TICKET_USAGE}`);
+    throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} ticket depends takes --add or --remove, not both: run it once for each.\n  Usage: ${TICKET_USAGE}`);
   }
   const editedText = addedText ?? removedText;
   if (editedText === undefined) return { kind: 'replace', ticketIds: TicketArgumentUtil.dependencyListFrom(dependencyTexts) };
@@ -29,7 +30,7 @@ function dependencyEditFrom(commandArguments: ArgumentParser, dependencyTexts: r
   if (dependencyTexts.length > 0) {
     throw new OperationRefusal(
       'refused',
-      `agent-progress ticket depends was given ${optionToken} and bare ids, which is ambiguous: `
+      `${PRODUCT_NAMES.PROGRAM} ticket depends was given ${optionToken} and bare ids, which is ambiguous: `
       + `list every id in the option, as \`${optionToken} 3,4\`, or give bare ids alone to replace the list.\n  Usage: ${TICKET_USAGE}`,
     );
   }
@@ -45,7 +46,7 @@ export async function setTicketDependencies(commandArguments: ArgumentParser, co
 
   const [, reference, ...dependencyTexts] = commandArguments.positionals();
   if (reference === undefined) {
-    throw new OperationRefusal('refused', `agent-progress ticket depends needs a ticket id, then the ids it waits on (none clears the list).\n  Usage: ${TICKET_USAGE}`);
+    throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} ticket depends needs a ticket id, then the ids it waits on (none clears the list).\n  Usage: ${TICKET_USAGE}`);
   }
   const edit = dependencyEditFrom(commandArguments, dependencyTexts);
 

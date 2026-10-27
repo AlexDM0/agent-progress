@@ -93,7 +93,8 @@ const INSTALLED_AGENT_DEFINITION = readFileSync(resourceFilePathOf('templates', 
   .replace('{{model}}', 'opus')
   .replace('{{effort}}', 'medium')
   .replace('{{workerAgentType}}', DISPATCH_PROTOCOL.WORKER_AGENT_TYPE)
-  .replaceAll('{{dataFolder}}', PRODUCT_NAMES.DATA_FOLDER);
+  .replaceAll('{{dataFolder}}', PRODUCT_NAMES.DATA_FOLDER)
+  .replaceAll('{{program}}', PRODUCT_NAMES.PROGRAM);
 
 function agentDefinitionFilePathIn(repositoryDirectory: string): string {
   return join(repositoryDirectory, '.claude', 'agents', `${DISPATCH_PROTOCOL.WORKER_AGENT_TYPE}.md`);
@@ -411,7 +412,7 @@ describeWhenGitIsPresent('updating a tracked repository', () => {
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
     expect(await runCommandLine(['update', '--no-agent-definition'], context)).toBe(1);
 
-    expect(context.errorText()).toContain('agent-progress update --no-agent-definition needs --no-workflow as well');
+    expect(context.errorText()).toContain(`${PRODUCT_NAMES.PROGRAM} update --no-agent-definition needs --no-workflow as well`);
     expect(context.errorText()).toContain('Nothing was written.');
     expect(context.outputText()).toBe('');
     expect(repositoryFileContentsOf(repositoryDirectory)).toEqual(filesBefore);
@@ -540,7 +541,7 @@ describeWhenGitIsPresent('what update refuses', () => {
     const context = createCapturedCommandContext({ currentDirectory: plainDirectory });
     expect(await runCommandLine(['update'], context)).toBe(1);
 
-    expect(context.errorText()).toContain('agent-progress init');
+    expect(context.errorText()).toContain(`${PRODUCT_NAMES.PROGRAM} init`);
     expect(existsSync(join(plainDirectory, PRODUCT_NAMES.DATA_FOLDER)), 'update creates no tracker, which is the whole difference from init').toBe(false);
     expect(existsSync(join(plainDirectory, 'CLAUDE.md'))).toBe(false);
     expect(context.outputText()).toBe('');
@@ -554,7 +555,7 @@ describeWhenGitIsPresent('what update refuses', () => {
     for (const refusedArguments of [['update', '--project', 'Example Agency'], ['update', '--root', repositoryDirectory], ['update', '--no-claud-md'], ['update', 'here']]) {
       const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
       expect(await runCommandLine(refusedArguments, context), refusedArguments.join(' ')).toBe(1);
-      expect(context.errorText(), refusedArguments.join(' ')).toContain('agent-progress update [--no-claude-md] [--no-hooks] [--no-workflow]');
+      expect(context.errorText(), refusedArguments.join(' ')).toContain(`${PRODUCT_NAMES.PROGRAM} update [--no-claude-md] [--no-hooks] [--no-workflow]`);
     }
     expect(readFileSync(briefFilePath, 'utf8'), 'a refused invocation writes nothing').toBe(briefBefore);
   });

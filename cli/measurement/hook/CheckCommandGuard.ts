@@ -6,16 +6,17 @@
  */
 import { JsonRecordUtil }                    from '../../../src/lib/json-record/JsonRecordUtil.ts';
 import { OperationRefusal }                  from '../../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }                     from '../../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }               from '../../CommandContext.ts';
 import { commandLineChangesTheCheckCommand } from './CheckCommandChangeDetection.ts';
 import { readHookInput, readStringField }    from './HookInput.ts';
 
-const REPORT_PREFIX = 'agent-progress hook pre-tool-use:';
+const REPORT_PREFIX = `${PRODUCT_NAMES.PROGRAM} hook pre-tool-use:`;
 
 const GUARDED_TOOL_NAME = 'Bash';
 
 const BLOCKED_CALL_TEXT =
-  'Only the orchestrator\'s own session changes the tracker\'s check command, so this call was blocked. Read it with `agent-progress checks --json`; '
+  `Only the orchestrator's own session changes the tracker's check command, so this call was blocked. Read it with \`${PRODUCT_NAMES.PROGRAM} checks --json\`; `
   + 'if the stored command is wrong, say so in your report and leave the change to the orchestrator.';
 
 export async function guardTheCheckCommand(context: CommandContext): Promise<void> {

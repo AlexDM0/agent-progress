@@ -13,6 +13,7 @@ import {
   expect,
   test
 }                                               from 'bun:test';
+import { PRODUCT_NAMES }              from '../../../src/shared/constants/ProductNames.ts';
 import {
   createScratchDirectory,
   gitIsAvailable,
@@ -263,7 +264,7 @@ describeWhenGitIsPresent('recording a review pass', () => {
   test('a word other than record, or a missing --since, is refused with the usage', async () => {
     const wrongSubcommand = await run(['review', 'start', '1']);
     expect(wrongSubcommand.exitCode).toBe(1);
-    expect(wrongSubcommand.error).toContain('agent-progress review takes the subcommand record and was given "start"');
+    expect(wrongSubcommand.error).toContain(`${PRODUCT_NAMES.PROGRAM} review takes the subcommand record and was given "start"`);
     const missingSince = await run(['review', 'record', '1', '--worktree', repositoryDirectory, '--findings-file', '-']);
     expect(missingSince.exitCode).toBe(1);
     expect(missingSince.error).toContain('needs --since');

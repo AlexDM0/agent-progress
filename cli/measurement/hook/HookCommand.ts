@@ -10,6 +10,7 @@ import { TranscriptUsageUtil }                                               fro
 import type { AgentUsage }                                                   from '../../../src/lib/tracker-model/@types/LogRecord.ts';
 import { OperationRefusal }                                                  from '../../../src/shared/OperationRefusal.ts';
 import { LIMITS }                                                            from '../../../src/shared/constants/Limits.ts';
+import { PRODUCT_NAMES }                                                     from '../../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                                               from '../../CommandContext.ts';
 import type { CommandHandler }                                               from '../../CommandHandler.ts';
 import type { ArgumentParser }                                               from '../../arguments/ArgumentParser.ts';
@@ -23,7 +24,7 @@ import {
 import { renderAStalePage }   from './PostToolUseRender.ts';
 import { recordInTheTracker } from './TokenCreditRecording.ts';
 
-const USAGE = 'agent-progress hook subagent-stop|pre-tool-use|post-tool-use  (the hook JSON arrives on standard input)';
+const USAGE = `${PRODUCT_NAMES.PROGRAM} hook subagent-stop|pre-tool-use|post-tool-use  (the hook JSON arrives on standard input)`;
 
 const SUBAGENT_STOP_EVENT = 'subagent-stop';
 
@@ -97,7 +98,7 @@ export const hookCommand: CommandHandler = async (commandArguments, context) => 
   const event = commandArguments.positional();
   if (event === undefined || !HOOK_EVENTS.includes(event)) {
     const named = event === undefined ? 'no hook event' : `"${event}"`;
-    throw new OperationRefusal('refused', `agent-progress hook takes one event and was given ${named}.\n  Usage: ${USAGE}`);
+    throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} hook takes one event and was given ${named}.\n  Usage: ${USAGE}`);
   }
   commandArguments.rejectExtraPositionals(1, USAGE);
 

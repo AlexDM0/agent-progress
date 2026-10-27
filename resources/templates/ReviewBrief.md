@@ -24,7 +24,7 @@ working directory reset to the main checkout, which is why every git command nam
 ```
 Worktree: <absolute path>   Branch: <branch>   Main checkout: <absolute path>   Main line: <name>
 agent-progress row: <reviewRowId, the id of this review's own bar>
-Review ticket <id> (or the bundle #a, #b, #c), round <N>; `agent-progress ticket show <id>` prints
+Review ticket <id> (or the bundle #a, #b, #c), round <N>; `{{program}} ticket show <id>` prints
 one. Run git as `git -C <worktree>` unless a step names <main checkout>. The work is
 `git diff <main line>...HEAD`.
 
@@ -52,13 +52,13 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
    small, you report and do not fix, a few lines each with where and what you would do; so is a
    finding that needs a product or design decision or touches a file out of bounds. A dispatched
    reviewer files each itself,
-   `agent-progress ticket add "<what and where>" --type ticket|bug --priority low --found-in-review <id>
+   `{{program}} ticket add "<what and where>" --type ticket|bug --priority low --found-in-review <id>
    --body "<what you saw>"`, in a bundle the id of the ticket whose change held the finding; by hand
    the orchestrator files what you report.
 3. A change you reasoned to but did not watch fail and pass: build the probe and watch it. A doubt
    still open at the budget is `does not hold`, never a caveat.
    Every probe that touches a scratch repository names it absolutely (`git -C <scratch>`,
-   `AGENT_PROGRESS_ROOT=<scratch>` before every agent-progress command in it, `cd <scratch> && …`
+   `AGENT_PROGRESS_ROOT=<scratch>` before every {{program}} command in it, `cd <scratch> && …`
    joined with `&&`, never `;`); `--root` is `init`'s alone, and any other command refuses it.
    Never write into any `.git` directory by hand.
 4. When HEAD is still <review start>, you changed nothing: leave this pass's mark as one empty commit,
@@ -87,7 +87,7 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
    `would-ship-a-bug|acceptance-fails|quality|nit`, `file`, `summary`, `evidence`
    `watched-fail|probe|reading`, and `outcome` `fixed` with its `commit` or `filed` with its
    `filedTicketId`). Run
-   `agent-progress review record <id> --worktree <worktree> --since <review start> --findings-file <file>`,
+   `{{program}} review record <id> --worktree <worktree> --since <review start> --findings-file <file>`,
    adding `--rebased-from <pre-rebase tip> --main <main line>` for each rebase of this pass (a bundle:
    once per ticket, each with its own claims, every run adding `--bar <row>` with the row your
    `agent-progress row:` line names, the bundle's one review bar). It counts the rework itself and
@@ -99,15 +99,15 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
       a comment, a blank line or documentation: request round <N+1>, stating the count and whether
       the branch holds as it stands. Nothing else is a reason for another review.
    c. Otherwise release: step 8.
-8. First, when the root `CLAUDE.md` names a step for just before `agent-progress release` (a
+8. First, when the root `CLAUDE.md` names a step for just before `{{program}} release` (a
    version bump, say), run it now, exactly as written there.
    Then release through the command, never `git merge`: it fast-forwards <main line>, delivers the
    ticket and your review bar, and cleans up, under the tracker's lock, so it cannot race another release.
-   When the tracker stores a check command (`agent-progress checks` prints it), the release first
+   When the tracker stores a check command (`{{program}} checks` prints it), the release first
    runs it itself on your tip in <worktree>, which must be committed and hold no untracked file. A
    refused release changes nothing, in the main checkout least of all.
    `cd <main checkout>` first, since your worktree is about to go, then run
-   `agent-progress release <id> --branch <branch> --worktree <worktree> --main <main line> --json`
+   `{{program}} release <id> --branch <branch> --worktree <worktree> --main <main line> --json`
    (a bundle: every id in the one call). Act on what it prints:
    - `"released": true`: done. Name any `cleanup` step that is `left`, and the files it lists.
    - `"reason": "main-moved"`: another branch went in first. If the step you ran first made a
@@ -149,7 +149,7 @@ Report under 150 words plus 40 per finding handed on, opening with exactly one o
 `does not hold: <what is missing>` — then findings, your changes, what the rebase took.
 ```
 
-No message is sent to a finished agent, reviewer or builder. `agent-progress release` serialises
+No message is sent to a finished agent, reviewer or builder. `{{program}} release` serialises
 releases under the tracker's lock: the reviewer whose branch was overtaken reads `main-moved`,
 rebases, re-checks, counts the rebase and releases again inside its own pass, or asks for the next
 round when the rebase pushed its reworked total over {{reworkThresholdLines}}.

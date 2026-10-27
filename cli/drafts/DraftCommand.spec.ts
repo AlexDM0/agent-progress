@@ -246,7 +246,7 @@ describeWhenGitIsPresent('draft', () => {
 
     const status = await run(['status', '--json']);
     for (const draftId of Object.keys(malformedFiles)) expect(status.errorText()).toContain(`Draft file ignored: ${draftFilePath(draftId)}`);
-    expect(status.errorText()).toContain('agent-progress update');
+    expect(status.errorText()).toContain(`${PRODUCT_NAMES.PROGRAM} update`);
     expect((JSON.parse(status.outputText()) as { drafts: Array<{ id: string }> }).drafts.map((draft) => draft.id)).toEqual(['D1']);
 
     const listing = await run(['draft', 'list']);

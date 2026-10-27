@@ -4,6 +4,7 @@
  * no tracker, so it takes neither `--project` nor `--root`, and never touches the tracker's own files.
  */
 import { requireWorkspace }                               from '../../../src/services/tracker/Workspace.ts';
+import { PRODUCT_NAMES }                                  from '../../../src/shared/constants/ProductNames.ts';
 import type { CommandHandler }                            from '../../CommandHandler.ts';
 import { requireInstallManifestThisVersionCanReplace }    from '../../InstallVersionCheck.ts';
 import { installedFileTextsFor, installedSkillFileTexts } from '../InstalledFileGeneration.ts';
@@ -18,7 +19,7 @@ import {
   refuseKeepingADispatcherWithoutItsAgentDefinition
 }                                                                             from '../TrackerRefresh.ts';
 
-const USAGE = 'agent-progress update [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]';
+const USAGE = `${PRODUCT_NAMES.PROGRAM} update [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]`;
 
 const KNOWN_OPTION_NAMES = ['no-claude-md', 'no-hooks', 'no-workflow', 'no-agent-definition'];
 
@@ -46,7 +47,7 @@ export const updateCommand: CommandHandler = async (commandArguments, context) =
     standardError:           context.standardError,
   });
 
-  context.standardOutput(`Refreshed what agent-progress manages in ${workspace.rootDirectory}; the tracker itself was not touched.`);
+  context.standardOutput(`Refreshed what ${PRODUCT_NAMES.PROGRAM} manages in ${workspace.rootDirectory}; the tracker itself was not touched.`);
   for (const line of refreshReportLinesOf(report, workspace.htmlFilePath)) context.standardOutput(line);
   recordInstallVersion(workspace.rootDirectory);
 };

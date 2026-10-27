@@ -2,6 +2,7 @@
 import { DraftDocumentUtil }            from '../../src/adapters/drafts/utils/DraftDocumentUtil.ts';
 import type { DraftChanged }            from '../../src/lib/tracker-model/@types/BoardChanges.ts';
 import type { Board }                   from '../../src/lib/tracker-model/Board.ts';
+import { PRODUCT_NAMES }                from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }          from '../CommandContext.ts';
 import { openTrackerForWriting }        from '../OpenTrackerForWriting.ts';
 import type { ArgumentParser }          from '../arguments/ArgumentParser.ts';
@@ -35,7 +36,7 @@ async function noteDraft(commandArguments: ArgumentParser, context: CommandConte
   commandArguments.rejectUnknownOptions(NOTE_OPTION_NAMES, DRAFT_USAGE);
   commandArguments.rejectExtraPositionals(ITEM_POSITION + 1, DRAFT_USAGE);
   const draftId = draftIdArgumentOf(commandArguments, 'note');
-  const text    = requiredTextAt(commandArguments, ITEM_POSITION, 'agent-progress draft note needs the text of the fact or assumption.');
+  const text    = requiredTextAt(commandArguments, ITEM_POSITION, `${PRODUCT_NAMES.PROGRAM} draft note needs the text of the fact or assumption.`);
   const kind    = commandArguments.flag('assumption') ? 'assumption' : 'fact';
   await changeDraftContent(commandArguments, context, (board, at) => board.addDraftNote(draftId, { text, kind }, at));
 }
@@ -44,11 +45,13 @@ async function askDraft(commandArguments: ArgumentParser, context: CommandContex
   commandArguments.rejectUnknownOptions(ASK_OPTION_NAMES, DRAFT_USAGE);
   commandArguments.rejectExtraPositionals(ITEM_POSITION + 1, DRAFT_USAGE);
   const draftId  = draftIdArgumentOf(commandArguments, 'ask');
-  const question = requiredTextAt(commandArguments, ITEM_POSITION, 'agent-progress draft ask needs the question.');
+  const question = requiredTextAt(commandArguments, ITEM_POSITION, `${PRODUCT_NAMES.PROGRAM} draft ask needs the question.`);
   const questionContext = commandArguments.option('context');
-  if (questionContext === undefined || questionContext.trim() === '') throw refusalOf('agent-progress draft ask needs --context <text>, what the user needs to answer it.');
+  if (questionContext === undefined || questionContext.trim() === '') {
+    throw refusalOf(`${PRODUCT_NAMES.PROGRAM} draft ask needs --context <text>, what the user needs to answer it.`);
+  }
   const recommended = commandArguments.option('recommended');
-  if (recommended === undefined) throw refusalOf('agent-progress draft ask needs --recommended <letters>, the option or options Claude recommends.');
+  if (recommended === undefined) throw refusalOf(`${PRODUCT_NAMES.PROGRAM} draft ask needs --recommended <letters>, the option or options Claude recommends.`);
   const recommendedLetters = recommended.split(LETTER_LIST_SEPARATOR).map((letter) => letter.trim()).filter((letter) => letter !== '');
 
   await changeDraftContent(commandArguments, context, (board, at) => board.askDraftQuestion(draftId, {
@@ -65,8 +68,8 @@ async function answerDraft(commandArguments: ArgumentParser, context: CommandCon
   commandArguments.rejectUnknownOptions(ANSWER_OPTION_NAMES, DRAFT_USAGE);
   commandArguments.rejectExtraPositionals(ANSWER_POSITION + 1, DRAFT_USAGE);
   const draftId    = draftIdArgumentOf(commandArguments, 'answer');
-  const questionId = requiredTextAt(commandArguments, ITEM_POSITION, 'agent-progress draft answer needs the question number, such as Q1.');
-  const answer     = requiredTextAt(commandArguments, ANSWER_POSITION, 'agent-progress draft answer needs the answer: option letters such as a or a,c, or free text.');
+  const questionId = requiredTextAt(commandArguments, ITEM_POSITION, `${PRODUCT_NAMES.PROGRAM} draft answer needs the question number, such as Q1.`);
+  const answer     = requiredTextAt(commandArguments, ANSWER_POSITION, `${PRODUCT_NAMES.PROGRAM} draft answer needs the answer: option letters such as a or a,c, or free text.`);
   await changeDraftContent(commandArguments, context, (board, at) => board.answerDraftQuestion(draftId, questionId, answer, at));
 }
 
@@ -74,7 +77,7 @@ async function dropDraftItem(commandArguments: ArgumentParser, context: CommandC
   commandArguments.rejectUnknownOptions(DROP_OPTION_NAMES, DRAFT_USAGE);
   commandArguments.rejectExtraPositionals(ITEM_POSITION + 1, DRAFT_USAGE);
   const draftId = draftIdArgumentOf(commandArguments, 'drop');
-  const itemId  = requiredTextAt(commandArguments, ITEM_POSITION, 'agent-progress draft drop needs the note or question number, such as N1 or Q1.');
+  const itemId  = requiredTextAt(commandArguments, ITEM_POSITION, `${PRODUCT_NAMES.PROGRAM} draft drop needs the note or question number, such as N1 or Q1.`);
   await changeDraftContent(commandArguments, context, (board, at) => board.dropDraftItem(draftId, itemId, at));
 }
 

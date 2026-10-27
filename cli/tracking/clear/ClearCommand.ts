@@ -1,9 +1,10 @@
 import { OperationRefusal }      from '../../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }         from '../../../src/shared/constants/ProductNames.ts';
 import type { CommandHandler }   from '../../CommandHandler.ts';
 import { openTrackerForWriting } from '../../OpenTrackerForWriting.ts';
 import { OutputUtil }            from '../../utils/OutputUtil.ts';
 
-const USAGE = 'agent-progress clear [--all] [--yes]';
+const USAGE = `${PRODUCT_NAMES.PROGRAM} clear [--all] [--yes]`;
 
 const KNOWN_OPTION_NAMES = ['all', 'yes', 'json'];
 
@@ -19,7 +20,7 @@ export const clearCommand: CommandHandler = async (commandArguments, context) =>
     if (!context.standardInputIsTerminal) {
       throw new OperationRefusal(
         'refused',
-        'agent-progress clear needs --yes when standard input is not a terminal, because there is nobody to answer the confirmation.',
+        `${PRODUCT_NAMES.PROGRAM} clear needs --yes when standard input is not a terminal, because there is nobody to answer the confirmation.`,
       );
     }
     const question = deletesTickets

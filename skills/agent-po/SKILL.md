@@ -1,37 +1,37 @@
 ---
 name: {{skillName}}
 description: >-
-  File work on an agent-progress board: turn what the user reports into
+  File work on an {{program}} board: turn what the user reports into
   tickets an agent can build without asking, each with its Report, Wanted,
   numbered Acceptance and Brief, split by mechanism, merged or ordered against
   the pending tickets it shares files with, and filed into the right epic,
   through a resumable draft. Use this skill in a repository tracked by
-  agent-progress whenever the user asks to file, report, log, track or add a
+  {{program}} whenever the user asks to file, report, log, track or add a
   ticket, a bug, a feature, a change or a research question, asks you to grill
-  them on one, says "continue D7" of a draft, or says "/agent-po".
+  them on one, says "continue D7" of a draft, or says "/{{productOwnerSkill}}".
 ---
 
-# Filing tickets on an agent-progress board
+# Filing tickets on an {{program}} board
 
 You are the product owner for this board's intake. You turn what the user says into tickets, each
 carrying the brief its builder reads, and you stop there: you never dispatch, claim, start or release
-a ticket, and you never load `agent-progress-orchestrate`.
-`agent-progress help` prints every command and flag; `.agent-progress/reference.md` holds the ticket
+a ticket, and you never load `{{orchestrateSkill}}`.
+`{{program}} help` prints every command and flag; `{{dataFolder}}/reference.md` holds the ticket
 file's format, the moves and the exit codes.
 
 ## Before the first ticket
 
 Send these as separate calls in one message, never joined into one shell line:
 
-1. `agent-progress status --json`: what is pending, in flight and settled. Exit 1 saying there is no
+1. `{{program}} status --json`: what is pending, in flight and settled. Exit 1 saying there is no
    tracker means this repository has not adopted one: say so, and do not create one uninvited.
-2. `agent-progress epic list`: the epics a new ticket may belong to.
-3. Read `.agent-progress/agent-brief.md` once: its `Ticket brief` block is the `## Brief` every ticket
+2. `{{program}} epic list`: the epics a new ticket may belong to.
+3. Read `{{dataFolder}}/agent-brief.md` once: its `Ticket brief` block is the `## Brief` every ticket
    carries, and its Host mechanics section says how this host asks the user a question.
 
 ## Working in a draft
 
-Every filing works in a draft, the record the `agent-progress draft` commands keep on the board, so
+Every filing works in a draft, the record the `{{program}} draft` commands keep on the board, so
 another session can resume it. **Open it first, before any research**, with `draft open`, an owner
 naming this session and the user's words as the request; keep its id (`D7`). Record each fact your
 subagents report with `draft note`, paths in the text, and each assumption with `--assumption`. Send
@@ -101,7 +101,7 @@ default** unless the user asks for another pair: only then add `--model` or `--e
 ## The ticket body
 
 ```
-agent-progress ticket add "<title>" --type ticket|bug|research --size <size> --depends-on <ids> --epic <key> --body-file - <<'BODY'
+{{program}} ticket add "<title>" --type ticket|bug|research --size <size> --depends-on <ids> --epic <key> --body-file - <<'BODY'
 ## Report
 What the user reported, in their words.
 
@@ -113,7 +113,7 @@ A1. A condition that ends the work, checkable by whoever reads this and nothing 
 A2. The next one, each numbered at the start of its line.
 
 ## Brief
-The `Ticket brief` block of `.agent-progress/agent-brief.md`, filled in from your subagents' facts.
+The `Ticket brief` block of `{{dataFolder}}/agent-brief.md`, filled in from your subagents' facts.
 BODY
 ```
 
@@ -140,7 +140,7 @@ wins and what bounded deviation the other tolerates.
 - A dependency is recorded, never remembered: `--depends-on` when filing, `ticket depends <id> --add
   <ids>` on a filed ticket. Bare ids (`ticket depends 5 3`) replace the whole list.
 - Run each tracker command on a line of its own, and parse `--json` output, never the human text.
-- Never write a file under `.agent-progress/` with a file tool, edit a ticket only below its
+- Never write a file under `{{dataFolder}}/` with a file tool, edit a ticket only below its
   frontmatter (`ticket show <id>` prints its path), and never commit the tracker.
 
 ## Closing

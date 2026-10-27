@@ -1,11 +1,12 @@
 /**
- * `agent-progress review record` stores one review pass as a `review-recorded` log record on the ticket's in-progress review bar: the
+ * `${PRODUCT_NAMES.PROGRAM} review record` stores one review pass as a `review-recorded` log record on the ticket's in-progress review bar: the
  * reviewer's findings file, the rework counted here rather than added by the reviewer, and the builder's change size, which is lost once
  * the branch is released.
  */
 import { resolve } from 'node:path';
 
 import { OperationRefusal }      from '../../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }         from '../../../src/shared/constants/ProductNames.ts';
 import type { CommandHandler }   from '../../CommandHandler.ts';
 import { openTrackerForWriting } from '../../OpenTrackerForWriting.ts';
 import { DEFAULT_MAIN_LINE }     from '../../constants/GitDefaults.ts';
@@ -17,7 +18,8 @@ import { measureReviewPass }     from './ReviewPassMeasurement.ts';
 import type { RebaseRequest }    from './ReviewPassMeasurement.ts';
 import { recordedLine }          from './ReviewRecordText.ts';
 
-const USAGE = 'agent-progress review record <id> --worktree <path> --since <review start> --findings-file <path|-> '
+const USAGE = `${PRODUCT_NAMES.PROGRAM} review record <id>`
+  + ' --worktree <path> --since <review start> --findings-file <path|-> '
   + '[--rebased-from <pre-rebase tip> ...] [--main <main line> ...] [--bar <row>] [--json]';
 
 const RECORD_SUBCOMMAND = 'record';
@@ -25,7 +27,7 @@ const RECORD_SUBCOMMAND = 'record';
 const KNOWN_OPTION_NAMES = ['worktree', 'since', 'findings-file', 'rebased-from', 'main', 'bar', 'json'];
 
 function requiredOption(value: string | undefined, name: string): string {
-  if (value === undefined || value.trim() === '') throw new OperationRefusal('refused', `agent-progress review record needs --${name}.\n  Usage: ${USAGE}`);
+  if (value === undefined || value.trim() === '') throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} review record needs --${name}.\n  Usage: ${USAGE}`);
   return value;
 }
 
@@ -44,7 +46,7 @@ function rebaseRequestsOf(oldTips: readonly string[], mainLines: readonly string
   if (mainLines.length > 1 && mainLines.length !== oldTips.length) {
     throw new OperationRefusal(
       'refused',
-      `agent-progress review record takes one --main for every rebase, or one --main per --rebased-from; it was given ${mainLines.length} --main for `
+      `${PRODUCT_NAMES.PROGRAM} review record takes one --main for every rebase, or one --main per --rebased-from; it was given ${mainLines.length} --main for `
         + `${oldTips.length} --rebased-from.\n  Usage: ${USAGE}`,
     );
   }
@@ -56,9 +58,9 @@ export const reviewCommand: CommandHandler = async (commandArguments, context) =
   const [subcommand, ticketReference] = commandArguments.positionals();
   if (subcommand !== RECORD_SUBCOMMAND) {
     const named = subcommand === undefined ? 'no subcommand' : `"${subcommand}"`;
-    throw new OperationRefusal('refused', `agent-progress review takes the subcommand record and was given ${named}.\n  Usage: ${USAGE}`);
+    throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} review takes the subcommand record and was given ${named}.\n  Usage: ${USAGE}`);
   }
-  if (ticketReference === undefined) throw new OperationRefusal('refused', `agent-progress review record needs the ticket id.\n  Usage: ${USAGE}`);
+  if (ticketReference === undefined) throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} review record needs the ticket id.\n  Usage: ${USAGE}`);
   commandArguments.rejectExtraPositionals(2, USAGE);
 
   const worktreeDirectory = resolve(context.currentDirectory, requiredOption(commandArguments.option('worktree'), 'worktree'));

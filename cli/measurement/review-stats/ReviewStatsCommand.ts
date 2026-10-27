@@ -2,11 +2,12 @@
 import { readingBoardOf }                             from '../../../src/lib/tracker-model/ReadingBoard.ts';
 import { requireTracker }                             from '../../../src/services/tracker/TrackerReader.ts';
 import { requireWorkspace }                           from '../../../src/services/tracker/Workspace.ts';
+import { PRODUCT_NAMES }                              from '../../../src/shared/constants/ProductNames.ts';
 import type { CommandHandler }                        from '../../CommandHandler.ts';
 import { OutputUtil }                                 from '../../utils/OutputUtil.ts';
 import { noRecordedReviewsTextOf, reviewStatsTextOf } from './ReviewStatsText.ts';
 
-const USAGE = 'agent-progress review-stats [--json]';
+const USAGE = `${PRODUCT_NAMES.PROGRAM} review-stats [--json]`;
 
 const KNOWN_OPTION_NAMES = ['json'];
 

@@ -5,14 +5,15 @@
 import { LocalTimeUtil }         from '../../../src/lib/local-time/LocalTimeUtil.ts';
 import type { ViewRange }        from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import { OperationRefusal }      from '../../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }         from '../../../src/shared/constants/ProductNames.ts';
 import type { CommandHandler }   from '../../CommandHandler.ts';
 import { openTrackerForWriting } from '../../OpenTrackerForWriting.ts';
 import { OutputUtil }            from '../../utils/OutputUtil.ts';
 
 const USAGE = [
-  'agent-progress range --from <iso|-2h|start> --to <iso|now|+30m> [--tick 15m|1h|1d]',
-  'agent-progress range --auto',
-].join('\n         ');
+  '--from <iso|-2h|start> --to <iso|now|+30m> [--tick 15m|1h|1d]',
+  '--auto',
+].map((usage) => `${PRODUCT_NAMES.PROGRAM} range ${usage}`).join('\n         ');
 
 const KNOWN_OPTION_NAMES = ['from', 'to', 'tick', 'auto', 'json'];
 
@@ -99,7 +100,7 @@ export const rangeCommand: CommandHandler = async (commandArguments, context) =>
     throw new OperationRefusal('refused', `--auto sets the axis on its own, tick included; drop --from, --to and --tick.\n  Usage: ${USAGE}`);
   }
   if (!resetsToAutomatic && (writtenFrom === undefined || writtenTo === undefined)) {
-    throw new OperationRefusal('refused', `agent-progress range needs either --auto or both --from and --to.\n  Usage: ${USAGE}`);
+    throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} range needs either --auto or both --from and --to.\n  Usage: ${USAGE}`);
   }
 
   const view: ViewRange = resetsToAutomatic || writtenFrom === undefined || writtenTo === undefined

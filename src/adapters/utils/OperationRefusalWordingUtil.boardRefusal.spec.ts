@@ -5,10 +5,16 @@
  */
 import { expect, test } from 'bun:test';
 
-import type { BoardRefusalDetail }     from '../../lib/tracker-model/BoardRefusal.ts';
-import { OperationRefusalWordingUtil } from './OperationRefusalWordingUtil.ts';
+import type { BoardRefusalDetail }               from '../../lib/tracker-model/BoardRefusal.ts';
+import { ORIGINAL_PRODUCT_NAMES, PRODUCT_NAMES } from '../../shared/constants/ProductNames.ts';
+import { OperationRefusalWordingUtil }           from './OperationRefusalWordingUtil.ts';
 
 const { boardRefusalMessageOf: messageOf } = OperationRefusalWordingUtil;
+
+/** The table keeps the released program's name it was taken with; the wording names the program this build is linked by. */
+function namingThisProgram(message: string): string {
+  return message.replaceAll(new RegExp(`\`${RegExp.escape(ORIGINAL_PRODUCT_NAMES.PROGRAM)} (?!row:)`, 'g'), `\`${PRODUCT_NAMES.PROGRAM} `);
+}
 
 /**
  * Taken from the binary before the Board existed, at bc42604 (the last commit before step 4b). To retake a row, check that commit out in
@@ -330,5 +336,5 @@ const REFUSAL_REASON_COUNT = 39;
 
 test('every reason words as the refusal the command printed before the Board refused for it', () => {
   expect(new Set(MESSAGE_FOR_REFUSAL.map(([detail]) => detail.reason)).size, 'the table covers every reason').toBe(REFUSAL_REASON_COUNT);
-  for (const [detail, message] of MESSAGE_FOR_REFUSAL) expect(messageOf(detail), detail.reason).toBe(message);
+  for (const [detail, message] of MESSAGE_FOR_REFUSAL) expect(messageOf(detail), detail.reason).toBe(namingThisProgram(message));
 });

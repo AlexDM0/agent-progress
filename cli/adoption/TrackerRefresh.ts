@@ -25,6 +25,7 @@ import {
 import { ensureIgnored, removeIgnoreEntry }                                                from '../../src/lib/git/GitIgnore.ts';
 import type { Workspace }                                                                  from '../../src/services/tracker/Workspace.ts';
 import { OperationRefusal }                                                                from '../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }                                                                   from '../../src/shared/constants/ProductNames.ts';
 import { installedFilePathsIn, installedSkillFolderInRepository, type InstalledFilePaths } from '../InstalledFiles.ts';
 import { INSTALL_VERSION }                                                                 from '../constants/InstallVersion.ts';
 import type { InstalledFileTexts, InstalledSkillFileTexts }                                from './InstalledFileGeneration.ts';
@@ -184,7 +185,7 @@ function refreshHookIn(rootDirectory: string, commandName: string, hook: Command
   function refusedUnreadableSettings(settingsFilePath: string): string {
     standardError(
       `${settingsFilePath} could not be read as a JSON object, so it was left exactly as it was and the hook was not written. `
-      + `Fix or remove that file and run \`agent-progress ${commandName}\` again, or add the \`${hook.command}\` hook to it by hand.`,
+      + `Fix or remove that file and run \`${PRODUCT_NAMES.PROGRAM} ${commandName}\` again, or add the \`${hook.command}\` hook to it by hand.`,
     );
     return REFUSED_UNREADABLE_SETTINGS_LINE;
   }
@@ -229,7 +230,7 @@ function refreshManagedBlock(
   if (outcome === 'refused-start-without-end') {
     standardError(
       `${claudeFilePath} has an \`${CLAUDE_MANAGED_BLOCK_MARKERS.start}\` marker with no matching end marker, so the block was left alone. `
-      + `Close or remove that marker and run \`agent-progress ${commandName}\` again.`,
+      + `Close or remove that marker and run \`${PRODUCT_NAMES.PROGRAM} ${commandName}\` again.`,
     );
     return 'refused (start marker without an end marker)';
   }
@@ -237,7 +238,7 @@ function refreshManagedBlock(
   if (outcome === 'replaced') {
     const pairCount = readFileSync(claudeFilePath, 'utf8').split(CLAUDE_MANAGED_BLOCK_MARKERS.start).length - 1;
     if (pairCount > 1) {
-      standardError(`${claudeFilePath} holds ${pairCount} agent-progress blocks; only the first was refreshed and the others are now stale.`);
+      standardError(`${claudeFilePath} holds ${pairCount} ${PRODUCT_NAMES.PROGRAM} blocks; only the first was refreshed and the others are now stale.`);
     }
   }
   // Reported by the bytes on disk, not by the write that was attempted.
@@ -253,7 +254,7 @@ export function refuseAnAgentDefinitionOptOutKeepingTheWorkflow(
   if (writesTheAgentDefinition || !writesTheDispatcherWorkflow) return;
   throw new OperationRefusal(
     'refused',
-    `agent-progress ${commandName} --no-agent-definition needs --no-workflow as well: the dispatcher workflow starts every builder and reviewer `
+    `${PRODUCT_NAMES.PROGRAM} ${commandName} --no-agent-definition needs --no-workflow as well: the dispatcher workflow starts every builder and reviewer `
     + 'as the `agent-progress-worker` agent that definition declares, so without it no worker could start. Nothing was written. '
     + 'Add --no-workflow, or drop --no-agent-definition.',
   );
@@ -272,7 +273,7 @@ export function refuseKeepingADispatcherWithoutItsAgentDefinition(
   if (!existsSync(dispatcherFilePath) || existsSync(definitionFilePath)) return;
   throw new OperationRefusal(
     'refused',
-    `agent-progress ${commandName} --no-agent-definition --no-workflow would leave ${dispatcherFilePath} in place without `
+    `${PRODUCT_NAMES.PROGRAM} ${commandName} --no-agent-definition --no-workflow would leave ${dispatcherFilePath} in place without `
     + `${definitionFilePath}, the \`agent-progress-worker\` agent it starts every builder and reviewer as, so no worker could start. `
     + 'Nothing was written. Drop --no-agent-definition, or remove that dispatcher script first.',
   );

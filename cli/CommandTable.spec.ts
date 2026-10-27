@@ -9,6 +9,7 @@ import {
   expect,
   test
 }                                                         from 'bun:test';
+import { PRODUCT_NAMES }                                  from '../src/shared/constants/ProductNames.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
 import { COMMAND_NAMES, COMMAND_TABLE }                   from './CommandTable.ts';
 import { runCommandLine }                                 from './Main.ts';
@@ -89,7 +90,7 @@ describe('a word that is not a command', () => {
       expect(exitCode, `\`agent-progress ${name}\` must be refused, not run`).toBe(1);
       expect(context.errorText(), `\`agent-progress ${name}\` must say it is unknown`).toContain(`Unknown command: "${name}".`);
       expect(context.errorText(), `\`agent-progress ${name}\` must not crash`).not.toContain('TypeError');
-      expect(context.errorText(), `\`agent-progress ${name}\` must still print the help`).toContain('agent-progress <command>');
+      expect(context.errorText(), `\`agent-progress ${name}\` must still print the help`).toContain(`${PRODUCT_NAMES.PROGRAM} <command>`);
       expect(context.outputText(), `\`agent-progress ${name}\` must print nothing on stdout`).toBe('');
     }
   });

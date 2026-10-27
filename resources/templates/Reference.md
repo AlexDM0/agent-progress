@@ -1,18 +1,18 @@
-# agent-progress — the file formats and the states
+# {{program}} — the file formats and the states
 
-**The command reference is `agent-progress help`** — every command, every flag, printed by the tool
+**The command reference is `{{program}} help`** — every command, every flag, printed by the tool
 itself and therefore never out of step with it. Run it when you need a flag you do not remember;
 nothing here repeats it.
 
 What is here is what the tool does not print: the ticket file an agent edits, what each move does to
 the Gantt row, where a review bar is drawn, how a row's tokens are credited, what counts as one
-agent against the limit, the time axis and the exit codes. `agent-progress init` and `update` install
-it as `.agent-progress/reference.md` and rewrite it on every run, so a hand edit is undone; read it
+agent against the limit, the time axis and the exit codes. `{{program}} init` and `update` install
+it as `{{dataFolder}}/reference.md` and rewrite it on every run, so a hand edit is undone; read it
 when a brief or a skill sends you here, not before.
 
 ## The ticket file
 
-`.agent-progress/tickets/003-double-click-a-role-to-edit-it.md`.
+`{{dataFolder}}/tickets/003-double-click-a-role-to-edit-it.md`.
 
 The file name is the padded id and a slug of the title; the ticket is known by its frontmatter `id`.
 The CLI writes its keys in this order, omitting an optional key it does not have:
@@ -76,7 +76,7 @@ item or a bare word. There are no nested maps, lists or block scalars. The closi
 is dropped and CRLF is kept.
 
 A ticket stored with a status that is not a ticket status, the retired `open` or `done` included, is
-malformed at its status line, the reason ending in the advice to run `agent-progress update` with a
+malformed at its status line, the reason ending in the advice to run `{{program}} update` with a
 release that still reads it.
 
 **Unknown keys, comments and blank lines are kept and written back**, so a field you add by hand —
@@ -142,7 +142,7 @@ was.
 
 **`Done` on the chart means merged**: a row stored as `in-review` is waiting for a reviewer, and one
 stored as `reviewed` for its branch to go in. A free-standing row — a review pass, a chore, anything
-with no branch to merge — reaches `Done` through `agent-progress task deliver <id>` once its work is
+with no branch to merge — reaches `Done` through `{{program}} task deliver <id>` once its work is
 accepted. A row that never gets there is a row the chart shows as still owed.
 
 ## Where a review bar is drawn
@@ -160,7 +160,7 @@ moves through the `task` verbs.
 ## A row's tokens
 
 `--tokens` **sets** a row's count; the agent host's token credit **adds** to it, from the marker line
-the help describes, read from the agent's brief alone (`.agent-progress/agent-brief.md` says how this
+the help describes, read from the agent's brief alone (`{{dataFolder}}/agent-brief.md` says how this
 host credits). Over several rows it divides the agent's `input` total floored, the remainder to the
 first, and an unset count plus an amount is the amount, so a row two agents worked on carries both.
 
@@ -176,7 +176,7 @@ pause loses its key, so a reopened bundle ticket is a new agent.
 
 ## The time axis
 
-`agent-progress range` sets the tracker's stored default and every browser sees it. A relative bound
+`{{program}} range` sets the tracker's stored default and every browser sees it. A relative bound
 is stored as you wrote it and resolved on each refresh, so `--from -2h --to now` always means the
 last two hours. The page itself carries a range menu with the presets **Fit · 1h · 4h · 12h · 24h ·
 7d**, and Custom… with From and To text inputs for an exact window and a tick-step selector; a
@@ -189,7 +189,7 @@ marked, never dropped.
 | code | meaning | examples |
 |---|---|---|
 | **0** | done, or there was nothing to do | also a store write whose page could not be rebuilt (reported on standard error, with an error banner on the page when only its script failed; `render` rebuilds it), a release whose cleanup git declined, every `hook subagent-stop` run as `init` and `update` wire it (a wrong event word, an extra argument or an option is refused at exit 1), every `hook pre-tool-use` run it lets through, and every `hook post-tool-use` run |
-| **1** | a refusal the caller can act on | no tracker here (run `agent-progress init`), no such task or ticket, a missing `--reason`, a move the matrix refuses, a claim with no free slot or on a held-back low ticket, lowering a ticket that is not pending, a release refused (`main-moved` among them), installed files of another install version (every command but `init`, `update`, `help`, `status` and `hook subagent-stop`, which reports it at exit 0; run `agent-progress update`), `init` or `update` over files a newer agent-progress installed or a `version.json` naming a retired agent host, `hook` given a wrong event word, an extra argument or an option, and an unknown command |
+| **1** | a refusal the caller can act on | no tracker here (run `{{program}} init`), no such task or ticket, a missing `--reason`, a move the matrix refuses, a claim with no free slot or on a held-back low ticket, lowering a ticket that is not pending, a release refused (`main-moved` among them), installed files of another install version (every command but `init`, `update`, `help`, `status` and `hook subagent-stop`, which reports it at exit 0; run `{{program}} update`), `init` or `update` over files a newer {{program}} installed or a `version.json` naming a retired agent host, `hook` given a wrong event word, an extra argument or an option, and an unknown command |
 | **2** | a state the tool will not repair on its own | an unreadable or malformed progress file, an unreadable or malformed log.jsonl, a malformed ticket file a command names, a lock it could not take, a release reason `git-failed` or `tracker-failed`, `hook pre-tool-use` blocking a subagent's change to the check command (exit 2 is how Claude Code reads a block), and any error the tool did not expect |
 
 Check the code rather than the wording.

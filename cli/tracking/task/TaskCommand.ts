@@ -1,6 +1,7 @@
 import type { MovedToStatus }                     from '../../../src/adapters/utils/StatusWordingUtil.ts';
 import { StatusWordingUtil }                      from '../../../src/adapters/utils/StatusWordingUtil.ts';
 import { OperationRefusal }                       from '../../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }                          from '../../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                    from '../../CommandContext.ts';
 import type { CommandHandler }                    from '../../CommandHandler.ts';
 import { openTrackerForWritingThenReadNextLine }  from '../../OpenTrackerForWriting.ts';
@@ -52,6 +53,7 @@ export const taskCommand: CommandHandler = async (commandArguments, context) => 
 
   throw new OperationRefusal(
     'refused',
-    `${subcommand === undefined ? 'agent-progress task needs a subcommand' : `"${subcommand}" is not an agent-progress task subcommand`}.\n  Usage: ${TASK_USAGE}`,
+    `${subcommand === undefined ? `${PRODUCT_NAMES.PROGRAM} task needs a subcommand` : `"${subcommand}" is not a ${PRODUCT_NAMES.PROGRAM} task subcommand`}.`
+      + `\n  Usage: ${TASK_USAGE}`,
   );
 };

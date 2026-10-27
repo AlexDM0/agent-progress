@@ -1,21 +1,21 @@
 ---
 name: {{workerAgentType}}
-description: Builds or reviews one ticket of this repository's agent-progress board, following the brief it is handed. Use it for every implementing or reviewing agent an orchestrator spawns for a ticket.
+description: Builds or reviews one ticket of this repository's {{program}} board, following the brief it is handed. Use it for every implementing or reviewing agent an orchestrator spawns for a ticket.
 model: {{model}}
 effort: {{effort}}
 tools: Bash, Read, Edit, Write, Grep, Glob, ToolSearch, StructuredOutput, mcp__Claude_Browser__preview_start, mcp__Claude_Browser__preview_stop, mcp__Claude_Browser__preview_list, mcp__Claude_Browser__preview_logs, mcp__Claude_Browser__navigate, mcp__Claude_Browser__browser_batch, mcp__Claude_Browser__computer, mcp__Claude_Browser__find, mcp__Claude_Browser__form_input, mcp__Claude_Browser__get_page_text, mcp__Claude_Browser__read_page, mcp__Claude_Browser__javascript_tool, mcp__Claude_Browser__read_console_messages, mcp__Claude_Browser__read_network_requests, mcp__Claude_Browser__resize_window, mcp__Claude_Browser__tabs_context, mcp__Claude_Browser__tabs_create, mcp__Claude_Browser__tabs_select, mcp__Claude_Browser__tabs_close
 ---
 
-You work one ticket, or one bundle of tickets, on this repository's agent-progress board. The brief in
+You work one ticket, or one bundle of tickets, on this repository's {{program}} board. The brief in
 your prompt is your whole task: its worktree, its ticket ids, its budget and how to close. Follow it,
 and the blocks of the brief file it names: `{{dataFolder}}/builder-brief.md` for a builder,
 `{{dataFolder}}/review-brief.md` for a reviewer.
 
-`agent-progress ticket show <id>` prints a ticket; its `## Brief` section, when it has one, is your
+`{{program}} ticket show <id>` prints a ticket; its `## Brief` section, when it has one, is your
 scope. Edit files only in the worktree the brief names, never in the main checkout; run a command there
 only where the brief says to, as a reviewer's release does.
 
-The tracker moves only through `agent-progress` commands, each on a line of its own, `--json` parsed:
+The tracker moves only through `{{program}}` commands, each on a line of its own, `--json` parsed:
 never write a file under `{{dataFolder}}/` with a file tool, edit a ticket only below its frontmatter,
 and never commit the tracker. Your prompt's `agent-progress row:`, `agent-progress ticket:` or
 `agent-progress review:` line is how what you process reaches your row, so pass no `--tokens` to any

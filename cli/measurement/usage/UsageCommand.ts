@@ -8,6 +8,7 @@ import { TranscriptCohortUtil }                         from '../../../src/lib/c
 import { LocalTimeUtil }                                from '../../../src/lib/local-time/LocalTimeUtil.ts';
 import { requireWorkspace }                             from '../../../src/services/tracker/Workspace.ts';
 import { OperationRefusal }                             from '../../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }                                from '../../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                          from '../../CommandContext.ts';
 import type { CommandHandler }                          from '../../CommandHandler.ts';
 import type { ArgumentParser }                          from '../../arguments/ArgumentParser.ts';
@@ -15,7 +16,7 @@ import { OutputUtil }                                   from '../../utils/Output
 import { readAgents }                                   from './UsageAgents.ts';
 import { agentRowLinesOf, cohortLineOf }                from './UsageText.ts';
 
-const USAGE = 'agent-progress usage [--since <when>] [--transcripts <folder>] [--json]';
+const USAGE = `${PRODUCT_NAMES.PROGRAM} usage [--since <when>] [--transcripts <folder>] [--json]`;
 
 const KNOWN_OPTION_NAMES = ['since', 'transcripts', 'json'];
 

@@ -11,6 +11,7 @@ import {
   test
 }                                                             from 'bun:test';
 import { workspacePathsFor }                  from '../src/services/tracker/Workspace.ts';
+import { PRODUCT_NAMES }                      from '../src/shared/constants/ProductNames.ts';
 import { JsonTextUtil }                       from '../src/shared/utils/JsonTextUtil.ts';
 import { removeScratchDirectory }             from '../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../src/testing/ToolGuard.ts';
@@ -20,7 +21,7 @@ import { createInitializedScratchRepository } from './testing/InitializedScratch
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
-const UPDATE_SENTENCE = 'run `agent-progress update` with a release that still reads it, then use this one';
+const UPDATE_SENTENCE = `run \`${PRODUCT_NAMES.PROGRAM} update\` with a release that still reads it, then use this one`;
 
 let repositoryDirectory = '';
 
@@ -54,7 +55,7 @@ describeWhenGitIsPresent('a tracker in a format an earlier release wrote', () =>
     const refused = await run(['log', 'Example note after the upgrade']);
 
     expect(refused.exitCode).toBe(2);
-    expect(refused.errorText).toContain('version is 1, and this build of agent-progress reads version 2');
+    expect(refused.errorText).toContain(`version is 1, and this build of ${PRODUCT_NAMES.PROGRAM} reads version 2`);
     expect(refused.errorText).toContain(UPDATE_SENTENCE);
     expect(readFileSync(workspacePathsFor(repositoryDirectory).progressFilePath, 'utf8')).toBe(olderText);
   });

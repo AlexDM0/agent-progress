@@ -5,6 +5,7 @@
 import { describe, expect, test } from 'bun:test';
 
 import { TICKET_STATUSES }    from '../../../lib/tracker-model/constants/Statuses.ts';
+import { PRODUCT_NAMES }      from '../../../shared/constants/ProductNames.ts';
 import { TicketDocumentUtil } from './TicketDocumentUtil.ts';
 
 function ticketDocumentIn(storedStatus: string): string {
@@ -47,7 +48,7 @@ describe('a ticket document in a status word an earlier release wrote', () => {
 
       expect(parsed.verdict, retiredStatus).toBe('malformed');
       expect(parsed.verdict === 'malformed' ? parsed.line : 0, retiredStatus).toBe(5);
-      expect(parsed.verdict === 'malformed' ? parsed.reason : '', retiredStatus).toContain('run `agent-progress update` with a release that still reads it');
+      expect(parsed.verdict === 'malformed' ? parsed.reason : '', retiredStatus).toContain(`run \`${PRODUCT_NAMES.PROGRAM} update\` with a release that still reads it`);
     }
   });
 });

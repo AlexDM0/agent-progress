@@ -51,7 +51,7 @@ describe('asking for the reference', () => {
   test('no command at all prints the help on standard output and exits 0', async () => {
     const context = capturingContext();
     expect(await runCommandLine([], context)).toBe(0);
-    expect(context.outputText()).toContain('agent-progress — tasks, tickets and a Gantt dashboard');
+    expect(context.outputText()).toContain(`${PRODUCT_NAMES.PROGRAM} — tasks, tickets and a Gantt dashboard`);
     expect(context.errorText()).toBe('');
   });
 
@@ -59,7 +59,7 @@ describe('asking for the reference', () => {
     for (const word of ['help', '--help', '-h']) {
       const context = capturingContext();
       expect(await runCommandLine([word], context), `\`agent-progress ${word}\` exits 0`).toBe(0);
-      expect(context.outputText(), `\`agent-progress ${word}\` prints the reference`).toContain('Usage: agent-progress <command>');
+      expect(context.outputText(), `\`agent-progress ${word}\` prints the reference`).toContain(`Usage: ${PRODUCT_NAMES.PROGRAM} <command>`);
       expect(context.errorText()).toBe('');
     }
   });
@@ -68,7 +68,7 @@ describe('asking for the reference', () => {
     for (const line of [['ticket', '--help'], ['task', '-h'], ['task', 'add', '--help'], ['status', '-h'], ['log', 'remember', '--help']]) {
       const context = capturingContext();
       expect(await runCommandLine(line, context), line.join(' ')).toBe(0);
-      expect(context.outputText(), line.join(' ')).toContain('Usage: agent-progress <command>');
+      expect(context.outputText(), line.join(' ')).toContain(`Usage: ${PRODUCT_NAMES.PROGRAM} <command>`);
       expect(context.errorText(), line.join(' ')).toBe('');
     }
   });
@@ -76,8 +76,8 @@ describe('asking for the reference', () => {
   test('a help alias after a bare -- is a positional, not a request for the reference', async () => {
     const context = capturingContext();
     expect(await runCommandLine(['ticket', 'add', '--type', 'ticket', '--', '--help'], context)).toBe(1);
-    expect(context.outputText()).not.toContain('Usage: agent-progress <command>');
-    expect(context.errorText(), 'the command itself ran, and found no tracker to file `--help` into').toContain('No agent-progress tracker was found');
+    expect(context.outputText()).not.toContain(`Usage: ${PRODUCT_NAMES.PROGRAM} <command>`);
+    expect(context.errorText(), 'the command itself ran, and found no tracker to file `--help` into').toContain(`No ${PRODUCT_NAMES.PROGRAM} tracker was found`);
   });
 });
 
@@ -103,7 +103,7 @@ describe('-h that is not a request for the reference', () => {
   test('-h as an option\'s value is that value: ticket abandon --reason -h abandons the ticket', async () => {
     const abandoningContext = trackedContext();
     expect(await runCommandLine(['ticket', 'abandon', '1', '--reason', '-h'], abandoningContext), abandoningContext.errorText()).toBe(0);
-    expect(abandoningContext.outputText()).not.toContain('Usage: agent-progress <command>');
+    expect(abandoningContext.outputText()).not.toContain(`Usage: ${PRODUCT_NAMES.PROGRAM} <command>`);
     const showingContext = trackedContext();
     expect(await runCommandLine(['ticket', 'show', '1', '--json'], showingContext)).toBe(0);
     expect(JSON.parse(showingContext.outputText())).toMatchObject({ status: 'abandoned', reason: '-h' });
@@ -133,7 +133,7 @@ describe('a command that does not exist', () => {
     const context = capturingContext();
     expect(await runCommandLine(['taks', 'add', 'Review pass'], context)).toBe(1);
     expect(context.errorText()).toContain('Unknown command: "taks".');
-    expect(context.errorText()).toContain('Usage: agent-progress <command>');
+    expect(context.errorText()).toContain(`Usage: ${PRODUCT_NAMES.PROGRAM} <command>`);
     expect(context.outputText()).toBe('');
   });
 });
@@ -143,8 +143,8 @@ describe('a command run where no tracker is', () => {
     const context = capturingContext();
     expect(await runCommandLine(['status'], context)).toBe(1);
     expect(context.errorText()).toBe(
-      `No agent-progress tracker was found in ${resolve(untrackedDirectory)} or any directory above it. `
-      + 'Run `agent-progress init` in the repository you want tracked.',
+      `No ${PRODUCT_NAMES.PROGRAM} tracker was found in ${resolve(untrackedDirectory)} or any directory above it. `
+      + `Run \`${PRODUCT_NAMES.PROGRAM} init\` in the repository you want tracked.`,
     );
     expect(context.outputText()).toBe('');
   });
@@ -200,7 +200,7 @@ describe('a tracker whose installed files are of another install version', () =>
     for (const line of [['help'], ['task', '--help']]) {
       const context = trackedContext();
       expect(await runCommandLine(line, context), line.join(' ')).toBe(0);
-      expect(context.outputText(), line.join(' ')).toContain('Usage: agent-progress <command>');
+      expect(context.outputText(), line.join(' ')).toContain(`Usage: ${PRODUCT_NAMES.PROGRAM} <command>`);
     }
     const statusWithoutTheManifest = trackedContext();
     expect(await runCommandLine(['status', '--json', '--full'], statusWithoutTheManifest)).toBe(0);
@@ -236,8 +236,8 @@ describe('a tracker whose installed files are of another install version', () =>
     const context = capturingContext();
     expect(await runCommandLine(['task', 'add', 'Example row'], context)).toBe(1);
     expect(context.errorText()).toBe(
-      `No agent-progress tracker was found in ${resolve(untrackedDirectory)} or any directory above it. `
-      + 'Run `agent-progress init` in the repository you want tracked.',
+      `No ${PRODUCT_NAMES.PROGRAM} tracker was found in ${resolve(untrackedDirectory)} or any directory above it. `
+      + `Run \`${PRODUCT_NAMES.PROGRAM} init\` in the repository you want tracked.`,
     );
   });
 });

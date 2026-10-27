@@ -18,7 +18,7 @@ Open every file named above in ONE message with several Read calls.
 Existing files change through the Edit tool only, never through a script run in Bash: no heredoc,
 no python or perl edit script, no `sed -i`. New files through Write.
 Every probe that touches a scratch repository names it absolutely (`git -C <scratch>`,
-`AGENT_PROGRESS_ROOT=<scratch>` before every agent-progress command in it, `cd <scratch> && …`
+`AGENT_PROGRESS_ROOT=<scratch>` before every {{program}} command in it, `cd <scratch> && …`
 joined with `&&`, never `;`); `--root` is `init`'s alone, and any other command refuses it. Never
 write into any `.git` directory by hand.
 While iterating verify with `<the narrow command: the spec file you touched>`.
@@ -74,11 +74,11 @@ Close in this order, git as `git -C <worktree>`:
    tool, `git add`, then `GIT_EDITOR=true git rebase --continue`; the same conflict may return on a
    later commit.
 3. Full checks until green on the rebased result; commit what is uncommitted. The full checks are
-   the line `agent-progress checks` prints, which `agent-progress release` runs again on the tip.
+   the line `{{program}} checks` prints, which `{{program}} release` runs again on the tip.
 The rebase is exempt from the budget: you hold the context a fresh agent would have to buy again, so
 past it, finish the rebase anyway and say in the Handoff how much resolving it took. Never
 `git rebase --abort` to stop.
-Never merge <branch> into <main line>, and never run `agent-progress release`: the release is the reviewer's.
+Never merge <branch> into <main line>, and never run `{{program}} release`: the release is the reviewer's.
 ```
 
 ## Report

@@ -4,6 +4,7 @@ import { BoardSettingsUtil }                   from '../../../src/lib/tracker-mo
 import { requireProgressFile, requireTracker } from '../../../src/services/tracker/TrackerReader.ts';
 import { requireWorkspace }                    from '../../../src/services/tracker/Workspace.ts';
 import { OperationRefusal }                    from '../../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }                       from '../../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                 from '../../CommandContext.ts';
 import type { CommandHandler }                 from '../../CommandHandler.ts';
 import { openTrackerForWriting }               from '../../OpenTrackerForWriting.ts';
@@ -17,11 +18,12 @@ import {
   runCheckCommand
 } from '../CheckCommandRun.ts';
 
-const USAGE = 'agent-progress checks ["<command>" | --clear] [--restamp] [--json]';
+const USAGE = `${PRODUCT_NAMES.PROGRAM} checks ["<command>" | --clear] [--restamp] [--json]`;
 
 const KNOWN_OPTION_NAMES = ['clear', 'restamp', 'json'];
 
-const NO_CHECK_COMMAND_TEXT = 'No check command is set, so `agent-progress release` runs none. Set one with `agent-progress checks "<command>"`.';
+const NO_CHECK_COMMAND_TEXT = `No check command is set, so \`${PRODUCT_NAMES.PROGRAM} release\` runs none. `
+  + `Set one with \`${PRODUCT_NAMES.PROGRAM} checks "<command>"\`.`;
 
 /** The read takes no lock and writes nothing, so a tracker that never set one keeps its file as it was. */
 function printCurrentCheckCommand(commandArguments: ArgumentParser, context: CommandContext): void {

@@ -1,4 +1,5 @@
 import { OperationRefusal }             from '../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }                from '../../src/shared/constants/ProductNames.ts';
 import type { CommandHandler }          from '../CommandHandler.ts';
 import type { TicketSubcommandHandler } from './@types/TicketSubcommandHandler.ts';
 import { TICKET_CLAIM_SUBCOMMANDS }     from './TicketClaimSubcommands.ts';
@@ -27,6 +28,7 @@ export const ticketCommand: CommandHandler = async (commandArguments, context) =
 
   throw new OperationRefusal(
     'refused',
-    `${subcommand === undefined ? 'agent-progress ticket needs a subcommand' : `"${subcommand}" is not an agent-progress ticket subcommand`}.\n  Usage: ${TICKET_USAGE}`,
+    `${subcommand === undefined ? `${PRODUCT_NAMES.PROGRAM} ticket needs a subcommand` : `"${subcommand}" is not a ${PRODUCT_NAMES.PROGRAM} ticket subcommand`}.`
+      + `\n  Usage: ${TICKET_USAGE}`,
   );
 };

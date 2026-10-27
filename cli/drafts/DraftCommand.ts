@@ -6,6 +6,7 @@ import { draftFilePathOf }                                         from '../../s
 import { requireTracker }                                          from '../../src/services/tracker/TrackerReader.ts';
 import { requireWorkspace, type Workspace }                        from '../../src/services/tracker/Workspace.ts';
 import { OperationRefusal }                                        from '../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }                                           from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                                     from '../CommandContext.ts';
 import type { CommandHandler }                                     from '../CommandHandler.ts';
 import type { ArgumentParser }                                     from '../arguments/ArgumentParser.ts';
@@ -69,6 +70,7 @@ export const draftCommand: CommandHandler = async (commandArguments, context) =>
 
   throw new OperationRefusal(
     'refused',
-    `${subcommand === undefined ? 'agent-progress draft needs a subcommand' : `"${subcommand}" is not an agent-progress draft subcommand`}.\n  Usage: ${DRAFT_USAGE}`,
+    `${subcommand === undefined ? `${PRODUCT_NAMES.PROGRAM} draft needs a subcommand` : `"${subcommand}" is not a ${PRODUCT_NAMES.PROGRAM} draft subcommand`}.`
+      + `\n  Usage: ${DRAFT_USAGE}`,
   );
 };

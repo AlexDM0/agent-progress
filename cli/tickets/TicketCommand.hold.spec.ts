@@ -194,7 +194,7 @@ describeWhenGitIsPresent('unholding a ticket whose build a dispatcher run left p
 
     const lastLine = (await unholdOutput()).trimEnd().split('\n').at(-1);
 
-    expect(lastLine).toContain(`\`agent-progress task start ${buildRowId}\``);
+    expect(lastLine).toContain(`\`${PRODUCT_NAMES.PROGRAM} task start ${buildRowId}\``);
     expect(lastLine).not.toContain('dispatcher run');
   });
 
@@ -262,7 +262,7 @@ describeWhenGitIsPresent('refusals leave the whole tracker byte-identical', () =
       [['ticket', 'unhold', '2'], 'Ticket #002 is delivered, and no agent will work it again, so there is nothing to unhold'],
       [['ticket', 'hold', '1'], 'Ticket #001 is already held'],
       [['ticket', 'unhold', '4'], 'There is no readable ticket 4'],
-      [['ticket', 'hold'], 'agent-progress ticket hold needs a ticket id'],
+      [['ticket', 'hold'], `${PRODUCT_NAMES.PROGRAM} ticket hold needs a ticket id`],
       [['ticket', 'unhold', '1', '--reason', 'x'], 'Unknown option'],
     ];
     for (const [commandLineArguments, reason] of refusals) {

@@ -224,7 +224,7 @@ describeWhenGitIsPresent('initialising a repository', () => {
 
     expect(await runCommandLine(['init', '--no-agent-definition'], context)).toBe(1);
 
-    expect(context.errorText()).toContain('agent-progress init --no-agent-definition needs --no-workflow as well');
+    expect(context.errorText()).toContain(`${PRODUCT_NAMES.PROGRAM} init --no-agent-definition needs --no-workflow as well`);
     expect(context.errorText()).toContain('Nothing was written.');
     expect(context.outputText()).toBe('');
     expect(repositoryFileContentsOf(repositoryDirectory)).toEqual(filesBefore);
@@ -241,7 +241,7 @@ describeWhenGitIsPresent('initialising a repository', () => {
 
     expect(await runCommandLine(['init', '--no-agent-definition', '--no-workflow'], context)).toBe(1);
 
-    expect(context.errorText()).toContain('agent-progress init --no-agent-definition --no-workflow would leave');
+    expect(context.errorText()).toContain(`${PRODUCT_NAMES.PROGRAM} init --no-agent-definition --no-workflow would leave`);
     expect(context.errorText()).toContain('Nothing was written.');
     expect(context.outputText()).toBe('');
     expect(repositoryFileContentsOf(repositoryDirectory)).toEqual(filesBefore);
@@ -307,7 +307,7 @@ describeWhenGitIsPresent('a second init', () => {
 
     expect(second.outputText()).toContain('already initialised');
     expect(second.outputText(), 'a re-run says so on both paths, or the hook is invisible to a repository that adopted the tool a month ago').toContain('hooks:       ');
-    expect(second.outputText(), 'the refresh has its own verb now').toContain('`agent-progress update` is the command for this refresh');
+    expect(second.outputText(), 'the refresh has its own verb now').toContain(`\`${PRODUCT_NAMES.PROGRAM} update\` is the command for this refresh`);
     expect(readFileSync(claudeFilePath, 'utf8')).toContain('agent-progress');
     expect(readFileSync(briefFilePath, 'utf8'), 'the brief is shipped guidance, so a re-run restores the current wording').toStartWith('# Agent brief');
     // The tracker id is the page's localStorage key, so a re-run that reset it would reset every reader's stored range.
@@ -324,7 +324,7 @@ describeWhenGitIsPresent('a second init', () => {
     expect(await runCommandLine(['init', '--root', nestedDirectory], context)).toBe(1);
 
     expect(context.errorText()).toContain(repositoryDirectory);
-    expect(context.errorText(), 'the refresh at the tracker\'s root is `update`, and it refreshes more than the block').toContain('agent-progress update');
+    expect(context.errorText(), 'the refresh at the tracker\'s root is `update`, and it refreshes more than the block').toContain(`${PRODUCT_NAMES.PROGRAM} update`);
     expect(context.errorText()).not.toContain('only refreshes the CLAUDE.md block');
     expect(existsSync(join(nestedDirectory, PRODUCT_NAMES.DATA_FOLDER))).toBe(false);
   });

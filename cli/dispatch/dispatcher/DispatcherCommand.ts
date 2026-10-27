@@ -6,13 +6,14 @@ import { BoardSettingsUtil }     from '../../../src/lib/tracker-model/utils/Boar
 import { requireProgressFile }   from '../../../src/services/tracker/TrackerReader.ts';
 import { requireWorkspace }      from '../../../src/services/tracker/Workspace.ts';
 import { OperationRefusal }      from '../../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }         from '../../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }   from '../../CommandContext.ts';
 import type { CommandHandler }   from '../../CommandHandler.ts';
 import { openTrackerForWriting } from '../../OpenTrackerForWriting.ts';
 import type { ArgumentParser }   from '../../arguments/ArgumentParser.ts';
 import { OutputUtil }            from '../../utils/OutputUtil.ts';
 
-const USAGE = `agent-progress dispatcher [${DISPATCHER_STATES.join('|')}] [--run <runId>] [--json]`;
+const USAGE = `${PRODUCT_NAMES.PROGRAM} dispatcher [${DISPATCHER_STATES.join('|')}] [--run <runId>] [--json]`;
 
 const KNOWN_OPTION_NAMES = ['json', 'run'];
 

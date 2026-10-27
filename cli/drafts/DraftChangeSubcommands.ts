@@ -7,6 +7,7 @@ import { DraftIdUtil }           from '../../src/lib/tracker-model/utils/DraftId
 import { draftFilePathOf }       from '../../src/services/tracker/DraftStore.ts';
 import { requireWorkspace }      from '../../src/services/tracker/Workspace.ts';
 import { OperationRefusal }      from '../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }         from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }   from '../CommandContext.ts';
 import { openTrackerForWriting } from '../OpenTrackerForWriting.ts';
 import type { ArgumentParser }   from '../arguments/ArgumentParser.ts';
@@ -30,14 +31,14 @@ export function refusalOf(text: string): OperationRefusal {
 /** The draft id a subcommand names as its first argument, refused when missing or not a draft id. */
 export function draftIdArgumentOf(commandArguments: ArgumentParser, subcommand: string): string {
   const draftId = commandArguments.positionals()[1];
-  if (draftId === undefined) throw refusalOf(`agent-progress draft ${subcommand} needs a draft id.`);
+  if (draftId === undefined) throw refusalOf(`${PRODUCT_NAMES.PROGRAM} draft${subcommand} needs a draft id.`);
   if (DraftIdUtil.draftNumberOf(draftId) === null) throw refusalOf(`"${draftId}" is not a draft id: a draft id is D and a number, such as D1.`);
   return draftId;
 }
 
 function requiredOwnerOf(commandArguments: ArgumentParser, subcommand: string): string {
   const owner = commandArguments.option('owner');
-  if (owner === undefined || owner.trim() === '') throw refusalOf(`agent-progress draft ${subcommand} needs --owner <who>.`);
+  if (owner === undefined || owner.trim() === '') throw refusalOf(`${PRODUCT_NAMES.PROGRAM} draft${subcommand} needs --owner <who>.`);
   return owner;
 }
 
@@ -45,7 +46,7 @@ function requiredOwnerOf(commandArguments: ArgumentParser, subcommand: string): 
 async function suppliedRequestOf(commandArguments: ArgumentParser, context: CommandContext): Promise<string> {
   const written     = commandArguments.option('request');
   const requestFile = commandArguments.option('request-file');
-  if (written !== undefined && requestFile !== undefined) throw refusalOf('agent-progress draft open takes --request or --request-file, not both.');
+  if (written !== undefined && requestFile !== undefined) throw refusalOf(`${PRODUCT_NAMES.PROGRAM} draft open takes --request or --request-file, not both.`);
   if (written !== undefined) return written;
   if (requestFile === undefined) return '';
   if (requestFile === STANDARD_INPUT_MARKER) return context.readStandardInput();
@@ -60,7 +61,7 @@ async function openDraft(commandArguments: ArgumentParser, context: CommandConte
   commandArguments.rejectUnknownOptions(OPEN_OPTION_NAMES, DRAFT_USAGE);
   commandArguments.rejectExtraPositionals(2, DRAFT_USAGE);
   const title = commandArguments.positionals()[1];
-  if (title === undefined || title.trim() === '') throw refusalOf('agent-progress draft open needs a title.');
+  if (title === undefined || title.trim() === '') throw refusalOf(`${PRODUCT_NAMES.PROGRAM} draft open needs a title.`);
   const owner = requiredOwnerOf(commandArguments, 'open');
 
   requireWorkspace(context.currentDirectory);
@@ -105,7 +106,7 @@ async function closeDraft(commandArguments: ArgumentParser, context: CommandCont
   commandArguments.rejectExtraPositionals(2, DRAFT_USAGE);
   const draftId          = draftIdArgumentOf(commandArguments, 'close');
   const ticketReferences = (commandArguments.option('tickets') ?? '').split(TICKET_LIST_SEPARATOR_PATTERN).filter((reference) => reference !== '');
-  if (ticketReferences.length === 0) throw refusalOf('agent-progress draft close needs --tickets <ids>, the tickets filed from the draft.');
+  if (ticketReferences.length === 0) throw refusalOf(`${PRODUCT_NAMES.PROGRAM} draft close needs --tickets <ids>, the tickets filed from the draft.`);
 
   const closed    = await openTrackerForWriting(commandArguments, context, (change) => change.board.closeDraft(draftId, ticketReferences, change.at));
   const ticketIds = closed.logged.flatMap((record) => (record.kind === 'draft-closed' ? record.fields.ticketIds : []));
@@ -117,7 +118,7 @@ async function abandonDraft(commandArguments: ArgumentParser, context: CommandCo
   commandArguments.rejectExtraPositionals(2, DRAFT_USAGE);
   const draftId = draftIdArgumentOf(commandArguments, 'abandon');
   const reason  = commandArguments.option('reason');
-  if (reason === undefined || reason.trim() === '') throw refusalOf('agent-progress draft abandon needs --reason <text>, which the log keeps.');
+  if (reason === undefined || reason.trim() === '') throw refusalOf(`${PRODUCT_NAMES.PROGRAM} draft abandon needs --reason <text>, which the log keeps.`);
 
   const abandoned = await openTrackerForWriting(commandArguments, context, (change) => change.board.abandonDraft(draftId, reason, change.at));
   OutputUtil.printEntity(commandArguments, context, { id: draftId, abandoned: true, reason }, OutputUtil.loggedSentencesOf(abandoned.logged));

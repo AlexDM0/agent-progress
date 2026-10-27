@@ -172,8 +172,8 @@ describeWhenGitIsPresent('refusals a caller can act on', () => {
     const exitCode = await runCommandLine(['task', 'begin', '1'], context);
 
     expect(exitCode).toBe(1);
-    expect(context.errorText()).toContain('is not an agent-progress task subcommand');
-    expect(context.errorText()).toContain('Usage: agent-progress task add');
+    expect(context.errorText()).toContain(`is not a ${PRODUCT_NAMES.PROGRAM} task subcommand`);
+    expect(context.errorText()).toContain(`Usage: ${PRODUCT_NAMES.PROGRAM} task add`);
   });
 
   test('an --at nobody can read is refused instead of being backfilled to now', async () => {
@@ -346,7 +346,7 @@ describeWhenGitIsPresent('a row a ticket owns', () => {
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('belongs to ticket #001');
-    expect(context.errorText()).toContain('agent-progress ticket finish 001');
+    expect(context.errorText()).toContain(`${PRODUCT_NAMES.PROGRAM} ticket finish 001`);
     expect(storedProgressOf(repositoryDirectory).tasks[0]?.status).toBe('pending');
   });
 
@@ -355,7 +355,7 @@ describeWhenGitIsPresent('a row a ticket owns', () => {
     const exitCode = await runCommandLine(['task', 'rereview', '1'], context);
 
     expect(exitCode).toBe(1);
-    expect(context.errorText()).toContain('agent-progress ticket rereview 001');
+    expect(context.errorText()).toContain(`${PRODUCT_NAMES.PROGRAM} ticket rereview 001`);
     expect(storedProgressOf(repositoryDirectory).tasks[0]?.status).toBe('pending');
   });
 

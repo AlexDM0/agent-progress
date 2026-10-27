@@ -19,6 +19,7 @@ import {
 import { ORIGINAL_PRODUCT_NAMES, PRODUCT_NAMES }                              from '../src/shared/constants/ProductNames.ts';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }                                           from '../src/testing/ToolGuard.ts';
+import { filledTemplateOf, productNameTemplateValuesOf }                      from './FilledTemplate.ts';
 import { helpText }                                                           from './HelpText.ts';
 import { runCommandLine }                                                     from './Main.ts';
 import { INSTALL_VERSION }                                                    from './constants/InstallVersion.ts';
@@ -80,7 +81,7 @@ const FOREIGN_TOOL_FLAGS = [
 
 const FLAG_PATTERN = /--[a-z][a-z-]*[a-z]/g;
 
-/** Until the installed texts are filled with the program's name they name the released program, which the pattern also takes. */
+/** The templates and skills are filled with the program's name as `init` fills them, but the dispatcher's prompts still name the released program. */
 function namedCommandPatternOf(programNames: readonly string[]): RegExp {
   const programAlternatives = [...new Set(programNames)].map((programName) => RegExp.escape(programName)).join('|');
   return new RegExp(`(?<![\\w-])(?:${programAlternatives}) ([a-z]+)(?: ([a-z][a-z-]*))?`, 'g');
@@ -109,7 +110,8 @@ function installedTextsByPath(): Readonly<Record<string, string>> {
   const dispatcherPaths = readdirSync(join(REPOSITORY_ROOT, DISPATCHER_FOLDER), { recursive: true, encoding: 'utf8' })
     .map((relativePath) => `${DISPATCHER_FOLDER}/${relativePath.split('\\').join('/')}`)
     .filter((path) => path.endsWith('.ts') && !path.endsWith('.spec.ts') && !path.split('/').includes('testing'));
-  return Object.fromEntries([...INSTALLED_TEMPLATE_PATHS, ...skillPaths, ...dispatcherPaths].sort().map((path) => [path, repositoryFileText(path)]));
+  return Object.fromEntries([...INSTALLED_TEMPLATE_PATHS, ...skillPaths, ...dispatcherPaths].sort()
+    .map((path) => [path, filledTemplateOf(repositoryFileText(path), productNameTemplateValuesOf(PRODUCT_NAMES))]));
 }
 
 function cliSurfaceOf(help: string, statusDocumentKeys: ReadonlySet<string>): CliSurface {
@@ -285,7 +287,8 @@ describeWhenGitIsPresent('the guard, planted in memory', () => {
   });
 
   test('a name newly installed is asked for under the current version', () => {
-    const naming = withTextReplaced(INSTALLED_TEXTS, 'skills/agent-po/SKILL.md', 'agent-progress help', 'agent-progress help and `agent-progress usage`');
+    const program = PRODUCT_NAMES.PROGRAM;
+    const naming = withTextReplaced(INSTALLED_TEXTS, 'skills/agent-po/SKILL.md', `${program} help`, `${program} help and \`${program} usage\``);
     expect(sentencesWith(naming, cliSurface)).toEqual([
       `the installed files now name the command usage, which INSTALL_VERSION ${INSTALL_VERSION}'s frozen surface lacks: add it under "${INSTALL_VERSION}" in ${FROZEN_TABLE_PATH}`,
     ]);

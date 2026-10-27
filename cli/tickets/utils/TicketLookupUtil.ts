@@ -5,6 +5,7 @@ import { TicketIdUtil }             from '../../../src/lib/tracker-model/utils/T
 import type { MalformedTicketFile } from '../../../src/services/tracker/TicketStore.ts';
 import type { TrackerChange }       from '../../../src/services/tracker/TrackerPipeline.ts';
 import { OperationRefusal }         from '../../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }            from '../../../src/shared/constants/ProductNames.ts';
 import { OutputUtil }               from '../../utils/OutputUtil.ts';
 
 function malformedFileOfTicket(malformedTickets: readonly MalformedTicketFile[], reference: string): MalformedTicketFile | undefined {
@@ -22,7 +23,7 @@ function refuseAMissingTicket(reference: string, malformedTickets: readonly Malf
   if (malformed !== undefined) throw new OperationRefusal('unrepaired', OutputUtil.ignoredTicketFileText(malformed));
   throw new OperationRefusal(
     'refused',
-    `There is no readable ticket ${reference}. Run \`agent-progress ticket list\` to see what this tracker holds; `
+    `There is no readable ticket ${reference}. Run \`${PRODUCT_NAMES.PROGRAM} ticket list\` to see what this tracker holds; `
     + 'a file that will not parse is reported there as malformed.',
   );
 }

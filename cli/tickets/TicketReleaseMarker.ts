@@ -1,6 +1,7 @@
 /** `ticket release-of`: marks a ticket as its group's release ticket, or with `--clear` removes the mark. */
 import { TicketJsonUtil }        from '../../src/adapters/utils/TicketJsonUtil.ts';
 import { OperationRefusal }      from '../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }         from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }   from '../CommandContext.ts';
 import { openTrackerForWriting } from '../OpenTrackerForWriting.ts';
 import type { ArgumentParser }   from '../arguments/ArgumentParser.ts';
@@ -16,7 +17,7 @@ export async function markOrClearReleaseTicket(commandArguments: ArgumentParser,
 
   const reference = commandArguments.positionals()[1];
   if (reference === undefined) {
-    throw new OperationRefusal('refused', `agent-progress ticket release-of needs a ticket id.\n  Usage: ${TICKET_USAGE}`);
+    throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} ticket release-of needs a ticket id.\n  Usage: ${TICKET_USAGE}`);
   }
   const clears = commandArguments.flag('clear');
 

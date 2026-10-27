@@ -4,13 +4,14 @@ import { readingBoardOf }                    from '../../../src/lib/tracker-mode
 import { requireTracker }                    from '../../../src/services/tracker/TrackerReader.ts';
 import { requireWorkspace }                  from '../../../src/services/tracker/Workspace.ts';
 import type { WordedLogEntry }               from '../../../src/shared/@types/WordedLogEntry.ts';
+import { PRODUCT_NAMES }                     from '../../../src/shared/constants/ProductNames.ts';
 import type { CommandHandler }               from '../../CommandHandler.ts';
 import { NextLineUtil }                      from '../../utils/NextLineUtil.ts';
 import { OutputUtil }                        from '../../utils/OutputUtil.ts';
 import { fullDocumentOf, workingDocumentOf } from './StatusDocuments.ts';
 import { humanStatusTextOf }                 from './StatusText.ts';
 
-const USAGE = 'agent-progress status [--json] [--full] [--tickets-only]';
+const USAGE = `${PRODUCT_NAMES.PROGRAM} status [--json] [--full] [--tickets-only]`;
 
 const KNOWN_OPTION_NAMES = ['json', 'full', 'tickets-only'];
 

@@ -1,9 +1,10 @@
 /** Renders without writing the progress file; the tracker service takes the lock, so a concurrent write cannot leave the older picture on disk. */
 import { requireWorkspace }        from '../../../src/services/tracker/Workspace.ts';
+import { PRODUCT_NAMES }           from '../../../src/shared/constants/ProductNames.ts';
 import type { CommandHandler }     from '../../CommandHandler.ts';
 import { renderDashboardOrRefuse } from '../RenderDashboardOrRefuse.ts';
 
-const USAGE = 'agent-progress render';
+const USAGE = `${PRODUCT_NAMES.PROGRAM} render`;
 
 const KNOWN_OPTION_NAMES: readonly string[] = [];
 

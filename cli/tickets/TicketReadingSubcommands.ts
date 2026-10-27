@@ -5,6 +5,7 @@ import { TicketDefaultsUtil }               from '../../src/lib/tracker-model/ut
 import { listTickets, readTicket }          from '../../src/services/tracker/TicketStore.ts';
 import { requireWorkspace, type Workspace } from '../../src/services/tracker/Workspace.ts';
 import { OperationRefusal }                 from '../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }                    from '../../src/shared/constants/ProductNames.ts';
 import { TIMESTAMP_SLICES }                 from '../../src/shared/constants/TimestampSlices.ts';
 import type { CommandContext }              from '../CommandContext.ts';
 import type { ArgumentParser }              from '../arguments/ArgumentParser.ts';
@@ -57,7 +58,7 @@ async function showOneTicket(commandArguments: ArgumentParser, context: CommandC
 
   const reference = commandArguments.positionals()[1];
   if (reference === undefined) {
-    throw new OperationRefusal('refused', `agent-progress ticket show needs a ticket id.\n  Usage: ${TICKET_USAGE}`);
+    throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} ticket show needs a ticket id.\n  Usage: ${TICKET_USAGE}`);
   }
 
   const workspace  = requireWorkspace(context.currentDirectory);

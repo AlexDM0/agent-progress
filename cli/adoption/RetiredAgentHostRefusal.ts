@@ -4,6 +4,7 @@
  */
 import { InstallManifestIngestion } from '../../src/adapters/install/InstallManifestIngestion.ts';
 import { OperationRefusal }         from '../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }            from '../../src/shared/constants/ProductNames.ts';
 import { installedFilePathsIn }     from '../InstalledFiles.ts';
 
 const RETIRED_AGENT_HOST = 'copilot-cli';
@@ -16,9 +17,9 @@ export function refuseARetiredAgentHostsInstall(commandName: string, rootDirecto
   if (reading.verdict !== 'readable' || reading.agentHost !== RETIRED_AGENT_HOST) return;
   throw new OperationRefusal(
     'refused',
-    `agent-progress ${commandName} installs for Claude Code only, but ${manifestFilePath} names the agent host ${RETIRED_AGENT_HOST}, `
-    + 'which agent-progress no longer installs for. Nothing was written. Remove what it installed for Copilot CLI yourself, '
+    `${PRODUCT_NAMES.PROGRAM} ${commandName} installs for Claude Code only, but ${manifestFilePath} names the agent host ${RETIRED_AGENT_HOST}, `
+    + `which ${PRODUCT_NAMES.PROGRAM} no longer installs for. Nothing was written. Remove what it installed for Copilot CLI yourself, `
     + `${RETIRED_HOST_FILES_IN_REPOSITORY.join(' and ')} in ${rootDirectory}, and the agentHost key from ${manifestFilePath}, `
-    + `then run \`agent-progress ${commandName}\` again.`,
+    + `then run \`${PRODUCT_NAMES.PROGRAM} ${commandName}\` again.`,
   );
 }

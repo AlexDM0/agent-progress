@@ -6,6 +6,7 @@ import { JsonRecordUtil }             from '../../../lib/json-record/JsonRecordU
 import type { Draft, DraftClaim }     from '../../../lib/tracker-model/@types/Draft.ts';
 import { FIRST_DRAFT_ITEM_NUMBER }    from '../../../lib/tracker-model/constants/DraftFields.ts';
 import { DraftIdUtil }                from '../../../lib/tracker-model/utils/DraftIdUtil.ts';
+import { PRODUCT_NAMES }              from '../../../shared/constants/ProductNames.ts';
 import { OLDER_FORMAT_ADVICE }        from '../../constants/OlderFormatAdvice.ts';
 import { StoredValueUtil }            from '../../utils/StoredValueUtil.ts';
 import { CURRENT_DRAFT_FILE_VERSION } from '../constants/DraftFileVersions.ts';
@@ -46,7 +47,8 @@ function parsedDraftDocumentOf(text: string): DraftDocumentParsing {
     version, id, title, request, openedAt
   } = document;
   if (version !== CURRENT_DRAFT_FILE_VERSION) {
-    return malformed(`version is ${JSON.stringify(version) ?? 'missing'}, and this build of agent-progress reads version ${CURRENT_DRAFT_FILE_VERSION}; ${OLDER_FORMAT_ADVICE}`);
+    return malformed(`version is ${JSON.stringify(version) ?? 'missing'}, and this build of ${PRODUCT_NAMES.PROGRAM} reads version ${CURRENT_DRAFT_FILE_VERSION}; `
+      + OLDER_FORMAT_ADVICE);
   }
   if (typeof id !== 'string' || DraftIdUtil.draftNumberOf(id) === null) return malformed(`id is ${JSON.stringify(id) ?? 'missing'}, and it has to be a draft id such as D1`);
   if (typeof title !== 'string' || title.trim() === '') return malformed('title is not a text that is not blank');

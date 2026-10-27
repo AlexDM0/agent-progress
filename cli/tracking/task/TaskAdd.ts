@@ -1,6 +1,7 @@
 /** `task add`: files a row, linked to a ticket it works or reviews, and starts it at once with `--start`. */
 import { TicketBodyUtil }                        from '../../../src/adapters/utils/TicketBodyUtil.ts';
 import { OperationRefusal }                      from '../../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }                         from '../../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                   from '../../CommandContext.ts';
 import { openTrackerForWritingThenReadNextLine } from '../../OpenTrackerForWriting.ts';
 import type { ArgumentParser }                   from '../../arguments/ArgumentParser.ts';
@@ -16,7 +17,7 @@ export async function addOneTask(commandArguments: ArgumentParser, context: Comm
 
   const name = commandArguments.positionals()[1];
   if (name === undefined || name.trim() === '') {
-    throw new OperationRefusal('refused', `agent-progress task add needs a name.\n  Usage: ${TASK_USAGE}`);
+    throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} task add needs a name.\n  Usage: ${TASK_USAGE}`);
   }
   const ticketReference   = commandArguments.option('ticket');
   const reviewedReference = commandArguments.option('review-of');
@@ -31,7 +32,7 @@ export async function addOneTask(commandArguments: ArgumentParser, context: Comm
     if (ticketReference !== undefined && ticket === undefined) {
       throw new OperationRefusal(
         'refused',
-        `There is no ticket ${ticketReference}. Run \`agent-progress ticket list\` to see the tickets this tracker holds.`,
+        `There is no ticket ${ticketReference}. Run \`${PRODUCT_NAMES.PROGRAM} ticket list\` to see the tickets this tracker holds.`,
       );
     }
 
@@ -39,7 +40,7 @@ export async function addOneTask(commandArguments: ArgumentParser, context: Comm
     if (reviewedReference !== undefined && reviewedTicket === undefined) {
       throw new OperationRefusal(
         'refused',
-        `--review-of names ticket ${reviewedReference}, and there is none. Run \`agent-progress ticket list\` to see the tickets this tracker holds.`,
+        `--review-of names ticket ${reviewedReference}, and there is none. Run \`${PRODUCT_NAMES.PROGRAM} ticket list\` to see the tickets this tracker holds.`,
       );
     }
 

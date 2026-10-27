@@ -4,6 +4,7 @@ import type { AgentAssignment, ReviewBarStarted } from '../../src/lib/tracker-mo
 import type { Ticket }                            from '../../src/lib/tracker-model/@types/Ticket.ts';
 import type { TrackerChange }                     from '../../src/services/tracker/TrackerPipeline.ts';
 import { OperationRefusal }                       from '../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }                          from '../../src/shared/constants/ProductNames.ts';
 import type { ArgumentParser }                    from '../arguments/ArgumentParser.ts';
 import { TICKET_USAGE }                           from './constants/TicketUsage.ts';
 
@@ -16,7 +17,7 @@ export function reviewBarRequestFrom(commandArguments: ArgumentParser, subcomman
     if (owner !== undefined || note !== undefined) {
       throw new OperationRefusal(
         'refused',
-        `--owner and --note name the review bar, so \`agent-progress ticket ${subcommand}\` takes them only with --start-review.\n  Usage: ${TICKET_USAGE}`,
+        `--owner and --note name the review bar, so \`${PRODUCT_NAMES.PROGRAM} ticket ${subcommand}\` takes them only with --start-review.\n  Usage: ${TICKET_USAGE}`,
       );
     }
     return null;

@@ -2,6 +2,7 @@
 import { TicketJsonUtil }                        from '../../src/adapters/utils/TicketJsonUtil.ts';
 import type { Task }                             from '../../src/lib/tracker-model/@types/Task.ts';
 import { OperationRefusal }                      from '../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }                         from '../../src/shared/constants/ProductNames.ts';
 import { DispatcherClaimNoteUtil }               from '../../src/shared/utils/DispatcherClaimNoteUtil.ts';
 import type { CommandContext }                   from '../CommandContext.ts';
 import { openTrackerForWritingThenReadNextLine } from '../OpenTrackerForWriting.ts';
@@ -18,7 +19,7 @@ const UNHOLD_OPTION_NAMES = ['at', 'json'];
 function resumeBuildHintFor(ticketId: string, pausedRow: Readonly<Task>): string {
   if (!DispatcherClaimNoteUtil.noteIsADispatcherClaimOn(pausedRow.note, ticketId)) {
     return `Its build row #${pausedRow.id} was left paused under a person's note, which the dispatcher never takes over: `
-      + `resume it with \`agent-progress task start ${pausedRow.id}\`, or settle the row by hand.`;
+      + `resume it with \`${PRODUCT_NAMES.PROGRAM} task start ${pausedRow.id}\`, or settle the row by hand.`;
   }
   const singleTicketRun = `launch a single-ticket dispatcher run for #${ticketId} (ticketIds: ["${ticketId}"]) to resume it`;
   return `Its build was left paused: the next whole-board dispatcher run resumes it; when none is going or about to be launched, ${singleTicketRun} now.`;
@@ -32,7 +33,7 @@ export async function holdOrUnholdTicket(holds: boolean, commandArguments: Argum
 
   const reference = commandArguments.positionals()[1];
   if (reference === undefined) {
-    throw new OperationRefusal('refused', `agent-progress ticket ${verb} needs a ticket id.\n  Usage: ${TICKET_USAGE}`);
+    throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} ticket ${verb} needs a ticket id.\n  Usage: ${TICKET_USAGE}`);
   }
   const reason = commandArguments.option('reason') ?? '';
 

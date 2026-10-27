@@ -1,6 +1,7 @@
 /** `ticket introduced-by`: names the delivered ticket whose change introduced a bug, or with an empty cause clears it. */
 import { TicketJsonUtil }                                 from '../../src/adapters/utils/TicketJsonUtil.ts';
 import { OperationRefusal }                               from '../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }                                  from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                            from '../CommandContext.ts';
 import { openTrackerForWritingThenReadNextLine }          from '../OpenTrackerForWriting.ts';
 import type { ArgumentParser }                            from '../arguments/ArgumentParser.ts';
@@ -19,7 +20,10 @@ export async function setTicketIntroducedBy(commandArguments: ArgumentParser, co
 
   const [, reference, causeReference] = commandArguments.positionals();
   if (reference === undefined) {
-    throw new OperationRefusal('refused', `agent-progress ticket introduced-by needs a bug's id, then the ticket that introduced it (empty clears it).\n  Usage: ${TICKET_USAGE}`);
+    throw new OperationRefusal(
+      'refused',
+      `${PRODUCT_NAMES.PROGRAM} ticket introduced-by needs a bug's id, then the ticket that introduced it (empty clears it).\n  Usage: ${TICKET_USAGE}`,
+    );
   }
   const causeTicketId = TicketArgumentUtil.linkedTicketIdFrom(causeReference);
 

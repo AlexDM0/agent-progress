@@ -5,6 +5,7 @@ import { resolve }                from 'node:path';
 import { discoverRepositoryRoot }                            from '../../../src/lib/git/RepositoryRoot.ts';
 import { agentProgressRootOverride, ROOT_OVERRIDE_VARIABLE } from '../../../src/shared/Environment.ts';
 import { OperationRefusal }                                  from '../../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }                                     from '../../../src/shared/constants/ProductNames.ts';
 
 function resolvedRealPath(path: string): string {
   try {
@@ -21,7 +22,7 @@ function discoveredRootForInit(currentDirectory: string): string {
     throw new OperationRefusal(
       'refused',
       `${discovery.rootDirectory} is inside a bare git repository, which has no working tree to track. `
-      + 'Run `agent-progress init` in a checkout of it, or pass --root <path> to track a directory explicitly.',
+      + `Run \`${PRODUCT_NAMES.PROGRAM} init\` in a checkout of it, or pass --root <path> to track a directory explicitly.`,
     );
   }
   return discovery.rootDirectory;
@@ -39,7 +40,7 @@ function requiredExistingDirectory(candidatePath: string, asWritten: string): st
     throw new OperationRefusal(
       'refused',
       `--root "${asWritten}" is not an existing directory (${candidatePath}). `
-      + 'Create it first, or leave --root off to track the repository `agent-progress` discovers from here.',
+      + `Create it first, or leave --root off to track the repository \`${PRODUCT_NAMES.PROGRAM}\` discovers from here.`,
     );
   }
   return candidatePath;

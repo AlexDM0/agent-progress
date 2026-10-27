@@ -7,6 +7,7 @@ import { createTracker }                                  from '../../../src/ser
 import { findWorkspace, workspacePathsFor }               from '../../../src/services/tracker/Workspace.ts';
 import { TRACKER_FILES }                                  from '../../../src/services/tracker/constants/TrackerFiles.ts';
 import { OperationRefusal }                               from '../../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }                                  from '../../../src/shared/constants/ProductNames.ts';
 import type { CommandHandler }                            from '../../CommandHandler.ts';
 import { requireInstallManifestThisVersionCanReplace }    from '../../InstallVersionCheck.ts';
 import { registerWrittenDashboard }                       from '../../RegisterWrittenDashboard.ts';
@@ -26,7 +27,7 @@ import {
 }                                                                             from '../TrackerRefresh.ts';
 import { initRootDirectoryOf, refuseAnOverrideNamingAnotherDirectory } from './InitRoot.ts';
 
-const USAGE = 'agent-progress init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]';
+const USAGE = `${PRODUCT_NAMES.PROGRAM} init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]`;
 
 const KNOWN_OPTION_NAMES = ['project', 'root', 'no-claude-md', 'no-hooks', 'no-workflow', 'no-agent-definition'];
 
@@ -62,9 +63,9 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
   });
   const reportTheRefreshOfAnExistingTracker = (installedFileTexts: InstalledFileTexts) => {
     const refresh = refreshTheRepository(installedFileTexts, { writesTheBriefFirst: false });
-    context.standardOutput(`agent-progress is already initialised in ${rootDirectory}.`);
+    context.standardOutput(`${PRODUCT_NAMES.PROGRAM} is already initialised in ${rootDirectory}.`);
     for (const line of refreshReportLinesOf(refresh, workspace.htmlFilePath)) context.standardOutput(line);
-    context.standardOutput('  `agent-progress update` is the command for this refresh; `init` only creates a tracker.');
+    context.standardOutput(`  \`${PRODUCT_NAMES.PROGRAM} update\` is the command for this refresh; \`init\` only creates a tracker.`);
     recordInstallVersion(workspace.rootDirectory);
   };
 
@@ -73,7 +74,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
     throw new OperationRefusal(
       'refused',
       `A tracker already governs this directory: ${existingWorkspace.trackerDirectory}. `
-      + `Run \`agent-progress update\` in ${existingWorkspace.rootDirectory} instead to refresh what the tracker writes into the repository.`,
+      + `Run \`${PRODUCT_NAMES.PROGRAM} update\` in ${existingWorkspace.rootDirectory} instead to refresh what the tracker writes into the repository.`,
     );
   }
   refuseBesideAnOlderProgram(workspace.rootDirectory);
@@ -106,7 +107,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
 
   const refresh = refreshTheRepository(installedFileTexts, { writesTheBriefFirst: true });
 
-  context.standardOutput(`Initialised agent-progress for "${project}" in ${rootDirectory}`);
+  context.standardOutput(`Initialised ${PRODUCT_NAMES.PROGRAM} for "${project}" in ${rootDirectory}`);
   context.standardOutput(`  tracker:     ${workspace.trackerDirectory}`);
   context.standardOutput(`  brief:       ${refresh.briefFilePath}`);
   context.standardOutput(`  dashboard:   ${workspace.htmlFilePath}`);

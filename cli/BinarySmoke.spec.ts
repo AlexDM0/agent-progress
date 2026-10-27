@@ -11,13 +11,33 @@ import {
   expect,
   test
 }                                                              from 'bun:test';
-import { PRODUCT_NAMES }                                                              from '../src/shared/constants/ProductNames.ts';
+import { ORIGINAL_PRODUCT_NAMES, PRODUCT_NAMES, SIDE_BY_SIDE_PRODUCT_NAMES }          from '../src/shared/constants/ProductNames.ts';
 import { CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS }                                    from '../src/testing/ChildProcessCaseTimeout.ts';
 import { createScratchDirectory, createScratchGitRepository, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }                                                   from '../src/testing/ToolGuard.ts';
 import { runAgentProgress }                                                           from './testing/CliProcess.ts';
 
 let scratchDirectory = '';
+
+const STANDALONE_PROGRAM_NAME_PATTERN = new RegExp(
+  `(?<![\\w./-])(?:${[SIDE_BY_SIDE_PRODUCT_NAMES.PROGRAM, ORIGINAL_PRODUCT_NAMES.PROGRAM].map((name) => RegExp.escape(name)).join('|')})(?![\\w.:/-])`,
+  'g',
+);
+
+/** The brief's row, ticket and review lines are markers the dispatcher writes and the hook reads, not a program to run. */
+const BRIEF_MARKER_PATTERN = new RegExp(`${RegExp.escape(ORIGINAL_PRODUCT_NAMES.PROGRAM)} (?:row|ticket|review):`, 'g');
+
+/**
+ * Every program name the text files `init` installed stand alone in, each once. The dispatcher script is left out: it is bundled from
+ * `dispatcher/`, which the code-owned lifecycle retires rather than renames.
+ */
+function programNamesInstalledIn(repositoryDirectory: string): string[] {
+  const installedPaths = [...new Bun.Glob('**/*').scanSync({ cwd: repositoryDirectory, dot: true })]
+    .filter((path) => path === 'CLAUDE.md' || path.startsWith('.claude/') || (path.startsWith(`${PRODUCT_NAMES.DATA_FOLDER}/`) && path.endsWith('.md')));
+  expect(installedPaths.length, 'installed files found').toBeGreaterThan(5);
+  const texts = installedPaths.map((path) => readFileSync(join(repositoryDirectory, path), 'utf8').replaceAll(BRIEF_MARKER_PATTERN, ''));
+  return [...new Set(texts.flatMap((text) => text.match(STANDALONE_PROGRAM_NAME_PATTERN) ?? []))];
+}
 
 beforeAll(() => {
   scratchDirectory = createScratchDirectory('binary-smoke');
@@ -31,7 +51,7 @@ describe('the binary', () => {
   test('prints the command reference and exits 0', async () => {
     const result = await runAgentProgress(['help'], { currentDirectory: scratchDirectory });
     expect(result.exitCode).toBe(0);
-    expect(result.standardOutput).toContain('Usage: agent-progress <command> [options]');
+    expect(result.standardOutput).toContain(`Usage: ${PRODUCT_NAMES.PROGRAM} <command> [options]`);
     expect(result.standardOutput).toContain('  ticket add "<title>"');
     expect(result.standardError).toBe('');
   }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
@@ -73,13 +93,19 @@ describeWhenGitIsPresent('a whole session through the binary', () => {
       };
 
       await run(['init', '--project', 'Example Agency']);
+      expect(programNamesInstalledIn(repositoryDirectory)).toEqual([PRODUCT_NAMES.PROGRAM]);
       expect(await run(['ticket', 'add', 'Double-click a role to edit it', '--type', 'ticket'])).toContain('Ticket #001 filed');
+
+      const [, suggestedCommand = ''] = /`([^`]+)`/.exec(await refused(['ticket', 'show', '9'])) ?? [];
+      const [suggestedProgram, ...suggestedArguments] = suggestedCommand.split(' ');
+      expect(suggestedProgram, 'the program a refusal tells the agent to run is the one this build links').toBe(PRODUCT_NAMES.PROGRAM);
+      expect(await run(suggestedArguments)).toContain('Double-click a role to edit it');
       await run(['ticket', 'start', '1', '--at', '-2h']);
       expect(await run(['task', 'add', 'Review pass', '--start', '--owner', 'Alex Example'])).toContain('Task #2 added');
       expect(await run(['task', 'pause', '2'])).toContain('Task #2 paused');
       await run(['task', 'start', '2']);
       await run(['log', 'Halfway through the role editor', '--at', '-5m']);
-      expect(await refused(['ticket', 'deliver', '1'])).toContain('agent-progress ticket status 001 delivered');
+      expect(await refused(['ticket', 'deliver', '1'])).toContain(`${PRODUCT_NAMES.PROGRAM} ticket status 001 delivered`);
       await run(['ticket', 'finish', '1', '--at', '-1h']);
       await run(['ticket', 'approve', '1', '--commit', 'abc1234', '--tokens', '12k']);
       await run(['ticket', 'deliver', '1']);

@@ -56,7 +56,8 @@ describeWhenGitIsPresent('update on a tracker', () => {
     const context = await run(['update']);
 
     expect(storedFileContentsOf(workspacePathsFor(repositoryDirectory))).toEqual(filesBefore);
-    expect(context.outputText()).toMatch(/^Refreshed what agent-progress manages in \S+; the tracker itself was not touched\.\n/);
+    expect(context.outputText())
+      .toMatch(new RegExp(`^Refreshed what ${RegExp.escape(PRODUCT_NAMES.PROGRAM)} manages in \\S+; the tracker itself was not touched\\.\\n`));
     for (const refreshLinePattern of REFRESH_LINE_PATTERNS) expect(context.outputText()).toMatch(refreshLinePattern);
     expect(context.errorText()).toBe('');
   });
