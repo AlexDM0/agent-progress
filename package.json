@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "setup": "bash setup.sh",
-    "test": "bun test"
+    "test": "bun test",
+    "verify": "bun run typecheck && bun test && bun run lint"
   },
   "private": true,
   "devDependencies": {
