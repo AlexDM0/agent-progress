@@ -2,7 +2,7 @@
  * Spawns the real binary for the one claim an in-process `runCommandLine` cannot make: that `agent-progress.ts` itself works, shebang, executable
  * bit and exit code included, and for a spec that must set the child's environment, which no spec may set in-process. Its callers are
  * `cli/BinarySmoke.spec.ts`, `cli/InitRootOverride.spec.ts`, `cli/dispatch/release/ReleaseCommand.checks.spec.ts`,
- * `cli/RegisterWrittenDashboard.spec.ts` and `cli/MonitorRegistryIsolation.spec.ts`.
+ * `cli/RegisterWrittenDashboard.spec.ts`, `cli/MonitorRegistryIsolation.spec.ts` and `cli/ProductNameIsolation.spec.ts`.
  */
 import { existsSync }               from 'node:fs';
 import { delimiter, dirname, join } from 'node:path';
@@ -19,12 +19,14 @@ export interface AgentProgressResult {
 }
 
 export interface RunAgentProgressOptions {
-  currentDirectory: string;
+  currentDirectory:       string;
   /** The child's whole environment, beside a `PATH` reaching Bun and git; absent, it inherits this process's. */
-  environment?:     Record<string, string>;
-  standardInput?:   string;
+  environment?:           Record<string, string>;
+  standardInput?:         string;
   /** The child's `HOME`, checked to be a scratch directory; absent, a fresh scratch folder removed after the run. A `HOME` in `environment` never wins. */
-  homeDirectory?:   string;
+  homeDirectory?:         string;
+  /** The child runs under the other program's product names, through `cli/testing/OtherProductNamesPreload.ts`. */
+  runsAsTheOtherProgram?: boolean;
 }
 
 /** Either program's, so a spec handing the child the other program's root still cannot point it outside the scratch root. */
@@ -60,7 +62,8 @@ export async function runAgentProgress(commandLineArguments: readonly string[], 
   if (options.homeDirectory !== undefined) requireTrackerIsolation(options.homeDirectory);
   const homeDirectory = options.homeDirectory ?? createScratchDirectory('cli-process-home');
   try {
-    const spawned = Bun.spawn(['bun', agentProgressEntryPoint(), ...commandLineArguments], {
+    const preloadArguments = options.runsAsTheOtherProgram === true ? ['--preload', join(import.meta.dir, 'OtherProductNamesPreload.ts')] : [];
+    const spawned = Bun.spawn(['bun', ...preloadArguments, agentProgressEntryPoint(), ...commandLineArguments], {
       cwd:    options.currentDirectory,
       stdin:  options.standardInput === undefined ? 'ignore' : new Blob([options.standardInput]),
       stdout: 'pipe',
