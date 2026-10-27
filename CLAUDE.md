@@ -72,6 +72,10 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - The Board logs ids and values through one `log(record)` over a typed record union (the vocabulary, no method per
   record); an adapter util words the records, the collector gathers them, the writer stores
   `.agent-progress/log.jsonl`.
+- Every name the product goes by on a machine (program, data, worktrees and monitor folders, skills, storage and
+  environment prefixes, login item, runner port) is `PRODUCT_NAMES` in `src/shared/constants/ProductNames.ts`; every
+  folder, marker, key and removal derives from it. The build is `agent-progress-v2` beside the released program, and
+  `init` and `update` refuse `older-program-present` where the released program's data folder exists.
 
 ### Errors and exit codes
 
@@ -90,7 +94,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - `eslint.config.js` (`CONFINED_REACHES`, the clock selectors) holds `process.env` to `src/shared/Environment.ts`,
   `process.exit` to `agent-progress.ts`, `process.cwd`, `homedir()` and the clock in `src/` and `cli/` to
   `cli/CommandContext.ts`, and `process.chdir` to nowhere. The environment is read through documented getters; specs
-  set it in a child process (one exception, Deviations).
+  set it in a child process (one exception, Deviations). The product's own variables are named from
+  `PRODUCT_NAMES.ENVIRONMENT_PREFIX`, never as literals.
 - No work at module load (entry points excepted, Deviations). The render service keeps no module state: the page
   bundle and configured Marked live in the render state the command context carries.
 - Factories of closures over classes, except for state carried across calls, domain and ingestion classes. A
@@ -172,7 +177,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 | Rule | Done instead | Why |
 | --- | --- | --- |
 | Ingestion reads, validates and maps in separate steps. | The ticket parse is one line-oriented pass. | A second walk would risk the unowned lines kept byte for byte. |
-| No work at module load. | `agent-progress.ts` runs the command on import, `page/PageStart.ts` starts the page, the preload `src/testing/TestRunReport.ts` registers its report. | They are entry points. |
+| No work at module load. | `agent-progress.ts` runs the command on import, `page/PageStart.ts` starts the page, the preload `src/testing/TestRunReport.ts` registers its report, the preload `cli/testing/OtherProductNamesPreload.ts` registers its name swap. | They are entry points. |
 | Specs never set the environment in-process. | `src/shared/Environment.spec.ts` does, once. | It tests the getters themselves. |
 | A frozen table comes from the previous implementation. | `dispatcher/testing/FrozenDispatchTraces.json` is retaken from the bundle, only in a commit meant to change what agents are told, its diff showing prompt text or wire names and no decision; `cli/FrozenInstalledSurface.json` is taken from the installed files. | No previous implementation holds them. |
 | Only the current stored format is read. | A ticket stored with `type` `change` or `feature` reads as `ticket` everywhere, and every write keeps its stored `type` line. | Stored tickets are never rewritten; both are older names for `ticket`. |
@@ -228,7 +233,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - A module stays in its view's folder; what the entry starts with lives in `page/shell/`, types several views use in
   `page/@types/`, chip parts in `page/chips/`, and a mapper sits beside the module it feeds.
 - `eslint.config.js` holds browser storage to `page/preferences/PreferenceStore.ts`. Keys stay under
-  `agent-progress:<trackerId>`, and a key string never changes.
+  `<STORAGE_PREFIX>:<trackerId>`, and a key string never changes but with the prefix.
 - The render service writes `boardFacts` from the same Board queries `status --json` prints; the page keeps no copy
   of the rules.
 - The detail panel claims a log line by its `taskIds` or `ticketIds`, never a number in free text; a note is matched
