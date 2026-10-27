@@ -1,6 +1,6 @@
 /**
  * The stream fixtures under `testing/fixtures/` are recorded Claude Code 2.1.311 sessions (`docs/development/runner-claude-probe.md`),
- * kept for the stream mapper and the question delivery that later build on them. These claims hold what each fixture was recorded to
+ * kept for the stream mapper, the question delivery and the usage-limit marker that build on them. These claims hold what each fixture was recorded to
  * show, so a re-recorded or hand-trimmed fixture that no longer shows it fails here rather than in the code that relies on it.
  */
 import { readdirSync, readFileSync } from 'node:fs';
@@ -89,6 +89,52 @@ describe('resume-structured-output (P6)', () => {
     const result = onlyResult(stdout);
     expect(result['session_id']).toBe(PROBE_SESSION_IDENTIFIER);
     expect(objectAt(result, 'structured_output')).toEqual({ colour: 'Blue' });
+  });
+});
+
+function onlyRateLimitInformation(records: readonly StreamRecord[]): StreamRecord {
+  const events = recordsOfType(records, 'rate_limit_event');
+  expect(events).toHaveLength(1);
+  return objectAt(events[0], 'rate_limit_info');
+}
+
+function windowOf(rateLimitInformation: StreamRecord, windowName: string): StreamRecord {
+  return objectAt(objectAt(rateLimitInformation, 'unifiedWindows'), windowName);
+}
+
+describe('rate-limit-rejected (P10)', () => {
+  const stdout = recordsOf('rate-limit-rejected.stdout.jsonl');
+
+  test('reports a refused request as a top-level rejected status, its window rejected and resetsAt in epoch seconds', () => {
+    const rateLimitInformation = onlyRateLimitInformation(stdout);
+    expect(rateLimitInformation['status']).toBe('rejected');
+    expect(windowOf(rateLimitInformation, 'five_hour')['status']).toBe('rejected');
+    expect(rateLimitInformation['resetsAt']).toBe(windowOf(rateLimitInformation, 'five_hour')['resetsAt']);
+    expect(Number.isInteger(rateLimitInformation['resetsAt'])).toBe(true);
+  });
+
+  test('ends in an error result carrying the 429 status, though its subtype says success', () => {
+    const result = onlyResult(stdout);
+    expect(result['is_error']).toBe(true);
+    expect(result['api_error_status']).toBe(429);
+    expect(result['subtype']).toBe('success');
+  });
+});
+
+describe('rate-limit-window-rejected-under-allowed (P10)', () => {
+  const stdout = recordsOf('rate-limit-window-rejected-under-allowed.stdout.jsonl');
+
+  test('keeps the top-level status short of rejected while a window is rejected and overage covers it', () => {
+    const rateLimitInformation = onlyRateLimitInformation(stdout);
+    expect(rateLimitInformation['status']).not.toBe('rejected');
+    expect(windowOf(rateLimitInformation, 'five_hour')['status']).toBe('rejected');
+    expect(rateLimitInformation['overageInUse']).toBe(true);
+  });
+
+  test('answers the turn normally', () => {
+    const result = onlyResult(stdout);
+    expect(result['is_error']).toBe(false);
+    expect(result['result']).toBe('PROBE-OK');
   });
 });
 

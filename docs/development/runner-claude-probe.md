@@ -1,4 +1,4 @@
-# Runner probe: the Claude stream, question and permission contract (T1, P1-P8)
+# Runner probe: the Claude stream, question and permission contract (T1 P1-P8, T1b P9-P17)
 
 What Claude Code 2.1.311 did on 2026-10-27 for the runner's contract, probe by probe, and which design fallback each
 finding selects. The probe repository, driver, settings files and full logs are git-ignored, in the main checkout's
@@ -133,9 +133,155 @@ second turn followed within 90 seconds (`p8/mid-turn.log`, `p8/mid-turn-transcri
 `mid-turn-line-folded`). Stdout carries no record of the absorption, so the runner reads a line written before a turn's
 `result` as delivered in that turn, and never expects one `result` per line.
 
+## P9: auto-memory, subagent models, `modelUsage`, the explorer and the `Agent` rule
+
+Every run passed the agents through `--agents` and ran in `--permission-mode dontAsk`, so only allow rules let a tool
+run (`p9/run-*.log`, settings and agents beside them).
+
+- **Auto-memory.** `"autoMemoryEnabled": false` in the `--settings` file is the switch: the init record's
+  `memory_paths` is `null` with it (`run-a`) and names the project's `memory/` folder without it (`run-b`).
+- **Model precedence.** An explorer defined with `"model": "sonnet"`, started without a `model` parameter, ran on
+  Sonnet (`run-c1`), and still did with `CLAUDE_CODE_SUBAGENT_MODEL=opus` set (`run-c2`): the variable does not override
+  a definition's model. A `model` parameter in the `Agent` call does: a coder defined as Sonnet, started with
+  `"model": "haiku"` by the parent, ran on Haiku (`run-a`, no Sonnet in `modelUsage`).
+- **`modelUsage` includes subagents.** With a Sonnet explorer under a Haiku session, the `result`'s `modelUsage` has a
+  `claude-sonnet-5-5` entry beside Haiku's, while `usage` counts the top level only (`run-c1`: 303 top-level output
+  tokens, `modelUsage` 303 Haiku plus 199 Sonnet). A subagent the parent started in the background was still running at
+  the `result` (`run-c2`), whose `modelUsage` held only the Sonnet tokens spent so far.
+- **The explorer searches.** Read plus `Bash(rg *)`, `Bash(grep *)` and `Bash(find *)` in its `tools` let it run
+  `rg -l` under dontAsk (`run-a`, `run-c1`). The patterns are no confinement: it also ran `cat file.txt`
+  (`run-explorer-limits.log`, its transcript `explorer-limits-subagent-transcript.jsonl`).
+- **The `Agent` rule.** With `Agent(coder)` in `permissions.deny`, the call was refused "Agent type 'coder' has been
+  denied by permission rule 'Agent(coder)' from flagSettings" while the explorer ran (`run-b`); the init record lists
+  the tool as `Task`.
+
+Selects: T10 renders `autoMemoryEnabled: false`; each agent definition names its model, and `role.md` tells the agent
+never to pass `model` to the `Agent` tool, since the call's parameter wins. T13a may take `modelUsage` as the session
+total at a `result` with no background subagent running, and otherwise adds the subagent transcripts.
+
+## P10: `rate_limit_event` at a rejected limit
+
+Rate-limit events are emitted only for a subscription login, so the probe pointed `ANTHROPIC_BASE_URL` at a local
+stand-in for the Messages API (`p10/stub-server.ts`) that answers with the unified rate-limit headers, and logged in
+with a dummy `CLAUDE_CODE_OAUTH_TOKEN` under `env -i HOME PATH USER`. With an API key instead, no `rate_limit_event`
+came: a 429 gave one `api_retry` and an error result (`p10/rejected.log`).
+
+- **Top-level rejected** (`p10/rejected-oauth.log`; fixture `rate-limit-rejected`): the event's `status` is `rejected`,
+  `rateLimitType` `five_hour`, `resetsAt` the window's reset in epoch seconds, `unifiedWindows.five_hour.status`
+  `rejected`. No retry follows; the `result` has `is_error: true`, `api_error_status: 429`, `terminal_reason`
+  `api_error`, the text "You've hit your session limit · resets …", and `subtype` `success`.
+- **A window rejected under overage** (`p10/window-rejected-oauth.log`; fixture
+  `rate-limit-window-rejected-under-allowed`): with the five-hour window `rejected`, overage `allowed` and in use, and
+  the seven-day window at `allowed_warning`, the top-level `status` is `allowed_warning`, not `allowed`, and the turn
+  answers normally.
+
+Selects: the design's reading holds (only a top-level `rejected` interrupts); T13a reads `status === 'rejected'`, not
+`status !== 'allowed'`, and treats an `is_error` result with `api_error_status` 429 as the limit whatever its `subtype`.
+
+## P11: a product-owner session under `<W>/sessions/<J>/`
+
+The session ran in a plain folder `repo/.agent-progress-worktrees/sessions/J3/` of the main checkout, without
+`--disable-slash-commands`, under the sandbox with `allowWrite` of its relay folder `relay/J3` and the design's
+permission denies (`p11/settings.json`, `p11/po-session.log`). The init record lists `agent-po` (installed untracked in
+the main checkout's `.claude/skills/`) among its skills, and the main checkout's CLAUDE.md loaded: the agent quoted its
+marker line. Writing its own session folder worked; `<data>/gates/` and another job's relay folder `relay/J2/` failed
+"Operation not permitted".
+
+**Its own relay folder failed too.** The `Edit` and `Write` deny of `<W>/relay/**` is also applied to the sandbox as a
+write deny, which beats `allowWrite`. With that rule replaced by `Edit` and `Write` denies of the other job's folder
+alone, the Bash write into `relay/J3/` succeeded and both other writes still failed
+(`p11/po-session-other-relays-only.log`).
+
+Selects: T13 renders the relay `Edit`/`Write` denies per other job's relay folder, never over `<W>/relay/**`, and leaves
+the job's own folder to the sandbox's `allowWrite`.
+
+## P13: `.claude/settings.local.json` in a worktree
+
+Read under `--setting-sources project,local`: a `SessionStart` hook in the worktree's `.claude/settings.local.json`
+ran (`p13/project-local.log`, `p13/hook-markers.txt`). Under `--setting-sources project` it did not
+(`p16/project-only.log`). Workers exclude `local`, so it stays irrelevant to them; T19 may rely on the file being read
+from the session's own worktree when `local` is included.
+
+## P14: signing, and the ref denies, under the rendered per-job sandbox
+
+`p14/render.py` renders design section 4.4's settings for job J1 on `ticket-1` (write denies of `<data>/`, the monitor
+folder, `<worktree>/.claude/`, `<common>/packed-refs`, `refs/heads/main`, `refs/heads/group-alpha`,
+`refs/heads/ticket-2` and `<common>/worktrees/ticket-2/`; read denies of the launch files, `~/.ssh`, `~/.aws`) with one
+signing allowance; `p14/probe.sh` then runs every attempt in one sandboxed Bash call. The owner's git signs with gpg
+(`commit.gpgsign=true`), whose `common.conf` has `use-keyboxd`, so gpg needs two sockets: the agent's for the key and
+keyboxd's for the public keyring.
+
+| Allowance | Signed commit, inherited | Signed commit, `env -i` |
+| --- | --- | --- |
+| none: `~/.gnupg` read-denied | fails: keyring unreadable | fails |
+| the gpg-agent socket alone (1) | fails: "can't connect to the keyboxd" | fails |
+| the agent and keyboxd sockets (1) | **signs** (`gpgsig` header present) | **signs** |
+| writes to `~/.gnupg` with the agent socket | fails, and gpg started a second keyboxd | fails |
+
+(1) Through `network.allowUnixSockets`, with `~/.gnupg` readable and its `private-keys-v1.d/` read-denied.
+
+Logs: `p14/<allowance>-<environment>.log`, with `rerun-` and `final-` reruns of the socket rows; the `final-` pair holds
+every attempt. Under the socket allowance gpg still warns that it cannot create its lock file in `~/.gnupg`, without
+failing. Two hazards: the writes allowance let the sandboxed gpg start its own keyboxd, which took over the socket
+and left the owner's gpg waiting on the old daemon's lock until both daemons were stopped; and verifying a signature
+in the sandbox (`git log --format=%G?`) hung and outlived its session.
+
+In every run the unsigned commit (`-c commit.gpgsign=false`) and a new branch succeeded, and every write the denies
+name failed: `git update-ref` of `main`, `group-alpha` and `ticket-2` ("couldn't set"), an append to `packed-refs`,
+and a write or new file in `<common>/worktrees/ticket-2/`, while the job's own `<common>/worktrees/ticket-1/` stayed
+writable; `private-keys-v1.d/` stayed unreadable and `~/.gnupg` unwritable. `git branch -f` of a checked-out branch is
+refused by git itself before the sandbox is reached. The refs were unchanged after every run (`### refs after`).
+
+Selects: the signing allowance is the agent socket plus the keyboxd socket (`gpgconf --list-dirs agent-socket` and
+`keyboxd-socket`) through `network.allowUnixSockets`, `~/.gnupg` readable but not writable, `private-keys-v1.d/`
+read-denied; writes to `~/.gnupg` are never granted, and `commit.gpgsign=false` is not needed (owner answer Q32). The
+ref denies hold, so owner answer Q38's `target-moved` fallback does not apply: the silent requeue stays, with V14 for
+refs created after launch.
+
+## P15: this repository's checks and install lines under the gate Seatbelt profile
+
+`p15/render-profile.py` writes design section 5.2's profile for a linked worktree of this repository: everything
+allowed but writes, which go only to the worktree, its own admin folder, temp (`/private/tmp`, `/private/var/folders`)
+and `~/.bun/install/cache`; writes denied to `<data>/`, the monitor folder, `<common>/refs` and `packed-refs`; reads
+denied of `~/.ssh`, `~/.aws`, `~/.gnupg/private-keys-v1.d`, the runner token and the launch files; `(deny network*)`
+for the checks line (`gate-off.sb`), network on for the install line (`gate-on.sb`).
+
+The install line `bun install` passed in both environments (`install-inherited.out`, `install-clean.out`). The checks
+line `bun run verify` failed one test of 4064 in both: `src/lib/git/BranchIntegration.spec.ts` committed in a scratch
+repository without `commit.gpgsign=false`, so gpg, denied its keyring, could not sign (`checks-inherited.out`,
+`checks-clean.out`). With that spec fixed on this branch the checks line passes under the profile in both environments
+(`checks-fixed-inherited.out`, `checks-fixed-clean.out`); no test needed the network or loopback.
+
+Selects: gates and install lines run sandboxed and the shared gate cache stays; the memory-only fallback is not needed.
+A gate gets no signing allowance, so its process host sets `commit.gpgsign=false` through the `GIT_CONFIG_*` triple.
+
+## P16: setting sources and the worktree's CLAUDE.md and hooks
+
+The worktree's CLAUDE.md loads only when `project` is among the sources: under `--setting-sources project` and
+`project,local` the agent quoted the worktree's own marker line; under `--setting-sources user` it found none, and under
+`--setting-sources ""` it found it only by reading the file with the Read tool (`p16/<run>.log` and transcripts).
+A `SessionStart` hook in the worktree's `.claude/settings.json` ran under `--setting-sources project` and under
+`project,local`, and not without `project` (`p16/hook-markers.txt`).
+
+Selects: workers keep `--setting-sources project`, so the worktree's `.claude/` stays write-denied and V13 checks every
+branch before a launch on it.
+
+## P17: `permissions.blockReadsOutsideWorkingDirectories`
+
+With it on (`p17/settings.json`, `p17/block-reads-git.log`), git in the worktree read the shared `.git` (`rev-parse
+--git-common-dir`, `status`, `log`, `cat` of `<common>/config`) and committed, while both a Bash `cat` and a Read of the
+main checkout's CLAUDE.md, or of any file outside the repository, were refused; for Bash it also refused running a
+script outside the worktree (`p17/block-reads.log`). Without it the same reads succeed (`control-no-block-git.log`).
+
+Selects: the setting confines sandboxed Bash as well as Read and leaves git working, but it also blocks every read of
+`<data>/`, which the read-only verbs need under a job; T13 adds it only together with a read grant of `<data>/`
+(untested here), otherwise the design's `denyRead` list stays the read confinement.
+
 ## The environments
 
-P2 and P4 ran twice: with the probe driver's inherited environment, which is a dispatched builder's (`CLAUDECODE`,
-`CLAUDE_CODE_SESSION_ID`, `CLAUDE_CODE_MESSAGING_SOCKET`, `ANTHROPIC_BASE_URL`, `CLAUDE_CODE_SIMPLE` and the rest of
-its `CLAUDE_*` variables set), and under `env -i HOME PATH USER` (`--clean-environment`). Every finding was the same
-under both, and subscription authentication worked with those three variables alone (`apiKeySource` `none`).
+P2, P4, P14 and P15 ran twice: with the probe driver's inherited environment, which is a dispatched builder's
+(`CLAUDECODE`, `CLAUDE_CODE_SESSION_ID`, `CLAUDE_CODE_MESSAGING_SOCKET`, `ANTHROPIC_BASE_URL`, `CLAUDE_CODE_SIMPLE` and
+the rest of its `CLAUDE_*` variables set), and under `env -i HOME PATH USER` (`--clean-environment`). Every finding was the same
+under both, and subscription authentication worked with those three variables alone (`apiKeySource` `none`). P15's
+inherited environment is this builder's own, a dispatched builder's; its gates ran under `sandbox-exec` directly.
+P9, P11, P13, P16 and P17 ran in the inherited environment only, and P10 under `env -i` plus its stand-in variables.
