@@ -6,6 +6,7 @@ import type { TicketStatus }                       from '../../lib/tracker-model
 import type { BoardRefusalDetail }                 from '../../lib/tracker-model/BoardRefusal.ts';
 import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS } from '../../lib/tracker-model/constants/TicketMoveLegality.ts';
 import { TicketMoveUtil }                          from '../../lib/tracker-model/utils/TicketMoveUtil.ts';
+import { ROOT_OVERRIDE_VARIABLE }                  from '../../shared/Environment.ts';
 import type { OperationRefusal }                   from '../../shared/OperationRefusal.ts';
 import type { OperationRefusalDetail }             from '../../shared/OperationRefusal.ts';
 import { StatusWordingUtil }                       from './StatusWordingUtil.ts';
@@ -13,6 +14,8 @@ import { TicketPhraseUtil }                        from './TicketPhraseUtil.ts';
 import { TrackerReadingWordingUtil }               from './TrackerReadingWordingUtil.ts';
 
 type InstallVersionMismatchDetail = Extract<OperationRefusalDetail, { kind: 'install-version-mismatch' }>;
+
+type OlderProgramPresentDetail = Extract<OperationRefusalDetail, { kind: 'older-program-present' }>;
 
 const NOTHING_WAS_WRITTEN = 'Nothing was written.';
 
@@ -224,8 +227,15 @@ function installVersionMismatchMessageOf(detail: InstallVersionMismatchDetail): 
 }
 
 function noTrackerAtOverrideText(overrideDirectory: string): string {
-  return `No agent-progress tracker was found in ${overrideDirectory}, which AGENT_PROGRESS_ROOT names. `
-    + 'Run `agent-progress init` there, or unset AGENT_PROGRESS_ROOT to search upwards from the current directory instead.';
+  return `No agent-progress tracker was found in ${overrideDirectory}, which ${ROOT_OVERRIDE_VARIABLE} names. `
+    + `Run \`agent-progress init\` there, or unset ${ROOT_OVERRIDE_VARIABLE} to search upwards from the current directory instead.`;
+}
+
+function olderProgramPresentText({
+  rootDirectory, olderDataFolderPath, program, olderProgram
+}: OlderProgramPresentDetail): string {
+  return `${olderDataFolderPath} holds what ${olderProgram} keeps for ${rootDirectory}, and ${program} is built to run beside it only in a `
+    + `repository ${olderProgram} does not track, so nothing was written. Run ${program} in a scratch repository instead.`;
 }
 
 function noTrackerFoundText(searchedFrom: string): string {
@@ -258,6 +268,8 @@ function messageOf(refusal: OperationRefusal): string {
       return templateTokenNotUniqueText(detail.templateFilePath, detail.token, detail.occurrenceCount);
     case 'install-version-mismatch':
       return installVersionMismatchMessageOf(detail);
+    case 'older-program-present':
+      return olderProgramPresentText(detail);
   }
 }
 

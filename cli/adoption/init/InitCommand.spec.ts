@@ -24,6 +24,8 @@ import {
 }                                                              from 'bun:test';
 import { OperationRefusalWordingUtil }     from '../../../src/adapters/utils/OperationRefusalWordingUtil.ts';
 import * as realWorkflowScriptBundleModule from '../../../src/lib/claude-code/WorkflowScriptBundle.ts';
+import { DISPATCH_PROTOCOL }               from '../../../src/shared/constants/DispatchProtocol.ts';
+import { PRODUCT_NAMES }                   from '../../../src/shared/constants/ProductNames.ts';
 import {
   addWorktree,
   createScratchDirectory,
@@ -45,7 +47,7 @@ const scratchDirectories: string[] = [];
 const GENERATED_DISPATCHER_SCRIPT = (await installedFileTextsFor({ generatesTheDispatcherScript: true })).dispatcherScript ?? '';
 
 function dispatcherScriptPathIn(repositoryDirectory: string): string {
-  return join(repositoryDirectory, '.agent-progress', 'agent-progress-dispatch.js');
+  return join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'agent-progress-dispatch.js');
 }
 
 function scratchRepository(): string {
@@ -65,17 +67,17 @@ describeWhenGitIsPresent('initialising a repository', () => {
 
     expect(await runCommandLine(['init', '--project', 'Example Agency'], context)).toBe(0);
 
-    expect(existsSync(join(repositoryDirectory, '.agent-progress', 'progress.json'))).toBe(true);
-    expect(existsSync(join(repositoryDirectory, '.agent-progress', 'tickets'))).toBe(true);
-    expect(existsSync(join(repositoryDirectory, '.agent-progress', 'progress.html'))).toBe(true);
-    expect(readFileSync(join(repositoryDirectory, '.gitignore'), 'utf8')).toContain('.agent-progress/');
+    expect(existsSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'))).toBe(true);
+    expect(existsSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'tickets'))).toBe(true);
+    expect(existsSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.html'))).toBe(true);
+    expect(readFileSync(join(repositoryDirectory, '.gitignore'), 'utf8')).toContain(`${PRODUCT_NAMES.DATA_FOLDER}/`);
 
     const claudeInstructions = readFileSync(join(repositoryDirectory, 'CLAUDE.md'), 'utf8');
     expect(claudeInstructions).toContain(CLAUDE_MANAGED_BLOCK_MARKERS.start);
     expect(claudeInstructions).toContain('agent-progress');
 
-    expect(readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')).toContain('Example Agency');
-    expect(readFileSync(join(repositoryDirectory, '.agent-progress', 'agent-brief.md'), 'utf8')).toStartWith('# Agent brief');
+    expect(readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'), 'utf8')).toContain('Example Agency');
+    expect(readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'agent-brief.md'), 'utf8')).toStartWith('# Agent brief');
     expect(context.outputText()).toContain('.gitignore:');
     expect(context.outputText()).toContain('progress.html');
     expect(context.errorText()).toBe('');
@@ -84,8 +86,8 @@ describeWhenGitIsPresent('initialising a repository', () => {
   // A new tracker's log starts empty, so a log left from a removed tracker is never adopted as its history.
   test('a fresh init empties a log.jsonl left from a removed tracker', async () => {
     const repositoryDirectory = scratchRepository();
-    const logFilePath         = join(repositoryDirectory, '.agent-progress', 'log.jsonl');
-    mkdirSync(join(repositoryDirectory, '.agent-progress'), { recursive: true });
+    const logFilePath         = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'log.jsonl');
+    mkdirSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER), { recursive: true });
     writeFileSync(logFilePath, '{"at":"2026-09-18T08:00:00+02:00","kind":"note","fields":{"text":"A line from a removed tracker"}}\n');
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
 
@@ -97,7 +99,7 @@ describeWhenGitIsPresent('initialising a repository', () => {
 
   test('a ticket file left from a removed tracker that will not parse is the first line on standard error, and init still exits 0', async () => {
     const repositoryDirectory = scratchRepository();
-    const ticketsDirectory    = join(realpathSync(repositoryDirectory), '.agent-progress', 'tickets');
+    const ticketsDirectory    = join(realpathSync(repositoryDirectory), PRODUCT_NAMES.DATA_FOLDER, 'tickets');
     const ticketFilePath      = join(ticketsDirectory, '001-broken-by-hand.md');
     mkdirSync(ticketsDirectory, { recursive: true });
     writeFileSync(ticketFilePath, 'no frontmatter here\n');
@@ -127,7 +129,7 @@ describeWhenGitIsPresent('initialising a repository', () => {
     expect(await runCommandLine(['init', '--no-claude-md'], context)).toBe(0);
 
     expect(readFileSync(claudeFilePath, 'utf8')).toBe('# Example Agency\n\nRules nobody asked this tool to touch.\n');
-    expect(existsSync(join(repositoryDirectory, '.agent-progress', 'progress.json'))).toBe(true);
+    expect(existsSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'))).toBe(true);
   });
 
   // The matcher is empty on purpose: every subagent type is recorded, so the log covers the same agents `usage` reports on.
@@ -140,13 +142,13 @@ describeWhenGitIsPresent('initialising a repository', () => {
 
     const settings = JSON.parse(readFileSync(join(repositoryDirectory, '.claude', 'settings.local.json'), 'utf8')) as Record<string, unknown>;
     expect((settings['hooks'] as Record<string, unknown>)['SubagentStop']).toEqual([
-      { matcher: '', hooks: [{ type: 'command', command: 'agent-progress hook subagent-stop', timeout: 20 }] },
+      { matcher: '', hooks: [{ type: 'command', command: PRODUCT_NAMES.PROGRAM + ' hook subagent-stop', timeout: 20 }] },
     ]);
     expect((settings['hooks'] as Record<string, unknown>)['PreToolUse'], 'the hook that keeps the check command the orchestrator\'s').toEqual([
-      { matcher: 'Bash', hooks: [{ type: 'command', command: 'agent-progress hook pre-tool-use', timeout: 10 }] },
+      { matcher: 'Bash', hooks: [{ type: 'command', command: PRODUCT_NAMES.PROGRAM + ' hook pre-tool-use', timeout: 10 }] },
     ]);
     expect((settings['hooks'] as Record<string, unknown>)['PostToolUse'], 'the hook that keeps the page live').toEqual([
-      { matcher: '', hooks: [{ type: 'command', command: 'agent-progress hook post-tool-use', timeout: 10 }] },
+      { matcher: '', hooks: [{ type: 'command', command: PRODUCT_NAMES.PROGRAM + ' hook post-tool-use', timeout: 10 }] },
     ]);
     expect(existsSync(join(repositoryDirectory, '.claude', 'settings.json'))).toBe(false);
     expect(context.outputText()).toContain('settings.local.json (installed)');
@@ -172,7 +174,7 @@ describeWhenGitIsPresent('initialising a repository', () => {
 
     expect(readFileSync(dispatcherScriptPathIn(repositoryDirectory), 'utf8')).toBe(GENERATED_DISPATCHER_SCRIPT);
     expect(existsSync(join(repositoryDirectory, '.claude', 'workflows'))).toBe(false);
-    expect(context.outputText()).toMatch(/workflow: {4}updated \(\S+\/\.agent-progress\/agent-progress-dispatch\.js\)\n/);
+    expect(context.outputText()).toMatch(new RegExp(`workflow: {4}updated \\(\\S+/${RegExp.escape(PRODUCT_NAMES.DATA_FOLDER)}/agent-progress-dispatch\\.js\\)\n`));
   });
 
   test('--no-workflow writes no dispatcher, in the tracker or under .claude/workflows, and says so', async () => {
@@ -193,13 +195,13 @@ describeWhenGitIsPresent('initialising a repository', () => {
 
     expect(await runCommandLine(['init'], context)).toBe(0);
 
-    const definitionText = readFileSync(join(repositoryDirectory, '.claude', 'agents', 'agent-progress-worker.md'), 'utf8');
+    const definitionText = readFileSync(join(repositoryDirectory, '.claude', 'agents', `${DISPATCH_PROTOCOL.WORKER_AGENT_TYPE}.md`), 'utf8');
     const frontmatter    = definitionText.split('---\n')[1] ?? '';
-    expect(frontmatter).toContain('name: agent-progress-worker\n');
+    expect(frontmatter).toContain(`name: ${DISPATCH_PROTOCOL.WORKER_AGENT_TYPE}\n`);
     expect(frontmatter).toContain('model: opus\n');
     expect(frontmatter).toContain('effort: medium\n');
     expect(definitionText).not.toContain('{{');
-    expect(context.outputText()).toMatch(/agent: {7}updated \(\S+\/\.claude\/agents\/agent-progress-worker\.md\)/);
+    expect(context.outputText()).toMatch(new RegExp(`agent: {7}updated \\(\\S+/\\.claude/agents/${RegExp.escape(DISPATCH_PROTOCOL.WORKER_AGENT_TYPE)}\\.md\\)`));
   });
 
   test('--no-agent-definition with --no-workflow writes neither the definition nor the dispatcher, and says so', async () => {
@@ -226,7 +228,7 @@ describeWhenGitIsPresent('initialising a repository', () => {
     expect(context.errorText()).toContain('Nothing was written.');
     expect(context.outputText()).toBe('');
     expect(repositoryFileContentsOf(repositoryDirectory)).toEqual(filesBefore);
-    expect(existsSync(join(repositoryDirectory, '.agent-progress'))).toBe(false);
+    expect(existsSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER))).toBe(false);
   });
 
   // `--no-workflow` leaves an installed dispatcher in place, and that dispatcher starts every worker as the missing agent.
@@ -243,7 +245,7 @@ describeWhenGitIsPresent('initialising a repository', () => {
     expect(context.errorText()).toContain('Nothing was written.');
     expect(context.outputText()).toBe('');
     expect(repositoryFileContentsOf(repositoryDirectory)).toEqual(filesBefore);
-    expect(filesBefore.has('.agent-progress/agent-progress-dispatch.js'), 'the fixture holds the dispatcher the refusal protects').toBe(true);
+    expect(filesBefore.has(`${PRODUCT_NAMES.DATA_FOLDER}/agent-progress-dispatch.js`), 'the fixture holds the dispatcher the refusal protects').toBe(true);
   });
 
   test('records the install version in the tracker directory as exactly the CLI\'s own', async () => {
@@ -251,7 +253,7 @@ describeWhenGitIsPresent('initialising a repository', () => {
 
     expect(await runCommandLine(['init'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }))).toBe(0);
 
-    expect(readFileSync(join(repositoryDirectory, '.agent-progress', 'version.json'), 'utf8')).toBe(`{\n  "installVersion": ${INSTALL_VERSION}\n}\n`);
+    expect(readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'version.json'), 'utf8')).toBe(`{\n  "installVersion": ${INSTALL_VERSION}\n}\n`);
   });
 
   test('a fresh init cut short after its first installed file leaves the tracker unversioned, so the next command asks for a rerun', async () => {
@@ -283,8 +285,8 @@ describeWhenGitIsPresent('initialising a repository', () => {
 
     expect(await runCommandLine(['init', '--root', plainDirectory], context)).toBe(0);
 
-    expect(existsSync(join(plainDirectory, '.agent-progress', 'progress.json'))).toBe(true);
-    expect(existsSync(join(repositoryDirectory, '.agent-progress', 'progress.json'))).toBe(false);
+    expect(existsSync(join(plainDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'))).toBe(true);
+    expect(existsSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'))).toBe(false);
   });
 });
 
@@ -296,8 +298,8 @@ describeWhenGitIsPresent('a second init', () => {
     const trackerIdBefore = storedProgressOf(repositoryDirectory).trackerId;
 
     const claudeFilePath = join(repositoryDirectory, 'CLAUDE.md');
-    writeFileSync(claudeFilePath, `${CLAUDE_MANAGED_BLOCK_MARKERS.start}\n<!-- agent-progress:managed:end -->\n`);
-    const briefFilePath = join(repositoryDirectory, '.agent-progress', 'agent-brief.md');
+    writeFileSync(claudeFilePath, `${CLAUDE_MANAGED_BLOCK_MARKERS.start}\n${CLAUDE_MANAGED_BLOCK_MARKERS.end}\n`);
+    const briefFilePath = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'agent-brief.md');
     writeFileSync(briefFilePath, 'An older brief nobody refreshed.\n');
 
     const second = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
@@ -324,7 +326,7 @@ describeWhenGitIsPresent('a second init', () => {
     expect(context.errorText()).toContain(repositoryDirectory);
     expect(context.errorText(), 'the refresh at the tracker\'s root is `update`, and it refreshes more than the block').toContain('agent-progress update');
     expect(context.errorText()).not.toContain('only refreshes the CLAUDE.md block');
-    expect(existsSync(join(nestedDirectory, '.agent-progress'))).toBe(false);
+    expect(existsSync(join(nestedDirectory, PRODUCT_NAMES.DATA_FOLDER))).toBe(false);
   });
 
   test('a re-run with --no-claude-md does not claim the block was refreshed', async () => {
@@ -342,9 +344,9 @@ describeWhenGitIsPresent('a second init', () => {
   // The tracker walk misses a progress file that is not a readable regular file, so only the create-exclusive store write keeps it.
   test('a progress file the tracker walk does not recognise is refreshed around, never replaced', async () => {
     const repositoryDirectory = scratchRepository();
-    const progressFilePath    = join(repositoryDirectory, '.agent-progress', 'progress.json');
+    const progressFilePath    = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json');
     const missingTargetPath   = join(repositoryDirectory, 'missing-progress-target.json');
-    mkdirSync(join(repositoryDirectory, '.agent-progress'), { recursive: true });
+    mkdirSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER), { recursive: true });
     symlinkSync(missingTargetPath, progressFilePath);
 
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
@@ -358,7 +360,7 @@ describeWhenGitIsPresent('a second init', () => {
   test('over files a newer agent-progress installed is refused with exit 1 and the newer paragraph, and nothing is written', async () => {
     const repositoryDirectory = scratchRepository();
     await runCommandLine(['init'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }));
-    writeFileSync(join(repositoryDirectory, '.agent-progress', 'agent-brief.md'), 'An older brief nobody refreshed.\n');
+    writeFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'agent-brief.md'), 'An older brief nobody refreshed.\n');
     const rootDirectory    = realpathSync(repositoryDirectory);
     const manifestFilePath = installedFilePathsIn(rootDirectory).installManifest;
     writeFileSync(manifestFilePath, `{\n  "installVersion": ${INSTALL_VERSION + 1}\n}\n`);
@@ -388,8 +390,8 @@ describeWhenGitIsPresent('from inside a linked worktree', () => {
     const context = createCapturedCommandContext({ currentDirectory: worktreeDirectory });
     expect(await runCommandLine(['init'], context)).toBe(0);
 
-    expect(existsSync(join(repositoryDirectory, '.agent-progress', 'progress.json'))).toBe(true);
-    expect(existsSync(join(worktreeDirectory, '.agent-progress'))).toBe(false);
+    expect(existsSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'))).toBe(true);
+    expect(existsSync(join(worktreeDirectory, PRODUCT_NAMES.DATA_FOLDER))).toBe(false);
   });
 });
 
@@ -405,7 +407,7 @@ describeWhenGitIsPresent('the two places init refuses before it writes anything'
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('bare git repository');
-    expect(existsSync(join(parentDirectory, '.agent-progress')), 'nothing was written beside the bare repository').toBe(false);
+    expect(existsSync(join(parentDirectory, PRODUCT_NAMES.DATA_FOLDER)), 'nothing was written beside the bare repository').toBe(false);
     expect(existsSync(join(parentDirectory, 'CLAUDE.md'))).toBe(false);
   });
 
@@ -459,7 +461,7 @@ describeWhenGitIsPresent('a dispatcher that will not bundle', () => {
     expect(await runCommandLine(['init'], context)).toBe(2);
 
     expect(context.errorText()).toContain('could not be generated');
-    expect(existsSync(join(repositoryDirectory, '.agent-progress'))).toBe(false);
+    expect(existsSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER))).toBe(false);
     expect(repositoryFileContentsOf(repositoryDirectory)).toEqual(contentsBefore);
   });
 });

@@ -18,6 +18,7 @@ import {
   expect,
   test
 }                                             from 'bun:test';
+import { PRODUCT_NAMES }                      from '../../src/shared/constants/ProductNames.ts';
 import { removeScratchDirectory }             from '../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.ts';
 import { runCommandLine }                     from '../Main.ts';
@@ -47,7 +48,7 @@ async function jsonOf(commandLineArguments: readonly string[]): Promise<Record<s
 
 /** Every stored file under the tracker but the page and its stamp, which a refused command never reaches either way. */
 function storedFiles(): Record<string, string> {
-  const trackerDirectory = join(repositoryDirectory, '.agent-progress');
+  const trackerDirectory = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER);
   const stored: Record<string, string> = {};
   for (const relativePath of readdirSync(trackerDirectory, { recursive: true, encoding: 'utf8' })) {
     const path = join(trackerDirectory, relativePath);
@@ -56,7 +57,7 @@ function storedFiles(): Record<string, string> {
   return stored;
 }
 
-const epicsDirectory = (): string => join(repositoryDirectory, '.agent-progress', 'epics');
+const epicsDirectory = (): string => join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'epics');
 
 beforeEach(async () => {
   repositoryDirectory = await createInitializedScratchRepository('epic-command', ['--project', 'Example Agency'], () => FROZEN_NOW);

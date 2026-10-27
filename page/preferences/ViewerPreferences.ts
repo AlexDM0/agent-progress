@@ -3,6 +3,7 @@
  * The template's bootstrap keeps its own theme and tab keys.
  */
 
+import { PRODUCT_NAMES } from '../../src/shared/constants/ProductNames.ts';
 import type {
   PreferenceStorage,
   ReloadSnapshotStore,
@@ -36,11 +37,11 @@ const CAPPED_LANE_KEY_SUFFIX: Readonly<Record<ClosedKanbanLane, string>> = {
 };
 
 // Session storage is one tab's, so it needs no tracker id: the snapshot carries it instead, for a tab that opens another dashboard.
-const RELOAD_SNAPSHOT_STORAGE_KEY = 'agent-progress:snapshot';
+const RELOAD_SNAPSHOT_STORAGE_KEY = `${PRODUCT_NAMES.STORAGE_PREFIX}:snapshot`;
 
 /** `file://` is one origin in Chrome, so the tracker id is what keeps two dashboards' ranges apart; the range is stored under the bare prefix. */
 function preferenceKeyPrefixFor(trackerId: string): string {
-  return `agent-progress:${trackerId}`;
+  return `${PRODUCT_NAMES.STORAGE_PREFIX}:${trackerId}`;
 }
 
 // Every other choice's key is the prefix plus one of these names; the finished-work choice keeps the hide-finished checkbox's key,

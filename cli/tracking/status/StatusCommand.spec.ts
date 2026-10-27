@@ -13,6 +13,7 @@ import {
 }                                                                             from 'bun:test';
 import type { TicketFrontmatter }             from '../../../src/lib/tracker-model/@types/Ticket.ts';
 import type { WordedProgressDocument }        from '../../../src/shared/@types/WordedProgressDocument.ts';
+import { PRODUCT_NAMES }                      from '../../../src/shared/constants/ProductNames.ts';
 import { removeScratchDirectory }             from '../../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../../src/testing/ToolGuard.ts';
 import { runCommandLine }                     from '../../Main.ts';
@@ -203,7 +204,7 @@ describeWhenGitIsPresent('the --json working view', () => {
 
 describeWhenGitIsPresent('when a ticket file will not parse', () => {
   test('it is reported on standard error and both forms still answer', async () => {
-    writeFileSync(join(repositoryDirectory, '.agent-progress', 'tickets', '004-broken.md'), 'no frontmatter at all\n');
+    writeFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'tickets', '004-broken.md'), 'no frontmatter at all\n');
 
     const context  = await run(['status', '--json']);
     const document = JSON.parse(context.outputText()) as StatusDocument;

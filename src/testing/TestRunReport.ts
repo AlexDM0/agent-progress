@@ -4,6 +4,7 @@
  */
 import { afterAll } from 'bun:test';
 
+import { EVERY_TOOL_REQUIRED_VARIABLE }                      from '../shared/Environment.ts';
 import { removeScratchTemplates }                            from './ScratchWorkspace.ts';
 import { skippedSpecsSoFar, titleNamingTheUnmetRequirement } from './ToolGuard.ts';
 
@@ -11,7 +12,7 @@ afterAll(() => {
   removeScratchTemplates();
   const skippedSpecs = skippedSpecsSoFar();
   if (skippedSpecs.length === 0) return;
-  console.log(`${skippedSpecs.length} spec(s) skipped for a missing tool or machine condition (set AGENT_PROGRESS_REQUIRE_EVERY_TOOL=1 to fail them instead):`);
+  console.log(`${skippedSpecs.length} spec(s) skipped for a missing tool or machine condition (set ${EVERY_TOOL_REQUIRED_VARIABLE}=1 to fail them instead):`);
   for (const skippedSpec of skippedSpecs) {
     console.log(`  ${titleNamingTheUnmetRequirement(skippedSpec.title, skippedSpec.unmetRequirement)}`);
   }

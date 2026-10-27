@@ -9,6 +9,7 @@
   // `bun:test`), so the package compiles whole under DOM-only options, which proves it stays environment-neutral.
   "include": [
     "./**/*.ts",
+    "../src/shared/constants/ProductNames.ts",
     "../src/lib/tracker-model/@types/BoardChanges.ts",
     "../src/lib/tracker-model/@types/Concurrency.ts",
     "../src/lib/tracker-model/@types/Draft.ts",

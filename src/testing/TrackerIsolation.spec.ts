@@ -13,6 +13,7 @@ import {
   test
 }                    from 'bun:test';
 
+import { ROOT_OVERRIDE_VARIABLE }                                                          from '../shared/Environment.ts';
 import { CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS }                                         from './ChildProcessCaseTimeout.ts';
 import { jsonPrintedByAChildProcess }                                                      from './JsonPrintedByAChildProcess.ts';
 import { createCanonicalScratchDirectory, createScratchDirectory, removeScratchDirectory } from './ScratchWorkspace.ts';
@@ -87,7 +88,7 @@ describe('the verdict on one directory', () => {
     mkdirSync(startDirectory);
     const namedTrackerRoot = writeMinimalTracker(scratchDirectory('isolation-override'));
     expect(verdictFromAChildProcess({ TMPDIR: childScratchRoot }, startDirectory)).toBe('isolated');
-    expect(verdictFromAChildProcess({ TMPDIR: childScratchRoot, AGENT_PROGRESS_ROOT: namedTrackerRoot }, startDirectory))
+    expect(verdictFromAChildProcess({ TMPDIR: childScratchRoot, [ROOT_OVERRIDE_VARIABLE]: namedTrackerRoot }, startDirectory))
       .toBe('resolves-a-tracker-outside-the-scratch-root');
   }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 });

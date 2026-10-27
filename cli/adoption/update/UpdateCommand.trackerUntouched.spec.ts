@@ -9,6 +9,8 @@ import {
   test
 }                                                                             from 'bun:test';
 import { workspacePathsFor }                                  from '../../../src/services/tracker/Workspace.ts';
+import { DISPATCH_PROTOCOL }                                  from '../../../src/shared/constants/DispatchProtocol.ts';
+import { PRODUCT_NAMES }                                      from '../../../src/shared/constants/ProductNames.ts';
 import { createScratchGitRepository, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }                           from '../../../src/testing/ToolGuard.ts';
 import { storedFileContentsOf }                               from '../../../src/testing/TrackerFileFixtures.ts';
@@ -19,11 +21,11 @@ const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
 const REFRESH_LINE_PATTERNS = [
   /^ {2}CLAUDE\.md: {3}unchanged$/m,
-  /^ {2}brief: {7}unchanged \(\S+\/\.agent-progress\/agent-brief\.md\)$/m,
+  new RegExp(`^ {2}brief: {7}unchanged \\(\\S+/${RegExp.escape(PRODUCT_NAMES.DATA_FOLDER)}/agent-brief\\.md\\)$`, 'm'),
   /^ {2}hooks: {7}\S+\/\.claude\/settings\.local\.json \(unchanged\)$/m,
-  /^ {2}workflow: {4}unchanged \(\S+\/\.agent-progress\/agent-progress-dispatch\.js\)$/m,
-  /^ {2}agent: {7}unchanged \(\S+\/\.claude\/agents\/agent-progress-worker\.md\)$/m,
-  /^ {2}dashboard: {3}\S+\/\.agent-progress\/progress\.html$/m,
+  new RegExp(`^ {2}workflow: {4}unchanged \\(\\S+/${RegExp.escape(PRODUCT_NAMES.DATA_FOLDER)}/agent-progress-dispatch\\.js\\)$`, 'm'),
+  new RegExp(`^ {2}agent: {7}unchanged \\(\\S+/\\.claude/agents/${RegExp.escape(DISPATCH_PROTOCOL.WORKER_AGENT_TYPE)}\\.md\\)$`, 'm'),
+  new RegExp(`^ {2}dashboard: {3}\\S+/${RegExp.escape(PRODUCT_NAMES.DATA_FOLDER)}/progress\\.html$`, 'm'),
 ];
 
 let repositoryDirectory = '';

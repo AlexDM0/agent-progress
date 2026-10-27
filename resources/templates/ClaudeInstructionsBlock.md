@@ -1,7 +1,7 @@
 ## Progress tracking with agent-progress
 
 This repository tracks its work with the `agent-progress` CLI. The tracker lives in the git-ignored
-`.agent-progress/` folder at the repository root and is shared by every worktree of it, so subagents
+`{{dataFolder}}/` folder at the repository root and is shared by every worktree of it, so subagents
 in separate checkouts all write to the same chart.
 
 - Run `agent-progress status --json` at the start of a session to find out what was already in
@@ -9,7 +9,7 @@ in separate checkouts all write to the same chart.
   `agent-po` skill. Only when the user asks this session to run the board — orchestrate, work through
   the tickets, take tickets from them — load `agent-progress-orchestrate`; it loads `agent-po` itself.
   Filing or editing a ticket does not make a session the orchestrator and is never a reason to load
-  that skill. `.agent-progress/reference.md` holds the ticket format, the moves and the exit codes.
+  that skill. `{{dataFolder}}/reference.md` holds the ticket format, the moves and the exit codes.
 - Only the orchestrator runs agents for tickets, and it runs them through the dispatcher workflow,
   {{dispatcherWorkflowName}}, started only on the user's go. Any other session or
   agent files a ticket when it is asked to and stops there: it never dispatches an agent to handle
@@ -21,7 +21,7 @@ in separate checkouts all write to the same chart.
   branch, rebasing it onto the main line and filling in its ticket's `## Handoff`: every agent leaves
   its branch ready to fast-forward into main. Nobody continues a finished agent with a follow-up
   message — a fresh agent for the remainder costs less than the one holding the whole transcript.
-- A review is a clean agent following the review brief in `.agent-progress/review-brief.md`. It starts
+- A review is a clean agent following the review brief in `{{dataFolder}}/review-brief.md`. It starts
   from the Handoff rather than redoing the work, fixes what it finds in the branch's change and the
   ticket's Acceptance, settles its own doubts, rebases onto the main line again, and releases the
   branch itself with `agent-progress release`, which lets one branch into main at a time. Anything
@@ -32,7 +32,7 @@ in separate checkouts all write to the same chart.
   "<title>" --type ticket|bug|research`) and move it with `agent-progress ticket start|finish|approve|deliver <id>`.
 - Record milestones with `agent-progress log "<what happened>"`; `--at -5m` backfills a stamp nobody
   registered at the time.
-- Never edit `.agent-progress/progress.json` by hand, and edit a ticket only below its frontmatter —
+- Never edit `{{dataFolder}}/progress.json` by hand, and edit a ticket only below its frontmatter —
   `agent-progress ticket show <id>` prints the file path to edit.
 - Run `agent-progress open` once per session so the user has the dashboard; it reloads itself within
   a minute of new data when idle as the work moves.

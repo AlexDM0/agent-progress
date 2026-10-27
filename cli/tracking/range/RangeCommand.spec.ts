@@ -10,6 +10,7 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
+import { PRODUCT_NAMES }                      from '../../../src/shared/constants/ProductNames.ts';
 import { removeScratchDirectory }             from '../../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../../src/testing/ToolGuard.ts';
 import { runCommandLine }                     from '../../Main.ts';
@@ -177,7 +178,7 @@ describeWhenGitIsPresent('the two bounds a range cannot have', () => {
 describeWhenGitIsPresent('an unreadable progress file', () => {
   /** A script matching the reason should not need to know whether the command it ran takes the lock. */
   test('a settings write reports it in the same words as status, at exit 2', async () => {
-    writeFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), '{ not json');
+    writeFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'), '{ not json');
     const reasons: string[] = [];
     for (const commandLine of [['range', '--auto'], ['status']]) {
       const context = contextHere();

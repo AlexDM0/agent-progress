@@ -1,12 +1,22 @@
 /**
  * The one module that reads `process.env`; nothing else may.
  * Every read is a getter rather than a value captured at import, and nothing is memoised, so a spec
- * can redirect a variable in-process.
+ * can redirect a variable in-process. The product's own variables are named from its environment prefix, so a build linked beside the
+ * released program never reads the released program's root.
  */
+import { PRODUCT_NAMES, type ProductNames } from './constants/ProductNames.ts';
 
-const ROOT_OVERRIDE_VARIABLE = 'AGENT_PROGRESS_ROOT';
+export function rootOverrideVariableOf({ ENVIRONMENT_PREFIX }: Pick<ProductNames, 'ENVIRONMENT_PREFIX'>): string {
+  return `${ENVIRONMENT_PREFIX}ROOT`;
+}
 
-const EVERY_TOOL_REQUIRED_VARIABLE = 'AGENT_PROGRESS_REQUIRE_EVERY_TOOL';
+export function everyToolRequiredVariableOf({ ENVIRONMENT_PREFIX }: Pick<ProductNames, 'ENVIRONMENT_PREFIX'>): string {
+  return `${ENVIRONMENT_PREFIX}REQUIRE_EVERY_TOOL`;
+}
+
+export const ROOT_OVERRIDE_VARIABLE = rootOverrideVariableOf(PRODUCT_NAMES);
+
+export const EVERY_TOOL_REQUIRED_VARIABLE = everyToolRequiredVariableOf(PRODUCT_NAMES);
 
 const USER_SHELL_VARIABLE = 'SHELL';
 

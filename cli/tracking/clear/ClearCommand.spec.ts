@@ -16,6 +16,7 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
+import { PRODUCT_NAMES }                      from '../../../src/shared/constants/ProductNames.ts';
 import { islandContentsOf }                   from '../../../src/testing/RenderedIslandText.ts';
 import { removeScratchDirectory }             from '../../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../../src/testing/ToolGuard.ts';
@@ -27,8 +28,8 @@ import { storedProgressOf }                   from '../../testing/StoredProgress
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
-const TICKETS_DIRECTORY = ['.agent-progress', 'tickets'];
-const EPICS_DIRECTORY   = ['.agent-progress', 'epics'];
+const TICKETS_DIRECTORY = [PRODUCT_NAMES.DATA_FOLDER, 'tickets'];
+const EPICS_DIRECTORY   = [PRODUCT_NAMES.DATA_FOLDER, 'epics'];
 
 const READ_AND_ENTER_ONLY_MODE = 0o555;
 const OWNER_FULL_ACCESS_MODE   = 0o755;
@@ -117,7 +118,7 @@ describeWhenGitIsPresent('clearing everything', () => {
 
   /** The progress file is written before any ticket file changes, so a write that fails cannot leave rows naming tickets that are gone. */
   test('--all whose progress file cannot be written deletes no ticket', async () => {
-    const trackerDirectory = join(repositoryDirectory, '.agent-progress');
+    const trackerDirectory = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER);
     const progressBefore   = readFileSync(join(trackerDirectory, 'progress.json'), 'utf8');
     chmodSync(trackerDirectory, READ_AND_ENTER_ONLY_MODE);
     try {
@@ -157,7 +158,7 @@ describeWhenGitIsPresent('clearing a tracker with epics', () => {
     expect(JSON.parse(context.outputText())).toMatchObject({ deletedTicketCount: 1, deletedEpicCount: 2 });
     expect(epicFilesByName()).toEqual({});
     expect(JSON.parse((await run(['status', '--json'])).outputText()).epics).toEqual([]);
-    const page = readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.html'), 'utf8');
+    const page = readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.html'), 'utf8');
     const pageData = JSON.stringify([islandContentsOf(page, 'ap-progress-data'), islandContentsOf(page, 'ap-tickets-data')]);
     expect(pageData, 'the page data before any epic check').toContain('Tracker cleared');
     for (const epicKey of EPIC_KEYS) expect(pageData).not.toContain(epicKey);

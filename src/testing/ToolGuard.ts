@@ -5,9 +5,9 @@
  */
 import { describe, test } from 'bun:test';
 
-import { everyToolIsRequired }                            from '../shared/Environment.ts';
-import { scratchRootLiesOutsideTheFixedTemporaryFolders } from './FixedTemporaryFolders.ts';
-import { gitIsAvailable }                                 from './ScratchWorkspace.ts';
+import { EVERY_TOOL_REQUIRED_VARIABLE, everyToolIsRequired } from '../shared/Environment.ts';
+import { scratchRootLiesOutsideTheFixedTemporaryFolders }    from './FixedTemporaryFolders.ts';
+import { gitIsAvailable }                                    from './ScratchWorkspace.ts';
 
 export type RequiredTool = 'git' | 'bash';
 
@@ -43,7 +43,7 @@ export function titleNamingTheUnmetRequirement(title: string, requirement: SpecR
 }
 
 function failBecauseRequirementIsUnmet(requirement: SpecRequirement): never {
-  throw new Error(`Every tool is required (AGENT_PROGRESS_REQUIRE_EVERY_TOOL is set), but ${UNMET_REQUIREMENT_WORDING[requirement]} on this machine.`);
+  throw new Error(`Every tool is required (${EVERY_TOOL_REQUIRED_VARIABLE} is set), but ${UNMET_REQUIREMENT_WORDING[requirement]} on this machine.`);
 }
 
 function describeWhenRequirementIsMet(requirement: SpecRequirement, title: string, body: () => void): void {

@@ -13,6 +13,7 @@ import {
   test
 }                                                                             from 'bun:test';
 import type { DispatcherState }               from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
+import { PRODUCT_NAMES }                      from '../../../src/shared/constants/ProductNames.ts';
 import { removeScratchDirectory }             from '../../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../../src/testing/ToolGuard.ts';
 import { runCommandLine }                     from '../../Main.ts';
@@ -27,7 +28,7 @@ const FROZEN_NOW = new Date('2026-09-23T20:11:03Z');
 let repositoryDirectory = '';
 
 function progressFilePath(): string {
-  return join(repositoryDirectory, '.agent-progress', 'progress.json');
+  return join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json');
 }
 
 async function runWithExitCode(commandLineArguments: readonly string[]): Promise<{ exitCode: number; context: ReturnType<typeof createCapturedCommandContext> }> {

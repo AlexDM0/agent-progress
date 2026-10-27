@@ -4,8 +4,8 @@ The orchestrator's brief: how to scope a ticket, write its `## Brief`, and brief
 Every API call a subagent makes re-reads its whole transcript, so the length of that transcript, not
 the size of the change, is what the work costs. Every section below exists to keep a transcript short.
 
-The agents read briefs of their own: a builder `.agent-progress/builder-brief.md`, a reviewer
-`.agent-progress/review-brief.md`. The dispatcher names the right one in each prompt, and the
+The agents read briefs of their own: a builder `{{dataFolder}}/builder-brief.md`, a reviewer
+`{{dataFolder}}/review-brief.md`. The dispatcher names the right one in each prompt, and the
 orchestrator writes the Ticket brief block below into every ticket it files, as its `## Brief`, which
 the builder reads as its scope and contract. By hand, while the dispatcher is stopped, fill in the
 placeholders and paste the fenced blocks, in order, as the agent's whole prompt — the Scope and

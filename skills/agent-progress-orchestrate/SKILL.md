@@ -1,5 +1,5 @@
 ---
-name: agent-progress-orchestrate
+name: {{skillName}}
 description: >-
   Run a session as the orchestrator of an agent-progress board: take ticket
   requests from the user, grill each one until it is unambiguous, file it

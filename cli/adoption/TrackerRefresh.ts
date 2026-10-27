@@ -34,7 +34,6 @@ import {
   type InstalledFile,
   type InstalledFileName,
   type InstalledPart,
-  type InstalledSkillName,
   type InstallOptOutFlag,
   type RetiredSkillFolder
 }                                                                from './constants/ClaudeCodeInstall.ts';
@@ -145,11 +144,11 @@ function refreshRewrittenFiles(files: readonly InstalledFile[], installedFilePat
  * behind too. Each folder is git-ignored, since it is a copy of this checkout's and the next `update` replaces it.
  */
 function refreshSkillFolders(
-  { skillNames, retiredSkillFolders }: { skillNames: readonly InstalledSkillName[]; retiredSkillFolders: readonly RetiredSkillFolder[] },
+  { installedSkillNames, retiredSkillFolders }: Pick<Extract<InstalledPart, { writing: 'skill-folders' }>, 'installedSkillNames' | 'retiredSkillFolders'>,
   rootDirectory: string,
   installedSkillFileTexts: InstalledSkillFileTexts,
 ): string {
-  const folderLines = skillNames.map((skillName) => {
+  const folderLines = Object.values(installedSkillNames).map((skillName) => {
     const skillFileTexts = installedSkillFileTexts[skillName];
     if (skillFileTexts === undefined) throw new OperationRefusal('unrepaired', `No files were read for the installed skill ${skillName}, so it was not written.`);
     const folderInRepository = installedSkillFolderInRepository(skillName);

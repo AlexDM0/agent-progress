@@ -10,6 +10,7 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
+import { PRODUCT_NAMES }                                      from '../../../src/shared/constants/ProductNames.ts';
 import { createScratchGitRepository, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }                           from '../../../src/testing/ToolGuard.ts';
 import { runCommandLine }                                     from '../../Main.ts';
@@ -30,7 +31,7 @@ afterEach(() => {
 
 describeWhenGitIsPresent('an unreadable progress file', () => {
   test('is reported once, at exit 2', async () => {
-    writeFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), UNREADABLE_PROGRESS_TEXT);
+    writeFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'), UNREADABLE_PROGRESS_TEXT);
 
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
     expect(await runCommandLine(['render'], context)).toBe(2);

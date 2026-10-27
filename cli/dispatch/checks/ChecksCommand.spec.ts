@@ -11,6 +11,7 @@ import {
   test
 }                                             from 'bun:test';
 import { workspacePathsFor }                  from '../../../src/services/tracker/Workspace.ts';
+import { PRODUCT_NAMES }                      from '../../../src/shared/constants/ProductNames.ts';
 import { removeScratchDirectory }             from '../../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../../src/testing/ToolGuard.ts';
 import { runCommandLine }                     from '../../Main.ts';
@@ -23,7 +24,7 @@ import { storedProgressOf }                   from '../../testing/StoredProgress
 const FROZEN_NOW = new Date('2026-10-06T09:00:00Z');
 
 /** Every line set here is tried in the scratch repository first, so it has to pass there. */
-const EXAMPLE_CHECK_COMMAND = 'test -d .agent-progress && echo "example checks passed"';
+const EXAMPLE_CHECK_COMMAND = `test -d ${PRODUCT_NAMES.DATA_FOLDER} && echo "example checks passed"`;
 
 let repositoryDirectory = '';
 

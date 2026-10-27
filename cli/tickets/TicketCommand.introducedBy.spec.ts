@@ -12,6 +12,7 @@ import {
   expect,
   test
 }                                             from 'bun:test';
+import { PRODUCT_NAMES }                      from '../../src/shared/constants/ProductNames.ts';
 import { removeScratchDirectory }             from '../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.ts';
 import { runCommandLine }                     from '../Main.ts';
@@ -55,7 +56,7 @@ async function run(commandLineArguments: readonly string[]): Promise<ReturnType<
 }
 
 function ticketsDirectory(): string {
-  return join(repositoryDirectory, '.agent-progress', 'tickets');
+  return join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'tickets');
 }
 
 function storedTicketText(identifier: string): string {
@@ -65,12 +66,12 @@ function storedTicketText(identifier: string): string {
 }
 
 function storedLogText(): string {
-  return readFileSync(join(repositoryDirectory, '.agent-progress', 'log.jsonl'), 'utf8');
+  return readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'log.jsonl'), 'utf8');
 }
 
 function trackerSnapshot(): string {
   const ticketTexts = readdirSync(ticketsDirectory()).toSorted().map((fileName) => readFileSync(join(ticketsDirectory(), fileName), 'utf8'));
-  return [storedLogText(), readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8'), ...ticketTexts].join('\n=====\n');
+  return [storedLogText(), readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'), 'utf8'), ...ticketTexts].join('\n=====\n');
 }
 
 /** Refused at exit 1, with the log, the progress file and every ticket file, their number included, left as they were. */

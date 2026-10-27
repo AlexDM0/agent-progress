@@ -13,6 +13,7 @@ import {
   test,
 } from 'bun:test';
 
+import { EVERY_TOOL_REQUIRED_VARIABLE }                                            from '../shared/Environment.ts';
 import { CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS }                                 from './ChildProcessCaseTimeout.ts';
 import { createScratchDirectory, removeScratchDirectory }                          from './ScratchWorkspace.ts';
 import { testWhenGitIsPresent, testWhenGitIsPresentAndTheScratchRootIsOutsideTmp } from './ToolGuard.ts';
@@ -84,14 +85,14 @@ test('without git the run passes, and the report names both skipped specs with t
 }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
 test('without git and with AGENT_PROGRESS_REQUIRE_EVERY_TOOL set, the same run fails and names the missing tool', () => {
-  const { exitCode, output } = testRunWithOnlyTheseTools([], { AGENT_PROGRESS_REQUIRE_EVERY_TOOL: '1' });
+  const { exitCode, output } = testRunWithOnlyTheseTools([], { [EVERY_TOOL_REQUIRED_VARIABLE]: '1' });
   expect(exitCode, output).not.toBe(0);
   expect(output).toContain('but git is missing on this machine');
   expect(output).not.toContain('skipped for a missing tool');
 }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
 testWhenGitIsPresent('with git on the PATH the guarded specs run and nothing is reported skipped', () => {
-  const { exitCode, output } = testRunWithOnlyTheseTools([Bun.which('git') ?? 'git'], { AGENT_PROGRESS_REQUIRE_EVERY_TOOL: '1' });
+  const { exitCode, output } = testRunWithOnlyTheseTools([Bun.which('git') ?? 'git'], { [EVERY_TOOL_REQUIRED_VARIABLE]: '1' });
   expect(exitCode, output).toBe(0);
   expect(output).toContain('2 pass');
   expect(output).not.toContain('skipped for a missing tool');
@@ -109,14 +110,14 @@ testWhenGitIsPresent('with the scratch root under /tmp the temp-folder guard ski
 }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
 testWhenGitIsPresent('with the scratch root under /tmp and AGENT_PROGRESS_REQUIRE_EVERY_TOOL set, the temp-folder guard fails its spec', () => {
-  const { exitCode, output } = temporaryFolderGuardedRun('/tmp', { AGENT_PROGRESS_REQUIRE_EVERY_TOOL: '1' });
+  const { exitCode, output } = temporaryFolderGuardedRun('/tmp', { [EVERY_TOOL_REQUIRED_VARIABLE]: '1' });
   expect(exitCode, output).not.toBe(0);
   expect(output).toContain('but the scratch root lies under /tmp or /var/tmp on this machine');
   expect(output).not.toContain('skipped for a missing tool');
 }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
 testWhenGitIsPresentAndTheScratchRootIsOutsideTmp('with the scratch root outside both fixed temp folders the temp-folder guard runs its spec', () => {
-  const { exitCode, output } = temporaryFolderGuardedRun(scratchDirectory, { AGENT_PROGRESS_REQUIRE_EVERY_TOOL: '1' });
+  const { exitCode, output } = temporaryFolderGuardedRun(scratchDirectory, { [EVERY_TOOL_REQUIRED_VARIABLE]: '1' });
   expect(exitCode, output).toBe(0);
   expect(output).toContain('1 pass');
   expect(output).not.toContain('skipped for a missing tool');

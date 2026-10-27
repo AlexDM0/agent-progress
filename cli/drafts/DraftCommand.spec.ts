@@ -20,6 +20,7 @@ import {
   expect,
   test
 }                                             from 'bun:test';
+import { PRODUCT_NAMES }                      from '../../src/shared/constants/ProductNames.ts';
 import { removeScratchDirectory }             from '../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.ts';
 import { runCommandLine }                     from '../Main.ts';
@@ -54,7 +55,7 @@ async function jsonOf(commandLineArguments: readonly string[]): Promise<unknown>
   return JSON.parse((await run([...commandLineArguments, '--json'])).outputText()) as unknown;
 }
 
-const trackerDirectory = (): string => join(repositoryDirectory, '.agent-progress');
+const trackerDirectory = (): string => join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER);
 const draftsDirectory  = (): string => join(trackerDirectory(), 'filing-cabinet');
 const draftFilePath    = (draftId: string): string => join(draftsDirectory(), `${draftId}.json`);
 

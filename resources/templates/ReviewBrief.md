@@ -16,7 +16,7 @@ The round is the number of `## Review` sections already in the ticket, plus one.
 say in the first line that the pass is scoped to the commits the previous reviewer authored and that
 what the earlier Reviews settled is not to be re-derived. Step 0 reads the diff once, because a
 reviewer that rebuilds the change file by file spends most of its input re-reading files already
-open. `.agent-progress/reference.md` holds the ticket file's format, what each ticket move does and
+open. `{{dataFolder}}/reference.md` holds the ticket file's format, what each ticket move does and
 the exit codes, read only when a command's outcome or a ticket's format is in question. Step 7b is
 a count, not a judgement, so that two reviewers reach the same verdict. Harness subagents get their
 working directory reset to the main checkout, which is why every git command names its checkout.

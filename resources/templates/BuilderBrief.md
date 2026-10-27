@@ -4,7 +4,7 @@ What a builder follows beside its ticket's `## Brief`: every block below, in ord
 re-reads the whole transcript, so what a build costs is the length of its transcript, not the size
 of its change; every block here exists to keep that transcript short.
 
-`.agent-progress/reference.md` holds the ticket file's format, what each ticket move does and the
+`{{dataFolder}}/reference.md` holds the ticket file's format, what each ticket move does and the
 exit codes. Read it only when a command's outcome or a ticket's format is in question.
 
 ## Call discipline

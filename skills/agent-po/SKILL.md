@@ -1,5 +1,5 @@
 ---
-name: agent-po
+name: {{skillName}}
 description: >-
   File work on an agent-progress board: turn what the user reports into
   tickets an agent can build without asking, each with its Report, Wanted,

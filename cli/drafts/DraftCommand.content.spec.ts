@@ -13,6 +13,7 @@ import {
   expect,
   test
 }                                             from 'bun:test';
+import { PRODUCT_NAMES }                      from '../../src/shared/constants/ProductNames.ts';
 import { removeScratchDirectory }             from '../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.ts';
 import { runCommandLine }                     from '../Main.ts';
@@ -69,7 +70,7 @@ async function statusDrafts(): Promise<ListedDraft[]> {
   return ((await jsonOf(['status'])) as { drafts: ListedDraft[] }).drafts;
 }
 
-const trackerDirectory = (): string => join(repositoryDirectory, '.agent-progress');
+const trackerDirectory = (): string => join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER);
 
 /** Every stored file under the tracker but the page and its stamp. */
 function storedFiles(): Record<string, string> {

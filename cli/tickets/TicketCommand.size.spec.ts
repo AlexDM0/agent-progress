@@ -12,6 +12,7 @@ import {
   expect,
   test
 }                                             from 'bun:test';
+import { PRODUCT_NAMES }                      from '../../src/shared/constants/ProductNames.ts';
 import { removeScratchDirectory }             from '../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.ts';
 import { runCommandLine }                     from '../Main.ts';
@@ -35,7 +36,7 @@ async function runWithExitCode(commandLineArguments: readonly string[], expected
 }
 
 function ticketsDirectory(): string {
-  return join(repositoryDirectory, '.agent-progress', 'tickets');
+  return join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'tickets');
 }
 
 function storedTicketText(identifier: string): string {

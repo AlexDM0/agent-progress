@@ -12,6 +12,7 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
+import { PRODUCT_NAMES }                      from '../../src/shared/constants/ProductNames.ts';
 import { removeScratchDirectory }             from '../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.ts';
 import { runCommandLine }                     from '../Main.ts';
@@ -43,11 +44,11 @@ async function runExpectingRefusal(commandLineArguments: readonly string[]): Pro
 }
 
 function progressFilePath(): string {
-  return join(repositoryDirectory, '.agent-progress', 'progress.json');
+  return join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json');
 }
 
 function ticketFilePath(identifier: string): string {
-  const ticketsDirectory = join(repositoryDirectory, '.agent-progress', 'tickets');
+  const ticketsDirectory = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'tickets');
   const fileName         = readdirSync(ticketsDirectory).find((name) => name.startsWith(`${identifier}-`));
   if (fileName === undefined) throw new Error(`no ticket file for #${identifier}`);
   return join(ticketsDirectory, fileName);
@@ -94,7 +95,7 @@ describeWhenGitIsPresent('filing and moving a low ticket', () => {
     const context = await runExpectingRefusal(['ticket', 'add', '--type', 'ticket', 'Reword the empty-log note', '--priority', 'urgent']);
 
     expect(context.errorText()).toContain('is not a ticket priority');
-    expect(readdirSync(join(repositoryDirectory, '.agent-progress', 'tickets'))).toHaveLength(0);
+    expect(readdirSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'tickets'))).toHaveLength(0);
   });
 
   test('ticket start on a low ticket gives it an in-progress row, and the ticket stays low', async () => {

@@ -17,6 +17,7 @@ import {
   test
 }                                       from 'bun:test';
 import type { TrackerProgress }               from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
+import { PRODUCT_NAMES }                      from '../../../src/shared/constants/ProductNames.ts';
 import { removeScratchDirectory }             from '../../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../../src/testing/ToolGuard.ts';
 import { runCommandLine }                     from '../../Main.ts';
@@ -41,7 +42,7 @@ async function run(commandLineArguments: readonly string[]): Promise<ReturnType<
 }
 
 function storedTicketText(fileName: string): string {
-  return readFileSync(join(repositoryDirectory, '.agent-progress', 'tickets', fileName), 'utf8');
+  return readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'tickets', fileName), 'utf8');
 }
 
 beforeEach(async () => {
@@ -254,21 +255,21 @@ describeWhenGitIsPresent('linking a row to a ticket', () => {
     await run(['task', 'add', 'Example first review', '--review-of', '3']);
     expect(storedProgressOf(repositoryDirectory).tasks.find((task) => task.name === 'Example first review')).toMatchObject({ reviewOf: '003', reviewBarRound: 1 });
 
-    appendFileSync(join(repositoryDirectory, '.agent-progress', 'tickets', '003-split-the-exporter.md'), '\n## Review\nExample round.\n');
+    appendFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'tickets', '003-split-the-exporter.md'), '\n## Review\nExample round.\n');
     await run(['task', 'add', 'Review 1 #3 — x', '--review-of', '3']);
     expect(storedProgressOf(repositoryDirectory).tasks.find((task) => task.name === 'Review 1 #3 — x')).toMatchObject({ reviewOf: '003', reviewBarRound: 2 });
   });
 
   test('--review-of naming a ticket that does not exist is refused with exit 1, and nothing is written', async () => {
     await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
-    const progressBefore = readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8');
+    const progressBefore = readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'), 'utf8');
     const logBefore      = storedLogTextOf(repositoryDirectory);
 
     const refused = contextHere();
     expect(await runCommandLine(['task', 'add', 'Review 1 #9 — x', '--review-of', '9', '--start'], refused)).toBe(1);
 
     expect(refused.errorText()).toContain('--review-of names ticket 9, and there is none');
-    expect(readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')).toBe(progressBefore);
+    expect(readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'), 'utf8')).toBe(progressBefore);
     expect(storedLogTextOf(repositoryDirectory)).toBe(logBefore);
   });
 
@@ -398,7 +399,7 @@ describeWhenGitIsPresent('the refusals that stop a row being filed wrong', () =>
 
 describeWhenGitIsPresent('the render report after a write', () => {
   test('a ticket file that will not parse is reported once on standard error, and the row is still filed with exit 0', async () => {
-    const ticketFilePath = join(realpathSync(repositoryDirectory), '.agent-progress', 'tickets', '001-broken-by-hand.md');
+    const ticketFilePath = join(realpathSync(repositoryDirectory), PRODUCT_NAMES.DATA_FOLDER, 'tickets', '001-broken-by-hand.md');
     writeFileSync(ticketFilePath, 'no frontmatter here\n');
 
     const context  = contextHere();

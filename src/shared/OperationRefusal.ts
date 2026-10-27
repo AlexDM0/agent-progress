@@ -16,7 +16,8 @@ export type OperationRefusalDetail =
   | { kind: 'no-tracker-found'; searchedFrom: string }
   | { kind: 'tracker-lock-held'; lockDirectoryPath: string }
   | { kind: 'template-token-not-unique'; templateFilePath: string; token: string; occurrenceCount: number }
-  | { kind: 'install-version-mismatch'; rootDirectory: string; manifestFilePath: string; installVersion: number; mismatch: InstallVersionMismatch };
+  | { kind: 'install-version-mismatch'; rootDirectory: string; manifestFilePath: string; installVersion: number; mismatch: InstallVersionMismatch }
+  | { kind: 'older-program-present'; rootDirectory: string; olderDataFolderPath: string; program: string; olderProgram: string };
 
 function reasonCodeOf(detail: OperationRefusalDetail): string {
   return detail.kind === 'board-refusal' ? detail.boardRefusal.reason : detail.kind;

@@ -10,6 +10,7 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
+import { PRODUCT_NAMES }                                      from '../src/shared/constants/ProductNames.ts';
 import { createScratchGitRepository, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }                           from '../src/testing/ToolGuard.ts';
 import { runCommandLine }                                     from './Main.ts';
@@ -31,7 +32,7 @@ async function exitCodeAndErrorOf(commandLineArguments: readonly string[]): Prom
 }
 
 function trackerFileContents(): string[] {
-  return TRACKER_FILE_NAMES.map((fileName) => readFileSync(join(repositoryDirectory, '.agent-progress', fileName), 'utf8'));
+  return TRACKER_FILE_NAMES.map((fileName) => readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, fileName), 'utf8'));
 }
 
 async function expectRefusedWithoutAWrite(commandLineArguments: readonly string[], refusedOptionText: string, writtenOffset = OUT_OF_RANGE_OFFSET): Promise<void> {

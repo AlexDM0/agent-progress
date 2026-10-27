@@ -8,6 +8,8 @@ import { createHash }                                         from 'node:crypto'
 import { existsSync, readFileSync, realpathSync }             from 'node:fs';
 import { join }                                               from 'node:path';
 import { afterEach, expect, test }                            from 'bun:test';
+import { ROOT_OVERRIDE_VARIABLE }                             from '../src/shared/Environment.ts';
+import { PRODUCT_NAMES }                                      from '../src/shared/constants/ProductNames.ts';
 import { CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS }            from '../src/testing/ChildProcessCaseTimeout.ts';
 import { createScratchGitRepository, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }                           from '../src/testing/ToolGuard.ts';
@@ -26,13 +28,13 @@ function scratchRepository(prefix: string): string {
 }
 
 function progressFilePathOf(repositoryDirectory: string): string {
-  return join(repositoryDirectory, '.agent-progress', 'progress.json');
+  return join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json');
 }
 
 function trackerFilesHashOf(repositoryDirectory: string): string {
   return createHash('sha256')
     .update(readFileSync(progressFilePathOf(repositoryDirectory)))
-    .update(readFileSync(join(repositoryDirectory, '.agent-progress', 'log.jsonl')))
+    .update(readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'log.jsonl')))
     .digest('hex');
 }
 
@@ -54,11 +56,11 @@ describeWhenGitIsPresent('init with AGENT_PROGRESS_ROOT set', () => {
 
     const result = await runAgentProgress(['init', '--project', 'Example Agency'], {
       currentDirectory: trackedDirectory,
-      environment:      { AGENT_PROGRESS_ROOT: untrackedDirectory },
+      environment:      { [ROOT_OVERRIDE_VARIABLE]: untrackedDirectory },
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.standardError).toContain('AGENT_PROGRESS_ROOT');
+    expect(result.standardError).toContain(ROOT_OVERRIDE_VARIABLE);
     expect(result.standardError).toContain(trackedDirectory);
     expect(result.standardError).toContain(untrackedDirectory);
     expect(trackerFilesHashOf(trackedDirectory)).toBe(hashBefore);
@@ -71,7 +73,7 @@ describeWhenGitIsPresent('init with AGENT_PROGRESS_ROOT set', () => {
 
     const result = await runAgentProgress(['init'], {
       currentDirectory: trackedDirectory,
-      environment:      { AGENT_PROGRESS_ROOT: trackedDirectory },
+      environment:      { [ROOT_OVERRIDE_VARIABLE]: trackedDirectory },
     });
 
     expect(result.exitCode).toBe(0);
@@ -97,14 +99,14 @@ describeWhenGitIsPresent('init with AGENT_PROGRESS_ROOT set', () => {
 
     const result = await runAgentProgress(['init', '--root', untrackedDirectory], {
       currentDirectory: trackedDirectory,
-      environment:      { AGENT_PROGRESS_ROOT: trackedDirectory },
+      environment:      { [ROOT_OVERRIDE_VARIABLE]: trackedDirectory },
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.standardError).toContain('AGENT_PROGRESS_ROOT');
+    expect(result.standardError).toContain(ROOT_OVERRIDE_VARIABLE);
     expect(result.standardError).toContain(trackedDirectory);
     expect(result.standardError).toContain(untrackedDirectory);
-    expect(existsSync(join(untrackedDirectory, '.agent-progress'))).toBe(false);
+    expect(existsSync(join(untrackedDirectory, PRODUCT_NAMES.DATA_FOLDER))).toBe(false);
     expect(trackerFilesHashOf(trackedDirectory)).toBe(hashBefore);
   }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
@@ -113,7 +115,7 @@ describeWhenGitIsPresent('init with AGENT_PROGRESS_ROOT set', () => {
 
     const result = await runAgentProgress(['init', '--root', untrackedDirectory], {
       currentDirectory: untrackedDirectory,
-      environment:      { AGENT_PROGRESS_ROOT: untrackedDirectory },
+      environment:      { [ROOT_OVERRIDE_VARIABLE]: untrackedDirectory },
     });
 
     expect(result.exitCode).toBe(0);

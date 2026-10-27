@@ -12,6 +12,7 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
+import { PRODUCT_NAMES }                      from '../../src/shared/constants/ProductNames.ts';
 import { removeScratchDirectory }             from '../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.ts';
 import { runCommandLine }                     from '../Main.ts';
@@ -43,11 +44,11 @@ async function runExpectingRefusal(commandLineArguments: readonly string[]): Pro
 }
 
 function progressFilePath(): string {
-  return join(repositoryDirectory, '.agent-progress', 'progress.json');
+  return join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json');
 }
 
 function ticketsDirectory(): string {
-  return join(repositoryDirectory, '.agent-progress', 'tickets');
+  return join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'tickets');
 }
 
 function ticketFilePath(identifier: string): string {

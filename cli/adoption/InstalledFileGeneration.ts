@@ -12,14 +12,15 @@ import { dispatcherDirectoryPath, dispatcherScriptBuildRequestWith } from '../..
 import { OperationRefusal }                                          from '../../src/shared/OperationRefusal.ts';
 import { resourceFilePathOf }                                        from '../../src/shared/ResourceFilePath.ts';
 import { DISPATCH_PROTOCOL }                                         from '../../src/shared/constants/DispatchProtocol.ts';
+import { PRODUCT_NAMES }                                             from '../../src/shared/constants/ProductNames.ts';
 import { filledTemplateOf }                                          from '../FilledTemplate.ts';
 import {
   CLAUDE_CODE_INSTALL,
   type InstalledFile,
   type InstalledFileName,
   type InstalledPart,
-  type InstalledSkillName
-}                                                                from './constants/ClaudeCodeInstall.ts';
+  type SkillSourceFolderName
+}                                                              from './constants/ClaudeCodeInstall.ts';
 
 // The brief is prose, so it names the model the way a person writes it; the agent definition keeps the id Claude Code reads.
 const AGENT_MODEL_DISPLAY_NAMES: Readonly<Record<AgentModel, string>> = Object.freeze({
@@ -53,16 +54,19 @@ function filesOf(part: InstalledPart): readonly InstalledFile[] {
   return part.files;
 }
 
-/** Each installed skill's files, keyed by their path inside the skill folder written with `/`, in path order. */
-export type InstalledSkillFileTexts = Readonly<Partial<Record<InstalledSkillName, ReadonlyMap<string, string>>>>;
+/** Each installed skill's files under its installed name, keyed by their path inside the skill folder written with `/`, in path order. */
+export type InstalledSkillFileTexts = Readonly<Partial<Record<string, ReadonlyMap<string, string>>>>;
 
 /** Resolves from the installed package like `resources/`, because the `bun link`ed binary runs from any repository. */
-export function skillSourceDirectoryOf(skillName: InstalledSkillName): string {
-  return join(import.meta.dir, '..', '..', 'skills', skillName);
+export function skillSourceDirectoryOf(sourceFolderName: SkillSourceFolderName): string {
+  return join(import.meta.dir, '..', '..', 'skills', sourceFolderName);
 }
 
-/** A skill folder that cannot be read or holds no file is a defect of this checkout, not of the repository being written to. */
-function skillFileTextsOf(sourceDirectory: string): ReadonlyMap<string, string> {
+/**
+ * A skill folder that cannot be read or holds no file is a defect of this checkout, not of the repository being written to. Each file is
+ * filled with the skill's installed name, which its `SKILL.md` frontmatter names it by.
+ */
+function skillFileTextsOf(sourceDirectory: string, installedName: string): ReadonlyMap<string, string> {
   const unreadable = () => new OperationRefusal('unrepaired', `The skill folder ${sourceDirectory} could not be read, so nothing was written.`);
   try {
     const filePaths = readdirSync(sourceDirectory, { recursive: true, withFileTypes: true })
@@ -70,7 +74,10 @@ function skillFileTextsOf(sourceDirectory: string): ReadonlyMap<string, string> 
       .map((entry) => join(entry.parentPath, entry.name))
       .sort();
     if (filePaths.length === 0) throw unreadable();
-    return new Map(filePaths.map((filePath) => [relative(sourceDirectory, filePath).split(sep).join('/'), readFileSync(filePath, 'utf8')]));
+    return new Map(filePaths.map((filePath) => [
+      relative(sourceDirectory, filePath).split(sep).join('/'),
+      filledTemplateOf(readFileSync(filePath, 'utf8'), { skillName: installedName }),
+    ]));
   } catch (error) {
     if (error instanceof OperationRefusal) throw error;
     throw unreadable();
@@ -78,10 +85,12 @@ function skillFileTextsOf(sourceDirectory: string): ReadonlyMap<string, string> 
 }
 
 export function installedSkillFileTexts(): InstalledSkillFileTexts {
-  const texts: Partial<Record<InstalledSkillName, ReadonlyMap<string, string>>> = {};
+  const texts: Partial<Record<string, ReadonlyMap<string, string>>> = {};
   for (const part of CLAUDE_CODE_INSTALL.parts) {
     if (part.writing !== 'skill-folders') continue;
-    for (const skillName of part.skillNames) texts[skillName] = skillFileTextsOf(skillSourceDirectoryOf(skillName));
+    for (const [sourceFolderName, installedName] of Object.entries(part.installedSkillNames) as [SkillSourceFolderName, string][]) {
+      texts[installedName] = skillFileTextsOf(skillSourceDirectoryOf(sourceFolderName), installedName);
+    }
   }
   return texts;
 }
@@ -96,6 +105,8 @@ export async function installedFileTextsFor(request: { generatesTheDispatcherScr
     builderApiCallBudget:  String(DISPATCH_PROTOCOL.BUILDER_API_CALL_BUDGET),
     reviewerApiCallBudget: String(DISPATCH_PROTOCOL.REVIEWER_API_CALL_BUDGET),
     reworkThresholdLines:  String(DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES),
+    workerAgentType:       DISPATCH_PROTOCOL.WORKER_AGENT_TYPE,
+    dataFolder:            PRODUCT_NAMES.DATA_FOLDER,
     ...CLAUDE_CODE_INSTALL.sentences,
   };
   const texts: Partial<Record<InstalledFileName, string>> = {};

@@ -14,6 +14,7 @@ import {
   test
 }                                                         from 'bun:test';
 import { OperationRefusal }                                                   from '../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }                                                      from '../src/shared/constants/ProductNames.ts';
 import { createScratchDirectory, removeScratchDirectory }                     from '../src/testing/ScratchWorkspace.ts';
 import { requireCurrentInstall, requireInstallManifestThisVersionCanReplace } from './InstallVersionCheck.ts';
 import { installedFilePathsIn }                                               from './InstalledFiles.ts';
@@ -31,8 +32,8 @@ afterEach(() => {
 });
 
 function makeTracker(): void {
-  mkdirSync(join(rootDirectory, '.agent-progress'));
-  writeFileSync(join(rootDirectory, '.agent-progress', 'progress.json'), '{}\n');
+  mkdirSync(join(rootDirectory, PRODUCT_NAMES.DATA_FOLDER));
+  writeFileSync(join(rootDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'), '{}\n');
 }
 
 function installBrief(): void {

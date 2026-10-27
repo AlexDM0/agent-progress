@@ -23,6 +23,7 @@ import {
 import { OperationRefusalWordingUtil } from '../../../src/adapters/utils/OperationRefusalWordingUtil.ts';
 import { LocalTimeUtil }               from '../../../src/lib/local-time/LocalTimeUtil.ts';
 import type { Task }                   from '../../../src/lib/tracker-model/@types/Task.ts';
+import { PRODUCT_NAMES }               from '../../../src/shared/constants/ProductNames.ts';
 import {
   addWorktree,
   commitFile,
@@ -109,7 +110,7 @@ async function readTicketDocument(identifier: string): Promise<Record<string, un
 }
 
 function ticketFileText(identifier: string): string {
-  const ticketsDirectory = join(repositoryDirectory, '.agent-progress', 'tickets');
+  const ticketsDirectory = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'tickets');
   const fileName         = [...new Bun.Glob(`${identifier}-*.md`).scanSync(ticketsDirectory)][0] ?? '';
   return readFileSync(join(ticketsDirectory, fileName), 'utf8');
 }
@@ -495,14 +496,14 @@ describeWhenGitIsPresent('a release that is refused changes nothing', () => {
   async function expectNothingChanged(identifier: string, worktree: string, action: () => Promise<CommandOutcome>): Promise<CommandOutcome> {
     const mainBefore     = mainTip();
     const ticketBefore   = ticketFileText(identifier);
-    const progressBefore = readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8');
+    const progressBefore = readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'), 'utf8');
 
     const outcome = await action();
 
     expect(outcome.exitCode).toBe(1);
     expect(mainTip()).toBe(mainBefore);
     expect(ticketFileText(identifier)).toBe(ticketBefore);
-    expect(readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')).toBe(progressBefore);
+    expect(readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'), 'utf8')).toBe(progressBefore);
     expect(existsSync(worktree)).toBe(true);
     return outcome;
   }
@@ -670,8 +671,8 @@ describeWhenGitIsPresent('two releases at once', () => {
     writeFileSync(
       join(hooksDirectory, 'post-merge'),
       // The lock directory outlives every hold, so the probe reads whether its newest generation record is a held one.
-      '#!/bin/sh\nnewest=$(ls .agent-progress/.lock | grep \'^generation-\' | sort -t- -k2 -n | tail -1)\n'
-        + `if grep -q '"state":"held"' ".agent-progress/.lock/$newest"; then echo held > '${lockObservation}'; else echo free > '${lockObservation}'; fi\n`,
+      `#!/bin/sh\nnewest=$(ls ${PRODUCT_NAMES.DATA_FOLDER}/.lock | grep '^generation-' | sort -t- -k2 -n | tail -1)\n`
+        + `if grep -q '"state":"held"' "${PRODUCT_NAMES.DATA_FOLDER}/.lock/$newest"; then echo held > '${lockObservation}'; else echo free > '${lockObservation}'; fi\n`,
       { mode: 0o755 },
     );
     gitOutputIn(repositoryDirectory, ['config', 'core.hooksPath', hooksDirectory]);

@@ -7,9 +7,10 @@
 import { existsSync }               from 'node:fs';
 import { delimiter, dirname, join } from 'node:path';
 
-import { environmentCopy }                                from '../../src/shared/Environment.ts';
-import { createScratchDirectory, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
-import { requireTrackerIsolation }                        from '../../src/testing/TrackerIsolation.ts';
+import { environmentCopy, rootOverrideVariableOf }            from '../../src/shared/Environment.ts';
+import { ORIGINAL_PRODUCT_NAMES, SIDE_BY_SIDE_PRODUCT_NAMES } from '../../src/shared/constants/ProductNames.ts';
+import { createScratchDirectory, removeScratchDirectory }     from '../../src/testing/ScratchWorkspace.ts';
+import { requireTrackerIsolation }                            from '../../src/testing/TrackerIsolation.ts';
 
 export interface AgentProgressResult {
   exitCode:       number;
@@ -26,7 +27,8 @@ export interface RunAgentProgressOptions {
   homeDirectory?:   string;
 }
 
-const ROOT_OVERRIDE_VARIABLE = 'AGENT_PROGRESS_ROOT';
+/** Either program's, so a spec handing the child the other program's root still cannot point it outside the scratch root. */
+const ROOT_OVERRIDE_VARIABLES = [ORIGINAL_PRODUCT_NAMES, SIDE_BY_SIDE_PRODUCT_NAMES].map((productNames) => rootOverrideVariableOf(productNames));
 
 /** Built rather than inherited, because only `src/shared/Environment.ts` reads this process's environment. */
 function childEnvironmentOf(environment: Record<string, string> | undefined, homeDirectory: string): Record<string, string> {
@@ -51,8 +53,10 @@ function agentProgressEntryPoint(): string {
  */
 export async function runAgentProgress(commandLineArguments: readonly string[], options: RunAgentProgressOptions): Promise<AgentProgressResult> {
   requireTrackerIsolation(options.currentDirectory);
-  const overriddenRoot = options.environment?.[ROOT_OVERRIDE_VARIABLE];
-  if (overriddenRoot !== undefined) requireTrackerIsolation(overriddenRoot);
+  for (const variable of ROOT_OVERRIDE_VARIABLES) {
+    const overriddenRoot = options.environment?.[variable];
+    if (overriddenRoot !== undefined) requireTrackerIsolation(overriddenRoot);
+  }
   if (options.homeDirectory !== undefined) requireTrackerIsolation(options.homeDirectory);
   const homeDirectory = options.homeDirectory ?? createScratchDirectory('cli-process-home');
   try {

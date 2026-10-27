@@ -24,6 +24,7 @@ import {
 import { LogFileIngestion }                               from '../../../src/adapters/log/LogFileIngestion.ts';
 import { OperationRefusalWordingUtil }                    from '../../../src/adapters/utils/OperationRefusalWordingUtil.ts';
 import { LIMITS }                                         from '../../../src/shared/constants/Limits.ts';
+import { PRODUCT_NAMES }                                  from '../../../src/shared/constants/ProductNames.ts';
 import { lockRetryWaitsDuring }                           from '../../../src/testing/LockRetryWaits.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }                       from '../../../src/testing/ToolGuard.ts';
@@ -89,7 +90,7 @@ async function addedRow(name: string): Promise<number> {
 }
 
 function lastStoredLogLine(): Record<string, unknown> {
-  const logLines = readFileSync(join(repositoryDirectory, '.agent-progress', 'log.jsonl'), 'utf8').trim().split('\n');
+  const logLines = readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'log.jsonl'), 'utf8').trim().split('\n');
   return JSON.parse(logLines.at(-1) ?? '{}') as Record<string, unknown>;
 }
 
@@ -171,7 +172,7 @@ describeWhenGitIsPresent('a subagent that stopped', () => {
 
     expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput()))).toBe(0);
 
-    const reading = new LogFileIngestion(join(repositoryDirectory, '.agent-progress', 'log.jsonl')).read();
+    const reading = new LogFileIngestion(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'log.jsonl')).read();
     if (reading.verdict !== 'readable') throw new Error(`the log is ${reading.verdict} after the hook ran`);
     const agentStopped = reading.records.at(-1);
     if (agentStopped?.kind !== 'agent-stopped') throw new Error('the hook logged no agent-stopped record');
@@ -654,7 +655,7 @@ describeWhenGitIsPresent('every way it can fail', () => {
    * waits it out and then refuses rather than assuming free — so the line is lost, and nothing else is.
    */
   test('a lock the tracker will not give up costs the line only, leaving the log and the lock as they were', async () => {
-    const lockFilePath = join(repositoryDirectory, '.agent-progress', '.lock');
+    const lockFilePath = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, '.lock');
     rmSync(lockFilePath, { force: true, recursive: true });
     writeFileSync(lockFilePath, '');
     const context = contextWith(hookInput());

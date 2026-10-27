@@ -11,6 +11,7 @@ import {
   expect,
   test
 }                                                              from 'bun:test';
+import { PRODUCT_NAMES }                                                              from '../src/shared/constants/ProductNames.ts';
 import { CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS }                                    from '../src/testing/ChildProcessCaseTimeout.ts';
 import { createScratchDirectory, createScratchGitRepository, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }                                                   from '../src/testing/ToolGuard.ts';
@@ -130,7 +131,7 @@ describeWhenGitIsPresent('a whole session through the binary', () => {
         'Ticket #001 delivered',
       ]);
 
-      const dashboard = readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.html'), 'utf8');
+      const dashboard = readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.html'), 'utf8');
       expect(dashboard).toContain('Double-click a role to edit it');
       expect(dashboard).toContain('Review pass');
     } finally {
@@ -183,7 +184,7 @@ describeWhenGitIsPresent('a bare repository, through the binary', () => {
 
       expect(result.exitCode).toBe(1);
       expect(result.standardError).toContain('bare git repository');
-      expect(existsSync(join(parentDirectory, '.agent-progress'))).toBe(false);
+      expect(existsSync(join(parentDirectory, PRODUCT_NAMES.DATA_FOLDER))).toBe(false);
       expect(existsSync(join(parentDirectory, 'CLAUDE.md'))).toBe(false);
     } finally {
       removeScratchDirectory(parentDirectory);

@@ -11,6 +11,7 @@
   "include": [
     "./**/*.ts",
     "../src/shared/constants/DispatchProtocol.ts",
+    "../src/shared/constants/ProductNames.ts",
     "../src/shared/@types/ReleaseRefusalReason.ts",
     "../src/shared/utils/DispatcherClaimNoteUtil.ts",
     "../src/lib/tracker-model/constants/AgentSettings.ts",

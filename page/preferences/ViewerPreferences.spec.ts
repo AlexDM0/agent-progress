@@ -4,7 +4,8 @@
  * falls back to the default, and blocked storage never throws. The reload snapshot is taken back exactly once and only by its own tracker.
  */
 
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test }                from 'bun:test';
+import { ORIGINAL_PRODUCT_NAMES, PRODUCT_NAMES } from '../../src/shared/constants/ProductNames.ts';
 import type {
   PreferenceStorage,
   ReloadSnapshot,
@@ -51,7 +52,7 @@ type StoredChoiceName = 'range override' | 'work visibility' | 'finished since a
  * The review rows, folded epic groups and To do order entries are newer than that commit and frozen from their first release.
  * Columns: the choice, its key for tracker `tracker-a`, a stored value in its encoding, and the value at which the key is removed.
  */
-const FROZEN_STORED_CHOICES: readonly (readonly [StoredChoiceName, string, string, string])[] = [
+const FROZEN_RELEASED_STORED_CHOICES: readonly (readonly [StoredChoiceName, string, string, string])[] = [
   [
     'range override',
     'agent-progress:tracker-a',
@@ -68,6 +69,18 @@ const FROZEN_STORED_CHOICES: readonly (readonly [StoredChoiceName, string, strin
   ['folded epic groups', 'agent-progress:tracker-a:progress-folded-epics', '["checkout-redesign","no epic"]', '[]'],
   ['To do order', 'agent-progress:tracker-a:kanban-todo-order', 'by-wave', 'filed'],
 ];
+
+/** The frozen keys were taken under the released program's storage prefix; a build named beside it keeps every key under its own. */
+function keyUnderThisProduct(releasedKey: string): string {
+  return `${PRODUCT_NAMES.STORAGE_PREFIX}${releasedKey.slice(ORIGINAL_PRODUCT_NAMES.STORAGE_PREFIX.length)}`;
+}
+
+const FROZEN_STORED_CHOICES = FROZEN_RELEASED_STORED_CHOICES.map(([choiceName, releasedKey, storedValue, removingValue]) => [
+  choiceName,
+  keyUnderThisProduct(releasedKey),
+  storedValue,
+  removingValue,
+] as const);
 
 /** Writes a choice from its stored encoding and reads it back into that encoding, so the table's text drives the typed module. */
 interface StoredChoiceDriver {
@@ -205,15 +218,15 @@ describe('createViewerPreferences', () => {
     const storage     = inMemoryStorage();
     const preferences = createViewerPreferences(EXAMPLE_TRACKER_ID, () => storage);
 
-    storage.setItem('agent-progress:tracker-a:visibility', 'recent');
+    storage.setItem(keyUnderThisProduct('agent-progress:tracker-a:visibility'), 'recent');
     expect(preferences.readFinishedWorkChoice()).toBe('1d');
-    storage.setItem('agent-progress:tracker-a:visibility', 'all');
+    storage.setItem(keyUnderThisProduct('agent-progress:tracker-a:visibility'), 'all');
     expect(preferences.readFinishedWorkChoice()).toBe('all');
   });
 
   test('reads a stored range override that is not JSON as the empty override', () => {
     const storage = inMemoryStorage();
-    storage.setItem('agent-progress:tracker-a', '{not json');
+    storage.setItem(keyUnderThisProduct('agent-progress:tracker-a'), '{not json');
 
     expect(createViewerPreferences(EXAMPLE_TRACKER_ID, () => storage).readRangeOverride()).toEqual(EMPTY_VIEW_OVERRIDE);
   });
@@ -249,8 +262,8 @@ describe('createReloadSnapshotStore', () => {
 
     createReloadSnapshotStore(EXAMPLE_TRACKER_ID, () => storage).write(EXAMPLE_RELOAD_SNAPSHOT);
 
-    expect([...storage.entries.keys()]).toEqual(['agent-progress:snapshot']);
-    expect(JSON.parse(storage.entries.get('agent-progress:snapshot') ?? 'null')).toEqual(EXAMPLE_RELOAD_SNAPSHOT);
+    expect([...storage.entries.keys()]).toEqual([keyUnderThisProduct('agent-progress:snapshot')]);
+    expect(JSON.parse(storage.entries.get(keyUnderThisProduct('agent-progress:snapshot')) ?? 'null')).toEqual(EXAMPLE_RELOAD_SNAPSHOT);
   });
 
   test('takes the snapshot back once and deletes it, so a later manual reload restores nothing', () => {
@@ -273,7 +286,7 @@ describe('createReloadSnapshotStore', () => {
 
   test('takes nothing from a stored snapshot that is not JSON', () => {
     const storage = inMemoryStorage();
-    storage.setItem('agent-progress:snapshot', '{not json');
+    storage.setItem(keyUnderThisProduct('agent-progress:snapshot'), '{not json');
 
     expect(createReloadSnapshotStore(EXAMPLE_TRACKER_ID, () => storage).take()).toBeNull();
   });

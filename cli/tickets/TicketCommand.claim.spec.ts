@@ -11,6 +11,7 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
+import { PRODUCT_NAMES }                      from '../../src/shared/constants/ProductNames.ts';
 import { removeScratchDirectory }             from '../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.ts';
 import { runCommandLine }                     from '../Main.ts';
@@ -39,11 +40,11 @@ async function run(commandLineArguments: readonly string[]): Promise<ReturnType<
 }
 
 function progressText(): string {
-  return readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8');
+  return readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'), 'utf8');
 }
 
 function ticketText(fileName = FIRST_TICKET_FILE_NAME): string {
-  return readFileSync(join(repositoryDirectory, '.agent-progress', 'tickets', fileName), 'utf8');
+  return readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'tickets', fileName), 'utf8');
 }
 
 async function expectRefusedWithNothingWritten(commandLineArguments: readonly string[]): Promise<string> {
@@ -139,7 +140,7 @@ describeWhenGitIsPresent('claiming a ticket', () => {
 });
 
 function everyTicketText(): string[] {
-  const ticketsDirectory = join(repositoryDirectory, '.agent-progress', 'tickets');
+  const ticketsDirectory = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'tickets');
   return readdirSync(ticketsDirectory).sort().map((fileName) => readFileSync(join(ticketsDirectory, fileName), 'utf8'));
 }
 

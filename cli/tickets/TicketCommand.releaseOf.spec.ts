@@ -12,6 +12,7 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
+import { PRODUCT_NAMES }                      from '../../src/shared/constants/ProductNames.ts';
 import { removeScratchDirectory }             from '../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.ts';
 import { runCommandLine }                     from '../Main.ts';
@@ -44,7 +45,7 @@ async function runExpectingRefusal(commandLineArguments: readonly string[]): Pro
 }
 
 function ticketsDirectory(): string {
-  return join(repositoryDirectory, '.agent-progress', 'tickets');
+  return join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'tickets');
 }
 
 function storedTicketText(identifier: string): string {
@@ -55,7 +56,7 @@ function storedTicketText(identifier: string): string {
 
 function trackerBytes(): string {
   const ticketTexts = readdirSync(ticketsDirectory()).sort().map((name) => readFileSync(join(ticketsDirectory(), name), 'utf8'));
-  const progressText = readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8');
+  const progressText = readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'), 'utf8');
   return [progressText, storedLogTextOf(repositoryDirectory), ...ticketTexts].join('\n=====\n');
 }
 

@@ -26,6 +26,7 @@ import {
   test
 }                                                 from 'bun:test';
 import type { ReviewStatisticsGroup, ReviewStatisticsReport } from '../../../src/lib/tracker-model/ReviewStatistics.ts';
+import { PRODUCT_NAMES }                                      from '../../../src/shared/constants/ProductNames.ts';
 import { gitIsAvailable, removeScratchDirectory }             from '../../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }                           from '../../../src/testing/ToolGuard.ts';
 import { runCommandLine }                                     from '../../Main.ts';
@@ -91,7 +92,7 @@ function recordPass(ticketId: string, taskId: number, pass: PassFixture): void {
       })),
     },
   };
-  appendFileSync(join(repositoryDirectory, '.agent-progress', 'log.jsonl'), `${JSON.stringify(record)}\n`);
+  appendFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'log.jsonl'), `${JSON.stringify(record)}\n`);
 }
 
 async function expectSucceeds(commandArguments: readonly string[]): Promise<void> {
@@ -359,7 +360,7 @@ function tablesOf(text: string): Array<{ title: string; header: string[]; column
 }
 
 function trackerFolderSnapshot(): Record<string, string> {
-  const trackerDirectory = join(repositoryDirectory, '.agent-progress');
+  const trackerDirectory = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER);
   return Object.fromEntries(readdirSync(trackerDirectory, { recursive: true, encoding: 'utf8' })
     .filter((relativePath) => statSync(join(trackerDirectory, relativePath)).isFile())
     .sort()

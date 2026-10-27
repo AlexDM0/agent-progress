@@ -22,6 +22,7 @@ import {
 import { createInstallManifestWriter }                    from '../src/adapters/install/InstallManifestWriter.ts';
 import { OperationRefusalWordingUtil }                    from '../src/adapters/utils/OperationRefusalWordingUtil.ts';
 import { OperationRefusal }                               from '../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }                                  from '../src/shared/constants/ProductNames.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
 import { COMMAND_NAMES }                                  from './CommandTable.ts';
 import { installedFilePathsIn }                           from './InstalledFiles.ts';
@@ -182,7 +183,7 @@ describe('a tracker whose installed files are of another install version', () =>
   }
 
   test('every checked command exits 1 with the one paragraph on standard error and leaves progress.json byte for byte', async () => {
-    const progressFilePath   = join(trackedDirectory, '.agent-progress', 'progress.json');
+    const progressFilePath   = join(trackedDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json');
     const progressFileBefore = readFileSync(progressFilePath);
     expect(CHECKED_COMMAND_NAMES).toHaveLength(COMMAND_NAMES.length - COMMANDS_THAT_RUN_OR_CHECK_ON_THEIR_OWN.size);
     for (const commandName of CHECKED_COMMAND_NAMES) {

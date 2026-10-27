@@ -6,6 +6,7 @@
 import { readFileSync }           from 'node:fs';
 import { join }                   from 'node:path';
 import { describe, expect, test } from 'bun:test';
+import { ROOT_OVERRIDE_VARIABLE } from '../src/shared/Environment.ts';
 
 import { COMMAND_NAMES } from './CommandTable.ts';
 import { helpText }      from './HelpText.ts';
@@ -99,7 +100,7 @@ describe('the command reference', () => {
   });
 
   test('the two ways to reach the tracker from elsewhere are documented', () => {
-    expect(HELP_TEXT).toContain('AGENT_PROGRESS_ROOT');
+    expect(HELP_TEXT).toContain(ROOT_OVERRIDE_VARIABLE);
     expect(HELP_TEXT).toContain('`--help` works after a command word');
   });
 });
@@ -128,8 +129,8 @@ describe('the bundled skills leave the command reference to the tool', () => {
     for (const { path, text } of BUNDLED_SKILL_FILES) {
       expect(text.length, `characters read from \`${path}\``).toBeGreaterThan(2_000);
     }
-    expect(FILING_SKILL_TEXT).toContain('name: agent-po');
-    expect(ORCHESTRATE_TEXT).toContain('name: agent-progress-orchestrate');
+    expect(FILING_SKILL_TEXT).toContain('name: {{skillName}}');
+    expect(ORCHESTRATE_TEXT).toContain('name: {{skillName}}');
     expect(ticketSubcommandsDocumented().length, 'ticket subcommands found in the help').toBeGreaterThanOrEqual(8);
   });
 

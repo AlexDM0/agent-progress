@@ -13,6 +13,7 @@ import { registerWrittenDashboard }                       from '../../RegisterWr
 import { OutputUtil }                                     from '../../utils/OutputUtil.ts';
 import { installedFileTextsFor, installedSkillFileTexts } from '../InstalledFileGeneration.ts';
 import type { InstalledFileTexts }                        from '../InstalledFileGeneration.ts';
+import { refuseBesideAnOlderProgram }                     from '../OlderProgramRefusal.ts';
 import { refuseARetiredAgentHostsInstall }                from '../RetiredAgentHostRefusal.ts';
 import {
   optOutFlagsGiven,
@@ -75,6 +76,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
       + `Run \`agent-progress update\` in ${existingWorkspace.rootDirectory} instead to refresh what the tracker writes into the repository.`,
     );
   }
+  refuseBesideAnOlderProgram(workspace.rootDirectory);
   requireInstallManifestThisVersionCanReplace(workspace.rootDirectory);
   refuseARetiredAgentHostsInstall('init', workspace.rootDirectory);
   refuseKeepingADispatcherWithoutItsAgentDefinition('init', workspace.rootDirectory, { writesTheAgentDefinition, writesTheDispatcherWorkflow });

@@ -2,6 +2,7 @@
  * The whole command reference, which `cli/HelpText.spec.ts` holds against `COMMAND_NAMES` and the skills under `skills/`.
  * The layout is load-bearing: an entry begins at column 2 and every continuation line is indented past it.
  */
+import { ROOT_OVERRIDE_VARIABLE } from '../src/shared/Environment.ts';
 
 export function helpText(): string {
   return `agent-progress — tasks, tickets and a Gantt dashboard for one repository
@@ -16,8 +17,8 @@ decimal with a \`k\`/\`m\`/\`b\` suffix: \`12000\`, \`12k\`, \`12.3k\`, \`1.2m\`
 
 \`--help\` works after a command word as well as on its own, and \`-h\` on its own or straight after
 the command word; a \`-h\` further on is refused at exit 1, since it may be text (put text behind a
-bare \`--\`). An option taking a value, given twice, is refused at exit 1. AGENT_PROGRESS_ROOT names
-the repository to use instead of walking up from the current directory. --json, accepted by every
+bare \`--\`). An option taking a value, given twice, is refused at exit 1.
+${ROOT_OVERRIDE_VARIABLE} names the repository to use instead of walking up from the current directory. --json, accepted by every
 command but init, update, render, open, hook and help, prints one JSON document on standard output
 in place of the human output.
 

@@ -13,6 +13,7 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
+import { PRODUCT_NAMES }                                      from '../src/shared/constants/ProductNames.ts';
 import { JsonTextUtil }                                       from '../src/shared/utils/JsonTextUtil.ts';
 import { createScratchGitRepository, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }                           from '../src/testing/ToolGuard.ts';
@@ -84,8 +85,8 @@ function transcriptHoldingOneApiCall(): string {
 
 beforeEach(async () => {
   repositoryDirectory = realpathSync(createScratchGitRepository('unreadable-tracker-wording'));
-  progressFilePath    = join(repositoryDirectory, '.agent-progress', 'progress.json');
-  logFilePath         = join(repositoryDirectory, '.agent-progress', 'log.jsonl');
+  progressFilePath    = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json');
+  logFilePath         = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'log.jsonl');
   await runSucceeding(['init', '--project', 'Example Agency']);
 });
 

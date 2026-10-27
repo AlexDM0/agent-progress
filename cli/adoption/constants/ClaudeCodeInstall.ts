@@ -2,8 +2,10 @@
  * What `init` and `update` install for Claude Code: the parts, in report order, each with the files it writes, how their text is
  * produced, the flag that opts out of it and its report label; and the Claude Code sentences, filled into the shared templates.
  */
-import type { CommandHook }        from '../../../src/lib/claude-code/ClaudeSettings.ts';
-import type { InstalledFilePaths } from '../../InstalledFiles.ts';
+import type { CommandHook }                 from '../../../src/lib/claude-code/ClaudeSettings.ts';
+import { DISPATCH_PROTOCOL }                from '../../../src/shared/constants/DispatchProtocol.ts';
+import { PRODUCT_NAMES, type ProductNames } from '../../../src/shared/constants/ProductNames.ts';
+import type { InstalledFilePaths }          from '../../InstalledFiles.ts';
 
 export const INSTALL_OPT_OUT_FLAGS = ['no-claude-md', 'no-hooks', 'no-workflow', 'no-agent-definition'] as const;
 
@@ -20,8 +22,8 @@ export interface InstalledFile {
   text: InstalledTextSource;
 }
 
-/** A folder of this checkout's `skills/`, copied under the same name into the repository's `.claude/skills/`. */
-export type InstalledSkillName = 'agent-po' | 'agent-progress-orchestrate';
+/** A folder of this checkout's `skills/`, copied into the repository's `.claude/skills/` under the name the product gives that skill. */
+export type SkillSourceFolderName = 'agent-po' | 'agent-progress-orchestrate';
 
 /** A skill folder an earlier install version wrote under `.claude/skills/`, with the file names it installed there. */
 export interface RetiredSkillFolder {
@@ -29,9 +31,18 @@ export interface RetiredSkillFolder {
   installedFileNames: readonly string[];
 }
 
-const INSTALLED_SKILL_NAMES: readonly InstalledSkillName[] = ['agent-po', 'agent-progress-orchestrate'];
+/** Each skill source folder's installed name, which its `SKILL.md` frontmatter is filled with too, so Claude Code knows it by its folder. */
+export function installedSkillNamesFor(productNames: Pick<ProductNames, 'PRODUCT_OWNER_SKILL' | 'ORCHESTRATE_SKILL'>): Readonly<Record<SkillSourceFolderName, string>> {
+  return {
+    'agent-po':                   productNames.PRODUCT_OWNER_SKILL,
+    'agent-progress-orchestrate': productNames.ORCHESTRATE_SKILL,
+  };
+}
 
-const RETIRED_SKILL_FOLDERS: readonly RetiredSkillFolder[] = [{ skillName: 'agent-progress', installedFileNames: ['SKILL.md', 'Reference.md'] }];
+export const INSTALLED_SKILL_NAMES = installedSkillNamesFor(PRODUCT_NAMES);
+
+/** The retired skill was named after the program, so a build named beside it never removes the released program's folder. */
+const RETIRED_SKILL_FOLDERS: readonly RetiredSkillFolder[] = [{ skillName: PRODUCT_NAMES.PROGRAM, installedFileNames: ['SKILL.md', 'Reference.md'] }];
 
 /**
  * `managed-block` keeps the rest of the file; `rewritten-files` replaces each file whole, and `briefs` does too but asks the reader to
@@ -48,7 +59,7 @@ export type InstalledPart =
     writing:             'skill-folders';
     reportLabel:         string;
     optOutFlag:          null;
-    skillNames:          readonly InstalledSkillName[];
+    installedSkillNames: Readonly<Record<SkillSourceFolderName, string>>;
     retiredSkillFolders: readonly RetiredSkillFolder[];
   };
 
@@ -61,7 +72,7 @@ export interface ClaudeCodeInstall {
 const SUBAGENT_STOP_HOOK: CommandHook = {
   event:          'SubagentStop',
   matcher:        '',
-  command:        'agent-progress hook subagent-stop',
+  command:        `${PRODUCT_NAMES.PROGRAM} hook subagent-stop`,
   timeoutSeconds: 20,
 };
 
@@ -69,7 +80,7 @@ const SUBAGENT_STOP_HOOK: CommandHook = {
 const PRE_TOOL_USE_HOOK: CommandHook = {
   event:          'PreToolUse',
   matcher:        'Bash',
-  command:        'agent-progress hook pre-tool-use',
+  command:        `${PRODUCT_NAMES.PROGRAM} hook pre-tool-use`,
   timeoutSeconds: 10,
 };
 
@@ -77,9 +88,11 @@ const PRE_TOOL_USE_HOOK: CommandHook = {
 const POST_TOOL_USE_HOOK: CommandHook = {
   event:          'PostToolUse',
   matcher:        '',
-  command:        'agent-progress hook post-tool-use',
+  command:        `${PRODUCT_NAMES.PROGRAM} hook post-tool-use`,
   timeoutSeconds: 10,
 };
+
+const DISPATCHER_PATH_IN_REPOSITORY = `${PRODUCT_NAMES.DATA_FOLDER}/agent-progress-dispatch.js`;
 
 const CLAUDE_CODE_SENTENCES: Readonly<Record<string, string>> = {
   tokenHookClause: 'and the\n'
@@ -101,26 +114,26 @@ const CLAUDE_CODE_SENTENCES: Readonly<Record<string, string>> = {
     + 'the agent processed and not by a constant factor, so it is the fallback for a repository without the\n'
     + 'hook only, recorded with `--tokens` as the understatement it is.',
   finishTokensNote:       '`--tokens <subagent_tokens>` only without the hook; ',
-  dispatcherWorkflowName: '`.agent-progress/agent-progress-dispatch.js`',
+  dispatcherWorkflowName: `\`${DISPATCHER_PATH_IN_REPOSITORY}\``,
   installCheck:           'read `.claude/settings.local.json` and `.claude/settings.json` for\n'
-    + '  `agent-progress hook subagent-stop` and `agent-progress hook post-tool-use`. `init` and `update` write both into\n'
+    + `  \`${SUBAGENT_STOP_HOOK.command}\` and \`${POST_TOOL_USE_HOOK.command}\`. \`init\` and \`update\` write both into\n`
     + '  the local file by default, so each is normally in one of them and there is nothing to say. If either is in\n'
     + '  neither — the repository was adopted before the hook existed, or somebody ran `--no-hooks` — say so once and offer\n'
     + '  `agent-progress update`: it is what puts every agent\'s cost on its row, without which a workflow\'s agents reach\n'
     + '  no row at all, and what keeps the page live while agents work. Then check\n'
-    + '  `.agent-progress/agent-progress-dispatch.js` exists. If not — adopted before the dispatcher, or `--no-workflow` —\n'
+    + `  \`${DISPATCHER_PATH_IN_REPOSITORY}\` exists. If not — adopted before the dispatcher, or \`--no-workflow\` —\n`
     + '  say so once and offer `agent-progress update` the same way; until then only the manual path is open.',
   askingTheUser:    'the AskUserQuestion tool, up to four questions per call.',
-  dispatcherLaunch: '`Workflow({ scriptPath: \'<mainCheckout>/.agent-progress/agent-progress-dispatch.js\',\n'
+  dispatcherLaunch: `\`Workflow({ scriptPath: '<mainCheckout>/${DISPATCHER_PATH_IN_REPOSITORY}',\n`
     + '  args: <the args> })`, by this path only: it has no name to launch it by. The result names the run\'s `runId`.\n'
     + '  The session\'s guideline of 10 agents per workflow does not bound this one.',
   dispatcherRunEnd: 'the Workflow call runs as a background task; a task notification says when it\n'
     + '  returns, with its summary, or that it was stopped or died.',
-  dispatcherResume: '`Workflow({ scriptPath: \'<mainCheckout>/.agent-progress/agent-progress-dispatch.js\',\n'
+  dispatcherResume: `\`Workflow({ scriptPath: '<mainCheckout>/${DISPATCHER_PATH_IN_REPOSITORY}',\n`
     + '  resumeFromRunId: \'<the stored run id>\', args: <the launch\'s args> })`, its result naming the new `runId`.',
   dispatcherStop: 'stop the Workflow task itself.',
-  agentByHand:    'the Agent tool with `subagent_type: \'agent-progress-worker\'`, the installed definition\n'
-    + '  `.claude/agents/agent-progress-worker.md` that carries the default model and effort.',
+  agentByHand:    `the Agent tool with \`subagent_type: '${DISPATCH_PROTOCOL.WORKER_AGENT_TYPE}'\`, the installed definition\n`
+    + `  \`.claude/agents/${DISPATCH_PROTOCOL.WORKER_AGENT_TYPE}.md\` that carries the default model and effort.`,
 };
 
 export const CLAUDE_CODE_INSTALL: ClaudeCodeInstall = {
@@ -164,7 +177,7 @@ export const CLAUDE_CODE_INSTALL: ClaudeCodeInstall = {
       writing:             'skill-folders',
       reportLabel:         'skills',
       optOutFlag:          null,
-      skillNames:          INSTALLED_SKILL_NAMES,
+      installedSkillNames: INSTALLED_SKILL_NAMES,
       retiredSkillFolders: RETIRED_SKILL_FOLDERS,
     },
   ],

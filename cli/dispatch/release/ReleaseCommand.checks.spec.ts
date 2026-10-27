@@ -19,6 +19,7 @@ import {
   expect,
   test
 }                                             from 'bun:test';
+import { PRODUCT_NAMES }              from '../../../src/shared/constants/ProductNames.ts';
 import {
   addWorktree,
   commitFile,
@@ -73,7 +74,7 @@ function markerPath(): string {
 }
 
 function progressText(): string {
-  return readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8');
+  return readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'), 'utf8');
 }
 
 async function agentProgress(commandLineArguments: readonly string[], currentDirectory = repositoryDirectory): Promise<CommandOutcome> {
@@ -93,7 +94,7 @@ async function agentProgressOrFail(commandLineArguments: readonly string[]): Pro
  * something on purpose. Stored before a ticket starts, so its row is stamped with it.
  */
 function storeCheckCommand(checkCommand: string): void {
-  const progressFilePath = join(repositoryDirectory, '.agent-progress', 'progress.json');
+  const progressFilePath = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json');
   writeFileSync(progressFilePath, `${JSON.stringify({ ...(JSON.parse(progressText()) as Record<string, unknown>), checkCommand }, null, 2)}\n`);
 }
 
@@ -253,8 +254,8 @@ describeWhenGitIsPresent('a release with a check command stored', () => {
   test('a file the worktree ignores does not count against it', async () => {
     storeCheckCommand(MARKER_COMMAND);
     const work = await reviewedTicketOnAWorktree('role-history');
-    mkdirSync(join(work.worktree, '.agent-progress'));
-    writeFileSync(join(work.worktree, '.agent-progress', 'scratch.txt'), 'ignored\n');
+    mkdirSync(join(work.worktree, PRODUCT_NAMES.DATA_FOLDER));
+    writeFileSync(join(work.worktree, PRODUCT_NAMES.DATA_FOLDER, 'scratch.txt'), 'ignored\n');
 
     const outcome = await agentProgress(releaseArgumentsFor(work));
 
@@ -293,7 +294,7 @@ describeWhenGitIsPresent('a release with a check command stored', () => {
   });
 
   test('a check command changed while the command runs is refused check-command-changed inside the lock', async () => {
-    const progressFilePath = join(repositoryDirectory, '.agent-progress', 'progress.json');
+    const progressFilePath = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json');
     const rewriteScript    = `const path = ${JSON.stringify(progressFilePath)}; const document = JSON.parse(await Bun.file(path).text()); `
       + 'document.checkCommand = "true"; await Bun.write(path, JSON.stringify(document, null, 2));';
     storeCheckCommand(`bun -e '${rewriteScript}'`);
@@ -313,9 +314,9 @@ describeWhenGitIsPresent('a release with a check command stored', () => {
     storeCheckCommand('echo "the tracker command ran"; exit 4');
     const work = await reviewedTicketOnAWorktree('role-history');
     const branchTracker = JSON.parse(progressText()) as Record<string, unknown>;
-    mkdirSync(join(work.worktree, '.agent-progress'));
-    writeFileSync(join(work.worktree, '.agent-progress', 'progress.json'), JSON.stringify({ ...branchTracker, checkCommand: 'true' }, null, 2));
-    gitOutputIn(work.worktree, ['add', '--force', '.agent-progress/progress.json']);
+    mkdirSync(join(work.worktree, PRODUCT_NAMES.DATA_FOLDER));
+    writeFileSync(join(work.worktree, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'), JSON.stringify({ ...branchTracker, checkCommand: 'true' }, null, 2));
+    gitOutputIn(work.worktree, ['add', '--force', `${PRODUCT_NAMES.DATA_FOLDER}/progress.json`]);
     gitOutputIn(work.worktree, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'commit', '-q', '-m', 'Bring a passing check command']);
     const tippedWork = { ...work, tip: gitOutputIn(work.worktree, ['rev-parse', 'HEAD']) };
 
@@ -392,7 +393,7 @@ describeWhenGitIsPresent('a ticket stamped with the check command it started und
     const stamped = await reviewedTicketOnAWorktree('role-audit');
     const progressWithoutTheLine = JSON.parse(progressText()) as Record<string, unknown>;
     delete progressWithoutTheLine['checkCommand'];
-    writeFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), `${JSON.stringify(progressWithoutTheLine, null, 2)}\n`);
+    writeFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'), `${JSON.stringify(progressWithoutTheLine, null, 2)}\n`);
     const cleared = await expectRefusedChangingNothing(stamped, 'check-command-differs-from-start');
     expect(cleared.detail).toContain('agent-progress checks --clear --restamp');
   });

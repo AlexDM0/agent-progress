@@ -10,8 +10,10 @@ import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { join }                                   from 'node:path';
 
 import { afterAll, expect, test }                             from 'bun:test';
+import { PRODUCT_NAMES }                                      from '../../src/shared/constants/ProductNames.ts';
 import { createScratchGitRepository, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }                           from '../../src/testing/ToolGuard.ts';
+import { filledTemplateOf }                                   from '../FilledTemplate.ts';
 import { runCommandLine }                                     from '../Main.ts';
 import { createCapturedCommandContext }                       from '../testing/CapturedCommandContext.ts';
 import { repositoryFileContentsOf }                           from '../testing/RepositoryFileContents.ts';
@@ -28,6 +30,8 @@ interface FrozenInstallTable {
   scenarios: Record<string, InstallScenario>;
 }
 
+import { INSTALLED_SKILL_NAMES } from './constants/ClaudeCodeInstall.ts';
+
 const FROZEN_TABLE_PATH = join(import.meta.dir, 'FrozenClaudeInstall.json');
 
 const OPT_OUT_SCENARIOS: Readonly<Record<string, readonly string[]>> = {
@@ -39,16 +43,11 @@ const OPT_OUT_SCENARIOS: Readonly<Record<string, readonly string[]>> = {
 };
 
 /** The tracker's own store is not installed: `progress.json` carries a fresh tracker id, and the page carries the page bundle. */
-const TRACKER_STORE_PATHS = new Set([
-  '.agent-progress/progress.json',
-  '.agent-progress/progress.html',
-  '.agent-progress/progress.stamp.js',
-  '.agent-progress/log.jsonl',
-]);
+const TRACKER_STORE_PATHS = new Set(['progress.json', 'progress.html', 'progress.stamp.js', 'log.jsonl'].map((fileName) => `${PRODUCT_NAMES.DATA_FOLDER}/${fileName}`));
 
-const TRACKER_LOCK_FOLDER = '.agent-progress/.lock/';
+const TRACKER_LOCK_FOLDER = `${PRODUCT_NAMES.DATA_FOLDER}/.lock/`;
 
-const DISPATCHER_SCRIPT_PATH = '.agent-progress/agent-progress-dispatch.js';
+const DISPATCHER_SCRIPT_PATH = `${PRODUCT_NAMES.DATA_FOLDER}/agent-progress-dispatch.js`;
 
 const DISPATCHER_SCRIPT_STAND_IN = '<the dispatcher script bundled from dispatcher/>';
 
@@ -66,11 +65,20 @@ afterAll(() => {
   for (const directory of scratchDirectories.splice(0)) removeScratchDirectory(directory);
 });
 
-/** A skill file copied byte for byte from this checkout's `skills/`, which change on their own, stands in as the source it was copied from. */
+/**
+ * A skill file copied from this checkout's `skills/`, which change on their own, and filled with its installed name, stands in as the source
+ * it was copied from.
+ */
 function skillCopyStandInOf(relativePath: string, text: string): string | null {
-  if (!relativePath.startsWith(INSTALLED_SKILLS_FOLDER)) return null;
-  const sourcePath = join(CHECKOUT_SKILLS_DIRECTORY, relativePath.slice(INSTALLED_SKILLS_FOLDER.length));
-  return existsSync(sourcePath) && readFileSync(sourcePath, 'utf8') === text ? `<copied from skills/${relativePath.slice(INSTALLED_SKILLS_FOLDER.length)}>` : null;
+  for (const [sourceFolderName, installedName] of Object.entries(INSTALLED_SKILL_NAMES)) {
+    const installedFolder = `${INSTALLED_SKILLS_FOLDER}${installedName}/`;
+    if (!relativePath.startsWith(installedFolder)) continue;
+    const pathInSkills = `${sourceFolderName}/${relativePath.slice(installedFolder.length)}`;
+    const sourcePath   = join(CHECKOUT_SKILLS_DIRECTORY, pathInSkills);
+    const copiedText   = existsSync(sourcePath) ? filledTemplateOf(readFileSync(sourcePath, 'utf8'), { skillName: installedName }) : null;
+    return copiedText === text ? `<copied from skills/${pathInSkills}>` : null;
+  }
+  return null;
 }
 
 function installedFilesIn(repositoryDirectory: string): Map<string, string> {

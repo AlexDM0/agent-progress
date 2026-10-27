@@ -22,6 +22,7 @@ import * as AtomicFile                        from '../../src/lib/atomic-file/At
 import { withLock }                           from '../../src/services/tracker/TrackerLock.ts';
 import { workspacePathsFor }                  from '../../src/services/tracker/Workspace.ts';
 import { LIMITS }                             from '../../src/shared/constants/Limits.ts';
+import { PRODUCT_NAMES }                      from '../../src/shared/constants/ProductNames.ts';
 import { removeScratchDirectory }             from '../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.ts';
 import { runCommandLine }                     from '../Main.ts';
@@ -55,7 +56,7 @@ async function run(commandLineArguments: readonly string[]): Promise<ReturnType<
 }
 
 function storedTicketText(fileName = FIRST_TICKET_FILE_NAME): string {
-  return readFileSync(join(repositoryDirectory, '.agent-progress', 'tickets', fileName), 'utf8');
+  return readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'tickets', fileName), 'utf8');
 }
 
 beforeEach(async () => {
@@ -132,7 +133,7 @@ describeWhenGitIsPresent('filing a ticket', () => {
       const ticketId = `00${index + 1}`;
       const fileName = `${ticketId}-example-${retiredType}.md`;
       await run(['ticket', 'add', `Example ${retiredType}`, '--type', 'ticket']);
-      writeFileSync(join(repositoryDirectory, '.agent-progress', 'tickets', fileName), storedTicketText(fileName).replace('type: "ticket"', `type: "${retiredType}"`));
+      writeFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'tickets', fileName), storedTicketText(fileName).replace('type: "ticket"', `type: "${retiredType}"`));
       const storedBeforeMoves = storedTicketText(fileName);
 
       expect(JSON.parse((await run(['ticket', 'show', ticketId, '--json'])).outputText()).type).toBe('ticket');
@@ -145,7 +146,7 @@ describeWhenGitIsPresent('filing a ticket', () => {
     }
     const status = JSON.parse((await run(['status', '--json'])).outputText()) as { tickets: Array<{ type: string }> };
     expect(status.tickets.map((ticket) => ticket.type)).toEqual(['ticket', 'ticket']);
-    const page = readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.html'), 'utf8');
+    const page = readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.html'), 'utf8');
     expect(page).not.toMatch(/"type":"(change|feature)"/);
     expect(page).toMatch(/"type":"ticket"/);
   });
@@ -171,7 +172,7 @@ describeWhenGitIsPresent('filing a ticket', () => {
     }, () => new Date());
 
     expect(await Promise.all(queuedAdds)).toEqual([0, 0]);
-    const ticketFileNames = readdirSync(join(repositoryDirectory, '.agent-progress', 'tickets')).sort();
+    const ticketFileNames = readdirSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'tickets')).sort();
     expect(ticketFileNames).toHaveLength(2);
     for (const fileName of ticketFileNames) {
       const ticketId = fileName.slice(0, fileName.indexOf('-'));
@@ -183,7 +184,7 @@ describeWhenGitIsPresent('filing a ticket', () => {
   test('the new ticket file is written once, after the progress file, with its dependencies on that one write', async () => {
     await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
     // The command writes through the resolved root, and the scratch directory's own path may pass through a symlink such as `/var`.
-    const trackerDirectory = join(realpathSync(repositoryDirectory), '.agent-progress');
+    const trackerDirectory = join(realpathSync(repositoryDirectory), PRODUCT_NAMES.DATA_FOLDER);
     const progressFilePath = join(trackerDirectory, 'progress.json');
     const ticketsDirectory = join(trackerDirectory, 'tickets');
     const atomicWrites     = spyOn(AtomicFile, 'writeFileAtomically');
@@ -415,7 +416,7 @@ describeWhenGitIsPresent('reading tickets back', () => {
   });
 
   test('a malformed ticket file is reported on standard error and the rest still list', async () => {
-    writeFileSync(join(repositoryDirectory, '.agent-progress', 'tickets', '003-broken.md'), 'no frontmatter at all\n');
+    writeFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'tickets', '003-broken.md'), 'no frontmatter at all\n');
 
     const context = await run(['ticket', 'list']);
 
@@ -544,7 +545,7 @@ describeWhenGitIsPresent('token counts on a ticket move', () => {
   // A low ticket that was never started has no row, so the figure would otherwise vanish at exit 0.
   test('--tokens on a ticket with no row is refused with nothing written', async () => {
     await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it', '--priority', 'low']);
-    const progressBefore = readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8');
+    const progressBefore = readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'), 'utf8');
     const ticketBefore   = storedTicketText();
 
     const context  = contextHere();
@@ -552,7 +553,7 @@ describeWhenGitIsPresent('token counts on a ticket move', () => {
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('has no row');
-    expect(readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')).toBe(progressBefore);
+    expect(readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'), 'utf8')).toBe(progressBefore);
     expect(storedTicketText()).toBe(ticketBefore);
   });
 });
@@ -731,7 +732,7 @@ describeWhenGitIsPresent('a ticket file that will not parse', () => {
   /** A broken hand edit is a state the tool will not repair, so it is exit 2; exit 1 would tell a script the id was its own mistake. */
   test('show and claim exit 2 naming the file and why, while an id with no file at all stays exit 1', async () => {
     await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
-    writeFileSync(join(repositoryDirectory, '.agent-progress', 'tickets', FIRST_TICKET_FILE_NAME), 'no frontmatter here\n');
+    writeFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'tickets', FIRST_TICKET_FILE_NAME), 'no frontmatter here\n');
 
     for (const commandLine of [['ticket', 'show', '1'], ['ticket', 'claim', '1', '--owner', 'opus']]) {
       const context = contextHere();

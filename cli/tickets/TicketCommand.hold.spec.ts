@@ -12,6 +12,7 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
+import { PRODUCT_NAMES }                      from '../../src/shared/constants/ProductNames.ts';
 import { DispatcherClaimNoteUtil }            from '../../src/shared/utils/DispatcherClaimNoteUtil.ts';
 import { removeScratchDirectory }             from '../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.ts';
@@ -54,11 +55,11 @@ async function statusDocument(): Promise<StatusDocument> {
 }
 
 function progressFilePath(): string {
-  return join(repositoryDirectory, '.agent-progress', 'progress.json');
+  return join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json');
 }
 
 function ticketsDirectory(): string {
-  return join(repositoryDirectory, '.agent-progress', 'tickets');
+  return join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'tickets');
 }
 
 function storedTicketText(identifier: string): string {

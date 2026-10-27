@@ -14,6 +14,7 @@ import { describe, expect, test } from 'bun:test';
 import { OperationRefusal }                              from '../../src/shared/OperationRefusal.ts';
 import { resourceFilePathOf }                            from '../../src/shared/ResourceFilePath.ts';
 import { DISPATCH_PROTOCOL }                             from '../../src/shared/constants/DispatchProtocol.ts';
+import { PRODUCT_NAMES }                                 from '../../src/shared/constants/ProductNames.ts';
 import { installedFilePathsIn }                          from '../InstalledFiles.ts';
 import { dispatcherScriptTextOf, installedFileTextsFor } from './InstalledFileGeneration.ts';
 import { CLAUDE_CODE_INSTALL }                           from './constants/ClaudeCodeInstall.ts';
@@ -80,7 +81,7 @@ describe('the installed texts', () => {
 
   test('both briefs cite the installed reference by its path, which the reference template is installed to', () => {
     const referencePathInRepository = relative(EXAMPLE_ROOT, installedFilePathsIn(EXAMPLE_ROOT).reference).split(sep).join('/');
-    expect(referencePathInRepository).toBe('.agent-progress/reference.md');
+    expect(referencePathInRepository).toBe(`${PRODUCT_NAMES.DATA_FOLDER}/reference.md`);
     expect(TEXTS.builderBrief).toContain(`\`${referencePathInRepository}\``);
     expect(TEXTS.reviewBrief).toContain(`\`${referencePathInRepository}\``);
     expect(TEXTS.reference).toBe(readFileSync(resourceFilePathOf('templates', 'Reference.md'), 'utf8'));
@@ -126,10 +127,10 @@ describe('the installed texts', () => {
       const skillText = readFileSync(join(CHECKOUT_DIRECTORY, skillFilePath), 'utf8');
       for (const claudeOnlyToolName of CLAUDE_ONLY_TOOL_NAMES) expect(skillText, `${skillFilePath} names ${claudeOnlyToolName}`).not.toContain(claudeOnlyToolName);
     }
-    expect(TEXTS.agentBrief).toContain('`Workflow({ scriptPath: \'<mainCheckout>/.agent-progress/agent-progress-dispatch.js\',');
+    expect(TEXTS.agentBrief).toContain(`\`Workflow({ scriptPath: '<mainCheckout>/${PRODUCT_NAMES.DATA_FOLDER}/agent-progress-dispatch.js',`);
     expect(TEXTS.agentBrief).toContain('resumeFromRunId');
     expect(TEXTS.agentBrief).toContain('AskUserQuestion');
-    expect(TEXTS.agentBrief).toContain('`subagent_type: \'agent-progress-worker\'`');
+    expect(TEXTS.agentBrief).toContain(`\`subagent_type: '${DISPATCH_PROTOCOL.WORKER_AGENT_TYPE}'\``);
   });
 
   test('with no dispatcher asked for, none is bundled', async () => {

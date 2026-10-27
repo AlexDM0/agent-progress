@@ -8,6 +8,7 @@ import { expect, test } from 'bun:test';
 
 import type { BoardRefusalDetail }     from '../../lib/tracker-model/BoardRefusal.ts';
 import type { UnreadableTracker }      from '../../shared/@types/UnreadableTracker.ts';
+import { ROOT_OVERRIDE_VARIABLE }      from '../../shared/Environment.ts';
 import { OperationRefusal }            from '../../shared/OperationRefusal.ts';
 import { OperationRefusalWordingUtil } from './OperationRefusalWordingUtil.ts';
 import { TrackerReadingWordingUtil }   from './TrackerReadingWordingUtil.ts';
@@ -33,10 +34,24 @@ test('no tracker at the AGENT_PROGRESS_ROOT directory is worded naming the varia
   const refusal = new OperationRefusal('refused', { kind: 'no-tracker-at-override', overrideDirectory: '/example/empty' });
   const message = OperationRefusalWordingUtil.messageOf(refusal);
   expect(message).toBe(
-    'No agent-progress tracker was found in /example/empty, which AGENT_PROGRESS_ROOT names. '
-    + 'Run `agent-progress init` there, or unset AGENT_PROGRESS_ROOT to search upwards from the current directory instead.',
+    `No agent-progress tracker was found in /example/empty, which ${ROOT_OVERRIDE_VARIABLE} names. `
+    + `Run \`agent-progress init\` there, or unset ${ROOT_OVERRIDE_VARIABLE} to search upwards from the current directory instead.`,
   );
-  expect(message).toContain('AGENT_PROGRESS_ROOT');
+  expect(message).toContain(ROOT_OVERRIDE_VARIABLE);
+});
+
+test('an older program\'s data folder at the root is worded naming the folder, both programs and where to run instead', () => {
+  const refusal = new OperationRefusal('refused', {
+    kind:                'older-program-present',
+    rootDirectory:       '/example/repository',
+    olderDataFolderPath: '/example/repository/.agent-progress',
+    program:             'agent-progress-v2',
+    olderProgram:        'agent-progress',
+  });
+  expect(OperationRefusalWordingUtil.messageOf(refusal)).toBe(
+    '/example/repository/.agent-progress holds what agent-progress keeps for /example/repository, and agent-progress-v2 is built to run '
+    + 'beside it only in a repository agent-progress does not track, so nothing was written. Run agent-progress-v2 in a scratch repository instead.',
+  );
 });
 
 test('no tracker found above the start directory is worded naming that directory and `agent-progress init`', () => {

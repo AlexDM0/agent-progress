@@ -6,13 +6,17 @@
 import { join }         from 'node:path';
 import { expect, test } from 'bun:test';
 
-import { CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS } from '../testing/ChildProcessCaseTimeout.ts';
-import { jsonPrintedByAChildProcess }              from '../testing/JsonPrintedByAChildProcess.ts';
-import { agentProgressRootOverride }               from './Environment.ts';
+import { CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS }                                         from '../testing/ChildProcessCaseTimeout.ts';
+import { jsonPrintedByAChildProcess }                                                      from '../testing/JsonPrintedByAChildProcess.ts';
+import { agentProgressRootOverride, EVERY_TOOL_REQUIRED_VARIABLE, ROOT_OVERRIDE_VARIABLE } from './Environment.ts';
+import { PRODUCT_NAMES }                                                                   from './constants/ProductNames.ts';
 
 const ENVIRONMENT_MODULE_PATH = join(import.meta.dir, 'Environment.ts');
 
-const ROOT_OVERRIDE_VARIABLE = 'AGENT_PROGRESS_ROOT';
+test('both variables the product reads are named from its environment prefix', () => {
+  expect(ROOT_OVERRIDE_VARIABLE).toBe(`${PRODUCT_NAMES.ENVIRONMENT_PREFIX}ROOT`);
+  expect(EVERY_TOOL_REQUIRED_VARIABLE).toBe(`${PRODUCT_NAMES.ENVIRONMENT_PREFIX}REQUIRE_EVERY_TOOL`);
+});
 
 /** The child inherits nothing: its environment is exactly `childEnvironment`, so "unset" means unset. */
 function overrideSeenByAChildProcess(childEnvironment: Record<string, string>): string | null {
@@ -38,12 +42,12 @@ test('the user\'s shell is SHELL verbatim, and an unset, empty or whitespace-onl
 }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
 test('the child-process harness can tell the two answers apart, so a case that finds nothing means something', () => {
-  expect(overrideSeenByAChildProcess({ AGENT_PROGRESS_ROOT: '/example/repository' })).toBe('/example/repository');
+  expect(overrideSeenByAChildProcess({ [ROOT_OVERRIDE_VARIABLE]: '/example/repository' })).toBe('/example/repository');
   expect(overrideSeenByAChildProcess({})).toBeNull();
 }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
 test('a set variable is the override, verbatim', () => {
-  expect(overrideSeenByAChildProcess({ AGENT_PROGRESS_ROOT: '/example/repository' })).toBe('/example/repository');
+  expect(overrideSeenByAChildProcess({ [ROOT_OVERRIDE_VARIABLE]: '/example/repository' })).toBe('/example/repository');
 }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
 test('an unset variable is no override', () => {
@@ -52,13 +56,13 @@ test('an unset variable is no override', () => {
 
 test('an empty or whitespace-only value reads as unset rather than as the empty root', () => {
   for (const clearedValue of ['', '   ', '\t']) {
-    expect(overrideSeenByAChildProcess({ AGENT_PROGRESS_ROOT: clearedValue }), JSON.stringify(clearedValue)).toBeNull();
+    expect(overrideSeenByAChildProcess({ [ROOT_OVERRIDE_VARIABLE]: clearedValue }), JSON.stringify(clearedValue)).toBeNull();
   }
 }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
 test('a real path is handed back untouched, spaces and all', () => {
   const pathWithSpaces = '/Users/alex.example/development/example agency';
-  expect(overrideSeenByAChildProcess({ AGENT_PROGRESS_ROOT: pathWithSpaces })).toBe(pathWithSpaces);
+  expect(overrideSeenByAChildProcess({ [ROOT_OVERRIDE_VARIABLE]: pathWithSpaces })).toBe(pathWithSpaces);
 }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
 test('a value set after this module was imported is still seen, and so is clearing it again', () => {
@@ -86,13 +90,13 @@ function everyToolRequirementSeenByAChildProcess(childEnvironment: Record<string
 test('an unset, empty, whitespace or 0 AGENT_PROGRESS_REQUIRE_EVERY_TOOL lets a missing tool skip', () => {
   expect(everyToolRequirementSeenByAChildProcess({})).toBe(false);
   for (const relaxedValue of ['', '  ', '0', ' 0 ']) {
-    expect(everyToolRequirementSeenByAChildProcess({ AGENT_PROGRESS_REQUIRE_EVERY_TOOL: relaxedValue }), JSON.stringify(relaxedValue)).toBe(false);
+    expect(everyToolRequirementSeenByAChildProcess({ [EVERY_TOOL_REQUIRED_VARIABLE]: relaxedValue }), JSON.stringify(relaxedValue)).toBe(false);
   }
 }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
 test('any other AGENT_PROGRESS_REQUIRE_EVERY_TOOL value requires every tool, so a true or yes is never a silent skip', () => {
   for (const requiringValue of ['1', 'true', 'yes']) {
-    expect(everyToolRequirementSeenByAChildProcess({ AGENT_PROGRESS_REQUIRE_EVERY_TOOL: requiringValue }), requiringValue).toBe(true);
+    expect(everyToolRequirementSeenByAChildProcess({ [EVERY_TOOL_REQUIRED_VARIABLE]: requiringValue }), requiringValue).toBe(true);
   }
 }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 

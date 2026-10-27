@@ -16,6 +16,7 @@ import {
   test
 }                                                  from 'bun:test';
 import { TicketBodyHashUtil }                 from '../../src/lib/tracker-model/utils/TicketBodyHashUtil.ts';
+import { PRODUCT_NAMES }                      from '../../src/shared/constants/ProductNames.ts';
 import { removeScratchDirectory }             from '../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.ts';
 import { runCommandLine }                     from '../Main.ts';
@@ -69,7 +70,7 @@ async function run(commandLineArguments: readonly string[], standardInputText?: 
 }
 
 function ticketFilePath(): string {
-  const ticketsDirectory = join(repositoryDirectory, '.agent-progress', 'tickets');
+  const ticketsDirectory = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'tickets');
   const fileName         = readdirSync(ticketsDirectory).find((name) => name.startsWith('001-'));
   if (fileName === undefined) throw new Error('no ticket file for #001');
   return join(ticketsDirectory, fileName);
@@ -253,7 +254,7 @@ describeWhenGitIsPresent('editing a ticket past pending', () => {
 
 describeWhenGitIsPresent('renaming a ticket', () => {
   function storedRowNames(): string[] {
-    const progress = JSON.parse(readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')) as { tasks: Array<{ name: string }> };
+    const progress = JSON.parse(readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'), 'utf8')) as { tasks: Array<{ name: string }> };
     return progress.tasks.map((task) => task.name);
   }
 

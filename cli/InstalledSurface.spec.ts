@@ -16,6 +16,7 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
+import { ORIGINAL_PRODUCT_NAMES, PRODUCT_NAMES }                              from '../src/shared/constants/ProductNames.ts';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }                                           from '../src/testing/ToolGuard.ts';
 import { helpText }                                                           from './HelpText.ts';
@@ -79,7 +80,16 @@ const FOREIGN_TOOL_FLAGS = [
 
 const FLAG_PATTERN = /--[a-z][a-z-]*[a-z]/g;
 
-const NAMED_COMMAND_PATTERN = /agent-progress ([a-z]+)(?: ([a-z][a-z-]*))?/g;
+/** Until the installed texts are filled with the program's name they name the released program, which the pattern also takes. */
+function namedCommandPatternOf(programNames: readonly string[]): RegExp {
+  const programAlternatives = [...new Set(programNames)].map((programName) => RegExp.escape(programName)).join('|');
+  return new RegExp(`(?<![\\w-])(?:${programAlternatives}) ([a-z]+)(?: ([a-z][a-z-]*))?`, 'g');
+}
+
+const NAMED_COMMAND_PATTERN = namedCommandPatternOf([PRODUCT_NAMES.PROGRAM, ORIGINAL_PRODUCT_NAMES.PROGRAM]);
+
+/** Below the count the installed files name today, so a pattern that stops matching fails rather than passing on nothing. */
+const SMALLEST_NAMED_COMMAND_COUNT = 30;
 
 const HELP_COMMAND_LINE_PATTERN = /^ {2}([a-z]+)(?: ([a-z][a-z|-]*))?/gm;
 
@@ -221,6 +231,16 @@ describeWhenGitIsPresent('the scan itself', () => {
     expect(namedSurface.statusJsonFields.length, 'status fields named').toBeGreaterThanOrEqual(10);
     expect(cliSurface.commands).toContain('ticket claim');
     expect(cliSurface.statusJsonFields).toContain('dispatcherRunId');
+    const namedCommandCount = Object.values(INSTALLED_TEXTS).flatMap((text) => [...text.matchAll(NAMED_COMMAND_PATTERN)]).length;
+    expect(namedCommandCount, 'command mentions matched by the program-built pattern').toBeGreaterThanOrEqual(SMALLEST_NAMED_COMMAND_COUNT);
+  });
+
+  test('the named-command pattern is built from the program: it takes the program\'s commands and no other program\'s, planted in memory', () => {
+    const commandsNamedIn = (text: string) => [...text.matchAll(NAMED_COMMAND_PATTERN)].map(([, command = '']) => command);
+    expect(commandsNamedIn(`run \`${PRODUCT_NAMES.PROGRAM} status\``)).toEqual(['status']);
+    expect(commandsNamedIn('run `example-tool status`, `agent-progressive status` or `my-agent-progress status`')).toEqual([]);
+    const plantedTexts = { 'resources/templates/Example.md': 'run `example-tool status` and `example-tool ticket claim`' };
+    expect(Object.values(plantedTexts).flatMap((text) => [...text.matchAll(NAMED_COMMAND_PATTERN)]).length).toBeLessThan(SMALLEST_NAMED_COMMAND_COUNT);
   });
 
   test('every foreign flag is named by an installed file and is not the CLI\'s', () => {

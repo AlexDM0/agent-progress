@@ -10,9 +10,10 @@ import {
   sep
 } from 'node:path';
 
-import { expect, test } from 'bun:test';
+import { expect, test }  from 'bun:test';
+import { TRACKER_FILES } from '../src/services/tracker/constants/TrackerFiles.ts';
+import { PRODUCT_NAMES } from '../src/shared/constants/ProductNames.ts';
 
-import { TRACKER_FILES }        from '../src/services/tracker/constants/TrackerFiles.ts';
 import { installedFilePathsIn } from './InstalledFiles.ts';
 
 const EXAMPLE_ROOT = join(sep, 'scratch', 'example-repository');
@@ -31,7 +32,7 @@ test('the briefs and the reference they cite sit in the tracker directory, where
 });
 
 test('the agent definition is named for the type the dispatcher starts its workers as', () => {
-  expect(installedFilePathsIn(EXAMPLE_ROOT).agentDefinition).toBe(join(EXAMPLE_ROOT, '.claude', 'agents', 'agent-progress-worker.md'));
+  expect(installedFilePathsIn(EXAMPLE_ROOT).agentDefinition).toBe(join(EXAMPLE_ROOT, '.claude', 'agents', `${PRODUCT_NAMES.PROGRAM}-worker.md`));
 });
 
 test('the install manifest sits in the tracker directory, beside what it versions', () => {

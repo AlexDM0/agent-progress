@@ -7,6 +7,7 @@ import { writeFileSync } from 'node:fs';
 import { join }          from 'node:path';
 
 import { afterEach, expect } from 'bun:test';
+import { PRODUCT_NAMES }     from '../../src/shared/constants/ProductNames.ts';
 
 import { createScratchGitRepository, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
 import { testWhenGitIsPresent }                               from '../../src/testing/ToolGuard.ts';
@@ -30,7 +31,7 @@ async function trackedRepositoryWithManifest(manifestText: string): Promise<stri
   const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
   const exitCode = await runCommandLine(['init', '--project', 'Example Agency', '--no-workflow', '--no-agent-definition'], context);
   if (exitCode !== 0) throw new Error(`init exited ${exitCode}: ${context.errorText()}`);
-  writeFileSync(join(repositoryDirectory, '.agent-progress', 'version.json'), manifestText);
+  writeFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'version.json'), manifestText);
   return repositoryDirectory;
 }
 
@@ -54,6 +55,6 @@ testWhenGitIsPresent('a manifest naming another agent host, or none, is no refus
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
 
     expect(await runCommandLine(['update', '--no-workflow', '--no-agent-definition'], context), manifestText).toBe(0);
-    expect(repositoryFileContentsOf(repositoryDirectory).get(join('.agent-progress', 'version.json')), manifestText).not.toContain('agentHost');
+    expect(repositoryFileContentsOf(repositoryDirectory).get(join(PRODUCT_NAMES.DATA_FOLDER, 'version.json')), manifestText).not.toContain('agentHost');
   }
 }, 60_000);

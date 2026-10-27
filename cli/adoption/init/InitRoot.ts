@@ -2,9 +2,9 @@
 import { realpathSync, statSync } from 'node:fs';
 import { resolve }                from 'node:path';
 
-import { discoverRepositoryRoot }    from '../../../src/lib/git/RepositoryRoot.ts';
-import { agentProgressRootOverride } from '../../../src/shared/Environment.ts';
-import { OperationRefusal }          from '../../../src/shared/OperationRefusal.ts';
+import { discoverRepositoryRoot }                            from '../../../src/lib/git/RepositoryRoot.ts';
+import { agentProgressRootOverride, ROOT_OVERRIDE_VARIABLE } from '../../../src/shared/Environment.ts';
+import { OperationRefusal }                                  from '../../../src/shared/OperationRefusal.ts';
 
 function resolvedRealPath(path: string): string {
   try {
@@ -58,7 +58,7 @@ export function refuseAnOverrideNamingAnotherDirectory(currentDirectory: string,
   if (overriddenDirectory === resolvedRealPath(rootDirectory)) return;
   throw new OperationRefusal(
     'refused',
-    `AGENT_PROGRESS_ROOT names ${overriddenDirectory}, but \`init\` would create the tracker in ${rootDirectory}; nothing was written. `
-    + 'Unset AGENT_PROGRESS_ROOT, or set it to the directory you are initialising, or pass that directory as --root.',
+    `${ROOT_OVERRIDE_VARIABLE} names ${overriddenDirectory}, but \`init\` would create the tracker in ${rootDirectory}; nothing was written. `
+    + `Unset ${ROOT_OVERRIDE_VARIABLE}, or set it to the directory you are initialising, or pass that directory as --root.`,
   );
 }

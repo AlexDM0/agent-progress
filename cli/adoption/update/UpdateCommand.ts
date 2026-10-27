@@ -7,6 +7,7 @@ import { requireWorkspace }                               from '../../../src/ser
 import type { CommandHandler }                            from '../../CommandHandler.ts';
 import { requireInstallManifestThisVersionCanReplace }    from '../../InstallVersionCheck.ts';
 import { installedFileTextsFor, installedSkillFileTexts } from '../InstalledFileGeneration.ts';
+import { refuseBesideAnOlderProgram }                     from '../OlderProgramRefusal.ts';
 import { refuseARetiredAgentHostsInstall }                from '../RetiredAgentHostRefusal.ts';
 import {
   optOutFlagsGiven,
@@ -30,6 +31,7 @@ export const updateCommand: CommandHandler = async (commandArguments, context) =
   refuseAnAgentDefinitionOptOutKeepingTheWorkflow('update', { writesTheAgentDefinition, writesTheDispatcherWorkflow });
 
   const workspace          = requireWorkspace(context.currentDirectory);
+  refuseBesideAnOlderProgram(workspace.rootDirectory);
   requireInstallManifestThisVersionCanReplace(workspace.rootDirectory);
   refuseARetiredAgentHostsInstall('update', workspace.rootDirectory);
   refuseKeepingADispatcherWithoutItsAgentDefinition('update', workspace.rootDirectory, { writesTheAgentDefinition, writesTheDispatcherWorkflow });

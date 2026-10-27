@@ -29,6 +29,7 @@ import { LocalTimeUtil }          from '../src/lib/local-time/LocalTimeUtil.ts';
 import { registerWithTheMonitor } from '../src/services/tracker/MonitorRegistration.ts';
 import { withLockAt }             from '../src/services/tracker/TrackerLock.ts';
 import { workspacePathsFor }      from '../src/services/tracker/Workspace.ts';
+import { PRODUCT_NAMES }          from '../src/shared/constants/ProductNames.ts';
 import {
   createScratchCopyOf,
   createScratchDirectory,
@@ -89,7 +90,7 @@ afterEach(() => {
 });
 
 function registryFilePath(): string {
-  return join(homeDirectory, '.agent-progress-monitor', 'projects.json');
+  return join(homeDirectory, PRODUCT_NAMES.MONITOR_FOLDER, 'projects.json');
 }
 
 function registryText(): string {
@@ -312,7 +313,7 @@ testWhenGitIsPresent('A4: a malformed registry is reported and rewritten keeping
 
 testWhenGitIsPresent('A4: a registry that cannot be written warns on standard error and the command keeps exit 0', async () => {
   const repositoryDirectory = await initializedRepository();
-  writeFileSync(join(homeDirectory, '.agent-progress-monitor'), 'a file where the registry folder belongs');
+  writeFileSync(join(homeDirectory, PRODUCT_NAMES.MONITOR_FOLDER), 'a file where the registry folder belongs');
 
   const context = registeringContext(repositoryDirectory);
   await requireExitZero(['log', 'Example milestone'], context);

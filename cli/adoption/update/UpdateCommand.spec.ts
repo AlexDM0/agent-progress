@@ -26,6 +26,8 @@ import {
 import { OperationRefusalWordingUtil }     from '../../../src/adapters/utils/OperationRefusalWordingUtil.ts';
 import * as realWorkflowScriptBundleModule from '../../../src/lib/claude-code/WorkflowScriptBundle.ts';
 import { resourceFilePathOf }              from '../../../src/shared/ResourceFilePath.ts';
+import { DISPATCH_PROTOCOL }               from '../../../src/shared/constants/DispatchProtocol.ts';
+import { PRODUCT_NAMES }                   from '../../../src/shared/constants/ProductNames.ts';
 import {
   addWorktree,
   createScratchDirectory,
@@ -78,25 +80,27 @@ function subagentStopGroupsIn(repositoryDirectory: string, settingsFileName: str
 const GENERATED_DISPATCHER_SCRIPT = (await installedFileTextsFor({ generatesTheDispatcherScript: true })).dispatcherScript ?? '';
 
 function workflowFilePathIn(repositoryDirectory: string): string {
-  return join(repositoryDirectory, '.agent-progress', 'agent-progress-dispatch.js');
+  return join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'agent-progress-dispatch.js');
 }
 
 // The printed path is the resolved root, which on macOS carries a `/private` the scratch path does not, so the line is matched by its shape.
 function workflowLineSaying(verdict: 'updated' | 'unchanged'): RegExp {
-  return new RegExp(`workflow: {4}${verdict} \\(\\S+/\\.agent-progress/agent-progress-dispatch\\.js\\)\n`);
+  return new RegExp(`workflow: {4}${verdict} \\(\\S+/${RegExp.escape(PRODUCT_NAMES.DATA_FOLDER)}/agent-progress-dispatch\\.js\\)\n`);
 }
 
-// The template with its two placeholders filled by the default pair, which is what `update` must write byte for byte.
+// The template with its placeholders filled by the default pair and the product's names, which is what `update` must write byte for byte.
 const INSTALLED_AGENT_DEFINITION = readFileSync(resourceFilePathOf('templates', 'AgentProgressWorker.md'), 'utf8')
   .replace('{{model}}', 'opus')
-  .replace('{{effort}}', 'medium');
+  .replace('{{effort}}', 'medium')
+  .replace('{{workerAgentType}}', DISPATCH_PROTOCOL.WORKER_AGENT_TYPE)
+  .replaceAll('{{dataFolder}}', PRODUCT_NAMES.DATA_FOLDER);
 
 function agentDefinitionFilePathIn(repositoryDirectory: string): string {
-  return join(repositoryDirectory, '.claude', 'agents', 'agent-progress-worker.md');
+  return join(repositoryDirectory, '.claude', 'agents', `${DISPATCH_PROTOCOL.WORKER_AGENT_TYPE}.md`);
 }
 
 function agentDefinitionLineSaying(verdict: 'updated' | 'unchanged'): RegExp {
-  return new RegExp(`agent: {7}${verdict} \\(\\S+/\\.claude/agents/agent-progress-worker\\.md\\)`);
+  return new RegExp(`agent: {7}${verdict} \\(\\S+/\\.claude/agents/${RegExp.escape(DISPATCH_PROTOCOL.WORKER_AGENT_TYPE)}\\.md\\)`);
 }
 
 /**
@@ -107,8 +111,8 @@ function agentDefinitionLineSaying(verdict: 'updated' | 'unchanged'): RegExp {
 async function trackedRepositoryWithStaleFiles(): Promise<string> {
   const repositoryDirectory = scratchRepository();
   await runCommandLine(['init', '--no-hooks', '--no-workflow', '--no-agent-definition'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }));
-  writeFileSync(join(repositoryDirectory, '.agent-progress', 'agent-brief.md'), '# Agent brief\n\nThe wording two releases ago, which nobody refreshed.\n');
-  const olderClaudeInstructions = `# Example Agency\n\n${CLAUDE_MANAGED_BLOCK_MARKERS.start}\nAn older managed block.\n<!-- agent-progress:managed:end -->\n`;
+  writeFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'agent-brief.md'), '# Agent brief\n\nThe wording two releases ago, which nobody refreshed.\n');
+  const olderClaudeInstructions = `# Example Agency\n\n${CLAUDE_MANAGED_BLOCK_MARKERS.start}\nAn older managed block.\n${CLAUDE_MANAGED_BLOCK_MARKERS.end}\n`;
   writeFileSync(join(repositoryDirectory, 'CLAUDE.md'), olderClaudeInstructions);
   return repositoryDirectory;
 }
@@ -120,7 +124,7 @@ afterEach(() => {
 describeWhenGitIsPresent('updating a tracked repository', () => {
   test('rewrites a brief left behind by an older version and says to re-read it', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-    const briefFilePath       = join(repositoryDirectory, '.agent-progress', 'agent-brief.md');
+    const briefFilePath       = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'agent-brief.md');
 
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
     expect(await runCommandLine(['update'], context)).toBe(0);
@@ -143,7 +147,7 @@ describeWhenGitIsPresent('updating a tracked repository', () => {
 
   test('a brief that is missing altogether counts as updated, and the file is the template afterwards', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-    const briefFilePath       = join(repositoryDirectory, '.agent-progress', 'agent-brief.md');
+    const briefFilePath       = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'agent-brief.md');
     rmSync(briefFilePath);
 
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
@@ -190,14 +194,14 @@ describeWhenGitIsPresent('updating a tracked repository', () => {
     expect(await runCommandLine(['update'], context)).toBe(0);
 
     expect(subagentStopGroupsIn(repositoryDirectory, LOCAL_SETTINGS)).toEqual([
-      { matcher: '', hooks: [{ type: 'command', command: 'agent-progress hook subagent-stop', timeout: 20 }] },
+      { matcher: '', hooks: [{ type: 'command', command: PRODUCT_NAMES.PROGRAM + ' hook subagent-stop', timeout: 20 }] },
     ]);
     const localSettings = JSON.parse(readFileSync(settingsFilePathIn(repositoryDirectory, LOCAL_SETTINGS), 'utf8')) as { hooks: Record<string, unknown> };
     expect(localSettings.hooks['PreToolUse']).toEqual([
-      { matcher: 'Bash', hooks: [{ type: 'command', command: 'agent-progress hook pre-tool-use', timeout: 10 }] },
+      { matcher: 'Bash', hooks: [{ type: 'command', command: PRODUCT_NAMES.PROGRAM + ' hook pre-tool-use', timeout: 10 }] },
     ]);
     expect(localSettings.hooks['PostToolUse']).toEqual([
-      { matcher: '', hooks: [{ type: 'command', command: 'agent-progress hook post-tool-use', timeout: 10 }] },
+      { matcher: '', hooks: [{ type: 'command', command: PRODUCT_NAMES.PROGRAM + ' hook post-tool-use', timeout: 10 }] },
     ]);
     expect(existsSync(settingsFilePathIn(repositoryDirectory, SHARED_SETTINGS)), 'nothing lands in the file colleagues share').toBe(false);
     expect(context.outputText()).toContain('settings.local.json (installed)');
@@ -221,7 +225,7 @@ describeWhenGitIsPresent('updating a tracked repository', () => {
     writeSettings(repositoryDirectory, SHARED_SETTINGS, {
       hooks: {
         SessionStart: [{ matcher: '', hooks: [{ type: 'command', command: 'echo hello' }] }],
-        SubagentStop: [{ matcher: '', hooks: [{ type: 'command', command: 'agent-progress hook subagent-stop', timeout: 3 }] }],
+        SubagentStop: [{ matcher: '', hooks: [{ type: 'command', command: PRODUCT_NAMES.PROGRAM + ' hook subagent-stop', timeout: 3 }] }],
       },
     });
 
@@ -229,7 +233,7 @@ describeWhenGitIsPresent('updating a tracked repository', () => {
     expect(await runCommandLine(['update'], context)).toBe(0);
 
     expect(subagentStopGroupsIn(repositoryDirectory, SHARED_SETTINGS)).toEqual([
-      { matcher: '', hooks: [{ type: 'command', command: 'agent-progress hook subagent-stop', timeout: 20 }] },
+      { matcher: '', hooks: [{ type: 'command', command: PRODUCT_NAMES.PROGRAM + ' hook subagent-stop', timeout: 20 }] },
     ]);
     expect(subagentStopGroupsIn(repositoryDirectory, LOCAL_SETTINGS), 'a second copy would record every agent twice').toBeUndefined();
     expect(context.outputText()).toContain('SubagentStop');
@@ -268,7 +272,7 @@ describeWhenGitIsPresent('updating a tracked repository', () => {
   /** A repository with nothing in `.claude/` cannot tell a refusal to write from having nothing to write, so the stale entry is really there. */
   test('--no-hooks leaves a shared settings file that holds a stale entry byte for byte', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-    const staleGroup = { matcher: '', hooks: [{ type: 'command', command: 'agent-progress hook subagent-stop', timeout: 3 }] };
+    const staleGroup = { matcher: '', hooks: [{ type: 'command', command: PRODUCT_NAMES.PROGRAM + ' hook subagent-stop', timeout: 3 }] };
     writeSettings(repositoryDirectory, SHARED_SETTINGS, { hooks: { SubagentStop: [staleGroup] } });
     const sharedSettingsBefore = readFileSync(settingsFilePathIn(repositoryDirectory, SHARED_SETTINGS), 'utf8');
 
@@ -334,7 +338,7 @@ describeWhenGitIsPresent('updating a tracked repository', () => {
   // and every checked command keeps asking for update until one finishes.
   test.skipIf(RUNNING_AS_ROOT)('a refresh cut short by an unwritable agents folder leaves the stale brief and no install version for the rerun to report and record', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-    const briefFilePath       = join(repositoryDirectory, '.agent-progress', 'agent-brief.md');
+    const briefFilePath       = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'agent-brief.md');
     const manifestFilePath    = installedFilePathsIn(repositoryDirectory).installManifest;
     const agentsDirectory     = join(repositoryDirectory, '.claude', 'agents');
     rmSync(manifestFilePath);
@@ -388,7 +392,7 @@ describeWhenGitIsPresent('updating a tracked repository', () => {
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
     expect(await runCommandLine(['update', '--no-agent-definition', '--no-workflow'], context)).toBe(0);
     expect(existsSync(join(repositoryDirectory, '.claude', 'agents'))).toBe(false);
-    expect(existsSync(join(repositoryDirectory, '.agent-progress', 'agent-progress-dispatch.js'))).toBe(false);
+    expect(existsSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'agent-progress-dispatch.js'))).toBe(false);
     expect(context.outputText()).toContain('agent:       left alone (--no-agent-definition)');
     expect(context.outputText()).toContain('workflow:    left alone (--no-workflow)');
 
@@ -424,29 +428,29 @@ describeWhenGitIsPresent('updating a tracked repository', () => {
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
     expect(await runCommandLine(['update', '--no-agent-definition', '--no-workflow'], context)).toBe(1);
 
-    expect(context.errorText()).toContain(`would leave ${join(realpathSync(repositoryDirectory), '.agent-progress', 'agent-progress-dispatch.js')} in place`);
+    expect(context.errorText()).toContain(`would leave ${join(realpathSync(repositoryDirectory), PRODUCT_NAMES.DATA_FOLDER, 'agent-progress-dispatch.js')} in place`);
     expect(context.errorText()).toContain('Nothing was written.');
     expect(context.outputText()).toBe('');
     expect(repositoryFileContentsOf(repositoryDirectory)).toEqual(filesBefore);
-    expect(filesBefore.has('.agent-progress/agent-progress-dispatch.js'), 'the fixture holds the dispatcher the refusal protects').toBe(true);
+    expect(filesBefore.has(`${PRODUCT_NAMES.DATA_FOLDER}/agent-progress-dispatch.js`), 'the fixture holds the dispatcher the refusal protects').toBe(true);
   });
 
   test('--no-agent-definition --no-workflow over a dispatcher beside its definition leaves both byte for byte', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
     expect(await runCommandLine(['update'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }))).toBe(0);
-    const dispatcherBefore = readFileSync(join(repositoryDirectory, '.agent-progress', 'agent-progress-dispatch.js'), 'utf8');
+    const dispatcherBefore = readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'agent-progress-dispatch.js'), 'utf8');
 
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
     expect(await runCommandLine(['update', '--no-agent-definition', '--no-workflow'], context)).toBe(0);
 
-    expect(readFileSync(join(repositoryDirectory, '.agent-progress', 'agent-progress-dispatch.js'), 'utf8')).toBe(dispatcherBefore);
+    expect(readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'agent-progress-dispatch.js'), 'utf8')).toBe(dispatcherBefore);
     expect(readFileSync(agentDefinitionFilePathIn(repositoryDirectory), 'utf8')).toBe(INSTALLED_AGENT_DEFINITION);
   });
 
   // A tracker adopted before the manifest existed has none, and `update` is what gives it one.
   test('records the install version on a tracker that has none, and a second run leaves it byte for byte', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-    const manifestFilePath    = join(repositoryDirectory, '.agent-progress', 'version.json');
+    const manifestFilePath    = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'version.json');
     rmSync(manifestFilePath);
 
     expect(await runCommandLine(['update'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }))).toBe(0);
@@ -479,9 +483,9 @@ describeWhenGitIsPresent('what update never touches', () => {
     await runCommandLine(['ticket', 'add', 'Rename the export button', '--type', 'ticket'], seeding);
     await runCommandLine(['log', 'The orchestrator started the board'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }));
 
-    const progressFilePath = join(repositoryDirectory, '.agent-progress', 'progress.json');
-    const logFilePath      = join(repositoryDirectory, '.agent-progress', 'log.jsonl');
-    const ticketsDirectory = join(repositoryDirectory, '.agent-progress', 'tickets');
+    const progressFilePath = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json');
+    const logFilePath      = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'log.jsonl');
+    const ticketsDirectory = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'tickets');
     const ticketFileName   = readdirSync(ticketsDirectory)[0] ?? '';
     const ticketFilePath   = join(ticketsDirectory, ticketFileName);
     const progressBefore   = readFileSync(progressFilePath, 'utf8');
@@ -499,8 +503,8 @@ describeWhenGitIsPresent('what update never touches', () => {
 
   test('an unreadable tracker still exits 0 with the untouched line, and its files are left byte for byte', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-    const progressFilePath    = join(repositoryDirectory, '.agent-progress', 'progress.json');
-    const logFilePath         = join(repositoryDirectory, '.agent-progress', 'log.jsonl');
+    const progressFilePath    = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json');
+    const logFilePath         = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'log.jsonl');
     const unreadableProgress  = '{ "version": 1, "tasks": [';
     writeFileSync(progressFilePath, unreadableProgress);
     const logBefore = readFileSync(logFilePath, 'utf8');
@@ -522,8 +526,8 @@ describeWhenGitIsPresent('from inside a linked worktree', () => {
     const context = createCapturedCommandContext({ currentDirectory: worktreeDirectory });
     expect(await runCommandLine(['update'], context)).toBe(0);
 
-    expect(readFileSync(join(repositoryDirectory, '.agent-progress', 'agent-brief.md'), 'utf8')).toBe(GENERATED_AGENT_BRIEF);
-    expect(existsSync(join(worktreeDirectory, '.agent-progress')), 'a worktree never grows a tracker of its own').toBe(false);
+    expect(readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'agent-brief.md'), 'utf8')).toBe(GENERATED_AGENT_BRIEF);
+    expect(existsSync(join(worktreeDirectory, PRODUCT_NAMES.DATA_FOLDER)), 'a worktree never grows a tracker of its own').toBe(false);
     expect(context.outputText()).toContain(repositoryDirectory);
   });
 });
@@ -537,14 +541,14 @@ describeWhenGitIsPresent('what update refuses', () => {
     expect(await runCommandLine(['update'], context)).toBe(1);
 
     expect(context.errorText()).toContain('agent-progress init');
-    expect(existsSync(join(plainDirectory, '.agent-progress')), 'update creates no tracker, which is the whole difference from init').toBe(false);
+    expect(existsSync(join(plainDirectory, PRODUCT_NAMES.DATA_FOLDER)), 'update creates no tracker, which is the whole difference from init').toBe(false);
     expect(existsSync(join(plainDirectory, 'CLAUDE.md'))).toBe(false);
     expect(context.outputText()).toBe('');
   });
 
   test('an unknown option and an extra positional are each refused with exit 1', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-    const briefFilePath       = join(repositoryDirectory, '.agent-progress', 'agent-brief.md');
+    const briefFilePath       = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'agent-brief.md');
     const briefBefore         = readFileSync(briefFilePath, 'utf8');
 
     for (const refusedArguments of [['update', '--project', 'Example Agency'], ['update', '--root', repositoryDirectory], ['update', '--no-claud-md'], ['update', 'here']]) {

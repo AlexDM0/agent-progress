@@ -13,6 +13,7 @@ import {
   expect,
   test
 }                                             from 'bun:test';
+import { PRODUCT_NAMES }              from '../../../src/shared/constants/ProductNames.ts';
 import {
   addWorktree,
   commitFile,
@@ -57,7 +58,7 @@ function mainTip(): string {
 }
 
 function progressText(): string {
-  return readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8');
+  return readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'), 'utf8');
 }
 
 async function agentProgress(commandLineArguments: readonly string[]): Promise<CommandOutcome> {
@@ -73,7 +74,7 @@ async function agentProgressOrFail(commandLineArguments: readonly string[]): Pro
 }
 
 function ticketFilePath(identifier: string): string {
-  const ticketsDirectory = join(repositoryDirectory, '.agent-progress', 'tickets');
+  const ticketsDirectory = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'tickets');
   return join(ticketsDirectory, [...new Bun.Glob(`${identifier}-*.md`).scanSync(ticketsDirectory)][0] ?? '');
 }
 
@@ -183,7 +184,7 @@ describeWhenGitIsPresent('a release reading the Acceptance against the latest Re
   });
 
   test('with a check command stored, the refusal comes before the command runs', async () => {
-    const progressFilePath = join(repositoryDirectory, '.agent-progress', 'progress.json');
+    const progressFilePath = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json');
     writeFileSync(progressFilePath, `${JSON.stringify({ ...(JSON.parse(progressText()) as Record<string, unknown>), checkCommand: 'touch ../checked' }, null, 2)}\n`);
     const work = await reviewedTicketOnAWorktree(`${ACCEPTANCE_OF_THREE}\n## Review\n\nA1 holds\n`);
 
