@@ -70,6 +70,14 @@ describe('the group builder prompt', () => {
   test('waits for a free slot by a background poll rather than failing', () => {
     expect(prompt).toContain('as a background command and wait on it, never as a foreground sleep');
   });
+
+  test('closes by skipping, merging or rebasing against <base>, merging when the branch carries a merge <base> lacks', () => {
+    const worktree = '/scratch/example-repository/.claude/worktrees/ticket-102';
+    expect(prompt).toContain(`when \`git -C ${worktree} merge-base --is-ancestor <base> HEAD\` succeeds, the branch already holds <base>: change nothing`);
+    expect(prompt).toContain(`\`git -C ${worktree} rev-list --merges <base>..HEAD\` prints a commit`);
+    expect(prompt).toContain(`\`git -C ${worktree} merge --no-edit <base>\``);
+    expect(prompt).toContain(`otherwise \`git -C ${worktree} rebase <base>\``);
+  });
 });
 
 describe('the group reviewer prompt', () => {
@@ -88,6 +96,15 @@ describe('the group reviewer prompt', () => {
   test('refuses to integrate before the ticket before it is settled, a delivered or abandoned one passing as a reviewed one does', () => {
     expect(prompt).toContain('`agent-progress ticket show 101` must say `reviewed`, `delivered` or `abandoned`');
   });
+
+  test('replaces the review brief\'s step-5 rebase by P\'s three-way rule against the group branch, counting a merge with rework --merge', () => {
+    const worktree = '/scratch/example-repository/.claude/worktrees/ticket-102';
+    expect(prompt).toContain('Step 5\'s `git rebase <main line>` is replaced by P\'s rule below');
+    expect(prompt).toContain(`\`git -C ${worktree} merge-base --is-ancestor group-example-group HEAD\` succeeds`);
+    expect(prompt).toContain(`\`git -C ${worktree} merge --no-edit group-example-group\``);
+    expect(prompt).toContain(`\`agent-progress rework --merge HEAD --worktree ${worktree}\``);
+    expect(prompt).toContain(`\`agent-progress rework --rebased-from <pipeline tip> --main group-example-group --worktree ${worktree}\``);
+  });
 });
 
 describe('the release ticket\'s reviewer prompt', () => {
@@ -99,8 +116,10 @@ describe('the release ticket\'s reviewer prompt', () => {
     expect(prompt).toContain(`\`agent-progress release 101 102 103 --branch group-example-group --worktree ${GROUP_WORKTREE} --main main --json\``);
   });
 
-  test('rebases the group branch onto the main line and runs the full checks and the pre-release step there first', () => {
-    expect(prompt).toContain(`\`git -C ${GROUP_WORKTREE} rebase main\``);
+  test('merges the main line into the group branch, never rebasing it, and runs the full checks and the pre-release step there first', () => {
+    expect(prompt).toContain(`\`git -C ${GROUP_WORKTREE} merge --no-edit main\``);
+    expect(prompt).not.toContain(`\`git -C ${GROUP_WORKTREE} rebase main\``);
+    expect(prompt).toContain(`\`agent-progress rework --merge <the merge commit> --worktree ${GROUP_WORKTREE}\``);
     expect(prompt).toContain(`Run \`example-check 2>&1 | tail -20\` in ${GROUP_WORKTREE}`);
     expect(prompt).toContain('names a step for just before `agent-progress release`');
   });

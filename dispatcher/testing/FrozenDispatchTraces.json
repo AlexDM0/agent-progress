@@ -1,7 +1,7 @@
 {
   "takenFrom": {
     "scriptPath": "dispatcher/DispatchFromWorkflowGlobals.ts",
-    "scriptDigest": "54aa994c4ca98d54"
+    "scriptDigest": "08249da65c890fe6"
   },
   "retake": "bun dispatcher/testing/DispatchTraceCapture.ts > dispatcher/testing/FrozenDispatchTraces.json",
   "meta": {

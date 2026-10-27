@@ -127,7 +127,8 @@ function groupBuilderPrompt(settings: DispatchSettings, placement: GroupPlacemen
       + `<main checkout> = ${settings.mainCheckout} and <full check command> = \`${settings.checkCommand}\`.`,
     'Do not `cat` any CLAUDE.md.',
     `Stop when the Acceptance block is satisfied, or at about ${DISPATCH_PROTOCOL.BUILDER_API_CALL_BUDGET} API calls, whichever is first.`,
-    `Close as Ready to merge says, its rebase being \`git -C ${worktree} rebase <base>\` with <base> read again at that moment, append the \`## Handoff\`, `
+    `Close as Ready to merge says, its rebase step being this rule against <base>, read again at that moment: ${catchUpRuleText(worktree, '<base>')}. `
+      + 'Then append the `## Handoff`, '
       + `then run \`${startReviewCommandOf(settings, 'finish', ticketId, owner)}\`. Never merge ${branchOf(ticketId)} into ${groupBranch} or ${settings.mainLine}, `
       + 'and never release or version anything: the fast-forward of the group branch is your reviewer\'s, the release the release ticket\'s.',
     historyKeepingText(),
@@ -164,10 +165,21 @@ function reviewBarLinesOf(settings: DispatchSettings, request: ReviewerPromptReq
   return lines;
 }
 
+// A rebase would flatten a merge of the main line into the group's history, so a branch carrying one takes its base by a merge instead.
+function catchUpRuleText(worktree: string, base: string): string {
+  return `when \`git -C ${worktree} merge-base --is-ancestor ${base} HEAD\` succeeds, the branch already holds ${base}: change nothing; `
+    + `otherwise, when \`git -C ${worktree} rev-list --merges ${base}..HEAD\` prints a commit, the branch carries a merge ${base} lacks: `
+    + `\`git -C ${worktree} merge --no-edit ${base}\` (resolve a conflict by editing the file, \`git add\`, \`GIT_EDITOR=true git commit --no-edit\`, never \`--abort\`); `
+    + `otherwise \`git -C ${worktree} rebase ${base}\` (resolve a conflict by editing the file, \`git add\`, \`GIT_EDITOR=true git rebase --continue\`, never \`--abort\`)`;
+}
+
 function reviewProcedureText(settings: DispatchSettings, placement: GroupPlacement, ticketId: string, integrationSteps: string): string {
+  const worktree = worktreeOf(settings, ticketId);
   return `Read \`${settings.mainCheckout}/${DISPATCH_PROTOCOL.REVIEW_BRIEF_PATH_IN_REPOSITORY}\` once and follow its fenced block as your procedure, steps 0 to 7, `
-    + `with <worktree> = ${worktreeOf(settings, ticketId)}, <branch> = ${branchOf(ticketId)}, <main line> = ${groupBranchOf(placement.groupName)}, `
+    + `with <worktree> = ${worktree}, <branch> = ${branchOf(ticketId)}, <main line> = ${groupBranchOf(placement.groupName)}, `
     + `<main checkout> = ${settings.mainCheckout} and <full check command> = \`${settings.checkCommand}\`. `
+    + 'Step 5\'s `git rebase <main line>` is replaced by P\'s rule below, and a merge it makes is counted with '
+    + `\`agent-progress rework --merge HEAD --worktree ${worktree}\` instead of \`--rebased-from\`. `
     + `Step 8 is not yours: where the brief takes the branch to the main line, run ${integrationSteps} below instead. Before step 0, run P below.`;
 }
 
@@ -177,16 +189,16 @@ function pipelineStepText(settings: DispatchSettings, placement: GroupPlacement,
   const { predecessorId } = placement;
   const predecessorGate = predecessorId === null ? '' : `\`agent-progress ticket show ${predecessorId}\` must say \`reviewed\`, \`delivered\` or \`abandoned\`; `
     + 'otherwise change nothing more, close your bar, and return `not-released` with releaseReason `predecessor-not-integrated`. Then ';
-  return `P. ${predecessorGate}bring the branch onto ${groupBranch}: record \`git -C ${worktree} rev-parse HEAD\` as <pipeline tip>, `
-    + `run \`git -C ${worktree} rebase ${groupBranch}\` `
-    + '(resolve a conflict by editing the file, `git add`, `GIT_EDITOR=true git rebase --continue`, never `--abort`), then '
-    + `\`agent-progress rework --rebased-from <pipeline tip> --main ${groupBranch} --worktree ${worktree}\`, whose count joins your total and your \`## Review\`.`;
+  return `P. ${predecessorGate}bring the branch onto ${groupBranch}: record \`git -C ${worktree} rev-parse HEAD\` as <pipeline tip>, then `
+    + `${catchUpRuleText(worktree, groupBranch)}. Count what that did: after a rebase `
+    + `\`agent-progress rework --rebased-from <pipeline tip> --main ${groupBranch} --worktree ${worktree}\`, after a merge that made a commit `
+    + `\`agent-progress rework --merge HEAD --worktree ${worktree}\`; the count joins your total and your \`## Review\`.`;
 }
 
 function reviewDisciplineLines(): string[] {
   return [
     `You may use up to about ${DISPATCH_PROTOCOL.REVIEWER_API_CALL_BUDGET} API calls for the review; the rebase and the integration steps are exempt.`,
-    `${historyKeepingText()} ${reviewMarkText()} The rebases of P and R2 keep every commit too.`,
+    `${historyKeepingText()} ${reviewMarkText()} What P and R2 do keeps every commit too.`,
     'Every finding you would hand on instead of fixing, you file yourself: '
       + '`agent-progress ticket add "<what and where>" --type ticket|bug --priority low --body "<what you saw and what you would do>"`; '
       + 'return the ids it printed as `filedTicketIds`.',
@@ -202,7 +214,8 @@ function fastForwardStepLines(settings: DispatchSettings, placement: GroupPlacem
   return [
     `I1. \`git -C ${groupWorktree} branch --show-current\` must print ${groupBranch} and \`git -C ${groupWorktree} status --porcelain\` nothing; `
       + 'otherwise change nothing and return `not-released` with releaseReason `group-worktree-unclean`.',
-    `I2. \`git -C ${groupWorktree} merge --ff-only ${branchOf(ticketId)}\`; when git refuses because ${groupBranch} moved, rebase again as P says and retry once, `
+    `I2. \`git -C ${groupWorktree} merge --ff-only ${branchOf(ticketId)}\`; when git refuses because ${groupBranch} moved, bring the branch onto it again as P says `
+      + 'and retry once, '
       + 'and a second refusal returns `not-released` with releaseReason `group-moved`. '
       + `Once it succeeds, append the line \`${integratedLineOf(placement.groupName)}\` at the end of your \`## Review\`, with the full commit `
       + `\`git -C ${groupWorktree} rev-parse HEAD\` prints.`,
@@ -273,10 +286,12 @@ function releaseReviewerPrompt(settings: DispatchSettings, placement: GroupPlace
     ticketWorktreeRemovalText(settings, placement, ticketId),
     `R1. \`agent-progress ticket list\`: each of ${earlierTicketsText} must be \`reviewed\`, \`delivered\` or \`abandoned\`. Otherwise change nothing more, close your bar, `
       + 'and return `not-released` with releaseReason `group-incomplete`, naming the ids that are not in your report.',
-    `R2. From here on you work in ${groupWorktree}. ${installText}Record \`git -C ${groupWorktree} rev-parse HEAD\` as <pre-rebase tip>, then `
-      + `\`git -C ${groupWorktree} rebase ${mainLine}\`, never \`-i\`: resolve by editing the file, \`git add\`, \`GIT_EDITOR=true git rebase --continue\`, never \`--abort\`. `
+    `R2. From here on you work in ${groupWorktree}. ${installText}Record \`git -C ${groupWorktree} rev-parse HEAD\` as <pre-merge tip>, then `
+      + `\`git -C ${groupWorktree} merge --no-edit ${mainLine}\`, never a rebase, which would flatten the group's merges: resolve by editing the file, \`git add\`, `
+      + '`GIT_EDITOR=true git commit --no-edit`, never `--abort`. '
       + `Run \`${checkCommand} 2>&1 | tail -20\` in ${groupWorktree} until green, committing what is uncommitted; review every hunk you resolved by hand as step 3 says. `
-      + `Count it: \`agent-progress rework --rebased-from <pre-rebase tip> --main ${mainLine} --worktree ${groupWorktree}\`, add it to your total and to your \`## Review\`, `
+      + 'When HEAD is no longer <pre-merge tip>, count the merge: '
+      + `\`agent-progress rework --merge <the merge commit> --worktree ${groupWorktree}\`, add it to your total and to your \`## Review\`, `
       + 'and apply step 7 again: a gap you could not close is `does-not-hold`, over the threshold requests the next round, and otherwise R3.',
     'R3. When the root `CLAUDE.md` names a step for just before `agent-progress release` (a version bump, say), run it now in '
       + `${groupWorktree}, exactly as written there.`,
