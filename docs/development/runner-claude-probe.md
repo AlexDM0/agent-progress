@@ -139,11 +139,12 @@ Every run passed the agents through `--agents` and ran in `--permission-mode don
 run (`p9/run-*.log`, settings and agents beside them).
 
 - **Auto-memory.** `"autoMemoryEnabled": false` in the `--settings` file is the switch: the init record's
-  `memory_paths` is `null` with it (`run-a`) and names the project's `memory/` folder without it (`run-b`).
+  `memory_paths` key is absent with it (`run-a`) and names the project's `memory/` folder without it (`run-b`).
 - **Model precedence.** An explorer defined with `"model": "sonnet"`, started without a `model` parameter, ran on
-  Sonnet (`run-c1`), and still did with `CLAUDE_CODE_SUBAGENT_MODEL=opus` set (`run-c2`): the variable does not override
-  a definition's model. A `model` parameter in the `Agent` call does: a coder defined as Sonnet, started with
-  `"model": "haiku"` by the parent, ran on Haiku (`run-a`, no Sonnet in `modelUsage`).
+  Sonnet (`run-c1`), and still did with `CLAUDE_CODE_SUBAGENT_MODEL=opus` set (`run-c2`, the variable inherited by the
+  driver, which its log does not record): the variable does not override a definition's model. A `model` parameter in
+  the `Agent` call does: a coder defined as Sonnet, started with `"model": "haiku"` by the parent, ran on Haiku
+  (`run-a`, no Sonnet in `modelUsage`).
 - **`modelUsage` includes subagents.** With a Sonnet explorer under a Haiku session, the `result`'s `modelUsage` has a
   `claude-sonnet-5-5` entry beside Haiku's, while `usage` counts the top level only (`run-c1`: 303 top-level output
   tokens, `modelUsage` 303 Haiku plus 199 Sonnet). A subagent the parent started in the background was still running at
@@ -281,7 +282,8 @@ Selects: the setting confines sandboxed Bash as well as Read and leaves git work
 
 P2, P4, P14 and P15 ran twice: with the probe driver's inherited environment, which is a dispatched builder's
 (`CLAUDECODE`, `CLAUDE_CODE_SESSION_ID`, `CLAUDE_CODE_MESSAGING_SOCKET`, `ANTHROPIC_BASE_URL`, `CLAUDE_CODE_SIMPLE` and
-the rest of its `CLAUDE_*` variables set), and under `env -i HOME PATH USER` (`--clean-environment`). Every finding was the same
-under both, and subscription authentication worked with those three variables alone (`apiKeySource` `none`). P15's
-inherited environment is this builder's own, a dispatched builder's; its gates ran under `sandbox-exec` directly.
+the rest of its `CLAUDE_*` variables set), and under `env -i HOME PATH USER` (`--clean-environment`). Every finding
+was the same under both, and subscription authentication worked with those three variables alone (`apiKeySource`
+`none`). P15's inherited environment is this builder's own, a dispatched builder's; its gates ran under `sandbox-exec`
+directly.
 P9, P11, P13, P16 and P17 ran in the inherited environment only, and P10 under `env -i` plus its stand-in variables.
