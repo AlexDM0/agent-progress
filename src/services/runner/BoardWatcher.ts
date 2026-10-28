@@ -20,6 +20,8 @@ export interface BoardWatcherRequest {
   trackerDirectory:   string;
   repositoryRoot:     string;
   wake:               () => void;
+  /** Called at each sweep before its wake; the runner asks the on-disk binary for its versions again then. */
+  onSweep?:           () => void;
   /** Overridden by specs, which cannot wait a sweep. */
   sweepMilliseconds?: number;
 }
@@ -50,7 +52,11 @@ function startWatching(request: BoardWatcherRequest): BoardWatcher {
   const relayRoot = join(request.repositoryRoot, PRODUCT_NAMES.WORKTREES_FOLDER, 'relay');
   if (!existsSync(relayRoot)) mkdirSync(relayRoot, { recursive: true });
   const watchers = [watchQuietly(request.trackerDirectory, wakeSoon), watchQuietly(relayRoot, wakeSoon)];
-  const sweep = setInterval(request.wake, request.sweepMilliseconds ?? RUNNER_SWEEP_SECONDS * MILLISECONDS_PER_SECOND);
+  const sweepOnce = (): void => {
+    request.onSweep?.();
+    request.wake();
+  };
+  const sweep = setInterval(sweepOnce, request.sweepMilliseconds ?? RUNNER_SWEEP_SECONDS * MILLISECONDS_PER_SECOND);
   return {
     stop: () => {
       if (debounce !== null) clearTimeout(debounce);

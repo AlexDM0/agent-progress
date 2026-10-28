@@ -25,6 +25,17 @@ export const RUNNER_READY_TRIES = 40;
 
 export const RUNNER_READY_INTERVAL_MILLISECONDS = 250;
 
+/** How many times the old runner looks for its successor's `ready` before it kills the successor as silent; a schedule only, never a decision. */
+export const HANDOVER_READY_TRIES = 120;
+
+export const HANDOVER_READY_INTERVAL_MILLISECONDS = 250;
+
+/** How many times, at the same interval, a successor waits for `released` and the old runner then waits for the successor to serve. */
+export const HANDOVER_RELEASE_TRIES = 240;
+
+/** How many times, at the same interval, `run restart` and `update` look for a handover's outcome: every wait of it end to end. */
+export const HANDOVER_OUTCOME_TRIES = HANDOVER_READY_TRIES + HANDOVER_RELEASE_TRIES + HANDOVER_RELEASE_TRIES;
+
 /** How many times `run stop` looks for the stopped runner's lease to be gone or dead before it reports the runner still live. */
 export const RUNNER_STOP_TRIES = 40;
 

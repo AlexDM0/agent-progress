@@ -66,6 +66,18 @@ function replyExists(relayDirectory: string, requestId: string): boolean {
   }
 }
 
+/** A request naming a format this runner does not read waits for a runner that does, after a handover; one naming none is malformed. */
+function namesAnotherFormat(text: string): boolean {
+  try {
+    const parsed: unknown = JSON.parse(text);
+    if (typeof parsed !== 'object' || parsed === null) return false;
+    const formatVersion = (parsed as { relayFormatVersion?: unknown }).relayFormatVersion;
+    return typeof formatVersion === 'number' && formatVersion !== RELAY_FORMAT_VERSION;
+  } catch {
+    return false;
+  }
+}
+
 /** Outside the lock: every unanswered request of each job whose folder may be read, in request-id order within a job. */
 function pendingRequestsOf(repositoryRoot: string, jobs: readonly Readonly<Job>[]): PendingRelayRequest[] {
   return jobs.filter(relayIsReadable).flatMap((job) => {
@@ -74,7 +86,8 @@ function pendingRequestsOf(repositoryRoot: string, jobs: readonly Readonly<Job>[
       .filter((requestId) => !replyExists(relayDirectory, requestId))
       .flatMap((requestId) => {
         try {
-          return [{ jobId: job.id, requestId, text: readFileSync(relayRequestFilePathOf(relayDirectory, requestId), 'utf8') }];
+          const text = readFileSync(relayRequestFilePathOf(relayDirectory, requestId), 'utf8');
+          return namesAnotherFormat(text) ? [] : [{ jobId: job.id, requestId, text }];
         } catch {
           return [];
         }

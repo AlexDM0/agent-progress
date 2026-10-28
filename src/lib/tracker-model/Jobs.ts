@@ -159,6 +159,11 @@ export class Jobs {
     return { logged: [this.records.logger.log({ kind: 'runner-stopped', fields: { reason } }, at)] };
   }
 
+  recordRunnerHandoverFailed(failure: { successorCodeVersion: string; step: string; error: string }, at: string): Logged {
+    const fields = { successorCodeVersion: failure.successorCodeVersion, step: failure.step, error: failure.error };
+    return { logged: [this.records.logger.log({ kind: 'runner-handover-failed', fields }, at)] };
+  }
+
   recordUsageLimitHit(jobId: string, limit: { window: string; resetsAt: string }, at: string): Logged {
     return { logged: [this.records.logger.log({ kind: 'usage-limit-hit', jobId, fields: { window: limit.window, resetsAt: limit.resetsAt } }, at)] };
   }

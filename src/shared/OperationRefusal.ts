@@ -35,6 +35,7 @@ export type OperationRefusalDetail =
   | { kind: 'runner-identity-unreadable'; processId: number }
   | { kind: 'runner-did-not-start'; exitCode: number | null; logFilePath: string }
   | { kind: 'runner-still-live'; url: string; processId: number }
+  | { kind: 'runner-handover-failed'; successorCodeVersion: string; step: string; error: string; url: string | null }
   | { kind: 'runner-control-is-runtime-only'; commandKind: string }
   | { kind: 'runner-owns-the-lifecycle'; url: string; leaseFilePath: string }
   | { kind: 'host-bundle-failed'; entryPath: string; reason: string }

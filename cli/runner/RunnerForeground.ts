@@ -1,57 +1,86 @@
 /**
- * `run` in the foreground: wins the lease, serves the board's API and lives until a stop signal, a `runner-stop` or `runner-restart`
- * command, or a newer generation taking the board over, which ends it `lease-taken-over` (exit 2) without touching what the new runner holds.
+ * `run` in the foreground: wins the lease, serves the board's API and lives until a stop signal, a `runner-stop` command, a handover to a
+ * successor on the code on disk after `runner-restart`, or a newer generation taking the board over, which ends it `lease-taken-over`
+ * (exit 2) without touching what the new runner holds. `run --successor-of <generation>` is that successor's side of the handover.
  */
 import { randomBytes } from 'node:crypto';
 import {
   appendFileSync,
   chmodSync,
+  closeSync,
   mkdirSync,
+  openSync,
   watch
 } from 'node:fs';
 import { join } from 'node:path';
 
-import { HOST_PROTOCOL_VERSION }                                   from '../../src/lib/agent-host/constants/HostProtocol.ts';
-import { writeFileAtomically }                                     from '../../src/lib/atomic-file/AtomicFile.ts';
-import { GitProcess }                                              from '../../src/lib/git/GitProcess.ts';
-import { LocalTimeUtil }                                           from '../../src/lib/local-time/LocalTimeUtil.ts';
-import { identityOf }                                              from '../../src/lib/process-identity/ProcessIdentity.ts';
-import { BoardWatcher }                                            from '../../src/services/runner/BoardWatcher.ts';
-import { CodeVersion }                                             from '../../src/services/runner/CodeVersion.ts';
-import { createDrivePass, type DrivePass }                         from '../../src/services/runner/DrivePass.ts';
-import { HOST_ENTRY_PATH, HostBundle }                             from '../../src/services/runner/HostBundle.ts';
-import { runnerFilesIn, type RunnerFiles }                         from '../../src/services/runner/RunnerFiles.ts';
-import { RunnerLease, type RunnerLeaseRecord }                     from '../../src/services/runner/RunnerLease.ts';
-import type { RunnerPortChoice }                                   from '../../src/services/runner/RunnerPort.ts';
-import { RunnerServer }                                            from '../../src/services/runner/RunnerServer.ts';
-import { registerWithTheMonitor, type MonitorRegistrationRequest } from '../../src/services/tracker/MonitorRegistration.ts';
-import { requireProgressFile }                                     from '../../src/services/tracker/TrackerReader.ts';
-import type { Workspace }                                          from '../../src/services/tracker/Workspace.ts';
-import { environmentCopy }                                         from '../../src/shared/Environment.ts';
-import { OperationRefusal }                                        from '../../src/shared/OperationRefusal.ts';
-import { PRODUCT_NAMES }                                           from '../../src/shared/constants/ProductNames.ts';
-import type { CommandContext }                                     from '../CommandContext.ts';
-import { requireCurrentInstall }                                   from '../InstallVersionCheck.ts';
-import { openTrackerForWriting }                                   from '../OpenTrackerForWriting.ts';
-import { CLAUDE_MANAGED_BLOCK_MARKERS }                            from '../adoption/constants/ClaudeManagedBlockMarkers.ts';
-import type { ArgumentParser }                                     from '../arguments/ArgumentParser.ts';
-import { INSTALL_VERSION }                                         from '../constants/InstallVersion.ts';
-import { OutputUtil }                                              from '../utils/OutputUtil.ts';
-import { RunnerWording }                                           from './RunnerWording.ts';
+import { HOST_PROTOCOL_VERSION }                           from '../../src/lib/agent-host/constants/HostProtocol.ts';
+import { writeFileAtomically }                             from '../../src/lib/atomic-file/AtomicFile.ts';
+import { GitProcess }                                      from '../../src/lib/git/GitProcess.ts';
+import { LocalTimeUtil }                                   from '../../src/lib/local-time/LocalTimeUtil.ts';
+import { identityOf, type ProcessIdentity }                from '../../src/lib/process-identity/ProcessIdentity.ts';
+import { readingBoardOf }                                  from '../../src/lib/tracker-model/ReadingBoard.ts';
+import { BoardWatcher }                                    from '../../src/services/runner/BoardWatcher.ts';
+import { CodeVersion }                                     from '../../src/services/runner/CodeVersion.ts';
+import { createDrivePass, type DrivePass }                 from '../../src/services/runner/DrivePass.ts';
+import { HOST_ENTRY_PATH, HostBundle }                     from '../../src/services/runner/HostBundle.ts';
+import { HostFleet }                                       from '../../src/services/runner/HostFleet.ts';
+import { createInstallChangeWatch, versionsFromTheBinary } from '../../src/services/runner/InstallChangeWatch.ts';
+import { LegacyHostReader }                                from '../../src/services/runner/LegacyHostReader.ts';
+import { runnerFilesIn, type RunnerFiles }                 from '../../src/services/runner/RunnerFiles.ts';
+import {
+  type HandoverFailure,
+  type HandoverOutcome,
+  type HandoverSchedule,
+  type HandoverStep,
+  type HandoverStepRun,
+  RunnerHandover
+} from '../../src/services/runner/RunnerHandover.ts';
+import { RunnerLease, type RunnerLeaseAcquisition, type RunnerLeaseRecord }                   from '../../src/services/runner/RunnerLease.ts';
+import type { RunnerPortChoice }                                                              from '../../src/services/runner/RunnerPort.ts';
+import { RunnerServer, type RunnerServer as StartedServer }                                   from '../../src/services/runner/RunnerServer.ts';
+import { registerWithTheMonitor, type MonitorRegistrationRequest }                            from '../../src/services/tracker/MonitorRegistration.ts';
+import { requireProgressFile }                                                                from '../../src/services/tracker/TrackerReader.ts';
+import type { Workspace }                                                                     from '../../src/services/tracker/Workspace.ts';
+import { environmentCopy }                                                                    from '../../src/shared/Environment.ts';
+import { OperationRefusal }                                                                   from '../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }                                                                      from '../../src/shared/constants/ProductNames.ts';
+import { HANDOVER_READY_INTERVAL_MILLISECONDS, HANDOVER_READY_TRIES, HANDOVER_RELEASE_TRIES } from '../../src/shared/constants/RunnerLimits.ts';
+import type { CommandContext }                                                                from '../CommandContext.ts';
+import { requireCurrentInstall }                                                              from '../InstallVersionCheck.ts';
+import { openTrackerForWriting }                                                              from '../OpenTrackerForWriting.ts';
+import { CLAUDE_MANAGED_BLOCK_MARKERS }                                                       from '../adoption/constants/ClaudeManagedBlockMarkers.ts';
+import type { ArgumentParser }                                                                from '../arguments/ArgumentParser.ts';
+import { INSTALL_VERSION }                                                                    from '../constants/InstallVersion.ts';
+import { OutputUtil }                                                                         from '../utils/OutputUtil.ts';
+import { RunnerWording }                                                                      from './RunnerWording.ts';
 
 export interface ForegroundRunRequest {
   commandArguments: ArgumentParser;
   context:          CommandContext;
   workspace:        Workspace;
   portChoice:       RunnerPortChoice;
+  /** Set for `run --successor-of <generation>`: the generation this process takes the board over from. */
+  successorOf?:     number;
 }
 
-type RunnerEnd = { kind: 'stopped'; how: string } | { kind: 'taken-over'; refusal: unknown };
+type RunnerEnd = { kind: 'stopped'; how: string } | { kind: 'restart' } | { kind: 'taken-over'; refusal: unknown };
+
+/** One serving period under one lease generation; a handover that failed after the release starts another in the same process. */
+interface Serving {
+  generation: number;
+  server:     StartedServer;
+  drivePass:  DrivePass;
+  watcher:    { stop: () => void };
+  lifetime:   ReturnType<typeof runnerLifetime>;
+}
 
 const OWNER_ONLY_FOLDER_MODE = 0o700;
 const OWNER_ONLY_FILE_MODE   = 0o600;
 const TOKEN_BYTES            = 32;
 const DEFAULT_MAIN_LINE      = 'main';
+
+const HANDOVER_SCHEDULE: HandoverSchedule = { readyTries: HANDOVER_READY_TRIES, releaseTries: HANDOVER_RELEASE_TRIES, intervalMilliseconds: HANDOVER_READY_INTERVAL_MILLISECONDS };
 
 /** Every line goes to standard error and is appended to `<data>/runner.log`, which a reader tails, so it is never rewritten whole. */
 function runnerLoggerOf(context: CommandContext, files: RunnerFiles): (line: string) => void {
@@ -96,12 +125,12 @@ function writeToken(files: RunnerFiles): string {
   return token;
 }
 
-function leaseRefusalOf(acquisition: Exclude<ReturnType<typeof RunnerLease.acquire>, { verdict: 'acquired' }>, files: RunnerFiles): OperationRefusal {
+function leaseRefusalOf(acquisition: Exclude<RunnerLeaseAcquisition, { verdict: 'acquired' }>, files: RunnerFiles): OperationRefusal {
   if (acquisition.verdict === 'contended') return new OperationRefusal('refused', { kind: 'runner-contended', runnerDirectory: files.runnerDirectory });
   return alreadyRunningRefusal(files, acquisition.generation, acquisition.record);
 }
 
-/** Resolves once the runner should end, and is settled at most once. */
+/** Resolves once the runner should end or hand over, and is settled at most once. */
 function runnerLifetime(request: ForegroundRunRequest, files: RunnerFiles, generation: number, log: (line: string) => void) {
   let finish: (end: RunnerEnd) => void = () => undefined;
   const ended = new Promise<RunnerEnd>((resolve) => { finish = resolve; });
@@ -121,18 +150,12 @@ function runnerLifetime(request: ForegroundRunRequest, files: RunnerFiles, gener
   return {
     ended,
     stopFor:       (how: string) => finish({ kind: 'stopped', how }),
+    restart:       () => finish({ kind: 'restart' }),
     takenOver:     (refusal: unknown) => finish({ kind: 'taken-over', refusal }),
     stopWatching:  () => watcher.close(),
     // Kept until the stop has finished, so a second SIGTERM during it is taken as the same stop rather than killing it halfway.
     stopListening: unsubscribe,
   };
-}
-
-async function stopInOrder(request: ForegroundRunRequest, files: RunnerFiles, generation: number, log: (line: string) => void): Promise<void> {
-  await openTrackerForWriting(request.commandArguments, request.context, (change) => change.board.recordRunnerStopped('stopped', change.at));
-  await registerRunner(request, 'removed');
-  RunnerLease.release(files.runnerDirectory, generation);
-  log('Runner stopped; its lease is released.');
 }
 
 /** The branch the main checkout has out is the main line the runner lands onto; a detached or unreadable HEAD reads as `main`. */
@@ -141,111 +164,340 @@ function mainLineOf(repositoryRoot: string): string {
   return GitProcess.succeeded(head) && head.standardOutput.trim() !== '' ? head.standardOutput.trim() : DEFAULT_MAIN_LINE;
 }
 
-/** Read each pass: an `update` while the runner serves leaves the manifest ahead of the code in memory. */
-function installVersionChangedIn(repositoryRoot: string): boolean {
+function tipOf(repositoryRoot: string, branch: string): string | null {
+  const tip = GitProcess.run(repositoryRoot, ['rev-parse', '--verify', '--quiet', branch]);
+  return GitProcess.succeeded(tip) ? tip.standardOutput.trim() : null;
+}
+
+/** Read on every look: an `update` while the runner serves leaves the manifest ahead of the code in memory. */
+function manifestMatchesIn(repositoryRoot: string): boolean {
   try {
     requireCurrentInstall(repositoryRoot);
-    return false;
-  } catch {
     return true;
+  } catch {
+    return false;
+  }
+}
+
+/** What the successor proves before it reports `ready`, holding no lease and writing nothing but its bundles. */
+function preparationSteps(request: ForegroundRunRequest, pinHostBundle: () => Promise<string>): readonly HandoverStepRun[] {
+  const { workspace, context } = request;
+  const jobsOf = () => requireProgressFile(workspace).jobs ?? [];
+  const steps: readonly HandoverStepRun[] = [
+    {
+      step: 'build-bundles',
+      run:  async () => {
+        await pinHostBundle();
+        const page = await context.renderState.pageBundler.bundlePageScript();
+        if (page.verdict === 'failed') throw new Error(`the page bundle failed: ${page.reason}`);
+      },
+    },
+    { step: 'read-board', run: () => { readingBoardOf(requireProgressFile(workspace), [], []); } },
+    {
+      step: 'read-jobs',
+      run:  () => {
+        for (const job of jobsOf()) {
+          if (!Number.isSafeInteger(job.hostInstance) || !Number.isSafeInteger(job.eventCursor.sequence)) throw new Error(`job ${job.id} has no readable host instance or cursor`);
+        }
+      },
+    },
+    {
+      step: 'read-host-files',
+      run:  () => {
+        for (const job of jobsOf()) {
+          const jobFolder = HostFleet.jobFolderOf(workspace.trackerDirectory, job.id);
+          if (HostFleet.livenessOf(jobFolder, job.hostInstance).verdict === 'unclaimed') continue;
+          const record = HostFleet.hostRecordOf(jobFolder, job.hostInstance);
+          if (record === null) throw new Error(`host ${job.hostInstance} of job ${job.id} has no readable host file`);
+          if (!LegacyHostReader.readableEventLogFormats().includes(record.eventLogFormatVersion)) {
+            throw new Error(`host ${job.hostInstance} of job ${job.id} writes event-log format ${record.eventLogFormatVersion}, which this code does not read`);
+          }
+          if (HostFleet.eventsAfter(jobFolder, job.hostInstance, 0) === 'malformed') throw new Error(`the event log of host ${job.hostInstance} of job ${job.id} is malformed`);
+        }
+      },
+    },
+    { step: 'install-version', run: () => { requireCurrentInstall(workspace.rootDirectory); } },
+  ];
+  return steps;
+}
+
+/** The successor on the code on disk, detached in its own process group so it outlives this runner; `null` when it did not start. */
+function spawnSuccessor(context: CommandContext, workspace: Workspace, files: RunnerFiles, generation: number, port: number): ProcessIdentity | null {
+  if (context.programCommand.length === 0) return null;
+  // Its own lines reach the log through its logger; what it prints before it has one, such as a refusal, is appended here.
+  const logFileDescriptor = openSync(files.logFilePath, 'a');
+  try {
+    const child = Bun.spawn([...context.programCommand, 'run', '--successor-of', String(generation), '--port', String(port)], {
+      cwd: workspace.rootDirectory, stdin: 'ignore', stdout: 'ignore', stderr: logFileDescriptor, detached: true,
+    });
+    child.unref();
+    return identityOf(child.pid);
+  } catch {
+    return null;
+  } finally {
+    closeSync(logFileDescriptor);
   }
 }
 
 export async function runRunnerInTheForeground(request: ForegroundRunRequest): Promise<void> {
-  const { context, workspace, portChoice } = request;
+  const { context, workspace } = request;
   const progress = requireProgressFile(workspace);
   const files    = runnerFilesIn(workspace.trackerDirectory);
   mkdirSync(files.runnerDirectory, { recursive: true, mode: OWNER_ONLY_FOLDER_MODE });
-  requireNoLiveRunner(files);
+  if (request.successorOf === undefined) requireNoLiveRunner(files);
 
-  const ownIdentity = identityOf(process.pid);
-  if (ownIdentity === null) throw new OperationRefusal('unrepaired', { kind: 'runner-identity-unreadable', processId: process.pid });
+  const readIdentity = identityOf(process.pid);
+  if (readIdentity === null) throw new OperationRefusal('unrepaired', { kind: 'runner-identity-unreadable', processId: process.pid });
+  const ownIdentity: ProcessIdentity = readIdentity;
   const codeVersion = CodeVersion.onDisk();
   const log         = runnerLoggerOf(context, files);
+  const mainLine    = mainLineOf(workspace.rootDirectory);
+  const installWatch = createInstallChangeWatch({
+    inMemory:        { codeVersion, installVersion: INSTALL_VERSION },
+    versionsOnDisk:  () => versionsFromTheBinary(context.programCommand, workspace.rootDirectory),
+    manifestMatches: () => manifestMatchesIn(workspace.rootDirectory),
+    landingMark:     () => tipOf(workspace.rootDirectory, mainLine),
+  });
 
-  const hostBundlePath = await HostBundle.pinHostBundle({ runnerDirectory: files.runnerDirectory, codeVersion, entryPath: HOST_ENTRY_PATH });
+  let hostBundlePath: string | null = null;
+  const pinHostBundle = async (): Promise<string> => {
+    hostBundlePath ??= await HostBundle.pinHostBundle({ runnerDirectory: files.runnerDirectory, codeVersion, entryPath: HOST_ENTRY_PATH });
+    return hostBundlePath;
+  };
 
   let token: string | null = null;
-  let lifetime: ReturnType<typeof runnerLifetime> | null = null;
-  let drivePass: DrivePass | null = null;
-  const server = RunnerServer.start({
-    onNudge:  () => drivePass?.wake(),
-    state:    () => drivePass?.state() ?? null,
-    portChoice,
-    identity: {
-      trackerId: progress.trackerId, project: progress.project, codeVersion, installVersion: INSTALL_VERSION, processId: process.pid,
-    },
-    token:            () => token,
-    onRuntimeCommand: (command) => {
-      log(`${command.kind} received${command.now ? ' (now)' : ''}.`);
-      lifetime?.stopFor(command.kind);
-    },
-  });
+  let current: Serving | null = null;
+  let handingOver = false;
+  let handoverWarning: HandoverFailure | null = null;
+  let printedTheUrl = false;
 
-  const record: RunnerLeaseRecord = {
-    processId:                ownIdentity.processId,
-    processStartEpochSeconds: ownIdentity.startEpochSeconds,
-    bootIdentity:             ownIdentity.bootIdentity,
-    port:                     server.port,
-    url:                      server.url,
-    tokenFile:                files.tokenFilePath,
-    codeVersion,
-    installVersion:           INSTALL_VERSION,
-    hostProtocolVersion:      HOST_PROTOCOL_VERSION,
+  const runnerState = () => {
+    const passState = current?.drivePass.state();
+    if (passState === undefined) return null;
+    return { ...passState, runtimeState: handingOver ? 'handing-over' : passState.runtimeState, handoverWarning };
   };
-  const acquisition = RunnerLease.acquire(files.runnerDirectory, record);
-  if (acquisition.verdict !== 'acquired') {
-    await server.stop();
-    throw leaseRefusalOf(acquisition, files);
-  }
-  const { generation } = acquisition;
-  token    = writeToken(files);
-  lifetime = runnerLifetime(request, files, generation, log);
 
-  await openTrackerForWriting(request.commandArguments, context, (change) => change.board.recordRunnerStarted({ codeVersion, installVersion: INSTALL_VERSION }, change.at));
-  await registerRunner(request, { url: server.url, processId: process.pid, startedAt: LocalTimeUtil.formatLocalIso(context.now()) });
-  log(`Runner serving ${server.url} under lease ${generation} (code ${codeVersion}, install version ${INSTALL_VERSION}, agents ${context.agentAdapter.vendor}).`);
-  OutputUtil.printEntity(request.commandArguments, context, { url: server.url, generation }, server.url);
+  /** Binds, takes a generation through `acquireLease`, records the start and reattaches every host; whatever it took is let go on a failure. */
+  async function startServing(
+    portChoice: RunnerPortChoice,
+    acquireLease: (record: RunnerLeaseRecord) => RunnerLeaseAcquisition,
+    enterStep: (step: HandoverStep) => void,
+  ): Promise<Serving> {
+    const bundlePath = await pinHostBundle();
+    let lifetime: ReturnType<typeof runnerLifetime> | null = null;
+    let drivePass: DrivePass | null = null;
+    enterStep('bind-port');
+    const server = RunnerServer.start({
+      onNudge:  () => drivePass?.wake(),
+      state:    runnerState,
+      portChoice,
+      identity: {
+        trackerId: progress.trackerId, project: progress.project, codeVersion, installVersion: INSTALL_VERSION, processId: process.pid,
+      },
+      token:            () => token,
+      onRuntimeCommand: (command) => {
+        log(`${command.kind} received${command.now ? ' (now)' : ''}.`);
+        if (current === null || handingOver) return;
+        if (command.kind === 'runner-restart') {
+          // Written before the command is answered, so whoever sent it never reads an earlier handover's outcome.
+          RunnerHandover.writeHandover(RunnerHandover.handoverFilePathOf(files.runnerDirectory, current.generation), { state: 'requested' });
+          current.lifetime.restart();
+          return;
+        }
+        current.lifetime.stopFor(command.kind);
+      },
+    });
 
-  const startedLifetime = lifetime;
-  drivePass = createDrivePass({
-    workspace,
-    renderState:           context.renderState,
-    now:                   context.now,
-    formatStamp:           (moment) => LocalTimeUtil.formatLocalIso(moment),
-    runnerDirectory:       files.runnerDirectory,
-    generation,
-    hostBundlePath,
-    codeVersion,
-    agentAdapter:          context.agentAdapter,
-    monitorFolder:         join(context.homeDirectory, PRODUCT_NAMES.MONITOR_FOLDER),
-    inheritedEnvironment:  environmentCopy(),
-    mainLine:              mainLineOf(workspace.rootDirectory),
-    managedBlockMarker:    CLAUDE_MANAGED_BLOCK_MARKERS.start,
-    installVersionChanged: () => installVersionChangedIn(workspace.rootDirectory),
-    decisionWordingOf:     RunnerWording.decisionWordingOf,
-    launchTextOf:          RunnerWording.launchTextOf,
-    windDownMessage:       RunnerWording.windDownMessage(),
-    resumeMessage:         RunnerWording.resumeMessage(),
-    homeDirectory:         context.homeDirectory,
-    log,
-    onLeaseTakenOver:      (refusal) => startedLifetime.takenOver(refusal),
-  });
-  const watcher = BoardWatcher.startWatching({ trackerDirectory: workspace.trackerDirectory, repositoryRoot: workspace.rootDirectory, wake: () => drivePass?.wake() });
-  await drivePass.reattach();
-
-  const end = await lifetime.ended;
-  lifetime.stopWatching();
-  watcher.stop();
-  await drivePass.idle();
-  try {
-    await server.stop();
-    if (end.kind === 'taken-over') {
-      log('A newer runner took the board over; stopping without acting.');
-      throw end.refusal;
+    enterStep('take-lease');
+    const record: RunnerLeaseRecord = {
+      processId:                ownIdentity.processId,
+      processStartEpochSeconds: ownIdentity.startEpochSeconds,
+      bootIdentity:             ownIdentity.bootIdentity,
+      port:                     server.port,
+      url:                      server.url,
+      tokenFile:                files.tokenFilePath,
+      codeVersion,
+      installVersion:           INSTALL_VERSION,
+      hostProtocolVersion:      HOST_PROTOCOL_VERSION,
+    };
+    const acquisition = acquireLease(record);
+    if (acquisition.verdict !== 'acquired') {
+      await server.stop();
+      throw leaseRefusalOf(acquisition, files);
     }
-    await stopInOrder(request, files, generation, log);
-  } finally {
-    lifetime.stopListening();
+    const { generation } = acquisition;
+    let watcher: { stop: () => void } | null = null;
+    try {
+      token    = writeToken(files);
+      lifetime = runnerLifetime(request, files, generation, log);
+      enterStep('reattach');
+      await openTrackerForWriting(request.commandArguments, context, (change) => change.board.recordRunnerStarted({ codeVersion, installVersion: INSTALL_VERSION }, change.at));
+      await registerRunner(request, { url: server.url, processId: process.pid, startedAt: LocalTimeUtil.formatLocalIso(context.now()) });
+      log(`Runner serving ${server.url} under lease ${generation} (code ${codeVersion}, install version ${INSTALL_VERSION}, agents ${context.agentAdapter.vendor}).`);
+      if (!printedTheUrl) OutputUtil.printEntity(request.commandArguments, context, { url: server.url, generation }, server.url);
+      printedTheUrl = true;
+
+      const startedLifetime = lifetime;
+      drivePass = createDrivePass({
+        workspace,
+        renderState:           context.renderState,
+        now:                   context.now,
+        formatStamp:           (moment) => LocalTimeUtil.formatLocalIso(moment),
+        runnerDirectory:       files.runnerDirectory,
+        generation,
+        hostBundlePath:        bundlePath,
+        codeVersion,
+        agentAdapter:          context.agentAdapter,
+        monitorFolder:         join(context.homeDirectory, PRODUCT_NAMES.MONITOR_FOLDER),
+        inheritedEnvironment:  environmentCopy(),
+        mainLine,
+        managedBlockMarker:    CLAUDE_MANAGED_BLOCK_MARKERS.start,
+        installVersionChanged: installWatch.installVersionChanged,
+        newCodeOnDisk:         installWatch.newCodeOnDisk,
+        decisionWordingOf:     RunnerWording.decisionWordingOf,
+        launchTextOf:          RunnerWording.launchTextOf,
+        windDownMessage:       RunnerWording.windDownMessage(),
+        resumeMessage:         RunnerWording.resumeMessage(),
+        homeDirectory:         context.homeDirectory,
+        log,
+        onLeaseTakenOver:      (refusal) => (current?.lifetime ?? startedLifetime).takenOver(refusal),
+      });
+      const startedPass = drivePass;
+      watcher = BoardWatcher.startWatching({
+        trackerDirectory: workspace.trackerDirectory, repositoryRoot: workspace.rootDirectory, wake: () => startedPass.wake(), onSweep: installWatch.noteSweep,
+      });
+      const serving: Serving = {
+        generation, server, drivePass, watcher, lifetime
+      };
+      current = serving;
+      await drivePass.reattach();
+      return serving;
+    } catch (thrown) {
+      watcher?.stop();
+      lifetime?.stopWatching();
+      lifetime?.stopListening();
+      await drivePass?.stop();
+      await server.stop();
+      RunnerLease.release(files.runnerDirectory, generation);
+      throw thrown;
+    }
+  }
+
+  /** The release half of a handover: a landing in progress finishes, no effect batch starts, and the listener closes; no host is sent anything. */
+  async function release(serving: Serving): Promise<void> {
+    handingOver = true;
+    serving.lifetime.stopWatching();
+    serving.watcher.stop();
+    await serving.drivePass.stop();
+    await openTrackerForWriting(request.commandArguments, context, (change) => change.board.recordRunnerStopped('handed-over', change.at));
+    await serving.server.stop();
+    log('Released the board to the successor.');
+  }
+
+  async function handOver(serving: Serving): Promise<HandoverOutcome> {
+    log(`Handing the board over to the code on disk (lease ${serving.generation}).`);
+    const successor = spawnSuccessor(context, workspace, files, serving.generation, serving.server.port);
+    return await RunnerHandover.handOver({
+      handoverFilePath:     RunnerHandover.handoverFilePathOf(files.runnerDirectory, serving.generation),
+      successor,
+      successorCodeVersion: CodeVersion.onDisk(),
+      release:              () => release(serving),
+      recordFailure:        recordHandoverFailure,
+      schedule:             HANDOVER_SCHEDULE,
+    });
+  }
+
+  async function recordHandoverFailure(failure: HandoverFailure): Promise<void> {
+    handoverWarning = failure;
+    log(`The handover failed at ${failure.step}: ${failure.error}. This runner keeps driving.`);
+    await openTrackerForWriting(request.commandArguments, context, (change) => change.board.recordRunnerHandoverFailed(failure, change.at));
+  }
+
+  /** Proves the new code, waits for the release, then serves; a failure is left in the handover file and the process exits 1. */
+  async function takeOverAsSuccessor(predecessorGeneration: number): Promise<Serving> {
+    const handoverFilePath = RunnerHandover.handoverFilePathOf(files.runnerDirectory, predecessorGeneration);
+    const admission = await RunnerHandover.prepareAndAwaitRelease({
+      handoverFilePath,
+      codeVersion,
+      predecessorIsLive: () => {
+        const newest = RunnerLease.newestLeaseOf(files.runnerDirectory);
+        return newest.verdict === 'live' && newest.generation === predecessorGeneration;
+      },
+      schedule: HANDOVER_SCHEDULE,
+    }, preparationSteps(request, pinHostBundle));
+    if (admission === 'failed') {
+      const report = RunnerHandover.readHandover(handoverFilePath);
+      const reported = report?.state === 'successor-failed' || report?.state === 'failed';
+      const failure  = reported ? report : { successorCodeVersion: codeVersion, step: 'report-ready', error: 'no report was left' };
+      throw new OperationRefusal('refused', {
+        kind: 'runner-handover-failed', successorCodeVersion: failure.successorCodeVersion, step: failure.step, error: failure.error, url: null
+      });
+    }
+    log(admission === 'released' ? `Lease ${predecessorGeneration} released the board; taking it over.` : `Lease ${predecessorGeneration} is gone; starting as after a crash.`);
+    return await startAsSuccessor(predecessorGeneration, admission);
+  }
+
+  let serving = request.successorOf === undefined
+    ? await startServing(request.portChoice, (record) => RunnerLease.acquire(files.runnerDirectory, record), () => undefined)
+    : await takeOverAsSuccessor(request.successorOf);
+
+  async function startAsSuccessor(predecessorGeneration: number, admission: 'released' | 'predecessor-gone'): Promise<Serving> {
+    let step: HandoverStep = 'bind-port';
+    const handoverFilePath = RunnerHandover.handoverFilePathOf(files.runnerDirectory, predecessorGeneration);
+    try {
+      const acquireLease = admission === 'released'
+        ? (record: RunnerLeaseRecord) => RunnerLease.acquireAbove(files.runnerDirectory, record, predecessorGeneration)
+        : (record: RunnerLeaseRecord) => RunnerLease.acquire(files.runnerDirectory, record);
+      const started = await startServing(request.portChoice, acquireLease, (entered) => { step = entered; });
+      RunnerHandover.reportServing({ handoverFilePath, codeVersion }, started.generation, started.server.url);
+      return started;
+    } catch (thrown) {
+      RunnerHandover.reportFailure({ handoverFilePath, codeVersion }, step, thrown, admission === 'released');
+      throw thrown;
+    }
+  }
+
+  for (;;) {
+    const end = await serving.lifetime.ended;
+    if (end.kind === 'restart') {
+      const outcome = await handOver(serving);
+      if (outcome.verdict === 'handed-over') {
+        log(`Handed the board over to code ${outcome.successorCodeVersion} at ${outcome.url} under lease ${outcome.generation}; exiting.`);
+        serving.lifetime.stopListening();
+        return;
+      }
+      if (outcome.verdict === 'kept-driving') {
+        serving.lifetime.stopWatching();
+        serving.lifetime.stopListening();
+        serving.lifetime = runnerLifetime(request, files, serving.generation, log);
+        const drivenOn = serving;
+        serving.drivePass.wake(true);
+        current = drivenOn;
+        continue;
+      }
+      serving.lifetime.stopListening();
+      const failedGeneration = serving.generation + 1;
+      const takeBack = (record: RunnerLeaseRecord) => RunnerLease.acquireAbove(files.runnerDirectory, record, failedGeneration);
+      serving = await startServing({ kind: 'given', port: serving.server.port }, takeBack, () => undefined);
+      handingOver = false;
+      continue;
+    }
+    serving.lifetime.stopWatching();
+    serving.watcher.stop();
+    await serving.drivePass.idle();
+    try {
+      await serving.server.stop();
+      if (end.kind === 'taken-over') {
+        log('A newer runner took the board over; stopping without acting.');
+        throw end.refusal;
+      }
+      await openTrackerForWriting(request.commandArguments, context, (change) => change.board.recordRunnerStopped('stopped', change.at));
+      await registerRunner(request, 'removed');
+      RunnerLease.release(files.runnerDirectory, serving.generation);
+      log('Runner stopped; its lease is released.');
+    } finally {
+      serving.lifetime.stopListening();
+    }
+    return;
   }
 }

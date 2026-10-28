@@ -23,10 +23,12 @@ import type { ArgumentParser }                           from '../arguments/Argu
 import { OutputUtil }                                    from '../utils/OutputUtil.ts';
 import { requireNoLiveRunner, runRunnerInTheForeground } from './RunnerForeground.ts';
 import { RunnerRemote, type RuntimeStopKind }            from './RunnerRemote.ts';
+import { RunnerWording }                                 from './RunnerWording.ts';
 
 const { PROGRAM } = PRODUCT_NAMES;
 
-const START_USAGE   = `${PROGRAM} run [--port <n>] [--detach] [--json]`;
+const START_USAGE     = `${PROGRAM} run [--port <n>] [--detach] [--json]`;
+const SUCCESSOR_USAGE = `${PROGRAM} run --successor-of <generation> [--port <n>]`;
 const STOP_USAGE    = `${PROGRAM} run stop|restart [--now] [--json]`;
 const PAUSE_USAGE   = `${PROGRAM} run pause|resume [--json]`;
 const STATUS_USAGE  = `${PROGRAM} run status [--json]`;
@@ -46,15 +48,27 @@ function portChoiceOf(commandArguments: ArgumentParser, trackerId: string): Runn
   return { kind: 'given', port };
 }
 
+/** The generation a successor takes the board over from; only the old runner passes it, when it spawns its successor. */
+function successorOfIn(commandArguments: ArgumentParser): number | undefined {
+  const written = commandArguments.option('successor-of');
+  if (written === undefined) return undefined;
+  if (!WHOLE_NUMBER_PATTERN.test(written) || !Number.isSafeInteger(Number(written))) {
+    throw new OperationRefusal('refused', `"${written}" is not a lease generation. Write a whole number.\n  Usage: ${SUCCESSOR_USAGE}`);
+  }
+  return Number(written);
+}
+
 async function startRunner(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
-  commandArguments.rejectUnknownOptions(['port', 'detach', 'json'], START_USAGE);
+  commandArguments.rejectUnknownOptions(['port', 'detach', 'json', 'successor-of'], START_USAGE);
   commandArguments.rejectExtraPositionals(0, START_USAGE);
-  requireCurrentInstall(context.currentDirectory);
+  const successorOf = successorOfIn(commandArguments);
+  // A successor checks the manifest against its own install version as a handover step, so a mismatch is reported as the handover's failure.
+  if (successorOf === undefined) requireCurrentInstall(context.currentDirectory);
   const workspace  = requireWorkspace(context.currentDirectory);
   const portChoice = portChoiceOf(commandArguments, requireProgressFile(workspace).trackerId);
   if (!commandArguments.flag('detach')) {
     await runRunnerInTheForeground({
-      commandArguments, context, workspace, portChoice
+      commandArguments, context, workspace, portChoice, ...(successorOf === undefined ? {} : { successorOf })
     });
     return;
   }
@@ -73,17 +87,32 @@ function stopSubcommand(kind: RuntimeStopKind): RunSubcommand {
     await relayWhenUnderJob(context, { kind, now });
     if (kind === 'runner-restart') requireCurrentInstall(context.currentDirectory);
     const files   = runnerFilesIn(requireWorkspace(context.currentDirectory).trackerDirectory);
-    const stopped = await RunnerRemote.stopTheLiveRunner(files, kind, now);
-    if (kind === 'runner-stop') {
-      const text = stopped.verdict === 'was-down' ? 'No runner is live; nothing to stop.' : `Stopped the runner at ${stopped.record.url}.`;
-      OutputUtil.printEntity(commandArguments, context, { outcome: stopped.verdict === 'was-down' ? 'nothing-to-do' : 'done' }, text);
+    if (kind === 'runner-restart') {
+      await restartTheRunner(commandArguments, context, files, now);
       return;
     }
-    // The successor keeps the port the stopped runner had, so its URL stays the one people opened.
-    const portArguments = stopped.verdict === 'stopped' ? ['--port', String(stopped.record.port)] : [];
-    const url           = await RunnerRemote.startDetached(context, files, portArguments);
-    OutputUtil.printEntity(commandArguments, context, { outcome: 'done', url }, `Runner restarted at ${url}`);
+    const stopped = await RunnerRemote.stopTheLiveRunner(files, kind, now);
+    const text = stopped.verdict === 'was-down' ? 'No runner is live; nothing to stop.' : `Stopped the runner at ${stopped.record.url}.`;
+    OutputUtil.printEntity(commandArguments, context, { outcome: stopped.verdict === 'was-down' ? 'nothing-to-do' : 'done' }, text);
   };
+}
+
+/**
+ * The checked handover to the code on disk; a failed one exits 1 `runner-handover-failed` with the old runner still driving. A runner whose
+ * API does not take the command is stopped and started again, and with none live one is started.
+ */
+async function restartTheRunner(commandArguments: ArgumentParser, context: CommandContext, files: ReturnType<typeof runnerFilesIn>, now: boolean): Promise<void> {
+  const handover = await RunnerRemote.handOverTheLiveRunner(files, now);
+  if (handover.verdict === 'handed-over') {
+    OutputUtil.printEntity(commandArguments, context, { outcome: 'done', url: handover.url, codeVersion: handover.successorCodeVersion },
+      `Runner handed over to code ${handover.successorCodeVersion} at ${handover.url}`);
+    return;
+  }
+  // The successor keeps the port the stopped runner had, so its URL stays the one people opened.
+  const stopped       = handover.verdict === 'not-taken' ? await RunnerRemote.stopTheLiveRunner(files, 'runner-stop', now) : { verdict: 'was-down' as const };
+  const portArguments = stopped.verdict === 'stopped' ? ['--port', String(stopped.record.port)] : [];
+  const url           = await RunnerRemote.startDetached(context, files, portArguments);
+  OutputUtil.printEntity(commandArguments, context, { outcome: 'done', url }, `Runner restarted at ${url}`);
 }
 
 function pauseSubcommand(kind: 'runner-pause' | 'runner-resume'): RunSubcommand {
@@ -108,7 +137,8 @@ async function printRunnerStatus(commandArguments: ArgumentParser, context: Comm
   const newest          = RunnerLease.newestLeaseOf(runnerFilesIn(workspace.trackerDirectory).runnerDirectory);
   const codeVersionOnDisk = CodeVersion.onDisk();
   const live            = newest.verdict === 'live' ? newest : null;
-  const state           = live === null ? 'down' : await RunnerRemote.identityAnswers(live.record) ? 'serving' : 'starting';
+  const runnerState     = live === null ? null : RunnerWording.runnerStateOf(await RunnerRemote.stateOf(live.record));
+  const state           = live === null ? 'down' : runnerState?.runtimeState ?? (await RunnerRemote.identityAnswers(live.record) ? 'serving' : 'starting');
   const entity = {
     state,
     paused:              dispatcherState !== 'running',
@@ -116,6 +146,8 @@ async function printRunnerStatus(commandArguments: ArgumentParser, context: Comm
     lease:               live === null ? null : { generation: live.generation, ...live.record },
     codeVersionOnDisk,
     codeVersionInMemory: live?.record.codeVersion ?? null,
+    notices:             runnerState?.notices ?? [],
+    handoverWarning:     runnerState?.handoverWarning ?? null,
   };
   const pausedText = entity.paused ? `paused (${LogUtil.dispatcherStateTextOf(dispatcherState, null)})` : 'not paused';
   const lines = live === null
@@ -123,6 +155,8 @@ async function printRunnerStatus(commandArguments: ArgumentParser, context: Comm
     : [
       `runner: ${state} at ${live.record.url}, process ${live.record.processId}, lease ${live.generation}; ${pausedText}`,
       `code on disk: ${codeVersionOnDisk}; in memory: ${live.record.codeVersion}${live.record.codeVersion === codeVersionOnDisk ? '' : ` (new code: run \`${PROGRAM} update\`)`}`,
+      ...entity.notices.map((notice) => `notice: ${RunnerWording.noticeTextOf(notice)}`),
+      ...(entity.handoverWarning === null ? [] : [`warning: ${RunnerWording.handoverWarningTextOf(entity.handoverWarning)}`]),
     ];
   OutputUtil.printEntity(commandArguments, context, entity, lines.join('\n'));
 }

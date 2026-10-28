@@ -2,14 +2,15 @@
  * The words the runner's DrivePass needs and services may not hold: a code-opened decision's question, and what a launched session is told.
  * The role prompts that replace the launch text come with the prompt templates later in the chain.
  */
-import { readFileSync }                        from 'node:fs';
-import type { Job }                            from '../../src/lib/tracker-model/@types/Job.ts';
-import type { DecisionDraft, DecisionWording } from '../../src/lib/tracker-model/@types/LifecycleStep.ts';
-import type { JobLaunchFacts, JobLaunchText }  from '../../src/services/runner/DrivePass.ts';
-import { filledTemplateOf }                    from '../../src/shared/FilledTemplate.ts';
-import { resourceFilePathOf }                  from '../../src/shared/ResourceFilePath.ts';
-import { DISPATCH_PROTOCOL }                   from '../../src/shared/constants/DispatchProtocol.ts';
-import { PRODUCT_NAMES }                       from '../../src/shared/constants/ProductNames.ts';
+import { readFileSync }                                     from 'node:fs';
+import type { Job }                                         from '../../src/lib/tracker-model/@types/Job.ts';
+import type { DecisionDraft, DecisionWording }              from '../../src/lib/tracker-model/@types/LifecycleStep.ts';
+import type { JobLaunchFacts, JobLaunchText, RunnerNotice } from '../../src/services/runner/DrivePass.ts';
+import type { HandoverFailure }                             from '../../src/services/runner/RunnerHandover.ts';
+import { filledTemplateOf }                                 from '../../src/shared/FilledTemplate.ts';
+import { resourceFilePathOf }                               from '../../src/shared/ResourceFilePath.ts';
+import { DISPATCH_PROTOCOL }                                from '../../src/shared/constants/DispatchProtocol.ts';
+import { PRODUCT_NAMES }                                    from '../../src/shared/constants/ProductNames.ts';
 
 function ticketsPhraseOf(ticketIds: readonly string[]): string {
   return ticketIds.length === 0 ? 'the board' : ticketIds.map((ticketId) => `#${ticketId}`).join(', ');
@@ -81,6 +82,45 @@ function launchTextWithEarlierSessionNoteOf(job: Readonly<Job>, facts: JobLaunch
   return facts.earlierSessionReplaced ? { ...text, firstMessage: `${EARLIER_SESSION_NOTE}\n\n${text.firstMessage}` } : text;
 }
 
+/** What `run status` reads of the live runner's state document; anything it does not recognise reads as no document. */
+export interface RunnerStateReading {
+  runtimeState:    string;
+  notices:         RunnerNotice[];
+  handoverWarning: HandoverFailure | null;
+}
+
+function runnerStateOf(document: unknown): RunnerStateReading | null {
+  if (typeof document !== 'object' || document === null) return null;
+  const { runtimeState, notices, handoverWarning } = document as Partial<Record<keyof RunnerStateReading, unknown>>;
+  if (typeof runtimeState !== 'string' || !Array.isArray(notices)) return null;
+  return { runtimeState, notices: notices as RunnerNotice[], handoverWarning: (handoverWarning ?? null) as HandoverFailure | null };
+}
+
+function noticeTextOf(notice: RunnerNotice): string {
+  switch (notice.kind) {
+    case 'install-version-changed':
+      return `the install version changed, so launches are held: run \`${PRODUCT_NAMES.PROGRAM} update\``;
+    case 'new-code':
+      return `new code: run \`${PRODUCT_NAMES.PROGRAM} update\``;
+    case 'claude-md-block-committed':
+      return `launches onto ${notice.target} wait: commit the CLAUDE.md change \`update\` made`;
+    case 'attribution-found':
+      return `ticket #${notice.ticketId} carries an AI attribution`;
+    case 'rounds-not-converging':
+      return `ticket #${notice.ticketId}'s review rounds are not converging`;
+  }
+}
+
+function handoverWarningTextOf(failure: HandoverFailure): string {
+  return `the handover to code ${failure.successorCodeVersion} failed at ${failure.step}: ${failure.error}; this runner keeps driving`;
+}
+
 export const RunnerWording = Object.freeze({
-  decisionWordingOf, launchTextOf: launchTextWithEarlierSessionNoteOf, windDownMessage, resumeMessage
+  decisionWordingOf,
+  launchTextOf: launchTextWithEarlierSessionNoteOf,
+  windDownMessage,
+  resumeMessage,
+  runnerStateOf,
+  noticeTextOf,
+  handoverWarningTextOf,
 });

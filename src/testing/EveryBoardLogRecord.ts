@@ -154,6 +154,7 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
   board.escalateIncident('I3', { askedBy: 'builder', questions: [question], context: 'Example cart' }, at);
   board.triageTicket('004', at);
   board.recordRunnerStopped('stopped', at);
+  board.recordRunnerHandoverFailed({ successorCodeVersion: 'd4e5f6a', step: 'build-bundles', error: 'Example bundle error' }, at);
   board.recordRelayApplied('J1', { requestId: 'request-5', commandKind: 'ticket-add', outcome: 'done' }, at);
   board.clearTracker({ ticketsSurvive: true }, at);
   return records;

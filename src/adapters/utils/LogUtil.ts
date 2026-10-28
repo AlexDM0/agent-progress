@@ -175,6 +175,8 @@ function sentenceOf(record: LogRecordContent): string {
       return `Runner started on code ${record.fields.codeVersion}, install version ${record.fields.installVersion}`;
     case 'runner-stopped':
       return record.fields.reason === 'handed-over' ? 'Runner handed the board over to its successor' : 'Runner stopped';
+    case 'runner-handover-failed':
+      return `Runner handover to code ${record.fields.successorCodeVersion} failed at ${record.fields.step}: ${record.fields.error}; the old runner keeps driving`;
     case 'job-launched':
       return jobLaunchedTextOf(record.jobId, record.fields);
     case 'job-interrupted':

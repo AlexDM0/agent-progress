@@ -123,6 +123,22 @@ function acquire(runnerDirectory: string, record: RunnerLeaseRecord): RunnerLeas
   return { verdict: 'acquired', generation: claimed };
 }
 
+/**
+ * A handover's claims beside a live identity, which the handover file admits: the successor's generation above the one handed over once it
+ * was released, and the old runner's one above its failed successor's. Anything newer than the floor means another runner moved first.
+ */
+function acquireAbove(runnerDirectory: string, record: RunnerLeaseRecord, floorGeneration: number): RunnerLeaseAcquisition {
+  const newest = leaseGenerationsIn(runnerDirectory).at(-1) ?? 0;
+  if (newest > floorGeneration) return { verdict: 'contended' };
+  const claimed = floorGeneration + 1;
+  if (createFileAtomically(leaseFilePathFor(runnerDirectory, claimed), `${JSON.stringify(record, null, 2)}\n`) === 'already-exists') {
+    return { verdict: 'contended' };
+  }
+  if (newerGenerationExists(runnerDirectory, claimed)) return { verdict: 'contended' };
+  removeGenerationsBelow(runnerDirectory, claimed);
+  return { verdict: 'acquired', generation: claimed };
+}
+
 /** Run before each effect batch: a runner whose generation was overtaken stops `lease-taken-over` without acting. */
 function requireNewestGeneration(runnerDirectory: string, heldGeneration: number): void {
   if (newerGenerationExists(runnerDirectory, heldGeneration)) {
@@ -142,6 +158,7 @@ function release(runnerDirectory: string, heldGeneration: number): void {
 
 export const RunnerLease = Object.freeze({
   acquire,
+  acquireAbove,
   release,
   requireNewestGeneration,
   newestLeaseOf,

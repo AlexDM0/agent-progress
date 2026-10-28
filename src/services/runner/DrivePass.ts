@@ -37,6 +37,7 @@ import {
   type JobLaunchContext
 } from './JobLaunch.ts';
 import { JobResumption }                         from './JobResumption.ts';
+import { LegacyHostReader }                      from './LegacyHostReader.ts';
 import { createProcessHostSandbox }              from './ProcessHostSandbox.ts';
 import { Reattachment, type ReattachmentReport } from './Reattachment.ts';
 import { RelayInbox, type PendingRelayRequest }  from './RelayInbox.ts';
@@ -76,6 +77,8 @@ export interface DrivePassRequest {
   /** The start marker of the managed block a committed CLAUDE.md must no longer hold before launches onto its target. */
   managedBlockMarker:    string;
   installVersionChanged: () => boolean;
+  /** Code on disk differs from the code in memory while the install version does not: a notice only. */
+  newCodeOnDisk?:        () => boolean;
   decisionWordingOf:     (draft: DecisionDraft) => DecisionWording;
   launchTextOf:          (job: Readonly<Job>, facts: JobLaunchFacts) => JobLaunchText;
   /** Sent to a session that reached its role's call budget. */
@@ -93,15 +96,22 @@ export interface DrivePassRequest {
 /** Derived each pass from the board, git and the runner's state, never stored; later tickets add the other kinds of design section 8.2. */
 export type RunnerNotice =
   | { kind: 'install-version-changed' }
+  | { kind: 'new-code' }
   | { kind: 'claude-md-block-committed'; target: string }
   | { kind: 'attribution-found'; ticketId: string }
   // The ticket's newest review reworked past the threshold and was refused another round: User decides whether an invariant ticket is wanted.
   | { kind: 'rounds-not-converging'; ticketId: string };
 
+/** What a pass knows of the runtime state; the runner adds `handing-over` around a handover. */
+export type PassRuntimeState = 'serving' | 'held-by-install-change';
+
 export interface RunnerStateDocument {
-  generation: number;
-  passes:     number;
-  notices:    RunnerNotice[];
+  generation:       number;
+  passes:           number;
+  runtimeState:     PassRuntimeState;
+  notices:          RunnerNotice[];
+  /** Jobs whose host speaks a protocol below the supported window: watched through their files alone. */
+  legacyHostJobIds: string[];
 }
 
 export interface DrivePass {
@@ -112,6 +122,8 @@ export interface DrivePass {
   /** Resolves once no pass is running or queued. */
   idle:     () => Promise<void>;
   state:    () => RunnerStateDocument;
+  /** No pass starts after it; resolves once the one running, a landing in it included, has finished. */
+  stop:     () => Promise<void>;
 }
 
 interface HostObservation {
@@ -406,9 +418,16 @@ function jobsNeedingAHost(board: Board, trackerDirectory: string, spawnedInstanc
     && HostFleet.livenessOf(HostFleet.jobFolderOf(trackerDirectory, job.id), job.hostInstance).verdict === 'unclaimed');
 }
 
+function legacyHostJobIdsOf(board: Board, trackerDirectory: string): string[] {
+  return board.jobs()
+    .filter((job) => LegacyHostReader.attachmentOf(HostFleet.hostRecordOf(HostFleet.jobFolderOf(trackerDirectory, job.id), job.hostInstance)) === 'legacy-host')
+    .map((job) => job.id);
+}
+
 function noticesOf(request: DrivePassRequest, observation: Observation, attributionTicketIds: readonly string[], nonConvergingTicketIds: readonly string[]): RunnerNotice[] {
   return [
     ...(request.installVersionChanged() ? [{ kind: 'install-version-changed' } as const] : []),
+    ...(request.newCodeOnDisk?.() === true ? [{ kind: 'new-code' } as const] : []),
     ...observation.targetsHoldingManagedBlock.map((target) => ({ kind: 'claude-md-block-committed', target }) as const),
     ...attributionTicketIds.map((ticketId) => ({ kind: 'attribution-found', ticketId }) as const),
     ...nonConvergingTicketIds.map((ticketId) => ({ kind: 'rounds-not-converging', ticketId }) as const),
@@ -421,7 +440,9 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
   let running: Promise<void> | null = null;
   let wokenAgain = false;
   let forcedNext = false;
-  let state: RunnerStateDocument = { generation: request.generation, passes: 0, notices: [] };
+  let state: RunnerStateDocument = {
+    generation: request.generation, passes: 0, runtimeState: 'serving', notices: [], legacyHostJobIds: []
+  };
   let stopped = false;
   let resetTimer: ReturnType<typeof setTimeout> | null = null;
   const leftoverWorktrees: string[] = [];
@@ -525,9 +546,11 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     }
     await JobResumption.deliverResumeMessages(request.workspace.trackerDirectory, written.board, request.agentAdapter, request.resumeMessage);
     state = {
-      generation: request.generation,
-      passes:     state.passes + 1,
-      notices:    noticesOf(request, observation, written.result.attributionTicketIds, written.result.nonConvergingTicketIds),
+      generation:       request.generation,
+      passes:           state.passes + 1,
+      runtimeState:     installVersionChanged ? 'held-by-install-change' : 'serving',
+      notices:          noticesOf(request, observation, written.result.attributionTicketIds, written.result.nonConvergingTicketIds),
+      legacyHostJobIds: legacyHostJobIdsOf(written.board, request.workspace.trackerDirectory),
     };
     const settled = observe(request, jobLaunchContext);
     lastFingerprint = settled.fingerprint;
@@ -570,10 +593,18 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     return report;
   }
 
+  async function stop(): Promise<void> {
+    stopped = true;
+    if (resetTimer !== null) clearTimeout(resetTimer);
+    resetTimer = null;
+    await (running ?? Promise.resolve());
+  }
+
   return {
     reattach,
     wake,
     idle:  () => running ?? Promise.resolve(),
     state: () => state,
+    stop,
   };
 }

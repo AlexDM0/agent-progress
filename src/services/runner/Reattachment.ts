@@ -27,6 +27,7 @@ import { requireProgressFile }                         from '../tracker/TrackerR
 import type { Workspace }                              from '../tracker/Workspace.ts';
 import { HostFleet }                                   from './HostFleet.ts';
 import { JobLaunch }                                   from './JobLaunch.ts';
+import { LegacyHostReader }                            from './LegacyHostReader.ts';
 
 export interface HostReattached {
   jobId:           string;
@@ -37,6 +38,8 @@ export interface HostReattached {
 
 export interface ReattachmentReport {
   attached:          HostReattached[];
+  /** Live hosts on a protocol below the supported window: watch only, their events read from their files by each pass. */
+  legacyHosts:       { jobId: string; instance: number; protocolVersion: number }[];
   lost:              { jobId: string; instance: number; cause: InterruptionCause }[];
   /** Jobs whose current instance was never claimed: the first pass spawns that same instance, and the exclusive claim lets one run. */
   respawnJobIds:     string[];
@@ -167,12 +170,15 @@ function awaitsItsSpawn(job: Readonly<Job>): boolean {
 async function reattach(workspace: Workspace): Promise<ReattachmentReport> {
   const jobs   = requireProgressFile(workspace).jobs ?? [];
   const report: ReattachmentReport = {
-    attached: [], lost: [], respawnJobIds: [], leftoverWorktrees: leftoverWorktreesOf(workspace, jobs)
+    attached: [], legacyHosts: [], lost: [], respawnJobIds: [], leftoverWorktrees: leftoverWorktreesOf(workspace, jobs)
   };
   for (const job of jobs.filter((candidate) => candidate.role !== null)) {
     const jobFolder = HostFleet.jobFolderOf(workspace.trackerDirectory, job.id);
     const liveness  = HostFleet.livenessOf(jobFolder, job.hostInstance);
-    if (liveness.verdict === 'live') {
+    const record    = HostFleet.hostRecordOf(jobFolder, job.hostInstance);
+    if (liveness.verdict === 'live' && record !== null && LegacyHostReader.attachmentOf(record) === 'legacy-host') {
+      report.legacyHosts.push({ jobId: job.id, instance: job.hostInstance, protocolVersion: record.protocolVersion });
+    } else if (liveness.verdict === 'live') {
       const sinceSequence = job.eventCursor.instance === job.hostInstance ? job.eventCursor.sequence : 0;
       report.attached.push({ jobId: job.id, instance: job.hostInstance, replayedEntries: await helloHistoryOf(jobFolder, job.hostInstance, sinceSequence) });
     } else if (liveness.verdict === 'lost') {

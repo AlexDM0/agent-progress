@@ -271,6 +271,19 @@ describe('the relay inbox', () => {
     ]);
     expect(storedProgressOf(repositoryDirectory).tasks.length).toBeGreaterThan(0);
   }, PASS_TEST_TIMEOUT_MILLISECONDS);
+
+  test('a request of a relay format this runner does not read stays pending, unanswered and unlogged, for the runner a handover brings', async () => {
+    const drivePass = await drivePassWith(WAITING_SESSION);
+    await passOnce(drivePass);
+    const jobId = buildJobId();
+    writeRelayRequest(relayDirectory(jobId), { ...lowFinding('request-newer', 'Finding in a newer relay format'), relayFormatVersion: 2 } as never);
+    writeRelayRequest(relayDirectory(jobId), lowFinding('request-1', 'Example finding'));
+    await passOnce(drivePass);
+    await passOnce(drivePass);
+    expect(existsSync(relayReplyFilePathOf(relayDirectory(jobId), 'request-newer'))).toBe(false);
+    expect(existsSync(relayReplyFilePathOf(relayDirectory(jobId), 'request-1'))).toBe(true);
+    expect(storedLogTextOf(repositoryDirectory)).not.toContain('request-newer');
+  }, PASS_TEST_TIMEOUT_MILLISECONDS);
 });
 
 describe('waking', () => {

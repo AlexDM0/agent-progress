@@ -241,6 +241,10 @@ export class Board {
     return this.jobRules.recordRunnerStopped(reason, at);
   }
 
+  recordRunnerHandoverFailed(failure: { successorCodeVersion: string; step: string; error: string }, at: string): Logged {
+    return this.jobRules.recordRunnerHandoverFailed(failure, at);
+  }
+
   recordUsageLimitHit(jobId: string, limit: { window: string; resetsAt: string }, at: string): Logged {
     return this.jobRules.recordUsageLimitHit(jobId, limit, at);
   }

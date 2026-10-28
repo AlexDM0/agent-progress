@@ -6,6 +6,7 @@
  * never the vendor's adapter. Every runner binds `--port 0`.
  */
 import {
+  appendFileSync,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -22,6 +23,7 @@ import {
   test
 } from 'bun:test';
 
+import { hostFilesOf }                                    from '../../src/lib/agent-host/HostFiles.ts';
 import { CodeVersion }                                    from '../../src/services/runner/CodeVersion.ts';
 import { fakeAgentVariableOf }                            from '../../src/shared/Environment.ts';
 import { PRODUCT_NAMES }                                  from '../../src/shared/constants/ProductNames.ts';
@@ -37,6 +39,8 @@ const SPEC_CLOCK = (): Date => new Date('2026-09-18T20:11:03Z');
 const OWNER_ONLY_FILE_MODE = 0o600;
 const PERMISSION_BITS      = 0o777;
 const RUNNER_TEST_TIMEOUT_MILLISECONDS = 30_000;
+const HOST_WAIT_TRIES = 100;
+const HOST_WAIT_MILLISECONDS = 50;
 
 let repositoryDirectory = '';
 let homeDirectory       = '';
@@ -51,6 +55,16 @@ function leaseFileNames(): string[] {
 
 function leaseOf(fileName: string): Record<string, unknown> {
   return JSON.parse(readFileSync(join(runnerDirectory(), fileName), 'utf8')) as Record<string, unknown>;
+}
+
+function runnerLogText(): string {
+  const logFilePath = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'runner.log');
+  return existsSync(logFilePath) ? readFileSync(logFilePath, 'utf8') : '';
+}
+
+function storedLogKindsOf(repository: string): string[] {
+  return readFileSync(join(repository, PRODUCT_NAMES.DATA_FOLDER, 'log.jsonl'), 'utf8').split('\n').filter((line) => line !== '')
+    .map((line) => (JSON.parse(line) as { kind: string }).kind);
 }
 
 /** This process's pid with a start no process ever had: a lease that reads as dead without depending on a pid being free. */
@@ -172,15 +186,41 @@ describe('run --detach, status, restart and stop', () => {
 
     const processBefore = leaseOf(leaseFileNames()[0] ?? '')['processId'];
     const restarted = await runAgentProgress(['run', 'restart', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
-    expect(restarted.exitCode, restarted.standardError).toBe(0);
-    expect(JSON.parse(restarted.standardOutput)).toEqual({ outcome: 'done', url });
+    expect(restarted.exitCode, `${restarted.standardError}\n${runnerLogText()}`).toBe(0);
+    expect(JSON.parse(restarted.standardOutput)).toEqual({ outcome: 'done', url, codeVersion: CodeVersion.onDisk() });
+    expect(leaseFileNames()).toEqual(['lease-2.json']);
     expect(leaseOf(leaseFileNames()[0] ?? '')['processId']).not.toBe(processBefore);
+    expect(storedLogKindsOf(repositoryDirectory).filter((kind) => kind.startsWith('runner-'))).toEqual(['runner-started', 'runner-stopped', 'runner-started']);
 
     const stopped = await runAgentProgress(['run', 'stop', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
     expect(JSON.parse(stopped.standardOutput)).toEqual({ outcome: 'done' });
     expect(leaseFileNames()).toEqual([]);
     const statusAfter = await runAgentProgress(['run', 'status', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
     expect(JSON.parse(statusAfter.standardOutput)).toMatchObject({ state: 'down', url: null });
+  }, RUNNER_TEST_TIMEOUT_MILLISECONDS);
+
+  test('a successor that fails a step exits; restart exits 1 runner-handover-failed and the old runner keeps driving, logging it and warning', async () => {
+    const detached = await runAgentProgress(['run', '--detach', '--port', '0', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
+    expect(detached.exitCode, detached.standardError).toBe(0);
+    const { url } = JSON.parse(detached.standardOutput) as { url: string };
+    const leaseBefore = leaseOf('lease-1.json');
+    // The successor reads every claimed host's event log before it reports ready: a malformed line in the orchestrator's fails that step.
+    const { eventLogPath } = hostFilesOf(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'jobs', 'J1'), 1);
+    for (let attempt = 0; attempt < HOST_WAIT_TRIES && !existsSync(eventLogPath); attempt++) await Bun.sleep(HOST_WAIT_MILLISECONDS);
+    appendFileSync(eventLogPath, 'not an event\n');
+
+    const restarted = await runAgentProgress(['run', 'restart', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
+    expect(restarted.exitCode, `${restarted.standardError}\n${runnerLogText()}`).toBe(1);
+    expect(`${restarted.standardOutput}${restarted.standardError}`).toContain('failed at read-host-files');
+    expect(leaseFileNames()).toEqual(['lease-1.json']);
+    expect(leaseOf('lease-1.json')).toEqual(leaseBefore);
+    expect(storedLogKindsOf(repositoryDirectory)).toContain('runner-handover-failed');
+
+    const status = await runAgentProgress(['run', 'status', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
+    expect(JSON.parse(status.standardOutput)).toMatchObject({ url, handoverWarning: { step: 'read-host-files' } });
+    expect((await runAgentProgress(['run', 'status'], { currentDirectory: repositoryDirectory, homeDirectory })).standardOutput)
+      .toContain('warning: the handover to code');
+    await stopRunner();
   }, RUNNER_TEST_TIMEOUT_MILLISECONDS);
 
   test('stop with no runner live has nothing to do', async () => {

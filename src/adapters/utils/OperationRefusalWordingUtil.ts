@@ -380,6 +380,10 @@ function messageOf(refusal: OperationRefusal): string {
         + `Its log is ${detail.logFilePath}; run \`${PRODUCT_NAMES.PROGRAM} run\` in the foreground to see why.`;
     case 'runner-still-live':
       return `The runner at ${detail.url} (process ${detail.processId}) is still live after being asked to stop; its lease was left as it is.`;
+    case 'runner-handover-failed':
+      return `The handover to code ${detail.successorCodeVersion} failed at ${detail.step}: ${detail.error}. `
+        + `The old runner keeps driving${detail.url === null ? '' : ` at ${detail.url}`} and shows this as a warning; `
+        + `see \`${PRODUCT_NAMES.PROGRAM} run status\` and the runner log.`;
     case 'runner-control-is-runtime-only':
       return `${detail.commandKind} is sent to the live runner, never applied to the board. ${NOTHING_WAS_WRITTEN}`;
     case 'runner-owns-the-lifecycle':

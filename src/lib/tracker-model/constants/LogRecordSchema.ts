@@ -137,18 +137,20 @@ export const LOG_RECORD_SCHEMA = {
       findings:                'review-findings',
     },
   },
-  'chart-range-set':       { subject: 'board', fields: { view: 'chart-range' } },
-  'concurrency-limit-set': { subject: 'board', fields: { limit: 'concurrency-limit' } },
-  'dispatcher-set':        { subject: 'board', fields: { state: 'dispatcher-state', runId: 'dispatcher-run-id' } },
-  'check-command-set':     { subject: 'board', fields: { command: 'check-command' } },
-  'install-command-set':   { subject: 'board', fields: { command: 'text' } },
+  'chart-range-set':        { subject: 'board', fields: { view: 'chart-range' } },
+  'concurrency-limit-set':  { subject: 'board', fields: { limit: 'concurrency-limit' } },
+  'dispatcher-set':         { subject: 'board', fields: { state: 'dispatcher-state', runId: 'dispatcher-run-id' } },
+  'check-command-set':      { subject: 'board', fields: { command: 'check-command' } },
+  'install-command-set':    { subject: 'board', fields: { command: 'text' } },
   // `tree` is the gated tree's object id; a cache hit ran nothing and is always `passed`.
-  'gate-ran':              { subject: 'board', fields: { tree: 'text', outcome: 'gate-outcome', cached: 'flag' } },
-  'tracker-cleared':       { subject: 'board', fields: NO_FIELDS },
-  'runner-started':        { subject: 'board', fields: { codeVersion: 'text', installVersion: 'count' } },
-  'runner-stopped':        { subject: 'board', fields: { reason: 'runner-stop-reason' } },
+  'gate-ran':               { subject: 'board', fields: { tree: 'text', outcome: 'gate-outcome', cached: 'flag' } },
+  'tracker-cleared':        { subject: 'board', fields: NO_FIELDS },
+  'runner-started':         { subject: 'board', fields: { codeVersion: 'text', installVersion: 'count' } },
+  'runner-stopped':         { subject: 'board', fields: { reason: 'runner-stop-reason' } },
+  // The old runner keeps driving, or took the board back; `step` names where the successor failed, `error` what it said.
+  'runner-handover-failed': { subject: 'board', fields: { successorCodeVersion: 'text', step: 'text', error: 'text' } },
   // A job's state lives in progress.json; only its launch, its interruptions, its resumes and its end are logged.
-  'job-launched':          {
+  'job-launched':           {
     subject: 'job',
     fields:  {
       kind:        'job-kind',

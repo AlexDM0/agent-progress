@@ -15,16 +15,17 @@ import {
 import { createConnection } from 'node:net';
 import { dirname, join }    from 'node:path';
 
-import type { ActingFrame }                      from '../../lib/agent-host/@types/HostFrame.ts';
-import { type EventLogEntry, eventLogEntriesOf } from '../../lib/agent-host/EventLog.ts';
-import { hostFilesOf }                           from '../../lib/agent-host/HostFiles.ts';
-import { type HostLaunch, readHostLaunch }       from '../../lib/agent-host/HostLaunch.ts';
-import type { HostEnd, HostRecord }              from '../../lib/agent-host/HostRecord.ts';
-import { hostSocketPathOf }                      from '../../lib/agent-host/HostSocketPath.ts';
-import { HOST_PROTOCOL_VERSION }                 from '../../lib/agent-host/constants/HostProtocol.ts';
-import type { AgentLaunchPlan }                  from '../../lib/agent-launch/AgentLaunchPlan.ts';
-import { writeFileAtomically }                   from '../../lib/atomic-file/AtomicFile.ts';
-import { identityOf, sameProcess }               from '../../lib/process-identity/ProcessIdentity.ts';
+import type { ActingFrame }                                from '../../lib/agent-host/@types/HostFrame.ts';
+import type { EventLogEntry }                              from '../../lib/agent-host/EventLog.ts';
+import { hostFilesOf }                                     from '../../lib/agent-host/HostFiles.ts';
+import { type HostLaunch, readHostLaunch }                 from '../../lib/agent-host/HostLaunch.ts';
+import type { HostEnd, HostRecord }                        from '../../lib/agent-host/HostRecord.ts';
+import { hostSocketPathOf }                                from '../../lib/agent-host/HostSocketPath.ts';
+import { EVENT_LOG_FORMAT_VERSION, HOST_PROTOCOL_VERSION } from '../../lib/agent-host/constants/HostProtocol.ts';
+import type { AgentLaunchPlan }                            from '../../lib/agent-launch/AgentLaunchPlan.ts';
+import { writeFileAtomically }                             from '../../lib/atomic-file/AtomicFile.ts';
+import { identityOf, sameProcess }                         from '../../lib/process-identity/ProcessIdentity.ts';
+import { LegacyHostReader }                                from './LegacyHostReader.ts';
 
 export type HostLiveness =
   | { verdict: 'unclaimed' }
@@ -86,8 +87,9 @@ function eventsAfter(jobFolder: string, instance: number, afterSequence: number)
   } catch {
     return [];
   }
-  const reading = eventLogEntriesOf(text);
-  if (reading.verdict === 'malformed') return 'malformed';
+  const formatVersion = hostRecordOf(jobFolder, instance)?.eventLogFormatVersion ?? EVENT_LOG_FORMAT_VERSION;
+  const reading       = LegacyHostReader.eventLogReadingOf(text, formatVersion);
+  if (reading.verdict !== 'read') return 'malformed';
   return reading.entries.filter((entry) => entry.sequence > afterSequence);
 }
 
@@ -146,7 +148,12 @@ function writeProcessLaunchFile(request: ProcessLaunchFileRequest): void {
 }
 
 /** Says hello with the instance's secret, sends the frames and hangs up, answering whether it connected; a host gone or silent is left alone. */
+/** A legacy host is sent nothing: only a `stop` reaches it, as a signal to its recorded process group. */
 async function sendFrames(jobFolder: string, instance: number, frames: readonly ActingFrame[]): Promise<boolean> {
+  const record = hostRecordOf(jobFolder, instance);
+  if (LegacyHostReader.attachmentOf(record) === 'legacy-host') {
+    return record !== null && frames.some((frame) => frame.kind === 'stop') && LegacyHostReader.stopLegacyHost(record);
+  }
   const reading = readHostLaunch(hostFilesOf(jobFolder, instance).launchPath);
   if (reading.verdict !== 'read') return false;
   const { socketPath, hostSecret } = reading.launch;
