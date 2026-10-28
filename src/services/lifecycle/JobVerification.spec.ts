@@ -160,6 +160,17 @@ describeWhenGitIsPresent('verification by code', () => {
     expect(verdict).toEqual({ verdict: 'refused', reason: 'data-folder-touched', facts: [`${PRODUCT_NAMES.DATA_FOLDER}/progress.json`] });
   });
 
+  test('V5 and V11 judge every commit in range, so a change undone by a later commit is still refused', () => {
+    mkdirSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER));
+    commitFile(repositoryDirectory, `${PRODUCT_NAMES.DATA_FOLDER}/progress.json`, '{}\n');
+    commitFile(repositoryDirectory, 'package.json', '{ "scripts": { "verify": "true" } }\n');
+    gitOutputIn(repositoryDirectory, ['rm', '-q', '--', `${PRODUCT_NAMES.DATA_FOLDER}/progress.json`, 'package.json']);
+    gitOutputIn(repositoryDirectory, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'commit', '-q', '-m', 'Undo the planted changes']);
+
+    expect(refusalOf('V5', builderSubject({ report: builderReport() }))).toBe('data-folder-touched');
+    expect(refusalOf('V11', builderSubject({ report: builderReport() }))).toBe('checks-definition-changed');
+  });
+
   test('V6 refuses a ticket body edited since launch', () => {
     expect(refusalOf('V6', builderSubject({ ticketBody: `${TICKET_BODY}\nA2. Added mid-job.\n` }))).toBe('ticket-body-changed');
   });

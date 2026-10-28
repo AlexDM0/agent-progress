@@ -91,8 +91,12 @@ function rangeOf({ startCommit }: JobVerificationSubject): string {
   return `${startCommit}..HEAD`;
 }
 
+/** Each commit's own paths, so a change a later commit undoes still counts, and the range's net diff, which holds a merge's resolution. */
 function pathsChangedInRange(subject: JobVerificationSubject): string[] | null {
-  return gitLines(subject.worktreePath, ['diff', '--name-only', '--no-renames', subject.startCommit, 'HEAD', '--']);
+  const pathsOfEachCommit = gitLines(subject.worktreePath, ['log', '--name-only', '--no-renames', '--format=', rangeOf(subject), '--']);
+  const pathsOfTheRange   = gitLines(subject.worktreePath, ['diff', '--name-only', '--no-renames', subject.startCommit, 'HEAD', '--']);
+  if (pathsOfEachCommit === null || pathsOfTheRange === null) return null;
+  return [...new Set([...pathsOfEachCommit, ...pathsOfTheRange])];
 }
 
 function reportFieldOf(report: unknown, field: string): unknown {
