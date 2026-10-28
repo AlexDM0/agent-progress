@@ -669,9 +669,32 @@ output never carries either.
                               tickets, changing nothing else. For a page lost to a crash, or after a
                               ticket body was edited by hand.
 
-  open                        Open \`progress.html\` in the default browser, rendering it first when
+  open                        Open the live runner's URL when a runner lease is live; otherwise open
+                              \`progress.html\` in the default browser, rendering it first when
                               it is missing; a page that cannot be rendered is exit 2, as for
                               \`render\`.
+
+  run [--port <n>] [--detach] [--json]
+                              Start the board's one runner on 127.0.0.1, logging to standard error
+                              and \`runner.log\`: it creates the lease \`runner/lease-<n>.json\`, writes
+                              the API token to \`runner/token\` (mode 0600), prints its URL and serves
+                              until stopped. The port derives from the tracker id, moving upward
+                              past one in use; --port binds the one given, 0 any free one. A live
+                              runner refuses it (runner-already-running, with its URL) at exit 1, as
+                              does a starter that lost the race (runner-contended); a runner whose
+                              lease a newer one overtook stops lease-taken-over at exit 2.
+                              --detach starts it in the background and prints the URL once it answers.
+  run stop|restart [--now] [--json]
+                              Stop the live runner, through its API or else SIGTERM to the process
+                              its lease names; agent hosts are never touched. \`restart\` then starts
+                              a detached successor on the same port. --now also stops process hosts.
+  run pause|resume [--json]   Store \`dispatcherState\` \`stopped\` or \`running\`: no new jobs while
+                              paused. Works with the runner up or down.
+  run status [--json]         The lease, the URL, the runtime state, paused or not, and the code
+                              version on disk against the live runner's. Read-only, no lock.
+
+  version [--json]            Print the code version on disk and the install version:
+                              {codeVersion, installVersion}. Read-only.
 
   clear [--all] [--yes]       Throw away every task row and the log and restart the clock, keeping
                               the tickets: each surviving ticket is given a fresh row seeded from

@@ -27,7 +27,15 @@ export type OperationRefusalDetail =
   | { kind: 'no-check-command-to-clear' }
   | { kind: 'role-command-refused'; reason: RoleCommandRefusalReason; commandKind: string }
   | { kind: 'verb-not-relayable'; verb: string; jobId: string }
-  | { kind: 'malformed-relay-reply'; replyFilePath: string };
+  | { kind: 'malformed-relay-reply'; replyFilePath: string }
+  | { kind: 'runner-already-running'; url: string; leaseFilePath: string }
+  | { kind: 'runner-contended'; runnerDirectory: string }
+  | { kind: 'lease-taken-over'; leaseFilePath: string }
+  | { kind: 'runner-port-in-use'; firstPort: number; lastPort: number }
+  | { kind: 'runner-identity-unreadable'; processId: number }
+  | { kind: 'runner-did-not-start'; exitCode: number | null; logFilePath: string }
+  | { kind: 'runner-still-live'; url: string; processId: number }
+  | { kind: 'runner-control-is-runtime-only'; commandKind: string };
 
 function reasonCodeOf(detail: OperationRefusalDetail): string {
   if (detail.kind === 'role-command-refused') return detail.reason;

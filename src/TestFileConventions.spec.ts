@@ -25,11 +25,40 @@ function namesTheProcessContextFactory(source: RepositorySource): boolean {
   return visit(sourceFile);
 }
 
+const RUNNER_START_WORD     = 'run';
+const RUNNER_SUBCOMMANDS    = new Set(['stop', 'restart', 'pause', 'resume', 'status']);
+const ANY_FREE_PORT_OPTION  = ['--port', '0'];
+
+function stringElementOf(element: ts.Expression | undefined): string | null {
+  return element !== undefined && ts.isStringLiteralLike(element) ? element.text : null;
+}
+
+/** An argument list that starts a runner, `['run', …]` with no subcommand, binds `--port 0`, so no spec takes a board's real port. */
+function startsARunnerOnAFixedPort(array: ts.ArrayLiteralExpression): boolean {
+  const elements = [...array.elements];
+  if (stringElementOf(elements[0]) !== RUNNER_START_WORD) return false;
+  if (RUNNER_SUBCOMMANDS.has(stringElementOf(elements[1]) ?? '')) return false;
+  return !elements.some((element, index) => stringElementOf(element) === ANY_FREE_PORT_OPTION[0] && stringElementOf(elements[index + 1]) === ANY_FREE_PORT_OPTION[1]);
+}
+
+function runnerStartsOnAFixedPortIn(source: RepositorySource): number {
+  const sourceFile = ts.createSourceFile(source.path, source.text, ts.ScriptTarget.Latest, true);
+  let count = 0;
+  const visit = (node: ts.Node): void => {
+    if (ts.isArrayLiteralExpression(node) && startsARunnerOnAFixedPort(node)) count++;
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return count;
+}
+
 function testFileViolationsOf(sources: readonly RepositorySource[]): string[] {
   return [
     ...sources.filter((source) => source.path.endsWith(RETIRED_TEST_SUFFIX)).map((source) => `${source.path} is a .test.ts file`),
     ...sources.filter((source) => isTestCode(source.path) && namesTheProcessContextFactory(source))
       .map((source) => `${source.path} creates the real process context`),
+    ...sources.filter((source) => isTestCode(source.path) && runnerStartsOnAFixedPortIn(source) > 0)
+      .map((source) => `${source.path} starts a runner without --port 0`),
   ];
 }
 
@@ -53,6 +82,26 @@ describe('suites are spec files that never create the real process context', () 
     ['a test helper creating the context', { path: 'cli/testing/ExampleHelper.ts', text: importingTheFactory }],
   ])('a planted %s is named', (_form, plantedSource) => {
     expect(testFileViolationsOf([plantedSource])).toEqual([expect.stringContaining(plantedSource.path)]);
+  });
+
+  test('the scan sees the specs that start a runner, all on --port 0', () => {
+    const startingRunners = SOURCES.filter((source) => isTestCode(source.path) && source.text.includes(`'${ANY_FREE_PORT_OPTION[0]}', '${ANY_FREE_PORT_OPTION[1]}'`));
+    expect(startingRunners.map((source) => source.path)).toContain('cli/runner/RunCommand.spec.ts');
+  });
+
+  test.each([
+    ['a bare start', 'runAgentProgress([\'run\'], options);'],
+    ['a detached start', 'runAgentProgress([\'run\', \'--detach\'], options);'],
+    ['a start on a board\'s own port', 'startAgentProgress([\'run\', \'--port\', \'4930\'], options);'],
+  ])('a spec planting %s is named', (_form, plantedLine) => {
+    expect(testFileViolationsOf([{ path: 'cli/Example.spec.ts', text: plantedLine }])).toEqual(['cli/Example.spec.ts starts a runner without --port 0']);
+  });
+
+  test('a runner on --port 0, a run subcommand, and a shipping module starting a runner pass', () => {
+    expect(testFileViolationsOf([
+      { path: 'cli/Example.spec.ts', text: 'startAgentProgress([\'run\', \'--detach\', \'--port\', \'0\'], options);\nrunAgentProgress([\'run\', \'stop\'], options);\n' },
+      { path: 'cli/Shipping.ts', text: 'spawn([\'run\']);\n' },
+    ])).toEqual([]);
   });
 
   test('a spec that only names the factory in a sentence, and a shipping module calling it, pass', () => {

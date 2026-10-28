@@ -155,7 +155,7 @@ describe('a command run where no tracker is', () => {
 });
 
 describe('a tracker whose installed files are of another install version', () => {
-  const COMMANDS_THAT_RUN_OR_CHECK_ON_THEIR_OWN = new Set(['init', 'update', 'help', 'status', 'hook', 'release']);
+  const COMMANDS_THAT_RUN_OR_CHECK_ON_THEIR_OWN = new Set(['init', 'update', 'help', 'status', 'version', 'hook', 'release']);
   const CHECKED_COMMAND_NAMES = COMMAND_NAMES.filter((commandName) => !COMMANDS_THAT_RUN_OR_CHECK_ON_THEIR_OWN.has(commandName));
 
   /** A tracker made by `init` and then stripped of its manifest is exactly a tracker installed by an agent-progress from before versioning. */
@@ -198,6 +198,26 @@ describe('a tracker whose installed files are of another install version', () =>
     }
     expect(readFileSync(progressFilePath).equals(progressFileBefore)).toBe(true);
     expect(existsSync(installedFilePathsIn(trackedDirectory).installManifest)).toBe(false);
+  });
+
+  test('version runs and prints the code and install versions, so a runner can read the code on disk whatever was installed', async () => {
+    const context = trackedContext();
+    expect(await runCommandLine(['version', '--json'], context), context.errorText()).toBe(0);
+    expect(JSON.parse(context.outputText())).toEqual({ codeVersion: expect.stringMatching(/^[0-9a-f]{12}$/), installVersion: INSTALL_VERSION });
+  });
+
+  test('run status runs and reports the runner down, so a runner whose install changed can still be inspected', async () => {
+    const context = trackedContext();
+    expect(await runCommandLine(['run', 'status', '--json'], context), context.errorText()).toBe(0);
+    expect(JSON.parse(context.outputText())).toMatchObject({
+      state: 'down', paused: true, url: null, lease: null, codeVersionInMemory: null
+    });
+  });
+
+  test('run pause is checked like every mutating verb', async () => {
+    const context = trackedContext();
+    expect(await runCommandLine(['run', 'pause'], context)).toBe(1);
+    expect(context.errorText()).toBe(unversionedParagraph());
   });
 
   test('help, --help after a command word and status run, and status prints what it printed before the manifest went', async () => {

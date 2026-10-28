@@ -38,6 +38,7 @@ import { runCommandLine }                                            from './Mai
 import { READ_ONLY_VERBS_UNDER_A_JOB, RELAYED_VERB_OF_CONTROL_KIND } from './constants/JobVerbs.ts';
 import { DRAFT_SUBCOMMAND_NAMES }                                    from './drafts/DraftCommand.ts';
 import { EPIC_SUBCOMMAND_NAMES }                                     from './epics/EpicCommand.ts';
+import { RUN_SUBCOMMAND_NAMES }                                      from './runner/RunCommand.ts';
 import { createCapturedCommandContext, type CapturedCommandContext } from './testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository }                        from './testing/InitializedScratchRepository.ts';
 import { TICKET_SUBCOMMAND_NAMES }                                   from './tickets/TicketCommand.ts';
@@ -65,6 +66,10 @@ const ARGUMENTS_OF_KIND: { readonly [Kind in ControlCommandKind]: readonly strin
   'draft-drop':          ['draft', 'drop', 'D1', 'N1'],
   'draft-close':         ['draft', 'close', 'D1', '--tickets', '1'],
   'draft-abandon':       ['draft', 'abandon', 'D1', '--reason', 'dropped'],
+  'runner-pause':        ['run', 'pause'],
+  'runner-resume':       ['run', 'resume'],
+  'runner-stop':         ['run', 'stop', '--now'],
+  'runner-restart':      ['run', 'restart'],
   'concurrency-set':     ['concurrency', '3'],
   'checks-set':          ['checks', 'bun test'],
   'install-command-set': ['checks', '--install', 'bun install'],
@@ -128,6 +133,7 @@ function everyVerb(): string[] {
     if (command === 'ticket') return TICKET_SUBCOMMAND_NAMES.map((subcommand) => `ticket ${subcommand}`);
     if (command === 'epic') return EPIC_SUBCOMMAND_NAMES.map((subcommand) => `epic ${subcommand}`);
     if (command === 'draft') return DRAFT_SUBCOMMAND_NAMES.map((subcommand) => `draft ${subcommand}`);
+    if (command === 'run') return [command, ...RUN_SUBCOMMAND_NAMES.map((subcommand) => `run ${subcommand}`)];
     return [command];
   });
 }

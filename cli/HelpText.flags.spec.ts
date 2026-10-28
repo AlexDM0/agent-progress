@@ -24,7 +24,7 @@ import { createCapturedCommandContext }                   from './testing/Captur
 const HELP_TEXT      = helpText();
 const REFERENCE_TEXT = readFileSync(join(import.meta.dir, '..', 'docs', 'cli.md'), 'utf8');
 
-const COMMANDS_WITH_SUBCOMMANDS = new Set(['task', 'ticket', 'epic', 'draft']);
+const COMMANDS_WITH_SUBCOMMANDS = new Set(['task', 'ticket', 'epic', 'draft', 'run']);
 
 const JSON_OPTION_NAME = 'json';
 
@@ -102,7 +102,8 @@ function referenceSignaturesOf(text: string): string[] {
 
 function entryKeysOf(signature: string): string[] {
   const [commandWord = '', secondWord = ''] = signature.trim().split(/\s+/);
-  if (!COMMANDS_WITH_SUBCOMMANDS.has(commandWord)) return [commandWord];
+  // `run [--port <n>]` is the command alone: a subcommand never opens with an option or a bracket.
+  if (!COMMANDS_WITH_SUBCOMMANDS.has(commandWord) || secondWord === '' || /^[[-]/.test(secondWord)) return [commandWord];
   return secondWord.split('|').map((subcommand) => `${commandWord} ${subcommand}`);
 }
 

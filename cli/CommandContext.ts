@@ -31,6 +31,25 @@ export interface CommandContext {
   renderState:             RenderState;
   /** Present only when the runner launched this process for a job: then a mutating verb relays rather than opening the tracker. */
   job?:                    JobContext;
+  /** The runtime and the entry point this process was started with, which `run --detach` starts again with the runner's arguments. */
+  programCommand:          readonly string[];
+  /** Calls `listener` on SIGTERM and SIGINT, which a foreground runner takes as a stop; returns the unsubscribe. */
+  onStopSignal:            (listener: () => void) => () => void;
+}
+
+const STOP_SIGNALS: readonly NodeJS.Signals[] = ['SIGTERM', 'SIGINT'];
+
+function onStopSignalOfThisProcess(listener: () => void): () => void {
+  for (const signal of STOP_SIGNALS) process.on(signal, listener);
+  return () => {
+    for (const signal of STOP_SIGNALS) process.off(signal, listener);
+  };
+}
+
+/** The script is `process.argv[1]`: Bun puts the runtime first and the entry point second. */
+function programCommandOfThisProcess(): string[] {
+  const entryPoint = process.argv[1];
+  return entryPoint === undefined ? [process.execPath] : [process.execPath, entryPoint];
 }
 
 export interface JobContext {
@@ -75,6 +94,8 @@ export function createProcessContext(): CommandContext {
     temporaryDirectories:    temporaryDirectoriesOfThisMachine(),
     commandVerb:             '',
     renderState:             createRenderState(),
+    programCommand:          programCommandOfThisProcess(),
+    onStopSignal:            onStopSignalOfThisProcess,
   };
 }
 

@@ -82,6 +82,12 @@ export type ControlCommand =
   | { kind: 'draft-drop'; draftId: string; itemId: string }
   | { kind: 'draft-close'; draftId: string; ticketReferences: string[] }
   | { kind: 'draft-abandon'; draftId: string; reason: string }
+  | { kind: 'runner-pause' }
+  | { kind: 'runner-resume' }
+  /** Runtime only: sent to the live runner, which stops; the board is never changed by it. */
+  | { kind: 'runner-stop'; now: boolean }
+  /** Runtime only: sent to the live runner, which hands the board to a successor on the code on disk. */
+  | { kind: 'runner-restart'; now: boolean }
   | { kind: 'concurrency-set'; limit: number }
   | { kind: 'checks-set'; command: string | null; restamps: boolean }
   | { kind: 'install-command-set'; command: string };

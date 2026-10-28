@@ -61,11 +61,13 @@ describe('the command table', () => {
       'review',
       'review-stats',
       'rework',
+      'run',
       'status',
       'task',
       'ticket',
       'update',
       'usage',
+      'version',
     ]);
   });
 });

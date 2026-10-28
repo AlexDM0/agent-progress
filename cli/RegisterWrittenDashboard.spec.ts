@@ -168,6 +168,22 @@ testWhenGitIsPresent('A1: a mutating command and render each update lastChangedA
   expect(Object.keys(registry().projects)).toEqual([trackerId]);
 });
 
+testWhenGitIsPresent('a runner key is added at the runner\'s start, kept by every other write, and removed at its stop', async () => {
+  const repositoryDirectory = await initializedRepository();
+  const trackerId           = trackerIdOf(repositoryDirectory);
+  const runner              = { url: 'http://127.0.0.1:4930/', processId: 4242, startedAt: LocalTimeUtil.formatLocalIso(FIRST_NOW) };
+  const registration = {
+    workspace: workspacePathsFor(repositoryDirectory), homeDirectory, temporaryDirectories: [folderOutsideEveryRepository], command: 'run', now: () => FIRST_NOW,
+  };
+
+  expect((await registerWithTheMonitor({ ...registration, runner })).verdict).toBe('registered');
+  expect(registry().projects[trackerId]).toMatchObject({ runner, lastCommand: 'run' });
+  await requireExitZero(['log', 'Example milestone'], registeringContext(repositoryDirectory, SECOND_NOW));
+  expect(registry().projects[trackerId]).toMatchObject({ runner, lastCommand: 'log' });
+  expect((await registerWithTheMonitor({ ...registration, runner: 'removed' })).verdict).toBe('registered');
+  expect(Object.keys(registry().projects[trackerId] ?? {})).not.toContain('runner');
+});
+
 testWhenGitIsPresent('A2: status, ticket show, and open on a page that exists register nothing', async () => {
   const repositoryDirectory = await initializedRepository();
   await requireExitZero(['ticket', 'add', 'Example ticket', '--type', 'ticket'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }));

@@ -80,6 +80,9 @@ export function createCapturedCommandContext(options: CapturedCommandContextOpti
     temporaryDirectories: options.temporaryDirectories ?? [tmpdir()],
     commandVerb:          '',
     renderState:          createRenderState(),
+    // No program to start again and no signal to take: a runner is started in a spec only as a child through `cli/testing/CliProcess.ts`.
+    programCommand:       [],
+    onStopSignal:         () => () => undefined,
     outputText:           () => outputLines.join('\n'),
     errorText:            () => errorLines.join('\n'),
     questionsAsked:       () => [...questions],

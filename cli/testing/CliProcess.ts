@@ -3,7 +3,7 @@
  * bit and exit code included, for a spec that must set the child's environment, which no spec may set in-process, and for one whose
  * command must run in its own process beside another. Its callers are `cli/BinarySmoke.spec.ts`, `cli/InitRootOverride.spec.ts`,
  * `cli/dispatch/release/ReleaseCommand.checks.spec.ts`, `cli/RegisterWrittenDashboard.spec.ts`, `cli/MonitorRegistryIsolation.spec.ts`,
- * `cli/ProductNameIsolation.spec.ts` and `cli/HoldJournalCrash.spec.ts`.
+ * `cli/ProductNameIsolation.spec.ts`, `cli/HoldJournalCrash.spec.ts` and `cli/runner/RunCommand.spec.ts`, whose runners run until stopped.
  */
 import { existsSync }               from 'node:fs';
 import { delimiter, dirname, join } from 'node:path';
@@ -48,6 +48,55 @@ function agentProgressEntryPoint(): string {
     throw new Error(`The CLI entry point is not at ${entryPoint}; cli/testing/CliProcess.ts has to be told where it moved to.`);
   }
   return entryPoint;
+}
+
+export interface StartedAgentProgress {
+  /** The first line the child prints on standard output, or `null` when it exits before printing one. */
+  firstOutputLine: Promise<string | null>;
+  /** The exit code and both streams, once the child ends. */
+  finished:        Promise<AgentProgressResult>;
+  processId:       number;
+}
+
+async function firstLineAndRestOf(stream: ReadableStream<Uint8Array>, onFirstLine: (line: string | null) => void): Promise<string> {
+  const decoder = new TextDecoder();
+  let text = '';
+  let reported = false;
+  for await (const chunk of stream) {
+    text += decoder.decode(chunk, { stream: true });
+    const lineEnd = text.indexOf('\n');
+    if (!reported && lineEnd >= 0) {
+      reported = true;
+      onFirstLine(text.slice(0, lineEnd));
+    }
+  }
+  if (!reported) onFirstLine(null);
+  return text;
+}
+
+/**
+ * A long-running command, such as a foreground runner, in its own process beside the spec: the spec reads its first output line while
+ * it runs and its result once something stops it. Its `HOME` is the one the options name, never removed here, since the child outlives
+ * this call.
+ */
+export function startAgentProgress(commandLineArguments: readonly string[], options: RunAgentProgressOptions & { homeDirectory: string }): StartedAgentProgress {
+  requireTrackerIsolation(options.currentDirectory);
+  requireTrackerIsolation(options.homeDirectory);
+  const spawned = Bun.spawn(['bun', agentProgressEntryPoint(), ...commandLineArguments], {
+    cwd:    options.currentDirectory,
+    stdin:  'ignore',
+    stdout: 'pipe',
+    stderr: 'pipe',
+    env:    childEnvironmentOf(options.environment, options.homeDirectory),
+  });
+  let reportFirstLine: (line: string | null) => void = () => undefined;
+  const firstOutputLine = new Promise<string | null>((resolve) => { reportFirstLine = resolve; });
+  const finished = Promise.all([
+    firstLineAndRestOf(spawned.stdout, reportFirstLine),
+    new Response(spawned.stderr).text(),
+    spawned.exited,
+  ]).then(([standardOutput, standardError, exitCode]) => ({ exitCode, standardOutput, standardError }));
+  return { firstOutputLine, finished, processId: spawned.pid };
 }
 
 /**

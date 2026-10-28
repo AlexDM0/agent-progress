@@ -184,6 +184,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 | Only the current stored format is read. | A stored `dispatcherState` `finished` reads as `stopped`. | Stored files are never rewritten; reading it as stopped fails closed. |
 | Only `agent-progress.ts` exits. | `agent-host.ts`, the host binary, exits with the code `runHost` in `src/lib/agent-host/` returns, and imports nothing else, held by `src/ImportDirection.spec.ts` and `src/lib/agent-host/HostBundleClosure.spec.ts`. | It is a second entry point: the runner bundles and spawns it, detached, once per job instance. |
 | Every write of a file a reader may hold open goes through the atomic-file package. | A host appends its `events-<instance>.ndjson` in place, fsynced before its `end` is written. | An append-only log is never replaced; a reader ignores an unterminated last line. |
+| Every write of a file a reader may hold open goes through the atomic-file package. | The runner appends `runner.log` in place, one line per write. | A log someone tails is never replaced; an atomic rewrite would break the tail. |
 | A `src/lib/` package leaves a refusal as a verdict. | The tracker model's `Board` throws `BoardRefusal`. | A domain class throws a typed domain error. |
 | A feature never reaches another. | `cli/` reaches `dispatcher/`, the render service `page/`, by path, to bundle them. | Bundled, never imported. |
 | One reference per fact. | `resources/templates/Reference.md`, installed as `.agent-progress/reference.md`, copies three `docs/cli.md` sections verbatim (ticket format, ticket moves, exit codes); a change to either changes both, held by `cli/ReferenceCopies.spec.ts`. | Agents elsewhere cannot read `docs/cli.md`. |
@@ -200,9 +201,11 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   in a scratch repository: nobody runs the checkout's source here, and only the owner runs `init`, `update` or
   `clear`.
 - Help is one screen, no per-command help; to stdout when asked, to stderr after an unknown command.
-- Every command but `init`, `update`, `help` and `status` checks the install version first
+- Every command but `init`, `update`, `help`, `status` and `version` checks the install version first
   (`cli/Main.spec.ts`); `release` reports a mismatch as its `--json` refusal, `hook subagent-stop` at exit 0,
-  `hook post-tool-use` by rendering nothing, silently, at exit 0.
+  `hook post-tool-use` by rendering nothing, silently, at exit 0; `run status` and `run stop` skip it, so a runner
+  whose install changed can still be inspected and stopped.
+- `src/TestFileConventions.spec.ts` holds that no spec starts a runner without `--port 0`.
 - A new command is an entry in `cli/CommandTable.ts`, a block in `cli/HelpText.ts` and a folder in its set, held by
   `cli/CommandTable.spec.ts` and `cli/HelpText.spec.ts`.
 - Every mutating command writes through `writeTracker` in `src/services/tracker/TrackerPipeline.ts` (lock, read into

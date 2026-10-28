@@ -363,6 +363,25 @@ function messageOf(refusal: OperationRefusal): string {
         + `applies through the relay. ${NOTHING_WAS_WRITTEN}`;
     case 'malformed-relay-reply':
       return `The runner's reply ${detail.replyFilePath} cannot be read, so whether the request was applied is unknown.`;
+    case 'runner-already-running':
+      return `A runner already serves this board at ${detail.url} (${detail.leaseFilePath}). Stop it first with \`${PRODUCT_NAMES.PROGRAM} run stop\`.`;
+    case 'runner-contended':
+      return `Another runner started in ${detail.runnerDirectory} at the same moment and holds the newer lease, so this one stopped without serving.`;
+    case 'lease-taken-over':
+      return `A newer runner took this board over from the lease ${detail.leaseFilePath}, so this runner stopped without acting.`;
+    case 'runner-port-in-use':
+      return detail.firstPort === detail.lastPort
+        ? `Port ${detail.firstPort} on 127.0.0.1 is in use, so the runner did not start. Pass another --port, or 0 for any free one.`
+        : `Every port from ${detail.firstPort} to ${detail.lastPort} on 127.0.0.1 is in use, so the runner did not start. Pass a free one with --port.`;
+    case 'runner-identity-unreadable':
+      return `The start and boot of process ${detail.processId} cannot be read, so it cannot hold a runner lease.`;
+    case 'runner-did-not-start':
+      return `The detached runner exited${detail.exitCode === null ? '' : ` with code ${detail.exitCode}`} before it answered. `
+        + `Its log is ${detail.logFilePath}; run \`${PRODUCT_NAMES.PROGRAM} run\` in the foreground to see why.`;
+    case 'runner-still-live':
+      return `The runner at ${detail.url} (process ${detail.processId}) is still live after being asked to stop; its lease was left as it is.`;
+    case 'runner-control-is-runtime-only':
+      return `${detail.commandKind} is sent to the live runner, never applied to the board. ${NOTHING_WAS_WRITTEN}`;
   }
 }
 
