@@ -299,6 +299,8 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
         log(`${command.kind} received${command.now ? ' (now)' : ''}.`);
         if (current === null || handingOver) return;
         if (command.kind === 'runner-restart') {
+          // Set at once, so a second command during this handover never overwrites what the successor reported.
+          handingOver = true;
           // Written before the command is answered, so whoever sent it never reads an earlier handover's outcome.
           RunnerHandover.writeHandover(RunnerHandover.handoverFilePathOf(files.runnerDirectory, current.generation), { state: 'requested' });
           current.lifetime.restart();
@@ -470,6 +472,7 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
         serving.lifetime.stopWatching();
         serving.lifetime.stopListening();
         serving.lifetime = runnerLifetime(request, files, serving.generation, log);
+        handingOver = false;
         const drivenOn = serving;
         serving.drivePass.wake(true);
         current = drivenOn;

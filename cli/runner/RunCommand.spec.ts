@@ -200,6 +200,35 @@ describe('run --detach, status, restart and stop', () => {
     expect(JSON.parse(statusAfter.standardOutput)).toMatchObject({ state: 'down', url: null });
   }, RUNNER_TEST_TIMEOUT_MILLISECONDS);
 
+  test('a second restart while a handover runs leaves the successor\'s ready report standing, and the first handover completes', async () => {
+    const detached = await runAgentProgress(['run', '--detach', '--port', '0', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
+    expect(detached.exitCode, detached.standardError).toBe(0);
+    const { url } = JSON.parse(detached.standardOutput) as { url: string };
+    const handoverFilePath = join(runnerDirectory(), 'handover-1.json');
+    const handoverState = (): string | null => {
+      try {
+        return (JSON.parse(readFileSync(handoverFilePath, 'utf8')) as { state: string }).state;
+      } catch {
+        return null;
+      }
+    };
+
+    const restarting = runAgentProgress(['run', 'restart', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
+    // The old runner looks for `ready` only every interval, so a second command sent the moment it appears arrives before that look.
+    for (let attempt = 0; attempt < 20_000 && handoverState() !== 'ready'; attempt++) await Bun.sleep(1);
+    expect(handoverState()).toBe('ready');
+    const token = readFileSync(join(runnerDirectory(), 'token'), 'utf8').trim();
+    const headers = { authorization: `Bearer ${token}`, 'content-type': 'application/json' };
+    const body    = JSON.stringify({ kind: 'runner-restart', now: false });
+    await fetch(new URL('api/commands', url), { method: 'POST', headers, body }).catch(() => null);
+    expect(handoverState()).not.toBe('requested');
+
+    const restarted = await restarting;
+    expect(restarted.exitCode, `${restarted.standardError}\n${runnerLogText()}`).toBe(0);
+    expect(leaseFileNames()).toEqual(['lease-2.json']);
+    await stopRunner();
+  }, RUNNER_TEST_TIMEOUT_MILLISECONDS);
+
   test('a successor that fails a step exits; restart exits 1 runner-handover-failed and the old runner keeps driving, logging it and warning', async () => {
     const detached = await runAgentProgress(['run', '--detach', '--port', '0', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
     expect(detached.exitCode, detached.standardError).toBe(0);
