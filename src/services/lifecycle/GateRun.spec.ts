@@ -1,7 +1,9 @@
 /**
- * The gate and its cache. What matters: a pass is cached under the content of tree, checks line and install line, so a second gate on the
- * same tree runs nothing and records `cached: true`; a failure is never cached; the memory cache stands alone for the sandbox fallback;
- * and the gate runs the argv it is handed, in a process group of its own, without the job variables a session carries.
+ * The gate and its cache. What matters: a pass is cached under the content of tree, checks line, install line and the key command's
+ * output, so a second gate on the same tree runs nothing and records `cached: true`; with no key command the key is the one passes were
+ * cached under before; a key command that does not exit 0 caches nothing and cannot run; a failure is never cached; the memory cache
+ * stands alone for the sandbox fallback; and the gate runs the argv it is handed, in a process group of its own, without the job
+ * variables a session carries.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { join }                     from 'node:path';
@@ -51,26 +53,100 @@ function runCount(): number {
   return existsSync(runsPath) ? readFileSync(runsPath, 'utf8').trim().split('\n').length : 0;
 }
 
-async function gateOnce(cache: GateResultCache, exitCode: number, treeId = TREE_ID): Promise<Awaited<ReturnType<typeof GateRun.gateTree>>> {
+// Taken from the key before key commands existed, sha256 of the JSON triple; a pass cached then must keep its key.
+const KEY_BEFORE_KEY_COMMANDS = '69bf6a6449205532311e932587be72c270272b485240b9db6bc972fc8a1655a0';
+
+type TreeGateVerdict = Awaited<ReturnType<typeof GateRun.gateTree>>;
+
+async function gateOnce(cache: GateResultCache, exitCode: number, treeId = TREE_ID, keyArgv: readonly string[] | null = null): Promise<TreeGateVerdict> {
   return await GateRun.gateTree({
     argv:        countingArgv(exitCode),
     directory:   scratchDirectory,
     treeId,
     checksLine:  CHECKS_LINE,
     installLine: INSTALL_LINE,
+    keyArgv,
     cache,
   });
 }
 
+/** A fake key command, such as a toolchain's `--version`, printing what the spec plants and exiting as told. */
+function plantedKeyArgv(output: string, exitCode = 0): string[] {
+  return GateRun.keyCommandArgvOf(`echo '${output}'; echo 'a warning' >&2; exit ${exitCode}`);
+}
+
 describe('the gate cache key', () => {
   test('is the sha256 of tree, checks line and install line, the same for the same three and different when any one differs', () => {
-    const key = gateCacheKeyOf({ treeId: TREE_ID, checksLine: CHECKS_LINE, installLine: INSTALL_LINE });
+    const key = gateCacheKeyOf({
+      treeId: TREE_ID, checksLine: CHECKS_LINE, installLine: INSTALL_LINE, keyOutput: null
+    });
 
     expect(key).toMatch(/^[0-9a-f]{64}$/);
-    expect(gateCacheKeyOf({ treeId: TREE_ID, checksLine: CHECKS_LINE, installLine: INSTALL_LINE })).toBe(key);
-    expect(gateCacheKeyOf({ treeId: OTHER_TREE_ID, checksLine: CHECKS_LINE, installLine: INSTALL_LINE })).not.toBe(key);
-    expect(gateCacheKeyOf({ treeId: TREE_ID, checksLine: 'bun test', installLine: INSTALL_LINE })).not.toBe(key);
-    expect(gateCacheKeyOf({ treeId: TREE_ID, checksLine: CHECKS_LINE, installLine: null })).not.toBe(key);
+    expect(gateCacheKeyOf({
+      treeId: TREE_ID, checksLine: CHECKS_LINE, installLine: INSTALL_LINE, keyOutput: null
+    })).toBe(key);
+    expect(gateCacheKeyOf({
+      treeId: OTHER_TREE_ID, checksLine: CHECKS_LINE, installLine: INSTALL_LINE, keyOutput: null
+    })).not.toBe(key);
+    expect(gateCacheKeyOf({
+      treeId: TREE_ID, checksLine: 'bun test', installLine: INSTALL_LINE, keyOutput: null
+    })).not.toBe(key);
+    expect(gateCacheKeyOf({
+      treeId: TREE_ID, checksLine: CHECKS_LINE, installLine: null, keyOutput: null
+    })).not.toBe(key);
+  });
+
+  test('with no key command stored is exactly the key from before key commands, so no cached pass changes meaning', () => {
+    expect(gateCacheKeyOf({
+      treeId: TREE_ID, checksLine: CHECKS_LINE, installLine: INSTALL_LINE, keyOutput: null
+    })).toBe(KEY_BEFORE_KEY_COMMANDS);
+  });
+
+  test('takes the key command\'s output as a fourth input: each output, the empty one included, keys apart from none', () => {
+    const keyOf = (keyOutput: string | null): string => gateCacheKeyOf({
+      treeId: TREE_ID, checksLine: CHECKS_LINE, installLine: INSTALL_LINE, keyOutput
+    });
+
+    expect(new Set([keyOf(null), keyOf(''), keyOf('1.3.0'), keyOf('1.3.1')]).size).toBe(4);
+    expect(keyOf('1.3.0')).toBe(keyOf('1.3.0'));
+  });
+});
+
+describe('a gate with a key command', () => {
+  test('two gates on one tree whose key command prints different output miss each other\'s cache; identical output hits', async () => {
+    const cache = createMemoryGateResultCache();
+
+    const underOldToolchain   = await gateOnce(cache, 0, TREE_ID, plantedKeyArgv('bun 1.3.0'));
+    const underNewToolchain   = await gateOnce(cache, 0, TREE_ID, plantedKeyArgv('bun 1.3.1'));
+    const newToolchainAgain   = await gateOnce(cache, 0, TREE_ID, plantedKeyArgv('bun 1.3.1'));
+    const withoutKeyCommand   = await gateOnce(cache, 0, TREE_ID, null);
+
+    expect([underOldToolchain.cached, underNewToolchain.cached, newToolchainAgain.cached, withoutKeyCommand.cached]).toEqual([false, false, true, false]);
+    expect(runCount()).toBe(3);
+  });
+
+  test('only standard output keys the cache, its trailing newlines dropped', async () => {
+    const run = await GateRun.runGate({ argv: plantedKeyArgv('bun 1.3.0'), directory: scratchDirectory });
+
+    expect(GateRun.keyOutputOf(run.output)).toBe('bun 1.3.0');
+  });
+
+  const failingKeyExits = [['exits non-zero', 1], ['exits 126', 126], ['exits 127', 127]] as const;
+  test.each(failingKeyExits)('a key command that %s caches nothing, never runs the gate, and cannot run', async (_case, exitCode) => {
+    const cache = createMemoryGateResultCache();
+
+    const first  = await gateOnce(cache, 0, TREE_ID, plantedKeyArgv('bun 1.3.0', exitCode));
+    const second = await gateOnce(cache, 0, TREE_ID, plantedKeyArgv('bun 1.3.0', exitCode));
+
+    expect([first.outcome, first.cached, second.outcome, second.cached]).toEqual(['cannot-run', false, 'cannot-run', false]);
+    expect(runCount()).toBe(0);
+  });
+
+  test('a key command that cannot be started cannot run either', async () => {
+    const verdict = await gateOnce(createMemoryGateResultCache(), 0, TREE_ID, [join(scratchDirectory, 'no-such-shell')]);
+
+    expect(verdict.outcome).toBe('cannot-run');
+    expect(runCount()).toBe(0);
   });
 });
 
@@ -112,8 +188,10 @@ describe('a gate on a tree', () => {
     await gateOnce(createFolderGateResultCache(cacheFolder), 0);
     const again = await gateOnce(createFolderGateResultCache(cacheFolder), 0);
 
-    const key = gateCacheKeyOf({ treeId: TREE_ID, checksLine: CHECKS_LINE, installLine: INSTALL_LINE });
-    expect(JSON.parse(readFileSync(join(cacheFolder, `${key}.json`), 'utf8'))).toEqual({ treeId: TREE_ID, checksLine: CHECKS_LINE, installLine: INSTALL_LINE });
+    const pass = {
+      treeId: TREE_ID, checksLine: CHECKS_LINE, installLine: INSTALL_LINE, keyOutput: null
+    };
+    expect(JSON.parse(readFileSync(join(cacheFolder, `${gateCacheKeyOf(pass)}.json`), 'utf8'))).toEqual(pass);
     expect(again.cached).toBe(true);
     expect(runCount()).toBe(1);
   });

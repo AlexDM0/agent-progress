@@ -5,6 +5,7 @@ import type {
   DispatcherStateSet,
   InstallCommandSet,
   ChecksDefinitionFilesSet,
+  GateKeyCommandSet,
   Logged,
   TrackerCleared
 } from './@types/BoardChanges.ts';
@@ -88,6 +89,15 @@ export class TrackerChanges {
       logged: [logger.log({ kind: 'checks-definition-files-set', fields: { patterns: patterns ?? [] } }, at)],
       previousChecksDefinitionFiles,
     };
+  }
+
+  /** `null` removes the key, so a gate's cache key is the tree, checks line and install line alone again. */
+  setGateKeyCommand(command: string | null, at: string): GateKeyCommandSet {
+    const { progress, logger }   = this.records;
+    const previousGateKeyCommand = progress.gateKeyCommand ?? null;
+    if (command === null) delete progress.gateKeyCommand;
+    else progress.gateKeyCommand = command;
+    return { logged: [logger.log({ kind: 'gate-key-command-set', fields: { command } }, at)], previousGateKeyCommand };
   }
 
   /** The gate ran outside the hold, so only its outcome is recorded here. */

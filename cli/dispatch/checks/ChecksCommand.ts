@@ -23,9 +23,10 @@ import {
 } from '../CheckCommandRun.ts';
 
 const USAGE = `${PRODUCT_NAMES.PROGRAM} checks ["<command>" | --clear] [--restamp] [--json]  |  ${PRODUCT_NAMES.PROGRAM} checks --install "<line>" [--json]`
-  + `  |  ${PRODUCT_NAMES.PROGRAM} checks --definition-files ("<pattern> <pattern>…" | --clear) [--json]`;
+  + `  |  ${PRODUCT_NAMES.PROGRAM} checks --definition-files ("<pattern> <pattern>…" | --clear) [--json]`
+  + `  |  ${PRODUCT_NAMES.PROGRAM} checks --key-command ("<line>" | --clear) [--json]`;
 
-const KNOWN_OPTION_NAMES = ['clear', 'restamp', 'install', 'definition-files', 'json'];
+const KNOWN_OPTION_NAMES = ['clear', 'restamp', 'install', 'definition-files', 'key-command', 'json'];
 
 const NO_CHECK_COMMAND_TEXT = `No check command is set, so \`${PRODUCT_NAMES.PROGRAM} release\` runs none. `
   + `Set one with \`${PRODUCT_NAMES.PROGRAM} checks "<command>"\`.`;
@@ -94,10 +95,10 @@ async function setInstallCommand(installCommand: string, commandArguments: Argum
   );
 }
 
-/** The parser refuses `--definition-files --clear` as a missing value, which here is the clearing form: no value given. */
-function definitionFilesValueGiven(commandArguments: ArgumentParser): boolean {
+/** The parser refuses `--definition-files --clear` or `--key-command --clear` as a missing value, which here is the clearing form. */
+function optionValueGiven(commandArguments: ArgumentParser, optionName: 'definition-files' | 'key-command'): boolean {
   try {
-    return commandArguments.option('definition-files') !== undefined;
+    return commandArguments.option(optionName) !== undefined;
   } catch (error) {
     if (refusalIsOperationRefusal(error) && commandArguments.flag('clear')) return false;
     throw error;
@@ -109,7 +110,7 @@ function definitionFilePatternsFrom(commandArguments: ArgumentParser): string[] 
     throw new OperationRefusal('refused', `--definition-files goes alone, without a check command, --install or --restamp.\n  Usage: ${USAGE}`);
   }
   if (commandArguments.flag('clear')) {
-    if (!definitionFilesValueGiven(commandArguments)) return null;
+    if (!optionValueGiven(commandArguments, 'definition-files')) return null;
     throw new OperationRefusal('refused', `Give patterns or --clear, not both.\n  Usage: ${USAGE}`);
   }
   const patterns = (commandArguments.option('definition-files') ?? '').split(/\s+/).filter((pattern) => pattern !== '');
@@ -133,11 +134,46 @@ async function setChecksDefinitionFiles(commandArguments: ArgumentParser, contex
   );
 }
 
+function gateKeyCommandFrom(commandArguments: ArgumentParser): string | null {
+  if (commandArguments.positional() !== undefined || commandArguments.option('install') !== undefined || commandArguments.flag('restamp')
+    || commandArguments.flag('definition-files') || optionValueGiven(commandArguments, 'definition-files')) {
+    throw new OperationRefusal('refused', `--key-command goes alone, without a check command, --install, --definition-files or --restamp.\n  Usage: ${USAGE}`);
+  }
+  if (commandArguments.flag('clear')) {
+    if (!optionValueGiven(commandArguments, 'key-command')) return null;
+    throw new OperationRefusal('refused', `Give a key command or --clear, not both.\n  Usage: ${USAGE}`);
+  }
+  const keyCommand = commandArguments.option('key-command');
+  if (!BoardSettingsUtil.checkCommandIsWellFormed(keyCommand)) {
+    throw new OperationRefusal('refused', `A key command is a shell line that is not blank, quoted as one argument.\n  Usage: ${USAGE}`);
+  }
+  return keyCommand;
+}
+
+/** Stored untried, like the install line: it runs only in a gate's own host, on the gated tree. */
+async function setGateKeyCommand(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
+  const keyCommand = gateKeyCommandFrom(commandArguments);
+  const command: ControlCommandOf<'gate-key-command-set'> = { kind: 'gate-key-command-set', command: keyCommand };
+  await relayWhenUnderJob(context, command);
+  const { logged, previousGateKeyCommand } = await openTrackerForWriting(commandArguments, context, (change) => ControlService.apply(command, change).result);
+  OutputUtil.printEntity(
+    commandArguments,
+    context,
+    { gateKeyCommand: keyCommand, previousGateKeyCommand },
+    `${OutputUtil.loggedSentencesOf(logged)} (was ${previousGateKeyCommand ?? 'none'}).`,
+  );
+}
+
 export const checksCommand: CommandHandler = async (commandArguments, context) => {
   commandArguments.rejectUnknownOptions(KNOWN_OPTION_NAMES, USAGE);
   commandArguments.rejectExtraPositionals(1, USAGE);
 
-  if (commandArguments.flag('definition-files') || definitionFilesValueGiven(commandArguments)) {
+  if (commandArguments.flag('key-command') || optionValueGiven(commandArguments, 'key-command')) {
+    await setGateKeyCommand(commandArguments, context);
+    return;
+  }
+
+  if (commandArguments.flag('definition-files') || optionValueGiven(commandArguments, 'definition-files')) {
     await setChecksDefinitionFiles(commandArguments, context);
     return;
   }

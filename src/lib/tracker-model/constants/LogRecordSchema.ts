@@ -147,6 +147,7 @@ export const LOG_RECORD_SCHEMA = {
   'install-command-set':         { subject: 'board', fields: { command: 'text' } },
   // An empty `patterns` is the list cleared.
   'checks-definition-files-set': { subject: 'board', fields: { patterns: 'file-paths' } },
+  'gate-key-command-set':        { subject: 'board', fields: { command: 'check-command' } },
   // `tree` is the gated tree's object id; a cache hit ran nothing and is always `passed`.
   'gate-ran':                    { subject: 'board', fields: { tree: 'text', outcome: 'gate-outcome', cached: 'flag' } },
   'tracker-cleared':             { subject: 'board', fields: NO_FIELDS },

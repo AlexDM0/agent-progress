@@ -130,7 +130,30 @@ describeWhenGitIsPresent('the check command', () => {
     expect(readFileSync(progressFilePath(), 'utf8')).toBe(before);
   });
 
+  test('--key-command stores the line only once set, and --clear removes the key, each logging gate-key-command-set', async () => {
+    const before  = readFileSync(progressFilePath(), 'utf8');
+    const setting = JSON.parse((await run(['checks', '--key-command', 'bun --version', '--json'])).outputText()) as unknown;
+
+    expect(before).not.toContain('gateKeyCommand');
+    expect(setting).toEqual({ gateKeyCommand: 'bun --version', previousGateKeyCommand: null });
+    expect(storedProgressOf(repositoryDirectory).gateKeyCommand).toBe('bun --version');
+    expect(storedLogTextOf(repositoryDirectory)).toContain('"kind":"gate-key-command-set","fields":{"command":"bun --version"}');
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe('Gate key command set to bun --version');
+
+    const clearing = await run(['checks', '--key-command', '--clear']);
+
+    expect(clearing.outputText()).toBe('Gate key command cleared (was bun --version).');
+    expect(readFileSync(progressFilePath(), 'utf8')).toBe(before);
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe('Gate key command cleared');
+  });
+
   test.each([
+    ['a blank key command', ['checks', '--key-command', '  ']],
+    ['a key command beside --clear', ['checks', '--key-command', 'bun --version', '--clear']],
+    ['a key command beside a check command', ['checks', EXAMPLE_CHECK_COMMAND, '--key-command', 'bun --version']],
+    ['a key command beside --install', ['checks', '--key-command', 'bun --version', '--install', 'bun install']],
+    ['a key command beside --definition-files', ['checks', '--key-command', 'bun --version', '--definition-files', 'package.json']],
+    ['--key-command with no value', ['checks', '--key-command']],
     ['a blank definition-files list', ['checks', '--definition-files', '  ']],
     ['definition files beside --clear', ['checks', '--definition-files', 'pyproject.toml', '--clear']],
     ['definition files beside a check command', ['checks', EXAMPLE_CHECK_COMMAND, '--definition-files', 'pyproject.toml']],

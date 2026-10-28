@@ -11,7 +11,7 @@ import {
   RELAY_DIRECTORY_VARIABLE,
   userShell
 } from '../../shared/Environment.ts';
-import { gateCacheKeyOf, type GateResultCache } from './GateResultCache.ts';
+import { gateCacheKeyOf, type GatePass, type GateResultCache } from './GateResultCache.ts';
 
 export interface GateRequest {
   argv:         readonly string[];
@@ -31,6 +31,8 @@ export interface TreeGateRequest extends GateRequest {
   treeId:      string;
   checksLine:  string;
   installLine: string | null;
+  /** The stored key command's argv, run as the gate is, in its directory and environment, before the cache is asked; `null` with none stored. */
+  keyArgv:     readonly string[] | null;
   cache:       GateResultCache;
 }
 
@@ -51,8 +53,20 @@ const COMMAND_NOT_EXECUTABLE_EXIT_CODE = 126;
 const COMMAND_NOT_FOUND_EXIT_CODE      = 127;
 const SHELL_CANNOT_RUN_EXIT_CODES: readonly number[] = [COMMAND_NOT_EXECUTABLE_EXIT_CODE, COMMAND_NOT_FOUND_EXIT_CODE];
 
+// Only standard output keys the cache: a warning on standard error must not split one toolchain into two keys.
+const STANDARD_OUTPUT_ONLY_SCRIPT = 'exec 2>/dev/null; exec "$0" -c "$1"';
+
 function checksLineArgvOf(checksLine: string): string[] {
   return [FALLBACK_SHELL, '-c', OUTPUT_JOINING_SCRIPT, userShell() ?? FALLBACK_SHELL, checksLine];
+}
+
+function keyCommandArgvOf(keyCommand: string): string[] {
+  return [FALLBACK_SHELL, '-c', STANDARD_OUTPUT_ONLY_SCRIPT, userShell() ?? FALLBACK_SHELL, keyCommand];
+}
+
+/** Trailing newlines dropped, so the output read whole and the same output read back as a host's logged lines key alike. */
+function keyOutputOf(standardOutput: string): string {
+  return standardOutput.replace(/\n+$/, '');
 }
 
 /** Without this, every spec of a gated tree that runs a mutating verb would relay it to the runner rather than run it. */
@@ -90,18 +104,32 @@ function gateOutcomeOf(run: GateProcessRun): GateOutcome {
   return 'failed';
 }
 
-/** Only a pass is cached: a failure or a gate that could not run is judged again on the next attempt. */
+/**
+ * Only a pass is cached: a failure or a gate that could not run is judged again on the next attempt. A key command that does not exit 0
+ * leaves the cache unknowable, so the gate cannot run.
+ */
 async function gateTree(request: TreeGateRequest): Promise<TreeGateVerdict> {
   const {
-    treeId, checksLine, installLine, cache
+    treeId, checksLine, installLine, keyArgv, cache
   } = request;
-  const key                                        = gateCacheKeyOf({ treeId, checksLine, installLine });
+  let keyOutput: string | null = null;
+  if (keyArgv !== null) {
+    const keyRun = await runGate({ ...request, argv: keyArgv });
+    if (keyRun.exitCode !== GATE_PASSED_EXIT_CODE) return {
+      tree: treeId, outcome: 'cannot-run', cached: false, run: keyRun
+    };
+    keyOutput = keyOutputOf(keyRun.output);
+  }
+  const pass: GatePass = {
+    treeId, checksLine, installLine, keyOutput
+  };
+  const key = gateCacheKeyOf(pass);
   if (cache.holdsPassOf(key)) return {
     tree: treeId, outcome: 'passed', cached: true, run: null
   };
   const run     = await runGate(request);
   const outcome = gateOutcomeOf(run);
-  if (outcome === 'passed') cache.recordPass(key, { treeId, checksLine, installLine });
+  if (outcome === 'passed') cache.recordPass(key, pass);
   return {
     tree: treeId, outcome, cached: false, run
   };
@@ -112,5 +140,7 @@ export const GateRun = Object.freeze({
   gateEnvironmentOf,
   gateOutcomeOf,
   gateTree,
+  keyCommandArgvOf,
+  keyOutputOf,
   runGate,
 });

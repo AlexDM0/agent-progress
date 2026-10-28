@@ -215,6 +215,10 @@ export interface ChecksDefinitionFilesSet extends Logged {
   previousChecksDefinitionFiles: readonly string[] | null;
 }
 
+export interface GateKeyCommandSet extends Logged {
+  previousGateKeyCommand: string | null;
+}
+
 export interface TrackerCleared extends Logged {
   removedTaskCount:     number;
   survivingTicketCount: number;

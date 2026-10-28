@@ -70,9 +70,20 @@ export interface JobLaunchContext {
 
 export type SetupProgress = 'creating-worktree' | 'worktree-failed' | 'installing' | 'install-failed' | 'installed';
 
+/** The stored lines a gate is run and cached by, each `null` when none is stored. */
+export interface GateLines {
+  checksLine:  string | null;
+  installLine: string | null;
+  keyCommand:  string | null;
+}
+
 export type GateProgress =
   | { verdict: 'pending' }
-  | { verdict: 'judged'; treeId: string; outcome: GateOutcome; cached: boolean };
+  /** The key command exited 0 and the gate host has yet to end: a verdict of its own, so the pass that spawns the gate host is not skipped. */
+  | { verdict: 'keyed'; treeId: string; keyOutput: string }
+  | { verdict: 'judged'; treeId: string; outcome: GateOutcome; cached: boolean; keyOutput: string | null };
+
+type GateKeyReading = { verdict: 'pending' } | { verdict: 'cannot-run' } | { verdict: 'read'; keyOutput: string | null };
 
 export interface BuildJobObservation {
   jobId:    string;
@@ -97,6 +108,7 @@ const JOB_FILES = {
 
 const INSTALL_HOST_FOLDER = 'install';
 const GATE_HOST_FOLDER = 'gate';
+const GATE_KEY_HOST_FOLDER = 'gate-key';
 const PROCESS_HOST_INSTANCE = 1;
 const REVIEW_JOB_KIND = 'review';
 
@@ -189,25 +201,48 @@ function treeOf(worktree: string): string | null {
   return run !== null && GitProcess.succeeded(run) ? run.standardOutput.trim() : null;
 }
 
-function gateProgressOf(context: JobLaunchContext, job: Readonly<Job>, checksLine: string, installLine: string | null): GateProgress {
+/** A key host that did not exit 0, or was lost, leaves the cache key unknowable: the gate cannot run, and nothing is cached. */
+function gateKeyReadingOf(context: JobLaunchContext, job: Readonly<Job>, keyCommand: string | null): GateKeyReading {
+  if (keyCommand === null) return { verdict: 'read', keyOutput: null };
+  const keyHostFolder = join(jobFolderOf(context.workspace, job), GATE_KEY_HOST_FOLDER);
+  const end = processHostEnd(keyHostFolder);
+  if (end === 'pending') return { verdict: 'pending' };
+  if (end === 'lost' || end.reason !== 'exited' || end.exitCode !== 0) return { verdict: 'cannot-run' };
+  const entries = HostFleet.eventsAfter(keyHostFolder, PROCESS_HOST_INSTANCE, 0);
+  if (entries === 'malformed') return { verdict: 'cannot-run' };
+  return { verdict: 'read', keyOutput: GateRun.keyOutputOf(entries.filter((entry) => entry.origin === 'agent').map((entry) => entry.line).join('\n')) };
+}
+
+function gateProgressOf(context: JobLaunchContext, job: Readonly<Job>, checksLine: string, lines: GateLines): GateProgress {
   const treeId = treeOf(worktreeOf(context.workspace, job));
   if (treeId === null) return { verdict: 'pending' };
-  const end = processHostEnd(join(jobFolderOf(context.workspace, job), GATE_HOST_FOLDER));
+  const keyReading = gateKeyReadingOf(context, job, lines.keyCommand);
+  if (keyReading.verdict === 'pending') return { verdict: 'pending' };
+  if (keyReading.verdict === 'cannot-run') return {
+    verdict: 'judged', treeId, outcome: 'cannot-run', cached: false, keyOutput: null
+  };
+  const { keyOutput } = keyReading;
+  const gateHostFolder = join(jobFolderOf(context.workspace, job), GATE_HOST_FOLDER);
+  const end = processHostEnd(gateHostFolder);
   if (end === 'pending' || end === 'lost') {
-    const cached = HostFleet.livenessOf(join(jobFolderOf(context.workspace, job), GATE_HOST_FOLDER), PROCESS_HOST_INSTANCE).verdict === 'unclaimed'
-      && context.gateCache.holdsPassOf(gateCacheKeyOf({ treeId, checksLine, installLine }));
-    return cached ? {
-      verdict: 'judged', treeId, outcome: 'passed', cached: true
-    } : { verdict: 'pending' };
+    const cached = HostFleet.livenessOf(gateHostFolder, PROCESS_HOST_INSTANCE).verdict === 'unclaimed'
+      && context.gateCache.holdsPassOf(gateCacheKeyOf({
+        treeId, checksLine, installLine: lines.installLine, keyOutput
+      }));
+    if (cached) return {
+      verdict: 'judged', treeId, outcome: 'passed', cached: true, keyOutput
+    };
+    return keyOutput === null ? { verdict: 'pending' } : { verdict: 'keyed', treeId, keyOutput };
   }
   const outcome = GateRun.gateOutcomeOf({ exitCode: end.reason === 'exited' ? end.exitCode : null, signalCode: end.signal, output: '' });
   return {
-    verdict: 'judged', treeId, outcome, cached: false
+    verdict: 'judged', treeId, outcome, cached: false, keyOutput
   };
 }
 
 /** Read outside the lock, for every live build job. */
-function observeBuildJobs(context: JobLaunchContext, jobs: readonly Readonly<Job>[], checksLine: string | null, installLine: string | null): BuildJobObservation[] {
+function observeBuildJobs(context: JobLaunchContext, jobs: readonly Readonly<Job>[], lines: GateLines): BuildJobObservation[] {
+  const { checksLine, installLine } = lines;
   return jobs.filter(isWorktreeJob).map((job) => {
     const liveness = HostFleet.livenessOf(jobFolderOf(context.workspace, job), job.hostInstance);
     return {
@@ -215,7 +250,7 @@ function observeBuildJobs(context: JobLaunchContext, jobs: readonly Readonly<Job
       setup:    job.state === 'preparing' ? setupProgressOf(context, job, installLine) : 'installed',
       ...sessionReadingOf(context, job),
       agentEnd: liveness.verdict === 'ended' ? liveness.end : liveness.verdict === 'lost' ? 'lost' : null,
-      gate:     job.state === 'gating' && checksLine !== null ? gateProgressOf(context, job, checksLine, installLine) : { verdict: 'pending' },
+      gate:     job.state === 'gating' && checksLine !== null ? gateProgressOf(context, job, checksLine, lines) : { verdict: 'pending' },
     };
   });
 }
@@ -411,7 +446,9 @@ function settleGate(hold: HoldContext, job: Readonly<Job>, observation: BuildJob
     return;
   }
   // The runner, never the gate, records the pass, and only once the gate host's `end` is read.
-  const pass = { treeId: gate.treeId, checksLine: hold.checksLine, installLine: hold.installLine };
+  const pass = {
+    treeId: gate.treeId, checksLine: hold.checksLine, installLine: hold.installLine, keyOutput: gate.keyOutput
+  };
   if (!gate.cached) hold.context.gateCache.recordPass(gateCacheKeyOf(pass), pass);
   const headCommit = String(reportFieldOf(observation.report, 'headCommit'));
   if (job.kind === REVIEW_JOB_KIND) {
@@ -537,7 +574,7 @@ function sandboxFactsFor(context: JobLaunchContext, job: Readonly<Job>): Sandbox
   });
 }
 
-function spawnProcessHost(context: JobLaunchContext, trackerId: string, job: Readonly<Job>, folderName: string, line: string, network: boolean): void {
+function spawnProcessHost(context: JobLaunchContext, trackerId: string, job: Readonly<Job>, folderName: string, childArgv: readonly string[], network: boolean): void {
   const jobFolder = jobFolderOf(context.workspace, job);
   const hostFolder = join(jobFolder, folderName);
   if (HostFleet.livenessOf(hostFolder, PROCESS_HOST_INSTANCE).verdict !== 'unclaimed') return;
@@ -555,7 +592,7 @@ function spawnProcessHost(context: JobLaunchContext, trackerId: string, job: Rea
     monitorFolder:    context.monitorFolder,
     hostCodeVersion:  context.codeVersion,
     workingDirectory: worktree,
-    argv:             context.sandbox.sandboxedArgvOf(profilePath, GateRun.checksLineArgvOf(line)),
+    argv:             context.sandbox.sandboxedArgvOf(profilePath, childArgv),
     environment,
   });
   writeFileSync(profilePath, context.sandbox.profileTextOf({
@@ -603,13 +640,16 @@ async function sendOnce(context: JobLaunchContext, job: Readonly<Job>, marker: s
 async function runBuildJobEffects(context: JobLaunchContext, board: Board, trackerId: string, observations: readonly BuildJobObservation[]): Promise<void> {
   const checksLine = board.checkCommand() ?? null;
   const installLine = board.installCommand() ?? null;
+  const keyCommand = board.gateKeyCommand() ?? null;
   for (const job of board.jobs().filter(isWorktreeJob)) {
     const ticket = board.tickets().find((candidate) => candidate.frontmatter.id === ticketIdOf(job));
     const network = (ticket?.frontmatter.network ?? []).length > 0;
     if (job.state === 'preparing') {
       const jobFolder = jobFolderOf(context.workspace, job);
       if (!existsSync(worktreeOf(context.workspace, job)) && !existsSync(join(jobFolder, JOB_FILES.worktreeFailure))) createWorktree(context, job);
-      if (existsSync(worktreeOf(context.workspace, job)) && installLine !== null) spawnProcessHost(context, trackerId, job, INSTALL_HOST_FOLDER, installLine, true);
+      if (existsSync(worktreeOf(context.workspace, job)) && installLine !== null) {
+        spawnProcessHost(context, trackerId, job, INSTALL_HOST_FOLDER, GateRun.checksLineArgvOf(installLine), true);
+      }
     }
     const calls = observations.find((observation) => observation.jobId === job.id)?.calls ?? 0;
     if (job.state === 'running' && calls >= callBudgetOf(job)) {
@@ -618,9 +658,15 @@ async function runBuildJobEffects(context: JobLaunchContext, board: Board, track
     if (job.state === 'verifying' || job.state === 'gating') await sendOnce(context, job, JOB_FILES.inputClosed, [{ kind: 'close-input' }]);
     if (job.state === 'stopping') await sendOnce(context, job, JOB_FILES.stopSent, [{ kind: 'stop', graceMilliseconds: SESSION_STOP_GRACE_MILLISECONDS }]);
     if (job.state === 'gating' && checksLine !== null) {
+      // The key command runs in a host of its own under the gate's profile, never in the runner, and the gate waits for its output.
+      if (keyCommand !== null) spawnProcessHost(context, trackerId, job, GATE_KEY_HOST_FOLDER, GateRun.keyCommandArgvOf(keyCommand), network);
+      const keyReading = gateKeyReadingOf(context, job, keyCommand);
+      if (keyReading.verdict !== 'read') continue;
       const treeId = treeOf(worktreeOf(context.workspace, job));
-      const cached = treeId !== null && context.gateCache.holdsPassOf(gateCacheKeyOf({ treeId, checksLine, installLine }));
-      if (!cached) spawnProcessHost(context, trackerId, job, GATE_HOST_FOLDER, checksLine, network);
+      const cached = treeId !== null && context.gateCache.holdsPassOf(gateCacheKeyOf({
+        treeId, checksLine, installLine, keyOutput: keyReading.keyOutput
+      }));
+      if (!cached) spawnProcessHost(context, trackerId, job, GATE_HOST_FOLDER, GateRun.checksLineArgvOf(checksLine), network);
     }
   }
 }

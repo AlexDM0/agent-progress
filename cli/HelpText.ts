@@ -683,7 +683,18 @@ output never carries either.
                               written. --json prints {checksDefinitionFiles,
                               previousChecksDefinitionFiles}.
 
-  range --from <when>         The stored default axis of the chart; a bound may also be \`start\`, the
+  checks --key-command ("<line>" | --clear) [--json]
+                              Store a shell line whose standard output joins a gate's cache key,
+                              such as \`bun --version\`, untried, with one log line. Before each
+                              cache lookup it runs as the gate does, in the gate's sandboxed host on
+                              the gated tree; one that exits non-zero or cannot run caches nothing
+                              and the gate cannot run (gate-cannot-run). With none stored the key
+                              is the tree, the checks line and the install line alone. --clear
+                              removes it; it goes alone, and a blank one is refused at exit 1 with
+                              nothing written. --json prints {gateKeyCommand,
+                              previousGateKeyCommand}.
+
+  range --from <when>        The stored default axis of the chart; a bound may also be \`start\`, the
                               earliest visible row. A relative bound is stored as
         --to <when>           written, so \`--from -2h\` keeps meaning "the last two hours" on every
         [--tick <15m|1h|1d>]  refresh. A pair that is not in order is refused at exit 1 when both

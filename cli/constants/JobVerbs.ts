@@ -58,4 +58,5 @@ export const RELAYED_VERB_OF_CONTROL_KIND: Readonly<Record<ControlCommandKind, s
   'checks-set':                  'checks',
   'install-command-set':         'checks',
   'checks-definition-files-set': 'checks',
+  'gate-key-command-set':        'checks',
 };

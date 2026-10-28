@@ -21,6 +21,7 @@ import type {
   IncidentOpened,
   InstallCommandSet,
   ChecksDefinitionFilesSet,
+  GateKeyCommandSet,
   JobChanged,
   LifecycleAdvanced,
   Logged,
@@ -567,6 +568,10 @@ export class Board {
     return this.trackerChanges.setChecksDefinitionFiles(patterns, at);
   }
 
+  setGateKeyCommand(command: string | null, at: string): GateKeyCommandSet {
+    return this.trackerChanges.setGateKeyCommand(command, at);
+  }
+
   recordGateRan(fields: LogRecordFieldsOf<'gate-ran'>, at: string): Logged {
     return this.trackerChanges.recordGateRan(fields, at);
   }
@@ -823,6 +828,10 @@ export class Board {
 
   checksDefinitionFiles(): readonly string[] | undefined {
     return this.records.progress.checksDefinitionFiles;
+  }
+
+  gateKeyCommand(): string | undefined {
+    return this.records.progress.gateKeyCommand;
   }
 
   readyTickets(): readonly Readonly<Ticket>[] {

@@ -251,7 +251,8 @@ function observe(request: DrivePassRequest, jobLaunchContext: JobLaunchContext):
   const targets         = [...new Set([request.mainLine, ...jobs.flatMap((job) => (job.target === null ? [] : [job.target]))])].sort();
   const targetTips      = Object.fromEntries(targets.map((target) => [target, targetTipOf(workspace.rootDirectory, target)]));
   const targetsHoldingManagedBlock = targets.filter((target) => targetHoldsManagedBlock(workspace.rootDirectory, target, request.managedBlockMarker));
-  const buildJobs = JobLaunch.observeBuildJobs(jobLaunchContext, jobs, progress.checkCommand ?? null, progress.installCommand ?? null);
+  const gateLines = { checksLine: progress.checkCommand ?? null, installLine: progress.installCommand ?? null, keyCommand: progress.gateKeyCommand ?? null };
+  const buildJobs = JobLaunch.observeBuildJobs(jobLaunchContext, jobs, gateLines);
   const ticketIdsTouchingAgentConfig = JobLaunch.ticketIdsTouchingAgentConfigOf(jobLaunchContext, jobs);
   const usageMarker = UsageMarkerFile.read(request.monitorFolder);
   if (usageMarker.verdict === 'malformed') {
@@ -512,7 +513,13 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
       const progress   = requireProgressFile(request.workspace);
       const checksLine = progress.checkCommand ?? '';
       const verdict    = await GateRun.gateTree({
-        argv: GateRun.checksLineArgvOf(checksLine), directory: worktreePath, treeId, checksLine, installLine: progress.installCommand ?? null, cache: jobLaunchContext.gateCache,
+        argv:        GateRun.checksLineArgvOf(checksLine),
+        directory:   worktreePath,
+        treeId,
+        checksLine,
+        installLine: progress.installCommand ?? null,
+        keyArgv:     progress.gateKeyCommand === undefined ? null : GateRun.keyCommandArgvOf(progress.gateKeyCommand),
+        cache:       jobLaunchContext.gateCache,
       });
       return verdict.outcome;
     },

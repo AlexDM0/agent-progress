@@ -19,6 +19,7 @@ import { hostFilesOf }                                 from '../../src/lib/agent
 import type { HostLaunch }                             from '../../src/lib/agent-host/HostLaunch.ts';
 import type { HostRecord }                             from '../../src/lib/agent-host/HostRecord.ts';
 import type { Board }                                  from '../../src/lib/tracker-model/Board.ts';
+import { GateRun }                                     from '../../src/services/lifecycle/GateRun.ts';
 import { createRenderState }                           from '../../src/services/render/RenderState.ts';
 import { createDrivePass, type DrivePass }             from '../../src/services/runner/DrivePass.ts';
 import { HOST_ENTRY_PATH, HostBundle }                 from '../../src/services/runner/HostBundle.ts';
@@ -190,6 +191,14 @@ function buildingSession(commitMessage = 'Build the example', report = builderRe
   ];
 }
 
+/** The key output of every pass the folder cache holds; an unsandboxed runner caches in memory, so it holds none. */
+function cachedKeyOutputs(): unknown[] {
+  const gatesFolder = join(requireWorkspace(repositoryDirectory).trackerDirectory, 'gates');
+  if (!existsSync(gatesFolder)) return [];
+  const passes = readdirSync(gatesFolder).map((fileName) => JSON.parse(readFileSync(join(gatesFolder, fileName), 'utf8')) as Record<string, unknown>);
+  return passes.map((pass) => pass['keyOutput']);
+}
+
 function hostLaunchIn(hostFolder: string): HostLaunch {
   return JSON.parse(readFileSync(hostFilesOf(hostFolder, 1).launchPath, 'utf8')) as HostLaunch;
 }
@@ -198,7 +207,7 @@ function hostLaunchIn(hostFolder: string): HostLaunch {
 function endEveryHost(): void {
   const jobsFolder = join(requireWorkspace(repositoryDirectory).trackerDirectory, 'jobs');
   if (!existsSync(jobsFolder)) return;
-  const hostFolders = readdirSync(jobsFolder).flatMap((jobId) => [join(jobsFolder, jobId), join(jobsFolder, jobId, 'install'), join(jobsFolder, jobId, 'gate')]);
+  const hostFolders = readdirSync(jobsFolder).flatMap((jobId) => ['', 'install', 'gate', 'gate-key'].map((folderName) => join(jobsFolder, jobId, folderName)));
   for (const hostFolder of hostFolders.filter((folder) => existsSync(folder))) {
     for (const fileName of readdirSync(hostFolder).filter((name) => /^host-\d+\.json$/.test(name))) {
       const record = JSON.parse(readFileSync(join(hostFolder, fileName), 'utf8')) as HostRecord;
@@ -259,6 +268,29 @@ describe('a build job end to end', () => {
     const gatesFolder = join(requireWorkspace(repositoryDirectory).trackerDirectory, 'gates');
     expect(existsSync(gatesFolder) && readdirSync(gatesFolder).length === 1).toBe(sandboxApplies);
   }, BUILD_TEST_TIMEOUT_MILLISECONDS);
+
+  test('a stored key command runs first in a process host of its own under the gate\'s sandbox profile, and its output keys the pass', async () => {
+    await run(['checks', 'true']);
+    await run(['checks', '--key-command', 'echo example-toolchain 1.0']);
+    const drivePass = await drivePassPlaying(buildingSession());
+    await passUntil(drivePass, () => buildJobEnding() !== undefined, 'the build job ending');
+
+    expect(buildJobEnding()).toMatchObject({ outcome: 'built' });
+    const jobFolder = jobFolderOf(firstBuildJobId());
+    const keyLaunch = hostLaunchIn(join(jobFolder, 'gate-key'));
+    const gateLaunch = hostLaunchIn(join(jobFolder, 'gate'));
+    expect(keyLaunch.kind).toBe('process');
+    expect(keyLaunch.workingDirectory).toBe(gateLaunch.workingDirectory);
+    expect(keyLaunch.environment).toEqual(gateLaunch.environment);
+    const gateSandboxPrefix = gateLaunch.argv.slice(0, -GateRun.checksLineArgvOf('').length)
+      .map((part) => (part === join(jobFolder, 'gate', 'process-sandbox.sb') ? join(jobFolder, 'gate-key', 'process-sandbox.sb') : part));
+    expect(keyLaunch.argv.slice(0, -GateRun.keyCommandArgvOf('').length)).toEqual(gateSandboxPrefix);
+    expect(keyLaunch.argv.slice(-GateRun.keyCommandArgvOf('').length)).toEqual(GateRun.keyCommandArgvOf('echo example-toolchain 1.0'));
+    expect(keyLaunch.argv[0] === SANDBOX_EXEC_PATH).toBe(createProcessHostSandbox().isUsable());
+    expect(readFileSync(join(jobFolder, 'gate-key', 'process-sandbox.sb'), 'utf8')).toBe(readFileSync(join(jobFolder, 'gate', 'process-sandbox.sb'), 'utf8'));
+
+    expect(cachedKeyOutputs()).toEqual(createProcessHostSandbox().isUsable() ? ['example-toolchain 1.0'] : []);
+  }, BUILD_TEST_TIMEOUT_MILLISECONDS);
 });
 
 describe('unforced wakes', () => {
@@ -307,6 +339,18 @@ describe('operational failures', () => {
     const drivePass = await drivePassPlaying(buildingSession());
     await passUntil(drivePass, () => openIncidentKinds().includes('gate-cannot-run'), 'the gate-cannot-run incident');
     expect(buildJobEnding()).toMatchObject({ outcome: 'stopped', cause: 'gate-cannot-run' });
+  }, BUILD_TEST_TIMEOUT_MILLISECONDS);
+
+  test.each([['exits non-zero', 'exit 3'], ['exits 127', 'exit 127']])('a key command that %s opens gate-cannot-run, runs no gate and caches nothing', async (_name, failing) => {
+    await run(['checks', 'true']);
+    await run(['checks', '--key-command', `echo example-toolchain 1.0; ${failing}`]);
+    const drivePass = await drivePassPlaying(buildingSession());
+    await passUntil(drivePass, () => openIncidentKinds().includes('gate-cannot-run'), 'the gate-cannot-run incident');
+
+    expect(buildJobEnding()).toMatchObject({ outcome: 'stopped', cause: 'gate-cannot-run' });
+    expect(loggedEntries('gate-ran').map((entry) => entry.fields)).toEqual([expect.objectContaining({ outcome: 'cannot-run', cached: false })]);
+    expect(existsSync(join(jobFolderOf(firstBuildJobId()), 'gate'))).toBe(false);
+    expect(cachedKeyOutputs()).toEqual([]);
   }, BUILD_TEST_TIMEOUT_MILLISECONDS);
 
   test('a report saying blocked opens blocked', async () => {

@@ -34,6 +34,8 @@ export interface TrackerProgress {
   installCommand?:        string;
   /** The patterns of the files the checks line resolves through, which V11 holds a branch to; absent on a tracker that never set them. */
   checksDefinitionFiles?: string[];
+  /** The shell line whose standard output joins a gate's cache key, such as the toolchain's version; absent on a tracker that never set one. */
+  gateKeyCommand?:        string;
   /** The number the next draft takes, never wound back; absent on a tracker that never opened a draft. */
   nextDraftId?:           number;
   /** The number the next job takes, never wound back; absent on a tracker that never launched a job. */

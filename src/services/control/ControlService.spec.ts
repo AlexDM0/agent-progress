@@ -87,6 +87,7 @@ const EXAMPLE_OF_KIND: { readonly [Kind in ControlCommandKind]: ControlCommandOf
   'checks-set':                  { kind: 'checks-set', command: null, restamps: true },
   'install-command-set':         { kind: 'install-command-set', command: 'bun install' },
   'checks-definition-files-set': { kind: 'checks-definition-files-set', patterns: ['pyproject.toml'] },
+  'gate-key-command-set':        { kind: 'gate-key-command-set', command: 'bun --version' },
 };
 
 function refusalOf(attempt: () => unknown): OperationRefusal {

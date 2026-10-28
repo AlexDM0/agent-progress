@@ -83,6 +83,7 @@ const ARGUMENTS_OF_KIND: { readonly [Kind in ControlCommandKind]: readonly strin
   'checks-set':                  ['checks', 'bun test'],
   'install-command-set':         ['checks', '--install', 'bun install'],
   'checks-definition-files-set': ['checks', '--definition-files', 'pyproject.toml noxfile.py'],
+  'gate-key-command-set':        ['checks', '--key-command', 'bun --version'],
 };
 
 const ARGUMENTS_OF_READ_ONLY_VERB: Readonly<Record<string, readonly string[]>> = {

@@ -120,6 +120,9 @@ function documentHeaderProblemOf(candidate: unknown): string | null {
   if (candidate['checksDefinitionFiles'] !== undefined && !BoardSettingsUtil.checksDefinitionFilesAreWellFormed(candidate['checksDefinitionFiles'])) {
     return `checksDefinitionFiles is ${JSON.stringify(candidate['checksDefinitionFiles'])}, and when present it has to be a non-empty list of patterns without whitespace`;
   }
+  if (candidate['gateKeyCommand'] !== undefined && !BoardSettingsUtil.checkCommandIsWellFormed(candidate['gateKeyCommand'])) {
+    return `gateKeyCommand is ${JSON.stringify(candidate['gateKeyCommand'])}, and when present it has to be a shell line that is not blank`;
+  }
   if (candidate['nextDraftId'] !== undefined && !StoredValueUtil.wholeNumberIsAtLeast(candidate['nextDraftId'], FIRST_DRAFT_NUMBER)) {
     return `nextDraftId is ${JSON.stringify(candidate['nextDraftId'])}, and when present it has to be a whole number of at least ${FIRST_DRAFT_NUMBER}`;
   }
