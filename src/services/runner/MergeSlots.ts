@@ -80,11 +80,12 @@ export interface MergeSlots {
 const ROUNDS_PER_SWEEP = 8;
 
 const MERGE_REFUSED_CAUSES = {
-  outOfCalls:    'out-of-calls',
-  cannotResolve: 'cannot-resolve',
-  unresolved:    'merge-unresolved',
-  noReport:      'no-report',
-  gitFailed:     'git-failed',
+  outOfCalls:         'out-of-calls',
+  cannotResolve:      'cannot-resolve',
+  unresolved:         'merge-unresolved',
+  noReport:           'no-report',
+  gitFailed:          'git-failed',
+  releaseBehindGroup: 'release-behind-group',
 } as const;
 
 /** The causes a merge job ends with when it frees its slot and its ticket waits in the queue again. */
@@ -198,6 +199,22 @@ export function createMergeSlots(context: MergeSlotsContext): MergeSlots {
     });
   }
 
+  /** A release carries the group's whole tip to the main line; one forked before a later landing or refresh would deliver work main lacks. */
+  async function releaseGapOf(job: Readonly<Job>): Promise<string | null> {
+    if (isRefresh(job) || slotOf(job).target !== mainLine) return null;
+    const ticketId = ticketIdOf(job);
+    const group = await context.hold((hold) => {
+      const ticket = hold.board.tickets().find((candidate) => candidate.frontmatter.id === ticketId);
+      return ticket?.frontmatter.releasesGroup === true ? ticket.frontmatter.group : undefined;
+    });
+    if (group === undefined) return null;
+    const groupBranch = `${groupTargetPrefix}${group}`;
+    const groupTip    = GitProcess.resolvedCommitOf(context.repositoryRoot, `refs/heads/${groupBranch}`);
+    if (groupTip === null) return null;
+    const descends = GitProcess.run(context.repositoryRoot, ['merge-base', '--is-ancestor', groupTip, slotOf(job).branchTip]);
+    return GitProcess.succeeded(descends) ? null : `The release branch of #${ticketId} does not hold ${groupBranch}'s tip ${groupTip}.`;
+  }
+
   async function runMergeIn(job: Readonly<Job>): Promise<boolean> {
     const worktree = slotWorktreeOf(job);
     const slot     = slotOf(job);
@@ -212,6 +229,11 @@ export function createMergeSlots(context: MergeSlotsContext): MergeSlots {
       // A live holder keeps its slot; only a merge-in left behind by nobody is aborted and requeued.
       if (context.hostIsLive(job)) return false;
       await freeSlot(job, { outcome: 'stopped', cause: REQUEUE_CAUSES.orphaned });
+      return true;
+    }
+    const releaseGap = await releaseGapOf(job);
+    if (releaseGap !== null) {
+      await refuseMerge(job, MERGE_REFUSED_CAUSES.releaseBehindGroup, releaseGap);
       return true;
     }
     const merge = MergeRun.mergeInOnce(worktree, MergeRun.sidesOf(job, slot));

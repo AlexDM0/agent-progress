@@ -379,6 +379,26 @@ describeWhenGitIsPresent('a group\'s slot in its own worktree', () => {
     expect(Bun.spawnSync(['git', 'rev-parse', '--verify', '--quiet', 'refs/heads/group-example'], { cwd: harness.repository }).exitCode).not.toBe(0);
   });
 
+  test('a release whose branch lacks the group\'s tip is refused before its merge-in, so main and the bundle stay put', async () => {
+    harness = createMergeSlotsHarness([
+      {
+        id: '010', group: 'example', status: 'reviewed', change: ['cart.ts', 'export const cart = 1;\n']
+      },
+      {
+        id: '012', group: 'example', releasesGroup: true, dependsOn: ['010'], change: ['release.ts', 'export const release = 1;\n']
+      },
+    ]);
+    commitFile(groupWorktree(harness), 'late.ts', 'export const late = 1;\n');
+    const mainTip = harness.tipOf('main');
+
+    await harness.slots.sweep();
+
+    expect(kindsLogged(harness, 'merge-landed')).toEqual([]);
+    expect(harness.tipOf('main')).toBe(mainTip);
+    expect(harness.board.decisions().filter((decision) => decision.kind === 'merge-refused').map((decision) => decision.ticketIds)).toEqual([['012']]);
+    expect(harness.board.tickets().map((ticket) => ticket.frontmatter.status)).toEqual(['reviewed', 'in-review']);
+  });
+
   test('a release ticket whose bundle has not all integrated waits, and the group is not refreshed while it is queued', async () => {
     harness = createMergeSlotsHarness([
       {

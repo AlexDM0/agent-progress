@@ -623,9 +623,10 @@ slot, with `slot.branchTip` the main line's tip: it merges that tip in a tempora
 temporary worktree; the claim refuses `refresh-beside-a-queued-release`, and `merge-slot-held` while the slot is held,
 so there are never two refreshes. The group's release ticket targets the main line, a candidate only once every other
 ticket of its bundle (walked through `dependsOn`) is `reviewed` and no refresh holds the group's slot, with the
-bundle's highest priority. It merges the main line once in its own worktree, gates, fast-forwards the main line and
-delivers the whole bundle; the group worktree is then removed and `group-<name>` deleted with `branch -d`, never
-forced.
+bundle's highest priority. A release whose branch does not hold the group's tip is refused (`merge-refused`, cause
+`release-behind-group`) before its merge-in. It merges the main line once in its own worktree, gates, fast-forwards
+the main line and delivers the whole bundle; the group worktree is then removed and `group-<name>` deleted with
+`branch -d`, never forced.
 
 | what happens | what the runner does |
 | --- | --- |
