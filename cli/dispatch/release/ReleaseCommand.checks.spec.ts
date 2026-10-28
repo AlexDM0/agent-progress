@@ -161,15 +161,14 @@ afterEach(() => {
 });
 
 describeWhenGitIsPresent('a release with no check command stored', () => {
-  test('releases without --worktree as it always did, runs nothing, and prints a null checkCommand', async () => {
+  // A merge never lands ungated: a tracker with no checks line refuses rather than releasing unchecked.
+  test('is refused checks-not-set, with or without --worktree, and changes nothing', async () => {
     const work = await reviewedTicketOnAWorktree('role-history');
 
-    const outcome = await agentProgress(['release', work.identifier, '--branch', work.branch, '--json']);
+    const withoutWorktree = await expectRefusedChangingNothing(work, 'checks-not-set', ['release', work.identifier, '--branch', work.branch, '--json']);
+    await expectRefusedChangingNothing(work, 'checks-not-set');
 
-    expect(outcome.exitCode, outcome.output).toBe(0);
-    expect(documentOf(outcome)).toMatchObject({ released: true, checkCommand: null });
-    expect(mainTip()).toBe(work.tip);
-    expect(outcome.error).toBe('');
+    expect(withoutWorktree.detail).toContain(`${PRODUCT_NAMES.PROGRAM} checks "<command>"`);
   });
 });
 
@@ -390,7 +389,8 @@ describeWhenGitIsPresent('a ticket stamped with the check command it started und
     expect(mainTip()).toBe(work.tip);
   });
 
-  test('a ticket started with none stored is refused once a line is stored, and one started under a line once it is cleared', async () => {
+  // Once the line is cleared no release runs at all, so the stamp of a ticket started under it is never reached.
+  test('a ticket started with none stored is refused once a line is stored, and one started under a line is refused checks-not-set once it is cleared', async () => {
     const unstamped = await reviewedTicketOnAWorktree('role-history');
     storeCheckCommand(MARKER_COMMAND);
     expect((await expectRefusedChangingNothing(unstamped, 'check-command-differs-from-start')).detail).toContain('under the check command none');
@@ -399,8 +399,7 @@ describeWhenGitIsPresent('a ticket stamped with the check command it started und
     const progressWithoutTheLine = JSON.parse(progressText()) as Record<string, unknown>;
     delete progressWithoutTheLine['checkCommand'];
     writeFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'), `${JSON.stringify(progressWithoutTheLine, null, 2)}\n`);
-    const cleared = await expectRefusedChangingNothing(stamped, 'check-command-differs-from-start');
-    expect(cleared.detail).toContain(`${PRODUCT_NAMES.PROGRAM} checks --clear --restamp`);
+    await expectRefusedChangingNothing(stamped, 'checks-not-set');
   });
 
   test('one ticket of a release whose stamp differs refuses the whole release', async () => {

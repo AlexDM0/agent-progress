@@ -106,3 +106,6 @@ export interface JobEnding {
 }
 
 export type RunnerStopReason = 'stopped' | 'handed-over';
+
+/** `cannot-run` is a gate that never judged the tree (exit 126 or 127, or a signal), never a failed pass. */
+export type GateOutcome = 'passed' | 'failed' | 'cannot-run';

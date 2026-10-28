@@ -114,6 +114,9 @@ function documentHeaderProblemOf(candidate: unknown): string | null {
   if (candidate['checkCommand'] !== undefined && !BoardSettingsUtil.checkCommandIsWellFormed(candidate['checkCommand'])) {
     return `checkCommand is ${JSON.stringify(candidate['checkCommand'])}, and when present it has to be a shell line that is not blank`;
   }
+  if (candidate['installCommand'] !== undefined && !BoardSettingsUtil.checkCommandIsWellFormed(candidate['installCommand'])) {
+    return `installCommand is ${JSON.stringify(candidate['installCommand'])}, and when present it has to be a shell line that is not blank`;
+  }
   if (candidate['nextDraftId'] !== undefined && !StoredValueUtil.wholeNumberIsAtLeast(candidate['nextDraftId'], FIRST_DRAFT_NUMBER)) {
     return `nextDraftId is ${JSON.stringify(candidate['nextDraftId'])}, and when present it has to be a whole number of at least ${FIRST_DRAFT_NUMBER}`;
   }

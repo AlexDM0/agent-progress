@@ -300,12 +300,12 @@ output never carries either.
                               with its reason, the files a worktree still holds among it, at exit
                               0. --json prints, on success, {released: true, tickets, branch,
                               mainLine, commit, checkCommand, closedReviewRows, cleanup} —
-                              checkCommand the command that passed, null when none is stored,
-                              closedReviewRows the ids of the review rows it delivered — and on a
+                              checkCommand the command that passed (a tracker storing none is
+                              refused checks-not-set), closedReviewRows the ids of the review rows it delivered — and on a
                               refusal {released: false, reason, detail, blockingFiles, cleanup: []};
                               reason is one of invalid-request, unknown-ticket,
                               ticket-not-releasable, unknown-branch, not-on-main-line,
-                              worktree-not-at-tip, worktree-dirty, checks-failed,
+                              checks-not-set, worktree-not-at-tip, worktree-dirty, checks-failed,
                               check-command-changed, check-command-differs-from-start,
                               acceptance-unnumbered, acceptance-unaccounted, acceptance-waived,
                               branch-moved, main-moved, merge-refused,
@@ -637,8 +637,8 @@ output never carries either.
                               user's shell (\`$SHELL\`, else /bin/sh) in the branch's worktree.
                               A new line is first run in the main checkout: when it exits non-zero
                               nothing is stored or logged, and it is refused at exit 1 with its last
-                              20 lines. --clear removes it; a tracker that never set one runs none,
-                              and the read writes nothing. Every ticket start and claim stamps the
+                              20 lines. --clear removes it; release refuses a tracker that never
+                              set one (checks-not-set), and the read writes nothing. Every ticket start and claim stamps the
                               stored line on the ticket's row, so a change while a ticket is in
                               progress or in review is refused at exit 1 unless --restamp is given,
                               which stamps every such row with the new line in the same write and
@@ -648,6 +648,12 @@ output never carries either.
                               PreToolUse hook blocks a subagent's change (see \`hook\`).
                               --json prints {checkCommand}, null when none is stored, and a change
                               adds previousCheckCommand and restampedTicketIds.
+
+  checks --install "<line>" [--json]
+                              Store the install line that prepares a fresh worktree before a gate,
+                              untried, with one log line; it is part of a gate's cache key. It goes
+                              alone, and a blank one is refused at exit 1 with nothing written.
+                              --json prints {installCommand, previousInstallCommand}.
 
   range --from <when>         The stored default axis of the chart; a bound may also be \`start\`, the
                               earliest visible row. A relative bound is stored as

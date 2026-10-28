@@ -69,11 +69,12 @@ const EXAMPLE_OF_KIND: { readonly [Kind in ControlCommandKind]: ControlCommandOf
   'draft-answer': {
     kind: 'draft-answer', draftId: 'D1', questionId: 'Q1', answer: 'a'
   },
-  'draft-drop':      { kind: 'draft-drop', draftId: 'D1', itemId: 'N1' },
-  'draft-close':     { kind: 'draft-close', draftId: 'D1', ticketReferences: ['3'] },
-  'draft-abandon':   { kind: 'draft-abandon', draftId: 'D1', reason: 'Filed elsewhere' },
-  'concurrency-set': { kind: 'concurrency-set', limit: 3 },
-  'checks-set':      { kind: 'checks-set', command: null, restamps: true },
+  'draft-drop':          { kind: 'draft-drop', draftId: 'D1', itemId: 'N1' },
+  'draft-close':         { kind: 'draft-close', draftId: 'D1', ticketReferences: ['3'] },
+  'draft-abandon':       { kind: 'draft-abandon', draftId: 'D1', reason: 'Filed elsewhere' },
+  'concurrency-set':     { kind: 'concurrency-set', limit: 3 },
+  'checks-set':          { kind: 'checks-set', command: null, restamps: true },
+  'install-command-set': { kind: 'install-command-set', command: 'bun install' },
 };
 
 function refusalOf(attempt: () => unknown): OperationRefusal {

@@ -40,7 +40,9 @@ export type LogFieldShape =
   | 'decision-answer'
   | 'incident-kind'
   | 'incident-move'
-  | 'incident-default-cause';
+  | 'incident-default-cause'
+  | 'gate-outcome'
+  | 'flag';
 
 export interface LogRecordKindSchema {
   subject: LogRecordSubject;
@@ -129,6 +131,9 @@ export const LOG_RECORD_SCHEMA = {
   'concurrency-limit-set': { subject: 'board', fields: { limit: 'concurrency-limit' } },
   'dispatcher-set':        { subject: 'board', fields: { state: 'dispatcher-state', runId: 'dispatcher-run-id' } },
   'check-command-set':     { subject: 'board', fields: { command: 'check-command' } },
+  'install-command-set':   { subject: 'board', fields: { command: 'text' } },
+  // `tree` is the gated tree's object id; a cache hit ran nothing and is always `passed`.
+  'gate-ran':              { subject: 'board', fields: { tree: 'text', outcome: 'gate-outcome', cached: 'flag' } },
   'tracker-cleared':       { subject: 'board', fields: NO_FIELDS },
   'runner-started':        { subject: 'board', fields: { codeVersion: 'text', installVersion: 'count' } },
   'runner-stopped':        { subject: 'board', fields: { reason: 'runner-stop-reason' } },

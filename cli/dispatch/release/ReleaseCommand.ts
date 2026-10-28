@@ -25,7 +25,7 @@ export const releaseCommand: CommandHandler = async (commandArguments, context) 
   let release: Release;
   let nextLine: string;
   let request: ReleaseRequest;
-  let checkedTip: CheckedTip | null;
+  let checkedTip: CheckedTip;
   try {
     requireCurrentInstall(context.currentDirectory);
     request    = releaseRequestFrom(commandArguments, context);
@@ -57,7 +57,7 @@ export const releaseCommand: CommandHandler = async (commandArguments, context) 
   const ticketIds    = tickets.map(({ frontmatter }) => frontmatter.id);
   const ticketsNamed = ticketIds.length === 1 ? `ticket #${ticketIds.join('')}` : `tickets ${TicketPhraseUtil.ticketReferencesText(ticketIds)}`;
   const headline     = `Released ${ticketsNamed}: ${request.mainLine} fast-forwarded to ${OutputUtil.shortCommitOf(commit)} from ${request.branch}, and delivered.`;
-  const checksLines  = checkedTip === null ? [] : [`The check command passed on it first: ${checkedTip.checkCommand}`];
+  const checksLines  = [`The check command passed on it first: ${checkedTip.checkCommand}`];
   const reviewLines  = logged.filter((record) => record.kind === 'review-bar-closed').map(LogUtil.sentenceOf);
   const document     = {
     released:         true,
@@ -65,7 +65,7 @@ export const releaseCommand: CommandHandler = async (commandArguments, context) 
     branch:           request.branch,
     mainLine:         request.mainLine,
     commit,
-    checkCommand:     checkedTip?.checkCommand ?? null,
+    checkCommand:     checkedTip.checkCommand,
     closedReviewRows: closedReviewRows.map(({ id }) => id),
     cleanup,
   };

@@ -1,4 +1,5 @@
 import type {
+  GateOutcome,
   InterruptionCause,
   JobKind,
   JobOutcome,
@@ -60,6 +61,8 @@ export const CRASH_INTERRUPTION_CAUSES = ['host-lost', 'agent-crashed'] as const
 export const SLOT_PHASES = ['merge-in', 'resolving', 'reviewing-resolution', 'gating', 'fixing', 'landing'] as const satisfies readonly SlotPhase[];
 
 export const RUNNER_STOP_REASONS = ['stopped', 'handed-over'] as const satisfies readonly RunnerStopReason[];
+
+export const GATE_OUTCOMES = ['passed', 'failed', 'cannot-run'] as const satisfies readonly GateOutcome[];
 
 export const JOB_ID_PREFIX = 'J';
 

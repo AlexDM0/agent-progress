@@ -67,6 +67,8 @@ const COPY_FOR_FIELD_SHAPE: Readonly<Record<LogFieldShape, (value: unknown) => u
   'incident-kind':          sameValue,
   'incident-move':          sameValue,
   'incident-default-cause': sameValue,
+  'gate-outcome':           sameValue,
+  'flag':                   sameValue,
 };
 
 /** Copies into `target` each value `shapes` names, in the schema's order, leaving out an optional one that is absent. */

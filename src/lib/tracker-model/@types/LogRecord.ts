@@ -6,6 +6,7 @@ import type { LogFieldShape, LOG_RECORD_SCHEMA, LOG_RECORD_SUBJECT_IDS } from '.
 import type { DecisionAnswer, DecisionKind }                             from './Decision.ts';
 import type { IncidentDefaultCause, IncidentKind, IncidentMove }         from './Incident.ts';
 import type {
+  GateOutcome,
   InterruptionCause,
   JobKind,
   JobOutcome,
@@ -51,6 +52,8 @@ interface ValueOfFieldShape {
   'incident-kind':          IncidentKind;
   'incident-move':          IncidentMove;
   'incident-default-cause': IncidentDefaultCause;
+  'gate-outcome':           GateOutcome;
+  'flag':                   boolean;
 }
 
 type Schema = typeof LOG_RECORD_SCHEMA;

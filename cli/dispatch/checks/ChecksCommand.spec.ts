@@ -91,7 +91,23 @@ describeWhenGitIsPresent('the check command', () => {
     expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe('Check command cleared');
   });
 
+  test('--install stores installCommand only once set, leaves the check command alone, and logs install-command-set naming it', async () => {
+    expect(Object.hasOwn(storedProgressOf(repositoryDirectory), 'installCommand')).toBe(false);
+
+    const setting = JSON.parse((await run(['checks', '--install', 'bun install --frozen-lockfile', '--json'])).outputText()) as unknown;
+    const second  = await run(['checks', '--install', 'bun install']);
+
+    expect(setting).toEqual({ installCommand: 'bun install --frozen-lockfile', previousInstallCommand: null });
+    expect(second.outputText()).toBe('Install command set to bun install (was bun install --frozen-lockfile).');
+    expect(storedProgressOf(repositoryDirectory).installCommand).toBe('bun install');
+    expect(Object.hasOwn(storedProgressOf(repositoryDirectory), 'checkCommand')).toBe(false);
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe('Install command set to bun install');
+  });
+
   test.each([
+    ['a blank install line', ['checks', '--install', '  ']],
+    ['an install line beside a check command', ['checks', EXAMPLE_CHECK_COMMAND, '--install', 'bun install']],
+    ['an install line beside --clear', ['checks', '--install', 'bun install', '--clear']],
     ['a blank command', ['checks', '  ']],
     ['a command beside --clear', ['checks', EXAMPLE_CHECK_COMMAND, '--clear']],
     ['--clear with none stored', ['checks', '--clear']],

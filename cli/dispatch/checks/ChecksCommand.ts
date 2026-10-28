@@ -22,9 +22,9 @@ import {
   runCheckCommand
 } from '../CheckCommandRun.ts';
 
-const USAGE = `${PRODUCT_NAMES.PROGRAM} checks ["<command>" | --clear] [--restamp] [--json]`;
+const USAGE = `${PRODUCT_NAMES.PROGRAM} checks ["<command>" | --clear] [--restamp] [--json]  |  ${PRODUCT_NAMES.PROGRAM} checks --install "<line>" [--json]`;
 
-const KNOWN_OPTION_NAMES = ['clear', 'restamp', 'json'];
+const KNOWN_OPTION_NAMES = ['clear', 'restamp', 'install', 'json'];
 
 const NO_CHECK_COMMAND_TEXT = `No check command is set, so \`${PRODUCT_NAMES.PROGRAM} release\` runs none. `
   + `Set one with \`${PRODUCT_NAMES.PROGRAM} checks "<command>"\`.`;
@@ -74,9 +74,34 @@ async function requireTheCommandPassesInTheMainCheckout(checkCommand: string, co
   );
 }
 
+/** The install line is stored untried: it prepares a fresh worktree, which the main checkout already is. */
+async function setInstallCommand(installCommand: string, commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
+  if (commandArguments.positional() !== undefined || commandArguments.flag('clear') || commandArguments.flag('restamp')) {
+    throw new OperationRefusal('refused', `--install goes alone, without a check command, --clear or --restamp.\n  Usage: ${USAGE}`);
+  }
+  if (!BoardSettingsUtil.checkCommandIsWellFormed(installCommand)) {
+    throw new OperationRefusal('refused', `An install line is a shell line that is not blank, quoted as one argument.\n  Usage: ${USAGE}`);
+  }
+  const command: ControlCommandOf<'install-command-set'> = { kind: 'install-command-set', command: installCommand };
+  await relayWhenUnderJob(context, command);
+  const { logged, previousInstallCommand } = await openTrackerForWriting(commandArguments, context, (change) => ControlService.apply(command, change).result);
+  OutputUtil.printEntity(
+    commandArguments,
+    context,
+    { installCommand, previousInstallCommand },
+    `${OutputUtil.loggedSentencesOf(logged)} (was ${previousInstallCommand ?? 'none'}).`,
+  );
+}
+
 export const checksCommand: CommandHandler = async (commandArguments, context) => {
   commandArguments.rejectUnknownOptions(KNOWN_OPTION_NAMES, USAGE);
   commandArguments.rejectExtraPositionals(1, USAGE);
+
+  const installCommand = commandArguments.option('install');
+  if (installCommand !== undefined) {
+    await setInstallCommand(installCommand, commandArguments, context);
+    return;
+  }
 
   if (commandArguments.positional() === undefined && !commandArguments.flag('clear')) {
     if (commandArguments.flag('restamp')) throw new OperationRefusal('refused', `--restamp goes with a command or --clear.\n  Usage: ${USAGE}`);

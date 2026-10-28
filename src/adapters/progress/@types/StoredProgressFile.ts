@@ -82,6 +82,7 @@ export interface StoredProgressFile {
   dispatcherState?:  DispatcherState;
   dispatcherRunId?:  string;
   checkCommand?:     string;
+  installCommand?:   string;
   nextDraftId?:      number;
   nextJobId?:        number;
   jobs?:             StoredJob[];

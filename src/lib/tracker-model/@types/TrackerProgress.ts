@@ -30,6 +30,8 @@ export interface TrackerProgress {
   dispatcherRunId?:  string;
   /** The shell line a release runs on the branch tip before it changes anything; absent on a tracker that never set one, which runs none. */
   checkCommand?:     string;
+  /** The shell line that prepares a fresh worktree before a gate, and part of a gate's cache key; absent on a tracker that never set one. */
+  installCommand?:   string;
   /** The number the next draft takes, never wound back; absent on a tracker that never opened a draft. */
   nextDraftId?:      number;
   /** The number the next job takes, never wound back; absent on a tracker that never launched a job. */

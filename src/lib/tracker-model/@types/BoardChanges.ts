@@ -205,6 +205,10 @@ export interface CheckCommandSet extends Logged {
   restampedTicketIds:   readonly string[];
 }
 
+export interface InstallCommandSet extends Logged {
+  previousInstallCommand: string | null;
+}
+
 export interface TrackerCleared extends Logged {
   removedTaskCount:     number;
   survivingTicketCount: number;

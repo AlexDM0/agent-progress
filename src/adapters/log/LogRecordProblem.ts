@@ -10,6 +10,7 @@ import {
 import { DISPATCHER_STATES } from '../../lib/tracker-model/constants/DispatcherStates.ts';
 import {
   FIRST_HOST_INSTANCE,
+  GATE_OUTCOMES,
   INTERRUPTION_CAUSES,
   JOB_KINDS,
   JOB_OUTCOMES,
@@ -124,6 +125,8 @@ const CHECK_FOR_FIELD_SHAPE: Readonly<Record<LogFieldShape, FieldShapeCheck>> = 
   'incident-kind':          (value, path) => vocabularyProblem(value, path, INCIDENT_KINDS),
   'incident-move':          (value, path) => vocabularyProblem(value, path, INCIDENT_MOVES),
   'incident-default-cause': (value, path) => vocabularyProblem(value, path, INCIDENT_DEFAULT_CAUSES),
+  'gate-outcome':           (value, path) => vocabularyProblem(value, path, GATE_OUTCOMES),
+  'flag':                   (value, path) => (typeof value === 'boolean' ? null : `${path} is not true or false`),
 };
 
 function kindIsKnown(kind: unknown): kind is LogRecordKind {

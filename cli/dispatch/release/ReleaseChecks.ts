@@ -1,11 +1,12 @@
 /**
- * Before the lock: when the tracker stores a check command, the branch's worktree must stand exactly at the branch's tip with nothing beside
+ * Before the lock: the tracker must store a check command, the branch's worktree must stand exactly at the branch's tip with nothing beside
  * it, and the command runs there, outside the lock so other releases do not wait on it. What it hands on is what the lock must find again.
  */
 import { readWorktreeCheckout, type FilesLeftInWorktree } from '../../../src/lib/git/BranchIntegration.ts';
 import { readingBoardOf }                                 from '../../../src/lib/tracker-model/ReadingBoard.ts';
 import { requireProgressFile, requireTracker }            from '../../../src/services/tracker/TrackerReader.ts';
 import { requireWorkspace }                               from '../../../src/services/tracker/Workspace.ts';
+import { PRODUCT_NAMES }                                  from '../../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                            from '../../CommandContext.ts';
 import type { ArgumentParser }                            from '../../arguments/ArgumentParser.ts';
 import { OutputUtil }                                     from '../../utils/OutputUtil.ts';
@@ -78,25 +79,30 @@ function requireCheckoutUnchangedByTheChecks(worktreePath: string, tip: string):
   }
 }
 
-/** `null` when the tracker stores no check command: the release then runs as it always did. */
-export async function checkTheBranchTip(request: ReleaseRequest, commandArguments: ArgumentParser, context: CommandContext): Promise<CheckedTip | null> {
+/** A tracker that stores no check command is refused: a merge never lands ungated. */
+export async function checkTheBranchTip(request: ReleaseRequest, commandArguments: ArgumentParser, context: CommandContext): Promise<CheckedTip> {
   const workspace = requireWorkspace(context.currentDirectory);
   // Everything here is read again under the lock, which refuses a check command, a stamp or a tip that changed meanwhile.
   const checkCommand = readingBoardOf(requireProgressFile(workspace), [], []).checkCommand();
-  if (checkCommand === undefined) return null;
+  if (checkCommand === undefined) {
+    refuseTheRelease(
+      'checks-not-set',
+      `This tracker stores no check command, and a release never lands a branch ungated: set one with \`${PRODUCT_NAMES.PROGRAM} checks "<command>"\` `
+      + `(\`${PRODUCT_NAMES.PROGRAM} checks "<command>" --restamp\` when tickets are in flight) and release again.`,
+    );
+  }
   const { progress, listing, epicListing } = requireTracker(workspace);
   const board                              = readingBoardOf(progress, listing.tickets, epicListing.epics);
   const tickets                            = releasableTickets(board, request.references);
   requireStampsMatchingTheCheckCommand(board, tickets);
   requireEveryAcceptanceItemAccountedFor(tickets);
+  const mainCheckout = workspace.rootDirectory;
+  requireMainCheckoutOnMainLine(mainCheckout, request.mainLine);
+  const tip = branchCommitToRelease(mainCheckout, request.branch, request.mainLine);
   const { worktreePath } = request;
   if (worktreePath === undefined) {
     refuseTheRelease('invalid-request', 'This tracker stores a check command, which a release runs in the branch\'s worktree: name it with --worktree <path>.');
   }
-
-  const mainCheckout = workspace.rootDirectory;
-  requireMainCheckoutOnMainLine(mainCheckout, request.mainLine);
-  const tip = branchCommitToRelease(mainCheckout, request.branch, request.mainLine);
   requireCheckoutAtTheTip(request, worktreePath, tip);
 
   if (!commandArguments.flag('json')) context.standardError(`Running the checks on ${request.branch} (${OutputUtil.shortCommitOf(tip)}) in ${worktreePath}: ${checkCommand}`);

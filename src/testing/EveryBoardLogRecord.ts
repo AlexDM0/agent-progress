@@ -55,6 +55,8 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
   board.abandonDraft('D2', 'folded into D1', at);
   board.moveTicket('001', 'in-progress', { checksLegality: true }, at);
   board.setCheckCommand('bun run example-checks', true, at);
+  board.setInstallCommand('bun install --frozen-lockfile', at);
+  board.recordGateRan({ tree: '4b825dc642cb6eb9a060e54bf8d69288fbee4904', outcome: 'passed', cached: true }, at);
   board.editTicket('001', { body: { text: 'Example rewritten report.\n', appends: false }, allowsPastPending: true }, at);
   board.moveTicket('001', 'in-review', { checksLegality: true }, at);
   board.startReviewBar('001', { round: 1 }, at);

@@ -196,12 +196,22 @@ function releaseRefusalDocumentOf(outcome: CommandOutcome): ReleaseRefusalDocume
   return document;
 }
 
+/**
+ * A checks line whose run leaves an untracked file in a linked worktree (where `.git` is a file), since a release refuses a worktree that
+ * already holds one before the checks, and the file a run leaves is its output, which the cleanup then reports.
+ */
+async function gateLeavingAnUntrackedFile(fileName: string): Promise<void> {
+  await agentProgressOrFail(['checks', `test -d .git || echo "not committed" > ${fileName}`]);
+}
+
 beforeEach(async () => {
   if (!gitIsAvailable()) return;
   repositoryDirectory = await createInitializedScratchRepository('release', ['--project', 'Example Agency', '--no-claude-md', '--no-hooks'], () => FROZEN_NOW);
   gitOutputIn(repositoryDirectory, ['checkout', '-q', '-B', 'main']);
   gitOutputIn(repositoryDirectory, ['add', '--all']);
   gitOutputIn(repositoryDirectory, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'commit', '-q', '-m', 'Ignore the tracker']);
+  // A release refuses a tracker with no checks line, so every case here releases under one that always passes.
+  await agentProgressOrFail(['checks', 'true']);
 });
 
 afterEach(() => {
@@ -338,13 +348,13 @@ describeWhenGitIsPresent('a release that holds', () => {
 
   // The release happened, so the exit code must say so; what git would not clean up is named for a person to deal with.
   test('a worktree holding an untracked file is left standing at exit 0, and the output names the file', async () => {
+    await gateLeavingAnUntrackedFile('scratch-notes.txt');
     const {
       identifier,
       worktree,
       branch,
       tip,
     } = await reviewedTicketOnAWorktree('Filter by team', 'filter-team');
-    writeFileSync(join(worktree, 'scratch-notes.txt'), 'not committed\n');
 
     const outcome = await agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree]);
 
@@ -358,8 +368,8 @@ describeWhenGitIsPresent('a release that holds', () => {
   });
 
   test('under --json the untracked file is listed on the worktree step', async () => {
+    await gateLeavingAnUntrackedFile('scratch-notes.txt');
     const { identifier, worktree, branch } = await reviewedTicketOnAWorktree('Filter by team', 'filter-team');
-    writeFileSync(join(worktree, 'scratch-notes.txt'), 'not committed\n');
 
     const outcome = await agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree, '--json']);
 
@@ -638,8 +648,8 @@ describeWhenGitIsPresent('the --json document prints exactly the keys the help a
   test('a clean release and one git partly declines print exactly the four cleanup step shapes both documents give', async () => {
     const clean       = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
     const cleanOutcome = await agentProgress(['release', clean.identifier, '--branch', clean.branch, '--worktree', clean.worktree, '--json']);
+    await gateLeavingAnUntrackedFile('notes.txt');
     const declined    = await reviewedTicketOnAWorktree('Rename a role', 'rename-role');
-    writeFileSync(join(declined.worktree, 'notes.txt'), 'kept\n');
     const declinedOutcome = await agentProgress(['release', declined.identifier, '--branch', declined.branch, '--worktree', declined.worktree, '--json']);
 
     const printedSteps = [cleanOutcome, declinedOutcome].flatMap((outcome) => releaseDocumentOf(outcome).cleanup.map(cleanupStepSignatureOf)).sort();

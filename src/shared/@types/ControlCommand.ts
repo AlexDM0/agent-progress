@@ -83,7 +83,8 @@ export type ControlCommand =
   | { kind: 'draft-close'; draftId: string; ticketReferences: string[] }
   | { kind: 'draft-abandon'; draftId: string; reason: string }
   | { kind: 'concurrency-set'; limit: number }
-  | { kind: 'checks-set'; command: string | null; restamps: boolean };
+  | { kind: 'checks-set'; command: string | null; restamps: boolean }
+  | { kind: 'install-command-set'; command: string };
 
 export type ControlCommandKind = ControlCommand['kind'];
 

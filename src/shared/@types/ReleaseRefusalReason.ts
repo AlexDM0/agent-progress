@@ -6,6 +6,7 @@ export type ReleaseRefusalReason =
   | 'not-on-main-line'
   | 'worktree-not-at-tip'
   | 'worktree-dirty'
+  | 'checks-not-set'
   | 'checks-failed'
   | 'check-command-changed'
   | 'check-command-differs-from-start'

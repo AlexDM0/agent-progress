@@ -133,6 +133,8 @@ beforeEach(async () => {
   gitOutputIn(repositoryDirectory, ['checkout', '-q', '-B', 'main']);
   gitOutputIn(repositoryDirectory, ['add', '--all']);
   gitOutputIn(repositoryDirectory, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'commit', '-q', '-m', 'Ignore the tracker']);
+  // A release refuses a tracker with no checks line, so every case here releases under one that always passes.
+  await agentProgressOrFail(['checks', 'true']);
 });
 
 afterEach(() => {

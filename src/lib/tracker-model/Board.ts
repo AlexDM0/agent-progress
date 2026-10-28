@@ -19,6 +19,7 @@ import type {
   IncidentClosed,
   IncidentEscalated,
   IncidentOpened,
+  InstallCommandSet,
   JobChanged,
   LifecycleAdvanced,
   Logged,
@@ -81,8 +82,8 @@ import type {
   LifecycleObservations,
   LifecycleStep
 }                                              from './@types/LifecycleStep.ts';
-import type { AgentUsage, LogRecord }          from './@types/LogRecord.ts';
-import type { DisplayState, Task, TaskStatus } from './@types/Task.ts';
+import type { AgentUsage, LogRecord, LogRecordFieldsOf } from './@types/LogRecord.ts';
+import type { DisplayState, Task, TaskStatus }           from './@types/Task.ts';
 import type {
   ReadinessGap,
   ReadyTicket,
@@ -395,6 +396,14 @@ export class Board {
     return this.trackerChanges.setCheckCommand(command, restamps, at);
   }
 
+  setInstallCommand(command: string, at: string): InstallCommandSet {
+    return this.trackerChanges.setInstallCommand(command, at);
+  }
+
+  recordGateRan(fields: LogRecordFieldsOf<'gate-ran'>, at: string): Logged {
+    return this.trackerChanges.recordGateRan(fields, at);
+  }
+
   recordNote(text: string, at: string): Logged {
     return this.trackerChanges.recordNote(text, at);
   }
@@ -639,6 +648,10 @@ export class Board {
 
   checkCommand(): string | undefined {
     return this.dispatchQueries.checkCommand();
+  }
+
+  installCommand(): string | undefined {
+    return this.records.progress.installCommand;
   }
 
   readyTickets(): readonly Readonly<Ticket>[] {

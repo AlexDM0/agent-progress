@@ -3,9 +3,11 @@ import type {
   CheckCommandSet,
   ConcurrencyLimitSet,
   DispatcherStateSet,
+  InstallCommandSet,
   Logged,
   TrackerCleared
 } from './@types/BoardChanges.ts';
+import type { LogRecordFieldsOf }          from './@types/LogRecord.ts';
 import type { Task }                       from './@types/Task.ts';
 import type { Ticket }                     from './@types/Ticket.ts';
 import type { DispatcherState, ViewRange } from './@types/TrackerProgress.ts';
@@ -67,7 +69,20 @@ export class TrackerChanges {
     return { logged, previousCheckCommand, restampedTicketIds: ticketsInFlight.map(({ ticket }) => ticket.frontmatter.id) };
   }
 
-  private ticketsInFlightWithTheirRows(): { ticket: Readonly<Ticket>; row: Task }[] {
+  /** No ticket is stamped with it: a changed line only changes the gate cache's key, so a gate runs again. */
+  setInstallCommand(command: string, at: string): InstallCommandSet {
+    const { progress, logger }   = this.records;
+    const previousInstallCommand = progress.installCommand ?? null;
+    progress.installCommand      = command;
+    return { logged: [logger.log({ kind: 'install-command-set', fields: { command } }, at)], previousInstallCommand };
+  }
+
+  /** The gate ran outside the hold, so only its outcome is recorded here. */
+  recordGateRan(fields: LogRecordFieldsOf<'gate-ran'>, at: string): Logged {
+    return { logged: [this.records.logger.log({ kind: 'gate-ran', fields: { tree: fields.tree, outcome: fields.outcome, cached: fields.cached } }, at)] };
+  }
+
+  private ticketsInFlightWithTheirRows():{ ticket: Readonly<Ticket>; row: Task }[] {
     return this.records.ticketRecords.flatMap((ticket) => {
       if (ticket.frontmatter.status !== 'in-progress' && ticket.frontmatter.status !== 'in-review') return [];
       const row = this.records.linkedTaskRecordOf(ticket);

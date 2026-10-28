@@ -161,6 +161,10 @@ function sentenceOf(record: LogRecordContent): string {
       return `Dispatcher set to ${dispatcherStateTextOf(record.fields.state, record.fields.runId)}`;
     case 'check-command-set':
       return record.fields.command === null ? 'Check command cleared' : `Check command set to ${record.fields.command}`;
+    case 'install-command-set':
+      return `Install command set to ${record.fields.command}`;
+    case 'gate-ran':
+      return record.fields.cached ? `Gate on tree ${record.fields.tree} passed, from the cache` : `Gate on tree ${record.fields.tree} ${record.fields.outcome}`;
     case 'tracker-cleared':
       return 'Tracker cleared';
     case 'agent-stopped':
