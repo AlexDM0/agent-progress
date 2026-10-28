@@ -449,6 +449,7 @@ describe('failed passes', () => {
     const budget = DISPATCH_PROTOCOL.BUILDER_API_CALL_BUDGET;
     const drivePass = await drivePassPlaying([
       { kind: 'print', line: fakeStartedLine('fake-session') },
+      { kind: 'await-line' },
       ...turns(0, budget),
       { kind: 'await-line' },
       ...turns(budget, WIND_DOWN_GRACE_CALLS),
