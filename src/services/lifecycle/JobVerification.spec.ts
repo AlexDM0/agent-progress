@@ -103,17 +103,46 @@ function refusalOf(check: VerificationCheck, subject: JobVerificationSubject): s
   return verdict.verdict === 'refused' ? verdict.reason : null;
 }
 
-/** A target branch with a commit of its own merged into the branch, as a resolver leaves it: the merge's parents are [branch, target]. */
-function mergedTarget(): { branchTip: string; targetTip: string } {
+function commitTargetFile(): void {
+  commitFile(repositoryDirectory, 'target.ts', 'export const target = true;\n');
+}
+
+/**
+ * A target branch with commits of its own merged into the branch, as a resolver leaves it: the merge's parents are [branch, target], and
+ * `resolveMerge` runs with the merge staged, before its commit.
+ */
+function mergedTarget(
+  plantOnTarget: () => void = commitTargetFile,
+  resolveMerge: () => void = () => undefined,
+  mergeMessage = 'Merge the example target'
+): { branchTip: string; targetTip: string } {
   const branchTip = headCommit();
   gitOutputIn(repositoryDirectory, ['checkout', '-q', '-b', 'example-target', startCommit]);
-  const targetTip = commitFile(repositoryDirectory, 'target.ts', 'export const target = true;\n');
+  plantOnTarget();
+  const targetTip = headCommit();
   gitOutputIn(repositoryDirectory, ['checkout', '-q', '-']);
-  gitOutputIn(repositoryDirectory, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'merge', '-q', '--no-edit', '--no-ff', 'example-target']);
+  gitOutputIn(repositoryDirectory, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'merge', '-q', '--no-ff', '--no-commit', 'example-target']);
+  resolveMerge();
+  gitOutputIn(repositoryDirectory, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'commit', '-q', '-m', mergeMessage]);
   return { branchTip, targetTip };
 }
 
-function resolverSubject(merge: { branchTip: string; targetTip: string }): JobVerificationSubject {
+function stagePackageJson(): void {
+  writeFileSync(join(repositoryDirectory, 'package.json'), '{ "scripts": { "verify": "true" } }\n');
+  gitOutputIn(repositoryDirectory, ['add', '--', 'package.json']);
+}
+
+/** The target's own history since the branch point: a checks-definition change, a data-folder commit, agent config and an attribution trailer. */
+function plantTargetHistory(): void {
+  commitFile(repositoryDirectory, 'package.json', '{ "name": "example-target" }\n');
+  mkdirSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER));
+  commitFile(repositoryDirectory, `${PRODUCT_NAMES.DATA_FOLDER}/progress.json`, '{}\n');
+  mkdirSync(join(repositoryDirectory, '.claude'));
+  commitFile(repositoryDirectory, '.claude/settings.json', '{}\n');
+  commitWithMessage('attributed.ts', 'Add the attributed file\n\nCo-Authored-By: Claude <noreply@example.com>');
+}
+
+function resolverSubject(merge: { branchTip: string; targetTip: string }, overrides: Partial<JobVerificationSubject> = {}): JobVerificationSubject {
   return builderSubject({
     role:        'resolver',
     startCommit: merge.branchTip,
@@ -123,6 +152,7 @@ function resolverSubject(merge: { branchTip: string; targetTip: string }): JobVe
     merge:          { ...merge, conflictedFiles: [] },
     // The target branch is the runner's merge-in, made before the resolver's launch.
     launchSnapshot: launchSnapshotOf(repositoryDirectory) ?? launchSnapshot,
+    ...overrides,
   });
 }
 
@@ -215,6 +245,36 @@ describeWhenGitIsPresent('verification by code', () => {
 
     expect(verifyJob(resolverSubject(merge))).toEqual({ verdict: 'verified' });
     expect(refusalOf('V10', resolverSubject({ ...merge, targetTip: startCommit }))).toBe('merge-unresolved');
+  });
+
+  test('a resolver is judged on its own merge, never the target\'s history: the target\'s package.json, data, config and trailer pass', () => {
+    const merge = mergedTarget(plantTargetHistory);
+    const subject = resolverSubject(merge, { checksDefinitionFiles: BUN_DEFINITION_FILES });
+
+    for (const check of ['V3', 'V5', 'V7', 'V11', 'V13'] as const) expect([check, refusalOf(check, subject)]).toEqual([check, null]);
+    expect(verifyJob(subject)).toEqual({ verdict: 'verified' });
+  });
+
+  test('a resolver changing package.json or the data folder in its resolution, or a trailer on its merge, is still refused', () => {
+    const merge = mergedTarget(commitTargetFile, () => {
+      stagePackageJson();
+      mkdirSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER));
+      writeFileSync(join(repositoryDirectory, `${PRODUCT_NAMES.DATA_FOLDER}/progress.json`), '{}\n');
+      gitOutputIn(repositoryDirectory, ['add', '--', PRODUCT_NAMES.DATA_FOLDER]);
+    }, 'Merge the example target\n\nCo-Authored-By: Claude <noreply@example.com>');
+    const subject = resolverSubject(merge, { checksDefinitionFiles: BUN_DEFINITION_FILES });
+
+    expect(VERIFICATION_CHECKS.V11(subject)).toEqual({ verdict: 'refused', reason: 'checks-definition-changed', facts: ['package.json'] });
+    expect(refusalOf('V5', subject)).toBe('data-folder-touched');
+    expect(refusalOf('V7', subject)).toBe('ai-attribution-in-range');
+  });
+
+  test('a merge job\'s commits after its merge still count, even beside the target\'s own package.json change', () => {
+    const merge = mergedTarget(plantTargetHistory);
+    stagePackageJson();
+    gitOutputIn(repositoryDirectory, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'commit', '-q', '-m', 'Change the verify script']);
+
+    expect(refusalOf('V11', resolverSubject(merge, { checksDefinitionFiles: BUN_DEFINITION_FILES }))).toBe('checks-definition-changed');
   });
 
   test('V11 refuses a change to a file the checks line resolves through, unless the ticket body names it', () => {
