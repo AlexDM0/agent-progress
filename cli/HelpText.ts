@@ -704,8 +704,8 @@ output never carries either.
                               beside each of a cache path's ancestors is never writable.
                               A worker may run unasked the first word of each command in the
                               stored checks and install lines (split outside quotes on &&, ||, ;,
-                              | and parentheses) and the git verbs it reads and commits with. --clear removes the key; it
-                              goes alone.
+                              | and parentheses) and the git verbs it reads and commits with.
+                              --clear removes the key; it goes alone.
                               --json prints {gateCachePaths, previousGateCachePaths}.
 
   range --from <when>         The stored default axis of the chart; a bound may also be \`start\`, the
