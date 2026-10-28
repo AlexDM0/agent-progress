@@ -147,8 +147,8 @@ function writeProcessLaunchFile(request: ProcessLaunchFileRequest): void {
   writeFileAtomically(hostFilesOf(request.hostFolder, request.instance).launchPath, `${JSON.stringify(launch, null, 2)}\n`);
 }
 
-/** Says hello with the instance's secret, sends the frames and hangs up, answering whether it connected; a host gone or silent is left alone. */
-/** A legacy host is sent nothing: only a `stop` reaches it, as a signal to its recorded process group. */
+/** Says hello with the instance's secret, sends the frames and hangs up, answering whether it connected; a host gone or silent is left alone.
+ * A legacy host is sent nothing: only a `stop` reaches it, as a signal to its recorded process group. */
 async function sendFrames(jobFolder: string, instance: number, frames: readonly ActingFrame[]): Promise<boolean> {
   const record = hostRecordOf(jobFolder, instance);
   if (LegacyHostReader.attachmentOf(record) === 'legacy-host') {
