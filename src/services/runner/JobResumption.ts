@@ -70,10 +70,6 @@ function resumeMessageMarkerOf(jobFolder: string, instance: number): string {
   return join(jobFolder, `resume-message-${instance}.sent`);
 }
 
-/**
- * The first line of each resumed instance, written once its host answers; an answer delivery is resumed with the answer instead. The marker
- * is written only after the host took the line, so a host not yet listening is tried again on the next pass.
- */
 function firstMessagePathOf(jobFolder: string, instance: number): string {
   return join(jobFolder, `first-message-${instance}.txt`);
 }
@@ -103,6 +99,10 @@ async function deliverFirstMessages(trackerDirectory: string, board: Pick<Board,
   }
 }
 
+/**
+ * The first line of each resumed instance, written once its host answers; an answer delivery is resumed with the answer instead. The marker
+ * is written only after the host took the line, so a host not yet listening is tried again on the next pass.
+ */
 async function deliverResumeMessages(
   trackerDirectory: string,
   board: Board,
