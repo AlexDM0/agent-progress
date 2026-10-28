@@ -345,7 +345,8 @@ describe('failed passes', () => {
     ]);
     const agentConfigDecisionIsOpen = (): boolean => (storedProgressOf(repositoryDirectory).decisions ?? [])
       .some((decision) => decision.kind === 'branch-touches-agent-config' && decision.ticketIds.includes('001'));
-    await passUntil(drivePass, agentConfigDecisionIsOpen, 'the branch-touches-agent-config decision');
+    // The worktree observation can open the decision a pass before the session's report ends the job.
+    await passUntil(drivePass, () => agentConfigDecisionIsOpen() && buildJobEnding() !== undefined, 'the branch-touches-agent-config decision and the ending');
     expect(buildJobEnding()).toMatchObject({ outcome: 'failed', cause: 'branch-touches-agent-config' });
     await passUntil(drivePass, () => true, 'one more pass');
     expect(loggedEntries('job-launched').filter((entry) => entry.fields['kind'] !== 'build' && entry.fields['kind'] !== 'orchestrator')).toEqual([]);
