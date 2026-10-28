@@ -129,6 +129,9 @@ function documentHeaderProblemOf(candidate: unknown): string | null {
   if (candidate['nextDraftId'] !== undefined && !StoredValueUtil.wholeNumberIsAtLeast(candidate['nextDraftId'], FIRST_DRAFT_NUMBER)) {
     return `nextDraftId is ${JSON.stringify(candidate['nextDraftId'])}, and when present it has to be a whole number of at least ${FIRST_DRAFT_NUMBER}`;
   }
+  if (candidate['overseerFirstStartedAt'] !== undefined && !textFieldIsPresent(candidate, 'overseerFirstStartedAt')) {
+    return `overseerFirstStartedAt is ${JSON.stringify(candidate['overseerFirstStartedAt'])}, and when present it has to be a timestamp`;
+  }
   const jobsProblem = StoredJobValidationUtil.jobsProblemOf(candidate);
   if (jobsProblem !== null) return jobsProblem;
   const decisionsProblem = StoredDecisionAndIncidentValidationUtil.decisionsAndIncidentsProblemOf(candidate);
