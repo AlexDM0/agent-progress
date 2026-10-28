@@ -157,6 +157,84 @@ describe('a successor failing after released', () => {
   });
 });
 
+describe('the old runner rebinding its port after taking a handover back', () => {
+  const PORT_HOLDER_SOURCE = 'const server = Bun.serve({ hostname: \'127.0.0.1\', port: 0, reusePort: false, fetch: () => new Response(\'\') }); '
+    + 'console.log(server.port); setInterval(() => undefined, 1000);';
+
+  /** Spawned in the spec's own process group, so the handover's group kill is refused and it outlives that first signal. */
+  async function portHoldingSuccessor() {
+    const holder = Bun.spawn([process.execPath, '-e', PORT_HOLDER_SOURCE], { stdin: 'ignore', stdout: 'pipe', stderr: 'ignore' });
+    const reader = holder.stdout.getReader();
+    const { value } = await reader.read();
+    reader.releaseLock();
+    const identity = identityOf(holder.pid);
+    if (identity === null) throw new Error('the port holder has no readable identity');
+    return { holder, identity, port: Number(new TextDecoder().decode(value).trim()) };
+  }
+
+  function servingOn(port: number) {
+    return Bun.serve({
+      hostname: '127.0.0.1', port, reusePort: false, fetch: () => new Response('')
+    });
+  }
+
+  test('a silent successor still holding the port after its kill is waited for, and the old runner then serves again on that port', async () => {
+    const { holder, identity, port } = await portHoldingSuccessor();
+    try {
+      const { outcome } = await handOverAgainst(async () => {
+        await RunnerHandover.prepareAndAwaitRelease(successorRequest(), stepsFailingAt(null, []));
+      }, identity);
+      expect(outcome).toMatchObject({ verdict: 'taken-back', failure: { step: 'serve' } });
+      setTimeout(() => holder.kill('SIGKILL'), SCHEDULE.intervalMilliseconds * 5);
+      let binds = 0;
+      const rebound = await RunnerHandover.rebindAfterTakeBack({
+        successor:            identity,
+        tries:                SCHEDULE.releaseTries,
+        intervalMilliseconds: SCHEDULE.intervalMilliseconds,
+        bind:                 () => {
+          binds += 1;
+          return Promise.resolve(servingOn(port));
+        },
+      });
+      expect(rebound.verdict).toBe('bound');
+      if (rebound.verdict === 'bound') {
+        expect(rebound.bound.port).toBe(port);
+        await rebound.bound.stop(true);
+      }
+      expect(binds).toBe(1);
+    } finally {
+      holder.kill('SIGKILL');
+    }
+  });
+
+  test('a successor outliving the tries is never bound over; a port still held fails each try; a refused bind is tried again until it holds', async () => {
+    const { holder, identity, port } = await portHoldingSuccessor();
+    let binds = 0;
+    const bind = () => {
+      binds += 1;
+      return Promise.resolve(servingOn(port));
+    };
+    const rebindOver = (successor: ProcessIdentity | null, bindOnce: typeof bind) => RunnerHandover.rebindAfterTakeBack({
+      successor, tries: 3, intervalMilliseconds: SCHEDULE.intervalMilliseconds, bind: bindOnce
+    });
+    try {
+      expect(await rebindOver(identity, bind)).toEqual({ verdict: 'successor-live' });
+      expect(binds).toBe(0);
+      expect(await rebindOver(null, bind)).toMatchObject({ verdict: 'bind-failed' });
+      expect(binds).toBe(3);
+    } finally {
+      holder.kill('SIGKILL');
+      await holder.exited;
+    }
+    binds = 0;
+    const refusedOnce = () => (binds === 0 ? (binds += 1, Promise.reject(new Error('Example bind refusal'))) : bind());
+    const rebound = await rebindOver(null, refusedOnce);
+    expect(rebound.verdict).toBe('bound');
+    if (rebound.verdict === 'bound') await rebound.bound.stop(true);
+    expect(binds).toBe(2);
+  });
+});
+
 describe('the old runner dies during a handover', () => {
   test('its successor, ready and waiting, reads it as gone and starts as after a crash', async () => {
     let predecessorLive = true;
