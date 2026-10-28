@@ -224,8 +224,9 @@ describe('one pass', () => {
       { kind: 'exit', code: 0 },
     ]), recordPhase);
     await passUntilBuildSessionSpawned(drivePass);
-    await untilHostEnded(buildJobId(), 1);
-    writeRelayRequest(relayDirectory(buildJobId()), lowFinding('request-1', 'Example finding beside the build'));
+    const firstBuildJobId = buildJobId();
+    await untilHostEnded(firstBuildJobId, 1);
+    writeRelayRequest(relayDirectory(firstBuildJobId), lowFinding('request-1', 'Example finding beside the build'));
     phases.length = 0;
     await passOnce(drivePass);
     // The report names no head, so verification in the same hold fails the pass and the policy launches attempt 2, which filed nothing.
@@ -234,7 +235,7 @@ describe('one pass', () => {
       { phase: 'host-events', jobState: 'verifying', findingFiled: true },
       { phase: 'lifecycle', jobState: 'launching', findingFiled: false },
     ]);
-    expect(JSON.parse(readFileSync(relayReplyFilePathOf(relayDirectory(buildJobId()), 'request-1'), 'utf8'))).toMatchObject({ outcome: 'done' });
+    expect(JSON.parse(readFileSync(relayReplyFilePathOf(relayDirectory(firstBuildJobId), 'request-1'), 'utf8'))).toMatchObject({ outcome: 'done' });
   }, PASS_TEST_TIMEOUT_MILLISECONDS);
 });
 
