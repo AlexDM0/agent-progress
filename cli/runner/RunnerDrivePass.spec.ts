@@ -96,6 +96,8 @@ async function drivePassWith(adapter: AgentAdapter, afterHoldPhase?: (phase: str
     installVersionChanged: () => false,
     decisionWordingOf:     () => ({ questions: [], context: '' }),
     launchTextOf:          () => ({ firstMessage: 'Example first message', roleBrief: 'Example role' }),
+    windDownMessage:       'Example wind-down message',
+    homeDirectory:         monitorFolder,
     log:                   (line) => runnerLog.push(line),
     onLeaseTakenOver:      () => runnerLog.push('taken over'),
     ...(afterHoldPhase === undefined ? {} : { afterHoldPhase }),
@@ -185,14 +187,25 @@ afterEach(() => {
   removeScratchDirectory(repositoryDirectory);
 });
 
+/** A build job launches, prepares its worktree, then runs: forced passes until its session's host is spawned. */
+async function passUntilBuildSessionSpawned(drivePass: DrivePass): Promise<void> {
+  for (let attempt = 0; attempt < HOST_WAIT_TRIES; attempt += 1) {
+    await passOnce(drivePass);
+    const buildJob = (storedProgressOf(repositoryDirectory).jobs ?? []).find((job) => job.kind === 'build');
+    if (buildJob !== undefined && HostFleet.livenessOf(jobFolder(buildJob.id), 1).verdict !== 'unclaimed') return;
+    await Bun.sleep(HOST_WAIT_MILLISECONDS);
+  }
+  throw new Error(`the build session was never spawned: ${runnerLog.join('\n')}\n${JSON.stringify(storedProgressOf(repositoryDirectory).jobs)}`);
+}
+
 describe('one pass', () => {
-  test('a readied ticket gets a launching job and a spawned host running the fake child in one pass', async () => {
+  test('a readied ticket gets a launching job in one pass, and its session a host running the fake child once its worktree is prepared', async () => {
     const drivePass = await drivePassWith(fakeAgentAdapter());
     await passOnce(drivePass);
-    const buildJob = (storedProgressOf(repositoryDirectory).jobs ?? []).find((job) => job.id === buildJobId());
-    expect(buildJob).toMatchObject({
+    expect((storedProgressOf(repositoryDirectory).jobs ?? []).find((job) => job.id === buildJobId())).toMatchObject({
       kind: 'build', role: 'builder', ticketIds: ['001'], state: 'launching', hostInstance: 1
     });
+    await passUntilBuildSessionSpawned(drivePass);
     await untilHostEnded(buildJobId(), 1);
     expect(readFileSync(hostFilesOf(jobFolder(buildJobId()), 1).eventLogPath, 'utf8')).toContain(JSON.stringify(fakeStartedLine('fake-session')));
     expect(existsSync(join(relayDirectory(buildJobId()), 'requests'))).toBe(true);
@@ -210,15 +223,16 @@ describe('one pass', () => {
       { kind: 'print', line: fakeResultLine({ outcome: 'built' }) },
       { kind: 'exit', code: 0 },
     ]), recordPhase);
-    await passOnce(drivePass);
+    await passUntilBuildSessionSpawned(drivePass);
     await untilHostEnded(buildJobId(), 1);
     writeRelayRequest(relayDirectory(buildJobId()), lowFinding('request-1', 'Example finding beside the build'));
     phases.length = 0;
     await passOnce(drivePass);
+    // The report names no head, so verification in the same hold fails the pass and the policy launches attempt 2, which filed nothing.
     expect(phases, runnerLog.join('\n')).toEqual([
-      { phase: 'relayed-commands', jobState: 'launching', findingFiled: true },
+      { phase: 'relayed-commands', jobState: 'running', findingFiled: true },
       { phase: 'host-events', jobState: 'verifying', findingFiled: true },
-      { phase: 'lifecycle', jobState: 'verifying', findingFiled: true },
+      { phase: 'lifecycle', jobState: 'launching', findingFiled: false },
     ]);
     expect(JSON.parse(readFileSync(relayReplyFilePathOf(relayDirectory(buildJobId()), 'request-1'), 'utf8'))).toMatchObject({ outcome: 'done' });
   }, PASS_TEST_TIMEOUT_MILLISECONDS);
@@ -253,7 +267,8 @@ describe('waking', () => {
   test('an unforced wake with nothing changed runs no pass, however late, and wakes during a pass coalesce into one more', async () => {
     const drivePass = await drivePassWith(WAITING_SESSION);
     await passOnce(drivePass);
-    for (let attempt = 0; attempt < HOST_WAIT_TRIES && storedProgressOf(repositoryDirectory).jobs?.some((job) => job.state !== 'running') === true; attempt += 1) {
+    const settling = (): boolean => storedProgressOf(repositoryDirectory).jobs?.some((job) => job.state !== 'running' || job.eventCursor.sequence === 0) === true;
+    for (let attempt = 0; attempt < HOST_WAIT_TRIES && settling(); attempt += 1) {
       await Bun.sleep(HOST_WAIT_MILLISECONDS);
       await passOnce(drivePass, false);
     }

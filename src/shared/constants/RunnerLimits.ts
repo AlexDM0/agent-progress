@@ -8,6 +8,12 @@ export const RELAY_REPLY_INTERVAL_MILLISECONDS = 250;
 /** The low findings one builder, reviewer or merge-fix job may file through its relay. */
 export const WORKER_FILINGS_PER_JOB = 10;
 
+/** The calls a session may make past its role's call budget after the wind-down message, before the runner stops it `out-of-calls`. */
+export const WIND_DOWN_GRACE_CALLS = 10;
+
+/** How long a stopped session's host lets it end before killing its process group. */
+export const SESSION_STOP_GRACE_MILLISECONDS = 5000;
+
 /** How many ports above `RUNNER_PORT_FIRST` a board's preferred runner port is spread over, and how far a busy port moves upward. */
 export const RUNNER_PORT_COUNT = 100;
 

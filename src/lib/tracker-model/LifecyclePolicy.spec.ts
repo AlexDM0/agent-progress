@@ -296,7 +296,7 @@ const CLAIMS: PolicyClaim[] = [
       incidents:  [incidentOf({ kind: 'job-lost', ticketIds: ['001'] })],
     }),
     holds:  launchesExactly([]),
-    mutant: policyLine('  if (ticketHasAnOpenJobLostIncident(ticket.id, facts)) return true;\n', ''),
+    mutant: policyLine('  if (facts.incidents.some((incident) => incident.ticketIds.includes(ticket.id))) return true;\n', ''),
   },
   {
     name:   'with no checks line nothing launches and one checks-not-set decision opens',

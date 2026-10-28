@@ -12,7 +12,10 @@ import type { AgentQuestion }                            from '../lib/agent-laun
 import { CLAUDE_CODE_CAPABILITIES, CLAUDE_STREAM_LINES } from '../lib/claude-code/ClaudeStreamLines.ts';
 
 export type FakeAgentStep =
+  /** `{{HEAD}}` in the line is replaced by the commit HEAD of the session's working directory is on. */
   | { readonly kind: 'print'; readonly line: string }
+  /** Runs `/bin/sh -c <command>` in the working directory, as a session's tool call would. */
+  | { readonly kind: 'shell'; readonly command: string }
   /** Waits for the next stdin line; a closed stdin ends the session at exit 0. */
   | { readonly kind: 'await-line' }
   | { readonly kind: 'exit'; readonly code: number }
@@ -36,6 +39,12 @@ export function fakeResultLine(structuredReport: unknown): string {
   return JSON.stringify({
     type: 'result', subtype: 'success', is_error: false, structured_output: structuredReport, permission_denials: []
   });
+}
+
+export const FAKE_HEAD_PLACEHOLDER = '{{HEAD}}';
+
+export function fakeAssistantTurnLine(messageId: string): string {
+  return JSON.stringify({ type: 'assistant', parent_tool_use_id: null, message: { id: messageId, model: 'fake-model', content: [] } });
 }
 
 export const FAKE_AGENT_VENDOR = 'fake-agent';

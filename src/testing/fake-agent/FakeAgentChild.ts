@@ -4,14 +4,20 @@
  */
 import { readFileSync } from 'node:fs';
 
-import type { FakeAgentStep } from '../FakeAgentAdapter.ts';
+import { FAKE_HEAD_PLACEHOLDER, type FakeAgentStep } from '../FakeAgentAdapter.ts';
+
+function headCommit(): string {
+  return Bun.spawnSync({ cmd: ['git', 'rev-parse', 'HEAD'], stderr: 'ignore' }).stdout.toString().trim();
+}
 
 async function playScenario(scenarioPath: string): Promise<void> {
   const steps = JSON.parse(readFileSync(scenarioPath, 'utf8')) as FakeAgentStep[];
   const stdinLines = console[Symbol.asyncIterator]();
   for (const step of steps) {
     if (step.kind === 'print') {
-      process.stdout.write(`${step.line}\n`);
+      process.stdout.write(`${step.line.replaceAll(FAKE_HEAD_PLACEHOLDER, step.line.includes(FAKE_HEAD_PLACEHOLDER) ? headCommit() : '')}\n`);
+    } else if (step.kind === 'shell') {
+      Bun.spawnSync({ cmd: ['/bin/sh', '-c', step.command], stdout: 'ignore', stderr: 'ignore' });
     } else if (step.kind === 'await-line') {
       if ((await stdinLines.next()).done === true) return;
     } else if (step.kind === 'exit') {

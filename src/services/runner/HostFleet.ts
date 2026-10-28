@@ -12,11 +12,13 @@ import {
   openSync,
   readFileSync
 } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { createConnection } from 'node:net';
+import { dirname, join }    from 'node:path';
 
+import type { ActingFrame }                      from '../../lib/agent-host/@types/HostFrame.ts';
 import { type EventLogEntry, eventLogEntriesOf } from '../../lib/agent-host/EventLog.ts';
 import { hostFilesOf }                           from '../../lib/agent-host/HostFiles.ts';
-import type { HostLaunch }                       from '../../lib/agent-host/HostLaunch.ts';
+import { type HostLaunch, readHostLaunch }       from '../../lib/agent-host/HostLaunch.ts';
 import type { HostEnd, HostRecord }              from '../../lib/agent-host/HostRecord.ts';
 import { hostSocketPathOf }                      from '../../lib/agent-host/HostSocketPath.ts';
 import { HOST_PROTOCOL_VERSION }                 from '../../lib/agent-host/constants/HostProtocol.ts';
@@ -49,6 +51,9 @@ export interface HostLaunchFileRequest {
 }
 
 const HOST_SECRET_BYTES = 24;
+
+/** How long the runner waits on a host to take its frames; a schedule only, never a decision. */
+const HOST_FRAME_TIMEOUT_MILLISECONDS = 2000;
 
 function jobFolderOf(trackerDirectory: string, jobId: string): string {
   return join(trackerDirectory, 'jobs', jobId);
@@ -108,6 +113,62 @@ function writeLaunchFiles(request: HostLaunchFileRequest): void {
   writeFileAtomically(hostFilesOf(request.jobFolder, request.instance).launchPath, `${JSON.stringify(launch, null, 2)}\n`);
 }
 
+export interface ProcessLaunchFileRequest {
+  hostFolder:       string;
+  instance:         number;
+  jobId:            string;
+  /** Names the socket apart from the job's agent host and its other process hosts. */
+  socketName:       string;
+  trackerId:        string;
+  monitorFolder:    string;
+  hostCodeVersion:  string;
+  workingDirectory: string;
+  argv:             readonly string[];
+  environment:      Readonly<Record<string, string>>;
+}
+
+/** A process host's launch: no standing replies and no input, its child's output logged as events. */
+function writeProcessLaunchFile(request: ProcessLaunchFileRequest): void {
+  mkdirSync(request.hostFolder, { recursive: true });
+  const launch: HostLaunch = {
+    kind:             'process',
+    argv:             request.argv,
+    environment:      request.environment,
+    workingDirectory: request.workingDirectory,
+    standingReplies:  [],
+    protocolVersion:  HOST_PROTOCOL_VERSION,
+    jobId:            request.jobId,
+    hostCodeVersion:  request.hostCodeVersion,
+    socketPath:       hostSocketPathOf(request.monitorFolder, request.trackerId, request.socketName, request.instance),
+    hostSecret:       randomBytes(HOST_SECRET_BYTES).toString('hex'),
+  };
+  writeFileAtomically(hostFilesOf(request.hostFolder, request.instance).launchPath, `${JSON.stringify(launch, null, 2)}\n`);
+}
+
+/** Says hello with the instance's secret, sends the frames and hangs up; a host that is gone or never answers is left alone. */
+async function sendFrames(jobFolder: string, instance: number, frames: readonly ActingFrame[]): Promise<void> {
+  const reading = readHostLaunch(hostFilesOf(jobFolder, instance).launchPath);
+  if (reading.verdict !== 'read') return;
+  const { socketPath, hostSecret } = reading.launch;
+  await new Promise<void>((resolve) => {
+    const socket = createConnection(socketPath);
+    const settle = (): void => {
+      clearTimeout(timer);
+      socket.destroy();
+      resolve();
+    };
+    const timer = setTimeout(settle, HOST_FRAME_TIMEOUT_MILLISECONDS);
+    socket.once('error', settle);
+    socket.once('close', settle);
+    socket.once('connect', () => {
+      const hello = {
+        kind: 'hello', protocolVersion: HOST_PROTOCOL_VERSION, sinceSequence: Number.MAX_SAFE_INTEGER, hostSecret
+      };
+      socket.end([hello, ...frames].map((frame) => `${JSON.stringify(frame)}\n`).join(''));
+    });
+  });
+}
+
 /** `process.execPath <bundle> <job folder> <instance>`, detached and unreferenced, its output appended to the instance's host log. */
 function spawnHost(request: HostSpawnRequest): number | undefined {
   const logDescriptor = openSync(hostFilesOf(request.jobFolder, request.instance).hostLogPath, 'a');
@@ -124,5 +185,5 @@ function spawnHost(request: HostSpawnRequest): number | undefined {
 }
 
 export const HostFleet = Object.freeze({
-  jobFolderOf, livenessOf, eventsAfter, writeLaunchFiles, spawnHost
+  jobFolderOf, livenessOf, eventsAfter, writeLaunchFiles, writeProcessLaunchFile, sendFrames, spawnHost
 });

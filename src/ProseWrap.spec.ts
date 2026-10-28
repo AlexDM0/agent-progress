@@ -17,7 +17,7 @@ const LONE_CODE_SPAN = /^\s*(— )?`[^`]+`[.,;:]?$/;
 const FRONTMATTER_FENCE = '---';
 
 function wrappedProseFilePaths(repositoryRoot: string): string[] {
-  const globbed = ['skills/**/*.md', 'resources/templates/*.md'].flatMap((pattern) => [...new Bun.Glob(pattern).scanSync({ cwd: repositoryRoot })]);
+  const globbed = ['skills/**/*.md', 'resources/templates/*.md', 'resources/prompts/*.md'].flatMap((pattern) => [...new Bun.Glob(pattern).scanSync({ cwd: repositoryRoot })]);
   return ['CLAUDE.md', 'docs/cli.md', 'docs/backlog.md', ...globbed.sort()];
 }
 
@@ -51,13 +51,15 @@ const REPOSITORY_ROOT = repositoryRootOfThisCheckout();
 const PROSE_FILES = wrappedProseFilePaths(REPOSITORY_ROOT).map((path) => ({ path, text: readFileSync(join(REPOSITORY_ROOT, path), 'utf8') }));
 
 describe('prose wraps at 120 columns', () => {
-  test('the scan reads paragraph lines of the rules, both skills, the templates and the reference', () => {
+  test('the scan reads paragraph lines of the rules, both skills, the templates, the reference and the runner\'s prompts', () => {
     for (const expectedPath of ['CLAUDE.md',
       'docs/cli.md',
       'skills/agent-po/SKILL.md',
       'skills/agent-progress-orchestrate/SKILL.md',
       'resources/templates/AgentBrief.md',
-      'resources/templates/Reference.md']) {
+      'resources/templates/Reference.md',
+      'resources/prompts/BuildPrompt.md',
+      'resources/prompts/WindDownMessage.md']) {
       const file = PROSE_FILES.find((prose) => prose.path === expectedPath);
       expect(paragraphLineNumbersOf(file?.text ?? '').length, expectedPath).toBeGreaterThan(0);
     }

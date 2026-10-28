@@ -164,11 +164,14 @@ function ticketHasAnOpenJobLostIncident(ticketId: string, facts: LifecycleFacts)
   return facts.incidents.some((incident) => incident.kind === 'job-lost' && incident.ticketIds.includes(ticketId));
 }
 
-/** A held ticket never launches: a hold of any reason, or a `job-lost` incident the orchestrator has not settled. A question is no hold. */
+/**
+ * A held ticket never launches: a hold of any reason, or an incident naming it that the orchestrator has not settled (a `job-lost`, or a
+ * build that ended on `setup-failed`, `blocked`, `out-of-calls` or `gate-cannot-run`), so no fresh job races the incident's move.
+ */
 function ticketIsHeld(ticket: LifecycleTicket, facts: LifecycleFacts): boolean {
   if (ticket.hold !== undefined) return true;
   if (facts.observations.ticketIdsTouchingAgentConfig.includes(ticket.id)) return true;
-  if (ticketHasAnOpenJobLostIncident(ticket.id, facts)) return true;
+  if (facts.incidents.some((incident) => incident.ticketIds.includes(ticket.id))) return true;
   return facts.observations.targetsHoldingManagedBlock.includes(targetOf(ticket, facts.observations));
 }
 

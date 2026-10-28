@@ -225,6 +225,8 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
     installVersionChanged: () => installVersionChangedIn(workspace.rootDirectory),
     decisionWordingOf:     RunnerWording.decisionWordingOf,
     launchTextOf:          RunnerWording.launchTextOf,
+    windDownMessage:       RunnerWording.windDownMessage(),
+    homeDirectory:         context.homeDirectory,
     log,
     onLeaseTakenOver:      (refusal) => startedLifetime.takenOver(refusal),
   });

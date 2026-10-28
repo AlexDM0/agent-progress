@@ -7,30 +7,46 @@ import { createHash }                          from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join }                                from 'node:path';
 
-import type { EventLogEntry }                        from '../../lib/agent-host/EventLog.ts';
-import type { AgentAdapter }                         from '../../lib/agent-launch/AgentAdapter.ts';
-import type { AgentLaunchRequest }                   from '../../lib/agent-launch/AgentLaunchRequest.ts';
-import { launchEnvironmentOf }                       from '../../lib/agent-launch/LaunchEnvironment.ts';
-import type { WorkerProfile }                        from '../../lib/agent-launch/WorkerProfile.ts';
-import { GitProcess }                                from '../../lib/git/GitProcess.ts';
-import type { Job }                                  from '../../lib/tracker-model/@types/Job.ts';
-import type { DecisionDraft, DecisionWording }       from '../../lib/tracker-model/@types/LifecycleStep.ts';
-import type { Board }                                from '../../lib/tracker-model/Board.ts';
-import { JOB_ID_VARIABLE, RELAY_DIRECTORY_VARIABLE } from '../../shared/Environment.ts';
-import { LIFECYCLE_LIMITS }                          from '../../shared/constants/LifecycleLimits.ts';
-import { PRODUCT_NAMES }                             from '../../shared/constants/ProductNames.ts';
-import type { RenderState }                          from '../render/RenderState.ts';
-import { writeTracker, type TrackerChange }          from '../tracker/TrackerPipeline.ts';
-import { requireProgressFile }                       from '../tracker/TrackerReader.ts';
-import type { Workspace }                            from '../tracker/Workspace.ts';
-import { HostFleet, type HostLiveness }              from './HostFleet.ts';
-import { RelayInbox, type PendingRelayRequest }      from './RelayInbox.ts';
-import { RunnerLease }                               from './RunnerLease.ts';
+import { BUILDER_REPORT_SCHEMA }                                    from '../../adapters/reports/ReportSchemas.ts';
+import type { EventLogEntry }                                       from '../../lib/agent-host/EventLog.ts';
+import type { AgentAdapter }                                        from '../../lib/agent-launch/AgentAdapter.ts';
+import type { AgentLaunchRequest }                                  from '../../lib/agent-launch/AgentLaunchRequest.ts';
+import { launchEnvironmentOf }                                      from '../../lib/agent-launch/LaunchEnvironment.ts';
+import type { WorkerProfile }                                       from '../../lib/agent-launch/WorkerProfile.ts';
+import { GitProcess }                                               from '../../lib/git/GitProcess.ts';
+import type { Job, JobKind }                                        from '../../lib/tracker-model/@types/Job.ts';
+import type { DecisionDraft, DecisionWording }                      from '../../lib/tracker-model/@types/LifecycleStep.ts';
+import type { Board }                                               from '../../lib/tracker-model/Board.ts';
+import { JOB_ID_VARIABLE, RELAY_DIRECTORY_VARIABLE }                from '../../shared/Environment.ts';
+import { LIFECYCLE_LIMITS }                                         from '../../shared/constants/LifecycleLimits.ts';
+import { PRODUCT_NAMES }                                            from '../../shared/constants/ProductNames.ts';
+import { createFolderGateResultCache, createMemoryGateResultCache } from '../lifecycle/GateResultCache.ts';
+import type { RenderState }                                         from '../render/RenderState.ts';
+import { writeTracker, type TrackerChange }                         from '../tracker/TrackerPipeline.ts';
+import { requireProgressFile }                                      from '../tracker/TrackerReader.ts';
+import type { Workspace }                                           from '../tracker/Workspace.ts';
+import { HostFleet, type HostLiveness }                             from './HostFleet.ts';
+import {
+  BUILD_JOB_CAUSES,
+  type BuildJobObservation,
+  JobLaunch,
+  type JobLaunchContext
+} from './JobLaunch.ts';
+import { createProcessHostSandbox }             from './ProcessHostSandbox.ts';
+import { RelayInbox, type PendingRelayRequest } from './RelayInbox.ts';
+import { RunnerLease }                          from './RunnerLease.ts';
+import { WorkerProfiles }                       from './WorkerProfiles.ts';
 
 /** What a session is told at launch; worded by the command line, since services hold no words. */
 export interface JobLaunchText {
   firstMessage: string;
   roleBrief:    string;
+}
+
+/** What the launch text is filled from: the job's tickets as stored, and the checks line its work is gated by. */
+export interface JobLaunchFacts {
+  tickets:    readonly { id: string; title: string; body: string }[];
+  checksLine: string | null;
 }
 
 export interface DrivePassRequest {
@@ -52,7 +68,10 @@ export interface DrivePassRequest {
   managedBlockMarker:    string;
   installVersionChanged: () => boolean;
   decisionWordingOf:     (draft: DecisionDraft) => DecisionWording;
-  launchTextOf:          (job: Readonly<Job>) => JobLaunchText;
+  launchTextOf:          (job: Readonly<Job>, facts: JobLaunchFacts) => JobLaunchText;
+  /** Sent to a session that reached its role's call budget. */
+  windDownMessage:       string;
+  homeDirectory:         string;
   log:                   (line: string) => void;
   /** The pass stops acting at once; the caller ends the runner `lease-taken-over`. */
   onLeaseTakenOver:      (refusal: unknown) => void;
@@ -63,7 +82,8 @@ export interface DrivePassRequest {
 /** Derived each pass from the board, git and the runner's state, never stored; later tickets add the other kinds of design section 8.2. */
 export type RunnerNotice =
   | { kind: 'install-version-changed' }
-  | { kind: 'claude-md-block-committed'; target: string };
+  | { kind: 'claude-md-block-committed'; target: string }
+  | { kind: 'attribution-found'; ticketId: string };
 
 export interface RunnerStateDocument {
   generation: number;
@@ -91,6 +111,7 @@ interface Observation {
   pendingRequests:            readonly PendingRelayRequest[];
   targetTips:                 Readonly<Record<string, string | null>>;
   targetsHoldingManagedBlock: readonly string[];
+  buildJobs:                  readonly BuildJobObservation[];
   fingerprint:                string;
   trackerId:                  string;
 }
@@ -99,6 +120,9 @@ const GROUP_TARGET_PREFIX = 'group-';
 const DEFAULT_MODEL = 'opus';
 const DEFAULT_EFFORT = 'medium';
 const ROLES_THAT_MAY_ASK: ReadonlySet<string> = new Set(['builder', 'reviewer', 'product-owner']);
+
+/** The jobs whose session owes a closing report: one that exits cleanly without it ends `failed`, cause `no-report`. */
+const REPORTING_JOB_KINDS: readonly JobKind[] = ['build', 'review'];
 
 function fileTextOrEmpty(filePath: string): string {
   try {
@@ -118,16 +142,23 @@ function targetHoldsManagedBlock(repositoryRoot: string, target: string, marker:
 }
 
 /** Identity, never time: the stored board and log, the pending requests, the unread events, the target tips and each host's verdict. */
-function fingerprintOf(workspace: Workspace, hosts: readonly HostObservation[], pending: readonly PendingRelayRequest[], tips: Readonly<Record<string, string | null>>): string {
+function fingerprintOf(
+  workspace: Workspace,
+  hosts: readonly HostObservation[],
+  pending: readonly PendingRelayRequest[],
+  tips: Readonly<Record<string, string | null>>,
+  buildJobs: readonly BuildJobObservation[],
+): string {
   const digest = createHash('sha256');
   digest.update(fileTextOrEmpty(workspace.progressFilePath)).update('\0').update(fileTextOrEmpty(workspace.logFilePath)).update('\0');
   for (const request of pending) digest.update(`request ${request.jobId} ${request.requestId}\n`);
+  for (const buildJob of buildJobs) digest.update(`build ${buildJob.jobId} ${buildJob.setup} ${buildJob.calls} ${buildJob.gate.verdict}\n`);
   for (const host of hosts) digest.update(`host ${host.jobId} ${host.instance} ${host.liveness.verdict} ${host.events.at(-1)?.sequence ?? 0}\n`);
   for (const [target, tip] of Object.entries(tips)) digest.update(`tip ${target} ${tip ?? '-'}\n`);
   return digest.digest('hex');
 }
 
-function observe(request: DrivePassRequest): Observation {
+function observe(request: DrivePassRequest, jobLaunchContext: JobLaunchContext): Observation {
   const { workspace } = request;
   const progress      = requireProgressFile(workspace);
   const jobs          = progress.jobs ?? [];
@@ -146,12 +177,14 @@ function observe(request: DrivePassRequest): Observation {
   const targets         = [...new Set([request.mainLine, ...jobs.flatMap((job) => (job.target === null ? [] : [job.target]))])].sort();
   const targetTips      = Object.fromEntries(targets.map((target) => [target, targetTipOf(workspace.rootDirectory, target)]));
   const targetsHoldingManagedBlock = targets.filter((target) => targetHoldsManagedBlock(workspace.rootDirectory, target, request.managedBlockMarker));
+  const buildJobs = JobLaunch.observeBuildJobs(jobLaunchContext, jobs, progress.checkCommand ?? null, progress.installCommand ?? null);
   return {
     hosts,
     pendingRequests,
     targetTips,
     targetsHoldingManagedBlock,
-    fingerprint: fingerprintOf(workspace, hosts, pendingRequests, targetTips),
+    buildJobs,
+    fingerprint: fingerprintOf(workspace, hosts, pendingRequests, targetTips, buildJobs),
     trackerId:   progress.trackerId,
   };
 }
@@ -176,9 +209,13 @@ function applyHostEvents(change: TrackerChange, adapter: AgentAdapter, hosts: re
     }
     const lastEvent = host.events.at(-1);
     if (lastEvent !== undefined) board.setJobEventCursor(host.jobId, { instance: host.instance, sequence: lastEvent.sequence });
-    const state = board.jobById(host.jobId)?.state;
+    const job = board.jobById(host.jobId);
+    const state = job?.state;
     const hostIsGone = host.liveness.verdict === 'ended' || host.liveness.verdict === 'lost';
-    if (hostIsGone && !closedWithResult && (state === 'running' || state === 'waiting-for-answer')) {
+    const sessionEndedCleanly = host.liveness.verdict === 'ended' && host.liveness.end.reason === 'exited' && host.liveness.end.exitCode === 0;
+    if (sessionEndedCleanly && !closedWithResult && state === 'running' && job !== undefined && REPORTING_JOB_KINDS.includes(job.kind)) {
+      board.endJob(host.jobId, { outcome: 'failed', cause: BUILD_JOB_CAUSES.noReport }, at);
+    } else if (hostIsGone && !closedWithResult && (state === 'running' || state === 'waiting-for-answer')) {
       board.interruptJob(host.jobId, host.liveness.verdict === 'lost' ? 'host-lost' : 'agent-crashed', at);
     }
   }
@@ -232,13 +269,30 @@ function profileOf(workspace: Workspace, job: Readonly<Job>, workingDirectory: s
   };
 }
 
-function launchHost(request: DrivePassRequest, trackerId: string, job: Readonly<Job>): void {
+/** A builder runs confined by the per-job profile of design section 4.4; the other roles get theirs with the later tickets that run them. */
+function launchProfileOf(jobLaunchContext: JobLaunchContext, board: Board, job: Readonly<Job>, workingDirectory: string, relayDirectory: string): WorkerProfile {
+  if (job.kind !== 'build') return profileOf(jobLaunchContext.workspace, job, workingDirectory, relayDirectory);
+  const ticket = board.tickets().find((candidate) => candidate.frontmatter.id === job.ticketIds[0]);
+  return WorkerProfiles.profileOf('builder', JobLaunch.sandboxFactsFor(jobLaunchContext, job), ticket?.frontmatter.network ?? []);
+}
+
+function launchFactsOf(board: Board, job: Readonly<Job>): JobLaunchFacts {
+  return {
+    tickets: board.tickets()
+      .filter((ticket) => job.ticketIds.includes(ticket.frontmatter.id))
+      .map((ticket) => ({ id: ticket.frontmatter.id, title: ticket.frontmatter.title, body: ticket.body })),
+    checksLine: board.checkCommand() ?? null,
+  };
+}
+
+function launchHost(request: DrivePassRequest, jobLaunchContext: JobLaunchContext, board: Board, trackerId: string, job: Readonly<Job>): void {
   const { workspace, agentAdapter } = request;
   const jobFolder        = HostFleet.jobFolderOf(workspace.trackerDirectory, job.id);
   const relayDirectory   = RelayInbox.relayDirectoryOf(workspace.rootDirectory, job.id);
   mkdirSync(join(relayDirectory, 'requests'), { recursive: true });
   const workingDirectory = workingDirectoryOf(workspace, job);
-  const text             = request.launchTextOf(job);
+  const text             = request.launchTextOf(job, launchFactsOf(board, job));
+  if (job.kind === 'build') JobLaunch.recordJobStart(jobLaunchContext, board, job);
   const launchRequest: AgentLaunchRequest = {
     sessionId:         agentAdapter.sessionIdOf(trackerId, job.id),
     resume:            job.state === 'running' && job.hostInstance > 1,
@@ -248,9 +302,9 @@ function launchHost(request: DrivePassRequest, trackerId: string, job: Readonly<
     model:             DEFAULT_MODEL,
     effort:            DEFAULT_EFFORT,
     environment:       launchEnvironmentOf(request.inheritedEnvironment, { [JOB_ID_VARIABLE]: job.id, [RELAY_DIRECTORY_VARIABLE]: relayDirectory }),
-    profile:           profileOf(workspace, job, workingDirectory, relayDirectory),
+    profile:           launchProfileOf(jobLaunchContext, board, job, workingDirectory, relayDirectory),
     jobFilesDirectory: jobFolder,
-    reportSchema:      null,
+    reportSchema:      job.kind === 'build' ? BUILDER_REPORT_SCHEMA : null,
   };
   HostFleet.writeLaunchFiles({
     jobFolder,
@@ -266,18 +320,22 @@ function launchHost(request: DrivePassRequest, trackerId: string, job: Readonly<
   request.log(`Spawned host instance ${job.hostInstance} of job ${job.id} (${job.kind}${job.ticketIds.length === 0 ? '' : ` #${job.ticketIds.join(', #')}`}).`);
 }
 
-/** A job launching, or resumed into `running`, whose current instance nobody claimed yet; spawning twice is harmless, since the claim is exclusive. */
+/**
+ * A job launching, or resumed into `running`, whose current instance nobody claimed yet; spawning twice is harmless, since the claim is
+ * exclusive. A build job launches its session only once its worktree is prepared, as it moves into `running`.
+ */
 function jobsNeedingAHost(board: Board, trackerDirectory: string, spawnedInstances: ReadonlySet<string>): readonly Readonly<Job>[] {
-  return board.jobs().filter((job) => (job.state === 'launching' || job.state === 'running')
+  return board.jobs().filter((job) => ((job.state === 'launching' && job.kind !== 'build') || job.state === 'running')
     && job.role !== null
     && !spawnedInstances.has(`${job.id}:${job.hostInstance}`)
     && HostFleet.livenessOf(HostFleet.jobFolderOf(trackerDirectory, job.id), job.hostInstance).verdict === 'unclaimed');
 }
 
-function noticesOf(request: DrivePassRequest, observation: Observation): RunnerNotice[] {
+function noticesOf(request: DrivePassRequest, observation: Observation, attributionTicketIds: readonly string[]): RunnerNotice[] {
   return [
     ...(request.installVersionChanged() ? [{ kind: 'install-version-changed' } as const] : []),
     ...observation.targetsHoldingManagedBlock.map((target) => ({ kind: 'claude-md-block-committed', target }) as const),
+    ...attributionTicketIds.map((ticketId) => ({ kind: 'attribution-found', ticketId }) as const),
   ];
 }
 
@@ -289,9 +347,26 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
   let forcedNext = false;
   let state: RunnerStateDocument = { generation: request.generation, passes: 0, notices: [] };
   let stopped = false;
+  const sandbox = createProcessHostSandbox();
+  const jobLaunchContext: JobLaunchContext = {
+    workspace:            request.workspace,
+    agentAdapter:         request.agentAdapter,
+    monitorFolder:        request.monitorFolder,
+    homeDirectory:        request.homeDirectory,
+    inheritedEnvironment: request.inheritedEnvironment,
+    mainLine:             request.mainLine,
+    groupTargetPrefix:    GROUP_TARGET_PREFIX,
+    hostBundlePath:       request.hostBundlePath,
+    codeVersion:          request.codeVersion,
+    sandbox,
+    // Trusted on disk only while no gate can write the data folder; unsandboxed gates keep their passes in memory, lost on a restart.
+    gateCache:            sandbox.isUsable() ? createFolderGateResultCache(join(request.workspace.trackerDirectory, 'gates')) : createMemoryGateResultCache(),
+    windDownMessage:      request.windDownMessage,
+    log:                  request.log,
+  };
 
   async function runOnePass(forced: boolean): Promise<void> {
-    const observation = observe(request);
+    const observation = observe(request, jobLaunchContext);
     if (!forced && observation.fingerprint === lastFingerprint) return;
     const at = request.formatStamp(request.now());
     const limits = { ...LIFECYCLE_LIMITS, now: at, usageResetsAt: null };
@@ -313,9 +388,10 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
         request.afterHoldPhase?.('relayed-commands', change.board);
         applyHostEvents(change, request.agentAdapter, observation.hosts);
         request.afterHoldPhase?.('host-events', change.board);
+        const buildJobRecords = JobLaunch.applyBuildJobObservations(change, jobLaunchContext, observation.buildJobs);
         change.board.advanceLifecycle(limits, observations, request.decisionWordingOf);
         request.afterHoldPhase?.('lifecycle', change.board);
-        return replies;
+        return { replies, attributionTicketIds: JobLaunch.attributionTicketIdsOf([...change.storedLogRecords, ...buildJobRecords]) };
       },
     });
     try {
@@ -325,13 +401,14 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
       request.onLeaseTakenOver(refusal);
       return;
     }
-    RelayInbox.writeReplies(written.result);
+    RelayInbox.writeReplies(written.result.replies);
+    await JobLaunch.runBuildJobEffects(jobLaunchContext, written.board, observation.trackerId, observation.buildJobs);
     for (const job of jobsNeedingAHost(written.board, request.workspace.trackerDirectory, spawnedInstances)) {
       spawnedInstances.add(`${job.id}:${job.hostInstance}`);
-      launchHost(request, observation.trackerId, job);
+      launchHost(request, jobLaunchContext, written.board, observation.trackerId, job);
     }
-    state = { generation: request.generation, passes: state.passes + 1, notices: noticesOf(request, observation) };
-    lastFingerprint = observe(request).fingerprint;
+    state = { generation: request.generation, passes: state.passes + 1, notices: noticesOf(request, observation, written.result.attributionTicketIds) };
+    lastFingerprint = observe(request, jobLaunchContext).fingerprint;
   }
 
   async function drain(): Promise<void> {

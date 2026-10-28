@@ -225,6 +225,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   lifecycle: its progress is a Board roll-up over its tickets, and it never touches dispatch, claiming, concurrency or
   release, which stay `group`'s.
 - A row's `history` holds only what the tool watched.
+- A runner build job's `## Handoff` is code's: written from the builder's verified report only after its gate passes,
+  replacing the section the filing template left; a builder never edits its ticket file (`docs/cli.md`, "A build job").
 - A review row belongs to its ticket by `reviewOf` alone. The page reads which rows are bars from the Board facts,
   and a bar's name only to order a ticket's bars.
 

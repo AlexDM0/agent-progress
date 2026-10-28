@@ -558,6 +558,38 @@ comment is code, and a file type it does not know counts every non-blank line.
 | `version [--json]` | Print `{codeVersion, installVersion}`: a content hash of the program's shipping files on disk, and the install version this program writes. Read-only; it needs no tracker and checks no install version. |
 | `clear [--all] [--yes]` | Throw away every task row and the log, restart the clock and reset the stored axis to automatic, leaving one `Tracker cleared` log line, and keep the tickets: each surviving ticket is given a fresh row seeded from its own frontmatter, with a new id, except a low ticket with no row. Row ids are not reused, and every epic file is kept untouched. `--all` deletes the tickets and every epic too and restarts the ticket ids at 001; `--json` prints `removedTaskCount`, `removedLogCount`, `deletedTicketCount`, `deletedEpicCount` and `reseededTicketCount`. `--yes` skips the confirmation, and is required when standard input is not a terminal. |
 
+### A build job
+
+A readied ticket's build job moves through job states, each one a pass of the runner. `launching` becomes `preparing`
+(the ticket goes `in-progress`): the runner adds `<worktrees>/ticket-<id>/` on branch `ticket-<id>` from the target's
+tip and runs the install line there in a process host under `sandbox-exec` with the job's profile, network on. Once
+it ends at exit 0 (or with no install line stored) the job is `running` and the builder launches, its first message
+holding the ticket and the checks line, confined by the per-job settings: writes denied to the data folder, the
+monitor folder, the worktree's `.claude/`, `packed-refs`, the target refs, every other ticket branch and every other
+worktree's admin folder; reads denied of the runner token, the launch files, the host sockets, `~/.ssh`, `~/.aws` and
+`~/.gnupg` (only its private keys when the gpg-agent socket signs); writes outside the worktree only to its own relay
+folder; a ticket's `network` line its only network. Its closing `result` moves it to `verifying`, the runner closes
+its input and verifies; a verified `built` report is `gating`, the checks line run in a second sandboxed process host,
+network on only for a ticket with a `network` line. On a pass the runner writes the gate cache entry
+`<data>/gates/<key>.json`, replaces the ticket's `## Handoff` with the report's handoff and Acceptance evidence, moves
+the ticket `in-review` and ends the job `built`; the policy then launches the review job in the same hold.
+
+| what happens | what the runner does |
+| --- | --- |
+| worktree creation or the install line fails | incident `setup-failed`; the job ends `stopped` |
+| the session exits without a valid report | a failed pass: `job-ended` `failed`, cause `no-report` |
+| a commit in range carries an attribution trailer | a failed pass, cause `attribution`; the ticket shows the `attribution-found` notice until its next job ends |
+| any other verification refusal, or the gate fails | a failed pass, its cause the refusal reason or `gate-failed` |
+| the report says `blocked` | incident `blocked`; the job ends `blocked` |
+| the report says `wound-down` | incident `out-of-calls`; the job ends `wound-down` |
+| the call budget is reached | the wind-down message is sent once |
+| the budget plus `WIND_DOWN_GRACE_CALLS` (10) is reached | incident `out-of-calls`; the job is `stopping`, then ends `stopped` |
+| the checks process exits 126 or 127, or is killed by a signal | incident `gate-cannot-run`; the job ends `stopped` |
+| no checks line is stored | the `checks-not-set` decision; nothing launches |
+
+A ticket an open incident names launches no new job until the incident is settled. Where `sandbox-exec` cannot apply
+a profile, the process hosts run unconfined and gate passes are kept in the runner's memory only.
+
 ### Under a job: the relay
 
 A session the runner launched cannot write the data folder. With both `AGENT_PROGRESS_JOB_ID` and
