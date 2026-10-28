@@ -37,6 +37,7 @@ export type OperationRefusalDetail =
   | { kind: 'runner-still-live'; url: string; processId: number }
   | { kind: 'runner-handover-failed'; successorCodeVersion: string; step: string; error: string; url: string | null }
   | { kind: 'runner-control-is-runtime-only'; commandKind: string }
+  | { kind: 'intake-close-without-job' }
   | { kind: 'runner-owns-the-lifecycle'; url: string; leaseFilePath: string }
   | { kind: 'host-bundle-failed'; entryPath: string; reason: string }
   | { kind: 'ticket-has-live-job'; ticketId: string; jobId: string; state: string }

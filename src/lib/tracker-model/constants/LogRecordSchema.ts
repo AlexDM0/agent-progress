@@ -36,6 +36,7 @@ export type LogFieldShape =
   | 'host-instance'
   | 'permission-names'
   | 'runner-stop-reason'
+  | 'job-stop-mode'
   | 'decision-kind'
   | 'decision-answer'
   | 'incident-kind'
@@ -163,12 +164,16 @@ export const LOG_RECORD_SCHEMA = {
       parentJobId: 'nullable-text',
     },
   },
-  'job-interrupted': { subject: 'job', fields: { cause: 'interruption-cause', hostInstance: 'host-instance' } },
-  'job-resumed':     { subject: 'job', fields: { hostInstance: 'host-instance', cause: 'interruption-cause' } },
+  'job-interrupted':    { subject: 'job', fields: { cause: 'interruption-cause', hostInstance: 'host-instance' } },
+  'job-resumed':        { subject: 'job', fields: { hostInstance: 'host-instance', cause: 'interruption-cause' } },
   // The vendor refused the job's requests: `window` as the vendor names it, `resetsAt` the ISO stamp no launch or resume precedes.
-  'usage-limit-hit': { subject: 'job', fields: { window: 'text', resetsAt: 'text' } },
+  'usage-limit-hit':    { subject: 'job', fields: { window: 'text', resetsAt: 'text' } },
+  // User's stop, wind-down or fresh agent, recorded whether or not a host is up; the runner sends the frames from the job record.
+  'job-stop-requested': { subject: 'job', fields: { mode: 'job-stop-mode' } },
+  // A chat turn for the session, which the runner writes from the log in order.
+  'job-messaged':       { subject: 'job', fields: { text: 'text' } },
   // `cause` and `commit` are set only when the runner names them.
-  'job-ended':       {
+  'job-ended':          {
     subject: 'job',
     fields:  {
       outcome:           'job-outcome',

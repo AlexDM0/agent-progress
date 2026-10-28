@@ -52,6 +52,19 @@ export interface MergeSlot {
   phase:     SlotPhase;
 }
 
+/** What User asked of a live job: `stop` and `wind-down` hold its ticket, `fresh` stops it for a fresh agent on the same worktree. */
+export type JobStopMode = 'stop' | 'wind-down' | 'fresh';
+
+/**
+ * A product-owner job's intake: User's request, the draft sets it proposed when it closed intake, and, for a fresh session taking over
+ * one replaced past the bound, the answers its predecessor's questions got.
+ */
+export interface JobIntake {
+  text:               string;
+  proposedDraftSets?: string[][];
+  carriedAnswers?:    Readonly<Record<string, string>>[];
+}
+
 /** The last host event the runner applied, written in the hold that applied it. */
 export interface JobEventCursor {
   instance: number;
@@ -83,6 +96,10 @@ export interface Job {
   crashResumes:       number;
   /** On the merge or refresh job holding its target's slot, while it holds it. */
   slot?:              MergeSlot;
+  /** Set once User stopped, wound down or freshened the job; the runner sends its frames from it. */
+  stopRequest?:       JobStopMode;
+  /** On a product-owner job only. */
+  intake?:            JobIntake;
   /** Set only on the record `job-ended` hands back: an ended job leaves the board in the same hold. */
   outcome?:           JobOutcome;
 }
@@ -94,6 +111,7 @@ export interface JobLaunch {
   parentJobId: string | null;
   attempt:     number;
   target:      string | null;
+  intake?:     JobIntake;
 }
 
 export interface JobEnding {

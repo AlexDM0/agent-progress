@@ -137,6 +137,8 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
   board.interruptJob(job.id, 'agent-crashed', at);
   board.recordUsageLimitHit(job.id, { window: 'five_hour', resetsAt: '2026-09-26T13:00:34.000Z' }, at);
   board.moveJob(job.id, 'running', at);
+  board.messageJob(job.id, 'Keep the example export small.', at);
+  board.requestJobStop(job.id, 'wind-down', at);
   board.endJob(job.id, { outcome: 'failed', cause: 'no report', deniedPermissions: ['WebFetch'] }, at);
   const question = {
     question:    'Ship the example export as CSV?',

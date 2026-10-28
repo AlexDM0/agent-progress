@@ -72,6 +72,7 @@ import type {
   JobEnding,
   JobEventCursor,
   JobLaunch,
+  JobStopMode,
   MergeSlot,
   RunnerStopReason
 }                                              from './@types/Job.ts';
@@ -105,6 +106,7 @@ import { Epics }                                            from './Epics.ts';
 import { GroupReleases }                                    from './GroupReleases.ts';
 import type { IncidentEscalation }                          from './Incidents.ts';
 import { Incidents }                                        from './Incidents.ts';
+import { JobControls }                                      from './JobControls.ts';
 import type { SteppedJobState }                             from './Jobs.ts';
 import { Jobs }                                             from './Jobs.ts';
 import type { LifecycleFacts }                              from './LifecyclePolicy.ts';
@@ -194,6 +196,8 @@ export class Board {
 
   private readonly agentQuestions: AgentQuestions;
 
+  private readonly jobControls: JobControls;
+
   constructor(input: BoardInput) {
     this.records            = new BoardRecords(input.progress, input.tickets, input.epics, input.drafts ?? [], input.logger, input.storedLogRecords ?? []);
     this.reviewBars         = new ReviewBars(this.records);
@@ -219,6 +223,56 @@ export class Board {
     this.decisionRules      = new Decisions(this.records);
     this.incidentRules      = new Incidents(this.records, this.decisionRules);
     this.agentQuestions     = new AgentQuestions(this.records, this.jobRules, this.decisionRules, this.ticketSettings, this.ticketEdits);
+    this.jobControls        = new JobControls(this.records, this.jobRules, this.decisionRules, this.ticketSettings, this.agentQuestions);
+  }
+
+  /** User's stop, wind-down or fresh agent; `stop` and `wind-down` hold the job's ticket in this hold. */
+  requestJobStop(jobId: string, mode: JobStopMode, at: string): JobChanged {
+    return this.jobControls.requestJobStop(jobId, mode, at);
+  }
+
+  /** Pauses the board, then stops or winds down every live build, review and product-owner job. */
+  stopAllJobs(mode: Exclude<JobStopMode, 'fresh'>, at: string): Logged {
+    const pause = (): readonly LogRecord[] => (this.dispatcherState() === 'stopped' ? [] : this.setDispatcherState('stopped', null, at).logged);
+    return this.jobControls.stopAllJobs(mode, pause, at);
+  }
+
+  messageJob(jobId: string, text: string, at: string): JobChanged {
+    return this.jobControls.messageJob(jobId, text, at);
+  }
+
+  startIntake(text: string, at: string): JobChanged {
+    return this.jobControls.startIntake(text, at);
+  }
+
+  closeIntake(jobId: string, proposedDraftSets: readonly (readonly string[])[], at: string): JobChanged {
+    return this.jobControls.closeIntake(jobId, proposedDraftSets, at);
+  }
+
+  /** The drafts a product owner and every session it took over from filed, still drafts. */
+  draftsFiledByIntakeOf(jobId: string): readonly Readonly<Ticket>[] {
+    const job = this.jobRules.jobById(jobId);
+    if (job === undefined) return [];
+    const filingJobIds = this.jobControls.intakeChainOf(job);
+    return this.tickets().filter(({ frontmatter }) => frontmatter.status === 'draft' && frontmatter.filedByJob !== undefined
+      && filingJobIds.includes(frontmatter.filedByJob));
+  }
+
+  /** The runner's end of a closed intake: the job ends `closed` and a `ready-drafts` decision lists its drafts, worded by the caller. */
+  endIntakeJob(
+    jobId: string,
+    readinessGapsOf: (body: string) => readonly ReadinessGap[],
+    decisionWordingOf: (draft: DecisionDraft) => DecisionWording,
+    at: string,
+  ): Logged {
+    const job   = this.jobRules.requireJob(jobId);
+    const draft = this.jobControls.readyDraftsDraftOf(job, readinessGapsOf);
+    const ended = this.endJob(jobId, { outcome: 'closed' }, at);
+    if (draft === null) return { logged: ended.logged };
+    const opened = this.openDecision({
+      ...draft, askedBy: 'runner', requestId: null, ...decisionWordingOf(draft)
+    }, at);
+    return { logged: [...ended.logged, ...opened.logged] };
   }
 
   launchJob(launch: JobLaunch, at: string): JobChanged {
@@ -450,6 +504,10 @@ export class Board {
         return this.moveJob(step.jobId, 'running', at).logged;
       case 'replace-job':
         return this.endJob(step.jobId, { outcome: 'replaced' }, at).logged;
+      case 'await-answer':
+        return this.moveJob(step.jobId, 'awaiting-answer', at).logged;
+      case 'refresh-intake':
+        return this.jobControls.refreshIntake(step.jobId, at).logged;
       case 'park':
         return [
           ...this.holdTicket(step.ticketId, `${PARKED_HOLD_PREFIX}${step.cause}`, at).logged,

@@ -11,6 +11,7 @@ import type {
   JobKind,
   JobOutcome,
   JobRole,
+  JobStopMode,
   LandingKind,
   RunnerStopReason
 }                                                                        from './Job.ts';
@@ -48,6 +49,7 @@ interface ValueOfFieldShape {
   'host-instance':          number;
   'permission-names':       readonly string[];
   'runner-stop-reason':     RunnerStopReason;
+  'job-stop-mode':          JobStopMode;
   'decision-kind':          DecisionKind;
   'decision-answer':        DecisionAnswer;
   'incident-kind':          IncidentKind;

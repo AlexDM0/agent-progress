@@ -737,6 +737,35 @@ output never carries either.
                               stored as {question: answer}, logged decision-answered, and the
                               runner delivers it to the asking session.
 
+  jobs [--json]               The live jobs, one line each (id, kind and role, state, tickets,
+                              attempt, host instance, a stop asked), then the runner, paused or not,
+                              agents against the limit, open decisions and incidents. Read-only.
+  job show|attach <J> [--json]
+                              show prints the job's record, or what the log holds of a finished
+                              one; attach replays every host instance's event log, then follows the
+                              newest while the job is on the board. Both read-only, no lock.
+  job message <J> -- <text> [--json]
+                              A chat turn the runner writes to the session (job-messaged); refused
+                              job-finished for a finished job, which is never continued.
+  job wind-down|stop|fresh <J> [--json]
+                              Logged job-stop-requested with the mode. stop and wind-down hold the
+                              ticket "stopped by User (J<n>)" or "wound down by User (J<n>)" in the
+                              same hold, with the runner up or down; a stopped product owner is
+                              finished and its open decisions withdrawn. fresh stops the job so the
+                              next attempt starts on its worktree (job-has-no-ticket otherwise).
+  job stop --all [--wind-down] [--json]
+                              run pause, then stop or wind down every build, review and
+                              product-owner job.
+
+  intake -- <text> [--json]   Record a product-owner job (no ticket, no build slot) the runner
+                              launches in <worktrees>/sessions/<J>/ with /${PRODUCT_NAMES.PRODUCT_OWNER_SKILL} <text>;
+                              several may run at once, and job message chats with one.
+  intake close <J> [--set <id,id>]... [--json]
+                              Close its input (job-not-intake for another kind of job); once its
+                              session ends the runner opens a ready-drafts decision listing its
+                              drafts, one option per --set and one for none. Under the product
+                              owner's own job it names no job.
+
   await [--json] [--after <n>]
                               Wait until the log holds a decision-opened or incident-escalated
                               record past position <n> (the log's length when absent), then print

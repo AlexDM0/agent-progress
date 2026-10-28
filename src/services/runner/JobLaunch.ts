@@ -25,6 +25,7 @@ import type {
 import type { DecisionDraft, DecisionWording }                    from '../../lib/tracker-model/@types/LifecycleStep.ts';
 import type { LogRecord }                                         from '../../lib/tracker-model/@types/LogRecord.ts';
 import type { Board }                                             from '../../lib/tracker-model/Board.ts';
+import { FRESH_AGENT_CAUSE, STOPPED_BY_USER_CAUSE }               from '../../lib/tracker-model/JobControls.ts';
 import { TicketBodyHashUtil }                                     from '../../lib/tracker-model/utils/TicketBodyHashUtil.ts';
 import { DISPATCH_PROTOCOL }                                      from '../../shared/constants/DispatchProtocol.ts';
 import { LIFECYCLE_LIMITS }                                       from '../../shared/constants/LifecycleLimits.ts';
@@ -433,6 +434,12 @@ function settleGate(hold: HoldContext, job: Readonly<Job>, observation: BuildJob
   hold.logged.push(...board.moveTicket(ticketIdOf(job), 'in-review', { checksLegality: true, branch: branchOf(job), commit: headCommit }, at).logged);
 }
 
+/** A job User stopped ends `stopped`; one User freshened ends `replaced`, so the next attempt starts on the same worktree. */
+function userStopEndingOf(job: Readonly<Job>): Parameters<Board['endJob']>[1] | null {
+  if (job.stopRequest === 'fresh') return { outcome: 'replaced', cause: FRESH_AGENT_CAUSE };
+  return job.stopRequest === 'stop' ? { outcome: 'stopped', cause: STOPPED_BY_USER_CAUSE } : null;
+}
+
 function applyObservation(hold: HoldContext, observation: BuildJobObservation): void {
   const { board, at } = hold.change;
   const job = board.jobById(observation.jobId);
@@ -464,7 +471,7 @@ function applyObservation(hold: HoldContext, observation: BuildJobObservation): 
       }
       return;
     case 'stopping':
-      if (observation.agentEnd !== null) endJob(hold, job, { outcome: 'stopped', cause: BUILD_JOB_CAUSES.outOfCalls });
+      if (observation.agentEnd !== null) endJob(hold, job, userStopEndingOf(job) ?? { outcome: 'stopped', cause: BUILD_JOB_CAUSES.outOfCalls });
       return;
     case 'verifying':
       verifyAndRoute(hold, job, observation);

@@ -233,6 +233,10 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
       return `There is no job ${detail.jobId}. ${NOTHING_WAS_WRITTEN}`;
     case 'job-finished':
       return `Job ${detail.jobId} is finished, and a finished job is never continued. ${NOTHING_WAS_WRITTEN}`;
+    case 'job-has-no-ticket':
+      return `Job ${detail.jobId} works no ticket, so no fresh agent can take its work over. ${NOTHING_WAS_WRITTEN}`;
+    case 'job-not-intake':
+      return `Job ${detail.jobId} is a ${detail.kind} job, not a product-owner intake, so it has no intake to close. ${NOTHING_WAS_WRITTEN}`;
     case 'job-move-illegal':
       return `Job ${detail.jobId} is ${detail.state}, so it cannot move to ${detail.targetState}: `
         + `only a job ${legalJobSourcesText(detail.targetState)} can. ${NOTHING_WAS_WRITTEN}`;
@@ -403,6 +407,8 @@ function messageOf(refusal: OperationRefusal): string {
         + `see \`${PRODUCT_NAMES.PROGRAM} run status\` and the runner log.`;
     case 'runner-control-is-runtime-only':
       return `${detail.commandKind} is sent to the live runner, never applied to the board. ${NOTHING_WAS_WRITTEN}`;
+    case 'intake-close-without-job':
+      return `Name the product-owner job whose intake to close, as J4. ${NOTHING_WAS_WRITTEN}`;
     case 'runner-owns-the-lifecycle':
       return `A runner drives this board at ${detail.url} (${detail.leaseFilePath}), so only it delivers tickets. `
         + `Stop it with \`${PRODUCT_NAMES.PROGRAM} run stop\` before recording work by hand. ${NOTHING_WAS_WRITTEN}`;

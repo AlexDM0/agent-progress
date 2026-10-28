@@ -5,6 +5,7 @@
  */
 import { TokenCountUtil }            from '../../lib/token-count/TokenCountUtil.ts';
 import type { IncidentDefaultCause } from '../../lib/tracker-model/@types/Incident.ts';
+import type { JobStopMode }          from '../../lib/tracker-model/@types/Job.ts';
 import type {
   AgentUsage,
   LogRecord,
@@ -187,6 +188,10 @@ function sentenceOf(record: LogRecordContent): string {
       return `Job ${record.jobId} hit the ${record.fields.window} usage limit; nothing launches or resumes before ${record.fields.resetsAt}`;
     case 'job-ended':
       return jobEndedTextOf(record.jobId, record.fields);
+    case 'job-stop-requested':
+      return `User asked job ${record.jobId} to ${JOB_STOP_MODE_PHRASES[record.fields.mode]}`;
+    case 'job-messaged':
+      return `Message for job ${record.jobId}: ${record.fields.text}`;
     case 'ticket-triaged':
       return `Ticket #${record.ticketId} put to the user's low-priority triage`;
     case 'decision-opened':
@@ -211,6 +216,12 @@ function sentenceOf(record: LogRecordContent): string {
       return `Job ${record.jobId}'s relayed ${record.fields.commandKind} ${record.fields.requestId} answered ${record.fields.outcome}`;
   }
 }
+
+const JOB_STOP_MODE_PHRASES: Readonly<Record<JobStopMode, string>> = {
+  'stop':      'stop',
+  'wind-down': 'wind down',
+  'fresh':     'make way for a fresh agent',
+};
 
 const INCIDENT_DEFAULT_CAUSE_TEXT: Readonly<Record<IncidentDefaultCause, string>> = {
   'turn-closed':     'when its delivery turn closed',

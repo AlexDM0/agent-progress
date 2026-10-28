@@ -11,15 +11,15 @@ import type { LogRecord }              from './@types/LogRecord.ts';
 
 const LOGGED_AT = '2026-09-26T10:15:00+02:00';
 
-const RECORD_KIND_COUNT = 67;
+const RECORD_KIND_COUNT = 69;
 
 /**
- * Four kinds are logged twice: `draft-claimed`, plainly and as a forced takeover, since the two store different fields, `draft-opened`,
- * since a closed draft cannot then be abandoned, and `job-launched` and `job-ended`, since a merge claim launches its own job. Two are
- * logged three times, `decision-opened` and `incident-opened`, since a closed one cannot be closed again another way and an escalation
- * opens a decision of its own.
+ * Five kinds are logged twice: `draft-claimed`, plainly and as a forced takeover, since the two store different fields, `draft-opened`,
+ * since a closed draft cannot then be abandoned, `job-launched` and `job-ended`, since a merge claim launches its own job, and
+ * `ticket-held`, since a wind-down holds its job's ticket. Two are logged three times, `decision-opened` and `incident-opened`, since a
+ * closed one cannot be closed again another way and an escalation opens a decision of its own.
  */
-const RECORD_COUNT = RECORD_KIND_COUNT + 4 + 4;
+const RECORD_COUNT = RECORD_KIND_COUNT + 5 + 4;
 
 const FROZEN_STORED_LINES = [
   '{"at":"2026-09-26T10:15:00+02:00","kind":"note","fields":{"text":"Example note from the orchestrator"}}',
@@ -91,6 +91,9 @@ const FROZEN_STORED_LINES = [
   '{"at":"2026-09-26T10:15:00+02:00","kind":"job-interrupted","jobId":"J2","fields":{"cause":"agent-crashed","hostInstance":1}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"usage-limit-hit","jobId":"J2","fields":{"window":"five_hour","resetsAt":"2026-09-26T13:00:34.000Z"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"job-resumed","jobId":"J2","fields":{"hostInstance":2,"cause":"agent-crashed"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"job-messaged","jobId":"J2","fields":{"text":"Keep the example export small."}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"job-stop-requested","jobId":"J2","fields":{"mode":"wind-down"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-held","ticketId":"002","fields":{"reason":"wound down by User (J2)"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"job-ended","jobId":"J2","fields":{"outcome":"failed","cause":"no report","deniedPermissions":["WebFetch"]}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"decision-opened","decisionId":"E1","fields":{"kind":"agent-question","ticketIds":["002"]}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"decision-answered","decisionId":"E1","fields":{"answer":{"Ship the example export as CSV?":"CSV"},"requestId":"request-1"}}',

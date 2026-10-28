@@ -16,7 +16,8 @@ import {
   JOB_KINDS,
   JOB_OUTCOMES,
   JOB_ROLES,
-  RUNNER_STOP_REASONS
+  RUNNER_STOP_REASONS,
+  JOB_STOP_MODES
 }                                                            from '../../lib/tracker-model/constants/JobStates.ts';
 import type { LogFieldShape }                                from '../../lib/tracker-model/constants/LogRecordSchema.ts';
 import { LOG_RECORD_SCHEMA, LOG_RECORD_SUBJECT_IDS }         from '../../lib/tracker-model/constants/LogRecordSchema.ts';
@@ -121,6 +122,7 @@ const CHECK_FOR_FIELD_SHAPE: Readonly<Record<LogFieldShape, FieldShapeCheck>> = 
   'host-instance':          hostInstanceProblem,
   'permission-names':       (value, path) => listOfTextProblem(value, path, 'permission names'),
   'runner-stop-reason':     (value, path) => vocabularyProblem(value, path, RUNNER_STOP_REASONS),
+  'job-stop-mode':          (value, path) => vocabularyProblem(value, path, JOB_STOP_MODES),
   'decision-kind':          (value, path) => vocabularyProblem(value, path, DECISION_KINDS),
   'decision-answer':        decisionAnswerProblem,
   'incident-kind':          (value, path) => vocabularyProblem(value, path, INCIDENT_KINDS),

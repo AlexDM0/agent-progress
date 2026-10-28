@@ -194,13 +194,34 @@ function jobAwaitsAnAnswer(job: Readonly<Job>, facts: LifecycleFacts): boolean {
     || facts.incidents.some((incident) => incident.jobId === job.id && (incident.kind === 'system-question' || incident.kind === 'malformed-ticket'));
 }
 
+/** Only a crash counts toward the bound: a reboot, an answer delivery or a usage limit resumes whatever the count. */
+function crashResumesAreSpent(job: Readonly<Job>, limits: LifecycleLimits): boolean {
+  return isCrash(job.interruption) && job.crashResumes >= limits.JOB_RESUMES_BEFORE_FRESH;
+}
+
+/**
+ * An intake conversation survives a reboot: an interrupted product owner resumes by id once any question it asked is answered. Past the
+ * crash bound it is never resumed: with a question open it waits `awaiting-answer`, otherwise a fresh session takes its intake over.
+ */
+function productOwnerStepsOf(job: Readonly<Job>, facts: LifecycleFacts, limits: LifecycleLimits, resumesAreHeld: boolean): LifecycleStep[] {
+  const awaitsAnAnswer = jobAwaitsAnAnswer(job, facts);
+  if (job.state === 'awaiting-answer') return awaitsAnAnswer ? [] : [{ kind: 'refresh-intake', jobId: job.id }];
+  if (crashResumesAreSpent(job, limits)) {
+    return [{ kind: awaitsAnAnswer ? 'await-answer' : 'refresh-intake', jobId: job.id }];
+  }
+  return resumesAreHeld || awaitsAnAnswer ? [] : [{ kind: 'resume-job', jobId: job.id }];
+}
+
 function crashBoundStepsOf(facts: LifecycleFacts, limits: LifecycleLimits, resumesAreHeld: boolean): LifecycleStep[] {
-  return facts.jobs.filter((job) => job.state === 'interrupted').flatMap((job): LifecycleStep[] => {
+  const productOwnerSteps = facts.jobs
+    .filter((job) => job.kind === 'product-owner' && (job.state === 'interrupted' || job.state === 'awaiting-answer'))
+    .flatMap((job) => productOwnerStepsOf(job, facts, limits, resumesAreHeld));
+  return [...productOwnerSteps, ...facts.jobs.filter((job) => job.state === 'interrupted' && job.kind !== 'product-owner').flatMap((job): LifecycleStep[] => {
     if (SESSION_JOB_KINDS.includes(job.kind)) return [{ kind: 'replace-job', jobId: job.id }];
-    if (isCrash(job.interruption) && job.crashResumes >= limits.JOB_RESUMES_BEFORE_FRESH) return [{ kind: 'replace-job', jobId: job.id }];
+    if (crashResumesAreSpent(job, limits)) return [{ kind: 'replace-job', jobId: job.id }];
     if (resumesAreHeld || jobResumeIsHeld(job, facts) || jobAwaitsAnAnswer(job, facts)) return [];
     return [{ kind: 'resume-job', jobId: job.id }];
-  });
+  })];
 }
 
 function parkStepsOf(facts: LifecycleFacts, limits: LifecycleLimits): LifecycleStep[] {

@@ -18,6 +18,9 @@ export const READ_ONLY_VERBS_UNDER_A_JOB: readonly string[] = [
   'hook bash-domains',
 ];
 
+/** Verbs that build a kind whose own verb is named above: `job wind-down` is a `job-stop` of mode `wind-down`. */
+export const OTHER_VERBS_OF_CONTROL_KIND: Readonly<Partial<Record<ControlCommandKind, readonly string[]>>> = { 'job-stop': ['job wind-down'], };
+
 /** The verb each control command is typed as; under a job the verb parses its arguments as usual and relays the command it built. */
 export const RELAYED_VERB_OF_CONTROL_KIND: Readonly<Record<ControlCommandKind, string>> = {
   'ticket-add':          'ticket add',
@@ -41,6 +44,12 @@ export const RELAYED_VERB_OF_CONTROL_KIND: Readonly<Record<ControlCommandKind, s
   'draft-close':         'draft close',
   'draft-abandon':       'draft abandon',
   'decision-answer':     'decide',
+  'job-stop':            'job stop',
+  'job-fresh':           'job fresh',
+  'job-stop-all':        'job stop',
+  'job-message':         'job message',
+  'intake-start':        'intake',
+  'intake-close':        'intake close',
   'runner-pause':        'run pause',
   'runner-resume':       'run resume',
   'runner-stop':         'run stop',

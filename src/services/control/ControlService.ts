@@ -6,6 +6,7 @@ import type { ControlCommand, ControlCommandKind, ControlCommandOf } from '../..
 import type { TrackerChange }                                        from '../tracker/TrackerPipeline.ts';
 import { DECISION_CONTROLS }                                         from './DecisionControls.ts';
 import { FILING_CONTROLS }                                           from './FilingControls.ts';
+import { JOB_CONTROLS }                                              from './JobControls.ts';
 import { RUNNER_CONTROLS }                                           from './RunnerControls.ts';
 import { SETTING_CONTROLS }                                          from './SettingControls.ts';
 import { TICKET_CONTROLS }                                           from './TicketControls.ts';
@@ -14,6 +15,7 @@ const CONTROL_APPLIERS = {
   ...TICKET_CONTROLS,
   ...FILING_CONTROLS,
   ...DECISION_CONTROLS,
+  ...JOB_CONTROLS,
   ...RUNNER_CONTROLS,
   ...SETTING_CONTROLS,
 } as const satisfies { [Kind in ControlCommandKind]: (command: ControlCommandOf<Kind>, change: TrackerChange) => unknown };

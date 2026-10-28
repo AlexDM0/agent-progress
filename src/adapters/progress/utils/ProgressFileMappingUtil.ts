@@ -4,11 +4,16 @@
  */
 import type { Decision, DecisionQuestion, DecisionQuestionOption } from '../../../lib/tracker-model/@types/Decision.ts';
 import type { Incident, IncidentDeliveryTurn }                     from '../../../lib/tracker-model/@types/Incident.ts';
-import type { Job, JobEventCursor, MergeSlot }                     from '../../../lib/tracker-model/@types/Job.ts';
-import type { Task, TaskPhase }                                    from '../../../lib/tracker-model/@types/Task.ts';
-import type { TrackerProgress }                                    from '../../../lib/tracker-model/@types/TrackerProgress.ts';
-import type { WordedLogEntry }                                     from '../../../shared/@types/WordedLogEntry.ts';
-import type { WordedProgressDocument }                             from '../../../shared/@types/WordedProgressDocument.ts';
+import type {
+  Job,
+  JobEventCursor,
+  JobIntake,
+  MergeSlot
+} from '../../../lib/tracker-model/@types/Job.ts';
+import type { Task, TaskPhase }        from '../../../lib/tracker-model/@types/Task.ts';
+import type { TrackerProgress }        from '../../../lib/tracker-model/@types/TrackerProgress.ts';
+import type { WordedLogEntry }         from '../../../shared/@types/WordedLogEntry.ts';
+import type { WordedProgressDocument } from '../../../shared/@types/WordedProgressDocument.ts';
 import type {
   StoredDecision,
   StoredDecisionQuestion,
@@ -64,8 +69,18 @@ const KNOWN_JOB_KEYS = {
   answeredRequestIds: true,
   crashResumes:       true,
   slot:               true,
+  stopRequest:        true,
+  intake:             true,
   outcome:            true,
 } as const satisfies Record<keyof Job | keyof StoredJob, true>;
+
+function intakeCopyOf(intake: JobIntake): JobIntake {
+  return {
+    text: intake.text,
+    ...(intake.proposedDraftSets === undefined ? {} : { proposedDraftSets: intake.proposedDraftSets.map((draftSet) => [...draftSet]) }),
+    ...(intake.carriedAnswers === undefined ? {} : { carriedAnswers: intake.carriedAnswers.map((answer) => ({ ...answer })) }),
+  };
+}
 
 const KNOWN_EVENT_CURSOR_KEYS = { instance: true, sequence: true } as const satisfies Record<keyof JobEventCursor | keyof StoredJobEventCursor, true>;
 
@@ -260,6 +275,8 @@ function jobOf(stored: StoredJob): Job {
     answeredRequestIds: [...stored.answeredRequestIds],
     crashResumes:       stored.crashResumes,
     ...(stored.slot === undefined ? {} : { slot: mergeSlotOf(stored.slot) }),
+    ...(stored.stopRequest === undefined ? {} : { stopRequest: stored.stopRequest }),
+    ...(stored.intake === undefined ? {} : { intake: intakeCopyOf(stored.intake) }),
     ...(stored.outcome === undefined ? {} : { outcome: stored.outcome }),
   });
 }
@@ -379,6 +396,8 @@ function storedJobOf(job: Job): StoredJob {
     answeredRequestIds: [...job.answeredRequestIds],
     crashResumes:       job.crashResumes,
     ...(job.slot === undefined ? {} : { slot: storedMergeSlotOf(job.slot) }),
+    ...(job.stopRequest === undefined ? {} : { stopRequest: job.stopRequest }),
+    ...(job.intake === undefined ? {} : { intake: intakeCopyOf(job.intake) }),
     ...(job.outcome === undefined ? {} : { outcome: job.outcome }),
   });
 }

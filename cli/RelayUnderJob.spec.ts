@@ -38,6 +38,8 @@ import { runCommandLine }                                            from './Mai
 import { READ_ONLY_VERBS_UNDER_A_JOB, RELAYED_VERB_OF_CONTROL_KIND } from './constants/JobVerbs.ts';
 import { DRAFT_SUBCOMMAND_NAMES }                                    from './drafts/DraftCommand.ts';
 import { EPIC_SUBCOMMAND_NAMES }                                     from './epics/EpicCommand.ts';
+import { INTAKE_SUBCOMMAND_NAMES }                                   from './intake/IntakeCommand.ts';
+import { JOB_SUBCOMMAND_NAMES }                                      from './jobs/JobCommand.ts';
 import { RUN_SUBCOMMAND_NAMES }                                      from './runner/RunCommand.ts';
 import { createCapturedCommandContext, type CapturedCommandContext } from './testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository }                        from './testing/InitializedScratchRepository.ts';
@@ -67,6 +69,12 @@ const ARGUMENTS_OF_KIND: { readonly [Kind in ControlCommandKind]: readonly strin
   'draft-close':         ['draft', 'close', 'D1', '--tickets', '1'],
   'draft-abandon':       ['draft', 'abandon', 'D1', '--reason', 'dropped'],
   'decision-answer':     ['decide', 'E1', 'a'],
+  'job-stop':            ['job', 'stop', 'J1'],
+  'job-fresh':           ['job', 'fresh', 'J1'],
+  'job-stop-all':        ['job', 'stop', '--all'],
+  'job-message':         ['job', 'message', 'J1', '--', 'Keep the basket page.'],
+  'intake-start':        ['intake', '--', 'Alex Example asks for a basket.'],
+  'intake-close':        ['intake', 'close', '--set', '1'],
   'runner-pause':        ['run', 'pause'],
   'runner-resume':       ['run', 'resume'],
   'runner-stop':         ['run', 'stop', '--now'],
@@ -137,6 +145,8 @@ function everyVerb(): string[] {
     if (command === 'draft') return DRAFT_SUBCOMMAND_NAMES.map((subcommand) => `draft ${subcommand}`);
     if (command === 'run') return [command, ...RUN_SUBCOMMAND_NAMES.map((subcommand) => `run ${subcommand}`)];
     if (command === 'hook') return [command, 'hook bash-domains'];
+    if (command === 'job') return JOB_SUBCOMMAND_NAMES.map((subcommand) => `job ${subcommand}`);
+    if (command === 'intake') return [command, ...INTAKE_SUBCOMMAND_NAMES.map((subcommand) => `intake ${subcommand}`)];
     return [command];
   });
 }

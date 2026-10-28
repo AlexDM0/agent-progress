@@ -6,10 +6,12 @@ import type { DecisionAsker, DecisionKind } from '../../../lib/tracker-model/@ty
 import type { IncidentKind, IncidentMove }  from '../../../lib/tracker-model/@types/Incident.ts';
 import type {
   InterruptionCause,
+  JobIntake,
   JobKind,
   JobOutcome,
   JobRole,
   JobState,
+  JobStopMode,
   SlotPhase
 }                                             from '../../../lib/tracker-model/@types/Job.ts';
 import type { TaskStatus }                    from '../../../lib/tracker-model/@types/Task.ts';
@@ -68,6 +70,8 @@ export interface StoredJob {
   answeredRequestIds: string[];
   crashResumes:       number;
   slot?:              StoredMergeSlot;
+  stopRequest?:       JobStopMode;
+  intake?:            JobIntake;
   outcome?:           JobOutcome;
 }
 

@@ -37,9 +37,12 @@ import { identityOf, sameProcess, type ProcessIdentity } from '../../lib/process
 import type { Decision }                                 from '../../lib/tracker-model/@types/Decision.ts';
 import type { Job }                                      from '../../lib/tracker-model/@types/Job.ts';
 import type { Board }                                    from '../../lib/tracker-model/Board.ts';
+import type { ControlCommand }                           from '../../shared/@types/ControlCommand.ts';
 import { refusalIsOperationRefusal }                     from '../../shared/OperationRefusal.ts';
+import { LIFECYCLE_LIMITS }                              from '../../shared/constants/LifecycleLimits.ts';
 import { LIMITS }                                        from '../../shared/constants/Limits.ts';
 import { PRODUCT_NAMES }                                 from '../../shared/constants/ProductNames.ts';
+import { boardFixture, ticketFixture }                   from '../../testing/BoardFixtures.ts';
 import {
   fakeAgentAdapter,
   fakeAssistantTurnLine,
@@ -69,6 +72,8 @@ import { createDrivePass, type DrivePass, type JobLaunchFacts } from './DrivePas
 import { GroupWorktrees }                                       from './GroupWorktrees.ts';
 import { HOST_ENTRY_PATH, HostBundle }                          from './HostBundle.ts';
 import { HostFleet }                                            from './HostFleet.ts';
+import { IntakeSessions }                                       from './IntakeSessions.ts';
+import { JobResumption }                                        from './JobResumption.ts';
 import { Reattachment }                                         from './Reattachment.ts';
 import { runnerFilesIn }                                        from './RunnerFiles.ts';
 import { RunnerHandover }                                       from './RunnerHandover.ts';
@@ -211,6 +216,8 @@ interface SessionScenario {
   fresh:         readonly FakeAgentStep[];
   resumed:       readonly FakeAgentStep[];
   orchestrator?: readonly FakeAgentStep[];
+  /** The product owner, told apart as the one session launched with skills on. */
+  productOwner?: { fresh: readonly FakeAgentStep[]; resumed: readonly FakeAgentStep[] };
 }
 
 const SESSION_STAMP          = '2026-09-18T22:11:03+02:00';
@@ -266,7 +273,9 @@ function recordingAdapter(scenario: SessionScenario): AgentAdapter {
           sessionId:        request.sessionId,
         });
       }
-      const steps = isWorker ? (request.resume ? scenario.resumed : scenario.fresh) : scenario.orchestrator ?? WAITING_STEPS;
+      const productOwnerSteps = request.resume ? scenario.productOwner?.resumed : scenario.productOwner?.fresh;
+      const sessionSteps = request.profile.skills ? productOwnerSteps ?? WAITING_STEPS : scenario.orchestrator ?? WAITING_STEPS;
+      const steps = isWorker ? (request.resume ? scenario.resumed : scenario.fresh) : sessionSteps;
       return fakeAgentAdapter(steps).planOf(request);
     },
   };
@@ -462,7 +471,18 @@ async function decideWithTheRunnerDown(decisionId: string, choices: readonly str
   });
 }
 
-function resumedRecordsOf(jobId: string): { kind: string; fields: Record<string, unknown> }[] {
+/** A control applied as its verb applies it with the runner down: a hold of its own. */
+async function applyControl(command: ControlCommand): Promise<void> {
+  await writeTracker({
+    workspace: sessionWorkspace, at: CHANGED_AT, now, renderState, mutate: (change) => ControlService.apply(command, change),
+  });
+}
+
+function productOwnerJob(): Readonly<Job> | undefined {
+  return storedJobs().find((job) => job.kind === 'product-owner');
+}
+
+function resumedRecordsOf(jobId: string):{ kind: string; fields: Record<string, unknown> }[] {
   return storedRecords().filter((record) => record.kind === 'job-resumed' && record.jobId === jobId);
 }
 
@@ -771,6 +791,42 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
     expect(storedRecords().filter((record) => record.kind === 'job-interrupted' && record.jobId === jobId)).toEqual([]);
   }, ROW_TIMEOUT_MILLISECONDS);
 
+  test('a product owner stopped by User with its question open is finished: the decision withdrawn in that hold, and it ends closed, never resumed', async () => {
+    const adapter = recordingAdapter({ fresh: WAITING_STEPS, resumed: WAITING_STEPS, productOwner: { fresh: ASKING_STEPS, resumed: WAITING_STEPS } });
+    const drivePass = await startedRunner(adapter);
+    await applyControl({ kind: 'intake-start', text: 'Example basket' });
+    await passUntil(drivePass, () => productOwnerJob()?.state === 'waiting-for-answer', 'the product owner never asked');
+    const jobId = productOwnerJob()?.id ?? '';
+
+    await applyControl({ kind: 'job-stop', jobId, mode: 'stop' });
+    expect(openDecisions()).toEqual([]);
+    expect(storedRecords().filter((record) => record.kind === 'decision-withdrawn').map((record) => record.fields)).toHaveLength(1);
+    await passUntil(drivePass, () => productOwnerJob() === undefined, 'the stopped product owner never ended');
+
+    expect(storedRecords().find((record) => record.kind === 'job-ended' && record.jobId === jobId)?.fields).toMatchObject({ outcome: 'closed' });
+    expect(resumedRecordsOf(jobId)).toEqual([]);
+  }, ROW_TIMEOUT_MILLISECONDS);
+
+  test('a product owner interrupted by a reboot at its question waits, and resumes by id once the question is answered', async () => {
+    const adapter = recordingAdapter({ fresh: WAITING_STEPS, resumed: WAITING_STEPS, productOwner: { fresh: ASKING_STEPS, resumed: LINE_THEN_WAITING_STEPS } });
+    const first = await startedRunner(adapter);
+    await applyControl({ kind: 'intake-start', text: 'Example basket' });
+    await passUntil(first, () => productOwnerJob()?.state === 'waiting-for-answer', 'the product owner never asked');
+    const jobId = productOwnerJob()?.id ?? '';
+    await first.stop();
+    await reboot(jobId, 1);
+
+    const restarted = await startedRunner(adapter);
+    await restarted.reattach();
+    await passOnce(restarted);
+    expect(productOwnerJob()).toMatchObject({ state: 'interrupted', interruption: 'reboot', hostInstance: 1 });
+
+    await decideWithTheRunnerDown(openDecisions()[0]?.id ?? '', ['a']);
+    await passUntil(restarted, () => eventLogTextOf(jobId, 2).includes('after-the-line'), 'the resumed product owner never took the answer');
+    expect(resumedRecordsOf(jobId).map((record) => record.fields)).toEqual([{ hostInstance: 2, cause: 'reboot' }]);
+    expect(eventLogTextOf(jobId, 2)).toContain(ANSWER_MESSAGE_PREFIX);
+  }, ROW_TIMEOUT_MILLISECONDS);
+
   test('a ticket held while its job runs interrupts nothing', async () => {
     const drivePass = await startedRunner(recordingAdapter({ fresh: WAITING_STEPS, resumed: WAITING_STEPS }));
     const job       = await runningBuildSession(drivePass);
@@ -1032,5 +1088,61 @@ describeWhenGitIsPresent('the group merge rows', () => {
     expect(refreshes[0]?.slot?.phase).toBe('resolving');
     expect(harness.tipOf('group-example')).toBe(groupTip);
     harness.remove();
+  });
+});
+
+describe('the product-owner bound row', () => {
+  const at = '2026-09-18T22:11:03+02:00';
+  const observations = {
+    mainLine: 'main', groupTargetPrefix: 'group-', installVersionChanged: false, targetsHoldingManagedBlock: [], ticketIdsTouchingAgentConfig: [], closedDeliveryTurns: [],
+  } as const;
+  const wordingOf = (): { questions: { question: string; header: string; multiSelect: boolean; options: { label: string; description: string }[] }[]; context: string } => ({
+    questions: [{
+      question: 'Example?', header: 'example', multiSelect: false, options: []
+    }],
+    context: '',
+  });
+
+  test('a product owner replaced past the bound with a question open waits awaiting-answer; once answered a fresh one takes its drafts and answers, never a resume', () => {
+    const { board } = boardFixture({
+      tickets: [{
+        ...ticketFixture({
+          id: '004', status: 'draft', filedByJob: 'J2', title: 'Example basket'
+        }),
+        body: ''
+      }]
+    });
+    board.setDispatcherState('running', null, at);
+    board.launchJob({
+      kind: 'orchestrator', role: 'orchestrator', ticketIds: [], parentJobId: null, attempt: 1, target: null
+    }, at);
+    const { job } = board.startIntake('Example basket', at);
+    board.moveJob(job.id, 'running', at);
+    board.openDecision({
+      kind: 'agent-question', ticketIds: [], jobId: job.id, askedBy: 'product-owner', requestId: 'request-1', questions: wordingOf().questions, context: '',
+    }, at);
+    for (let crash = 0; crash < LIFECYCLE_LIMITS.JOB_RESUMES_BEFORE_FRESH; crash += 1) {
+      board.interruptJob(job.id, 'agent-crashed', at);
+      board.moveJob(job.id, 'running', at);
+    }
+    board.interruptJob(job.id, 'agent-crashed', at);
+
+    board.advanceLifecycle({ ...LIFECYCLE_LIMITS, now: at, usageResetsAt: null }, observations, wordingOf);
+    expect(board.jobById(job.id)?.state).toBe('awaiting-answer');
+    board.advanceLifecycle({ ...LIFECYCLE_LIMITS, now: at, usageResetsAt: null }, observations, wordingOf);
+    expect(board.jobById(job.id)?.state).toBe('awaiting-answer');
+
+    const [decision] = board.decisions();
+    board.answerDecision(decision?.id ?? '', ['Example answer'], at);
+    board.advanceLifecycle({ ...LIFECYCLE_LIMITS, now: at, usageResetsAt: null }, observations, wordingOf);
+
+    expect(board.jobById(job.id)).toBeUndefined();
+    const fresh = board.jobs().find((candidate) => candidate.kind === 'product-owner');
+    expect(fresh).toMatchObject({
+      parentJobId: job.id, state: 'launching', hostInstance: 1, intake: { text: 'Example basket', carriedAnswers: [{ 'Example?': 'Example answer' }] }
+    });
+    if (fresh === undefined) throw new Error('no fresh product owner');
+    expect(IntakeSessions.intakeFactsOf(board, fresh)?.drafts).toEqual([{ id: '004', title: 'Example basket' }]);
+    expect(JobResumption.launchPartsOf(fresh, 'Example first', 'Example resume')).toEqual({ resume: false, firstMessage: 'Example first' });
   });
 });

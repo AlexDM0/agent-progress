@@ -60,7 +60,7 @@ describe('the lifecycle under seeded interleavings', () => {
     [
       'a crash resume past the bound',
       'src/lib/tracker-model/LifecyclePolicy.ts',
-      '    if (isCrash(job.interruption) && job.crashResumes >= limits.JOB_RESUMES_BEFORE_FRESH) return [{ kind: \'replace-job\', jobId: job.id }];\n',
+      '    if (crashResumesAreSpent(job, limits)) return [{ kind: \'replace-job\', jobId: job.id }];\n',
       '',
       'crash-resumed',
     ],

@@ -9,6 +9,7 @@ import {
   JOB_OUTCOMES,
   JOB_ROLES,
   JOB_STATES,
+  JOB_STOP_MODES,
   SLOT_PHASES
 }                          from '../../../lib/tracker-model/constants/JobStates.ts';
 import { StoredValueUtil } from '../../utils/StoredValueUtil.ts';
@@ -49,6 +50,23 @@ function mergeSlotProblem(value: unknown, path: string): string | null {
   return vocabularyProblem(value['phase'], `${path}.phase`, SLOT_PHASES);
 }
 
+function answerMapIsWellFormed(value: unknown): boolean {
+  return JsonRecordUtil.valueIsAPlainObject(value) && Object.values(value).every((answer) => typeof answer === 'string');
+}
+
+function intakeProblem(value: unknown, path: string): string | null {
+  if (!JsonRecordUtil.valueIsAPlainObject(value)) return `${path} is present but not an object`;
+  if (typeof value['text'] !== 'string') return `${path}.text is not a string`;
+  const { proposedDraftSets, carriedAnswers } = value;
+  if (proposedDraftSets !== undefined && !(Array.isArray(proposedDraftSets) && proposedDraftSets.every(listOfTextIsWellFormed))) {
+    return `${path}.proposedDraftSets is not a list of ticket id lists`;
+  }
+  if (carriedAnswers !== undefined && !(Array.isArray(carriedAnswers) && carriedAnswers.every(answerMapIsWellFormed))) {
+    return `${path}.carriedAnswers is not a list of answers`;
+  }
+  return null;
+}
+
 function jobOptionalFieldsProblem(job: Record<string, unknown>, path: string): string | null {
   if (job['interruption'] !== undefined) {
     const problem = vocabularyProblem(job['interruption'], `${path}.interruption`, INTERRUPTION_CAUSES);
@@ -56,6 +74,14 @@ function jobOptionalFieldsProblem(job: Record<string, unknown>, path: string): s
   }
   if (job['slot'] !== undefined) {
     const problem = mergeSlotProblem(job['slot'], `${path}.slot`);
+    if (problem !== null) return problem;
+  }
+  if (job['stopRequest'] !== undefined) {
+    const problem = vocabularyProblem(job['stopRequest'], `${path}.stopRequest`, JOB_STOP_MODES);
+    if (problem !== null) return problem;
+  }
+  if (job['intake'] !== undefined) {
+    const problem = intakeProblem(job['intake'], `${path}.intake`);
     if (problem !== null) return problem;
   }
   return job['outcome'] === undefined ? null : vocabularyProblem(job['outcome'], `${path}.outcome`, JOB_OUTCOMES);

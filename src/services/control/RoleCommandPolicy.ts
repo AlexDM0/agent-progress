@@ -25,7 +25,7 @@ export type RoleCommandVerdict =
 
 const WORKER_ROLES: ReadonlySet<JobRole> = new Set(['builder', 'reviewer', 'merge-fix']);
 
-/** Kinds the product owner may run on any ticket; `intake-close` arrives with the intake commands. */
+/** Kinds the product owner may run on any ticket; its `intake-close` closes its own job, stamped from the relay folder. */
 const PRODUCT_OWNER_KINDS: ReadonlySet<string> = new Set([
   'ticket-depends',
   'epic-add',
@@ -77,6 +77,7 @@ function productOwnerVerdictOf(job: RelayingJob, command: ControlCommand): RoleC
     if (command.needsUser === true) return refused('worker-filing-flag');
     return { verdict: 'admitted', command: { ...command, admission: { filedByJob: job.id } } };
   }
+  if (command.kind === 'intake-close') return { verdict: 'admitted', command: { ...command, jobId: job.id } };
   if (PRODUCT_OWNER_KINDS.has(command.kind)) return { verdict: 'admitted', command };
   if (!PRODUCT_OWNER_OWN_DRAFT_KINDS.has(command.kind)) return refused('command-not-allowed-for-role');
   const ticketReference = fieldOf(command, 'ticketReference');

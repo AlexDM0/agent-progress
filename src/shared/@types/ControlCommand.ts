@@ -5,6 +5,7 @@
  */
 import type { DecisionAnswerForm }                 from '../../lib/tracker-model/@types/Decision.ts';
 import type { DraftNoteKind, DraftQuestionAsking } from '../../lib/tracker-model/@types/Draft.ts';
+import type { JobStopMode }                        from '../../lib/tracker-model/@types/Job.ts';
 import type {
   AgentEffort,
   AgentModel,
@@ -90,6 +91,13 @@ export type ControlCommand =
   | { kind: 'runner-stop'; now: boolean }
   /** Runtime only: sent to the live runner, which hands the board to a successor on the code on disk. */
   | { kind: 'runner-restart'; now: boolean }
+  | { kind: 'job-stop'; jobId: string; mode: Exclude<JobStopMode, 'fresh'> }
+  | { kind: 'job-fresh'; jobId: string }
+  | { kind: 'job-stop-all'; mode: Exclude<JobStopMode, 'fresh'> }
+  | { kind: 'job-message'; jobId: string; text: string }
+  | { kind: 'intake-start'; text: string }
+  /** Relayed by a product owner without `jobId`: the role policy stamps its own job, from the relay folder. */
+  | { kind: 'intake-close'; jobId?: string; proposedDraftSets: string[][] }
   | { kind: 'concurrency-set'; limit: number }
   | { kind: 'checks-set'; command: string | null; restamps: boolean }
   | { kind: 'install-command-set'; command: string };

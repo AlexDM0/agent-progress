@@ -1,6 +1,6 @@
 /** Why the Board refused a change: a reason code and the facts, never a sentence. The caller words it. */
-import type { JobMoveTarget, JobState } from './@types/Job.ts';
-import type { TaskStatus }              from './@types/Task.ts';
+import type { JobKind, JobMoveTarget, JobState } from './@types/Job.ts';
+import type { TaskStatus }                       from './@types/Task.ts';
 import type {
   IncompleteTicket,
   AgentPair,
@@ -77,6 +77,8 @@ export type BoardRefusalDetail =
   | { reason: 'several-letters-on-single-select-question'; draftId: string; letters: readonly string[] }
   | { reason: 'unknown-job'; jobId: string }
   | { reason: 'job-finished'; jobId: string }
+  | { reason: 'job-has-no-ticket'; jobId: string }
+  | { reason: 'job-not-intake'; jobId: string; kind: JobKind }
   | { reason: 'job-move-illegal'; jobId: string; state: JobState; targetState: JobMoveTarget }
   | { reason: 'merge-queue-of-a-ticket-not-in-review'; ticketId: string; status: TicketStatus }
   | { reason: 'merge-slot-held'; target: string; jobId: string }

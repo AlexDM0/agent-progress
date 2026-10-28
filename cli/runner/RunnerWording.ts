@@ -2,9 +2,14 @@
  * The words the runner's DrivePass needs and services may not hold: a code-opened decision's question, and what a launched session is told.
  * The role prompts that replace the launch text come with the prompt templates later in the chain.
  */
-import { readFileSync }                                     from 'node:fs';
-import type { Job }                                         from '../../src/lib/tracker-model/@types/Job.ts';
-import type { DecisionDraft, DecisionWording }              from '../../src/lib/tracker-model/@types/LifecycleStep.ts';
+import { readFileSync } from 'node:fs';
+import type { Job }     from '../../src/lib/tracker-model/@types/Job.ts';
+import type {
+  DecisionDraft,
+  DecisionWording,
+  ReadyDraftFact,
+  ReadyDraftsFacts
+} from '../../src/lib/tracker-model/@types/LifecycleStep.ts';
 import type { JobLaunchFacts, JobLaunchText, RunnerNotice } from '../../src/services/runner/DrivePass.ts';
 import type { HandoverFailure }                             from '../../src/services/runner/RunnerHandover.ts';
 import { filledTemplateOf }                                 from '../../src/shared/FilledTemplate.ts';
@@ -16,7 +21,35 @@ function ticketsPhraseOf(ticketIds: readonly string[]): string {
   return ticketIds.length === 0 ? 'the board' : ticketIds.map((ticketId) => `#${ticketId}`).join(', ');
 }
 
+function draftLineOf(draft: ReadyDraftFact): string {
+  const network = draft.network.length === 0 ? 'no network' : `network ${draft.network.join(', ')}`;
+  return `#${draft.id} ${draft.title} (${draft.priority}, ${network})`;
+}
+
+/** Each option names its tickets as `#<id>`, which the answer readies; "None" names none and leaves them in the Drafts lane. */
+function readyDraftsWordingOf(facts: ReadyDraftsFacts): DecisionWording {
+  const draftById = new Map(facts.drafts.map((draft) => [draft.id, draft]));
+  const options = facts.proposedSets.map((draftSet) => ({
+    label:       `Ready ${draftSet.map((draftId) => `#${draftId}`).join(', ')}`,
+    description: draftSet.flatMap((draftId) => { const draft = draftById.get(draftId); return draft === undefined ? [] : [draftLineOf(draft)]; }).join('; '),
+  }));
+  const unreadiable = facts.drafts.filter((draft) => !draft.readiable);
+  return {
+    questions: [{
+      question:    'The product owner filed these drafts. Ready which to build?',
+      header:      'ready-drafts',
+      multiSelect: false,
+      options:     [...options, { label: 'None', description: 'They stay drafts in the Drafts lane.' }],
+    }],
+    context: [
+      ...facts.drafts.map(draftLineOf),
+      ...unreadiable.map((draft) => `#${draft.id} is not readiable: it needs a numbered Acceptance and a Brief.`),
+    ].join('\n'),
+  };
+}
+
 function decisionWordingOf(draft: DecisionDraft): DecisionWording {
+  if (draft.readyDrafts !== undefined) return readyDraftsWordingOf(draft.readyDrafts);
   return {
     questions: [{
       question:    `The runner needs a decision (${draft.kind}) about ${ticketsPhraseOf(draft.ticketIds)}.`,
@@ -31,7 +64,26 @@ function decisionWordingOf(draft: DecisionDraft): DecisionWording {
 const NO_CHECKS_LINE = '(no checks line is stored)';
 
 /** A builder's first message is the whole build prompt, its ticket and checks line filled in; the other roles get theirs later in the chain. */
+/**
+ * The first line runs the product-owner skill on User's request; a fresh session taking over a replaced one also reads the drafts filed so
+ * far and the answers its predecessor's questions got, in the same message.
+ */
+function productOwnerTextOf(job: Readonly<Job>, intake: NonNullable<JobLaunchFacts['intake']>): JobLaunchText {
+  const firstLine = `/${PRODUCT_NAMES.PRODUCT_OWNER_SKILL} ${intake.text}`.trim();
+  const draftLines = intake.drafts.map((draft) => `- #${draft.id} ${draft.title}`);
+  const answerLines = intake.carriedAnswers.flatMap((answer) => Object.entries(answer).map(([question, answerText]) => `- ${question}\n  Answer: ${answerText}`));
+  const takeover = draftLines.length === 0 && answerLines.length === 0 ? [] : [
+    'An earlier product-owner session on this request was replaced; carry its intake on.',
+    ...(draftLines.length === 0 ? [] : ['Drafts it filed:', ...draftLines]),
+    ...(answerLines.length === 0 ? [] : ['Answers User gave its questions:', ...answerLines]),
+  ];
+  const fills = { jobId: job.id, program: PRODUCT_NAMES.PROGRAM, skill: PRODUCT_NAMES.PRODUCT_OWNER_SKILL };
+  const roleBrief = filledTemplateOf(readFileSync(resourceFilePathOf('prompts', 'ProductOwnerPrompt.md'), 'utf8'), fills);
+  return { firstMessage: [firstLine, ...(takeover.length === 0 ? [] : ['', ...takeover])].join('\n'), roleBrief };
+}
+
 function launchTextOf(job: Readonly<Job>, facts: JobLaunchFacts): JobLaunchText {
+  if (facts.intake !== null) return productOwnerTextOf(job, facts.intake);
   const subject = ticketsPhraseOf(job.ticketIds);
   const roleBrief = `You are the ${job.role ?? job.kind} of job ${job.id}.`;
   const [ticket] = facts.tickets;

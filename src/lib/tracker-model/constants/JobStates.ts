@@ -5,6 +5,7 @@ import type {
   JobOutcome,
   JobRole,
   JobState,
+  JobStopMode,
   LandingKind,
   RunnerStopReason,
   SlotPhase
@@ -62,6 +63,8 @@ export const CRASH_INTERRUPTION_CAUSES = ['host-lost', 'agent-crashed'] as const
 export const SLOT_PHASES = ['merge-in', 'resolving', 'reviewing-resolution', 'gating', 'fixing', 'landing'] as const satisfies readonly SlotPhase[];
 
 export const RUNNER_STOP_REASONS = ['stopped', 'handed-over'] as const satisfies readonly RunnerStopReason[];
+
+export const JOB_STOP_MODES = ['stop', 'wind-down', 'fresh'] as const satisfies readonly JobStopMode[];
 
 export const LANDING_KINDS = ['landed', 'integrated'] as const satisfies readonly LandingKind[];
 

@@ -35,6 +35,8 @@ import type { Workspace }                                                       
 import { AnswerDelivery }                                                        from './AnswerDelivery.ts';
 import { GroupWorktrees }                                                        from './GroupWorktrees.ts';
 import { HostFleet, type HostLiveness }                                          from './HostFleet.ts';
+import { IntakeSessions, type IntakeFacts }                                      from './IntakeSessions.ts';
+import { JobControlDelivery }                                                    from './JobControlDelivery.ts';
 import {
   BUILD_JOB_CAUSES,
   type BuildJobObservation,
@@ -64,6 +66,8 @@ export interface JobLaunchFacts {
   checksLine:             string | null;
   /** The job's work was last held by a session ended `replaced`, whose uncommitted changes are in the worktree it inherits. */
   earlierSessionReplaced: boolean;
+  /** A product owner's request, and what a fresh one takes over from the session it replaces; `null` for every other job. */
+  intake:                 IntakeFacts | null;
 }
 
 export interface DrivePassRequest {
@@ -304,7 +308,7 @@ function applyHostEvents(change: TrackerChange, adapter: AgentAdapter, hosts: re
     const sessionEndedCleanly   = host.liveness.verdict === 'ended' && host.liveness.end.reason === 'exited' && host.liveness.end.exitCode === 0;
     if (job !== undefined && state === 'running' && JobResumption.resumeFailed(job, sessionExitedByItself, host.sessionStarted)) {
       JobResumption.applyResumeFailure(board, job, at);
-    } else if (hostIsGone && state === 'stopping' && job !== undefined && SESSION_JOB_KINDS.includes(job.kind)) {
+    } else if (hostIsGone && state === 'stopping' && job !== undefined && SESSION_JOB_KINDS.includes(job.kind) && !IntakeSessions.isIntakeJob(job)) {
       board.endJob(host.jobId, { outcome: 'closed' }, at);
     } else if (hostIsGone && !closedWithResult && state === 'running' && job !== undefined && AnswerDelivery.stoppedForAnswerDelivery(trackerDirectory, job)) {
       board.interruptJob(host.jobId, 'answer-delivery', at);
@@ -364,6 +368,7 @@ function profileOf(workspace: Workspace, job: Readonly<Job>, workingDirectory: s
 
 /** A builder runs confined by the per-job profile of design section 4.4; the other roles get theirs with the later tickets that run them. */
 function launchProfileOf(jobLaunchContext: JobLaunchContext, board: Board, job: Readonly<Job>, workingDirectory: string, relayDirectory: string): WorkerProfile {
+  if (IntakeSessions.isIntakeJob(job)) return IntakeSessions.productOwnerProfileOf(profileOf(jobLaunchContext.workspace, job, workingDirectory, relayDirectory));
   if (!JobLaunch.isWorktreeJob(job)) return profileOf(jobLaunchContext.workspace, job, workingDirectory, relayDirectory);
   const ticket = board.tickets().find((candidate) => candidate.frontmatter.id === job.ticketIds[0]);
   const role = job.kind === 'review' ? 'reviewer' : 'builder';
@@ -377,6 +382,7 @@ function launchFactsOf(board: Board, job: Readonly<Job>): JobLaunchFacts {
       .map((ticket) => ({ id: ticket.frontmatter.id, title: ticket.frontmatter.title, body: ticket.body })),
     checksLine:             board.checkCommand() ?? null,
     earlierSessionReplaced: JobResumption.earlierSessionWasReplaced(board.logRecordsSoFar(), job),
+    intake:                 IntakeSessions.intakeFactsOf(board, job),
   };
 }
 
@@ -561,6 +567,9 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
         const replies = RelayInbox.applyPendingRequests(change, request.workspace.rootDirectory, observation.pendingRequests);
         request.afterHoldPhase?.('relayed-commands', change.board);
         const usageLimitHits = applyHostEvents(change, request.agentAdapter, observation.hosts, request.workspace.trackerDirectory);
+        const livenessOf = (job: Readonly<Job>): HostLiveness => observation.hosts.find((host) => host.jobId === job.id && host.instance === job.hostInstance)?.liveness
+          ?? HostFleet.livenessOf(HostFleet.jobFolderOf(request.workspace.trackerDirectory, job.id), job.hostInstance);
+        IntakeSessions.endClosedIntakes(change.board, livenessOf, request.decisionWordingOf, change.at);
         request.afterHoldPhase?.('host-events', change.board);
         const buildJobRecords = JobLaunch.applyBuildJobObservations(change, jobLaunchContext, observation.buildJobs);
         const usageResetsAt = UsageLimits.usageResetsAtOf(observation.usageMarker, usageLimitHits);
@@ -596,6 +605,9 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     await stopLimitedJobs(written.board, observation.trackerId, written.result.usageLimitHits);
     scheduleThePassAtTheReset(written.result.usageResetsAt);
     await JobLaunch.runBuildJobEffects(jobLaunchContext, written.board, observation.trackerId, observation.buildJobs);
+    await JobControlDelivery.deliverJobControls({
+      trackerDirectory: request.workspace.trackerDirectory, board: written.board, adapter: request.agentAdapter, windDownMessage: request.windDownMessage,
+    });
     for (const job of jobsNeedingAHost(written.board, request.workspace.trackerDirectory, spawnedInstances, written.result.agentConfigHeldTicketIds)) {
       spawnedInstances.add(`${job.id}:${job.hostInstance}`);
       launchHost(request, jobLaunchContext, written.board, observation.trackerId, job);

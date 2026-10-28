@@ -9,9 +9,26 @@ export type ParkCause = 'failed-passes';
 
 /** A decision code opens from the facts; its questions are worded by the caller, never by the policy. */
 export interface DecisionDraft {
-  kind:      DecisionKind;
-  ticketIds: readonly string[];
-  jobId:     string | null;
+  kind:         DecisionKind;
+  ticketIds:    readonly string[];
+  jobId:        string | null;
+  /** Only on a `ready-drafts` decision: what its options are worded from. */
+  readyDrafts?: ReadyDraftsFacts;
+}
+
+export interface ReadyDraftFact {
+  id:        string;
+  title:     string;
+  priority:  string;
+  network:   readonly string[];
+  /** `false` for a draft `ticket ready` would refuse: no numbered Acceptance or no Brief. */
+  readiable: boolean;
+}
+
+/** A product owner's drafts and the sets it proposed, each set of readiable ids only; an option per set and one for none. */
+export interface ReadyDraftsFacts {
+  drafts:       readonly ReadyDraftFact[];
+  proposedSets: readonly (readonly string[])[];
 }
 
 export interface DecisionWording {
@@ -25,6 +42,10 @@ export type LifecycleStep =
   | { kind: 'resume-job'; jobId: string }
   // Past `JOB_RESUMES_BEFORE_FRESH` crash resumes, or a session that went down: ended `replaced`.
   | { kind: 'replace-job'; jobId: string }
+  // A product owner replaced past the bound while its question is open waits for the answer with no process.
+  | { kind: 'await-answer'; jobId: string }
+  // A product owner past the bound whose questions are answered: a fresh session takes its drafts and the answers, never a resume.
+  | { kind: 'refresh-intake'; jobId: string }
   | { kind: 'boot-orchestrator' }
   | { kind: 'park'; ticketId: string; cause: ParkCause }
   | { kind: 'open-decision'; decision: DecisionDraft }

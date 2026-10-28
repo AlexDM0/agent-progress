@@ -51,6 +51,7 @@ export const OPTION_NAMES_WITH_VALUES = new Set<string>([
   'findings-file',
   'bar',
   'tickets',
+  'set',
   'context',
   'option',
   'recommended',

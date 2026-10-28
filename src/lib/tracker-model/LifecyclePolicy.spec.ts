@@ -239,7 +239,7 @@ const CLAIMS: PolicyClaim[] = [
     name:   'a job interrupted by a reboot resumes whatever its crash count',
     facts:  factsWith({ tickets: [ticketOf('001', 'in-progress')], jobs: [LIVE_ORCHESTRATOR, { ...INTERRUPTED_BUILD, interruption: 'reboot', crashResumes: 5 }] }),
     holds:  (steps) => stepKindsOf(steps).join(' ') === 'resume-job',
-    mutant: policyLine('if (isCrash(job.interruption) && job.crashResumes', 'if (job.crashResumes'),
+    mutant: policyLine('return isCrash(job.interruption) && job.crashResumes', 'return job.crashResumes'),
   },
   {
     name:   'a session that went down is replaced, never resumed',

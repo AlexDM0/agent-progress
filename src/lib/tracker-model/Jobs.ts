@@ -11,6 +11,7 @@ import type {
   JobLaunch,
   JobMoveTarget,
   JobState,
+  JobStopMode,
   MergeSlot,
   RunnerStopReason
 }                                   from './@types/Job.ts';
@@ -69,6 +70,7 @@ export class Jobs {
       eventCursor:        { instance: FIRST_HOST_INSTANCE, sequence: FIRST_EVENT_SEQUENCE },
       answeredRequestIds: [],
       crashResumes:       0,
+      ...(launch.intake === undefined ? {} : { intake: { ...launch.intake } }),
     };
     this.liveJobRecords().push(job);
     const logged = this.records.logger.log({
@@ -139,6 +141,31 @@ export class Jobs {
     const job = this.requireLiveJob(jobId);
     if (!job.answeredRequestIds.includes(requestId)) job.answeredRequestIds.push(requestId);
     return job;
+  }
+
+  /** Kept on the job so the runner sends its frames from the board; a later request replaces an earlier one. */
+  recordStopRequest(jobId: string, mode: JobStopMode, at: string): JobChanged {
+    const job       = this.requireLiveJob(jobId);
+    job.stopRequest = mode;
+    return { job, logged: [this.records.logger.log({ kind: 'job-stop-requested', jobId, fields: { mode } }, at)] };
+  }
+
+  /** A finished session is never continued: a session whose input is closing is refused like an ended job. */
+  recordMessage(jobId: string, text: string, at: string): JobChanged {
+    const job = this.requireLiveJob(jobId);
+    if (job.state === 'stopping') throw new BoardRefusal({ reason: 'job-finished', jobId });
+    return { job, logged: [this.records.logger.log({ kind: 'job-messaged', jobId, fields: { text } }, at)] };
+  }
+
+  setProposedDraftSets(jobId: string, proposedDraftSets: readonly (readonly string[])[]): Readonly<Job> {
+    const job = this.requireLiveJob(jobId);
+    job.intake = { ...job.intake ?? { text: '' }, proposedDraftSets: proposedDraftSets.map((draftSet) => [...draftSet]) };
+    return job;
+  }
+
+  /** Refused `unknown-job` or `job-finished` like every other move, so a control names why it cannot act. */
+  requireJob(jobId: string): Readonly<Job> {
+    return this.requireLiveJob(jobId);
   }
 
   /** A `null` slot frees the one the job held. */

@@ -5,14 +5,16 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { CONTROL_COMMAND_KINDS }                                     from '../src/services/control/ControlService.ts';
-import type { ControlCommandKind }                                   from '../src/shared/@types/ControlCommand.ts';
-import { COMMAND_NAMES }                                             from './CommandTable.ts';
-import { READ_ONLY_VERBS_UNDER_A_JOB, RELAYED_VERB_OF_CONTROL_KIND } from './constants/JobVerbs.ts';
-import { DRAFT_SUBCOMMAND_NAMES }                                    from './drafts/DraftCommand.ts';
-import { EPIC_SUBCOMMAND_NAMES }                                     from './epics/EpicCommand.ts';
-import { RUN_SUBCOMMAND_NAMES }                                      from './runner/RunCommand.ts';
-import { TICKET_SUBCOMMAND_NAMES }                                   from './tickets/TicketCommand.ts';
+import { CONTROL_COMMAND_KINDS }                                                                  from '../src/services/control/ControlService.ts';
+import type { ControlCommandKind }                                                                from '../src/shared/@types/ControlCommand.ts';
+import { COMMAND_NAMES }                                                                          from './CommandTable.ts';
+import { OTHER_VERBS_OF_CONTROL_KIND, READ_ONLY_VERBS_UNDER_A_JOB, RELAYED_VERB_OF_CONTROL_KIND } from './constants/JobVerbs.ts';
+import { DRAFT_SUBCOMMAND_NAMES }                                                                 from './drafts/DraftCommand.ts';
+import { EPIC_SUBCOMMAND_NAMES }                                                                  from './epics/EpicCommand.ts';
+import { INTAKE_SUBCOMMAND_NAMES }                                                                from './intake/IntakeCommand.ts';
+import { JOB_SUBCOMMAND_NAMES }                                                                   from './jobs/JobCommand.ts';
+import { RUN_SUBCOMMAND_NAMES }                                                                   from './runner/RunCommand.ts';
+import { TICKET_SUBCOMMAND_NAMES }                                                                from './tickets/TicketCommand.ts';
 
 const VERB_OF_KIND: { readonly [Kind in ControlCommandKind]: string } = RELAYED_VERB_OF_CONTROL_KIND;
 
@@ -49,7 +51,7 @@ const NOT_RELAYABLE_MUTATING_VERBS = [
  * `open` writes no tracker file but launches a browser and registers the dashboard, so a session under a job may not run it; `run
  * status` and `version` are read-only verbs design section 9.1 names, not yet offered under a job.
  */
-const READ_ONLY_VERBS = [...READ_ONLY_VERBS_UNDER_A_JOB, 'open', 'run status', 'version', 'merges', 'decisions', 'await'];
+const READ_ONLY_VERBS = [...READ_ONLY_VERBS_UNDER_A_JOB, 'open', 'run status', 'version', 'merges', 'decisions', 'await', 'jobs', 'job show', 'job attach'];
 
 /** Verbs design section 9.2 retires, which no command replaces; they leave the table with T26. */
 const RETIRING_VERBS = ['hook', 'render', 'ticket claim'];
@@ -74,6 +76,8 @@ function tableVerbsOf(commandNames: readonly string[]): string[] {
     if (command === 'draft') return subcommandVerbsOf(command, DRAFT_SUBCOMMAND_NAMES);
     if (command === 'review') return ['review record'];
     if (command === 'run') return [command, ...subcommandVerbsOf(command, RUN_SUBCOMMAND_NAMES)];
+    if (command === 'job') return subcommandVerbsOf(command, JOB_SUBCOMMAND_NAMES);
+    if (command === 'intake') return [command, ...subcommandVerbsOf(command, INTAKE_SUBCOMMAND_NAMES)];
     // The measurement events retire as `hook`; the network guard a runner renders into a job's settings stays.
     if (command === 'hook') return [command, 'hook bash-domains'];
     return [command];
@@ -84,6 +88,7 @@ function contractViolationsOf(contract: ControlContract): string[] {
   const tableVerbs = new Set(contract.tableVerbs);
   const placements = [
     ...Object.values(contract.verbOfKind).map((verb) => ({ verb, place: 'a control kind' })),
+    ...Object.values(OTHER_VERBS_OF_CONTROL_KIND).flat().map((verb) => ({ verb, place: 'a control kind' })),
     ...contract.notRelayableMutatingVerbs.map((verb) => ({ verb, place: 'the not-relayable list' })),
     ...contract.readOnlyVerbs.map((verb) => ({ verb, place: 'the read-only list' })),
     ...contract.retiringVerbs.map((verb) => ({ verb, place: 'the retiring list' })),
