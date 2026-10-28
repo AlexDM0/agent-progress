@@ -408,7 +408,7 @@ function launchHost(request: DrivePassRequest, jobLaunchContext: JobLaunchContex
   mkdirSync(join(relayDirectory, 'requests'), { recursive: true });
   const workingDirectory = workingDirectoryOf(workspace, job);
   const text             = request.launchTextOf(job, launchFactsOf(board, job));
-  const launchParts      = JobResumption.launchPartsOf(job, text.firstMessage, request.resumeMessage);
+  const launchParts      = JobResumption.launchPartsOf(job, text.firstMessage, request.resumeMessage, JobResumption.reopenTextOf(board.logRecordsSoFar(), job));
   if (JobLaunch.isWorktreeJob(job)) JobLaunch.recordJobStart(jobLaunchContext, board, job);
   if (!launchParts.resume) JobResumption.storeFirstMessage(jobFolder, job.hostInstance, launchParts.firstMessage);
   const launchRequest: AgentLaunchRequest = {

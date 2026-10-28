@@ -810,8 +810,9 @@ output never carries either.
   job attach <J> [--json]     Replay every host instance's event log, then follow the newest while
                               the job is on the board (--json replays only). Both read-only.
   job message <J> [--incident <I>] -- <text> [--json]
-                              A chat turn the runner writes to the session (job-messaged); refused
-                              job-finished for a finished job, which is never continued. Under an
+                              A chat turn the runner writes to the session (job-messaged); a closed
+                              product owner is reopened, resuming its session (job-reopened), and
+                              any other finished job is refused job-finished. Under an
                               incident, refused job-awaits-user-answer for a job waiting on User or
                               whose ticket has an open agent-question, and job-is-product-owner.
   job fresh <J> [--incident <I>] [--json]

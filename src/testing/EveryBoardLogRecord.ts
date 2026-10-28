@@ -143,6 +143,9 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
   board.messageJob(job.id, 'Keep the example export small.', at);
   board.requestJobStop(job.id, 'wind-down', at);
   board.endJob(job.id, { outcome: 'failed', cause: 'no report', deniedPermissions: ['WebFetch'] }, at);
+  const intake = board.startIntake('File the example export ticket.', at);
+  board.endJob(intake.job.id, { outcome: 'closed' }, at);
+  board.messageJob(intake.job.id, 'Add the example import as well.', at);
   const question = {
     question:    'Ship the example export as CSV?',
     header:      'Export',

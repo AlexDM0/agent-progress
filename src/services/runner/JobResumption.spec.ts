@@ -63,6 +63,16 @@ describe('the launch of a job\'s current instance', () => {
     expect(JobResumption.launchPartsOf(buildJob(), 'Example task', 'Example resume')).toEqual({ resume: false, firstMessage: 'Example task' });
     expect(JobResumption.launchPartsOf(buildJob({ hostInstance: 2 }), 'Example task', 'Example resume')).toEqual({ resume: true, firstMessage: 'Example resume' });
   });
+
+  test('a reopened product owner resumes with User\'s message, in the instance its reopening names only', () => {
+    const reopened: LogRecord = {
+      at: AT, kind: 'job-reopened', jobId: 'J2', fields: { hostInstance: 2, text: 'Example follow-up', offeredTicketIds: [] }
+    };
+    const job = buildJob({ kind: 'product-owner', role: 'product-owner', hostInstance: 2 });
+    const reopenText = JobResumption.reopenTextOf([reopened], job);
+    expect(JobResumption.launchPartsOf(job, 'Example task', 'Example resume', reopenText)).toEqual({ resume: true, firstMessage: 'Example follow-up' });
+    expect(JobResumption.reopenTextOf([reopened], { ...job, hostInstance: 3 })).toBeNull();
+  });
 });
 
 describe('the first message of a fresh instance', () => {

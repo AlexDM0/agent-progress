@@ -135,6 +135,51 @@ describe('job message', () => {
     apply(board, { kind: 'intake-close', jobId: 'J2', proposedDraftSets: [] });
     expect(refusalDetailOf(() => apply(board, { kind: 'job-message', jobId: 'J2', text: 'Hello' }))).toEqual({ reason: 'job-finished', jobId: 'J2' });
   });
+
+  test('a finished reviewer, a closed orchestrator and a product owner replaced past its bound are refused job-finished', () => {
+    const { board } = boardFixture({ tickets: [ticketFixture({ id: '001', status: 'in-review' })] });
+    board.launchJob({
+      kind: 'review', role: 'reviewer', ticketIds: ['001'], parentJobId: null, attempt: 1, target: 'main'
+    }, AT);
+    board.endJob('J1', { outcome: 'reviewed' }, AT);
+    board.launchJob({
+      kind: 'orchestrator', role: 'orchestrator', ticketIds: [], parentJobId: null, attempt: 1, target: null
+    }, AT);
+    board.endJob('J2', { outcome: 'closed' }, AT);
+    apply(board, { kind: 'intake-start', text: 'A basket' });
+    // What the refresh past the bound does to the session it replaces.
+    board.endJob('J3', { outcome: 'replaced' }, AT);
+
+    for (const jobId of ['J1', 'J2', 'J3']) {
+      expect(refusalDetailOf(() => apply(board, { kind: 'job-message', jobId, text: 'Hello' }))).toEqual({ reason: 'job-finished', jobId });
+    }
+    expect(board.jobs()).toEqual([]);
+  });
+
+  test('a closed product owner is reopened: back on the board running its next host instance, the reopening logged with the message', () => {
+    const { board } = boardFixture({ tickets: [draftFiledBy('004', 'J1')] });
+    apply(board, { kind: 'intake-start', text: 'A basket' });
+    board.moveJob('J1', 'running', AT);
+    apply(board, { kind: 'intake-close', jobId: 'J1', proposedDraftSets: [] });
+    board.endIntakeJob('J1', TicketAcceptanceUtil.readinessGapsOf, wordingOf, AT);
+    const result = apply(board, { kind: 'job-message', jobId: 'J1', text: 'Add a wishlist too.' });
+
+    expect((result as { logged: unknown[] }).logged).toEqual([{
+      kind: 'job-reopened', jobId: 'J1', fields: { hostInstance: 2, text: 'Add a wishlist too.', offeredTicketIds: ['004'] }, at: AT
+    }]);
+    expect(board.jobById('J1')).toMatchObject({
+      kind: 'product-owner', role: 'product-owner', state: 'running', hostInstance: 2, eventCursor: { instance: 2, sequence: 0 }
+    });
+  });
+
+  test('a product owner stopped by User is reopened the same way', () => {
+    const { board } = boardFixture();
+    apply(board, { kind: 'intake-start', text: 'A basket' });
+    apply(board, { kind: 'job-stop', jobId: 'J1', mode: 'stop' });
+    board.endIntakeJob('J1', TicketAcceptanceUtil.readinessGapsOf, wordingOf, AT);
+    apply(board, { kind: 'job-message', jobId: 'J1', text: 'Carry on.' });
+    expect(board.jobById('J1')).toMatchObject({ state: 'running', hostInstance: 2 });
+  });
 });
 
 describe('intake', () => {
@@ -181,6 +226,22 @@ describe('intake', () => {
     const answered = apply(board, { kind: 'decision-answer', decisionId: 'E1', answer: { form: 'text', text: 'Ready #4 and #7' } });
     expect(loggedKindsOf(answered)).toEqual(['decision-answered', 'ticket-readied']);
     expect(board.tickets().map((ticket) => ticket.frontmatter.status)).toEqual(['pending', 'draft']);
+  });
+
+  test('a reopened product owner files and closes again: the second ready-drafts lists only the drafts filed since the reopening', () => {
+    const { board } = boardFixture({ tickets: [draftFiledBy('004', 'J1'), draftFiledBy('005', 'J1')] });
+    apply(board, { kind: 'intake-start', text: 'A basket' });
+    apply(board, { kind: 'intake-close', jobId: 'J1', proposedDraftSets: [] });
+    board.endIntakeJob('J1', TicketAcceptanceUtil.readinessGapsOf, wordingOf, AT);
+    apply(board, { kind: 'job-message', jobId: 'J1', text: 'Add a wishlist too.' });
+    board.fileTicket(draftFiledBy('006', 'J1'), AT);
+    apply(board, { kind: 'intake-close', jobId: 'J1', proposedDraftSets: [['004', '006']] });
+    const ended = board.endIntakeJob('J1', TicketAcceptanceUtil.readinessGapsOf, wordingOf, AT);
+
+    expect(ended.logged.map((record) => record.kind)).toEqual(['job-ended', 'decision-opened']);
+    expect(board.decisions().map((decision) => decision.ticketIds)).toEqual([['004', '005'], ['006']]);
+    expect(board.decisions()[1]?.questions[0]?.options.map((option) => option.label)).toEqual(['Ready #006', 'None']);
+    expect(board.jobById('J1')).toBeUndefined();
   });
 
   test('a stopped product owner withdraws its open questions in the same hold, its drafts staying drafts', () => {

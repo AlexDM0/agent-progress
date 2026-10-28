@@ -23,9 +23,18 @@ function isResumedInstance(job: Readonly<Job>): boolean {
   return job.hostInstance > FIRST_HOST_INSTANCE;
 }
 
-/** What a launch of the job's current instance passes the adapter: a resume is told it was interrupted, never handed its task again. */
-function launchPartsOf(job: Readonly<Job>, firstMessage: string, resumeMessage: string): { resume: boolean; firstMessage: string } {
-  return isResumedInstance(job) ? { resume: true, firstMessage: resumeMessage } : { resume: false, firstMessage };
+/** User's message that reopened a closed product owner in the job's current instance; `null` for every other instance. */
+function reopenTextOf(logRecords: readonly LogRecord[], job: Readonly<Job>): string | null {
+  const reopened = logRecords.findLast((record) => record.kind === 'job-reopened' && record.jobId === job.id && record.fields.hostInstance === job.hostInstance);
+  return reopened?.kind === 'job-reopened' ? reopened.fields.text : null;
+}
+
+/**
+ * What a launch of the job's current instance passes the adapter: a resume is told it was interrupted, never handed its task again, and a
+ * reopened session gets User's message instead.
+ */
+function launchPartsOf(job: Readonly<Job>, firstMessage: string, resumeMessage: string, reopenText: string | null = null): { resume: boolean; firstMessage: string } {
+  return isResumedInstance(job) ? { resume: true, firstMessage: reopenText ?? resumeMessage } : { resume: false, firstMessage };
 }
 
 /** Whether the instance's whole event log holds its session's start; read only for a resumed instance whose host is gone. */
@@ -115,12 +124,14 @@ async function deliverResumeMessages(
     const jobFolder = HostFleet.jobFolderOf(trackerDirectory, job.id);
     const marker    = resumeMessageMarkerOf(jobFolder, job.hostInstance);
     if (existsSync(marker) || HostFleet.livenessOf(jobFolder, job.hostInstance).verdict !== 'live') continue;
-    if (await HostFleet.sendFrames(jobFolder, job.hostInstance, [{ kind: 'write', line: adapter.chatLineOf(resumeMessage) }])) writeFileSync(marker, '');
+    const line = adapter.chatLineOf(reopenTextOf(board.logRecordsSoFar(), job) ?? resumeMessage);
+    if (await HostFleet.sendFrames(jobFolder, job.hostInstance, [{ kind: 'write', line }])) writeFileSync(marker, '');
   }
 }
 
 export const JobResumption = Object.freeze({
   isResumedInstance,
+  reopenTextOf,
   launchPartsOf,
   instanceSessionStarted,
   resumeFailed,

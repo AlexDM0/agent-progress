@@ -6,10 +6,10 @@
  * The session, host, runner, reboot and question rows that need no merge slot run a build job on a scratch repository, its
  * session the fake child: every crash is made by killing the host, the child's group or both, a reboot by also giving the host record a
  * foreign boot, and a runner restart by a fresh DrivePass reattaching. What matters there: an orphaned agent group is killed before the
- * resume, only the crash causes count toward the bound, a resume is by id in the same folder, and a finished session never continues. The
- * A handover row hands a running session's board to a successor and holds that no host is touched; a host below the supported protocol
- * window is watched from its files and stopped by its group. The rows "the old runner dies during a handover" and "a handover's successor
- * fails" are held by `src/services/runner/RunnerHandover.spec.ts`. The
+ * resume, only the crash causes count toward the bound, a resume is by id in the same folder, and a finished session never continues,
+ * save a closed product owner User messages, which resumes by id. A handover row hands a running session's board to a successor and
+ * holds that no host is touched; a host below the supported protocol window is watched from its files and stopped by its group. The rows
+ * "the old runner dies during a handover" and "a handover's successor fails" are held by `src/services/runner/RunnerHandover.spec.ts`. The
  * usage-limit row is held by `src/services/runner/UsageLimits.spec.ts` and `cli/runner/RunnerDrivePass.spec.ts`, the body-edit row by V6
  * in `src/services/lifecycle/JobVerification.spec.ts`.
  */
@@ -824,7 +824,7 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
     expect(storedRecords().filter((record) => record.kind === 'job-interrupted' && record.jobId === jobId)).toEqual([]);
   }, ROW_TIMEOUT_MILLISECONDS);
 
-  test('a product owner stopped by User with its question open is finished: the decision withdrawn in that hold, and it ends closed, never resumed', async () => {
+  test('a product owner stopped by User with its question open is finished: the decision withdrawn in that hold, and it ends closed, never resumed by itself', async () => {
     const adapter = recordingAdapter({ fresh: WAITING_STEPS, resumed: WAITING_STEPS, productOwner: { fresh: ASKING_STEPS, resumed: WAITING_STEPS } });
     const drivePass = await startedRunner(adapter);
     await applyControl({ kind: 'intake-start', text: 'Example basket' });
@@ -858,6 +858,48 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
     await passUntil(restarted, () => eventLogTextOf(jobId, 2).includes('after-the-line'), 'the resumed product owner never took the answer');
     expect(resumedRecordsOf(jobId).map((record) => record.fields)).toEqual([{ hostInstance: 2, cause: 'reboot' }]);
     expect(eventLogTextOf(jobId, 2)).toContain(ANSWER_MESSAGE_PREFIX);
+  }, ROW_TIMEOUT_MILLISECONDS);
+
+  test('a product owner closed by its own intake-close quietly, then messaged by User, resumes by id in the same folder with the message first', async () => {
+    const productOwnerLaunches: RecordedLaunch[] = [];
+    const scenario = recordingAdapter({ fresh: WAITING_STEPS, resumed: WAITING_STEPS, productOwner: { fresh: WAITING_STEPS, resumed: LINE_THEN_WAITING_STEPS } });
+    const adapter: AgentAdapter = {
+      ...scenario,
+      planOf(request) {
+        if (request.profile.skills) {
+          productOwnerLaunches.push({
+            jobId:            basename(request.jobFilesDirectory),
+            resume:           request.resume,
+            firstMessage:     request.firstMessage,
+            workingDirectory: request.workingDirectory,
+            sessionId:        request.sessionId,
+          });
+        }
+        return scenario.planOf(request);
+      },
+    };
+    const drivePass = await startedRunner(adapter);
+    await applyControl({ kind: 'intake-start', text: 'Example basket' });
+    await passUntil(drivePass, () => sessionRuns(productOwnerJob()), 'the product owner never ran');
+    const jobId = productOwnerJob()?.id ?? '';
+    await applyControl({ kind: 'intake-close', jobId, proposedDraftSets: [] });
+    await passUntil(drivePass, () => productOwnerJob() === undefined, 'the closed product owner never ended');
+    expect(storedRecords().find((record) => record.kind === 'job-ended' && record.jobId === jobId)?.fields).toMatchObject({ outcome: 'closed' });
+    expect(storedRecords().filter((record) => record.kind === 'incident-opened')).toEqual([]);
+    expect(drivePass.state().notices).toEqual([]);
+
+    await applyControl({ kind: 'job-message', jobId, text: 'Example follow-up from Alex Example' });
+    expect(productOwnerJob()).toMatchObject({ id: jobId, state: 'running', hostInstance: 2 });
+    await passUntil(drivePass, () => eventLogTextOf(jobId, 2).includes('after-the-line'), 'the reopened product owner never took the message');
+
+    const [first, reopened] = productOwnerLaunches;
+    expect(reopened).toEqual({
+      jobId, resume: true, firstMessage: 'Example follow-up from Alex Example', workingDirectory: first?.workingDirectory ?? '', sessionId: first?.sessionId ?? '',
+    });
+    expect(first?.resume).toBe(false);
+    expect(eventLogTextOf(jobId, 2)).toContain('Example follow-up from Alex Example');
+    expect(eventLogTextOf(jobId, 2)).not.toContain(RESUME_MESSAGE);
+    expect(storedRecords().filter((record) => record.kind === 'job-reopened' && record.jobId === jobId).map((record) => record.fields['hostInstance'])).toEqual([2]);
   }, ROW_TIMEOUT_MILLISECONDS);
 
   test('a ticket held while its job runs interrupts nothing', async () => {

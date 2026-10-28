@@ -200,6 +200,8 @@ function sentenceOf(record: LogRecordContent): string {
       return `User asked job ${record.jobId} to ${JOB_STOP_MODE_PHRASES[record.fields.mode]}`;
     case 'job-messaged':
       return `Message for job ${record.jobId}: ${record.fields.text}`;
+    case 'job-reopened':
+      return `Job ${record.jobId} reopened in host instance ${record.fields.hostInstance} for User's message: ${record.fields.text}`;
     case 'ticket-triaged':
       return `Ticket #${record.ticketId} put to the user's low-priority triage`;
     case 'decision-opened':

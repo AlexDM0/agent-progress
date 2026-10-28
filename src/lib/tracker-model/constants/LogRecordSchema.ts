@@ -177,6 +177,8 @@ export const LOG_RECORD_SCHEMA = {
   'job-stop-requested': { subject: 'job', fields: { mode: 'job-stop-mode' } },
   // A chat turn for the session, which the runner writes from the log in order.
   'job-messaged':       { subject: 'job', fields: { text: 'text' } },
+  // User messaged a closed product owner: `hostInstance` resumes its session with `text` first; `offeredTicketIds` its next ready-drafts skips.
+  'job-reopened':       { subject: 'job', fields: { hostInstance: 'host-instance', text: 'text', offeredTicketIds: 'ticket-ids' } },
   // `cause` and `commit` are set only when the runner names them.
   'job-ended':          {
     subject: 'job',

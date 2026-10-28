@@ -11,15 +11,15 @@ import type { LogRecord }              from './@types/LogRecord.ts';
 
 const LOGGED_AT = '2026-09-26T10:15:00+02:00';
 
-const RECORD_KIND_COUNT = 74;
+const RECORD_KIND_COUNT = 75;
 
 /**
- * Five kinds are logged twice: `draft-claimed`, plainly and as a forced takeover, since the two store different fields, `draft-opened`,
- * since a closed draft cannot then be abandoned, `job-launched` and `job-ended`, since a merge claim launches its own job, and
- * `ticket-held`, since a wind-down holds its job's ticket. Two are logged three times, `decision-opened` and `incident-opened`, since a
- * closed one cannot be closed again another way and an escalation opens a decision of its own.
+ * Three kinds are logged twice: `draft-claimed`, plainly and as a forced takeover, since the two store different fields, `draft-opened`,
+ * since a closed draft cannot then be abandoned, and `ticket-held`, since a wind-down holds its job's ticket. Four are logged three
+ * times: `decision-opened` and `incident-opened`, since a closed one cannot be closed again another way and an escalation opens a decision
+ * of its own, and `job-launched` and `job-ended`, since a merge claim launches its own job and a closed product owner is reopened.
  */
-const RECORD_COUNT = RECORD_KIND_COUNT + 5 + 4;
+const RECORD_COUNT = RECORD_KIND_COUNT + 3 + 8;
 
 const FROZEN_STORED_LINES = [
   '{"at":"2026-09-26T10:15:00+02:00","kind":"note","fields":{"text":"Example note from the orchestrator"}}',
@@ -98,6 +98,11 @@ const FROZEN_STORED_LINES = [
   '{"at":"2026-09-26T10:15:00+02:00","kind":"job-stop-requested","jobId":"J2","fields":{"mode":"wind-down"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-held","ticketId":"002","fields":{"reason":"wound down by User (J2)"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"job-ended","jobId":"J2","fields":{"outcome":"failed","cause":"no report","deniedPermissions":["WebFetch"]}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"job-launched","jobId":"J3","fields":{"kind":"product-owner","role":"product-owner","ticketIds":[],'
+    + '"attempt":1,"target":null,"parentJobId":null}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"job-ended","jobId":"J3","fields":{"outcome":"closed","deniedPermissions":[]}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"job-reopened","jobId":"J3","fields":{"hostInstance":2,"text":"Add the example import as well.",'
+    + '"offeredTicketIds":[]}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"decision-opened","decisionId":"E1","fields":{"kind":"agent-question","ticketIds":["002"]}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"decision-answered","decisionId":"E1","fields":{"answer":{"Ship the example export as CSV?":"CSV"},"requestId":"request-1"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"decision-opened","decisionId":"E2","fields":{"kind":"outage","ticketIds":[]}}',

@@ -1,6 +1,7 @@
 /**
- * The runner's jobs on the board: their launch, their moves through the one legality table, their interruptions, resumes and end, and
- * the cursor, answered requests and merge slot each carries. Only a launch, an interruption, a resume and an end are logged.
+ * The runner's jobs on the board: their launch, their moves through the one legality table, their interruptions, resumes, end and
+ * reopening, and the cursor, answered requests and merge slot each carries. Only a launch, an interruption, a resume, an end and a reopening
+ * are logged.
  */
 import type { JobChanged, Logged } from './@types/BoardChanges.ts';
 import type {
@@ -8,8 +9,10 @@ import type {
   Job,
   JobEnding,
   JobEventCursor,
+  JobIntake,
   JobLaunch,
   JobMoveTarget,
+  JobOutcome,
   JobState,
   JobStopMode,
   MergeSlot,
@@ -150,7 +153,49 @@ export class Jobs {
     return { job, logged: [this.records.logger.log({ kind: 'job-stop-requested', jobId, fields: { mode } }, at)] };
   }
 
-  /** A finished session is never continued: a session whose input is closing is refused like an ended job. */
+  /** The outcome and kind of a job that left the board, read from its log records; `undefined` for a live or unknown one. */
+  endedJobOutcomeOf(jobId: string): { kind: Job['kind']; outcome: JobOutcome } | undefined {
+    if (this.jobById(jobId) !== undefined) return undefined;
+    const records  = this.logRecordsSoFar();
+    const launched = records.find((record) => record.kind === 'job-launched' && record.jobId === jobId);
+    const ended    = records.findLast((record) => record.kind === 'job-ended' && record.jobId === jobId);
+    if (launched?.kind !== 'job-launched' || ended?.kind !== 'job-ended') return undefined;
+    return { kind: launched.fields.kind, outcome: ended.fields.outcome };
+  }
+
+  /**
+   * Puts an ended job back on the board from its log records, `running` in its next host instance, so the runner launches it resuming the
+   * same session; the caller decides which ended jobs may come back.
+   */
+  reopenEndedJob(jobId: string, reopening: { text: string; offeredTicketIds: readonly string[]; intake?: JobIntake }, at: string): JobChanged {
+    const records  = this.logRecordsSoFar().filter((record) => 'jobId' in record && record.jobId === jobId);
+    const launched = records.find((record) => record.kind === 'job-launched');
+    if (launched?.kind !== 'job-launched' || this.jobById(jobId) !== undefined) return this.recordMessage(jobId, reopening.text, at);
+    const lastHostInstance = records.reduce((highest, record) => (
+      (record.kind === 'job-resumed' || record.kind === 'job-interrupted' || record.kind === 'job-reopened') ? Math.max(highest, record.fields.hostInstance) : highest
+    ), FIRST_HOST_INSTANCE);
+    const hostInstance = lastHostInstance + 1;
+    const job: Job = {
+      id:                 jobId,
+      kind:               launched.fields.kind,
+      role:               launched.fields.role,
+      ticketIds:          [...launched.fields.ticketIds],
+      parentJobId:        launched.fields.parentJobId,
+      attempt:            launched.fields.attempt,
+      target:             launched.fields.target,
+      state:              'running',
+      hostInstance,
+      eventCursor:        { instance: hostInstance, sequence: FIRST_EVENT_SEQUENCE },
+      answeredRequestIds: [],
+      crashResumes:       0,
+      ...(reopening.intake === undefined ? {} : { intake: { ...reopening.intake } }),
+    };
+    this.liveJobRecords().push(job);
+    const fields = { hostInstance, text: reopening.text, offeredTicketIds: [...reopening.offeredTicketIds] };
+    return { job, logged: [this.records.logger.log({ kind: 'job-reopened', jobId, fields }, at)] };
+  }
+
+  /** A finished session is continued only by `reopenEndedJob`: a session whose input is closing is refused like an ended job. */
   recordMessage(jobId: string, text: string, at: string): JobChanged {
     const job = this.requireLiveJob(jobId);
     if (job.state === 'stopping') throw new BoardRefusal({ reason: 'job-finished', jobId });
@@ -205,6 +250,10 @@ export class Jobs {
   relayRequestIsApplied(requestId: string): boolean {
     const isTheRequest = (record: LogRecord): boolean => record.kind === 'relay-applied' && record.fields.requestId === requestId;
     return this.records.storedLogRecords.some(isTheRequest) || this.records.loggedRecords.some(isTheRequest);
+  }
+
+  private logRecordsSoFar(): LogRecord[] {
+    return [...this.records.storedLogRecords, ...this.records.loggedRecords];
   }
 
   private refuseIllegalMove(job: Readonly<Job>, targetState: JobMoveTarget): void {

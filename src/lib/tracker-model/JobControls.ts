@@ -75,8 +75,17 @@ export class JobControls {
     return { logged: [...pause(), ...jobIds.flatMap((jobId) => this.requestJobStop(jobId, mode, at).logged)] };
   }
 
+  /**
+   * A product owner that closed, by its own `intake-close` or by `job stop`, is reopened: its session resumes with the text as its first
+   * line, and its next `ready-drafts` skips every ticket its intake filed before. Every other finished job is refused `job-finished`.
+   */
   messageJob(jobId: string, text: string, at: string): JobChanged {
-    return this.jobRules.recordMessage(jobId, text, at);
+    const ended = this.jobRules.endedJobOutcomeOf(jobId);
+    if (ended?.kind !== PRODUCT_OWNER_KIND || ended.outcome !== 'closed') return this.jobRules.recordMessage(jobId, text, at);
+    const offeredTicketIds = this.records.ticketRecords
+      .filter(({ frontmatter }) => frontmatter.filedByJob !== undefined && this.intakeChainOfJobId(jobId).includes(frontmatter.filedByJob))
+      .map(({ frontmatter }) => frontmatter.id);
+    return this.jobRules.reopenEndedJob(jobId, { text, offeredTicketIds, intake: { text } }, at);
   }
 
   /** Recorded `launching` with no ticket and no build slot, so it works with the runner down; several may run at once. */
@@ -101,8 +110,10 @@ export class JobControls {
    */
   readyDraftsDraftOf(job: Readonly<Job>, readinessGapsOf: (body: string) => readonly ReadinessGap[]): DecisionDraft | null {
     const filingJobIds = this.intakeChainOf(job);
+    const offeredBefore = this.ticketIdsOfferedBeforeReopening(filingJobIds);
     const drafts: ReadyDraftFact[] = this.records.ticketRecords
-      .filter(({ frontmatter }) => frontmatter.status === 'draft' && frontmatter.filedByJob !== undefined && filingJobIds.includes(frontmatter.filedByJob))
+      .filter(({ frontmatter }) => frontmatter.status === 'draft' && frontmatter.filedByJob !== undefined && filingJobIds.includes(frontmatter.filedByJob)
+        && !offeredBefore.has(frontmatter.id))
       .map(({ frontmatter, body }) => ({
         id:        frontmatter.id,
         title:     frontmatter.title,
@@ -144,17 +155,29 @@ export class JobControls {
 
   /** The job and every product owner it took over from, through the `parentJobId` each launch recorded. */
   intakeChainOf(job: Readonly<Job>): string[] {
+    return this.intakeChainOfJobId(job.id, job.parentJobId);
+  }
+
+  /** An ended job's parent is read from its launch record. */
+  private intakeChainOfJobId(jobId: string, knownParentJobId?: string | null): string[] {
     const parentOf = new Map<string, string | null>();
     for (const record of this.logRecordsSoFar()) {
       if (record.kind === 'job-launched') parentOf.set(record.jobId, record.fields.parentJobId);
     }
-    const chain = [job.id];
-    let parent = job.parentJobId;
+    const chain = [jobId];
+    let parent = knownParentJobId === undefined ? parentOf.get(jobId) ?? null : knownParentJobId;
     while (parent !== null && !chain.includes(parent)) {
       chain.push(parent);
       parent = parentOf.get(parent) ?? null;
     }
     return chain;
+  }
+
+  /** The tickets an intake already offered in a `ready-drafts` before User reopened it, which a later one never lists again. */
+  private ticketIdsOfferedBeforeReopening(filingJobIds: readonly string[]): Set<string> {
+    return new Set(this.logRecordsSoFar().flatMap((record) => (
+      record.kind === 'job-reopened' && filingJobIds.includes(record.jobId) ? record.fields.offeredTicketIds : []
+    )));
   }
 
   private logRecordsSoFar(): LogRecord[] {
