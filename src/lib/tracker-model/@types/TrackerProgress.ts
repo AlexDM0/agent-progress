@@ -1,5 +1,7 @@
-import type { Job }  from './Job.ts';
-import type { Task } from './Task.ts';
+import type { Decision } from './Decision.ts';
+import type { Incident } from './Incident.ts';
+import type { Job }      from './Job.ts';
+import type { Task }     from './Task.ts';
 
 /** `relative` forms are stored raw (`"-2h"`, `"start"`, `"now"`) and resolved against an explicit `now` at layout time. */
 export type ViewRange =
@@ -34,5 +36,13 @@ export interface TrackerProgress {
   nextJobId?:        number;
   /** The unsettled jobs, in launch order; an ended job leaves in the hold that ended it. Absent on a tracker that never launched one. */
   jobs?:             Job[];
+  /** The number the next decision takes, never wound back; absent on a tracker that never opened one. */
+  nextDecisionId?:   number;
+  /** The open decisions for the user, in opening order; an answered or withdrawn one leaves. Absent on a tracker that never opened one. */
+  decisions?:        Decision[];
+  /** The number the next incident takes, never wound back; absent on a tracker that never opened one. */
+  nextIncidentId?:   number;
+  /** The open incidents for the runner's orchestrator, in opening order; a closed one leaves. Absent on a tracker that never opened one. */
+  incidents?:        Incident[];
   tasks:             Task[];
 }

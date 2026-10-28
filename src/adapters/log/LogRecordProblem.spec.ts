@@ -6,10 +6,11 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import type { LogRecord, LogRecordKind }             from '../../lib/tracker-model/@types/LogRecord.ts';
-import { LOG_RECORD_SCHEMA, LOG_RECORD_SUBJECT_IDS } from '../../lib/tracker-model/constants/LogRecordSchema.ts';
-import { everyRecordKindTheBoardLogs }               from '../../testing/EveryBoardLogRecord.ts';
-import { logRecordProblemOf }                        from './LogRecordProblem.ts';
+import type { LogRecord, LogRecordKind }                  from '../../lib/tracker-model/@types/LogRecord.ts';
+import { DECISION_KINDS, INCIDENT_KINDS, INCIDENT_MOVES } from '../../lib/tracker-model/constants/DecisionAndIncidentVocabulary.ts';
+import { LOG_RECORD_SCHEMA, LOG_RECORD_SUBJECT_IDS }      from '../../lib/tracker-model/constants/LogRecordSchema.ts';
+import { everyRecordKindTheBoardLogs }                    from '../../testing/EveryBoardLogRecord.ts';
+import { logRecordProblemOf }                             from './LogRecordProblem.ts';
 
 const RECORDED_AT = '2026-09-18T21:30:54+02:00';
 
@@ -50,6 +51,14 @@ const EXACT_REASONS: readonly (readonly [string, Record<string, unknown>, string
   ['dispatcher run id', withFields('dispatcher-set', { runId: '  ' }), 'fields.runId is neither null nor a run id'],
   ['check command', withFields('check-command-set', { command: ' ' }), 'fields.command is neither null nor a shell line that is not blank'],
   ['count', withFields('agent-stopped', { cacheReadInputTokens: -1 }), 'fields.cacheReadInputTokens is not a whole number of at least 0'],
+  ['decision kind', withFields('decision-opened', { kind: 'first-run' }), `fields.kind is "first-run", which is not one of ${DECISION_KINDS.join(', ')}`],
+  ['decision answer', withFields('decision-answered', { answer: { 'Ship it?': 1 } }), 'fields.answer is not an object of at least one answer keyed by its question'],
+  ['empty decision answer', withFields('decision-answered', { answer: {} }), 'fields.answer is not an object of at least one answer keyed by its question'],
+  ['incident kind', withFields('incident-opened', { kind: 'outage' }), `fields.kind is "outage", which is not one of ${INCIDENT_KINDS.join(', ')}`],
+  ['incident move', withFields('incident-handled', { move: 'ticket-waive' }), `fields.move is "ticket-waive", which is not one of ${INCIDENT_MOVES.join(', ')}`],
+  ['incident default cause', withFields('incident-defaulted', { cause: 'timeout' }), 'fields.cause is "timeout", which is not one of turn-closed, turn-budget, no-orchestrator'],
+  ['decision id', withKeys('decision-answered', { decisionId: 7 }), 'decisionId is not a string'],
+  ['incident id', withKeys('incident-escalated', { incidentId: null }), 'incidentId is not a string'],
   ['ticket id', withKeys('ticket-started', { ticketId: null }), 'ticketId is not a string'],
   ['epic key', withKeys('epic-edited', { epicKey: null }), 'epicKey is not a string'],
   ['task id', withKeys('review-bar-started', { taskId: 7.5 }), 'taskId is not a whole number'],

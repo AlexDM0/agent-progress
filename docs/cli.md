@@ -247,7 +247,7 @@ Options in `[brackets]` are optional; `a|b` is a choice of one.
 
 | command | what it does |
 |---|---|
-| `status [--json] [--full] [--tickets-only]` | The project, the counts, the rows that are not delivered or abandoned, and the last five log entries newest first, then the Next line. `--json` prints the same working view for an agent — the unsettled rows and tickets, the last 10 log entries, and an `omitted` object counting what was left out. `--full` lists everything; with `--json` it prints the whole progress file plus every ticket's frontmatter. The `version` both `--json` documents carry is the document's own shape version, `1`, with the worded log directly after `tasks`, whatever version the stored file is at. Both `--json` documents carry `concurrency` — `limit`, `agentsInFlight`, `freeSlots`, `readyTicketIds`, `dispatcherState`, `heldTicketIds`, while one is stored `dispatcherRunId`, then `inProgressTicketIds` and `inProgressReviewOfIds` — and beside it `readyTickets`, then `reviewWaitingTickets`, `pausedBuilds` and `ticketRows`, and end with `tokensByOwner`. Both carry `epics` after `tickets`, every epic with its roll-up (see Epics), and each ticket carries `epics`, its list in order, empty when it has none; then `drafts`, every open draft (see Drafts). `--tickets-only`, with or without `--json` and `--full`, leaves out the free-standing task rows — every row that is no ticket's own row (`ticket` null) and no review bar (no `reviewOf`) — while the tickets, the log and the counts stay; the working view's `omitted` then adds `freeStandingTasks`. The human output breaks the token total down per owner: owners are grouped case-insensitively on the trimmed text and shown under the group's most common spelling (the first met on a tie), most tokens first, with the reported rows that carry no owner on a `no owner` line of their own. `tokensByOwner` carries the same over every row, whatever the flags: `{ owners: [{ owner, tokens, rows }], withoutOwner: { tokens, rows }, withoutTokens: { rows } }`, whose owner and `withoutOwner` tokens add up to the reported total. Both `--json` documents then carry `ticketCountByStatus`, every ticket on the board counted per status (settled ones included, every status present, zero or not), so a reader totalling the board needs no `--full`, and end with `jobs`, every unsettled job as `progress.json` stores it, empty when there is none. |
+| `status [--json] [--full] [--tickets-only]` | The project, the counts, the rows that are not delivered or abandoned, and the last five log entries newest first, then the Next line. `--json` prints the same working view for an agent — the unsettled rows and tickets, the last 10 log entries, and an `omitted` object counting what was left out. `--full` lists everything; with `--json` it prints the whole progress file plus every ticket's frontmatter. The `version` both `--json` documents carry is the document's own shape version, `1`, with the worded log directly after `tasks`, whatever version the stored file is at. Both `--json` documents carry `concurrency` — `limit`, `agentsInFlight`, `freeSlots`, `readyTicketIds`, `dispatcherState`, `heldTicketIds`, while one is stored `dispatcherRunId`, then `inProgressTicketIds` and `inProgressReviewOfIds` — and beside it `readyTickets`, then `reviewWaitingTickets`, `pausedBuilds` and `ticketRows`, and end with `tokensByOwner`. Both carry `epics` after `tickets`, every epic with its roll-up (see Epics), and each ticket carries `epics`, its list in order, empty when it has none; then `drafts`, every open draft (see Drafts). `--tickets-only`, with or without `--json` and `--full`, leaves out the free-standing task rows — every row that is no ticket's own row (`ticket` null) and no review bar (no `reviewOf`) — while the tickets, the log and the counts stay; the working view's `omitted` then adds `freeStandingTasks`. The human output breaks the token total down per owner: owners are grouped case-insensitively on the trimmed text and shown under the group's most common spelling (the first met on a tie), most tokens first, with the reported rows that carry no owner on a `no owner` line of their own. `tokensByOwner` carries the same over every row, whatever the flags: `{ owners: [{ owner, tokens, rows }], withoutOwner: { tokens, rows }, withoutTokens: { rows } }`, whose owner and `withoutOwner` tokens add up to the reported total. Both `--json` documents then carry `ticketCountByStatus`, every ticket on the board counted per status (settled ones included, every status present, zero or not), so a reader totalling the board needs no `--full`, then `jobs`, every unsettled job as `progress.json` stores it, empty when there is none, and end with `decisions` and `incidents`, every open one as `progress.json` stores it, each empty when none is open. |
 | `ticket list [--status <s>] [--priority <p>] [--json]` | The tickets with their status, priority, type and row id, the model and effort after the title where the ticket names them, and "waiting on #003" where a dependency is unsettled. `--status` and `--priority` narrow the listing. `--json` carries no bodies. |
 | `ticket show <id> [--json]` | One ticket: its frontmatter, its priority, its model and effort where it names them, its body, and always its file path — which is what an agent needs in order to edit that body. Once the ticket was claimed or started it says whether the body changed since: a hash of the body now against the `claimedBodyHash` the claim recorded, never a clock; under `--json`, and in `status --json` and `ticket list --json`, that is `bodyChangedSinceClaim`, absent on a ticket never claimed. |
 
@@ -784,6 +784,36 @@ wrote them and are displayed as written, never re-parsed into a viewer's zone.
       "slot": { "target": "main", "targetTip": "a1b2c3d", "branchTip": "b2c3d4e", "phase": "merge-in" } // optional: while it holds its target's slot; phase merge-in|resolving|reviewing-resolution|gating|fixing|landing
     }
   ],
+  "nextDecisionId": 3,                           // optional: the number the next decision takes (E3), written by the first opening, never wound back
+  "decisions": [                                 // optional: the open decisions for the user in opening order, written by the first opening
+    {
+      "id": "E2",
+      "kind": "agent-question",                  // agent-question|ready-drafts|parked|waiver|landing-refused|merge-refused|checks-not-set|target-moved|branch-touches-agent-config|outage|quiet-job|leftover-worktree
+      "ticketIds": ["003"],
+      "jobId": "J4",                             // or null
+      "askedBy": "builder",                      // a job role, runner or orchestrator
+      "requestId": "toolu_example",              // the question request it was opened for, or null for one code opened
+      "questions": [                             // AskUserQuestion's own shape
+        { "question": "Which export format?", "header": "Format", "multiSelect": false,
+          "options": [{ "label": "CSV", "description": "Comma separated" }] }
+      ],
+      "context": "Rewrite the importer",
+      "openedAt": "2026-09-18T21:40:00+02:00"
+    }
+  ],
+  "nextIncidentId": 2,                           // optional: the number the next incident takes (I2), written by the first opening, never wound back
+  "incidents": [                                 // optional: the open incidents for the runner's orchestrator in opening order
+    {
+      "id": "I1",
+      "kind": "setup-failed",                    // system-question|malformed-ticket|setup-failed|out-of-calls|blocked|job-lost|resume-failed|gate-cannot-run|merge-gate-failed|resolution-over-threshold|quiet-job|findings-delivered
+      "ticketIds": ["003"],
+      "jobId": "J4",                             // or null
+      "facts": { "step": "install" },            // text the runner names; requestId when a question opened it
+      "defaultMove": "worktree-repair",          // the move it takes when its delivery turn closes unhandled
+      "deliveredInTurn": null,                   // or { "jobId", "chatSequence" }: the orchestrator's chat turn it went out in
+      "openedAt": "2026-09-18T21:41:00+02:00"
+    }
+  ],
   "tasks": [
     {
       "id": 17,
@@ -847,6 +877,18 @@ not allow `job-move-illegal`. A job's state lives here and is never logged; no p
 A stored `dispatcherState` of `finished` is never rewritten and reads as `stopped`, in `dispatcher` and in
 `status --json`.
 
+`decisions`, `nextDecisionId`, `incidents` and `nextIncidentId` are likewise each written only once set; keys the tool
+does not know on a decision, its questions and their options, an incident and its `deliveredInTurn` survive in the
+file's order. A counter below 1, or a decision or incident whose field is missing, outside its vocabulary or of the
+wrong shape, makes the file unreadable (exit 2). Decision ids are `E<n>` and incident ids `I<n>`, never reused or
+gap-filled. Both lists hold only what is open: an answered or withdrawn decision, and a handled, defaulted or
+escalated incident, leave in the same write and live on in the log. The first answer wins: a later one, or one to a
+withdrawn decision, is refused `decision-already-answered`, an id never handed out `unknown-decision`, and an answer
+that does not give one text per question `decision-answer-count`; a closed incident is refused `incident-closed`, an
+unknown one `unknown-incident`. A question is keyed by its `requestId` (an incident's by its `requestId` fact) against
+the open decisions and incidents and its job's `answeredRequestIds`, which an answer joins, so a replayed request opens
+nothing twice.
+
 A row or history phase in a status the file format does not know, the retired `running` or
 `finished` included, makes the file unreadable (exit 2) with the same advice. A row is a review bar
 by its `reviewOf` alone, never by its name.
@@ -854,7 +896,8 @@ by its `reviewOf` alone, never by its name.
 ### `.agent-progress/log.jsonl`
 
 One record per line, each a JSON object ending in a newline: `at`, `kind`, then `taskId`,
-`ticketId`, `epicKey`, `draftId` or `jobId` where the kind names them, then `fields`. `status` and the page word each
+`ticketId`, `epicKey`, `draftId`, `jobId`, `decisionId` or `incidentId` where the kind names them, then `fields`.
+`status` and the page word each
 record as a sentence; a note's sentence is its text.
 
 | kind | ids | fields |
@@ -890,6 +933,14 @@ record as a sentence; a note's sentence is its text.
 | `job-interrupted` | `jobId` | `cause`, `hostInstance`: the instance that was lost |
 | `job-resumed` | `jobId` | `hostInstance`: the instance spawned, `cause`: the interruption it resumes from |
 | `job-ended` | `jobId` | `outcome`, `cause` and `commit` each only when named, `deniedPermissions` |
+| `ticket-triaged` | `ticketId` | none: a finding put to the user's low-priority triage |
+| `decision-opened` | `decisionId` | `kind`, `ticketIds` |
+| `decision-answered` | `decisionId` | `answer`: one answer per question, keyed by the question's text |
+| `decision-withdrawn` | `decisionId` | `reason` |
+| `incident-opened` | `incidentId` | `kind`, `ticketIds` |
+| `incident-handled` | `incidentId` | `move`: the move that closed it |
+| `incident-defaulted` | `incidentId` | `move`: its default move, `cause`: `turn-closed`, `turn-budget` or `no-orchestrator` |
+| `incident-escalated` | `incidentId` | `decisionId`: the `agent-question` decision it became |
 
 ```
 {"at":"2026-09-18T21:30:54+02:00","kind":"ticket-started","ticketId":"003","fields":{}}

@@ -369,3 +369,50 @@ describe('the line the log receives', () => {
     expect(line).toContain('output 500');
   });
 });
+
+// No earlier binary logged these, so their wording is this suite's own; an opening is claimed by its tickets, every other record by none.
+describe('decisions, incidents and triage', () => {
+  const SENTENCE_AND_TICKET_IDS_FOR_RECORD: readonly (readonly [LogRecordContent, string, readonly string[]])[] = [
+    [{ kind: 'ticket-triaged', ticketId: '004', fields: {} }, 'Ticket #004 put to the user\'s low-priority triage', ['004']],
+    [
+      { kind: 'decision-opened', decisionId: 'E3', fields: { kind: 'agent-question', ticketIds: ['001', '002'] } },
+      'Decision E3 opened: agent-question for #001, #002',
+      ['001', '002'],
+    ],
+    [{ kind: 'decision-opened', decisionId: 'E4', fields: { kind: 'outage', ticketIds: [] } }, 'Decision E4 opened: outage', []],
+    [
+      { kind: 'decision-answered', decisionId: 'E3', fields: { answer: { 'Ship it?': 'Yes', 'Which "columns"?': 'Name, Total' } } },
+      'Decision E3 answered: "Ship it?": "Yes"; "Which \\"columns\\"?": "Name, Total"',
+      [],
+    ],
+    [{ kind: 'decision-withdrawn', decisionId: 'E3', fields: { reason: 'job stopped' } }, 'Decision E3 withdrawn: job stopped', []],
+    [
+      { kind: 'incident-opened', incidentId: 'I2', fields: { kind: 'malformed-ticket', ticketIds: ['001'] } },
+      'Incident I2 opened: malformed-ticket for #001',
+      ['001'],
+    ],
+    [{ kind: 'incident-handled', incidentId: 'I2', fields: { move: 'job-fresh' } }, 'Incident I2 handled by job-fresh', []],
+    [
+      { kind: 'incident-defaulted', incidentId: 'I2', fields: { move: 'merge-abort', cause: 'turn-closed' } },
+      'Incident I2 took its default, merge-abort, when its delivery turn closed',
+      [],
+    ],
+    [
+      { kind: 'incident-defaulted', incidentId: 'I2', fields: { move: 'job-fresh', cause: 'turn-budget' } },
+      'Incident I2 took its default, job-fresh, when its delivery turn reached its call budget',
+      [],
+    ],
+    [
+      { kind: 'incident-defaulted', incidentId: 'I2', fields: { move: 'ticket-park', cause: 'no-orchestrator' } },
+      'Incident I2 took its default, ticket-park, while no orchestrator could come up',
+      [],
+    ],
+    [{ kind: 'incident-escalated', incidentId: 'I2', fields: { decisionId: 'E5' } }, 'Incident I2 escalated to the user as decision E5', []],
+  ];
+
+  test.each(SENTENCE_AND_TICKET_IDS_FOR_RECORD)('%o reads as its sentence and is claimed by its tickets', (content, sentence, ticketIds) => {
+    const identified = identifiedEntryOf({ ...content, at: '2026-09-18T20:11:03+02:00' });
+    expect(identified.text).toBe(sentence);
+    expect(identified.ticketIds).toEqual([...ticketIds]);
+  });
+});

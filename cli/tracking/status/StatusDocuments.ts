@@ -45,6 +45,7 @@ export function fullDocumentOf(progress: TrackerProgress, wordedLog: readonly Wo
     tokensByOwner:       ownerTokenTotalsOf(progress.tasks),
     ticketCountByStatus: board.ticketCountByStatus(),
     ...StatusDocumentUtil.jobsOf(board),
+    ...StatusDocumentUtil.decisionsAndIncidentsOf(board),
   };
 }
 
@@ -75,5 +76,6 @@ export function workingDocumentOf(progress: TrackerProgress, logNewestFirst: rea
     tokensByOwner:       ownerTokenTotalsOf(progress.tasks),
     ticketCountByStatus: board.ticketCountByStatus(),
     ...StatusDocumentUtil.jobsOf(board),
+    ...StatusDocumentUtil.decisionsAndIncidentsOf(board),
   };
 }

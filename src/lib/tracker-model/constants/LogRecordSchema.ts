@@ -4,7 +4,7 @@
  * new kind is one entry here plus its wording and its emitter.
  */
 
-export type LogRecordSubject = 'board' | 'ticket' | 'epic' | 'draft' | 'review-bar' | 'job';
+export type LogRecordSubject = 'board' | 'ticket' | 'epic' | 'draft' | 'review-bar' | 'job' | 'decision' | 'incident';
 
 export type LogFieldShape =
   | 'text'
@@ -35,7 +35,12 @@ export type LogFieldShape =
   | 'interruption-cause'
   | 'host-instance'
   | 'permission-names'
-  | 'runner-stop-reason';
+  | 'runner-stop-reason'
+  | 'decision-kind'
+  | 'decision-answer'
+  | 'incident-kind'
+  | 'incident-move'
+  | 'incident-default-cause';
 
 export interface LogRecordKindSchema {
   subject: LogRecordSubject;
@@ -52,12 +57,15 @@ export const LOG_RECORD_SUBJECT_IDS = {
   'draft':      { draftId: 'text' },
   'review-bar': { taskId: 'task-id', ticketId: 'text' },
   'job':        { jobId: 'text' },
+  'decision':   { decisionId: 'text' },
+  'incident':   { incidentId: 'text' },
 } as const satisfies Readonly<Record<LogRecordSubject, Readonly<Record<string, LogFieldShape>>>>;
 
 export const LOG_RECORD_SCHEMA = {
   'note':                            { subject: 'board', fields: { text: 'text' } },
   'ticket-filed':                    { subject: 'ticket', fields: { title: 'text' } },
   'ticket-readied':                  { subject: 'ticket', fields: NO_FIELDS },
+  'ticket-triaged':                  { subject: 'ticket', fields: NO_FIELDS },
   'ticket-reopened':                 { subject: 'ticket', fields: NO_FIELDS },
   'ticket-started':                  { subject: 'ticket', fields: NO_FIELDS },
   'ticket-finished':                 { subject: 'ticket', fields: NO_FIELDS },
@@ -148,8 +156,15 @@ export const LOG_RECORD_SCHEMA = {
       deniedPermissions: 'permission-names',
     },
   },
+  'decision-opened':    { subject: 'decision', fields: { kind: 'decision-kind', ticketIds: 'ticket-ids' } },
+  'decision-answered':  { subject: 'decision', fields: { answer: 'decision-answer' } },
+  'decision-withdrawn': { subject: 'decision', fields: { reason: 'text' } },
+  'incident-opened':    { subject: 'incident', fields: { kind: 'incident-kind', ticketIds: 'ticket-ids' } },
+  'incident-handled':   { subject: 'incident', fields: { move: 'incident-move' } },
+  'incident-defaulted': { subject: 'incident', fields: { move: 'incident-move', cause: 'incident-default-cause' } },
+  'incident-escalated': { subject: 'incident', fields: { decisionId: 'text' } },
   // `totalInputTokens` is fresh input plus cache read plus cache creation; the run id and label are stored only for an agent a workflow run spawned.
-  'agent-stopped': {
+  'agent-stopped':      {
     subject: 'board',
     fields:  {
       agentId:              'text',

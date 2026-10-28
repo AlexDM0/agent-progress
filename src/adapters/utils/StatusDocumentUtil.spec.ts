@@ -9,7 +9,36 @@ import { describe, expect, test } from 'bun:test';
 import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures.ts';
 import { StatusDocumentUtil }                       from './StatusDocumentUtil.ts';
 
-const { inProgressIdsOf, boardWorkOf, jobsOf } = StatusDocumentUtil;
+const {
+  inProgressIdsOf, boardWorkOf, jobsOf, decisionsAndIncidentsOf
+} = StatusDocumentUtil;
+
+describe('the decisions and incidents', () => {
+  test('are both empty on a board that never opened one', () => {
+    expect(decisionsAndIncidentsOf(boardFixture().board)).toEqual({ decisions: [], incidents: [] });
+  });
+
+  test('are the Board\'s open ones in opening order, a closed one left out', () => {
+    const { board } = boardFixture({ tickets: [ticketFixture({ id: '001' })] });
+    const at        = '2026-09-18T20:11:03+02:00';
+    const opening   = {
+      kind: 'outage', ticketIds: [], jobId: null, askedBy: 'runner', requestId: null, questions: [], context: '',
+    } as const;
+    board.openDecision(opening, at);
+    board.openDecision(opening, at);
+    board.withdrawDecision('E1', 'board resumed', at);
+    const incident = {
+      kind: 'blocked', ticketIds: ['001'], jobId: null, facts: {}, defaultMove: 'ticket-park',
+    } as const;
+    board.openIncident(incident, at);
+    board.openIncident(incident, at);
+    board.handleIncident('I2', 'ticket-park', at);
+
+    const document = decisionsAndIncidentsOf(board);
+    expect(document.decisions.map((decision) => decision.id)).toEqual(['E2']);
+    expect(document.incidents.map((open) => open.id)).toEqual(['I1']);
+  });
+});
 
 describe('the key order', () => {
   test('is the ids of tickets, then of reviews, in flight', () => {

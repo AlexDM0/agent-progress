@@ -238,6 +238,17 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
     case 'merge-queue-of-a-ticket-not-in-review':
       return `Ticket #${detail.ticketId} is ${StatusWordingUtil.statusTextFor(detail.status)}, `
         + `so it was not queued to merge: only a ticket in review whose review passed is. ${NOTHING_WAS_WRITTEN}`;
+    case 'unknown-decision':
+      return `There is no decision ${detail.decisionId}. ${NOTHING_WAS_WRITTEN}`;
+    case 'decision-already-answered':
+      return `Decision ${detail.decisionId} is already settled, and the first answer wins. ${NOTHING_WAS_WRITTEN}`;
+    case 'decision-answer-count':
+      return `Decision ${detail.decisionId} asks ${detail.questionCount} ${detail.questionCount === 1 ? 'question' : 'questions'}, `
+        + `so it takes one answer for each, not ${detail.answerCount}. ${NOTHING_WAS_WRITTEN}`;
+    case 'unknown-incident':
+      return `There is no incident ${detail.incidentId}. ${NOTHING_WAS_WRITTEN}`;
+    case 'incident-closed':
+      return `Incident ${detail.incidentId} is already closed. ${NOTHING_WAS_WRITTEN}`;
   }
 }
 

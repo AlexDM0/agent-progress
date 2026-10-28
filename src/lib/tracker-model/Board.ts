@@ -13,6 +13,12 @@ import type {
   DraftClaimChanged,
   EpicChanged,
   EpicEdited,
+  DecisionAnswered,
+  DecisionClosed,
+  DecisionOpened,
+  IncidentClosed,
+  IncidentEscalated,
+  IncidentOpened,
   JobChanged,
   Logged,
   ReviewBarRequest,
@@ -36,6 +42,7 @@ import type {
   TrackerCleared
 }                                                           from './@types/BoardChanges.ts';
 import type { Concurrency, DispatchCapacity } from './@types/Concurrency.ts';
+import type { Decision, DecisionOpening }     from './@types/Decision.ts';
 import type {
   Draft,
   DraftNoteAddition,
@@ -50,6 +57,13 @@ import type {
   EpicEdit,
   EpicRollup
 }                                                           from './@types/Epic.ts';
+import type {
+  Incident,
+  IncidentDefaultCause,
+  IncidentDeliveryTurn,
+  IncidentMove,
+  IncidentOpening
+}                                              from './@types/Incident.ts';
 import type {
   InterruptionCause,
   Job,
@@ -71,12 +85,15 @@ import type {
 }                                                         from './@types/Ticket.ts';
 import type { DispatcherState, TrackerProgress, ViewRange } from './@types/TrackerProgress.ts';
 import { BoardRecords }                                     from './BoardRecords.ts';
+import { Decisions }                                        from './Decisions.ts';
 import { DispatchQueries }                                  from './DispatchQueries.ts';
 import { DisplayQueries }                                   from './DisplayQueries.ts';
 import { DraftContents }                                    from './DraftContents.ts';
 import { Drafts }                                           from './Drafts.ts';
 import { Epics }                                            from './Epics.ts';
 import { GroupReleases }                                    from './GroupReleases.ts';
+import type { IncidentEscalation }                          from './Incidents.ts';
+import { Incidents }                                        from './Incidents.ts';
 import type { SteppedJobState }                             from './Jobs.ts';
 import { Jobs }                                             from './Jobs.ts';
 import type { Logger }                                      from './Logger.ts';
@@ -147,6 +164,10 @@ export class Board {
 
   private readonly mergeQueueMarks: MergeQueueMarks;
 
+  private readonly decisionRules: Decisions;
+
+  private readonly incidentRules: Incidents;
+
   constructor(input: BoardInput) {
     this.records            = new BoardRecords(input.progress, input.tickets, input.epics, input.drafts ?? [], input.logger, input.storedLogRecords ?? []);
     this.reviewBars         = new ReviewBars(this.records);
@@ -168,6 +189,8 @@ export class Board {
     this.draftContents      = new DraftContents(this.records, this.draftRules);
     this.jobRules           = new Jobs(this.records);
     this.mergeQueueMarks    = new MergeQueueMarks(this.records);
+    this.decisionRules      = new Decisions(this.records);
+    this.incidentRules      = new Incidents(this.records, this.decisionRules);
   }
 
   launchJob(launch: JobLaunch, at: string): JobChanged {
@@ -221,6 +244,66 @@ export class Board {
 
   jobById(jobId: string): Readonly<Job> | undefined {
     return this.jobRules.jobById(jobId);
+  }
+
+  openDecision(opening: DecisionOpening, at: string): DecisionOpened {
+    return this.decisionRules.openDecision(opening, at);
+  }
+
+  /** The first answer wins; the answered request joins its live job's `answeredRequestIds`, so a replay of it opens nothing. */
+  answerDecision(decisionId: string, answers: readonly string[], at: string): DecisionAnswered {
+    const answered                    = this.decisionRules.answerDecision(decisionId, answers, at);
+    const { jobId, requestId }        = answered.decision;
+    if (jobId !== null && requestId !== null && this.jobRules.jobById(jobId) !== undefined) this.jobRules.addAnsweredRequestId(jobId, requestId);
+    return answered;
+  }
+
+  withdrawDecision(decisionId: string, reason: string, at: string): DecisionClosed {
+    return this.decisionRules.withdrawDecision(decisionId, reason, at);
+  }
+
+  /** The open decisions for the user, in opening order. */
+  decisions(): readonly Readonly<Decision>[] {
+    return this.decisionRules.decisions();
+  }
+
+  decisionById(decisionId: string): Readonly<Decision> | undefined {
+    return this.decisionRules.decisionById(decisionId);
+  }
+
+  openIncident(opening: IncidentOpening, at: string): IncidentOpened {
+    return this.incidentRules.openIncident(opening, at);
+  }
+
+  markIncidentDelivered(incidentId: string, turn: IncidentDeliveryTurn): Readonly<Incident> {
+    return this.incidentRules.markIncidentDelivered(incidentId, turn);
+  }
+
+  handleIncident(incidentId: string, move: IncidentMove, at: string): IncidentClosed {
+    return this.incidentRules.handleIncident(incidentId, move, at);
+  }
+
+  defaultIncident(incidentId: string, cause: IncidentDefaultCause, at: string): IncidentClosed {
+    return this.incidentRules.defaultIncident(incidentId, cause, at);
+  }
+
+  escalateIncident(incidentId: string, escalation: IncidentEscalation, at: string): IncidentEscalated {
+    return this.incidentRules.escalateIncident(incidentId, escalation, at);
+  }
+
+  /** The open incidents for the runner's orchestrator, in opening order. */
+  incidents(): readonly Readonly<Incident>[] {
+    return this.incidentRules.incidents();
+  }
+
+  incidentById(incidentId: string): Readonly<Incident> | undefined {
+    return this.incidentRules.incidentById(incidentId);
+  }
+
+  /** Puts a finding before the user's low-priority triage; the ticket is one the caller resolved. */
+  triageTicket(ticketId: string, at: string): Logged {
+    this.records.requireTicket(ticketId);
+    return { logged: [this.records.logger.log({ kind: 'ticket-triaged', ticketId, fields: {} }, at)] };
   }
 
   setChartRange(view: ViewRange, at: string): Logged {

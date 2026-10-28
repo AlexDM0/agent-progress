@@ -3,7 +3,8 @@
  * the page through `identifiedEntryOf`, which also carries every task and ticket id the record concerns, so a detail panel never reads ids
  * out of the sentence.
  */
-import { TokenCountUtil } from '../../lib/token-count/TokenCountUtil.ts';
+import { TokenCountUtil }            from '../../lib/token-count/TokenCountUtil.ts';
+import type { IncidentDefaultCause } from '../../lib/tracker-model/@types/Incident.ts';
 import type {
   AgentUsage,
   LogRecord,
@@ -176,7 +177,39 @@ function sentenceOf(record: LogRecordContent): string {
       return `Job ${record.jobId} resumed in host instance ${record.fields.hostInstance} after ${record.fields.cause}`;
     case 'job-ended':
       return jobEndedTextOf(record.jobId, record.fields);
+    case 'ticket-triaged':
+      return `Ticket #${record.ticketId} put to the user's low-priority triage`;
+    case 'decision-opened':
+      return `Decision ${record.decisionId} opened: ${record.fields.kind}${ticketsSuffixOf(record.fields.ticketIds)}`;
+    case 'decision-answered':
+      return decisionAnsweredTextOf(record.decisionId, record.fields.answer);
+    case 'decision-withdrawn':
+      return `Decision ${record.decisionId} withdrawn: ${record.fields.reason}`;
+    case 'incident-opened':
+      return `Incident ${record.incidentId} opened: ${record.fields.kind}${ticketsSuffixOf(record.fields.ticketIds)}`;
+    case 'incident-handled':
+      return `Incident ${record.incidentId} handled by ${record.fields.move}`;
+    case 'incident-defaulted':
+      return `Incident ${record.incidentId} took its default, ${record.fields.move}, ${INCIDENT_DEFAULT_CAUSE_TEXT[record.fields.cause]}`;
+    case 'incident-escalated':
+      return `Incident ${record.incidentId} escalated to the user as decision ${record.fields.decisionId}`;
   }
+}
+
+const INCIDENT_DEFAULT_CAUSE_TEXT: Readonly<Record<IncidentDefaultCause, string>> = {
+  'turn-closed':     'when its delivery turn closed',
+  'turn-budget':     'when its delivery turn reached its call budget',
+  'no-orchestrator': 'while no orchestrator could come up',
+};
+
+function ticketsSuffixOf(ticketIds: readonly string[]): string {
+  return ticketIds.length === 0 ? '' : ` for ${TicketPhraseUtil.ticketReferencesText(ticketIds)}`;
+}
+
+/** Answers are quoted as given, after the question they answer, in the order the decision asked them. */
+function decisionAnsweredTextOf(decisionId: string, answer: Readonly<Record<string, string>>): string {
+  const answers = Object.entries(answer).map(([question, text]) => `${JSON.stringify(question)}: ${JSON.stringify(text)}`);
+  return `Decision ${decisionId} answered: ${answers.join('; ')}`;
 }
 
 function jobLaunchedTextOf(jobId: string, launch: LogRecordFieldsOf<'job-launched'>): string {
@@ -205,7 +238,9 @@ function taskIdsConcernedBy(record: LogRecordContent): number[] {
 function ticketIdsConcernedBy(record: LogRecordContent): string[] {
   if (record.kind === 'ticket-dependencies-set') return [...new Set([record.ticketId, ...record.fields.dependsOn])];
   if (record.kind === 'ticket-introduced-by-set' && record.fields.introducedBy !== undefined) return [record.ticketId, record.fields.introducedBy];
-  if (record.kind === 'draft-closed' || record.kind === 'job-launched') return [...record.fields.ticketIds];
+  if (record.kind === 'draft-closed' || record.kind === 'job-launched' || record.kind === 'decision-opened' || record.kind === 'incident-opened') {
+    return [...record.fields.ticketIds];
+  }
   return 'ticketId' in record ? [record.ticketId] : [];
 }
 

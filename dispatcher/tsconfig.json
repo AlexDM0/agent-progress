@@ -19,6 +19,8 @@
     "../src/lib/tracker-model/constants/ReviewRecordVocabulary.ts",
     "../src/lib/tracker-model/@types/ReviewRecord.ts",
     "../src/lib/tracker-model/@types/Ticket.ts",
+    "../src/lib/tracker-model/@types/Decision.ts",
+    "../src/lib/tracker-model/@types/Incident.ts",
     "../src/lib/tracker-model/@types/Job.ts",
     "../src/lib/tracker-model/@types/Task.ts",
     "../src/lib/tracker-model/@types/TrackerProgress.ts"

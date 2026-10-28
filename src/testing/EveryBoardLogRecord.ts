@@ -125,6 +125,30 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
   board.interruptJob(job.id, 'agent-crashed', at);
   board.moveJob(job.id, 'running', at);
   board.endJob(job.id, { outcome: 'failed', cause: 'no report', deniedPermissions: ['WebFetch'] }, at);
+  const question = {
+    question:    'Ship the example export as CSV?',
+    header:      'Export',
+    multiSelect: false,
+    options:     [{ label: 'CSV', description: 'Comma separated' }, { label: 'JSON', description: 'One document' }],
+  };
+  board.openDecision({
+    kind: 'agent-question', ticketIds: ['002'], jobId: null, askedBy: 'builder', requestId: 'request-1', questions: [question], context: 'Example cart',
+  }, at);
+  board.answerDecision('E1', ['CSV'], at);
+  board.openDecision({
+    kind: 'outage', ticketIds: [], jobId: null, askedBy: 'runner', requestId: null, questions: [question], context: 'Two crashed jobs',
+  }, at);
+  board.withdrawDecision('E2', 'job stopped', at);
+  const incidentOpening = {
+    kind: 'system-question', ticketIds: ['002'], jobId: null, facts: { requestId: 'request-2' }, defaultMove: 'incident-escalate',
+  } as const;
+  board.openIncident(incidentOpening, at);
+  board.handleIncident('I1', 'incident-answer', at);
+  board.openIncident({ ...incidentOpening, facts: { requestId: 'request-3' } }, at);
+  board.defaultIncident('I2', 'turn-closed', at);
+  board.openIncident({ ...incidentOpening, facts: { requestId: 'request-4' } }, at);
+  board.escalateIncident('I3', { askedBy: 'builder', questions: [question], context: 'Example cart' }, at);
+  board.triageTicket('004', at);
   board.recordRunnerStopped('stopped', at);
   board.clearTracker({ ticketsSurvive: true }, at);
   return records;

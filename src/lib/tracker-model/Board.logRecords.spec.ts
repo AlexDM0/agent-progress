@@ -11,13 +11,14 @@ import type { LogRecord }              from './@types/LogRecord.ts';
 
 const LOGGED_AT = '2026-09-26T10:15:00+02:00';
 
-const RECORD_KIND_COUNT = 51;
+const RECORD_KIND_COUNT = 59;
 
 /**
  * Two kinds are logged twice: `draft-claimed`, plainly and as a forced takeover, since the two store different fields, and `draft-opened`,
- * since a closed draft cannot then be abandoned.
+ * since a closed draft cannot then be abandoned. Two are logged three times, `decision-opened` and `incident-opened`, since a closed one
+ * cannot be closed again another way and an escalation opens a decision of its own.
  */
-const RECORD_COUNT = RECORD_KIND_COUNT + 2;
+const RECORD_COUNT = RECORD_KIND_COUNT + 2 + 4;
 
 const FROZEN_STORED_LINES = [
   '{"at":"2026-09-26T10:15:00+02:00","kind":"note","fields":{"text":"Example note from the orchestrator"}}',
@@ -78,6 +79,18 @@ const FROZEN_STORED_LINES = [
   '{"at":"2026-09-26T10:15:00+02:00","kind":"job-interrupted","jobId":"J1","fields":{"cause":"agent-crashed","hostInstance":1}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"job-resumed","jobId":"J1","fields":{"hostInstance":2,"cause":"agent-crashed"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"job-ended","jobId":"J1","fields":{"outcome":"failed","cause":"no report","deniedPermissions":["WebFetch"]}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"decision-opened","decisionId":"E1","fields":{"kind":"agent-question","ticketIds":["002"]}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"decision-answered","decisionId":"E1","fields":{"answer":{"Ship the example export as CSV?":"CSV"}}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"decision-opened","decisionId":"E2","fields":{"kind":"outage","ticketIds":[]}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"decision-withdrawn","decisionId":"E2","fields":{"reason":"job stopped"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"incident-opened","incidentId":"I1","fields":{"kind":"system-question","ticketIds":["002"]}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"incident-handled","incidentId":"I1","fields":{"move":"incident-answer"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"incident-opened","incidentId":"I2","fields":{"kind":"system-question","ticketIds":["002"]}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"incident-defaulted","incidentId":"I2","fields":{"move":"incident-escalate","cause":"turn-closed"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"incident-opened","incidentId":"I3","fields":{"kind":"system-question","ticketIds":["002"]}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"decision-opened","decisionId":"E3","fields":{"kind":"agent-question","ticketIds":["002"]}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"incident-escalated","incidentId":"I3","fields":{"decisionId":"E3"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-triaged","ticketId":"004","fields":{}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"runner-stopped","fields":{"reason":"stopped"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"tracker-cleared","fields":{}}',
 ];
@@ -86,7 +99,7 @@ function storedLinesOf(records: readonly LogRecord[]): string[] {
   return records.map((record) => JSON.stringify(record));
 }
 
-test('the scenario logs every record kind there is, two draft kinds twice and every other once', () => {
+test('the scenario logs every record kind there is, two draft kinds twice, the two opening kinds three times and every other once', () => {
   const records = everyRecordKindTheBoardLogs(LOGGED_AT);
   expect(records.length).toBe(RECORD_COUNT);
   expect(new Set(records.map((record) => record.kind)).size).toBe(RECORD_KIND_COUNT);

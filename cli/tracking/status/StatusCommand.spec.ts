@@ -453,7 +453,7 @@ describeWhenGitIsPresent('the dispatch fields both --json documents carry', () =
   test('come last in both documents, after every key in the order the documents had before', async () => {
     const { working, full } = await bothDocuments();
     const progressKeys      = ['version', 'trackerId', 'project', 'startedAt', 'view', 'nextTaskId', 'concurrencyLimit', 'tasks', 'log'];
-    const dispatchKeys      = ['reviewWaitingTickets', 'pausedBuilds', 'ticketRows', 'tokensByOwner', 'ticketCountByStatus', 'jobs'];
+    const dispatchKeys      = ['reviewWaitingTickets', 'pausedBuilds', 'ticketRows', 'tokensByOwner', 'ticketCountByStatus', 'jobs', 'decisions', 'incidents'];
 
     expect(Object.keys(working)).toEqual([...progressKeys, 'tickets', 'epics', 'drafts', 'concurrency', 'readyTickets', 'omitted', ...dispatchKeys]);
     expect(Object.keys(full)).toEqual([...progressKeys, 'tickets', 'epics', 'drafts', 'concurrency', 'readyTickets', ...dispatchKeys]);

@@ -13,6 +13,7 @@ import { OLDER_FORMAT_ADVICE }                               from '../../constan
 import { StoredValueUtil }                                   from '../../utils/StoredValueUtil.ts';
 import type { StoredProgressFile, StoredTaskPhase }          from '../@types/StoredProgressFile.ts';
 import { CURRENT_PROGRESS_FILE_VERSION }                     from '../constants/ProgressFileVersions.ts';
+import { StoredDecisionAndIncidentValidationUtil }           from './StoredDecisionAndIncidentValidationUtil.ts';
 import { StoredJobValidationUtil }                           from './StoredJobValidationUtil.ts';
 
 function textFieldIsPresent(candidate: Record<string, unknown>, field: string): boolean {
@@ -118,6 +119,8 @@ function documentHeaderProblemOf(candidate: unknown): string | null {
   }
   const jobsProblem = StoredJobValidationUtil.jobsProblemOf(candidate);
   if (jobsProblem !== null) return jobsProblem;
+  const decisionsProblem = StoredDecisionAndIncidentValidationUtil.decisionsAndIncidentsProblemOf(candidate);
+  if (decisionsProblem !== null) return decisionsProblem;
   if (!Array.isArray(candidate['tasks'])) return 'tasks is not an array';
   if (Object.hasOwn(candidate, 'log')) return `log is present, and a version ${CURRENT_PROGRESS_FILE_VERSION} file keeps its log in log.jsonl`;
   return null;

@@ -78,7 +78,12 @@ export type BoardRefusalDetail =
   | { reason: 'unknown-job'; jobId: string }
   | { reason: 'job-finished'; jobId: string }
   | { reason: 'job-move-illegal'; jobId: string; state: JobState; targetState: JobMoveTarget }
-  | { reason: 'merge-queue-of-a-ticket-not-in-review'; ticketId: string; status: TicketStatus };
+  | { reason: 'merge-queue-of-a-ticket-not-in-review'; ticketId: string; status: TicketStatus }
+  | { reason: 'unknown-decision'; decisionId: string }
+  | { reason: 'decision-already-answered'; decisionId: string }
+  | { reason: 'decision-answer-count'; decisionId: string; answerCount: number; questionCount: number }
+  | { reason: 'unknown-incident'; incidentId: string }
+  | { reason: 'incident-closed'; incidentId: string };
 
 export class BoardRefusal extends Error {
   readonly detail: BoardRefusalDetail;

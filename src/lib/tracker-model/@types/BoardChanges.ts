@@ -1,7 +1,9 @@
 /** What the Board's changes take and give back. Every change that logs returns the records it logged, in order. */
 import type { Concurrency }                     from './Concurrency.ts';
+import type { Decision, DecisionAnswer }        from './Decision.ts';
 import type { Draft }                           from './Draft.ts';
 import type { Epic }                            from './Epic.ts';
+import type { Incident }                        from './Incident.ts';
 import type { Job }                             from './Job.ts';
 import type { LogRecord, LogRecordFieldsOf }    from './LogRecord.ts';
 import type { Task, TaskStatus }                from './Task.ts';
@@ -112,6 +114,34 @@ export interface EpicEdited extends EpicChanged {
 /** A move between live states logs nothing, so `logged` is empty for it: a job's state lives in progress.json. */
 export interface JobChanged extends Logged {
   job: Readonly<Job>;
+}
+
+/** `decision` is `null` when the request it was opened for was already answered, and the open one, logging nothing, when it is open. */
+export interface DecisionOpened extends Logged {
+  decision: Readonly<Decision> | null;
+}
+
+export interface DecisionAnswered extends Logged {
+  decision: Readonly<Decision>;
+  answer:   DecisionAnswer;
+}
+
+export interface DecisionClosed extends Logged {
+  decision: Readonly<Decision>;
+}
+
+/** As `DecisionOpened`: `null` for an answered request, the open incident for a request already asked. */
+export interface IncidentOpened extends Logged {
+  incident: Readonly<Incident> | null;
+}
+
+export interface IncidentClosed extends Logged {
+  incident: Readonly<Incident>;
+}
+
+export interface IncidentEscalated extends Logged {
+  incident: Readonly<Incident>;
+  decision: Readonly<Decision>;
 }
 
 export interface DraftChanged extends Logged {

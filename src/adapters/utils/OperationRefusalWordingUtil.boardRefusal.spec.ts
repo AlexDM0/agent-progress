@@ -393,3 +393,25 @@ test.each<[BoardRefusalDetail, string]>([
 ])('the job refusal %o words as its sentence', (detail, message) => {
   expect(messageOf(detail)).toBe(message);
 });
+
+// No earlier command refused a decision or an incident, so these rows are this suite's own wording.
+test.each<[BoardRefusalDetail, string]>([
+  [{ reason: 'unknown-decision', decisionId: 'E9' }, 'There is no decision E9. Nothing was written.'],
+  [{ reason: 'decision-already-answered', decisionId: 'E7' }, 'Decision E7 is already settled, and the first answer wins. Nothing was written.'],
+  [
+    {
+      reason: 'decision-answer-count', decisionId: 'E7', answerCount: 1, questionCount: 2
+    },
+    'Decision E7 asks 2 questions, so it takes one answer for each, not 1. Nothing was written.',
+  ],
+  [
+    {
+      reason: 'decision-answer-count', decisionId: 'E7', answerCount: 2, questionCount: 1
+    },
+    'Decision E7 asks 1 question, so it takes one answer for each, not 2. Nothing was written.',
+  ],
+  [{ reason: 'unknown-incident', incidentId: 'I9' }, 'There is no incident I9. Nothing was written.'],
+  [{ reason: 'incident-closed', incidentId: 'I4' }, 'Incident I4 is already closed. Nothing was written.'],
+])('the decision or incident refusal %o words as its sentence', (detail, message) => {
+  expect(messageOf(detail)).toBe(message);
+});

@@ -2,12 +2,19 @@
  * A validated progress.json in the current format mapped to the model and back, field by field. Keys the file held that the tool does not
  * know ride along on the model's objects in the file's order and are written back; nothing else reaches the file unless a mapper names it.
  */
-import type { Job, JobEventCursor, MergeSlot } from '../../../lib/tracker-model/@types/Job.ts';
-import type { Task, TaskPhase }                from '../../../lib/tracker-model/@types/Task.ts';
-import type { TrackerProgress }                from '../../../lib/tracker-model/@types/TrackerProgress.ts';
-import type { WordedLogEntry }                 from '../../../shared/@types/WordedLogEntry.ts';
-import type { WordedProgressDocument }         from '../../../shared/@types/WordedProgressDocument.ts';
+import type { Decision, DecisionQuestion, DecisionQuestionOption } from '../../../lib/tracker-model/@types/Decision.ts';
+import type { Incident, IncidentDeliveryTurn }                     from '../../../lib/tracker-model/@types/Incident.ts';
+import type { Job, JobEventCursor, MergeSlot }                     from '../../../lib/tracker-model/@types/Job.ts';
+import type { Task, TaskPhase }                                    from '../../../lib/tracker-model/@types/Task.ts';
+import type { TrackerProgress }                                    from '../../../lib/tracker-model/@types/TrackerProgress.ts';
+import type { WordedLogEntry }                                     from '../../../shared/@types/WordedLogEntry.ts';
+import type { WordedProgressDocument }                             from '../../../shared/@types/WordedProgressDocument.ts';
 import type {
+  StoredDecision,
+  StoredDecisionQuestion,
+  StoredDecisionQuestionOption,
+  StoredIncident,
+  StoredIncidentDeliveryTurn,
   StoredJob,
   StoredJobEventCursor,
   StoredMergeSlot,
@@ -34,6 +41,10 @@ const KNOWN_PROGRESS_KEYS = {
   nextDraftId:      true,
   nextJobId:        true,
   jobs:             true,
+  nextDecisionId:   true,
+  decisions:        true,
+  nextIncidentId:   true,
+  incidents:        true,
   tasks:            true,
 } as const satisfies Record<keyof TrackerProgress | keyof StoredProgressFile, true>;
 
@@ -56,6 +67,40 @@ const KNOWN_JOB_KEYS = {
 } as const satisfies Record<keyof Job | keyof StoredJob, true>;
 
 const KNOWN_EVENT_CURSOR_KEYS = { instance: true, sequence: true } as const satisfies Record<keyof JobEventCursor | keyof StoredJobEventCursor, true>;
+
+const KNOWN_DECISION_KEYS = {
+  id:        true,
+  kind:      true,
+  ticketIds: true,
+  jobId:     true,
+  askedBy:   true,
+  requestId: true,
+  questions: true,
+  context:   true,
+  openedAt:  true,
+} as const satisfies Record<keyof Decision | keyof StoredDecision, true>;
+
+const KNOWN_DECISION_QUESTION_KEYS = {
+  question:    true,
+  header:      true,
+  multiSelect: true,
+  options:     true,
+} as const satisfies Record<keyof DecisionQuestion | keyof StoredDecisionQuestion, true>;
+
+const KNOWN_DECISION_OPTION_KEYS = { label: true, description: true } as const satisfies Record<keyof DecisionQuestionOption | keyof StoredDecisionQuestionOption, true>;
+
+const KNOWN_INCIDENT_KEYS = {
+  id:              true,
+  kind:            true,
+  ticketIds:       true,
+  jobId:           true,
+  facts:           true,
+  defaultMove:     true,
+  deliveredInTurn: true,
+  openedAt:        true,
+} as const satisfies Record<keyof Incident | keyof StoredIncident, true>;
+
+const KNOWN_DELIVERY_TURN_KEYS = { jobId: true, chatSequence: true } as const satisfies Record<keyof IncidentDeliveryTurn | keyof StoredIncidentDeliveryTurn, true>;
 
 const KNOWN_MERGE_SLOT_KEYS = {
   target:    true,
@@ -160,6 +205,44 @@ function mergeSlotOf(stored: StoredMergeSlot): MergeSlot {
   });
 }
 
+function questionOf(stored: StoredDecisionQuestion): DecisionQuestion {
+  return readInFileOrder(stored, KNOWN_DECISION_QUESTION_KEYS, {
+    question:    stored.question,
+    header:      stored.header,
+    multiSelect: stored.multiSelect,
+    options:     stored.options.map((option) => readInFileOrder(option, KNOWN_DECISION_OPTION_KEYS, { label: option.label, description: option.description })),
+  });
+}
+
+function decisionOf(stored: StoredDecision): Decision {
+  return readInFileOrder(stored, KNOWN_DECISION_KEYS, {
+    id:        stored.id,
+    kind:      stored.kind,
+    ticketIds: [...stored.ticketIds],
+    jobId:     stored.jobId,
+    askedBy:   stored.askedBy,
+    requestId: stored.requestId,
+    questions: stored.questions.map(questionOf),
+    context:   stored.context,
+    openedAt:  stored.openedAt,
+  });
+}
+
+/** `facts` is a map whose every key is the runner's, so it is copied whole. */
+function incidentOf(stored: StoredIncident): Incident {
+  const turn = stored.deliveredInTurn;
+  return readInFileOrder(stored, KNOWN_INCIDENT_KEYS, {
+    id:              stored.id,
+    kind:            stored.kind,
+    ticketIds:       [...stored.ticketIds],
+    jobId:           stored.jobId,
+    facts:           { ...stored.facts },
+    defaultMove:     stored.defaultMove,
+    deliveredInTurn: turn === null ? null : readInFileOrder(turn, KNOWN_DELIVERY_TURN_KEYS, { jobId: turn.jobId, chatSequence: turn.chatSequence }),
+    openedAt:        stored.openedAt,
+  });
+}
+
 function jobOf(stored: StoredJob): Job {
   return readInFileOrder(stored, KNOWN_JOB_KEYS, {
     id:                 stored.id,
@@ -194,6 +277,10 @@ function progressOf(document: StoredProgressFile): TrackerProgress {
     ...(document.nextDraftId === undefined ? {} : { nextDraftId: document.nextDraftId }),
     ...(document.nextJobId === undefined ? {} : { nextJobId: document.nextJobId }),
     ...(document.jobs === undefined ? {} : { jobs: document.jobs.map(jobOf) }),
+    ...(document.nextDecisionId === undefined ? {} : { nextDecisionId: document.nextDecisionId }),
+    ...(document.decisions === undefined ? {} : { decisions: document.decisions.map(decisionOf) }),
+    ...(document.nextIncidentId === undefined ? {} : { nextIncidentId: document.nextIncidentId }),
+    ...(document.incidents === undefined ? {} : { incidents: document.incidents.map(incidentOf) }),
     tasks:      document.tasks.map(taskOf),
   });
 }
@@ -237,6 +324,43 @@ function storedMergeSlotOf(slot: MergeSlot): StoredMergeSlot {
   });
 }
 
+function storedQuestionOf(question: DecisionQuestion): StoredDecisionQuestion {
+  return writtenInModelOrder(question, [], {
+    question:    question.question,
+    header:      question.header,
+    multiSelect: question.multiSelect,
+    options:     question.options.map((option) => writtenInModelOrder(option, [], { label: option.label, description: option.description })),
+  });
+}
+
+function storedDecisionOf(decision: Decision): StoredDecision {
+  return writtenInModelOrder(decision, [], {
+    id:        decision.id,
+    kind:      decision.kind,
+    ticketIds: [...decision.ticketIds],
+    jobId:     decision.jobId,
+    askedBy:   decision.askedBy,
+    requestId: decision.requestId,
+    questions: decision.questions.map(storedQuestionOf),
+    context:   decision.context,
+    openedAt:  decision.openedAt,
+  });
+}
+
+function storedIncidentOf(incident: Incident): StoredIncident {
+  const turn = incident.deliveredInTurn;
+  return writtenInModelOrder(incident, [], {
+    id:              incident.id,
+    kind:            incident.kind,
+    ticketIds:       [...incident.ticketIds],
+    jobId:           incident.jobId,
+    facts:           { ...incident.facts },
+    defaultMove:     incident.defaultMove,
+    deliveredInTurn: turn === null ? null : writtenInModelOrder(turn, [], { jobId: turn.jobId, chatSequence: turn.chatSequence }),
+    openedAt:        incident.openedAt,
+  });
+}
+
 function storedJobOf(job: Job): StoredJob {
   return writtenInModelOrder(job, [], {
     id:                 job.id,
@@ -273,6 +397,10 @@ function storedDocumentOf(progress: TrackerProgress): StoredProgressFile {
     ...(progress.nextDraftId === undefined ? {} : { nextDraftId: progress.nextDraftId }),
     ...(progress.nextJobId === undefined ? {} : { nextJobId: progress.nextJobId }),
     ...(progress.jobs === undefined ? {} : { jobs: progress.jobs.map(storedJobOf) }),
+    ...(progress.nextDecisionId === undefined ? {} : { nextDecisionId: progress.nextDecisionId }),
+    ...(progress.decisions === undefined ? {} : { decisions: progress.decisions.map(storedDecisionOf) }),
+    ...(progress.nextIncidentId === undefined ? {} : { nextIncidentId: progress.nextIncidentId }),
+    ...(progress.incidents === undefined ? {} : { incidents: progress.incidents.map(storedIncidentOf) }),
     tasks:      progress.tasks.map(storedTaskOf),
   });
 }

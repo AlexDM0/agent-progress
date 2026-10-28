@@ -2,6 +2,8 @@
  * The shape progress.json is stored in, declared field by field rather than derived from the model, so a model change breaks the mappers'
  * compile instead of silently changing the format.
  */
+import type { DecisionAsker, DecisionKind } from '../../../lib/tracker-model/@types/Decision.ts';
+import type { IncidentKind, IncidentMove }  from '../../../lib/tracker-model/@types/Incident.ts';
 import type {
   InterruptionCause,
   JobKind,
@@ -83,5 +85,49 @@ export interface StoredProgressFile {
   nextDraftId?:      number;
   nextJobId?:        number;
   jobs?:             StoredJob[];
+  nextDecisionId?:   number;
+  decisions?:        StoredDecision[];
+  nextIncidentId?:   number;
+  incidents?:        StoredIncident[];
   tasks:             StoredTask[];
+}
+
+export interface StoredDecisionQuestionOption {
+  label:       string;
+  description: string;
+}
+
+export interface StoredDecisionQuestion {
+  question:    string;
+  header:      string;
+  multiSelect: boolean;
+  options:     StoredDecisionQuestionOption[];
+}
+
+export interface StoredDecision {
+  id:        string;
+  kind:      DecisionKind;
+  ticketIds: string[];
+  jobId:     string | null;
+  askedBy:   DecisionAsker;
+  requestId: string | null;
+  questions: StoredDecisionQuestion[];
+  context:   string;
+  openedAt:  string;
+}
+
+export interface StoredIncidentDeliveryTurn {
+  jobId:        string;
+  chatSequence: number;
+}
+
+export interface StoredIncident {
+  id:              string;
+  kind:            IncidentKind;
+  ticketIds:       string[];
+  jobId:           string | null;
+  facts:           Record<string, string>;
+  defaultMove:     IncidentMove;
+  deliveredInTurn: StoredIncidentDeliveryTurn | null;
+  openedAt:        string;
 }

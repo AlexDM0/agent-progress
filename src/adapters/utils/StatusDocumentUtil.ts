@@ -8,6 +8,7 @@ import type {
   PausedBuildEntry,
   ReviewBarEntry,
   StatusBoardWork,
+  StatusDecisionsAndIncidents,
   StatusJobs,
   TicketRowEntry,
   TicketRowsEntry
@@ -62,8 +63,14 @@ function jobsOf(board: Board): StatusJobs {
   return { jobs: board.jobs() };
 }
 
+/** Carried by both documents, each empty when none is open, as `jobsOf`. */
+function decisionsAndIncidentsOf(board: Board): StatusDecisionsAndIncidents {
+  return { decisions: board.decisions(), incidents: board.incidents() };
+}
+
 export const StatusDocumentUtil = {
   inProgressIdsOf,
   boardWorkOf,
   jobsOf,
+  decisionsAndIncidentsOf,
 } as const;

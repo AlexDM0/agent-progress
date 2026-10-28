@@ -3,6 +3,8 @@
  * `src/lib/tracker-model/constants/LogRecordSchema.ts`, so a new kind is an entry there plus its wording in `src/adapters/utils/LogUtil.ts`.
  */
 import type { LogFieldShape, LOG_RECORD_SCHEMA, LOG_RECORD_SUBJECT_IDS } from '../constants/LogRecordSchema.ts';
+import type { DecisionAnswer, DecisionKind }                             from './Decision.ts';
+import type { IncidentDefaultCause, IncidentKind, IncidentMove }         from './Incident.ts';
 import type {
   InterruptionCause,
   JobKind,
@@ -15,35 +17,40 @@ import type { AgentPair, TicketPriority, TicketSize }     from './Ticket.ts';
 import type { DispatcherState, ViewRange }                from './TrackerProgress.ts';
 
 interface ValueOfFieldShape {
-  'text':               string;
-  'task-id':            number;
-  'optional-text':      string;
-  'priority':           TicketPriority;
-  'ticket-size':        TicketSize;
-  'optional-size':      TicketSize;
-  'agent-pair':         AgentPair;
-  'ticket-ids':         readonly string[];
-  'epic-keys':          readonly string[];
-  'network-domains':    readonly string[];
-  'review-round':       number;
-  'chart-range':        ViewRange;
-  'concurrency-limit':  number;
-  'dispatcher-state':   DispatcherState;
-  'dispatcher-run-id':  string | null;
-  'check-command':      string | null;
-  'count':              number;
-  'review-bar-round':   number;
-  'review-verdict':     ReviewVerdict;
-  'review-claims':      readonly ReviewClaim[];
-  'review-findings':    readonly ReviewFinding[];
-  'nullable-text':      string | null;
-  'job-kind':           JobKind;
-  'job-role':           JobRole | null;
-  'job-outcome':        JobOutcome;
-  'interruption-cause': InterruptionCause;
-  'host-instance':      number;
-  'permission-names':   readonly string[];
-  'runner-stop-reason': RunnerStopReason;
+  'text':                   string;
+  'task-id':                number;
+  'optional-text':          string;
+  'priority':               TicketPriority;
+  'ticket-size':            TicketSize;
+  'optional-size':          TicketSize;
+  'agent-pair':             AgentPair;
+  'ticket-ids':             readonly string[];
+  'epic-keys':              readonly string[];
+  'network-domains':        readonly string[];
+  'review-round':           number;
+  'chart-range':            ViewRange;
+  'concurrency-limit':      number;
+  'dispatcher-state':       DispatcherState;
+  'dispatcher-run-id':      string | null;
+  'check-command':          string | null;
+  'count':                  number;
+  'review-bar-round':       number;
+  'review-verdict':         ReviewVerdict;
+  'review-claims':          readonly ReviewClaim[];
+  'review-findings':        readonly ReviewFinding[];
+  'nullable-text':          string | null;
+  'job-kind':               JobKind;
+  'job-role':               JobRole | null;
+  'job-outcome':            JobOutcome;
+  'interruption-cause':     InterruptionCause;
+  'host-instance':          number;
+  'permission-names':       readonly string[];
+  'runner-stop-reason':     RunnerStopReason;
+  'decision-kind':          DecisionKind;
+  'decision-answer':        DecisionAnswer;
+  'incident-kind':          IncidentKind;
+  'incident-move':          IncidentMove;
+  'incident-default-cause': IncidentDefaultCause;
 }
 
 type Schema = typeof LOG_RECORD_SCHEMA;
