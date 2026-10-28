@@ -36,6 +36,8 @@ export interface TrackerProgress {
   checksDefinitionFiles?: string[];
   /** The shell line whose standard output joins a gate's cache key, such as the toolchain's version; absent on a tracker that never set one. */
   gateKeyCommand?:        string;
+  /** The folders a gate and install line may write besides the worktree and temp, absolute or `~/`; absent on a tracker that never set them. */
+  gateCachePaths?:        string[];
   /** The number the next draft takes, never wound back; absent on a tracker that never opened a draft. */
   nextDraftId?:           number;
   /** The number the next job takes, never wound back; absent on a tracker that never launched a job. */

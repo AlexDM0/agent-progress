@@ -373,7 +373,8 @@ function launchProfileOf(jobLaunchContext: JobLaunchContext, board: Board, job: 
   if (!JobLaunch.isWorktreeJob(job)) return profileOf(jobLaunchContext.workspace, job, workingDirectory, relayDirectory);
   const ticket = board.tickets().find((candidate) => candidate.frontmatter.id === job.ticketIds[0]);
   const role = job.kind === 'review' ? 'reviewer' : 'builder';
-  return WorkerProfiles.profileOf(role, JobLaunch.sandboxFactsFor(jobLaunchContext, job), ticket?.frontmatter.network ?? []);
+  const toolchainLines = [board.checkCommand(), board.installCommand()].flatMap((line) => line ?? []);
+  return WorkerProfiles.profileOf(role, JobLaunch.sandboxFactsFor(jobLaunchContext, job), ticket?.frontmatter.network ?? [], toolchainLines);
 }
 
 function launchFactsOf(board: Board, job: Readonly<Job>): JobLaunchFacts {

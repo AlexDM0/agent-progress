@@ -574,7 +574,15 @@ function sandboxFactsFor(context: JobLaunchContext, job: Readonly<Job>): Sandbox
   });
 }
 
-function spawnProcessHost(context: JobLaunchContext, trackerId: string, job: Readonly<Job>, folderName: string, childArgv: readonly string[], network: boolean): void {
+/** What a process host's profile takes from the board: whether its ticket names a network, and the stored cache paths. */
+interface HostConfinement {
+  network:    boolean;
+  cachePaths: readonly string[];
+}
+
+const PATH_SEPARATOR = ':';
+
+function spawnProcessHost(context: JobLaunchContext, trackerId: string, job: Readonly<Job>, folderName: string, childArgv: readonly string[], confinement: HostConfinement): void {
   const jobFolder = jobFolderOf(context.workspace, job);
   const hostFolder = join(jobFolder, folderName);
   if (HostFleet.livenessOf(hostFolder, PROCESS_HOST_INSTANCE).verdict !== 'unclaimed') return;
@@ -597,12 +605,14 @@ function spawnProcessHost(context: JobLaunchContext, trackerId: string, job: Rea
   });
   writeFileSync(profilePath, context.sandbox.profileTextOf({
     worktree,
-    worktreeAdminFolder: GitProcess.succeeded(adminFolder) ? adminFolder.standardOutput.trim() : null,
-    homeDirectory:       context.homeDirectory,
-    temporaryDirectory:  Object.hasOwn(environment, 'TMPDIR') ? environment['TMPDIR'] ?? null : null,
-    deniedWritableRoots: WorkerProfiles.deniedWritableRootsOf(facts),
-    deniedReadableRoots: WorkerProfiles.deniedReadableRootsOf(facts),
-    network,
+    worktreeAdminFolder:  GitProcess.succeeded(adminFolder) ? adminFolder.standardOutput.trim() : null,
+    homeDirectory:        context.homeDirectory,
+    temporaryDirectory:   Object.hasOwn(environment, 'TMPDIR') ? environment['TMPDIR'] ?? null : null,
+    cachePaths:           confinement.cachePaths,
+    executableSearchPath: (context.inheritedEnvironment['PATH'] ?? '').split(PATH_SEPARATOR).filter((folder) => folder !== ''),
+    deniedWritableRoots:  WorkerProfiles.deniedWritableRootsOf(facts),
+    deniedReadableRoots:  WorkerProfiles.deniedReadableRootsOf(facts),
+    network:              confinement.network,
   }));
   HostFleet.spawnHost({ bundlePath: context.hostBundlePath, jobFolder: hostFolder, instance: PROCESS_HOST_INSTANCE });
   context.log(`Spawned the ${folderName} host of job ${job.id} (#${ticketIdOf(job)})${context.sandbox.isUsable() ? ' under sandbox-exec' : ', unsandboxed'}.`);
@@ -641,14 +651,15 @@ async function runBuildJobEffects(context: JobLaunchContext, board: Board, track
   const checksLine = board.checkCommand() ?? null;
   const installLine = board.installCommand() ?? null;
   const keyCommand = board.gateKeyCommand() ?? null;
+  const cachePaths = board.gateCachePaths() ?? [];
   for (const job of board.jobs().filter(isWorktreeJob)) {
     const ticket = board.tickets().find((candidate) => candidate.frontmatter.id === ticketIdOf(job));
-    const network = (ticket?.frontmatter.network ?? []).length > 0;
+    const gateConfinement = { network: (ticket?.frontmatter.network ?? []).length > 0, cachePaths };
     if (job.state === 'preparing') {
       const jobFolder = jobFolderOf(context.workspace, job);
       if (!existsSync(worktreeOf(context.workspace, job)) && !existsSync(join(jobFolder, JOB_FILES.worktreeFailure))) createWorktree(context, job);
       if (existsSync(worktreeOf(context.workspace, job)) && installLine !== null) {
-        spawnProcessHost(context, trackerId, job, INSTALL_HOST_FOLDER, GateRun.checksLineArgvOf(installLine), true);
+        spawnProcessHost(context, trackerId, job, INSTALL_HOST_FOLDER, GateRun.checksLineArgvOf(installLine), { network: true, cachePaths });
       }
     }
     const calls = observations.find((observation) => observation.jobId === job.id)?.calls ?? 0;
@@ -659,14 +670,14 @@ async function runBuildJobEffects(context: JobLaunchContext, board: Board, track
     if (job.state === 'stopping') await sendOnce(context, job, JOB_FILES.stopSent, [{ kind: 'stop', graceMilliseconds: SESSION_STOP_GRACE_MILLISECONDS }]);
     if (job.state === 'gating' && checksLine !== null) {
       // The key command runs in a host of its own under the gate's profile, never in the runner, and the gate waits for its output.
-      if (keyCommand !== null) spawnProcessHost(context, trackerId, job, GATE_KEY_HOST_FOLDER, GateRun.keyCommandArgvOf(keyCommand), network);
+      if (keyCommand !== null) spawnProcessHost(context, trackerId, job, GATE_KEY_HOST_FOLDER, GateRun.keyCommandArgvOf(keyCommand), gateConfinement);
       const keyReading = gateKeyReadingOf(context, job, keyCommand);
       if (keyReading.verdict !== 'read') continue;
       const treeId = treeOf(worktreeOf(context.workspace, job));
       const cached = treeId !== null && context.gateCache.holdsPassOf(gateCacheKeyOf({
         treeId, checksLine, installLine, keyOutput: keyReading.keyOutput
       }));
-      if (!cached) spawnProcessHost(context, trackerId, job, GATE_HOST_FOLDER, GateRun.checksLineArgvOf(checksLine), network);
+      if (!cached) spawnProcessHost(context, trackerId, job, GATE_HOST_FOLDER, GateRun.checksLineArgvOf(checksLine), gateConfinement);
     }
   }
 }

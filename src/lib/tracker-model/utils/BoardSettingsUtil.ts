@@ -34,6 +34,12 @@ function checksDefinitionFilesAreWellFormed(value: unknown): value is string[] {
   return Array.isArray(value) && value.length > 0 && value.every((pattern) => typeof pattern === 'string' && /^\S+$/.test(pattern));
 }
 
+/** A non-empty list of folders, each absolute or home-relative (`~/`) and one word, so the list splits back from one line. */
+function gateCachePathsAreWellFormed(value: unknown): value is string[] {
+  return Array.isArray(value) && value.length > 0
+    && value.every((path) => typeof path === 'string' && /^(\/|~\/)\S*$/.test(path));
+}
+
 export const BoardSettingsUtil = {
   viewRangeIsWellFormed,
   concurrencyLimitIsWellFormed,
@@ -41,4 +47,5 @@ export const BoardSettingsUtil = {
   dispatcherRunIdIsWellFormed,
   checkCommandIsWellFormed,
   checksDefinitionFilesAreWellFormed,
+  gateCachePathsAreWellFormed,
 } as const;

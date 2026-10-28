@@ -6,6 +6,7 @@ import type {
   InstallCommandSet,
   ChecksDefinitionFilesSet,
   GateKeyCommandSet,
+  GateCachePathsSet,
   Logged,
   TrackerCleared
 } from './@types/BoardChanges.ts';
@@ -98,6 +99,15 @@ export class TrackerChanges {
     if (command === null) delete progress.gateKeyCommand;
     else progress.gateKeyCommand = command;
     return { logged: [logger.log({ kind: 'gate-key-command-set', fields: { command } }, at)], previousGateKeyCommand };
+  }
+
+  /** `null` removes the key, so a gate writes only its worktree, its admin folder and temp again. */
+  setGateCachePaths(paths: readonly string[] | null, at: string): GateCachePathsSet {
+    const { progress, logger }   = this.records;
+    const previousGateCachePaths = progress.gateCachePaths ?? null;
+    if (paths === null) delete progress.gateCachePaths;
+    else progress.gateCachePaths = [...paths];
+    return { logged: [logger.log({ kind: 'gate-cache-paths-set', fields: { paths: paths ?? [] } }, at)], previousGateCachePaths };
   }
 
   /** The gate ran outside the hold, so only its outcome is recorded here. */

@@ -58,6 +58,7 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
   board.setInstallCommand('bun install --frozen-lockfile', at);
   board.setChecksDefinitionFiles(['pyproject.toml', 'noxfile.py'], at);
   board.setGateKeyCommand('bun --version', at);
+  board.setGateCachePaths(['~/.bun/install/cache'], at);
   board.recordGateRan({ tree: '4b825dc642cb6eb9a060e54bf8d69288fbee4904', outcome: 'passed', cached: true }, at);
   board.editTicket('001', { body: { text: 'Example rewritten report.\n', appends: false }, allowsPastPending: true }, at);
   board.moveTicket('001', 'in-review', { checksLegality: true }, at);

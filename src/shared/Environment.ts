@@ -39,6 +39,8 @@ export const REAL_AGENT_SPECS_VARIABLE = realAgentSpecsVariableOf(PRODUCT_NAMES)
 export const EVERY_TOOL_REQUIRED_VARIABLE = everyToolRequiredVariableOf(PRODUCT_NAMES);
 
 const USER_SHELL_VARIABLE = 'SHELL';
+const EXECUTABLE_SEARCH_PATH_VARIABLE = 'PATH';
+const EXECUTABLE_SEARCH_PATH_SEPARATOR = ':';
 
 /**
  * Turns every spec the tool guard (`src/testing/ToolGuard.ts`) would skip for a missing tool into a failure, for a run on a machine that
@@ -102,6 +104,11 @@ function nonBlankValueOf(variable: string): string | undefined {
   const value = process.env[variable];
   if (value === undefined || value.trim().length === 0) return undefined;
   return value;
+}
+
+/** The folders of `PATH`, in order, empty entries left out: the executables a gate's cache path must never let a branch replace. */
+export function executableSearchPath(): string[] {
+  return (process.env[EXECUTABLE_SEARCH_PATH_VARIABLE] ?? '').split(EXECUTABLE_SEARCH_PATH_SEPARATOR).filter((folder) => folder !== '');
 }
 
 /** The user's shell, which runs the check command `release` runs; an empty or whitespace-only value reads as unset, and the caller picks a default. */

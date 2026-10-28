@@ -89,6 +89,7 @@ export interface StoredProgressFile {
   installCommand?:        string;
   checksDefinitionFiles?: string[];
   gateKeyCommand?:        string;
+  gateCachePaths?:        string[];
   nextDraftId?:           number;
   nextJobId?:             number;
   jobs?:                  StoredJob[];

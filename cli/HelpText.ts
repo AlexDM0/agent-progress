@@ -694,6 +694,20 @@ output never carries either.
                               nothing written. --json prints {gateKeyCommand,
                               previousGateKeyCommand}.
 
+  checks --cache-paths ("<path> <path>…" | --clear) [--json]
+                              Store the folders a gate and install line may write besides the
+                              worktree, its git admin folder and temp, absolute or home-relative
+                              (\`~/.bun/install/cache\`), with one log line; with none stored they
+                              write only those. A path that is, sits in or holds a \`bin\` folder or
+                              a folder on PATH is refused at exit 1 with nothing written, and one
+                              that became so later is left out of the gate's profile; no \`bin\`
+                              folder inside or beside a cache path's ancestors is ever writable.
+                              A worker may run unasked the first word of each command in the
+                              stored checks and install lines (split on &&, ||, ; and |) and the
+                              git verbs it reads and commits with. --clear removes the key; it
+                              goes alone.
+                              --json prints {gateCachePaths, previousGateCachePaths}.
+
   range --from <when>         The stored default axis of the chart; a bound may also be \`start\`, the
                               earliest visible row. A relative bound is stored as
         --to <when>           written, so \`--from -2h\` keeps meaning "the last two hours" on every

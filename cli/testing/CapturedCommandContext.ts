@@ -27,6 +27,8 @@ export interface CapturedCommandContextOptions {
   platform?:                string;
   /** Checked to be a scratch directory like `currentDirectory`; by default a `spec-home` folder inside it, so no spec reads the real home. */
   homeDirectory?:           string;
+  /** By default none, so no spec depends on the machine's own `PATH`. */
+  executableSearchPath?:    readonly string[];
   /**
    * By default the system temp folder every scratch directory lies in, so no spec registers in the monitor registry; a spec of the registry
    * names a scratch folder its repository lies outside.
@@ -79,6 +81,7 @@ export function createCapturedCommandContext(options: CapturedCommandContextOpti
     },
     platform:             options.platform ?? DEFAULT_SPEC_PLATFORM,
     homeDirectory:        options.homeDirectory ?? join(options.currentDirectory, SPEC_HOME_FOLDER_NAME),
+    executableSearchPath: options.executableSearchPath ?? [],
     temporaryDirectories: options.temporaryDirectories ?? [tmpdir()],
     commandVerb:          '',
     renderState:          createRenderState(),

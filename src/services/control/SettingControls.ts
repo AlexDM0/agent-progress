@@ -16,4 +16,5 @@ export const SETTING_CONTROLS = {
   'install-command-set':         (command: CommandOf<'install-command-set'>, change: TrackerChange) => change.board.setInstallCommand(command.command, change.at),
   'checks-definition-files-set': (command: CommandOf<'checks-definition-files-set'>, change: TrackerChange) => change.board.setChecksDefinitionFiles(command.patterns, change.at),
   'gate-key-command-set':        (command: CommandOf<'gate-key-command-set'>, change: TrackerChange) => change.board.setGateKeyCommand(command.command, change.at),
+  'gate-cache-paths-set':        (command: CommandOf<'gate-cache-paths-set'>, change: TrackerChange) => change.board.setGateCachePaths(command.paths, change.at),
 } as const;

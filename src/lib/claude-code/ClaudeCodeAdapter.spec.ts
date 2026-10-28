@@ -37,7 +37,7 @@ function profileOf(role: Role): WorkerProfile {
       'builder': ['registry.example.com'], 'reviewer': 'none', 'merge-fix': 'none', 'resolver': 'none', 'product-owner': 'any', 'orchestrator': 'none'
     }[role] as WorkerProfile['webNetworkDomains'],
     relayDirectory:         RELAY,
-    allowedCommandPrefixes: [['bun'], ['git', 'commit']],
+    allowedCommandPrefixes: [['uv'], ['git', 'commit']],
     deniedCommandPrefixes:  workerRole ? GIT_DENIES : [],
     askUser:                role === 'builder' || role === 'reviewer' || role === 'product-owner',
     skills:                 role === 'product-owner',
@@ -250,7 +250,7 @@ describe('the rendered settings', () => {
       'Read(//Users/example/.ssh/**)',
     ]));
     expect(permissions.allow).toEqual([
-      'Read', 'Agent', `Edit(/${WORKTREE}/**)`, `Write(/${WORKTREE}/**)`, 'Bash(bun *)', 'Bash(git commit *)', 'WebFetch(domain:registry.example.com)',
+      'Read', 'Agent', `Edit(/${WORKTREE}/**)`, `Write(/${WORKTREE}/**)`, 'Bash(uv *)', 'Bash(git commit *)', 'WebFetch(domain:registry.example.com)',
     ]);
   });
 

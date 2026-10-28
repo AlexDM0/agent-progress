@@ -41,9 +41,8 @@ const GPG_AGENT_SOCKET = 'S.gpg-agent';
 const CREDENTIAL_FOLDERS = ['.ssh', '.aws'] as const;
 const PRODUCT_OWNER_ROLE: ProfiledRole = 'product-owner';
 
-/** Toolchain and the git a worker commits with; the agent-progress verbs are the relay's to judge. */
+/** The read-only git verbs and the git a worker commits with; the toolchain comes from the board, the agent-progress verbs are the relay's. */
 const WORKER_ALLOWED_COMMAND_PREFIXES: readonly (readonly string[])[] = [
-  ['bun'],
   ['git', 'status'],
   ['git', 'diff'],
   ['git', 'log'],
@@ -64,6 +63,23 @@ const WORKER_DENIED_GIT_SUBCOMMANDS: readonly (readonly string[])[] = [
   ['branch', '-m'],
   ['-C'],
 ];
+
+const SHELL_COMMAND_SEPARATORS = /&&|\|\||;|\|/;
+const ENVIRONMENT_ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
+
+/** The first word of each command in a stored shell line, split on `&&`, `||`, `;` and `|`, past any leading `NAME=value` assignment. */
+function executablesOf(line: string): string[] {
+  return line.split(SHELL_COMMAND_SEPARATORS).flatMap((command) => {
+    const executable = command.trim().split(/\s+/).find((word) => !ENVIRONMENT_ASSIGNMENT.test(word));
+    return executable === undefined || executable === '' ? [] : [executable];
+  });
+}
+
+/** What a worker may run unasked: the executables the board's checks and install lines invoke, then the git verbs. */
+function workerAllowedCommandPrefixesOf(toolchainLines: readonly string[]): (readonly string[])[] {
+  const executables = [...new Set(toolchainLines.flatMap(executablesOf))].filter((executable) => executable !== 'git');
+  return [...executables.map((executable) => [executable]), ...WORKER_ALLOWED_COMMAND_PREFIXES];
+}
 
 /** The gpg-agent socket when one is there, so a worker's commit is signed with its key folder readable and only its private keys denied. */
 function commitSigningOf(homeDirectory: string): CommitSigning {
@@ -103,8 +119,11 @@ function webNetworkDomainsOf(role: ProfiledRole, networkDomains: readonly string
   return networkDomains.length === 0 ? 'none' : [...networkDomains];
 }
 
-/** A builder or reviewer of a ticket: writes only its worktree (the sandbox's default) and its own relay folder, the network its line names. */
-function profileOf(role: ProfiledRole, facts: SandboxFacts, networkDomains: readonly string[]): WorkerProfile {
+/**
+ * A builder or reviewer of a ticket: writes only its worktree (the sandbox's default) and its own relay folder, the network its line names,
+ * and runs unasked the executables of `toolchainLines`, the board's stored checks and install lines.
+ */
+function profileOf(role: ProfiledRole, facts: SandboxFacts, networkDomains: readonly string[], toolchainLines: readonly string[]): WorkerProfile {
   const isWorker = role === 'builder' || role === 'reviewer';
   return {
     writableRoots:          [],
@@ -113,7 +132,7 @@ function profileOf(role: ProfiledRole, facts: SandboxFacts, networkDomains: read
     bashNetworkDomains:     isWorker ? [...networkDomains] : [],
     webNetworkDomains:      role === 'orchestrator' ? 'none' : webNetworkDomainsOf(role, networkDomains),
     relayDirectory:         facts.relayDirectory,
-    allowedCommandPrefixes: isWorker ? WORKER_ALLOWED_COMMAND_PREFIXES : [],
+    allowedCommandPrefixes: isWorker ? workerAllowedCommandPrefixesOf(toolchainLines) : [],
     deniedCommandPrefixes:  isWorker ? WORKER_DENIED_GIT_SUBCOMMANDS.map((subcommand) => ['git', ...subcommand]) : [],
     askUser:                role !== 'orchestrator',
     skills:                 role === PRODUCT_OWNER_ROLE,

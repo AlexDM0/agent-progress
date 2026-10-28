@@ -26,9 +26,35 @@ const FACTS: SandboxFacts = {
   commitSigning:             { kind: 'unsigned' },
 };
 
-function profileOf(role: ProfiledRole, networkDomains: readonly string[] = [], facts: SandboxFacts = FACTS) {
-  return WorkerProfiles.profileOf(role, facts, networkDomains);
+const THIS_REPOSITORY_TOOLCHAIN_LINES = ['bun run verify', 'bun install'];
+
+function profileOf(role: ProfiledRole, networkDomains: readonly string[] = [], facts: SandboxFacts = FACTS, toolchainLines = THIS_REPOSITORY_TOOLCHAIN_LINES) {
+  return WorkerProfiles.profileOf(role, facts, networkDomains, toolchainLines);
 }
+
+describe('the allowed commands', () => {
+  test('are the executables a uv board\'s checks and install lines invoke, never bun, then the git verbs', () => {
+    const profile = profileOf('builder', [], FACTS, ['uv run pytest && uv run ruff check', 'uv sync']);
+    expect(profile.allowedCommandPrefixes).toEqual([
+      ['uv'], ['git', 'status'], ['git', 'diff'], ['git', 'log'], ['git', 'show'], ['git', 'add'], ['git', 'commit'],
+    ]);
+  });
+
+  test('hold bun for this repository\'s bun run verify', () => {
+    expect(profileOf('reviewer').allowedCommandPrefixes).toContainEqual(['bun']);
+  });
+
+  test('take the first word of each command split on &&, ||, ; and |, past an assignment, leaving git to its verbs', () => {
+    const profile = profileOf('builder', [], FACTS, ['CI=1 make check || ./scripts/lint.sh; git diff --check | grep -q . && npx tsc']);
+    expect(profile.allowedCommandPrefixes.slice(0, 4)).toEqual([['make'], ['./scripts/lint.sh'], ['grep'], ['npx']]);
+    expect(profile.allowedCommandPrefixes).not.toContainEqual(['git']);
+  });
+
+  test('are none with no stored lines but the git verbs, and none at all for the orchestrator', () => {
+    expect(profileOf('builder', [], FACTS, []).allowedCommandPrefixes[0]).toEqual(['git', 'status']);
+    expect(profileOf('orchestrator').allowedCommandPrefixes).toEqual([]);
+  });
+});
 
 describe('a builder\'s profile', () => {
   const profile = profileOf('builder');

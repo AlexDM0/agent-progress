@@ -3,6 +3,7 @@ import { refusalIsBoardRefusal }                       from '../../../src/lib/tr
 import { readingBoardOf }                              from '../../../src/lib/tracker-model/ReadingBoard.ts';
 import { BoardSettingsUtil }                           from '../../../src/lib/tracker-model/utils/BoardSettingsUtil.ts';
 import { ControlService }                              from '../../../src/services/control/ControlService.ts';
+import { type CacheFolderRefusal, GateCachePaths }     from '../../../src/services/runner/GateCachePaths.ts';
 import { requireProgressFile, requireTracker }         from '../../../src/services/tracker/TrackerReader.ts';
 import { requireWorkspace }                            from '../../../src/services/tracker/Workspace.ts';
 import type { ControlCommandOf }                       from '../../../src/shared/@types/ControlCommand.ts';
@@ -24,9 +25,15 @@ import {
 
 const USAGE = `${PRODUCT_NAMES.PROGRAM} checks ["<command>" | --clear] [--restamp] [--json]  |  ${PRODUCT_NAMES.PROGRAM} checks --install "<line>" [--json]`
   + `  |  ${PRODUCT_NAMES.PROGRAM} checks --definition-files ("<pattern> <pattern>…" | --clear) [--json]`
-  + `  |  ${PRODUCT_NAMES.PROGRAM} checks --key-command ("<line>" | --clear) [--json]`;
+  + `  |  ${PRODUCT_NAMES.PROGRAM} checks --key-command ("<line>" | --clear) [--json]`
+  + `  |  ${PRODUCT_NAMES.PROGRAM} checks --cache-paths ("<path> <path>…" | --clear) [--json]`;
 
-const KNOWN_OPTION_NAMES = ['clear', 'restamp', 'install', 'definition-files', 'key-command', 'json'];
+const KNOWN_OPTION_NAMES = ['clear', 'restamp', 'install', 'definition-files', 'key-command', 'cache-paths', 'json'];
+
+const CACHE_FOLDER_REFUSAL_WORDING: Readonly<Record<CacheFolderRefusal, string>> = {
+  'bin-folder':         'is, sits in or holds a bin folder',
+  'search-path-folder': 'is, sits in or holds a folder on PATH',
+};
 
 const NO_CHECK_COMMAND_TEXT = `No check command is set, so \`${PRODUCT_NAMES.PROGRAM} release\` runs none. `
   + `Set one with \`${PRODUCT_NAMES.PROGRAM} checks "<command>"\`.`;
@@ -95,8 +102,8 @@ async function setInstallCommand(installCommand: string, commandArguments: Argum
   );
 }
 
-/** The parser refuses `--definition-files --clear` or `--key-command --clear` as a missing value, which here is the clearing form. */
-function optionValueGiven(commandArguments: ArgumentParser, optionName: 'definition-files' | 'key-command'): boolean {
+/** The parser refuses `--definition-files`, `--key-command` or `--cache-paths` before `--clear` as a missing value, which here is the clearing form. */
+function optionValueGiven(commandArguments: ArgumentParser, optionName: 'definition-files' | 'key-command' | 'cache-paths'): boolean {
   try {
     return commandArguments.option(optionName) !== undefined;
   } catch (error) {
@@ -164,9 +171,54 @@ async function setGateKeyCommand(commandArguments: ArgumentParser, context: Comm
   );
 }
 
+function gateCachePathsFrom(commandArguments: ArgumentParser, context: CommandContext): string[] | null {
+  if (commandArguments.positional() !== undefined || commandArguments.option('install') !== undefined || commandArguments.flag('restamp')
+    || commandArguments.flag('definition-files') || optionValueGiven(commandArguments, 'definition-files')
+    || commandArguments.flag('key-command') || optionValueGiven(commandArguments, 'key-command')) {
+    throw new OperationRefusal(
+      'refused',
+      `--cache-paths goes alone, without a check command, --install, --definition-files, --key-command or --restamp.\n  Usage: ${USAGE}`,
+    );
+  }
+  if (commandArguments.flag('clear')) {
+    if (!optionValueGiven(commandArguments, 'cache-paths')) return null;
+    throw new OperationRefusal('refused', `Give cache paths or --clear, not both.\n  Usage: ${USAGE}`);
+  }
+  const paths = (commandArguments.option('cache-paths') ?? '').split(/\s+/).filter((path) => path !== '');
+  if (!BoardSettingsUtil.gateCachePathsAreWellFormed(paths)) {
+    throw new OperationRefusal('refused', `Cache paths are absolute or ~/ folders, separated by spaces and quoted as one argument.\n  Usage: ${USAGE}`);
+  }
+  for (const path of paths) {
+    const refusal = GateCachePaths.refusalOf(path, context.homeDirectory, context.executableSearchPath);
+    if (refusal !== null) {
+      throw new OperationRefusal('refused', `The cache path ${path} ${CACHE_FOLDER_REFUSAL_WORDING[refusal]}, so a gate may never write it; nothing was stored.`);
+    }
+  }
+  return paths;
+}
+
+/** Stored untried, like the install line; each folder is vetted again whenever a gate's profile is written. */
+async function setGateCachePaths(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
+  const paths = gateCachePathsFrom(commandArguments, context);
+  const command: ControlCommandOf<'gate-cache-paths-set'> = { kind: 'gate-cache-paths-set', paths };
+  await relayWhenUnderJob(context, command);
+  const { logged, previousGateCachePaths } = await openTrackerForWriting(commandArguments, context, (change) => ControlService.apply(command, change).result);
+  OutputUtil.printEntity(
+    commandArguments,
+    context,
+    { gateCachePaths: paths, previousGateCachePaths },
+    `${OutputUtil.loggedSentencesOf(logged)} (was ${previousGateCachePaths?.join(' ') ?? 'none'}).`,
+  );
+}
+
 export const checksCommand: CommandHandler = async (commandArguments, context) => {
   commandArguments.rejectUnknownOptions(KNOWN_OPTION_NAMES, USAGE);
   commandArguments.rejectExtraPositionals(1, USAGE);
+
+  if (commandArguments.flag('cache-paths') || optionValueGiven(commandArguments, 'cache-paths')) {
+    await setGateCachePaths(commandArguments, context);
+    return;
+  }
 
   if (commandArguments.flag('key-command') || optionValueGiven(commandArguments, 'key-command')) {
     await setGateKeyCommand(commandArguments, context);

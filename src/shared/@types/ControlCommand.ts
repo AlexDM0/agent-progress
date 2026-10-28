@@ -102,7 +102,8 @@ export type ControlCommand =
   | { kind: 'checks-set'; command: string | null; restamps: boolean }
   | { kind: 'install-command-set'; command: string }
   | { kind: 'checks-definition-files-set'; patterns: string[] | null }
-  | { kind: 'gate-key-command-set'; command: string | null };
+  | { kind: 'gate-key-command-set'; command: string | null }
+  | { kind: 'gate-cache-paths-set'; paths: string[] | null };
 
 export type ControlCommandKind = ControlCommand['kind'];
 

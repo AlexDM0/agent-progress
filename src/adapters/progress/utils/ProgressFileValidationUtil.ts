@@ -123,6 +123,9 @@ function documentHeaderProblemOf(candidate: unknown): string | null {
   if (candidate['gateKeyCommand'] !== undefined && !BoardSettingsUtil.checkCommandIsWellFormed(candidate['gateKeyCommand'])) {
     return `gateKeyCommand is ${JSON.stringify(candidate['gateKeyCommand'])}, and when present it has to be a shell line that is not blank`;
   }
+  if (candidate['gateCachePaths'] !== undefined && !BoardSettingsUtil.gateCachePathsAreWellFormed(candidate['gateCachePaths'])) {
+    return `gateCachePaths is ${JSON.stringify(candidate['gateCachePaths'])}, and when present it has to be a non-empty list of absolute or ~/ paths without whitespace`;
+  }
   if (candidate['nextDraftId'] !== undefined && !StoredValueUtil.wholeNumberIsAtLeast(candidate['nextDraftId'], FIRST_DRAFT_NUMBER)) {
     return `nextDraftId is ${JSON.stringify(candidate['nextDraftId'])}, and when present it has to be a whole number of at least ${FIRST_DRAFT_NUMBER}`;
   }

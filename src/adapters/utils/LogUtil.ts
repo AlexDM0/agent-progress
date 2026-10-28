@@ -172,6 +172,8 @@ function sentenceOf(record: LogRecordContent): string {
         : `Checks definition files set to ${record.fields.patterns.join(' ')}`;
     case 'gate-key-command-set':
       return record.fields.command === null ? 'Gate key command cleared' : `Gate key command set to ${record.fields.command}`;
+    case 'gate-cache-paths-set':
+      return record.fields.paths.length === 0 ? 'Gate cache paths cleared' : `Gate cache paths set to ${record.fields.paths.join(' ')}`;
     case 'gate-ran':
       return record.fields.cached ? `Gate on tree ${record.fields.tree} passed, from the cache` : `Gate on tree ${record.fields.tree} ${record.fields.outcome}`;
     case 'tracker-cleared':

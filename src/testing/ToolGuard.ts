@@ -21,7 +21,9 @@ import {
 
 export type RequiredTool = 'git' | 'bash';
 
-export type SpecRequirement = RequiredTool | 'claude' | 'git-merge-tree-stdin' | 'scratch-root-outside-tmp' | 'real-agent-opt-in';
+export type SpecRequirement = RequiredTool | 'claude' | 'git-merge-tree-stdin' | 'sandbox-exec' | 'scratch-root-outside-tmp' | 'real-agent-opt-in';
+
+const SANDBOX_EXEC_PATH = '/usr/bin/sandbox-exec';
 
 /** Left off by choice rather than missing, so requiring every tool still skips it. */
 const OPT_IN_REQUIREMENTS: readonly SpecRequirement[] = ['real-agent-opt-in'];
@@ -61,6 +63,15 @@ function gitMergeTreeStandardInputWorks(): boolean {
   return gitMergeTreeStandardInputAnswer;
 }
 
+/** Applies a permissive profile rather than checking the file, since a process already under a sandbox may not apply another. */
+function sandboxExecApplies(): boolean {
+  try {
+    return Bun.spawnSync({ cmd: [SANDBOX_EXEC_PATH, '-p', '(version 1)(allow default)', '/usr/bin/true'], stdout: 'ignore', stderr: 'ignore' }).exitCode === 0;
+  } catch {
+    return false;
+  }
+}
+
 function claudeIsAvailable(): boolean {
   return Bun.which('claude') !== null;
 }
@@ -70,6 +81,7 @@ const REQUIREMENT_IS_MET: Readonly<Record<SpecRequirement, () => boolean>> = {
   'bash':                     bashIsAvailable,
   'claude':                   claudeIsAvailable,
   'git-merge-tree-stdin':     gitMergeTreeStandardInputWorks,
+  'sandbox-exec':             sandboxExecApplies,
   'scratch-root-outside-tmp': scratchRootLiesOutsideTheFixedTemporaryFolders,
   'real-agent-opt-in':        realAgentSpecsAreOn,
 };
@@ -79,6 +91,7 @@ const UNMET_REQUIREMENT_WORDING: Readonly<Record<SpecRequirement, string>> = {
   'bash':                     'bash is missing',
   'claude':                   'claude is missing',
   'git-merge-tree-stdin':     'git merge-tree --stdin is missing',
+  'sandbox-exec':             'sandbox-exec cannot apply a profile here',
   'scratch-root-outside-tmp': 'the scratch root lies under /tmp or /var/tmp',
   'real-agent-opt-in':        `${REAL_AGENT_SPECS_VARIABLE} is not set`,
 };
@@ -134,6 +147,11 @@ export function testWhenGitIsPresent(claim: string, body: SpecBody, timeoutMilli
 /** For a spec predicting merges: git with `merge-tree --write-tree` and `--stdin`. */
 export function describeWhenGitMergeTreeStdinIsPresent(title: string, body: () => void): void {
   describeWhenRequirementIsMet('git-merge-tree-stdin', title, body);
+}
+
+/** For a spec proving what a Seatbelt profile really refuses a child. */
+export function testWhenSandboxExecApplies(claim: string, body: SpecBody, timeoutMilliseconds?: number): void {
+  testWhenRequirementIsMet('sandbox-exec', claim, body, timeoutMilliseconds);
 }
 
 export function testWhenBashIsPresent(claim: string, body: SpecBody, timeoutMilliseconds?: number): void {

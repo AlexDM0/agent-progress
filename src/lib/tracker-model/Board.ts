@@ -22,6 +22,7 @@ import type {
   InstallCommandSet,
   ChecksDefinitionFilesSet,
   GateKeyCommandSet,
+  GateCachePathsSet,
   JobChanged,
   LifecycleAdvanced,
   Logged,
@@ -572,6 +573,10 @@ export class Board {
     return this.trackerChanges.setGateKeyCommand(command, at);
   }
 
+  setGateCachePaths(paths: readonly string[] | null, at: string): GateCachePathsSet {
+    return this.trackerChanges.setGateCachePaths(paths, at);
+  }
+
   recordGateRan(fields: LogRecordFieldsOf<'gate-ran'>, at: string): Logged {
     return this.trackerChanges.recordGateRan(fields, at);
   }
@@ -832,6 +837,10 @@ export class Board {
 
   gateKeyCommand(): string | undefined {
     return this.records.progress.gateKeyCommand;
+  }
+
+  gateCachePaths(): readonly string[] | undefined {
+    return this.records.progress.gateCachePaths;
   }
 
   readyTickets(): readonly Readonly<Ticket>[] {

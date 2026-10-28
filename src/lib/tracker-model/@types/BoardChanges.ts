@@ -219,6 +219,10 @@ export interface GateKeyCommandSet extends Logged {
   previousGateKeyCommand: string | null;
 }
 
+export interface GateCachePathsSet extends Logged {
+  previousGateCachePaths: readonly string[] | null;
+}
+
 export interface TrackerCleared extends Logged {
   removedTaskCount:     number;
   survivingTicketCount: number;

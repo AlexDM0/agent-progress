@@ -2,7 +2,8 @@
  * The check command the tracker holds for `release`: a tracker that never set one reads none and keeps its file byte-identical, a stored
  * one is what a later command reads, clearing it removes the key, and every refusal leaves the progress file and the log as they were.
  */
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { join }                                from 'node:path';
 
 import {
   afterEach,
@@ -148,6 +149,11 @@ describeWhenGitIsPresent('the check command', () => {
   });
 
   test.each([
+    ['a blank cache-paths list', ['checks', '--cache-paths', '  ']],
+    ['cache paths beside --clear', ['checks', '--cache-paths', '~/.cache/example-tool', '--clear']],
+    ['cache paths beside a key command', ['checks', '--cache-paths', '~/.cache/example-tool', '--key-command', 'bun --version']],
+    ['cache paths beside --install', ['checks', '--cache-paths', '~/.cache/example-tool', '--install', 'bun install']],
+    ['--cache-paths with no value', ['checks', '--cache-paths']],
     ['a blank key command', ['checks', '--key-command', '  ']],
     ['a key command beside --clear', ['checks', '--key-command', 'bun --version', '--clear']],
     ['a key command beside a check command', ['checks', EXAMPLE_CHECK_COMMAND, '--key-command', 'bun --version']],
@@ -175,6 +181,43 @@ describeWhenGitIsPresent('the check command', () => {
     const { exitCode } = await runWithExitCode(commandLineArguments);
 
     expect(exitCode).toBe(1);
+    expect(readFileSync(progressFilePath(), 'utf8')).toBe(before);
+    expect(storedLogTextOf(repositoryDirectory)).toBe(logBefore);
+  });
+
+  test('--cache-paths stores the folders only once set, and --clear removes the key, each logging gate-cache-paths-set', async () => {
+    const before  = readFileSync(progressFilePath(), 'utf8');
+    const setting = JSON.parse((await run(['checks', '--cache-paths', '~/.bun/install/cache /opt/example-cache', '--json'])).outputText()) as unknown;
+
+    expect(before).not.toContain('gateCachePaths');
+    expect(setting).toEqual({ gateCachePaths: ['~/.bun/install/cache', '/opt/example-cache'], previousGateCachePaths: null });
+    expect(storedProgressOf(repositoryDirectory).gateCachePaths).toEqual(['~/.bun/install/cache', '/opt/example-cache']);
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe('Gate cache paths set to ~/.bun/install/cache /opt/example-cache');
+
+    const clearing = await run(['checks', '--cache-paths', '--clear']);
+
+    expect(clearing.outputText()).toBe('Gate cache paths cleared (was ~/.bun/install/cache /opt/example-cache).');
+    expect(readFileSync(progressFilePath(), 'utf8')).toBe(before);
+  });
+
+  test.each([
+    ['~/.bun, which holds a bin folder', '~/.bun', 'holds a bin folder'],
+    ['~/.bun/bin, a bin folder', '~/.bun/bin', 'holds a bin folder'],
+    ['a folder holding one on PATH', '~/.local', 'folder on PATH'],
+    ['a folder inside one on PATH', '/opt/example-tools/bin-cache', 'folder on PATH'],
+    ['a relative path', 'cache', 'absolute or ~/ folders'],
+  ])('--cache-paths refuses %s at exit 1 and writes nothing', async (_case, path, named) => {
+    mkdirSync(join(repositoryDirectory, 'spec-home', '.bun', 'bin'), { recursive: true });
+    const before    = readFileSync(progressFilePath(), 'utf8');
+    const logBefore = storedLogTextOf(repositoryDirectory);
+    const context   = createCapturedCommandContext({
+      currentDirectory:     repositoryDirectory,
+      now:                  () => FROZEN_NOW,
+      executableSearchPath: [join(repositoryDirectory, 'spec-home', '.local', 'bin'), '/opt/example-tools'],
+    });
+
+    expect(await runCommandLine(['checks', '--cache-paths', `~/.bun/install/cache ${path}`], context)).toBe(1);
+    expect(context.errorText()).toContain(named);
     expect(readFileSync(progressFilePath(), 'utf8')).toBe(before);
     expect(storedLogTextOf(repositoryDirectory)).toBe(logBefore);
   });

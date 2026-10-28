@@ -6,10 +6,15 @@
 import { homedir, tmpdir } from 'node:os';
 import { createInterface } from 'node:readline';
 
-import type { AgentAdapter }                                    from '../src/lib/agent-launch/AgentAdapter.ts';
-import { CLAUDE_CODE_ADAPTER }                                  from '../src/lib/claude-code/ClaudeCodeAdapter.ts';
-import { createRenderState, type RenderState }                  from '../src/services/render/RenderState.ts';
-import { fakeAgentIsOn, relayDirectory, runnerJobId }           from '../src/shared/Environment.ts';
+import type { AgentAdapter }                   from '../src/lib/agent-launch/AgentAdapter.ts';
+import { CLAUDE_CODE_ADAPTER }                 from '../src/lib/claude-code/ClaudeCodeAdapter.ts';
+import { createRenderState, type RenderState } from '../src/services/render/RenderState.ts';
+import {
+  executableSearchPath,
+  fakeAgentIsOn,
+  relayDirectory,
+  runnerJobId
+} from '../src/shared/Environment.ts';
 import { RELAY_REPLY_INTERVAL_MILLISECONDS, RELAY_REPLY_TRIES } from '../src/shared/constants/RunnerLimits.ts';
 import { fakeAgentAdapter }                                     from '../src/testing/FakeAgentAdapter.ts';
 
@@ -26,6 +31,8 @@ export interface CommandContext {
   platform:                string;
   /** `node:os`'s `homedir()`, carried here so a spec can point the Claude Code transcripts at a scratch tree. */
   homeDirectory:           string;
+  /** The folders of this process's `PATH`, which `checks --cache-paths` refuses to let a gate write. */
+  executableSearchPath:    readonly string[];
   /** `temporaryDirectoriesOfThisMachine()`: a tracker under any of them is a scratch one the monitor registry leaves out. */
   temporaryDirectories:    readonly string[];
   /** The verb `cli/Main.ts` dispatched, such as `ticket finish`, which the monitor registry records; empty before the dispatch. */
@@ -101,6 +108,7 @@ export function createProcessContext(): CommandContext {
     confirm:                 confirmOnStandardInput,
     platform:                process.platform,
     homeDirectory:           homedir(),
+    executableSearchPath:    executableSearchPath(),
     temporaryDirectories:    temporaryDirectoriesOfThisMachine(),
     commandVerb:             '',
     renderState:             createRenderState(),
