@@ -1,8 +1,9 @@
 /**
  * The group prompts' git steps run as written on a scratch repository: a sync ticket forked off its predecessor's branch merges the
- * main line, then the builder's close, the reviewer's P, the fast-forward and the release reviewer's R2 run, each the command its
- * prompt names. What matters is the history they leave: the sync merge commit survives every step under its own commit, and the
- * main line is an ancestor of the group tip, so the release fast-forwards. A rebase anywhere on the way would flatten that merge.
+ * group branch as its builder's prompt says, then the main line, then the builder's close, the reviewer's P, the fast-forward and
+ * the release reviewer's R2 run, each the command its prompt names. What matters is the history they leave: the sync merge commit
+ * survives every step under its own commit, and the main line is an ancestor of the group tip, so the release fast-forwards. A
+ * rebase anywhere on the way would flatten that merge.
  */
 import { mkdirSync }         from 'node:fs';
 import { afterEach, expect } from 'bun:test';
@@ -41,7 +42,7 @@ function runGitCommand(command: string, placeholderValues: Record<string, string
   return { exitCode: finished.exitCode, output: new TextDecoder().decode(finished.stdout).trim() };
 }
 
-function followCatchUpRule(prompt: string, worktree: string, placeholderValues: Record<string, string> = {}): CatchUpOutcome {
+function followCatchUpRule(prompt: string, worktree: string, base: string, placeholderValues: Record<string, string> = {}): CatchUpOutcome {
   const runOrFail = (operation: string): string => {
     const { exitCode, output } = runGitCommand(onlyCommandOf(prompt, worktree, operation), placeholderValues);
     expect(exitCode, `\`${operation}\` succeeds`).toBe(0);
@@ -49,7 +50,7 @@ function followCatchUpRule(prompt: string, worktree: string, placeholderValues: 
   };
   if (runGitCommand(onlyCommandOf(prompt, worktree, 'merge-base --is-ancestor'), placeholderValues).exitCode === 0) return 'skipped';
   if (runOrFail('rev-list --merges') !== '') {
-    runOrFail('merge --no-edit');
+    runOrFail(`merge --no-edit ${base}`);
     return 'merged';
   }
   runOrFail('rebase');
@@ -95,6 +96,11 @@ describeWhenGitIsPresent('the group prompts\' git steps on a sync ticket\'s hist
     gitOutputIn(repositoryDirectory, ['worktree', 'add', '-q', '-b', 'ticket-101', predecessorTree, groupBranch]);
     commitFile(predecessorTree, 'predecessor.txt', 'predecessor\n');
     gitOutputIn(repositoryDirectory, ['worktree', 'add', '-q', '-b', 'ticket-102', syncTicketTree, 'ticket-101']);
+    const builderPrompt = GroupAgentPromptUtil.groupBuilderPrompt(settings, placement, {
+      ticketId: '102', previousPass: null, owner: 'opus', pausedBuildWasFoundBySurvey: false
+    });
+    expect(runGitCommand(onlyCommandOf(builderPrompt, syncTicketTree, `merge --no-edit ${groupBranch}`)).exitCode, 'the fork merges the group branch')
+      .toBe(0);
 
     commitFile(repositoryDirectory, 'main-before-sync.txt', 'main moved\n');
     gitOutputIn(syncTicketTree, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'merge', '-q', '--no-edit', mainLine]);
@@ -102,16 +108,13 @@ describeWhenGitIsPresent('the group prompts\' git steps on a sync ticket\'s hist
     commitFile(syncTicketTree, 'sync.txt', 'sync work\n');
     gitOutputIn(predecessorTree, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'commit', '-q', '--allow-empty', '-m', 'Review round 1 of #101: no changes']);
 
-    const builderPrompt = GroupAgentPromptUtil.groupBuilderPrompt(settings, placement, {
-      ticketId: '102', previousPass: null, owner: 'opus', pausedBuildWasFoundBySurvey: false
-    });
-    expect(followCatchUpRule(builderPrompt, syncTicketTree, { '<base>': 'ticket-101' }), 'the builder\'s close merges its moved base').toBe('merged');
+    expect(followCatchUpRule(builderPrompt, syncTicketTree, '<base>', { '<base>': 'ticket-101' }), 'the builder\'s close merges its moved base').toBe('merged');
 
     gitOutputIn(groupWorktree, ['merge', '-q', '--ff-only', 'ticket-101']);
     const reviewerPrompt = GroupAgentPromptUtil.groupReviewerPrompt(settings, placement, {
       ticketId: '102', expectedRound: 1, rereviewRunsFirst: false, earlierReviewerDied: false, owner: 'opus'
     });
-    expect(followCatchUpRule(reviewerPrompt, syncTicketTree), 'P finds the group branch already held').toBe('skipped');
+    expect(followCatchUpRule(reviewerPrompt, syncTicketTree, groupBranch), 'P finds the group branch already held').toBe('skipped');
     expect(runGitCommand(onlyCommandOf(reviewerPrompt, groupWorktree, 'merge --ff-only')).exitCode, 'I2 fast-forwards').toBe(0);
 
     commitFile(repositoryDirectory, 'main-before-release.txt', 'main moved again\n');
