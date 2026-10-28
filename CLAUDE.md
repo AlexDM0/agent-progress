@@ -196,6 +196,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 | A failure exits non-zero. | `hook bash-domains` exits 0 whatever happens, skipping the install check and answering deny through its JSON on any failure. | A hook that errors lets the call through; the deny is what keeps the network inside the ticket's line. |
 | A clock decides nothing. | No launch, resume or orchestrator delivery happens before the usage marker's `resetsAt`, and the runner wakes a DrivePass at it (`src/lib/tracker-model/LifecyclePolicy.ts`, `src/services/runner/DrivePass.ts`). | The vendor names its reset as a time, and only a clock can honour it. |
 | A failure exits non-zero. | A verb relayed under a job whose reply does not come within `RELAY_REPLY_TRIES` × `RELAY_REPLY_INTERVAL_MILLISECONDS` prints `queued <requestId>` and exits 0. | The request is written; the runner applies it later, and the id is what a filed finding cites. |
+| A clock decides nothing. | A running build or review whose event log stands still for `QUIET_JOB_SWEEPS` runner sweeps opens `quiet-job` (`src/services/runner/IncidentRouter.ts`). | A hung session makes no calls, so no count of its own bounds it; sweeps come at an interval, and the incident only asks. |
 | A failure exits non-zero. | A monitor registry (`~/.agent-progress-monitor/projects.json`) that cannot be read or written, a newer version or a malformed one is reported on stderr and the command keeps its exit code. | The command's own work is done; the registry is only a pointer for a monitor. |
 
 ## Local rules

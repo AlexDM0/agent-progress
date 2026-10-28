@@ -115,9 +115,7 @@ export class AgentQuestions {
   afterAnswer(decision: Readonly<Decision>, answer: DecisionAnswer, at: string): LogRecord[] {
     const job = decision.jobId === null ? undefined : this.jobRules.jobById(decision.jobId);
     if (job !== undefined) {
-      const stillAsking = this.records.progress.decisions?.some((open) => open.jobId === job.id) === true
-        || this.records.progress.incidents?.some((open) => open.jobId === job.id && questionsOfIncident(open) !== null) === true;
-      return job.state === 'waiting-for-answer' && !stillAsking ? [...this.jobRules.moveJob(job.id, 'running', at).logged] : [];
+      return job.state === 'waiting-for-answer' && !this.jobIsStillAsking(job.id) ? [...this.jobRules.moveJob(job.id, 'running', at).logged] : [];
     }
     if (decision.jobId !== null || decision.kind !== 'agent-question' || decision.requestId === null) return [];
     return decision.ticketIds.flatMap((ticketId) => {
@@ -142,6 +140,42 @@ export class AgentQuestions {
         return [...this.ticketSettings.holdTicket(ticketId, awaitingAnswerHoldOf(decision.id), at).logged];
       });
     });
+  }
+
+  /**
+   * The board's answer to a closed question incident: its waiting job takes it as it takes a decision's answer, running again once nothing
+   * else it asked is open; a `malformed-ticket` clarification, or an answer no job waits on, also goes under the ticket's `## Questions`.
+   */
+  answerIncident(incident: Readonly<Incident>, text: string, at: string): LogRecord[] {
+    const questions = questionsOfIncident(incident);
+    const answer: DecisionAnswer = questions === null ? { [`Incident ${incident.id}`]: text } : Object.fromEntries(questions.map((question) => [question.question, text]));
+    const requestId = this.records.incidentRequestIdOf(incident);
+    const fields = { answer, ...(requestId === null ? {} : { requestId }) };
+    const logged: LogRecord[] = [this.records.logger.log({ kind: 'incident-answered', incidentId: incident.id, fields }, at)];
+    const job = incident.jobId === null ? undefined : this.jobRules.jobById(incident.jobId);
+    if (job !== undefined && requestId !== null) {
+      this.jobRules.addAnsweredRequestId(job.id, requestId);
+      if (job.state === 'waiting-for-answer' && !this.jobIsStillAsking(job.id)) logged.push(...this.jobRules.moveJob(job.id, 'running', at).logged);
+    }
+    if (incident.kind !== 'malformed-ticket' && job !== undefined) return logged;
+    for (const ticketId of incident.ticketIds) {
+      const ticket = this.records.ticketRecordById(ticketId);
+      if (ticket === undefined) continue;
+      const questionsSection = { text: questionsSectionTextOf(ticket.body, incident.id, answer), appends: true };
+      logged.push(...this.ticketEdits.editTicket(ticketId, { body: questionsSection, allowsPastPending: true }, at).logged);
+    }
+    return logged;
+  }
+
+  /** An open decision of the job, or an open question incident of it, still waits on an answer. */
+  jobIsStillAsking(jobId: string): boolean {
+    return this.records.progress.decisions?.some((open) => open.jobId === jobId) === true
+      || this.records.progress.incidents?.some((open) => open.jobId === jobId && questionsOfIncident(open) !== null) === true;
+  }
+
+  /** The agent's questions a question incident carries, for a `parked` decision that keeps them in front of User. */
+  questionsOf(incident: Readonly<Incident>): DecisionQuestion[] | null {
+    return questionsOfIncident(incident);
   }
 
   /** What an escalation of a question incident puts to User: exactly the agent's questions, or `null` for an incident no question opened. */

@@ -71,6 +71,13 @@ export type ControlCommand =
     /** The `findings-delivered` incident an orchestrator readies a finding under; absent when User readies. */
     incidentId?:      string;
   }
+  /** `findingRoute: user`: the findings go to User's low-priority triage; `incidentId` as on `ticket-ready`. */
+  | { kind: 'ticket-triage'; ticketReferences: string[]; incidentId?: string }
+  /** Holds `parked:<kind>` (`parked:user` with no incident) and opens a `parked` decision; `reason` is what User should know. */
+  | { kind: 'ticket-park'; ticketReference: string; reason: string; incidentId?: string }
+  | { kind: 'incident-answer'; incidentId: string; text: string }
+  | { kind: 'incident-note'; incidentId: string; text: string }
+  | { kind: 'incident-escalate'; incidentId: string }
   | { kind: 'ticket-network'; ticketReference: string; domains: string[] }
   | { kind: 'ticket-hold'; ticketReference: string; reason: string }
   | { kind: 'ticket-unhold'; ticketReference: string }
@@ -92,9 +99,10 @@ export type ControlCommand =
   /** Runtime only: sent to the live runner, which hands the board to a successor on the code on disk. */
   | { kind: 'runner-restart'; now: boolean }
   | { kind: 'job-stop'; jobId: string; mode: Exclude<JobStopMode, 'fresh'> }
-  | { kind: 'job-fresh'; jobId: string }
+  /** `incidentId` names the incident the move handles, in the same hold; the orchestrator must name one. */
+  | { kind: 'job-fresh'; jobId: string; incidentId?: string }
   | { kind: 'job-stop-all'; mode: Exclude<JobStopMode, 'fresh'> }
-  | { kind: 'job-message'; jobId: string; text: string }
+  | { kind: 'job-message'; jobId: string; text: string; incidentId?: string }
   | { kind: 'intake-start'; text: string }
   /** Relayed by a product owner without `jobId`: the role policy stamps its own job, from the relay folder. */
   | { kind: 'intake-close'; jobId?: string; proposedDraftSets: string[][] }

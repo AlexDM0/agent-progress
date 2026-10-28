@@ -161,12 +161,13 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
     kind: 'system-question', ticketIds: ['002'], jobId: null, facts: { requestId: 'request-2' }, defaultMove: 'incident-escalate',
   } as const;
   board.openIncident(incidentOpening, at);
-  board.handleIncident('I1', 'incident-answer', at);
+  board.answerIncident('I1', 'Use the example setup script', at);
   board.openIncident({ ...incidentOpening, facts: { requestId: 'request-3' } }, at);
+  board.noteIncident('I2', 'Example note', at);
   board.defaultIncident('I2', 'turn-closed', at);
   board.openIncident({ ...incidentOpening, facts: { requestId: 'request-4' } }, at);
   board.escalateIncident('I3', { askedBy: 'builder', questions: [question], context: 'Example cart' }, at);
-  board.triageTicket('004', at);
+  board.triageTickets(['004'], at);
   board.recordRunnerStopped('stopped', at);
   board.recordRunnerHandoverFailed({ successorCodeVersion: 'd4e5f6a', step: 'build-bundles', error: 'Example bundle error' }, at);
   board.recordRelayApplied('J1', { requestId: 'request-5', commandKind: 'ticket-add', outcome: 'done' }, at);

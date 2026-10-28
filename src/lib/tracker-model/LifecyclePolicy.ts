@@ -3,8 +3,8 @@
  * which decisions and incidents open and which incidents take their default. Pure: it reads no clock, file or process, and every count it
  * acts on is read from the log, so a restart derives the same steps.
  */
-import type { Decision } from './@types/Decision.ts';
-import type { Incident } from './@types/Incident.ts';
+import type { Decision }               from './@types/Decision.ts';
+import type { Incident, IncidentKind } from './@types/Incident.ts';
 import type {
   InterruptionCause,
   Job,
@@ -53,6 +53,9 @@ export interface LifecycleFacts {
 const SLOT_TAKING_JOB_KINDS: readonly JobKind[] = ['build', 'review'];
 
 /** Sessions, which are never resumed once down: a fresh one boots instead. */
+/** Incidents holding a target's Airlock, which never wait for an orchestrator to boot. */
+const AIRLOCK_HOLDING_INCIDENT_KINDS: readonly IncidentKind[] = ['merge-gate-failed', 'resolution-over-threshold'];
+
 const SESSION_JOB_KINDS: readonly JobKind[] = ['orchestrator', 'product-owner'];
 
 /** A job ended with a report code verified, which breaks a run of crashes across tickets. */
@@ -307,9 +310,17 @@ function turnIsClosed(incident: Readonly<Incident>, facts: LifecycleFacts): bool
   return facts.observations.closedDeliveryTurns.some((closed) => closed.jobId === turn.jobId && closed.chatSequence === turn.chatSequence);
 }
 
-function incidentDefaultStepsOf(facts: LifecycleFacts, noOrchestratorCanComeUp: boolean): LifecycleStep[] {
-  if (noOrchestratorCanComeUp) return facts.incidents.map((incident) => ({ kind: 'default-incident', incidentId: incident.id, cause: 'no-orchestrator' }));
-  return facts.incidents.filter((incident) => turnIsClosed(incident, facts)).map((incident) => ({ kind: 'default-incident', incidentId: incident.id, cause: 'turn-closed' }));
+/**
+ * A delivered incident defaults when its turn closes. While no orchestrator is running, one holding an Airlock defaults at once and the
+ * others wait for a fresh session; while none can come up, every one defaults.
+ */
+function incidentDefaultStepsOf(facts: LifecycleFacts, noOrchestratorCanComeUp: boolean, orchestratorIsRunning: boolean): LifecycleStep[] {
+  return facts.incidents.flatMap((incident): LifecycleStep[] => {
+    if (noOrchestratorCanComeUp) return [{ kind: 'default-incident', incidentId: incident.id, cause: 'no-orchestrator' }];
+    if (turnIsClosed(incident, facts)) return [{ kind: 'default-incident', incidentId: incident.id, cause: 'turn-closed' }];
+    if (!orchestratorIsRunning && AIRLOCK_HOLDING_INCIDENT_KINDS.includes(incident.kind)) return [{ kind: 'default-incident', incidentId: incident.id, cause: 'no-orchestrator' }];
+    return [];
+  });
 }
 
 /** A decision about the whole board, which names no ticket and no job. */
@@ -329,6 +340,7 @@ function nextStepsOf(facts: LifecycleFacts, limits: LifecycleLimits): LifecycleS
   const newWorkIsHeld           = resumesAreHeld || facts.dispatcherState === 'stopped';
   const noOrchestratorCanComeUp = usageLimitHolds(limits) || failedOrchestratorBootsOf(facts) >= limits.FAILED_ORCHESTRATOR_BOOTS_BEFORE_DEFAULTING;
   const orchestratorIsLive      = facts.jobs.some((job) => job.kind === 'orchestrator');
+  const orchestratorIsRunning   = facts.jobs.some((job) => job.kind === 'orchestrator' && job.state === 'running');
 
   const steps: LifecycleStep[] = [];
   if (outageNow) steps.push({ kind: 'stop-dispatching', cause: 'outage' }, boardDecisionStepOf('outage'));
@@ -339,7 +351,7 @@ function nextStepsOf(facts: LifecycleFacts, limits: LifecycleLimits): LifecycleS
   const jobLostSteps = jobLostStepsOf(facts, limits);
   steps.push(...parkSteps, ...jobLostSteps);
   if (!newWorkIsHeld) steps.push(...launchStepsOf(facts, new Set([...parkSteps, ...jobLostSteps].flatMap(ticketIdsOfStep))));
-  steps.push(...incidentDefaultStepsOf(facts, noOrchestratorCanComeUp));
+  steps.push(...incidentDefaultStepsOf(facts, noOrchestratorCanComeUp, orchestratorIsRunning));
   return steps;
 }
 

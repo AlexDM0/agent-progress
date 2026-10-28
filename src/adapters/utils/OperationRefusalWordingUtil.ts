@@ -275,6 +275,12 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
       return `There is no incident ${detail.incidentId}. ${NOTHING_WAS_WRITTEN}`;
     case 'incident-closed':
       return `Incident ${detail.incidentId} is already closed. ${NOTHING_WAS_WRITTEN}`;
+    case 'incident-not-a-question':
+      return `Incident ${detail.incidentId} is a ${detail.kind}, which carries no agent's question to answer or escalate. ${NOTHING_WAS_WRITTEN}`;
+    case 'job-awaits-user-answer':
+      return `Job ${detail.jobId} waits on a question for the user; a chat turn would answer it. ${NOTHING_WAS_WRITTEN}`;
+    case 'job-is-product-owner':
+      return `Job ${detail.jobId} is the user's product-owner session; only the user chats with it. ${NOTHING_WAS_WRITTEN}`;
   }
 }
 

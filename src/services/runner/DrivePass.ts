@@ -17,6 +17,7 @@ import { launchEnvironmentOf }                                                  
 import type { WorkerProfile }                                                    from '../../lib/agent-launch/WorkerProfile.ts';
 import { GitProcess }                                                            from '../../lib/git/GitProcess.ts';
 import type { DecisionAnswer }                                                   from '../../lib/tracker-model/@types/Decision.ts';
+import type { IncidentDefaultCause, IncidentMove }                               from '../../lib/tracker-model/@types/Incident.ts';
 import type { InterruptionCause, Job, JobKind }                                  from '../../lib/tracker-model/@types/Job.ts';
 import type { DecisionDraft, DecisionWording }                                   from '../../lib/tracker-model/@types/LifecycleStep.ts';
 import type { Board }                                                            from '../../lib/tracker-model/Board.ts';
@@ -24,7 +25,7 @@ import { JOB_ID_VARIABLE, RELAY_DIRECTORY_VARIABLE }                            
 import { LIFECYCLE_LIMITS }                                                      from '../../shared/constants/LifecycleLimits.ts';
 import { MERGE_SLOT_LIMITS }                                                     from '../../shared/constants/MergeSlotLimits.ts';
 import { PRODUCT_NAMES }                                                         from '../../shared/constants/ProductNames.ts';
-import { SESSION_STOP_GRACE_MILLISECONDS }                                       from '../../shared/constants/RunnerLimits.ts';
+import { QUIET_JOB_SWEEPS, SESSION_STOP_GRACE_MILLISECONDS }                     from '../../shared/constants/RunnerLimits.ts';
 import { createFolderGateResultCache, createMemoryGateResultCache }              from '../lifecycle/GateResultCache.ts';
 import { GateRun }                                                               from '../lifecycle/GateRun.ts';
 import { ReviewOutcome }                                                         from '../lifecycle/ReviewOutcome.ts';
@@ -35,6 +36,7 @@ import type { Workspace }                                                       
 import { AnswerDelivery }                                                        from './AnswerDelivery.ts';
 import { GroupWorktrees }                                                        from './GroupWorktrees.ts';
 import { HostFleet, type HostLiveness }                                          from './HostFleet.ts';
+import { type DefaultedIncident, IncidentRouter }                                from './IncidentRouter.ts';
 import { IntakeSessions, type IntakeFacts }                                      from './IntakeSessions.ts';
 import { JobControlDelivery }                                                    from './JobControlDelivery.ts';
 import {
@@ -117,7 +119,9 @@ export type RunnerNotice =
   // The ticket's newest review reworked past the threshold and was refused another round: User decides whether an invariant ticket is wanted.
   | { kind: 'rounds-not-converging'; ticketId: string }
   // A landing found the main checkout off the main line or dirty: that target's landings wait, builds and reviews launch on.
-  | { kind: 'dirty-main-checkout'; target: string; branch: string | null; blockingFiles: readonly string[] };
+  | { kind: 'dirty-main-checkout'; target: string; branch: string | null; blockingFiles: readonly string[] }
+  // An incident took its default since the runner started: the warning state of owner answer Q34.
+  | { kind: 'incident-defaulted'; incidentId: string; move: IncidentMove; cause: IncidentDefaultCause };
 
 /** What a pass knows of the runtime state; the runner adds `handing-over` around a handover. */
 export type PassRuntimeState = 'serving' | 'held-by-install-change';
@@ -136,6 +140,8 @@ export interface DrivePass {
   reattach: () => Promise<ReattachmentReport>;
   /** Coalesced: wakes during a pass add exactly one more pass. `forced` runs it even when nothing observed changed. */
   wake:     (forced?: boolean) => void;
+  /** The backstop sweep: counts each running job's quiet sweeps and wakes a forced pass to open `quiet-job` for one that reached the count. */
+  sweep:    () => void;
   /** Resolves once no pass is running or queued. */
   idle:     () => Promise<void>;
   state:    () => RunnerStateDocument;
@@ -450,6 +456,7 @@ function noticesOf(
   attributionTicketIds: readonly string[],
   nonConvergingTicketIds: readonly string[],
   heldTargets: readonly HeldTarget[],
+  defaultedIncidents: readonly DefaultedIncident[],
 ): RunnerNotice[] {
   return [
     ...heldTargets.map((held) => ({
@@ -460,6 +467,9 @@ function noticesOf(
     ...observation.targetsHoldingManagedBlock.map((target) => ({ kind: 'claude-md-block-committed', target }) as const),
     ...attributionTicketIds.map((ticketId) => ({ kind: 'attribution-found', ticketId }) as const),
     ...nonConvergingTicketIds.map((ticketId) => ({ kind: 'rounds-not-converging', ticketId }) as const),
+    ...defaultedIncidents.map(({ incidentId, move, cause }) => ({
+      kind: 'incident-defaulted', incidentId, move, cause
+    }) as const),
   ];
 }
 
@@ -469,6 +479,9 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
   let running: Promise<void> | null = null;
   let wokenAgain = false;
   let forcedNext = false;
+  const quietJobWatch = IncidentRouter.createQuietJobWatch(QUIET_JOB_SWEEPS);
+  const quietJobIdsDue: string[] = [];
+  let jobsAtTheLastPass: readonly Readonly<Job>[] = [];
   let state: RunnerStateDocument = {
     generation: request.generation, passes: 0, runtimeState: 'serving', notices: [], legacyHostJobIds: []
   };
@@ -581,6 +594,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
           ?? HostFleet.livenessOf(HostFleet.jobFolderOf(request.workspace.trackerDirectory, job.id), job.hostInstance);
         IntakeSessions.endClosedIntakes(change.board, livenessOf, request.decisionWordingOf, change.at);
         request.afterHoldPhase?.('host-events', change.board);
+        IncidentRouter.openQuietJobIncidents(change.board, quietJobIdsDue.splice(0), QUIET_JOB_SWEEPS, change.at);
         const buildJobRecords = JobLaunch.applyBuildJobObservations(change, jobLaunchContext, observation.buildJobs);
         const usageResetsAt = UsageLimits.usageResetsAtOf(observation.usageMarker, usageLimitHits);
         const agentConfigHold = JobLaunch.holdAgentConfigHits(change, jobLaunchContext, observation.ticketIdsTouchingAgentConfig);
@@ -634,11 +648,19 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
       answerMessageOf:           request.answerMessageOf,
     });
     const heldTargets = written.board.checkCommand() === undefined ? [] : await mergeSlots.sweep();
+    jobsAtTheLastPass = written.board.jobs();
     state = {
-      generation:       request.generation,
-      passes:           state.passes + 1,
-      runtimeState:     installVersionChanged ? 'held-by-install-change' : 'serving',
-      notices:          noticesOf(request, observation, written.result.attributionTicketIds, written.result.nonConvergingTicketIds, heldTargets),
+      generation:   request.generation,
+      passes:       state.passes + 1,
+      runtimeState: installVersionChanged ? 'held-by-install-change' : 'serving',
+      notices:      noticesOf(
+        request,
+        observation,
+        written.result.attributionTicketIds,
+        written.result.nonConvergingTicketIds,
+        heldTargets,
+        IncidentRouter.defaultedIncidentsOf(written.board.logRecordsSoFar()),
+      ),
       legacyHostJobIds: legacyHostJobIdsOf(written.board, request.workspace.trackerDirectory),
     };
     const settled = observe(request, jobLaunchContext);
@@ -690,9 +712,17 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     await (running ?? Promise.resolve());
   }
 
+  function sweep(): void {
+    const due = quietJobWatch.sweep(jobsAtTheLastPass);
+    if (due.length === 0) return;
+    quietJobIdsDue.push(...due);
+    wake(true);
+  }
+
   return {
     reattach,
     wake,
+    sweep,
     idle:  () => running ?? Promise.resolve(),
     state: () => state,
     stop,

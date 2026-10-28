@@ -216,6 +216,10 @@ function sentenceOf(record: LogRecordContent): string {
       return `Incident ${record.incidentId} took its default, ${record.fields.move}, ${INCIDENT_DEFAULT_CAUSE_TEXT[record.fields.cause]}`;
     case 'incident-escalated':
       return `Incident ${record.incidentId} escalated to the user as decision ${record.fields.decisionId}`;
+    case 'incident-noted':
+      return `Note on incident ${record.incidentId}: ${record.fields.text}`;
+    case 'incident-answered':
+      return `Incident ${record.incidentId} answered: ${Object.values(record.fields.answer).join('; ')}`;
     case 'merge-started':
       return mergeStartedTextOf(record.jobId, record.fields);
     case 'merge-landed':

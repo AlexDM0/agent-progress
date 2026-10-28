@@ -37,6 +37,8 @@ export const INCIDENT_KINDS = [
 export const INCIDENT_MOVES = [
   'incident-answer',
   'incident-escalate',
+  'incident-note',
+  'ticket-abandon',
   'job-fresh',
   'job-message',
   'worktree-repair',
