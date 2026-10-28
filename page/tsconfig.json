@@ -25,6 +25,7 @@
     "../src/lib/tracker-model/@types/TrackerProgress.ts",
     "../src/lib/tracker-model/@types/Task.ts",
     "../src/lib/tracker-model/@types/Ticket.ts",
+    "../src/lib/tracker-model/AgentQuestions.ts",
     "../src/lib/tracker-model/Board.ts",
     "../src/lib/tracker-model/BoardRecords.ts",
     "../src/lib/tracker-model/BoardRefusal.ts",
