@@ -177,7 +177,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 | Rule | Done instead | Why |
 | --- | --- | --- |
 | Ingestion reads, validates and maps in separate steps. | The ticket parse is one line-oriented pass. | A second walk would risk the unowned lines kept byte for byte. |
-| No work at module load. | `agent-progress.ts` runs the command on import, `page/PageStart.ts` starts the page, the preload `src/testing/TestRunReport.ts` registers its report, the preload `cli/testing/OtherProductNamesPreload.ts` registers its name swap. | They are entry points. |
+| No work at module load. | `agent-progress.ts` runs the command on import, `page/PageStart.ts` starts the page, the preload `src/testing/TestRunReport.ts` registers its report, the preload `cli/testing/OtherProductNamesPreload.ts` registers its name swap, the fake agent `src/testing/fake-agent/FakeAgentChild.ts` plays its scenario. | They are entry points. |
 | Specs never set the environment in-process. | `src/shared/Environment.spec.ts` does, once. | It tests the getters themselves. |
 | A frozen table comes from the previous implementation. | `dispatcher/testing/FrozenDispatchTraces.json` is retaken from the bundle, only in a commit meant to change what agents are told, its diff showing prompt text or wire names and no decision; `cli/FrozenInstalledSurface.json` is taken from the installed files. | No previous implementation holds them. |
 | Only the current stored format is read. | A ticket stored with `type` `change` or `feature` reads as `ticket` everywhere, and every write keeps its stored `type` line. | Stored tickets are never rewritten; both are older names for `ticket`. |

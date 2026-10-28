@@ -10,7 +10,7 @@ import { dirname, join }                          from 'node:path';
 
 import { afterAll, expect } from 'bun:test';
 
-import { environmentCopy }                                         from '../../shared/Environment.ts';
+import { inheritedEnvironment }                                    from '../../testing/InheritedEnvironment.ts';
 import { createCanonicalScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
 import { testWhenRealClaudeSpecsAreOn }                            from '../../testing/ToolGuard.ts';
 import type { AgentSessionEvent }                                  from '../agent-launch/AgentSessionEvent.ts';
@@ -51,7 +51,7 @@ testWhenRealClaudeSpecsAreOn('a real claude -p session launched from the rendere
     roleBrief:         'You answer in as few tool calls as possible.',
     model:             'haiku',
     effort:            'low',
-    environment:       launchEnvironmentOf(environmentCopy(), {}),
+    environment:       launchEnvironmentOf(inheritedEnvironment(), {}),
     jobFilesDirectory: join(scratch, 'job'),
     reportSchema:      REPORT_SCHEMA,
     profile:           {
