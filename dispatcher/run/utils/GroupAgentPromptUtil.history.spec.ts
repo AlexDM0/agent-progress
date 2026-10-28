@@ -83,7 +83,7 @@ describeWhenGitIsPresent('the group prompts\' git steps on a sync ticket\'s hist
       groupName:             'example-group',
     };
     const placement: GroupPlacement = {
-      groupName: 'example-group', orderedTicketIds: ['101', '102'], releaseTicketId: '102', predecessorId: '101'
+      groupName: 'example-group', orderedTicketIds: ['101', '102'], releaseTicketId: '102', dependencyIds: ['101'], pipelinedBehindId: '101'
     };
     const groupBranch       = GroupAgentPromptUtil.groupBranchOf('example-group');
     const worktreesFolder   = `${repositoryDirectory}/.claude/worktrees`;

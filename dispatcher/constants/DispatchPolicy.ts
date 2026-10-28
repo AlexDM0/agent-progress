@@ -16,9 +16,8 @@ export const DISPATCH_POLICY = {
   PRIORITIES_ADMITTED_WITHOUT_TRIAGE:      ['normal', 'high'] satisfies readonly TicketPriority[],
   // Holding back normal work is undone by a relaunch, starting untriaged low work is not; so an unstated priority reads as low, not the model's normal.
   UNSTATED_PRIORITY:                       'low' satisfies TicketPriority,
-  // A group is one pipeline: builder N+1 on N's built tip while reviewer N integrates N, never two of either at once.
-  GROUP_BUILDERS_AT_ONCE:                  1,
-  GROUP_REVIEWERS_AT_ONCE:                 1,
+  // A group's reviewers run side by side, so a fast-forward onto the group branch may find another ticket integrated first and try again.
+  GROUP_FAST_FORWARD_ATTEMPTS:             3,
   // A group builder waits for a slot by its own background poll, since the dispatcher may run no timer.
   SLOT_WAIT_LIMIT_MINUTES:                 60,
   SLOT_POLL_INTERVAL_SECONDS:              30,

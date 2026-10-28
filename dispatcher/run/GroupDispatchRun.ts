@@ -1,8 +1,10 @@
 /**
- * One group run's state and its decisions: the release bundle read from the board and put in dependency order, then a pipeline of at most one
- * builder and one reviewer, builder N+1 on N's built tip while reviewer N integrates N onto the group branch. It does no I/O. The release ticket,
- * last in the order, is reviewed once every ticket before it is integrated, and its reviewer alone takes the group branch to the main line.
+ * One group run's state and its decisions: the release bundle read from the board, then every ticket built and reviewed as soon as its dependencies
+ * inside the bundle allow, within the board's slots, a builder forking off the one dependency still in review where that is all it waits on. Each
+ * reviewer integrates its ticket onto the group branch by fast-forward, so integration stays one ticket at a time. It does no I/O. The release
+ * ticket, which depends on every other, is reviewed once they are integrated, and its reviewer alone takes the group branch to the main line.
  */
+import type { TicketPriority }                       from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../src/lib/tracker-model/constants/AgentSettings.ts';
 import { DispatcherClaimNoteUtil }                   from '../../src/shared/utils/DispatcherClaimNoteUtil.ts';
 import type {
@@ -30,11 +32,20 @@ import { DISPATCH_POLICY }               from '../constants/DispatchPolicy.ts';
 import type { DispatchRunCollaborators } from './DispatchRun.ts';
 import { nextRoundVerdictOf }            from './RoundVerdict.ts';
 import { ReleaseBundleUtil }             from './utils/ReleaseBundleUtil.ts';
+import { SlotCountUtil }                 from './utils/SlotCountUtil.ts';
 
 type GroupTicketStage = 'to-build' | 'building' | 'built' | 'reviewing' | 'integrated' | 'released' | 'parked';
 
+// A built ticket is in review on the board from its builder's `--start-review` on, its reviewer started or not.
+const STAGES_IN_REVIEW: readonly GroupTicketStage[] = ['built', 'reviewing'];
+
+type BuildStart = { startable: false } | { startable: true; pipelinedBehindId: string | null };
+
 interface GroupTicketRecord {
   stage:               GroupTicketStage;
+  dependencyIds:       readonly string[];
+  priority:            TicketPriority;
+  pipelinedBehindId:   string | null;
   previousPass:        PreviousPass;
   failedPasses:        number;
   mainMovedReleases:   number;
@@ -70,6 +81,15 @@ function pipelineOrderOf(bundle: readonly GroupTicketReading[]): string[] {
   return ordered;
 }
 
+function priorityRankOf(priority: TicketPriority): number {
+  return DISPATCH_POLICY.PRIORITIES_IN_ORDER.findIndex((priorityInOrder) => priorityInOrder === priority);
+}
+
+// Highest priority first, then filing order, the lowest id first.
+function startOrderOf(bundle: readonly GroupTicketReading[]): string[] {
+  return [...bundle].sort((a, b) => priorityRankOf(a.priority) - priorityRankOf(b.priority) || Number(a.id) - Number(b.id)).map((ticket) => ticket.id);
+}
+
 export class GroupDispatchRun {
   private readonly settings:      DispatchSettings;
   private readonly groupName:     string;
@@ -82,7 +102,10 @@ export class GroupDispatchRun {
   private readonly findingsFiled: string[] = [];
   private readonly settledBefore: Set<string> = new Set();
   private orderedTicketIds:       string[] = [];
+  private startOrderTicketIds:    string[] = [];
   private releaseTicketId:        string = '';
+  private latestStatedLimit:      number = 0;
+  private othersInFlight:         number = 0;
   private bundleIsUnread:         boolean = false;
   private runWasStoppedByBoard:   boolean = false;
   private releasedOutOfTurn:      boolean = false;
@@ -110,27 +133,36 @@ export class GroupDispatchRun {
       this.collaborators.logger.surveyStatusUnreadable();
       return 'nothing-dispatched';
     }
-    this.adoptStatusReading(survey.status);
     const releaseTicket = survey.tickets === 'unlisted' ? undefined : ReleaseBundleUtil.releaseTicketOf(survey.tickets);
     if (survey.tickets === 'unlisted' || releaseTicket === undefined) {
+      this.adoptStatusReading(survey.status);
       this.bundleIsUnread = true;
       this.collaborators.logger.groupBundleUnread(this.groupName);
       return 'nothing-dispatched';
     }
     const bundle = ReleaseBundleUtil.bundleOf(survey.tickets, releaseTicket);
-    this.releaseTicketId  = releaseTicket.id;
-    this.orderedTicketIds = pipelineOrderOf(bundle);
-    for (const ticket of bundle) this.records.set(ticket.id, this.recordAdoptedFrom(ticket));
+    const bundleIds = bundle.map((ticket) => ticket.id);
+    this.releaseTicketId     = releaseTicket.id;
+    this.orderedTicketIds    = pipelineOrderOf(bundle);
+    this.startOrderTicketIds = startOrderOf(bundle);
+    for (const ticket of bundle) this.records.set(ticket.id, this.recordAdoptedFrom(ticket, bundleIds));
+    // Read after the records, so a review bar an earlier run of this group handed on counts as this run's own rather than another's.
+    this.adoptStatusReading(survey.status);
     return 'ready-to-dispatch';
   }
 
-  startWorkWithinThePipeline(): void {
+  // A review taking over the bar its builder handed on takes that bar's slot, so it needs no free one. A group builder waits for a free slot
+  // by itself before it claims, so a run holding nothing starts one rather than ending with its bundle unbuilt.
+  startWorkWithinSlots(): void {
     if (this.runWasStoppedByBoard) return;
     if (this.releasedOutOfTurn) return;
-    const review = this.nextReview();
-    if (review !== null) this.launch(review);
-    const build = this.nextBuild();
-    if (build !== null) this.launch(build);
+    for (let review = this.nextReviewOnAHandedOnBar(); review !== null; review = this.nextReviewOnAHandedOnBar()) this.launch(review);
+    const slotLimit = Math.max(this.ownSlotsHeld() === 0 ? 1 : 0, SlotCountUtil.ownSlotLimitOf(this.latestStatedLimit, this.othersInFlight));
+    while (this.ownSlotsHeld() < slotLimit) {
+      const work = this.nextWork();
+      if (work === null) break;
+      this.launch(work);
+    }
   }
 
   finishingOfAgentsInFlight(): Promise<FinishedAgent>[] {
@@ -182,7 +214,7 @@ export class GroupDispatchRun {
     };
   }
 
-  private recordAdoptedFrom(ticket: GroupTicketReading): GroupTicketRecord {
+  private recordAdoptedFrom(ticket: GroupTicketReading, bundleIds: readonly string[]): GroupTicketRecord {
     const ownClaimNote = DispatcherClaimNoteUtil.claimNoteFor(this.settings.runLabel, ticket.id);
     let stage: GroupTicketStage = 'to-build';
     if (SETTLED_TICKET_STATUSES.includes(ticket.status)) stage = 'integrated';
@@ -190,6 +222,9 @@ export class GroupDispatchRun {
     if (ticket.status === 'delivered' || ticket.status === 'abandoned') this.settledBefore.add(ticket.id);
     return {
       stage,
+      dependencyIds:       ticket.dependsOn.filter((dependencyId) => bundleIds.includes(dependencyId)),
+      priority:            ticket.priority,
+      pipelinedBehindId:   null,
       previousPass:        ticket.status === 'in-progress' && ticket.rowNote === ownClaimNote && ticket.worktreeExists ? 'builder' : null,
       failedPasses:        0,
       mainMovedReleases:   0,
@@ -207,6 +242,9 @@ export class GroupDispatchRun {
     if (existing !== undefined) return existing;
     const record: GroupTicketRecord = {
       stage:               'parked',
+      dependencyIds:       [],
+      priority:            DISPATCH_POLICY.UNSTATED_PRIORITY,
+      pipelinedBehindId:   null,
       previousPass:        null,
       failedPasses:        0,
       mainMovedReleases:   0,
@@ -222,52 +260,76 @@ export class GroupDispatchRun {
   }
 
   private adoptStatusReading(status: StatusReading): void {
+    this.latestStatedLimit = status.limit;
+    this.othersInFlight    = SlotCountUtil.othersInFlightOf(status, this.ownWorkOnTheBoard());
     if (!status.dispatcherIsStopped || this.runWasStoppedByBoard) return;
     this.runWasStoppedByBoard = true;
     this.collaborators.logger.statusShowsTheRunStopped(this.inFlight.size);
   }
 
-  private predecessorOf(ticketId: string): string | null {
-    const position = this.orderedTicketIds.indexOf(ticketId);
-    return position > 0 ? this.orderedTicketIds[position - 1] ?? null : null;
+  // A built ticket's bar, handed on by its builder and waiting for its reviewer, holds a slot on the board with no agent of the run's behind it.
+  private ticketIdsHoldingAHandedOnBar(): string[] {
+    return this.orderedTicketIds.filter((ticketId) => this.recordOf(ticketId).stage === 'built' && this.recordOf(ticketId).barIsHandedOn);
+  }
+
+  private ownWorkOnTheBoard(): DispatchWork[] {
+    return [...[...this.inFlight.values()].map((ownAgent) => ownAgent.work), ...this.ticketIdsHoldingAHandedOnBar().map((ticketId) => this.reviewWorkOf(ticketId))];
+  }
+
+  private ownSlotsHeld(): number {
+    return this.inFlight.size + this.ticketIdsHoldingAHandedOnBar().length;
   }
 
   private placementOf(ticketId: string): GroupPlacement {
+    const record = this.recordOf(ticketId);
     return {
-      groupName:        this.groupName,
-      orderedTicketIds: this.orderedTicketIds,
-      releaseTicketId:  this.releaseTicketId,
-      predecessorId:    this.predecessorOf(ticketId),
+      groupName:         this.groupName,
+      orderedTicketIds:  this.orderedTicketIds,
+      releaseTicketId:   this.releaseTicketId,
+      dependencyIds:     record.dependencyIds,
+      pipelinedBehindId: record.pipelinedBehindId,
     };
   }
 
-  private agentsInFlightOf(kind: AgentWork['kind']): number {
-    return [...this.inFlight.values()].filter((ownAgent) => ownAgent.work.kind === kind).length;
+  private unintegratedDependencyIdsOf(ticketId: string): string[] {
+    return this.recordOf(ticketId).dependencyIds.filter((dependencyId) => this.recordOf(dependencyId).stage !== 'integrated');
   }
 
-  private predecessorIsBuilt(ticketId: string): boolean {
-    const predecessorId = this.predecessorOf(ticketId);
-    if (predecessorId === null) return true;
-    const { stage } = this.recordOf(predecessorId);
-    return stage === 'built' || stage === 'reviewing' || stage === 'integrated';
+  // Every dependency integrated forks off the group branch; one left, in review, is forked off; anything else waits.
+  private buildStartOf(ticketId: string): BuildStart {
+    const unintegratedDependencyIds = this.unintegratedDependencyIdsOf(ticketId);
+    if (unintegratedDependencyIds.length === 0) return { startable: true, pipelinedBehindId: null };
+    const [onlyDependencyId] = unintegratedDependencyIds;
+    if (unintegratedDependencyIds.length === 1 && onlyDependencyId !== undefined && STAGES_IN_REVIEW.includes(this.recordOf(onlyDependencyId).stage)) {
+      return { startable: true, pipelinedBehindId: onlyDependencyId };
+    }
+    return { startable: false };
   }
 
-  private predecessorIsIntegrated(ticketId: string): boolean {
-    const predecessorId = this.predecessorOf(ticketId);
-    return predecessorId === null || this.recordOf(predecessorId).stage === 'integrated';
+  // The release ticket depends on every other ticket of the bundle, so its dependencies integrated are the whole bundle integrated.
+  private reviewableTicketIds(): string[] {
+    return this.startOrderTicketIds.filter((ticketId) => this.recordOf(ticketId).stage === 'built' && this.unintegratedDependencyIdsOf(ticketId).length === 0);
   }
 
-  // The ticket every later one waits on: the first of the order not integrated yet.
-  private firstUnintegratedTicketId(): string | undefined {
-    return this.orderedTicketIds.find((ticketId) => this.recordOf(ticketId).stage !== 'integrated');
+  private buildableTicketIds(): string[] {
+    return this.startOrderTicketIds.filter((ticketId) => this.recordOf(ticketId).stage === 'to-build' && this.buildStartOf(ticketId).startable);
   }
 
-  private nextReview(): AgentWork | null {
-    if (this.agentsInFlightOf('review') >= DISPATCH_POLICY.GROUP_REVIEWERS_AT_ONCE) return null;
-    const ticketId = this.orderedTicketIds.find((groupTicketId) => this.recordOf(groupTicketId).stage === 'built');
-    if (ticketId === undefined || !this.predecessorIsIntegrated(ticketId)) return null;
+  private nextReviewOnAHandedOnBar(): AgentWork | null {
+    const ticketId = this.reviewableTicketIds().find((reviewableTicketId) => this.recordOf(reviewableTicketId).barIsHandedOn);
+    return ticketId === undefined ? null : this.reviewOf(ticketId);
+  }
+
+  // Reviews first: a built ticket holds a worktree and a finished pass, a ticket to build holds nothing yet.
+  private nextWork(): AgentWork | null {
+    const [reviewTicketId] = this.reviewableTicketIds();
+    if (reviewTicketId !== undefined) return this.reviewOf(reviewTicketId);
+    const [buildTicketId] = this.buildableTicketIds();
+    return buildTicketId === undefined ? null : this.buildOf(buildTicketId);
+  }
+
+  private reviewWorkOf(ticketId: string): AgentWork {
     const record = this.recordOf(ticketId);
-    record.stage = 'reviewing';
     const review: AgentWork = {
       kind:                'review',
       ticketId,
@@ -278,12 +340,17 @@ export class GroupDispatchRun {
     return record.barIsHandedOn ? { ...review, barIsHandedOn: true } : review;
   }
 
-  private nextBuild(): AgentWork | null {
-    if (this.agentsInFlightOf('build') >= DISPATCH_POLICY.GROUP_BUILDERS_AT_ONCE) return null;
-    const ticketId = this.orderedTicketIds.find((groupTicketId) => this.recordOf(groupTicketId).stage === 'to-build');
-    if (ticketId === undefined || !this.predecessorIsBuilt(ticketId)) return null;
+  private reviewOf(ticketId: string): AgentWork {
+    const review = this.reviewWorkOf(ticketId);
+    this.recordOf(ticketId).stage = 'reviewing';
+    return review;
+  }
+
+  private buildOf(ticketId: string): AgentWork {
     const record = this.recordOf(ticketId);
-    record.stage = 'building';
+    const buildStart = this.buildStartOf(ticketId);
+    record.pipelinedBehindId = buildStart.startable ? buildStart.pipelinedBehindId : null;
+    record.stage             = 'building';
     return { kind: 'build', ticketId, previousPass: record.previousPass };
   }
 
@@ -432,10 +499,16 @@ export class GroupDispatchRun {
     this.reviewAgainWithTheBarLeftRunning(record);
   }
 
-  // Built after a ticket the run parked: its work waits, unreviewed, for that ticket to be settled by hand.
+  private waitsOnAParkedTicket(ticketId: string, visitedTicketIds: Set<string>): boolean {
+    return this.unintegratedDependencyIdsOf(ticketId).some((dependencyId) => {
+      if (visitedTicketIds.has(dependencyId)) return false;
+      visitedTicketIds.add(dependencyId);
+      return this.recordOf(dependencyId).stage === 'parked' || this.waitsOnAParkedTicket(dependencyId, visitedTicketIds);
+    });
+  }
+
+  // Built behind a ticket the run parked: its work waits, unreviewed, for that ticket to be settled by hand.
   private waitingOnPredecessorIds(): string[] {
-    const firstUnintegratedTicketId = this.firstUnintegratedTicketId();
-    if (firstUnintegratedTicketId === undefined || this.recordOf(firstUnintegratedTicketId).stage !== 'parked') return [];
-    return this.orderedTicketIds.filter((ticketId) => this.recordOf(ticketId).stage === 'built');
+    return this.orderedTicketIds.filter((ticketId) => this.recordOf(ticketId).stage === 'built' && this.waitsOnAParkedTicket(ticketId, new Set()));
   }
 }

@@ -36,12 +36,16 @@ export type DispatchWork = AgentWork | ParkWork;
 
 export type AgentSubject = DispatchWork | { kind: 'survey' } | { kind: 'ticket-settings' } | { kind: 'group-survey' };
 
-/** Where a group run's ticket sits in the group's pipeline, which its agent's prompt states. */
+/**
+ * Where a group run's ticket sits in its group, which its agent's prompt states: `dependencyIds` are its dependencies inside the bundle, and
+ * `pipelinedBehindId` the one of them still in review that its builder forks off, null when it forks off the group branch.
+ */
 export interface GroupPlacement {
-  groupName:        string;
-  orderedTicketIds: readonly string[];
-  releaseTicketId:  string;
-  predecessorId:    string | null;
+  groupName:         string;
+  orderedTicketIds:  readonly string[];
+  releaseTicketId:   string;
+  dependencyIds:     readonly string[];
+  pipelinedBehindId: string | null;
 }
 
 /** `pass` is the ticket's pass in this run, one more than its failed passes so far, which keeps a rebuild's agent call apart from the build before it. */
