@@ -132,6 +132,19 @@ function buildPromptOf(run: RecordedDispatchRun, ticketId: string): string {
   return run.calls.find((call) => call.kind === 'build' && call.ticketId === ticketId)?.prompt ?? '';
 }
 
+const GROUP_BRANCH_MERGE_COMMAND = 'merge --no-edit group-example-group`, never a rebase';
+
+// The diamond: 102's review outlasts 101's, so 101 integrates after 102's build forked, and the release ticket 103 is pipelined behind 102 alone.
+function pipelinedBuilderMergesTheGroupBranch(run: RecordedDispatchRun): boolean {
+  const releaseBuildPrompt = buildPromptOf(run, RELEASE_TICKET_ID);
+  return eventIndexOf(run, 'main end review 101 integrated') < eventIndexOf(run, `main start build ${RELEASE_TICKET_ID}`)
+    && eventIndexOf(run, `main start build ${RELEASE_TICKET_ID}`) < eventIndexOf(run, 'main end review 102 integrated')
+    && releaseBuildPrompt.includes('--after 102`')
+    && releaseBuildPrompt.includes(GROUP_BRANCH_MERGE_COMMAND)
+    && TICKETS_BEFORE_THE_RELEASE.every((ticketId) => !buildPromptOf(run, ticketId).includes(GROUP_BRANCH_MERGE_COMMAND))
+    && releaseTicketWaitsForAllButOneDependencyIntegrated(run);
+}
+
 // Each ticket's builder starts only once the one before it has an `in-review` return in the same run, or was built by an earlier one.
 function eachBuildFollowsItsPredecessorsBuild(run: RecordedDispatchRun, runName: DispatchRunName): boolean {
   return EXAMPLE_GROUP.ticketIds.slice(1).every((ticketId, position) => {
@@ -382,6 +395,17 @@ export const GROUP_CLAIMS: readonly DispatchClaim[] = [
       modulePath: DISPATCHER_MODULE_PATHS.GROUP_DISPATCH_RUN,
       find:       'record.pipelinedBehindId = buildStart.startable ? buildStart.pipelinedBehindId : null;',
       replace:    'record.pipelinedBehindId = null;',
+    },
+  },
+  {
+    // Fails review if false: a non-pipelined builder's prompt gains no merge step.
+    name:        'a builder pipelined behind one dependency in review merges the group branch after it forks, so a dependency integrated since is in it',
+    scenarioFor: () => groupScenarioWith({ group: GROUP_OF_TWO_INDEPENDENT_TICKETS, slowAgentNames: ['review 102'] }),
+    holds:       pipelinedBuilderMergesTheGroupBranch,
+    mutant:      {
+      modulePath: DISPATCHER_MODULE_PATHS.GROUP_AGENT_PROMPT_UTIL,
+      find:       '  if (placement.pipelinedBehindId !== null) lines.push(integratedDependenciesMergeText(worktree, groupBranch, placement.pipelinedBehindId));\n',
+      replace:    '',
     },
   },
   {

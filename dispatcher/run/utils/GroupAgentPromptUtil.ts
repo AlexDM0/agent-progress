@@ -1,6 +1,7 @@
 /**
  * The prompts of a group run's agents: its survey, and the builder and reviewer of each bundle ticket, worked on a ticket branch forked off the group
- * branch or the one dependency still in review, and integrated onto the group branch, which only the release ticket's reviewer takes to the main line.
+ * branch or the one dependency still in review, the group branch merged in, and integrated onto the group branch, which only the release ticket's
+ * reviewer takes to the main line.
  */
 import { DISPATCH_PROTOCOL }                                from '../../../src/shared/constants/DispatchProtocol.ts';
 import { DispatcherClaimNoteUtil }                          from '../../../src/shared/utils/DispatcherClaimNoteUtil.ts';
@@ -63,6 +64,13 @@ function baseDefinitionText(placement: GroupPlacement): string {
     + `Never edit, commit on or rebase \`${branchOf(pipelinedBehindId)}\` or its worktree: that is #${pipelinedBehindId}'s reviewer's.`;
 }
 
+// The dependency's branch may have forked before another dependency reached the group branch, so it can lack that one's code.
+function integratedDependenciesMergeText(worktree: string, groupBranch: string, pipelinedBehindId: string): string {
+  return `When you have just forked the ticket branch off \`${branchOf(pipelinedBehindId)}\`, right after the fork run `
+    + `\`git -C ${worktree} merge --no-edit ${groupBranch}\`, never a rebase, so the code of every dependency already integrated onto ${groupBranch} `
+    + 'is on your branch before you build (resolve a conflict by editing the file, `git add`, `GIT_EDITOR=true git commit --no-edit`, never `--abort`).';
+}
+
 const SECONDS_PER_MINUTE = 60;
 
 function slotWaitText(): string {
@@ -112,6 +120,7 @@ function groupBuilderPrompt(settings: DispatchSettings, placement: GroupPlacemen
   if (settings.installCommand !== '') {
     lines.push(`In a worktree you just created, the group worktree included, run \`${settings.installCommand}\` in it once before anything else there.`);
   }
+  if (placement.pipelinedBehindId !== null) lines.push(integratedDependenciesMergeText(worktree, groupBranch, placement.pipelinedBehindId));
   lines.push(
     'Everything you do happens in the ticket worktree: every edit, every command, every commit, git as `git -C <worktree>`. '
       + 'Your working directory may be the main checkout; it is not yours to touch.',
