@@ -89,6 +89,7 @@ export type BoardRefusalDetail =
   | { reason: 'decision-already-answered'; decisionId: string }
   | { reason: 'decision-answer-count'; decisionId: string; answerCount: number; questionCount: number }
   | { reason: 'decision-without-questions' }
+  | { reason: 'decision-questions-repeat'; question: string }
   | { reason: 'decision-has-several-questions'; decisionId: string; questionCount: number }
   | { reason: 'decision-option-unknown'; decisionId: string; questionNumber: number; choice: string; optionCount: number }
   | { reason: 'decision-single-choice'; decisionId: string; questionNumber: number; choice: string }

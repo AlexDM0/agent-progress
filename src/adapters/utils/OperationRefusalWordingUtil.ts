@@ -261,6 +261,8 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
         + `so it takes one answer for each, not ${detail.answerCount}. ${NOTHING_WAS_WRITTEN}`;
     case 'decision-without-questions':
       return `A decision asks at least one question, and this one asks none. ${NOTHING_WAS_WRITTEN}`;
+    case 'decision-questions-repeat':
+      return `A decision's answers are kept by question, so no two of its questions may read "${detail.question}". ${NOTHING_WAS_WRITTEN}`;
     case 'decision-has-several-questions':
       return `Decision ${detail.decisionId} asks ${detail.questionCount} questions, so it takes one choice of letters for each; `
         + `free text is given in the UI. ${NOTHING_WAS_WRITTEN}`;
