@@ -218,7 +218,6 @@ function commitInTicketWorktree(changeCommand: string, stagedPath: string, commi
  * ticket's worktree: the orchestrator session plays the same steps in the main checkout, where a commit would move the target, which V14
  * fails as a foreign ref.
  */
-
 function buildingSession(commitMessage = 'Build the example', report = builderReport()): FakeAgentStep[] {
   return [
     { kind: 'print', line: fakeStartedLine('fake-session') },
