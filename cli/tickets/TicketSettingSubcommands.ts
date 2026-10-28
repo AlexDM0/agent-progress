@@ -22,6 +22,7 @@ const LINK_OPTION_NAMES     = ['force', 'json'];
 const PRIORITY_OPTION_NAMES = ['at', 'json'];
 const SIZE_OPTION_NAMES     = ['at', 'json'];
 const AGENT_OPTION_NAMES  = ['model', 'effort', 'at', 'json'];
+const NETWORK_OPTION_NAMES  = ['clear', 'at', 'json'];
 
 async function linkOneTicket(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
   commandArguments.rejectUnknownOptions(LINK_OPTION_NAMES, TICKET_USAGE);
@@ -111,7 +112,28 @@ async function setTicketAgent(commandArguments: ArgumentParser, context: Command
   OutputUtil.printEntityThenNextLine(commandArguments, context, TicketJsonUtil.ticketAsJson(changed.ticket), OutputUtil.loggedSentencesOf(changed.logged), closingLines);
 }
 
+/** Bare domains beside `--clear` could mean either, so the two together are refused rather than guessed. */
+async function setTicketNetwork(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
+  commandArguments.rejectUnknownOptions(NETWORK_OPTION_NAMES, TICKET_USAGE);
+
+  const [, reference, ...domainTexts] = commandArguments.positionals();
+  const clears                        = commandArguments.flag('clear');
+  if (reference === undefined || (domainTexts.length === 0) === !clears) {
+    throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} ticket network needs a ticket id, then its domains or --clear, not both.\n  Usage: ${TICKET_USAGE}`);
+  }
+  const domains = TicketArgumentUtil.networkDomainListFrom(domainTexts);
+
+  const changed = await openTrackerForWriting(
+    commandArguments,
+    context,
+    (change) => change.board.setTicketNetwork(TicketLookupUtil.requireTicket(change, reference).frontmatter.id, domains, change.at),
+  );
+
+  OutputUtil.printEntity(commandArguments, context, TicketJsonUtil.ticketAsJson(changed.ticket), OutputUtil.loggedSentencesOf(changed.logged));
+}
+
 export const TICKET_SETTING_SUBCOMMANDS: Readonly<Record<string, TicketSubcommandHandler>> = {
+  network:         setTicketNetwork,
   link:            linkOneTicket,
   depends:         setTicketDependencies,
   epic:            setTicketEpics,

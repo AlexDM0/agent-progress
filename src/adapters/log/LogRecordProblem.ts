@@ -66,6 +66,7 @@ const CHECK_FOR_FIELD_SHAPE: Readonly<Record<LogFieldShape, FieldShapeCheck>> = 
   'agent-pair':        agentPairProblem,
   'ticket-ids':        (value, path) => listOfTextProblem(value, path, 'ticket ids'),
   'epic-keys':         (value, path) => listOfTextProblem(value, path, 'epic keys'),
+  'network-domains':   (value, path) => listOfTextProblem(value, path, 'domains'),
   'review-round':      reviewRoundProblem,
   'chart-range':       (value, path) => (BoardSettingsUtil.viewRangeIsWellFormed(value) ? null : `${path} is not a chart range`),
   'concurrency-limit': (value, path) => (BoardSettingsUtil.concurrencyLimitIsWellFormed(value) ? null : `${path} is not a whole number of agents`),

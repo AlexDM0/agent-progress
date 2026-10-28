@@ -8,7 +8,6 @@ import { TicketPhraseUtil } from './TicketPhraseUtil.ts';
 
 const {
   agentPairText,
-  lowPriorityHeldBackText,
   namedTicketsText,
   ticketReferencesText,
   waitingOnText,
@@ -26,11 +25,6 @@ test('the waiting phrase lists every ticket waited on', () => {
 test('one ticket is named in the singular and several in the plural', () => {
   expect(namedTicketsText(['003'])).toBe('Ticket #003');
   expect(namedTicketsText(['003', '004'])).toBe('Tickets #003, #004');
-});
-
-test('a low ticket held back by one ticket takes "is", and by several takes "are"', () => {
-  expect(lowPriorityHeldBackText('002', ['001'])).toBe('Ticket #002 is low priority, and #001 is normal or high and not delivered or abandoned yet');
-  expect(lowPriorityHeldBackText('002', ['001', '003'])).toBe('Ticket #002 is low priority, and #001, #003 are normal or high and not delivered or abandoned yet');
 });
 
 test('an agent pair reads as model then effort, joined by a slash', () => {

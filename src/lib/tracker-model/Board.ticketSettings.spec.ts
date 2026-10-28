@@ -135,6 +135,51 @@ describe('setTicketSize', () => {
   });
 });
 
+describe('setTicketNetwork', () => {
+  test.each(['draft', 'pending'] as const)('a %s ticket gains its domains lower-cased, and an empty list clears the key, each change logged', (status) => {
+    const { board, tickets, records } = boardFixture({ tickets: [ticketFixture({ id: '001', status })] });
+    board.setTicketNetwork('001', ['API.example.com', 'cdn.example.com'], CHANGED_AT);
+    expect(tickets[0]?.frontmatter.network).toEqual(['api.example.com', 'cdn.example.com']);
+
+    board.setTicketNetwork('001', [], CHANGED_AT);
+    expect(tickets[0]?.frontmatter).not.toHaveProperty('network');
+    expect(records).toEqual([
+      {
+        at: CHANGED_AT, kind: 'ticket-network-set', ticketId: '001', fields: { domains: ['api.example.com', 'cdn.example.com'] }
+      },
+      {
+        at: CHANGED_AT, kind: 'ticket-network-set', ticketId: '001', fields: { domains: [] }
+      },
+    ]);
+  });
+
+  test.each(['in-progress', 'in-review', 'reviewed', 'delivered', 'abandoned'] as const)('a ticket %s is refused, with nothing written', (status) => {
+    const fixture = boardFixture({ tickets: [ticketFixture({ id: '001', status })] });
+    const detail  = expectRefusedWithNothingChanged(
+      fixture,
+      () => fixture.board.setTicketNetwork('001', ['api.example.com'], CHANGED_AT),
+      'network-of-a-ticket-past-pending',
+    );
+    expect(detail).toEqual({ reason: 'network-of-a-ticket-past-pending', ticketId: '001', status });
+  });
+
+  test('a list naming any domain that is not public is refused whole, naming only those domains', () => {
+    const fixture = boardFixture({ tickets: [ticketFixture({ id: '001' })] });
+    const detail  = expectRefusedWithNothingChanged(
+      fixture,
+      () => fixture.board.setTicketNetwork('001', ['api.example.com', 'localhost', 'printer.local', '192.168.1.10', '::1'], CHANGED_AT),
+      'network-domain-not-public',
+    );
+    expect(detail).toEqual({ reason: 'network-domain-not-public', ticketId: '001', domains: ['localhost', 'printer.local', '192.168.1.10', '::1'] });
+  });
+
+  test('the same domains, or a clear of a ticket with none, are refused as unchanged', () => {
+    const fixture = boardFixture({ tickets: [ticketFixture({ id: '001', network: ['api.example.com'] }), ticketFixture({ id: '002' })] });
+    expectRefusedWithNothingChanged(fixture, () => fixture.board.setTicketNetwork('001', ['API.example.com'], CHANGED_AT), 'network-unchanged');
+    expectRefusedWithNothingChanged(fixture, () => fixture.board.setTicketNetwork('002', [], CHANGED_AT), 'network-unchanged');
+  });
+});
+
 describe('setTicketAgents', () => {
   test('naming a new model changes only the model and logs both resolved pairs', () => {
     const {

@@ -77,7 +77,6 @@ const CALLS_THAT_CHANGE_NO_TICKET: readonly (readonly [string, (board: Board) =>
   ['ticketIsReleasable', (board) => board.tickets().map((ticket) => board.ticketIsReleasable(ticket, ['001']))],
   ['unsettledDependenciesOf', (board) => board.unsettledDependenciesOf('001')],
   ['waitingOnOf', (board) => board.tickets().map((ticket) => board.waitingOnOf(ticket))],
-  ['ticketIdsHoldingBack', (board) => board.ticketIdsHoldingBack('002')],
   ['pausedBuildRowOf', (board) => board.pausedBuildRowOf('001')],
   ['readyTickets', (board) => board.readyTickets()],
   ['heldTicketIds', (board) => board.heldTicketIds()],

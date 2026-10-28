@@ -2,7 +2,7 @@ import { PRODUCT_NAMES } from '../../../src/shared/constants/ProductNames.ts';
 
 export const TICKET_USAGE = [
   'add "<title>" --type ticket|bug|research [--priority low|normal|high] [--size XS|S|M|L|XL|XXL] [--model <m>] [--effort <e>] [--group <name>] '
-  + '[--depends-on <ids>] [--epic <keys>] [--introduced-by <id>] [--found-in-review <id>] [--body <markdown> | --body-file <path|->] [--at <when>]',
+  + '[--depends-on <ids>] [--epic <keys>] [--network <domains>] [--introduced-by <id>] [--found-in-review <id>] [--body <markdown> | --body-file <path|->] [--at <when>]',
   'list [--status <s>] [--priority <p>] [--json]',
   'show <id> [--json]',
   'edit <id> [--title "<title>"] [--append] [--body <markdown> | --body-file <path|->] [--force] [--at <when>] [--json]',
@@ -18,6 +18,7 @@ export const TICKET_USAGE = [
   'introduced-by <id> [<cause id>] [--at <when>] [--json]',
   'priority <id> low|normal|high [--at <when>]',
   'size <id> XS|S|M|L|XL|XXL [--at <when>]',
+  'network <id> <domain>... | --clear [--at <when>] [--json]',
   'agent <id> [--model <m>] [--effort <e>] [--at <when>]',
   'hold <id> [--reason <text>] [--at <when>]',
   'unhold <id> [--at <when>]',

@@ -83,12 +83,14 @@ import { TokenCredits }                                     from './TokenCredits
 import { TrackerChanges }                                   from './TrackerChanges.ts';
 
 export interface BoardInput {
-  progress: TrackerProgress;
-  tickets:  Ticket[];
-  epics:    Epic[];
+  progress:          TrackerProgress;
+  tickets:           Ticket[];
+  epics:             Epic[];
   /** Absent for a caller that reads no drafts, which reads as none. */
-  drafts?:  Draft[];
-  logger:   Logger;
+  drafts?:           Draft[];
+  logger:            Logger;
+  /** The log as stored, which orders the ready tickets by readiness; absent reads as an empty log. */
+  storedLogRecords?: readonly LogRecord[];
 }
 
 export class Board {
@@ -129,7 +131,7 @@ export class Board {
   private readonly draftContents: DraftContents;
 
   constructor(input: BoardInput) {
-    this.records            = new BoardRecords(input.progress, input.tickets, input.epics, input.drafts ?? [], input.logger);
+    this.records            = new BoardRecords(input.progress, input.tickets, input.epics, input.drafts ?? [], input.logger, input.storedLogRecords ?? []);
     this.reviewBars         = new ReviewBars(this.records);
     this.groupReleases      = new GroupReleases(this.records);
     this.dispatchQueries    = new DispatchQueries(this.records, this.groupReleases);
@@ -321,6 +323,10 @@ export class Board {
     return this.ticketSettings.setTicketAgents(ticketId, agents, at);
   }
 
+  setTicketNetwork(ticketId: string, domains: readonly string[], at: string): TicketChanged {
+    return this.ticketSettings.setTicketNetwork(ticketId, domains, at);
+  }
+
   holdTicket(ticketId: string, reason: string, at: string): TicketChanged {
     return this.ticketSettings.holdTicket(ticketId, reason, at);
   }
@@ -429,10 +435,6 @@ export class Board {
 
   waitingOnOf(ticket: Readonly<Ticket>): string[] {
     return this.dispatchQueries.waitingOnOf(ticket);
-  }
-
-  ticketIdsHoldingBack(ticketId: string): string[] {
-    return this.dispatchQueries.ticketIdsHoldingBack(ticketId);
   }
 
   releaseBundleOf(group: string): string[] {

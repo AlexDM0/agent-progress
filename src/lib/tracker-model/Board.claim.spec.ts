@@ -60,14 +60,11 @@ describe('refusals', () => {
     expect(refusalOfAClaimOn(fixture, ['001'])).toEqual({ reason: 'claim-of-a-held-ticket', ticketId: '001' });
   });
 
-  test('a low ticket is refused while normal or high work is owed, naming that work', () => {
-    const fixture = boardFixture({
-      tickets: [
-        ticketFixture({ id: '001', priority: 'low' }),
-        ticketFixture({ id: '002', priority: 'high' }),
-      ],
-    });
-    expect(refusalOfAClaimOn(fixture, ['001'])).toEqual({ reason: 'claim-of-held-back-low-ticket', ticketId: '001', holdingBackTicketIds: ['002'] });
+  test('a low ticket is claimed while normal or high work is owed: priority only orders', () => {
+    const lowTicket = ticketFixture({ id: '001', priority: 'low' });
+    const { board } = boardFixture({ tickets: [lowTicket, ticketFixture({ id: '002', priority: 'high' })] });
+    board.claimTickets(['001'], {}, CLAIMED_AT);
+    expect(lowTicket.frontmatter.status).toBe('in-progress');
   });
 
   // A reviewer at work on the ticket would find its build being redone under it, a second dispatcher run's builder among them.

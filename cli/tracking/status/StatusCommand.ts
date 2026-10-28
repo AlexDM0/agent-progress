@@ -45,7 +45,7 @@ export const statusCommand: CommandHandler = async (commandArguments, context) =
   } = requireTracker(workspace);
   const wordedLog       = storedLog.records.map(LogUtil.wordedEntryOf);
   const logNewestFirst  = logNewestFirstOf(wordedLog);
-  const board           = readingBoardOf(progress, listing.tickets, epicListing.epics, draftListing.drafts);
+  const board           = readingBoardOf(progress, listing.tickets, epicListing.epics, draftListing.drafts, storedLog.records);
 
   OutputUtil.reportIgnoredTicketFiles(context, listing.malformed);
   OutputUtil.reportIgnoredEpicFiles(context, epicListing.malformed);

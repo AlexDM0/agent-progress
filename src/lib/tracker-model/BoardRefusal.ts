@@ -31,7 +31,6 @@ export type BoardRefusalDetail =
   | { reason: 'unclaimable-status'; ticketId: string; status: TicketStatus }
   | { reason: 'claim-waits-on-dependencies'; ticketId: string; unsettledTicketIds: readonly string[] }
   | { reason: 'claim-of-a-held-ticket'; ticketId: string }
-  | { reason: 'claim-of-held-back-low-ticket'; ticketId: string; holdingBackTicketIds: readonly string[] }
   | { reason: 'claim-under-review'; ticketId: string; reviewBarTaskId: number }
   | { reason: 'claim-after-a-ticket-not-in-review'; ticketId: string; afterTicketId: string; status: TicketStatus }
   | { reason: 'claim-after-a-ticket-outside-the-bundle'; ticketId: string; afterTicketId: string }
@@ -47,6 +46,9 @@ export type BoardRefusalDetail =
   | { reason: 'size-unchanged'; ticketId: string; status: TicketStatus; size: TicketSize }
   | { reason: 'lowering-a-ticket-that-is-not-pending'; ticketId: string; status: TicketStatus }
   | { reason: 'edit-of-a-ticket-past-pending'; ticketId: string; status: TicketStatus }
+  | { reason: 'network-of-a-ticket-past-pending'; ticketId: string; status: TicketStatus }
+  | { reason: 'network-domain-not-public'; ticketId: string; domains: readonly string[] }
+  | { reason: 'network-unchanged'; ticketId: string; domains: readonly string[] }
   | { reason: 'agents-of-a-settled-ticket'; ticketId: string; status: TicketStatus }
   | { reason: 'agents-unchanged'; ticketId: string; status: TicketStatus; agents: AgentPair }
   | { reason: 'hold-of-a-settled-ticket'; ticketId: string; status: TicketStatus; action: 'hold' | 'unhold' }

@@ -9,14 +9,16 @@ import type {
 import type { BoardRecords }       from './BoardRecords.ts';
 import { BoardRefusal }            from './BoardRefusal.ts';
 import { SETTLED_TICKET_STATUSES } from './constants/Statuses.ts';
+import { NetworkDomainUtil }       from './utils/NetworkDomainUtil.ts';
 import { TicketDefaultsUtil }      from './utils/TicketDefaultsUtil.ts';
 
 export class TicketSettings {
   constructor(private readonly records: BoardRecords) {}
 
   /**
-   * Lowering to low is refused unless the ticket is pending, and removes its row; raising a low ticket gives it a row at once, seeded from
-   * its stamps when it is no longer pending, the way a clearing would, so an abandoned ticket does not come back as a pending bar.
+   * Lowering to low is refused unless the ticket is draft or pending, and keeps its row, since priority only orders the queue; raising a low
+   * ticket with no row, filed before every ready ticket had one, gives it a row at once, seeded from its stamps when it is no longer pending,
+   * the way a clearing would, so an abandoned ticket does not come back as a pending bar.
    */
   setTicketPriority(ticketId: string, priority: TicketPriority, at: string): TicketChanged {
     const ticket          = this.records.requireTicket(ticketId);
@@ -35,16 +37,10 @@ export class TicketSettings {
 
     frontmatter.priority = priority;
     const linkedTask     = this.records.linkedTaskRecordOf(ticket);
-    if (status === 'draft') {
-      // A draft has no row at any priority: `ticket ready` files it.
-    } else if (priority === 'low') {
-      if (linkedTask !== undefined) this.records.removeTaskRecord(linkedTask);
-      frontmatter.task = null;
-    } else if (linkedTask === undefined && status === 'pending') {
-      this.records.ensureTaskForTicket(ticket, at);
-    } else if (linkedTask === undefined) {
-      this.records.seedTaskFromTicket(ticket);
-    }
+    // A draft has no row at any priority, since `ticket ready` files it.
+    const raisingFilesARow = status !== 'draft' && priority !== 'low' && linkedTask === undefined;
+    if (raisingFilesARow && status === 'pending') this.records.ensureTaskForTicket(ticket, at);
+    else if (raisingFilesARow) this.records.seedTaskFromTicket(ticket);
     this.records.markChanged(ticket);
     return { logged: [this.records.logger.log({ kind: 'ticket-priority-changed', ticketId, fields: { from: currentPriority, to: priority } }, at)], ticket };
   }
@@ -85,6 +81,27 @@ export class TicketSettings {
     if (agents.effort !== undefined) frontmatter.effort = agents.effort;
     this.records.markChanged(ticket);
     return { logged: [this.records.logger.log({ kind: 'ticket-agents-changed', ticketId, fields: { from: currentAgents, to: requestedAgents } }, at)], ticket };
+  }
+
+  /**
+   * Set only while the ticket is draft or pending, so no agent already at work gains a grant; an empty list clears the line. Every domain
+   * must be public, judged after lower-casing, and the line is written only once it names one.
+   */
+  setTicketNetwork(ticketId: string, domains: readonly string[], at: string): TicketChanged {
+    const ticket          = this.records.requireTicket(ticketId);
+    const { frontmatter } = ticket;
+    const { status }      = frontmatter;
+    if (status !== 'draft' && status !== 'pending') throw new BoardRefusal({ reason: 'network-of-a-ticket-past-pending', ticketId, status });
+    const requestedDomains = NetworkDomainUtil.normalisedDomainListOf(domains);
+    const nonPublicDomains = requestedDomains.filter((domain) => !NetworkDomainUtil.domainIsPublic(domain));
+    if (nonPublicDomains.length > 0) throw new BoardRefusal({ reason: 'network-domain-not-public', ticketId, domains: nonPublicDomains });
+    const currentDomains = frontmatter.network ?? [];
+    if (requestedDomains.join(',') === currentDomains.join(',')) throw new BoardRefusal({ reason: 'network-unchanged', ticketId, domains: currentDomains });
+
+    if (requestedDomains.length === 0) delete frontmatter.network;
+    else frontmatter.network = requestedDomains;
+    this.records.markChanged(ticket);
+    return { logged: [this.records.logger.log({ kind: 'ticket-network-set', ticketId, fields: { domains: requestedDomains } }, at)], ticket };
   }
 
   /** An empty reason still holds: the hold is the key's presence, not its text. */

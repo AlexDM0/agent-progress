@@ -16,6 +16,7 @@ export type LogFieldShape =
   | 'agent-pair'
   | 'ticket-ids'
   | 'epic-keys'
+  | 'network-domains'
   | 'review-round'
   | 'chart-range'
   | 'concurrency-limit'
@@ -69,6 +70,8 @@ export const LOG_RECORD_SCHEMA = {
   'ticket-release-marked':           { subject: 'ticket', fields: { group: 'text' } },
   'ticket-release-cleared':          { subject: 'ticket', fields: NO_FIELDS },
   'ticket-epics-set':                { subject: 'ticket', fields: { epics: 'epic-keys' } },
+  // An empty `domains` cleared the line.
+  'ticket-network-set':              { subject: 'ticket', fields: { domains: 'network-domains' } },
   'ticket-check-command-restamped':  { subject: 'ticket', fields: { command: 'check-command' } },
   'epic-added':                      { subject: 'epic', fields: { title: 'text' } },
   'epic-edited':                     { subject: 'epic', fields: { title: 'text' } },

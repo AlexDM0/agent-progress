@@ -4,6 +4,7 @@
  */
 import type { Draft }                from './@types/Draft.ts';
 import type { Epic }                 from './@types/Epic.ts';
+import type { LogRecord }            from './@types/LogRecord.ts';
 import type { Task, TaskStatus }     from './@types/Task.ts';
 import type { Ticket, TicketStatus } from './@types/Ticket.ts';
 import type { TrackerProgress }      from './@types/TrackerProgress.ts';
@@ -28,12 +29,25 @@ export class BoardRecords {
 
   readonly removedDraftRecords: Draft[] = [];
 
+  /** What this invocation logged, in order, after `storedLogRecords`: the readiness order reads both. */
+  readonly loggedRecords: LogRecord[] = [];
+
+  /** Logs through the sink logger and keeps the record in `loggedRecords`. */
+  readonly logger: Logger = {
+    log: (content, at) => {
+      const record = this.sinkLogger.log(content, at);
+      this.loggedRecords.push(record);
+      return record;
+    },
+  };
+
   constructor(
     readonly progress: TrackerProgress,
     readonly ticketRecords: Ticket[],
     readonly epicRecords: Epic[],
     readonly draftRecords: Draft[],
-    readonly logger: Logger,
+    private readonly sinkLogger: Logger,
+    readonly storedLogRecords: readonly LogRecord[],
   ) {}
 
   markChanged(ticket: Ticket): void {

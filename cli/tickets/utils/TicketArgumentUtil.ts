@@ -65,6 +65,11 @@ function epicKeyListFrom(texts: readonly string[]): string[] {
   return [...new Set(texts.flatMap((text) => text.split(LIST_SEPARATOR_PATTERN)).filter((part) => part !== ''))];
 }
 
+/** The domains as written, comma or space separated; whether each is public is the Board's to judge. */
+function networkDomainListFrom(texts: readonly string[]): string[] {
+  return texts.flatMap((text) => text.split(LIST_SEPARATOR_PATTERN)).filter((part) => part !== '');
+}
+
 function dependencyListFrom(texts: readonly string[]): string[] {
   const dependsOn: string[] = [];
   for (const reference of texts.flatMap((text) => text.split(LIST_SEPARATOR_PATTERN)).filter((part) => part !== '')) {
@@ -102,6 +107,7 @@ export const TicketArgumentUtil = {
   agentEffortFrom,
   dependencyListFrom,
   epicKeyListFrom,
+  networkDomainListFrom,
   linkedTicketIdFrom,
   refuseAnUnknownTicketStatus,
 } as const;

@@ -40,9 +40,8 @@ export async function transitionOneTicket(
     }, change.at);
     return {
       move,
-      startedReviewBar:     reviewBarStartedFor(change, move.ticket, reviewBarRequest),
-      unsettled:            board.unsettledDependenciesOf(ticketId),
-      holdingBackTicketIds: board.ticketIdsHoldingBack(ticketId),
+      startedReviewBar: reviewBarStartedFor(change, move.ticket, reviewBarRequest),
+      unsettled:        board.unsettledDependenciesOf(ticketId),
     };
   });
 
@@ -63,8 +62,4 @@ export async function transitionOneTicket(
   }
   if (move.ticket.frontmatter.hold !== undefined) {
     context.standardError(`Ticket #${id} is held; it was started anyway, and \`${PRODUCT_NAMES.PROGRAM} ticket unhold ${id}\` lifts the hold.`);
-  }
-  if (moved.holdingBackTicketIds.length > 0) {
-    context.standardError(`${TicketPhraseUtil.lowPriorityHeldBackText(id, moved.holdingBackTicketIds)}; it was started anyway.`);
-  }
-}
+  } }

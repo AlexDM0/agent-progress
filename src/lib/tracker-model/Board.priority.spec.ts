@@ -1,6 +1,6 @@
 /**
- * A priority decides whether a ticket has a row: lowering takes a pending ticket's row away and is refused otherwise, and raising seeds a
- * row from the stamps, so an abandoned ticket never returns as a pending bar. Refusals are asserted by reason code.
+ * A priority only orders the queue: lowering keeps a pending ticket's row and is refused past pending, and raising a low ticket that has no
+ * row seeds one from the stamps, so an abandoned ticket never returns as a pending bar. Refusals are asserted by reason code.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -17,20 +17,19 @@ const FINISHED_AT  = '2026-09-18T12:00:00+02:00';
 const CHANGED_AT   = '2026-09-18T15:00:00+02:00';
 
 describe('lowering', () => {
-  test('lowering a pending ticket to low removes its row and logs the change', () => {
+  // Priority only orders the queue: a lowered ticket stays ready, so it keeps the row a ready ticket has.
+  test('lowering a pending ticket to low keeps its row and logs the change', () => {
+    const pendingRow = taskFixture({ id: 1, name: '#001 Example checkout page', ticket: '001' });
     const {
       board,
       progress,
       tickets,
       records,
-    } = boardFixture({
-      tasks:   [taskFixture({ id: 1, name: '#001 Example checkout page', ticket: '001' })],
-      tickets: [ticketFixture({ id: '001', task: 1 })],
-    });
+    } = boardFixture({ tasks: [pendingRow], tickets: [ticketFixture({ id: '001', task: 1 })] });
     const changed = board.setTicketPriority('001', 'low', CHANGED_AT);
 
-    expect(progress.tasks).toEqual([]);
-    expect(tickets[0]?.frontmatter).toMatchObject({ priority: 'low', task: null, updated: FILED_AT });
+    expect(progress.tasks).toEqual([pendingRow]);
+    expect(tickets[0]?.frontmatter).toMatchObject({ priority: 'low', task: 1, updated: FILED_AT });
     expect(records).toEqual([{
       at:       CHANGED_AT,
       kind:     'ticket-priority-changed',

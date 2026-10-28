@@ -19,10 +19,10 @@ function namingThisProgram(message: string): string {
 /**
  * Taken from the binary before the Board existed, at bc42604 (the last commit before step 4b). To retake a row, check that commit out in
  * a worktree, run the refused command with `bun run <worktree>/agent-progress.ts` in a scratch git repository after `init`, and copy its
- * standard error. Rows no command reaches easily (the singular limit, a ticket-owned row sent to re-review, a held-back ticket with one
- * blocker) are read from the wording in bc42604:cli/task/TaskCommand.ts, bc42604:cli/ticket/TicketCommand.ts and
- * bc42604:lib/tickets/TicketTransitions.ts. The two review-record reasons are newer than bc42604, and their rows were taken from the wording util
- * when they were added, as were the four draft reasons and the lowering row's "draft or pending".
+ * standard error. Rows no command reaches easily (the singular limit, a ticket-owned row sent to re-review) are read from the wording in
+ * bc42604:cli/task/TaskCommand.ts, bc42604:cli/ticket/TicketCommand.ts and bc42604:lib/tickets/TicketTransitions.ts. The two review-record
+ * reasons are newer than bc42604, and their rows were taken from the wording util when they were added, as were the four draft reasons, the
+ * lowering row's "draft or pending" and the three network reasons.
  */
 const MESSAGE_FOR_REFUSAL: readonly (readonly [BoardRefusalDetail, string])[] = [
   [{ reason: 'unknown-task', taskId: 99 }, 'There is no task #99. Run `agent-progress status` to see the rows this tracker holds.'],
@@ -139,14 +139,22 @@ const MESSAGE_FOR_REFUSAL: readonly (readonly [BoardRefusalDetail, string])[] = 
     'Ticket #001 is held, so it is not claimed. Nothing was written; `agent-progress ticket unhold 001` lets it be claimed.',
   ],
   [
-    { reason: 'claim-of-held-back-low-ticket', ticketId: '006', holdingBackTicketIds: ['001', '003', '004', '005', '007'] },
-    'Ticket #006 is low priority, and #001, #003, #004, #005, #007 are normal or high and not delivered or abandoned yet, so it is not claimed. '
-    + 'Nothing was written; `agent-progress ticket start 006` starts it regardless.',
+    { reason: 'network-of-a-ticket-past-pending', ticketId: '006', status: 'in-progress' },
+    'Ticket #006 is in-progress, and its network line was not changed: it is set only while the ticket is draft or pending. Nothing was written.',
   ],
   [
-    { reason: 'claim-of-held-back-low-ticket', ticketId: '002', holdingBackTicketIds: ['001'] },
-    'Ticket #002 is low priority, and #001 is normal or high and not delivered or abandoned yet, so it is not claimed. '
-    + 'Nothing was written; `agent-progress ticket start 002` starts it regardless.',
+    { reason: 'network-domain-not-public', ticketId: '002', domains: ['localhost'] },
+    'Ticket #002\'s network line was not changed: localhost is not a public domain, '
+    + 'and a loopback name, a .local name or a loopback or private IP address is never granted. Nothing was written.',
+  ],
+  [
+    { reason: 'network-domain-not-public', ticketId: '002', domains: ['printer.local', '10.0.0.1'] },
+    'Ticket #002\'s network line was not changed: printer.local, 10.0.0.1 are not public domains, '
+    + 'and a loopback name, a .local name or a loopback or private IP address is never granted. Nothing was written.',
+  ],
+  [
+    { reason: 'network-unchanged', ticketId: '002', domains: [] },
+    'Ticket #002\'s network line was not changed: it already reads no domain. Nothing was written.',
   ],
   [
     { reason: 'claim-under-review', ticketId: '004', reviewBarTaskId: 7 },
@@ -355,7 +363,7 @@ const MESSAGE_FOR_REFUSAL: readonly (readonly [BoardRefusalDetail, string])[] = 
   ],
 ];
 
-const REFUSAL_REASON_COUNT = 43;
+const REFUSAL_REASON_COUNT = 45;
 
 test('every reason words as the refusal the command printed before the Board refused for it', () => {
   expect(new Set(MESSAGE_FOR_REFUSAL.map(([detail]) => detail.reason)).size, 'the table covers every reason').toBe(REFUSAL_REASON_COUNT);

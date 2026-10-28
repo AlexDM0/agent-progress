@@ -41,7 +41,7 @@ export async function renderDashboardDocument(input: DashboardDocumentInput, ren
 
   const pageBundle        = await renderState.pageBundler.bundlePageScript();
   const pageScriptFailure = pageBundle.verdict === 'failed' ? pageBundle.reason : null;
-  const board             = readingBoardOf(progress, tickets, epics, input.drafts ?? []);
+  const board             = readingBoardOf(progress, tickets, epics, input.drafts ?? [], logRecords);
 
   const document = fillPageTemplate({
     progress,

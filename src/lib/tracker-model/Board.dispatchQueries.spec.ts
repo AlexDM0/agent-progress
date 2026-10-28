@@ -242,8 +242,8 @@ describe('a release group awaiting its release', () => {
     });
   });
 
-  // The owner's decision: a group's unreleased work is still open normal work.
-  test('still holds low work back with the group\'s tickets it leaves out', () => {
+  // Ready means build: a group's unreleased work no longer keeps a low ticket out.
+  test('holds no low work back with the group\'s tickets it leaves out', () => {
     const { board } = boardFixture({
       tickets: [
         ticketFixture({ id: '001', status: 'reviewed', group: 'example-group' }),
@@ -257,8 +257,7 @@ describe('a release group awaiting its release', () => {
       ],
     });
 
-    expect(board.dispatchCapacity().readyTicketIds).toEqual([]);
-    expect(board.ticketIdsHoldingBack('003')).toEqual(['001', '002']);
+    expect(board.dispatchCapacity().readyTicketIds).toEqual(['003']);
   });
 });
 
@@ -283,23 +282,20 @@ describe('held normal and high work', () => {
     });
   }
 
-  // A held ticket waits on something outside the board; counting it would stall every low ticket until the hold lifts.
   test('holds no low work back: the low tickets with settled dependencies are ready, listed and claimable', () => {
     const { board } = heldWorkBoard();
 
-    expect(board.ticketIdsHoldingBack('003')).toEqual([]);
     expect(board.dispatchCapacity().readyTicketIds).toEqual(['001', '003', '004']);
     expect(board.readyTicketEntries().map((entry) => entry.id)).toEqual(['001', '003', '004']);
     expect(board.claimTickets(['003'], { owner: 'Alex Example' }, HELD_AT).tickets.map((ticket) => ticket.frontmatter.status)).toEqual(['in-progress']);
   });
 
-  test('holds low work back again the moment one is unheld, with nothing else changed', () => {
+  test('unholding one changes only its held flag: the low tickets stay ready behind it', () => {
     const { board } = heldWorkBoard();
     board.unholdTicket('001', HELD_AT);
 
-    expect(board.ticketIdsHoldingBack('003')).toEqual(['001']);
-    expect(board.dispatchCapacity().readyTicketIds).toEqual(['001']);
-    expect(board.readyTicketEntries().map((entry) => entry.id)).toEqual(['001']);
+    expect(board.dispatchCapacity().readyTicketIds).toEqual(['001', '003', '004']);
+    expect(board.readyTicketEntries().find((entry) => entry.id === '001')?.held).toBeUndefined();
   });
 
   test('leaves a held low ticket flagged held, and a claim of it refused', () => {
@@ -311,14 +307,13 @@ describe('held normal and high work', () => {
 });
 
 describe('unheld normal and high work', () => {
-  test.each(['pending', 'in-progress', 'in-review'] as const)('still holds low work back while %s', (status) => {
+  test.each(['pending', 'in-progress', 'in-review'] as const)('holds no low work back while %s', (status) => {
     const { board } = boardFixture({ tickets: [ticketFixture({ id: '001', status }), ticketFixture({ id: '002', priority: 'low' })] });
 
-    expect(board.ticketIdsHoldingBack('002')).toEqual(['001']);
-    expect(board.dispatchCapacity().readyTicketIds).not.toContain('002');
+    expect(board.dispatchCapacity().readyTicketIds).toContain('002');
   });
 
-  test('still holds low work back as a reviewed release-bundle ticket awaiting its release', () => {
+  test('holds no low work back as a reviewed release-bundle ticket awaiting its release', () => {
     const { board } = boardFixture({
       tickets: [
         ticketFixture({ id: '001', status: 'reviewed', group: 'example-group' }),
@@ -334,8 +329,7 @@ describe('unheld normal and high work', () => {
       ],
     });
 
-    expect(board.ticketIdsHoldingBack('003')).toEqual(['001']);
-    expect(board.dispatchCapacity().readyTicketIds).toEqual([]);
+    expect(board.dispatchCapacity().readyTicketIds).toEqual(['003']);
   });
 });
 

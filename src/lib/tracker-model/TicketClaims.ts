@@ -94,8 +94,6 @@ export class TicketClaims {
     const unsettledTicketIds = this.dispatchQueries.unsettledDependenciesOf(ticketId).filter((dependencyId) => !settledTicketIds.includes(dependencyId));
     if (unsettledTicketIds.length > 0) throw new BoardRefusal({ reason: 'claim-waits-on-dependencies', ticketId, unsettledTicketIds });
     if (ticket.frontmatter.hold !== undefined) throw new BoardRefusal({ reason: 'claim-of-a-held-ticket', ticketId });
-    const holdingBackTicketIds = this.dispatchQueries.ticketIdsHoldingBack(ticketId);
-    if (holdingBackTicketIds.length > 0) throw new BoardRefusal({ reason: 'claim-of-held-back-low-ticket', ticketId, holdingBackTicketIds });
   }
 
   // An in-progress review bar is a reviewer at work, so a builder claiming the ticket, a second dispatcher run's among them, would rebuild it in review.

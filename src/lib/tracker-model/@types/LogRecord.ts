@@ -17,6 +17,7 @@ interface ValueOfFieldShape {
   'agent-pair':        AgentPair;
   'ticket-ids':        readonly string[];
   'epic-keys':         readonly string[];
+  'network-domains':   readonly string[];
   'review-round':      number;
   'chart-range':       ViewRange;
   'concurrency-limit': number;

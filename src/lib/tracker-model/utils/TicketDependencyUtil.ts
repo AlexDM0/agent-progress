@@ -1,7 +1,7 @@
 /** Which tickets another ticket still waits on, which are ready to claim, and whether a new dependency list would close a loop. */
-import type { TicketPriority, TicketStatus }                                                                      from '../@types/Ticket.ts';
-import { SETTLED_TICKET_STATUSES, TICKET_STATUSES_THAT_CLOSE_A_TICKET, TICKET_STATUSES_THAT_SETTLE_A_DEPENDENCY } from '../constants/Statuses.ts';
-import { TicketDefaultsUtil }                                                                                     from './TicketDefaultsUtil.ts';
+import type { TicketPriority, TicketStatus }                                             from '../@types/Ticket.ts';
+import { TICKET_STATUSES_THAT_CLOSE_A_TICKET, TICKET_STATUSES_THAT_SETTLE_A_DEPENDENCY } from '../constants/Statuses.ts';
+import { TicketDefaultsUtil }                                                            from './TicketDefaultsUtil.ts';
 
 /** A dependency that is missing from `statusById` still counts as unsettled: a ticket nobody can see is not finished work. */
 function unsettledDependenciesOf(dependsOn: readonly string[], statusById: ReadonlyMap<string, TicketStatus>): string[] {
@@ -44,35 +44,27 @@ interface ReadinessTicket {
   status:     TicketStatus;
   priority?:  TicketPriority;
   dependsOn?: readonly string[];
-  hold?:      string;
 }
 
 const PRIORITY_RANK: Record<TicketPriority, number> = { high: 0, normal: 1, low: 2 };
 
-/**
- * The unheld normal and high tickets not yet settled, lowest id first: a reviewed ticket is still owed a merge, so while any is left no low
- * ticket is ready. A held ticket waits on something outside the board, so it owes nothing a low ticket could delay.
- */
-function ticketsHoldingBackLowPriorityWork(tickets: readonly ReadinessTicket[]): string[] {
-  return tickets
-    .filter((ticket) => (
-      TicketDefaultsUtil.ticketPriorityOf(ticket) !== 'low' && ticket.hold === undefined && !SETTLED_TICKET_STATUSES.includes(ticket.status)
-    ))
-    .map((ticket) => ticket.id)
-    .sort((a, b) => Number(a) - Number(b));
-}
+/** A ticket with no readiness position, readied before positions were logged or behind a clearing, ranks before every positioned one. */
+const UNRECORDED_READINESS_POSITION = -1;
 
 /**
- * The pending tickets whose every dependency is reviewed or delivered — high before normal, then lowest id first — that an agent could claim next.
- * Low tickets are among them only once `ticketsHoldingBackLowPriorityWork` is empty.
+ * The pending tickets whose every dependency is reviewed or delivered, in the order to take them: by priority, then by readiness (the log
+ * position that last put the ticket in the queue), then lowest id first. Priority only orders: a low ticket is as ready as any other.
  */
-function readyTicketIdsOf(tickets: readonly ReadinessTicket[]): string[] {
-  const statusById        = new Map(tickets.map((ticket) => [ticket.id, ticket.status]));
-  const lowPriorityIsHeld = ticketsHoldingBackLowPriorityWork(tickets).length > 0;
+function readyTicketIdsOf(tickets: readonly ReadinessTicket[], readinessPositionByTicketId: ReadonlyMap<string, number> = new Map()): string[] {
+  const statusById          = new Map(tickets.map((ticket) => [ticket.id, ticket.status]));
+  const readinessPositionOf = (ticket: ReadinessTicket): number => readinessPositionByTicketId.get(ticket.id) ?? UNRECORDED_READINESS_POSITION;
   return tickets
     .filter((ticket) => ticket.status === 'pending' && unsettledDependenciesOf(ticket.dependsOn ?? [], statusById).length === 0)
-    .filter((ticket) => !lowPriorityIsHeld || TicketDefaultsUtil.ticketPriorityOf(ticket) !== 'low')
-    .sort((a, b) => PRIORITY_RANK[TicketDefaultsUtil.ticketPriorityOf(a)] - PRIORITY_RANK[TicketDefaultsUtil.ticketPriorityOf(b)] || Number(a.id) - Number(b.id))
+    .sort((a, b) => (
+      PRIORITY_RANK[TicketDefaultsUtil.ticketPriorityOf(a)] - PRIORITY_RANK[TicketDefaultsUtil.ticketPriorityOf(b)]
+      || readinessPositionOf(a) - readinessPositionOf(b)
+      || Number(a.id) - Number(b.id)
+    ))
     .map((ticket) => ticket.id);
 }
 
@@ -80,6 +72,5 @@ export const TicketDependencyUtil = {
   unsettledDependenciesOf,
   waitingOnOf,
   dependencyLoopFrom,
-  ticketsHoldingBackLowPriorityWork,
   readyTicketIdsOf,
 } as const;

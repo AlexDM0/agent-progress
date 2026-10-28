@@ -6,6 +6,7 @@
 
 import type { LineEnding, RetiredTicketType, TicketFrontmatter } from '../../../lib/tracker-model/@types/Ticket.ts';
 import { EpicUtil }                                              from '../../../lib/tracker-model/utils/EpicUtil.ts';
+import { NetworkDomainUtil }                                     from '../../../lib/tracker-model/utils/NetworkDomainUtil.ts';
 import { TicketIdUtil }                                          from '../../../lib/tracker-model/utils/TicketIdUtil.ts';
 import { VocabularyUtil }                                        from '../../../lib/tracker-model/utils/VocabularyUtil.ts';
 import { OLDER_FORMAT_ADVICE }                                   from '../../constants/OlderFormatAdvice.ts';
@@ -73,6 +74,7 @@ const KNOWN_KEYS = new Set<string>([
   RELEASES_GROUP_KEY,
   'dependsOn',
   'epics',
+  'network',
   ...TICKET_LINK_KEYS,
   CLAIMED_BODY_HASH_KEY,
   'task',
@@ -203,6 +205,10 @@ function ticketDocumentTextOf(frontmatter: TicketFrontmatter, body: string, line
 
   if (frontmatter.epics !== undefined && frontmatter.epics.length > 0) {
     lines.push(`epics: ${JSON.stringify(frontmatter.epics.join(FRONTMATTER_LIST_JOINER))}`);
+  }
+
+  if (frontmatter.network !== undefined && frontmatter.network.length > 0) {
+    lines.push(`network: ${JSON.stringify(frontmatter.network.join(FRONTMATTER_LIST_JOINER))}`);
   }
 
   for (const key of TICKET_LINK_KEYS) {
@@ -377,6 +383,7 @@ function frontmatterFrom(
     ...releasesGroupField(knownValues),
     ...dependencyField(knownValues),
     ...epicsField(knownValues),
+    ...networkField(knownValues),
     ...ticketLinkFields(knownValues),
     ...claimedBodyHashField(knownValues),
     task:        nullableInteger(knownValues, 'task'),
@@ -525,6 +532,23 @@ function epicsField(knownValues: Map<string, KnownValue>): Pick<TicketFrontmatte
     }
   }
   return epics.length === 0 ? {} : { epics };
+}
+
+/**
+ * Written `"api.example.com, cdn.example.com"` and read like `epics`; a domain that is not public makes the file malformed, so a hand edit
+ * grants nothing local.
+ */
+function networkField(knownValues: Map<string, KnownValue>): Pick<TicketFrontmatter, 'network'> {
+  const found = knownValues.get('network');
+  if (found === undefined || found.value === null) {
+    return {};
+  }
+  const network = NetworkDomainUtil.normalisedDomainListOf(String(found.value).split(FRONTMATTER_LIST_SEPARATOR_PATTERN));
+  const nonPublicDomain = network.find((domain) => !NetworkDomainUtil.domainIsPublic(domain));
+  if (nonPublicDomain !== undefined) {
+    throw new FrontmatterProblem(`\`network\` names something that is not a public domain: ${nonPublicDomain}`, found.line);
+  }
+  return network.length === 0 ? {} : { network };
 }
 
 /** Absent or `null` was never claimed; any other value is kept as text, so a hand-changed hash reads as a changed body rather than a malformed file. */

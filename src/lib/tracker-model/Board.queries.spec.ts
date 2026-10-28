@@ -6,6 +6,8 @@
 import { expect, test } from 'bun:test';
 
 import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures.ts';
+import { Board }                                    from './Board.ts';
+import { createLogger }                             from './Logger.ts';
 
 test('a ticket reference resolves written as 3, #3 or 003', () => {
   const { board } = boardFixture({ tickets: [ticketFixture({ id: '001' }), ticketFixture({ id: '003', title: 'Example basket badge' })] });
@@ -67,24 +69,6 @@ test('a ticket waits on its unsettled dependencies only while it is still to be 
   expect(board.tickets().map((ticket) => board.waitingOnOf(ticket))).toEqual([[], ['001', '009'], []]);
 });
 
-test('a low ticket is held back by every normal or high ticket not yet delivered or abandoned, and any other ticket by none', () => {
-  const { board } = boardFixture({
-    tickets: [
-      ticketFixture({ id: '001', status: 'reviewed' }),
-      ticketFixture({ id: '002', priority: 'high', status: 'delivered' }),
-      ticketFixture({ id: '003', priority: 'high' }),
-      ticketFixture({ id: '004', priority: 'low' }),
-      ticketFixture({ id: '005', priority: 'low', status: 'in-progress' }),
-    ],
-  });
-  expect(board.ticketIdsHoldingBack('004')).toEqual(['001', '003']);
-  expect(board.ticketIdsHoldingBack('001')).toEqual([]);
-
-  const settledTickets          = [ticketFixture({ id: '001', status: 'delivered' }), ticketFixture({ id: '002', priority: 'low' })];
-  const { board: settledBoard } = boardFixture({ tickets: settledTickets });
-  expect(settledBoard.ticketIdsHoldingBack('002')).toEqual([]);
-});
-
 test('ready tickets come high first and then by id, each pending and with every dependency settled', () => {
   const { board } = boardFixture({
     tickets: [
@@ -99,13 +83,47 @@ test('ready tickets come high first and then by id, each pending and with every 
   expect(board.readyTickets().map((ticket) => ticket.frontmatter.id)).toEqual(['003', '010', '002']);
 });
 
-// A low ticket is the orchestrator's to triage, so it is offered only once no normal or high work is owed.
-test('a low ticket is held back from the ready tickets while normal or high work is owed', () => {
-  const { board: busyBoard } = boardFixture({ tickets: [ticketFixture({ id: '001', status: 'in-review' }), ticketFixture({ id: '002', priority: 'low' })] });
-  expect(busyBoard.readyTickets()).toEqual([]);
+// Ready means build: priority only orders, so owed normal work holds no low ticket back.
+test('a low ticket is ready while a normal one is pending and another in review, listed after the normal one', () => {
+  const { board } = boardFixture({
+    tickets: [
+      ticketFixture({ id: '001', status: 'in-review' }),
+      ticketFixture({ id: '002', priority: 'low' }),
+      ticketFixture({ id: '003' }),
+    ],
+  });
+  expect(board.readyTickets().map((ticket) => ticket.frontmatter.id)).toEqual(['003', '002']);
+});
 
-  const { board: quietBoard } = boardFixture({ tickets: [ticketFixture({ id: '001', status: 'delivered' }), ticketFixture({ id: '002', priority: 'low' })] });
-  expect(quietBoard.readyTickets().map((ticket) => ticket.frontmatter.id)).toEqual(['002']);
+test('within a priority the readiness order is the log position of the latest readied or reopened record, a clearing forgetting the earlier ones', () => {
+  const at      = '2026-09-26T10:15:00+02:00';
+  const tickets = ['001', '002', '003', '004'].map((id) => ticketFixture({ id }));
+  const board   = new Board({
+    progress:         boardFixture().progress,
+    tickets,
+    epics:            [],
+    logger:           createLogger(() => undefined),
+    storedLogRecords: [
+      {
+        at, kind: 'ticket-readied', ticketId: '001', fields: {}
+      },
+      { at, kind: 'tracker-cleared', fields: {} },
+      {
+        at, kind: 'ticket-readied', ticketId: '003', fields: {}
+      },
+      {
+        at, kind: 'ticket-readied', ticketId: '002', fields: {}
+      },
+      {
+        at, kind: 'ticket-reopened', ticketId: '003', fields: {}
+      },
+    ],
+  });
+  expect(board.readyTickets().map((ticket) => ticket.frontmatter.id)).toEqual(['001', '004', '002', '003']);
+
+  board.moveTicket('002', 'in-progress', { checksLegality: true }, at);
+  board.moveTicket('002', 'pending', { checksLegality: false }, at);
+  expect(board.readyTickets().map((ticket) => ticket.frontmatter.id)).toEqual(['001', '004', '003', '002']);
 });
 
 test('the held ids are every held ticket an agent may still work, in progress and in review included, and no settled one', () => {
@@ -122,7 +140,7 @@ test('the held ids are every held ticket an agent may still work, in progress an
   expect(board.heldTicketIds()).toEqual(['001', '002', '003']);
 });
 
-/** A normal ticket held, a high one with its agents named, and a low one held back by both, beside one agent in flight. */
+/** A normal ticket held, a high one with its agents named, and a low one, beside one agent in flight. */
 function boardWithHeldAndLowTickets(): ReturnType<typeof boardFixture> {
   return boardFixture({
     tasks:   [taskFixture({ id: 1, status: 'in-progress' })],
@@ -148,7 +166,7 @@ test('the dispatch capacity is the concurrency, then the ready ids in the order 
     limit:           3,
     agentsInFlight:  1,
     freeSlots:       2,
-    readyTicketIds:  ['002', '001'],
+    readyTicketIds:  ['002', '001', '003'],
     dispatcherState: 'stopped',
     heldTicketIds:   ['001'],
   });
@@ -168,6 +186,12 @@ test('the ready entries list the ready tickets in the same order with every defa
       model:    'opus',
       effort:   'medium',
       held:     true,
+    },
+    {
+      id:       '003',
+      priority: 'low',
+      model:    'opus',
+      effort:   'medium',
     },
   ]);
 });

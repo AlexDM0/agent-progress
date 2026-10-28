@@ -561,3 +561,35 @@ describe('epics', () => {
     });
   });
 });
+
+describe('network', () => {
+  test('is written comma-separated after the epics and read back in order', () => {
+    const { frontmatter, body } = parsedDocument(FULL_TICKET);
+    frontmatter.epics           = ['search'];
+    frontmatter.network         = ['api.example.com', 'cdn.example.com'];
+
+    const written = TicketDocumentUtil.ticketDocumentTextOf(frontmatter, body);
+
+    expect(written).toContain('epics: "search"\nnetwork: "api.example.com, cdn.example.com"\ntask: 17');
+    expect(parsedDocument(written).frontmatter.network).toEqual(['api.example.com', 'cdn.example.com']);
+  });
+
+  test('a ticket without the key writes back byte for byte, and a cleared line leaves the file as one that never had it', () => {
+    const { frontmatter, body } = parsedDocument(FULL_TICKET);
+
+    expect(Object.hasOwn(frontmatter, 'network')).toBe(false);
+    expect(TicketDocumentUtil.ticketDocumentTextOf(frontmatter, body)).toBe(FULL_TICKET);
+    frontmatter.network = [];
+    expect(TicketDocumentUtil.ticketDocumentTextOf(frontmatter, body)).toBe(FULL_TICKET);
+  });
+
+  test('a hand-written line reads lower case, once per domain, and a domain that is not public makes the file malformed', () => {
+    const withNetwork = (value: string): string => FULL_TICKET.replace('task: 17\n', `network: ${value}\ntask: 17\n`);
+
+    expect(parsedDocument(withNetwork('API.example.com,  api.example.com cdn.example.com')).frontmatter.network).toEqual(['api.example.com', 'cdn.example.com']);
+    expect(TicketDocumentUtil.parsedTicketDocumentOf(withNetwork('"api.example.com, localhost"'))).toMatchObject({
+      verdict: 'malformed',
+      reason:  '`network` names something that is not a public domain: localhost',
+    });
+  });
+});

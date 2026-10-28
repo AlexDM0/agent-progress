@@ -51,6 +51,8 @@ export interface TicketFrontmatter {
   dependsOn?:       string[];
   /** The keys of the epics the ticket belongs to, its primary epic first; absent when it belongs to none. */
   epics?:           string[];
+  /** The public domains the ticket's agents may reach, lower case, in the order written; absent when its work needs no network. */
+  network?:         string[];
   /** On a bug only: the padded id of the delivered ticket whose change introduced it; absent when none was named. */
   introducedBy?:    string;
   /** The padded id of the ticket whose review found this one; absent on a ticket no review filed. */

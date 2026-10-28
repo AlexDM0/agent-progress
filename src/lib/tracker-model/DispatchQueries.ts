@@ -36,13 +36,20 @@ export class DispatchQueries {
     return this.records.progress.checkCommand;
   }
 
-  /**
-   * In the order to take them: high first, then by id, with low tickets held back while normal or high work is still owed — a group's
-   * tickets awaiting its release included, so they hold low work back while they are left out here.
-   */
+  /** In the order to take them: by priority, then by readiness, then by id. */
   readyTickets(): readonly Readonly<Ticket>[] {
-    const readyTicketIds = TicketDependencyUtil.readyTicketIdsOf(this.records.ticketRecords.map((ticket) => ticket.frontmatter));
+    const readyTicketIds = TicketDependencyUtil.readyTicketIdsOf(this.records.ticketRecords.map((ticket) => ticket.frontmatter), this.readinessPositionByTicketId());
     return this.withoutGroupRunTickets(readyTicketIds.flatMap((ticketId) => this.records.ticketRecordById(ticketId) ?? []));
+  }
+
+  /** The log position of each ticket's latest `ticket-readied` or `ticket-reopened` record; a clearing forgets every earlier one. */
+  private readinessPositionByTicketId(): Map<string, number> {
+    const positionByTicketId = new Map<string, number>();
+    [...this.records.storedLogRecords, ...this.records.loggedRecords].forEach((record, position) => {
+      if (record.kind === 'tracker-cleared') positionByTicketId.clear();
+      if (record.kind === 'ticket-readied' || record.kind === 'ticket-reopened') positionByTicketId.set(record.ticketId, position);
+    });
+    return positionByTicketId;
   }
 
   /** Read from the ready tickets, as `readyTicketIds` is, so the two lists cannot disagree on a member or the order; defaults resolved here. */
@@ -66,7 +73,7 @@ export class DispatchQueries {
 
   /**
    * What a dispatcher needs to start the next agent: the limit, the agents in flight against it, what is left, and the tickets that could take it —
-   * in the order to take them, high first, with low tickets held back while normal or high work is still owed — and where the user left the dispatcher.
+   * in the order to take them — and where the user left the dispatcher.
    */
   dispatchCapacity(): DispatchCapacity {
     return {
@@ -86,13 +93,6 @@ export class DispatchQueries {
   /** Judges the record handed in, so a ticket file a hand edit gave another's id answers for itself. */
   waitingOnOf(ticket: Readonly<Ticket>): string[] {
     return TicketDependencyUtil.waitingOnOf(ticket.frontmatter, this.records.ticketStatusById());
-  }
-
-  /** The normal and high tickets a low ticket waits behind; empty for a ticket that is not low, and once none is owed. */
-  ticketIdsHoldingBack(ticketId: string): string[] {
-    const ticket = this.records.requireTicket(ticketId);
-    if (TicketDefaultsUtil.ticketPriorityOf(ticket.frontmatter) !== 'low') return [];
-    return TicketDependencyUtil.ticketsHoldingBackLowPriorityWork(this.records.ticketRecords.map((candidate) => candidate.frontmatter));
   }
 
   /** Only an in-progress ticket has a build to resume; a ticket that moved on took its row along. */

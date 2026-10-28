@@ -18,7 +18,9 @@ import type { TicketSubcommandHandler }          from './@types/TicketSubcommand
 import { TICKET_USAGE }                          from './constants/TicketUsage.ts';
 import { TicketArgumentUtil }                    from './utils/TicketArgumentUtil.ts';
 
-const ADD_OPTION_NAMES = ['type', 'priority', 'size', 'model', 'effort', 'group', 'depends-on', 'epic', 'introduced-by', 'found-in-review', 'body', 'body-file', 'at', 'json'];
+const ADD_OPTION_NAMES = [
+  'type', 'priority', 'size', 'model', 'effort', 'group', 'depends-on', 'epic', 'network', 'introduced-by', 'found-in-review', 'body', 'body-file', 'at', 'json',
+];
 
 const TICKET_BODY_TEMPLATE_PATH = ['templates', 'TicketBody.md'];
 
@@ -54,6 +56,7 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
   const group     = commandArguments.option('group');
   const dependsOn = TicketArgumentUtil.dependencyListFrom([commandArguments.option('depends-on') ?? '']);
   const epics     = TicketArgumentUtil.epicKeyListFrom([commandArguments.option('epic') ?? '']);
+  const network   = TicketArgumentUtil.networkDomainListFrom([commandArguments.option('network') ?? '']);
   const introducedBy  = TicketArgumentUtil.linkedTicketIdFrom(commandArguments.option('introduced-by'));
   const foundInReview = TicketArgumentUtil.linkedTicketIdFrom(commandArguments.option('found-in-review'));
 
@@ -77,7 +80,10 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
     if (size !== undefined) ticket.frontmatter.size = size;
     if (model !== undefined) ticket.frontmatter.model = model;
     if (effort !== undefined) ticket.frontmatter.effort = effort;
-    return change.board.fileTicket(ticket, change.at);
+    const filing = change.board.fileTicket(ticket, change.at);
+    if (network.length === 0) return filing;
+    const networkSet = change.board.setTicketNetwork(ticket.frontmatter.id, network, change.at);
+    return { ...filing, logged: [...filing.logged, ...networkSet.logged] };
   });
 
   OutputUtil.printEntityThenNextLine(

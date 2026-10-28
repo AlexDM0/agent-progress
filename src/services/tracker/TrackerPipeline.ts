@@ -69,11 +69,12 @@ interface OpenBoard {
 function openBoard(contents: TrackerContents): OpenBoard {
   const logRecordCollector = createLogRecordCollector(contents.storedLog);
   const board              = new Board({
-    progress: contents.progress,
-    tickets:  contents.listing.tickets,
-    epics:    contents.epicListing.epics,
-    drafts:   contents.draftListing.drafts,
-    logger:   createLogger(logRecordCollector.collect),
+    progress:         contents.progress,
+    tickets:          contents.listing.tickets,
+    epics:            contents.epicListing.epics,
+    drafts:           contents.draftListing.drafts,
+    logger:           createLogger(logRecordCollector.collect),
+    storedLogRecords: contents.storedLog.records,
   });
   return { contents, logRecordCollector, board };
 }

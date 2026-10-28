@@ -103,9 +103,6 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
         + `which must be reviewed or delivered before it is claimed. ${NOTHING_WAS_WRITTEN}`;
     case 'claim-of-a-held-ticket':
       return `Ticket #${detail.ticketId} is held, so it is not claimed. Nothing was written; \`${PRODUCT_NAMES.PROGRAM} ticket unhold ${detail.ticketId}\` lets it be claimed.`;
-    case 'claim-of-held-back-low-ticket':
-      return `${TicketPhraseUtil.lowPriorityHeldBackText(detail.ticketId, detail.holdingBackTicketIds)}, so it is not claimed. `
-        + `Nothing was written; \`${PRODUCT_NAMES.PROGRAM} ticket start ${detail.ticketId}\` starts it regardless.`;
     case 'claim-under-review':
       return `Ticket #${detail.ticketId} is under review: its review row #${detail.reviewBarTaskId} is in progress. ${NOTHING_WAS_WRITTEN}`;
     case 'claim-after-a-ticket-not-in-review':
@@ -189,6 +186,16 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
     case 'edit-of-a-ticket-past-pending':
       return `Ticket #${detail.ticketId} is ${StatusWordingUtil.statusTextFor(detail.status)}, and it was not edited: an agent may already be working from it. `
         + `${NOTHING_WAS_WRITTEN} Pass --force to edit it anyway; the change shows as the body changed since the claim.`;
+    case 'network-of-a-ticket-past-pending':
+      return `Ticket #${detail.ticketId} is ${StatusWordingUtil.statusTextFor(detail.status)}, and its network line was not changed: `
+        + `it is set only while the ticket is draft or pending. ${NOTHING_WAS_WRITTEN}`;
+    case 'network-domain-not-public':
+      return `Ticket #${detail.ticketId}'s network line was not changed: ${detail.domains.join(', ')} `
+        + `${detail.domains.length === 1 ? 'is not a public domain' : 'are not public domains'}, `
+        + `and a loopback name, a .local name or a loopback or private IP address is never granted. ${NOTHING_WAS_WRITTEN}`;
+    case 'network-unchanged':
+      return `Ticket #${detail.ticketId}'s network line was not changed: it already reads `
+        + `${detail.domains.length === 0 ? 'no domain' : detail.domains.join(', ')}. ${NOTHING_WAS_WRITTEN}`;
     case 'agents-of-a-settled-ticket':
       return `Ticket #${detail.ticketId} is ${StatusWordingUtil.statusTextFor(detail.status)}, `
         + `and its agents were not changed: no agent will work it again. ${NOTHING_WAS_WRITTEN}`;

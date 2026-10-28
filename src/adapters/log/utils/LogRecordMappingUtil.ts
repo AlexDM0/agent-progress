@@ -42,6 +42,7 @@ const COPY_FOR_FIELD_SHAPE: Readonly<Record<LogFieldShape, (value: unknown) => u
   'agent-pair':        (value) => agentPairOf(value as AgentPair),
   'ticket-ids':        listCopyOf,
   'epic-keys':         listCopyOf,
+  'network-domains':   listCopyOf,
   'review-round':      sameValue,
   'chart-range':       (value) => viewRangeOf(value as ViewRange),
   'concurrency-limit': sameValue,

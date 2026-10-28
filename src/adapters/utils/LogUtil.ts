@@ -110,6 +110,10 @@ function sentenceOf(record: LogRecordContent): string {
       return `Ticket #${record.ticketId} no longer marked as its group's release ticket`;
     case 'ticket-epics-set':
       return `Ticket #${record.ticketId} belongs to ${epicsText(record.fields.epics)}`;
+    case 'ticket-network-set':
+      return record.fields.domains.length === 0
+        ? `Ticket #${record.ticketId} needs no network`
+        : `Ticket #${record.ticketId} network: ${record.fields.domains.join(', ')}`;
     case 'ticket-check-command-restamped':
       return record.fields.command === null
         ? `Ticket #${record.ticketId} restamped with no check command`
