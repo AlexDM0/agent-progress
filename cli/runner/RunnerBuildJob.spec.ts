@@ -18,6 +18,7 @@ import {
 import { hostFilesOf }                                 from '../../src/lib/agent-host/HostFiles.ts';
 import type { HostLaunch }                             from '../../src/lib/agent-host/HostLaunch.ts';
 import type { HostRecord }                             from '../../src/lib/agent-host/HostRecord.ts';
+import type { Job, JobState }                          from '../../src/lib/tracker-model/@types/Job.ts';
 import type { Board }                                  from '../../src/lib/tracker-model/Board.ts';
 import { GateRun }                                     from '../../src/services/lifecycle/GateRun.ts';
 import { createRenderState }                           from '../../src/services/render/RenderState.ts';
@@ -59,6 +60,7 @@ let repositoryDirectory = '';
 let monitorFolder = '';
 let runnerLog: string[] = [];
 let buildStates: string[] = [];
+let jobsNotingStateAssignments = new WeakSet<object>();
 let mainTipAtStart = '';
 
 async function run(commandLineArguments: readonly string[]) {
@@ -68,11 +70,39 @@ async function run(commandLineArguments: readonly string[]) {
   return context;
 }
 
-/** Every state the first build job stood in at a hold's phase, each recorded once in order; `ended` once it left the board. */
-function recordBuildState(_phase: string, board: Board): void {
-  const launched = buildStates.length > 0;
-  const state = board.jobs().find((job) => job.kind === 'build' && job.attempt === 1)?.state ?? (launched ? 'ended' : null);
-  if (state !== null && buildStates.at(-1) !== state) buildStates.push(state);
+function noteBuildState(state: string): void {
+  if (buildStates.at(-1) !== state) buildStates.push(state);
+}
+
+/** Turns the job's `state` into an accessor, so every move the hold makes is noted however briefly the job stands in it. */
+function noteEveryStateAssignmentOf(job: Readonly<Job>): void {
+  let { state } = job;
+  Object.defineProperty(job, 'state', {
+    enumerable:   true,
+    configurable: true,
+    get:          () => state,
+    set:          (movedState: JobState) => {
+      state = movedState;
+      noteBuildState(movedState);
+    },
+  });
+  jobsNotingStateAssignments.add(job);
+}
+
+/**
+ * Every state the first build job moved through, each recorded once in order; `ended` once it left the board. Each hold reads a fresh
+ * board, so the job's stored state is read once, where the hold first shows it, and every move after that is noted as it is assigned.
+ */
+function recordBuildStateChanges(_phase: string, board: Board): void {
+  const buildJob = board.jobs().find((job) => job.kind === 'build' && job.attempt === 1);
+  if (buildJob === undefined) {
+    if (buildStates.length > 0) noteBuildState('ended');
+    return;
+  }
+  if (!jobsNotingStateAssignments.has(buildJob)) {
+    noteBuildState(buildJob.state);
+    noteEveryStateAssignmentOf(buildJob);
+  }
 }
 
 async function drivePassPlaying(steps: readonly FakeAgentStep[]): Promise<DrivePass> {
@@ -114,7 +144,7 @@ async function drivePassPlaying(steps: readonly FakeAgentStep[]): Promise<DriveP
     homeDirectory:         monitorFolder,
     log:                   (line) => runnerLog.push(line),
     onLeaseTakenOver:      () => runnerLog.push('taken over'),
-    afterHoldPhase:        recordBuildState,
+    afterHoldPhase:        recordBuildStateChanges,
   });
 }
 
@@ -227,6 +257,7 @@ beforeEach(async () => {
   monitorFolder = createScratchDirectory('h');
   runnerLog = [];
   buildStates = [];
+  jobsNotingStateAssignments = new WeakSet<object>();
   mainTipAtStart = (await Bun.$`git -C ${repositoryDirectory} rev-parse HEAD`.quiet().text()).trim();
   await run(['run', 'resume']);
   await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Export the example roles']);
