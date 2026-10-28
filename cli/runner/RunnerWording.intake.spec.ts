@@ -7,7 +7,6 @@
 import { describe, expect, test } from 'bun:test';
 
 import type { WorkerProfile }  from '../../src/lib/agent-launch/WorkerProfile.ts';
-import { CLAUDE_CODE_ADAPTER } from '../../src/lib/claude-code/ClaudeCodeAdapter.ts';
 import type { Job }            from '../../src/lib/tracker-model/@types/Job.ts';
 import type { JobLaunchFacts } from '../../src/services/runner/DrivePass.ts';
 import { IntakeSessions }      from '../../src/services/runner/IntakeSessions.ts';
@@ -64,30 +63,13 @@ describe('the product owner launch', () => {
     expect(text.firstMessage).toContain('- Which currency?\n  Answer: Euro');
   });
 
+  // `src/lib/claude-code/ClaudeCodeAdapter.spec.ts` holds this profile's rendering: no disallowed tool, slash commands on.
   test('the session runs with skills on, WebFetch and WebSearch allowed and Bash allowed no domain', () => {
     const profile = IntakeSessions.productOwnerProfileOf(SESSION_PROFILE);
-    const plan = CLAUDE_CODE_ADAPTER.planOf({
-      sessionId:         'example-session',
-      resume:            false,
-      workingDirectory:  SESSION_FOLDER,
-      firstMessage:      '/agent-po A basket',
-      roleBrief:         'You are the product owner.',
-      model:             'opus',
-      effort:            'medium',
-      environment:       { HOME: '/Users/example' },
-      profile,
-      jobFilesDirectory: '/Users/example/development/example-repository/.example-data/jobs/J3',
-      reportSchema:      null,
-    });
-    const settingsFile = plan.files.find((file) => file.path.endsWith('settings.json'));
-    const settings = JSON.parse(settingsFile?.text ?? '{}') as { sandbox: { network: { allowedDomains: string[] } } };
 
     expect(profile).toMatchObject({
-      skills: true, askUser: true, webNetworkDomains: 'any', bashNetworkDomains: []
+      skills: true, askUser: true, webNetworkDomains: 'any', bashNetworkDomains: [], writableRoots: [SESSION_FOLDER]
     });
-    expect(plan.argv).not.toContain('--disallowedTools');
-    expect(plan.argv).not.toContain('--disable-slash-commands');
-    expect(settings.sandbox.network.allowedDomains).toEqual([]);
   });
 });
 
