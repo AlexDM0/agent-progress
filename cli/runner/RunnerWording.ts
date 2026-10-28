@@ -185,6 +185,8 @@ function noticeTextOf(notice: RunnerNotice): string {
         : `landings on ${notice.target} wait: the main checkout's changes to ${notice.blockingFiles.join(', ')} block the fast-forward`;
     case 'incident-defaulted':
       return `incident ${notice.incidentId} took its default, ${notice.move}, as no orchestrator handled it (${notice.cause})`;
+    case 'cleanup-declined':
+      return `git declined the ${notice.cleanup} cleanup of ${notice.groupBranch}, so it is left in place: ${notice.reason}`;
   }
 }
 
