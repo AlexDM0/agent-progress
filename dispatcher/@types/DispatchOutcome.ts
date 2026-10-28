@@ -1,5 +1,5 @@
 /** Why a pass failed, a round was refused or a ticket was parked, as reason codes, and what a run ends with. */
-import type { ReviewFinding } from './AgentReadings.ts';
+import type { RoundRefusal } from '../../src/lib/tracker-model/@types/ReviewRound.ts';
 
 export type PassFailure =
   | { cause: 'builder-returned-nothing' }
@@ -7,24 +7,6 @@ export type PassFailure =
   | { cause: 'builder-stopped-short'; detail: string }
   | { cause: 'reviewer-returned-nothing' }
   | { cause: 'review-does-not-hold' };
-
-export type RoundRefusal =
-  | { reason: 'rework-not-over-threshold'; requestedRound: number; reworkedLines: number }
-  | { reason: 'previous-round-not-reviewed-in-this-run'; requestedRound: number }
-  | { reason: 'findings-not-halved'; requestedRound: number; findingCount: number; previousFindingCount: number }
-  | { reason: 'finding-class-returned'; requestedRound: number; findingClass: string }
-  | { reason: 'new-file-named'; requestedRound: number; file: string };
-
-export type RoundVerdict = { granted: true } | { granted: false; refusal: RoundRefusal };
-
-export interface ReviewedRound {
-  round:    number;
-  findings: ReviewFinding[];
-}
-
-export interface ReviewedRoundWithRework extends ReviewedRound {
-  reworkedLines: number;
-}
 
 export type ParkReason =
   | { cause: 'second-failed-pass'; failure: PassFailure }

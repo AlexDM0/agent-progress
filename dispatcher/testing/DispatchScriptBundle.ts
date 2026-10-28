@@ -1,7 +1,7 @@
 /** The specs' bundle of the dispatcher's entry: the package's Workflow script build, memoised per process, or built from a `SourceMutant`. */
 import { bundleWorkflowScript, type WorkflowScriptBundle } from '../../src/lib/claude-code/WorkflowScriptBundle.ts';
 import { dispatcherScriptBuildRequestWith }                from '../../src/shared/DispatcherScriptBuildRequest.ts';
-import { mutantPluginFor, type SourceMutant }              from './SourceMutant.ts';
+import { mutantPluginFor, type SourceMutant }              from '../../src/testing/SourceMutant.ts';
 
 export type DispatchScriptBundle = WorkflowScriptBundle;
 

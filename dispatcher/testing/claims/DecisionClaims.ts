@@ -6,11 +6,11 @@ import type { ReviewFindingClass }                   from '../../../src/lib/trac
 import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../../src/lib/tracker-model/constants/AgentSettings.ts';
 import { TicketIdUtil }                              from '../../../src/lib/tracker-model/utils/TicketIdUtil.ts';
 import { DISPATCH_PROTOCOL }                         from '../../../src/shared/constants/DispatchProtocol.ts';
+import type { SourceMutant }                         from '../../../src/testing/SourceMutant.ts';
 import type { ReviewFinding }                        from '../../@types/AgentReadings.ts';
 import type { DispatchSummary }                      from '../../@types/DispatchOutcome.ts';
 import type { DispatchScenario }                     from '../@types/DispatchScenario.ts';
 import type { RecordedDispatchRun }                  from '../@types/RecordedDispatchRun.ts';
-import type { SourceMutant }                         from '../SourceMutant.ts';
 import { AGENT_PROMPT_SENTENCES }                    from '../constants/AgentPromptSentences.ts';
 import { DISPATCHER_MODULE_PATHS }                   from '../constants/DispatcherModulePaths.ts';
 import { RecordedDispatchRunUtil }                   from '../utils/RecordedDispatchRunUtil.ts';
@@ -57,7 +57,7 @@ function roundThreeScenario(roundTwoFindings: ReviewFinding[]): DispatchScenario
 
 const GRANT_ROUND_THREE_WITHOUT_CONVERGENCE: SourceMutant = {
   modulePath: ROUND_VERDICT,
-  find:       'if (requestedRound === DISPATCH_POLICY.ROUND_GRANTED_ON_REWORK_ALONE) return { granted: true };',
+  find:       'if (requestedRound === limits.ROUND_GRANTED_ON_REWORK_ALONE) return { granted: true };',
   replace:    'return { granted: true };',
 };
 
@@ -104,7 +104,7 @@ const LEAVE_TAKEOVERS_UNSTARTED_RUNNING: SourceMutant = {
 
 const NEVER_STOP_ON_DEAD_AGENTS: SourceMutant = {
   modulePath: DISPATCH_RUN,
-  find:       '    if (this.consecutiveDeadAgents < DISPATCH_POLICY.CONSECUTIVE_DEAD_AGENTS_BEFORE_STOPPING || this.runWasStoppedByFailures) return;',
+  find:       '    if (this.consecutiveDeadAgents < LIFECYCLE_LIMITS.CONSECUTIVE_DEAD_AGENTS_BEFORE_STOPPING || this.runWasStoppedByFailures) return;',
   replace:    '    return;',
 };
 
@@ -291,8 +291,8 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     holds:  (run) => RecordedDispatchRunUtil.reviewCountOf(run, '001') === 2 && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.includes('001'),
     mutant: {
       modulePath: ROUND_VERDICT,
-      find:       'current.reworkedLines <= DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES',
-      replace:    'current.reworkedLines <= DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES + 1',
+      find:       'current.reworkedLines <= limits.REWORK_ROUND_THRESHOLD_LINES',
+      replace:    'current.reworkedLines <= limits.REWORK_ROUND_THRESHOLD_LINES + 1',
     },
   },
   {
@@ -305,8 +305,8 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     holds:  (run) => RecordedDispatchRunUtil.reviewCountOf(run, '001') === 1 && parkedIds(run).includes('001'),
     mutant: {
       modulePath: ROUND_VERDICT,
-      find:       'current.reworkedLines <= DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES',
-      replace:    'current.reworkedLines < DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES',
+      find:       'current.reworkedLines <= limits.REWORK_ROUND_THRESHOLD_LINES',
+      replace:    'current.reworkedLines < limits.REWORK_ROUND_THRESHOLD_LINES',
     },
   },
   {
@@ -401,8 +401,8 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       && parkedIds(run).includes('001'),
     mutant: {
       modulePath: DISPATCH_RUN,
-      find:       'record.failedPasses >= DISPATCH_POLICY.FAILED_PASSES_BEFORE_PARKING',
-      replace:    'record.failedPasses > DISPATCH_POLICY.FAILED_PASSES_BEFORE_PARKING',
+      find:       'record.failedPasses >= LIFECYCLE_LIMITS.FAILED_PASSES_BEFORE_PARKING',
+      replace:    'record.failedPasses > LIFECYCLE_LIMITS.FAILED_PASSES_BEFORE_PARKING',
     },
   },
   {

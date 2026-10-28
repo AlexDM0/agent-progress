@@ -5,7 +5,7 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import type { ReleaseBundleTicket } from '../../@types/AgentReadings.ts';
+import type { ReleaseBundleTicket } from './ReleaseBundleUtil.ts';
 import { ReleaseBundleUtil }        from './ReleaseBundleUtil.ts';
 
 const { releaseTicketOf, bundleOf, releaseBundleIdsOf } = ReleaseBundleUtil;

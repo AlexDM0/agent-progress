@@ -2,9 +2,13 @@
  * One dispatcher run's state and its decisions: which work starts next within the board's slots, how each finished agent is settled, and what
  * the run ends with. It does no I/O; it names what happened to its logger and hands each agent's launch to `startAgent` at the point of decision.
  */
+import type { ReviewedRound }                        from '../../src/lib/tracker-model/@types/ReviewRound.ts';
 import type { TicketPriority }                       from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../src/lib/tracker-model/constants/AgentSettings.ts';
 import { CONCURRENCY_LIMIT_CEILING_AGENTS }          from '../../src/lib/tracker-model/constants/ConcurrencyLimits.ts';
+import { ReleaseBundleUtil }                         from '../../src/lib/tracker-model/utils/ReleaseBundleUtil.ts';
+import { RoundVerdictUtil }                          from '../../src/lib/tracker-model/utils/RoundVerdictUtil.ts';
+import { LIFECYCLE_LIMITS }                          from '../../src/shared/constants/LifecycleLimits.ts';
 import { DispatcherClaimNoteUtil }                   from '../../src/shared/utils/DispatcherClaimNoteUtil.ts';
 import type {
   AgentReading,
@@ -19,8 +23,7 @@ import type {
   HeldEntry,
   ParkReason,
   ParkedTicket,
-  PassFailure,
-  ReviewedRound
+  PassFailure
 } from '../@types/DispatchOutcome.ts';
 import type { AgentModelAndEffort, DispatchSettings, ReadyTicketEntry } from '../@types/DispatchSettings.ts';
 import type {
@@ -33,9 +36,7 @@ import type {
   ReviewWork,
   RowRelease
 } from '../@types/DispatchWork.ts';
-import { DISPATCH_POLICY }    from '../constants/DispatchPolicy.ts';
-import { nextRoundVerdictOf } from './RoundVerdict.ts';
-import { ReleaseBundleUtil }  from './utils/ReleaseBundleUtil.ts';
+import { DISPATCH_POLICY } from '../constants/DispatchPolicy.ts';
 
 export interface DispatchRunCollaborators {
   logger:     DispatchLogger;
@@ -481,7 +482,7 @@ export class DispatchRun {
   private countFailedPass(ticketId: string, failure: PassFailure, retry: () => void, deadAgentWork: AgentWork | null = null): void {
     const record = this.ticketRecordFor(ticketId);
     record.failedPasses++;
-    if (record.failedPasses >= DISPATCH_POLICY.FAILED_PASSES_BEFORE_PARKING) {
+    if (record.failedPasses >= LIFECYCLE_LIMITS.FAILED_PASSES_BEFORE_PARKING) {
       const reason: ParkReason = { cause: 'second-failed-pass', failure };
       if (deadAgentWork === null || this.inFlight.size === 0) this.park(ticketId, reason);
       else this.parksAwaitingTheNextAgent.push({ work: deadAgentWork, reason });
@@ -613,7 +614,7 @@ export class DispatchRun {
       this.takeOverTheBarLeftForTheNextRound(ticketId);
       return;
     }
-    const verdict = nextRoundVerdictOf(record.rounds, { round, findings: reading.findings, reworkedLines: reading.reworkedLines });
+    const verdict = RoundVerdictUtil.nextRoundVerdictOf(record.rounds, { round, findings: reading.findings, reworkedLines: reading.reworkedLines }, LIFECYCLE_LIMITS);
     if (!verdict.granted) {
       this.park(ticketId, { cause: 'round-refused', refusal: verdict.refusal });
       return;
@@ -634,7 +635,7 @@ export class DispatchRun {
       return;
     }
     this.consecutiveDeadAgents++;
-    if (this.consecutiveDeadAgents < DISPATCH_POLICY.CONSECUTIVE_DEAD_AGENTS_BEFORE_STOPPING || this.runWasStoppedByFailures) return;
+    if (this.consecutiveDeadAgents < LIFECYCLE_LIMITS.CONSECUTIVE_DEAD_AGENTS_BEFORE_STOPPING || this.runWasStoppedByFailures) return;
     this.runWasStoppedByFailures = true;
     for (const ticketId of this.failedPassesOfConsecutiveDeaths) this.ticketRecordFor(ticketId).failedPasses--;
     this.failedPassesOfConsecutiveDeaths = [];

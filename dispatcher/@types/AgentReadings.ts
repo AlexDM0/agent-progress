@@ -1,6 +1,7 @@
 /** What each agent's reply reads as once `WorkflowInputUtil` has mapped it in. */
 import type { ReviewFindingClass, ReviewFindingSeverity } from '../../src/lib/tracker-model/@types/ReviewRecord.ts';
 import type { TicketPriority }                            from '../../src/lib/tracker-model/@types/Ticket.ts';
+import type { ReleaseBundleTicket }                       from '../../src/lib/tracker-model/utils/ReleaseBundleUtil.ts';
 import type { AgentModelAndEffort, ReadyTicketEntry }     from './DispatchSettings.ts';
 
 export interface StatusReading {
@@ -47,14 +48,6 @@ export type BuilderOutcome = 'in-review' | 'claim-refused' | 'failed';
 
 /** A group reviewer answers `integrated` where a whole-board one answers `released`, and never the latter. */
 export type ReviewerVerdict = 'released' | 'integrated' | 'round-requested' | 'does-not-hold' | 'not-released';
-
-/** What placing a ticket of a group in its release bundle reads of it. */
-export interface ReleaseBundleTicket {
-  id:            string;
-  status:        string;
-  dependsOn:     string[];
-  releasesGroup: boolean;
-}
 
 /** One ticket of the group, picked from the group survey's copy of the board and joined to its row and worktree. */
 export interface GroupTicketReading extends ReleaseBundleTicket {

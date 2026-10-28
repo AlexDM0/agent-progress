@@ -1,14 +1,13 @@
-import { DISPATCH_PROTOCOL }  from '../../src/shared/constants/DispatchProtocol.ts';
-import type { ReviewFinding } from '../@types/AgentReadings.ts';
 import type {
   ReviewedRound,
   ReviewedRoundWithRework,
+  RoundFinding,
+  RoundLimits,
   RoundRefusal,
   RoundVerdict
-} from '../@types/DispatchOutcome.ts';
-import { DISPATCH_POLICY } from '../constants/DispatchPolicy.ts';
+} from '../@types/ReviewRound.ts';
 
-function findingsOfRoundsBefore(earlierRounds: readonly ReviewedRound[], round: number): ReviewFinding[] {
+function findingsOfRoundsBefore<Finding extends RoundFinding>(earlierRounds: readonly ReviewedRound<Finding>[], round: number): Finding[] {
   return earlierRounds.filter((earlier) => earlier.round < round).flatMap((earlier) => earlier.findings);
 }
 
@@ -20,18 +19,18 @@ function refusedVerdictOf(refusal: RoundRefusal): RoundVerdict {
  * Round `ROUND_GRANTED_ON_REWORK_ALONE` needs the rework count alone; a later round also needs the findings converging, or it only finds more.
  * Only rounds before `current.round` are read, so `earlierRounds` may already hold the current one.
  */
-export function nextRoundVerdictOf(earlierRounds: readonly ReviewedRound[], current: ReviewedRoundWithRework): RoundVerdict {
+function nextRoundVerdictOf(earlierRounds: readonly ReviewedRound[], current: ReviewedRoundWithRework, limits: RoundLimits): RoundVerdict {
   const requestedRound = current.round + 1;
-  if (current.reworkedLines <= DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES) {
+  if (current.reworkedLines <= limits.REWORK_ROUND_THRESHOLD_LINES) {
     return refusedVerdictOf({ reason: 'rework-not-over-threshold', requestedRound, reworkedLines: current.reworkedLines });
   }
-  if (requestedRound === DISPATCH_POLICY.ROUND_GRANTED_ON_REWORK_ALONE) return { granted: true };
+  if (requestedRound === limits.ROUND_GRANTED_ON_REWORK_ALONE) return { granted: true };
   const previous = earlierRounds.find((earlier) => earlier.round === current.round - 1);
   if (previous === undefined) return refusedVerdictOf({ reason: 'previous-round-not-reviewed-in-this-run', requestedRound });
   const earlierFindings = findingsOfRoundsBefore(earlierRounds, current.round);
   const earlierClasses = new Set(earlierFindings.map((finding) => finding.class));
   const earlierFiles = new Set(earlierFindings.map((finding) => finding.file));
-  if (current.findings.length * DISPATCH_POLICY.FINDINGS_SHRINK_FACTOR_PER_ROUND > previous.findings.length) {
+  if (current.findings.length * limits.FINDINGS_SHRINK_FACTOR_PER_ROUND > previous.findings.length) {
     return refusedVerdictOf({
       reason:               'findings-not-halved',
       requestedRound,
@@ -45,3 +44,8 @@ export function nextRoundVerdictOf(earlierRounds: readonly ReviewedRound[], curr
   if (findingInANewFile !== undefined) return refusedVerdictOf({ reason: 'new-file-named', requestedRound, file: findingInANewFile.file });
   return { granted: true };
 }
+
+export const RoundVerdictUtil = {
+  findingsOfRoundsBefore,
+  nextRoundVerdictOf,
+} as const;

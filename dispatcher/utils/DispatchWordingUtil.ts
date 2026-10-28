@@ -1,12 +1,12 @@
 /** The dispatcher's output edge: every sentence it logs, labels an agent with, parks a ticket for or returns, worded from reason codes. */
+import type { RoundRefusal }     from '../../src/lib/tracker-model/@types/ReviewRound.ts';
 import { DISPATCH_PROTOCOL }     from '../../src/shared/constants/DispatchProtocol.ts';
 import type { DispatchLogEntry } from '../@types/DispatchLogger.ts';
 import type {
   DispatchOutcome,
   DispatchSummary,
   ParkReason,
-  PassFailure,
-  RoundRefusal
+  PassFailure
 } from '../@types/DispatchOutcome.ts';
 import type { DispatchSettingsRefusal }             from '../@types/DispatchSettings.ts';
 import type { AgentSubject, AgentWork, RowRelease } from '../@types/DispatchWork.ts';

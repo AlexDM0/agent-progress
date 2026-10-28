@@ -5,6 +5,7 @@
 import type { TicketPriority }                               from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL }         from '../../src/lib/tracker-model/constants/AgentSettings.ts';
 import { REVIEW_FINDING_CLASSES, REVIEW_FINDING_SEVERITIES } from '../../src/lib/tracker-model/constants/ReviewRecordVocabulary.ts';
+import type { ReleaseBundleTicket }                          from '../../src/lib/tracker-model/utils/ReleaseBundleUtil.ts';
 import type { ReleaseRefusalReason }                         from '../../src/shared/@types/ReleaseRefusalReason.ts';
 import { DispatcherClaimNoteUtil }                           from '../../src/shared/utils/DispatcherClaimNoteUtil.ts';
 import type {
@@ -14,7 +15,6 @@ import type {
   GroupTicketReading,
   LookedUpGroupTicket,
   PausedBuild,
-  ReleaseBundleTicket,
   ReviewFinding,
   ReviewerVerdict,
   ReviewWaitingTicket,

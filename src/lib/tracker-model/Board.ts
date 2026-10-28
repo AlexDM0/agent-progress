@@ -20,6 +20,7 @@ import type {
   IncidentEscalated,
   IncidentOpened,
   JobChanged,
+  LifecycleAdvanced,
   Logged,
   ReviewBarRequest,
   ReviewBarStarted,
@@ -73,6 +74,13 @@ import type {
   MergeSlot,
   RunnerStopReason
 }                                              from './@types/Job.ts';
+import type { LifecycleLimits } from './@types/LifecycleLimits.ts';
+import type {
+  DecisionDraft,
+  DecisionWording,
+  LifecycleObservations,
+  LifecycleStep
+}                                              from './@types/LifecycleStep.ts';
 import type { AgentUsage, LogRecord }          from './@types/LogRecord.ts';
 import type { DisplayState, Task, TaskStatus } from './@types/Task.ts';
 import type {
@@ -96,6 +104,8 @@ import type { IncidentEscalation }                          from './Incidents.ts
 import { Incidents }                                        from './Incidents.ts';
 import type { SteppedJobState }                             from './Jobs.ts';
 import { Jobs }                                             from './Jobs.ts';
+import type { LifecycleFacts }                              from './LifecyclePolicy.ts';
+import { LifecyclePolicy }                                  from './LifecyclePolicy.ts';
 import type { Logger }                                      from './Logger.ts';
 import { MergeQueueMarks }                                  from './MergeQueueMarks.ts';
 import { ReviewBars }                                       from './ReviewBars.ts';
@@ -111,6 +121,7 @@ import { TicketMoves }                                      from './TicketMoves.
 import { TicketSettings }                                   from './TicketSettings.ts';
 import { TokenCredits }                                     from './TokenCredits.ts';
 import { TrackerChanges }                                   from './TrackerChanges.ts';
+import { PARKED_HOLD_PREFIX }                               from './constants/DecisionAndIncidentVocabulary.ts';
 
 export interface BoardInput {
   progress:          TrackerProgress;
@@ -294,6 +305,68 @@ export class Board {
   /** The open incidents for the runner's orchestrator, in opening order. */
   incidents(): readonly Readonly<Incident>[] {
     return this.incidentRules.incidents();
+  }
+
+  /**
+   * Applies every step the lifecycle policy derives from this board, in order, each record stamped `limits.now`. A decision the policy
+   * opens is worded by `decisionWordingOf`, since the policy holds no words.
+   */
+  advanceLifecycle(limits: LifecycleLimits, observations: LifecycleObservations, decisionWordingOf: (draft: DecisionDraft) => DecisionWording): LifecycleAdvanced {
+    const steps = LifecyclePolicy.nextStepsOf(this.lifecycleFactsOf(observations), limits);
+    const logged = steps.flatMap((step) => this.applyLifecycleStep(step, decisionWordingOf, limits.now));
+    return { steps, logged };
+  }
+
+  private lifecycleFactsOf(observations: LifecycleObservations): LifecycleFacts {
+    return {
+      tickets:                     this.records.ticketRecords.map((ticket) => ticket.frontmatter),
+      jobs:                        this.jobs(),
+      decisions:                   this.decisions(),
+      incidents:                   this.incidents(),
+      logRecords:                  [...this.records.storedLogRecords, ...this.records.loggedRecords],
+      readinessPositionByTicketId: this.dispatchQueries.readinessPositionByTicketId(),
+      concurrencyLimit:            this.concurrency().limit,
+      dispatcherState:             this.dispatcherState(),
+      checkCommandIsSet:           this.checkCommand() !== undefined,
+      observations,
+    };
+  }
+
+  private applyLifecycleStep(step: LifecycleStep, decisionWordingOf: (draft: DecisionDraft) => DecisionWording, at: string): readonly LogRecord[] {
+    const openDecision = (draft: DecisionDraft): readonly LogRecord[] => this.openDecision({
+      ...draft, askedBy: 'runner', requestId: null, ...decisionWordingOf(draft)
+    }, at).logged;
+    switch (step.kind) {
+      case 'launch-build':
+        return this.launchJob({
+          kind: 'build', role: 'builder', ticketIds: [step.ticketId], parentJobId: null, attempt: step.attempt, target: step.base
+        }, at).logged;
+      case 'launch-review':
+        return this.launchJob({
+          kind: 'review', role: 'reviewer', ticketIds: [step.ticketId], parentJobId: null, attempt: step.round, target: step.target
+        }, at).logged;
+      case 'boot-orchestrator':
+        return this.launchJob({
+          kind: 'orchestrator', role: 'orchestrator', ticketIds: [], parentJobId: null, attempt: 1, target: null
+        }, at).logged;
+      case 'resume-job':
+        return this.moveJob(step.jobId, 'running', at).logged;
+      case 'replace-job':
+        return this.endJob(step.jobId, { outcome: 'replaced' }, at).logged;
+      case 'park':
+        return [
+          ...this.holdTicket(step.ticketId, `${PARKED_HOLD_PREFIX}${step.cause}`, at).logged,
+          ...openDecision({ kind: 'parked', ticketIds: [step.ticketId], jobId: null }),
+        ];
+      case 'open-decision':
+        return openDecision(step.decision);
+      case 'open-incident':
+        return this.openIncident(step.incident, at).logged;
+      case 'default-incident':
+        return this.defaultIncident(step.incidentId, step.cause, at).logged;
+      case 'stop-dispatching':
+        return this.setDispatcherState('stopped', null, at).logged;
+    }
   }
 
   incidentById(incidentId: string): Readonly<Incident> | undefined {

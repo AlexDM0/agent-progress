@@ -3,7 +3,11 @@
  * builder and one reviewer, builder N+1 on N's built tip while reviewer N integrates N onto the group branch. It does no I/O. The release ticket,
  * last in the order, is reviewed once every ticket before it is integrated, and its reviewer alone takes the group branch to the main line.
  */
+import type { ReviewedRound }                        from '../../src/lib/tracker-model/@types/ReviewRound.ts';
 import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../src/lib/tracker-model/constants/AgentSettings.ts';
+import { ReleaseBundleUtil }                         from '../../src/lib/tracker-model/utils/ReleaseBundleUtil.ts';
+import { RoundVerdictUtil }                          from '../../src/lib/tracker-model/utils/RoundVerdictUtil.ts';
+import { LIFECYCLE_LIMITS }                          from '../../src/shared/constants/LifecycleLimits.ts';
 import { DispatcherClaimNoteUtil }                   from '../../src/shared/utils/DispatcherClaimNoteUtil.ts';
 import type {
   AgentReading,
@@ -15,8 +19,7 @@ import type {
   DispatchOutcome,
   ParkReason,
   ParkedTicket,
-  PassFailure,
-  ReviewedRound
+  PassFailure
 } from '../@types/DispatchOutcome.ts';
 import type { AgentModelAndEffort, DispatchSettings } from '../@types/DispatchSettings.ts';
 import type {
@@ -28,8 +31,6 @@ import type {
 } from '../@types/DispatchWork.ts';
 import { DISPATCH_POLICY }               from '../constants/DispatchPolicy.ts';
 import type { DispatchRunCollaborators } from './DispatchRun.ts';
-import { nextRoundVerdictOf }            from './RoundVerdict.ts';
-import { ReleaseBundleUtil }             from './utils/ReleaseBundleUtil.ts';
 
 type GroupTicketStage = 'to-build' | 'building' | 'built' | 'reviewing' | 'integrated' | 'released' | 'parked';
 
@@ -311,7 +312,7 @@ export class GroupDispatchRun {
   private countFailedPass(ticketId: string, failure: PassFailure, retry: (record: GroupTicketRecord) => void): void {
     const record = this.recordOf(ticketId);
     record.failedPasses++;
-    if (record.failedPasses >= DISPATCH_POLICY.FAILED_PASSES_BEFORE_PARKING) {
+    if (record.failedPasses >= LIFECYCLE_LIMITS.FAILED_PASSES_BEFORE_PARKING) {
       this.park(ticketId, { cause: 'second-failed-pass', failure }, true);
       return;
     }
@@ -393,7 +394,7 @@ export class GroupDispatchRun {
       this.park(ticketId, { cause: 'release-refused', statedReason: refusal.statedReason, blockingFiles: refusal.blockingFiles }, true);
       return;
     }
-    const verdict = nextRoundVerdictOf(record.rounds, { round, findings: reading.findings, reworkedLines: reading.reworkedLines });
+    const verdict = RoundVerdictUtil.nextRoundVerdictOf(record.rounds, { round, findings: reading.findings, reworkedLines: reading.reworkedLines }, LIFECYCLE_LIMITS);
     if (!verdict.granted) {
       this.park(ticketId, { cause: 'round-refused', refusal: verdict.refusal }, true);
       return;

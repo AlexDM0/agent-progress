@@ -1,5 +1,12 @@
-/** A group's release bundle as the dispatcher reads it off the board: its open release ticket and every ticket of the group it depends on. */
-import type { ReleaseBundleTicket } from '../../@types/AgentReadings.ts';
+/** A group's release bundle as read off the board: its open release ticket and every ticket of the group it depends on. */
+
+/** What placing a ticket of a group in its release bundle reads of it. */
+export interface ReleaseBundleTicket {
+  id:            string;
+  status:        string;
+  dependsOn:     string[];
+  releasesGroup: boolean;
+}
 
 function releaseTicketOf<Ticket extends ReleaseBundleTicket>(groupTickets: readonly Ticket[]): Ticket | undefined {
   return groupTickets.find((ticket) => ticket.releasesGroup && ticket.status !== 'delivered' && ticket.status !== 'abandoned');

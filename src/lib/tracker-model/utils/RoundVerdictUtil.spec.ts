@@ -6,27 +6,41 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import type { ReviewFindingClass } from '../../src/lib/tracker-model/@types/ReviewRecord.ts';
-import { DISPATCH_PROTOCOL }       from '../../src/shared/constants/DispatchProtocol.ts';
-import type { ReviewFinding }      from '../@types/AgentReadings.ts';
-import { nextRoundVerdictOf }      from './RoundVerdict.ts';
+import type { ReviewFindingClass } from '../@types/ReviewRecord.ts';
+import type {
+  ReviewedRound,
+  ReviewedRoundWithRework,
+  RoundLimits,
+  RoundVerdict
+} from '../@types/ReviewRound.ts';
+import { RoundVerdictUtil } from './RoundVerdictUtil.ts';
 
-const OVER_THE_THRESHOLD_LINES = DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES + 1;
+/** The values `src/shared/constants/LifecycleLimits.ts` passes in, which the tracker model may not import. */
+const ROUND_LIMITS: RoundLimits = { REWORK_ROUND_THRESHOLD_LINES: 750, ROUND_GRANTED_ON_REWORK_ALONE: 2, FINDINGS_SHRINK_FACTOR_PER_ROUND: 2 };
+
+const OVER_THE_THRESHOLD_LINES = ROUND_LIMITS.REWORK_ROUND_THRESHOLD_LINES + 1;
+
+interface ReviewFinding {
+  class: ReviewFindingClass;
+  file:  string;
+}
 
 function finding(findingClass: ReviewFindingClass, file: string): ReviewFinding {
-  return {
-    class: findingClass, severity: 'quality', file, summary: `${findingClass} in ${file}`,
-  };
+  return { class: findingClass, file };
+}
+
+function nextRoundVerdictOf(earlierRounds: readonly ReviewedRound[], current: ReviewedRoundWithRework): RoundVerdict {
+  return RoundVerdictUtil.nextRoundVerdictOf(earlierRounds, current, ROUND_LIMITS);
 }
 
 const ROUND_ONE_FINDINGS = [finding('convention', 'a.ts'), finding('correctness', 'b.ts'), finding('test-gap', 'c.ts'), finding('docs', 'd.ts')];
 
 describe('the rework threshold', () => {
   test('rework of exactly the threshold is refused, naming the count and the round asked for', () => {
-    const current = { round: 1, findings: ROUND_ONE_FINDINGS, reworkedLines: DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES };
+    const current = { round: 1, findings: ROUND_ONE_FINDINGS, reworkedLines: ROUND_LIMITS.REWORK_ROUND_THRESHOLD_LINES };
     expect(nextRoundVerdictOf([current], current)).toEqual({
       granted: false,
-      refusal: { reason: 'rework-not-over-threshold', requestedRound: 2, reworkedLines: DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES },
+      refusal: { reason: 'rework-not-over-threshold', requestedRound: 2, reworkedLines: ROUND_LIMITS.REWORK_ROUND_THRESHOLD_LINES },
     });
   });
 

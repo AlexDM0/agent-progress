@@ -55,6 +55,9 @@ export const INCIDENT_DEFAULT_CAUSES = ['turn-closed', 'turn-budget', 'no-orches
 
 export const DECISION_ID_PREFIX = 'E';
 
+/** A ticket the lifecycle parks is held with this prefix before its park cause, as `parked:failed-passes`. */
+export const PARKED_HOLD_PREFIX = 'parked:';
+
 export const INCIDENT_ID_PREFIX = 'I';
 
 /** The number the first decision and the first incident a tracker opens take: the lowest counter a progress file may store. */

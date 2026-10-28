@@ -5,9 +5,9 @@
  */
 import { describe, expect, test } from 'bun:test';
 
+import type { SourceMutant }                       from '../src/testing/SourceMutant.ts';
 import { builtScriptTextOf, bundleDispatchScript } from './testing/DispatchScriptBundle.ts';
 import { runDispatchScript }                       from './testing/DispatchScriptHarness.ts';
-import type { SourceMutant }                       from './testing/SourceMutant.ts';
 import {
   DECISION_CLAIMS,
   DECISION_SCENARIOS,

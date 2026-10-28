@@ -43,7 +43,7 @@ export class DispatchQueries {
   }
 
   /** The log position of each ticket's latest `ticket-readied` or `ticket-reopened` record; a clearing forgets every earlier one. */
-  private readinessPositionByTicketId(): Map<string, number> {
+  readinessPositionByTicketId(): Map<string, number> {
     const positionByTicketId = new Map<string, number>();
     [...this.records.storedLogRecords, ...this.records.loggedRecords].forEach((record, position) => {
       if (record.kind === 'tracker-cleared') positionByTicketId.clear();

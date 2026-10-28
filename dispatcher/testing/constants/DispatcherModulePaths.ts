@@ -6,7 +6,7 @@ export const DISPATCHER_MODULE_PATHS = {
   DISPATCHER:                 'dispatcher/Dispatcher.ts',
   AGENT_STARTER:              'dispatcher/run/AgentStarter.ts',
   WORKFLOW_INPUT_UTIL:        'dispatcher/utils/WorkflowInputUtil.ts',
-  ROUND_VERDICT:              'dispatcher/run/RoundVerdict.ts',
+  ROUND_VERDICT:              'src/lib/tracker-model/utils/RoundVerdictUtil.ts',
   AGENT_PROMPT_UTIL:          'dispatcher/run/utils/AgentPromptUtil.ts',
   DISPATCH_WORDING_UTIL:      'dispatcher/utils/DispatchWordingUtil.ts',
   DISPATCHER_CLAIM_NOTE_UTIL: 'src/shared/utils/DispatcherClaimNoteUtil.ts',

@@ -5,6 +5,7 @@ import type { Draft }                           from './Draft.ts';
 import type { Epic }                            from './Epic.ts';
 import type { Incident }                        from './Incident.ts';
 import type { Job }                             from './Job.ts';
+import type { LifecycleStep }                   from './LifecycleStep.ts';
 import type { LogRecord, LogRecordFieldsOf }    from './LogRecord.ts';
 import type { Task, TaskStatus }                from './Task.ts';
 import type { AgentEffort, AgentModel, Ticket } from './Ticket.ts';
@@ -114,6 +115,11 @@ export interface EpicEdited extends EpicChanged {
 /** A move between live states logs nothing, so `logged` is empty for it: a job's state lives in progress.json. */
 export interface JobChanged extends Logged {
   job: Readonly<Job>;
+}
+
+/** The lifecycle steps one pass applied, in order, and everything they logged. */
+export interface LifecycleAdvanced extends Logged {
+  steps: readonly LifecycleStep[];
 }
 
 /** `decision` is `null` when the request it was opened for was already answered, and the open one, logging nothing, when it is open. */
