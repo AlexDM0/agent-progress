@@ -109,6 +109,7 @@ async function drivePassPlaying(steps: readonly FakeAgentStep[]): Promise<DriveP
     launchTextOf:          () => ({ firstMessage: 'Example first message', roleBrief: 'Example role' }),
     windDownMessage:       'Example wind-down message',
     resumeMessage:         'Example resume message',
+    answerMessageOf:       (answer) => `Example answers ${JSON.stringify(answer)}`,
     homeDirectory:         monitorFolder,
     log:                   (line) => runnerLog.push(line),
     onLeaseTakenOver:      () => runnerLog.push('taken over'),

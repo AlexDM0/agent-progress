@@ -725,6 +725,23 @@ output never carries either.
                               priority, queuedAt} by priority, then queue order. Read-only,
                               no lock.
 
+  decisions [--json]          The open decisions for User, in opening order: each {id, kind,
+                              ticketIds, jobId, askedBy, requestId, questions, context, openedAt},
+                              its options lettered a, b, c as decide takes them. Read-only, no lock.
+
+  decide <decision> <letters>... | -- <text> [--json]
+                              Answer an open decision, with the runner up or down: one choice of
+                              option letters per question (b; ac for a multi-select), or free text
+                              after -- for a one-question decision (decision-has-several-questions
+                              otherwise). The first answer wins (decision-already-answered); it is
+                              stored as {question: answer}, logged decision-answered, and the
+                              runner delivers it to the asking session.
+
+  await [--json] [--after <n>]
+                              Wait until the log holds a decision-opened or incident-escalated
+                              record past position <n> (the log's length when absent), then print
+                              them with their positions, and the position to wait after next.
+
   clear [--all] [--yes]       Throw away every task row and the log and restart the clock, keeping
                               the tickets: each surviving ticket is given a fresh row seeded from
                               its own frontmatter, except a low one with no row. Row ids are not reused. --all deletes the

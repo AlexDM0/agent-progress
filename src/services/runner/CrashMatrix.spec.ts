@@ -211,6 +211,7 @@ interface SessionScenario {
 
 const SESSION_STAMP          = '2026-09-18T22:11:03+02:00';
 const RESUME_MESSAGE         = 'Example resume message';
+const ANSWER_MESSAGE_PREFIX  = 'Example answers';
 const FOREIGN_BOOT           = 'example-foreign-boot';
 const WAIT_TRIES             = 300;
 const WAIT_MILLISECONDS      = 50;
@@ -252,7 +253,11 @@ function recordingAdapter(scenario: SessionScenario): AgentAdapter {
 }
 
 /** A runner start: a newer lease generation and a fresh DrivePass, which the spec reattaches. */
-async function startedRunner(adapter: AgentAdapter, afterHoldPhase?: (phase: string, board: Board) => void): Promise<DrivePass> {
+async function startedRunner(
+  adapter: AgentAdapter,
+  afterHoldPhase?: (phase: string, board: Board) => void,
+  deliversByControlResponse?: boolean,
+): Promise<DrivePass> {
   const { runnerDirectory } = runnerFilesIn(sessionWorkspace.trackerDirectory);
   mkdirSync(runnerDirectory, { recursive: true });
   const acquisition = RunnerLease.acquire(runnerDirectory, {
@@ -295,6 +300,8 @@ async function startedRunner(adapter: AgentAdapter, afterHoldPhase?: (phase: str
     },
     windDownMessage:  'Example wind-down message',
     resumeMessage:    RESUME_MESSAGE,
+    answerMessageOf:  (answer) => `${ANSWER_MESSAGE_PREFIX} ${JSON.stringify(answer)}`,
+    ...(deliversByControlResponse === undefined ? {} : { deliversAnswersByControlResponse: deliversByControlResponse }),
     homeDirectory:    monitorFolder,
     log:              (line) => runnerLog.push(line),
     onLeaseTakenOver: () => runnerLog.push('taken over'),

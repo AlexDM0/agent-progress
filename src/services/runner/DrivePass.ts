@@ -16,6 +16,7 @@ import type { AgentLaunchRequest }                                              
 import { launchEnvironmentOf }                                                   from '../../lib/agent-launch/LaunchEnvironment.ts';
 import type { WorkerProfile }                                                    from '../../lib/agent-launch/WorkerProfile.ts';
 import { GitProcess }                                                            from '../../lib/git/GitProcess.ts';
+import type { DecisionAnswer }                                                   from '../../lib/tracker-model/@types/Decision.ts';
 import type { InterruptionCause, Job, JobKind }                                  from '../../lib/tracker-model/@types/Job.ts';
 import type { DecisionDraft, DecisionWording }                                   from '../../lib/tracker-model/@types/LifecycleStep.ts';
 import type { Board }                                                            from '../../lib/tracker-model/Board.ts';
@@ -31,6 +32,7 @@ import type { RenderState }                                                     
 import { writeTracker, type TrackerChange }                                      from '../tracker/TrackerPipeline.ts';
 import { requireProgressFile }                                                   from '../tracker/TrackerReader.ts';
 import type { Workspace }                                                        from '../tracker/Workspace.ts';
+import { AnswerDelivery }                                                        from './AnswerDelivery.ts';
 import { GroupWorktrees }                                                        from './GroupWorktrees.ts';
 import { HostFleet, type HostLiveness }                                          from './HostFleet.ts';
 import {
@@ -43,6 +45,7 @@ import { JobResumption }                         from './JobResumption.ts';
 import { LegacyHostReader }                      from './LegacyHostReader.ts';
 import { createMergeSlots, type HeldTarget }     from './MergeSlots.ts';
 import { createProcessHostSandbox }              from './ProcessHostSandbox.ts';
+import { QuestionRouting }                       from './QuestionRouting.ts';
 import { Reattachment, type ReattachmentReport } from './Reattachment.ts';
 import { RelayInbox, type PendingRelayRequest }  from './RelayInbox.ts';
 import { RunnerLease }                           from './RunnerLease.ts';
@@ -64,37 +67,41 @@ export interface JobLaunchFacts {
 }
 
 export interface DrivePassRequest {
-  workspace:             Workspace;
-  renderState:           RenderState;
-  now:                   () => Date;
-  formatStamp:           (moment: Date) => string;
-  runnerDirectory:       string;
-  generation:            number;
-  hostBundlePath:        string;
-  codeVersion:           string;
-  agentAdapter:          AgentAdapter;
+  workspace:                         Workspace;
+  renderState:                       RenderState;
+  now:                               () => Date;
+  formatStamp:                       (moment: Date) => string;
+  runnerDirectory:                   string;
+  generation:                        number;
+  hostBundlePath:                    string;
+  codeVersion:                       string;
+  agentAdapter:                      AgentAdapter;
   /** The folder the host sockets go under: `<home>/<monitor folder>`. */
-  monitorFolder:         string;
+  monitorFolder:                     string;
   /** Narrowed to the launch allowlist before any session sees it. */
-  inheritedEnvironment:  Readonly<Record<string, string | undefined>>;
-  mainLine:              string;
+  inheritedEnvironment:              Readonly<Record<string, string | undefined>>;
+  mainLine:                          string;
   /** The start marker of the managed block a committed CLAUDE.md must no longer hold before launches onto its target. */
-  managedBlockMarker:    string;
-  installVersionChanged: () => boolean;
+  managedBlockMarker:                string;
+  installVersionChanged:             () => boolean;
   /** Code on disk differs from the code in memory while the install version does not: a notice only. */
-  newCodeOnDisk?:        () => boolean;
-  decisionWordingOf:     (draft: DecisionDraft) => DecisionWording;
-  launchTextOf:          (job: Readonly<Job>, facts: JobLaunchFacts) => JobLaunchText;
+  newCodeOnDisk?:                    () => boolean;
+  decisionWordingOf:                 (draft: DecisionDraft) => DecisionWording;
+  launchTextOf:                      (job: Readonly<Job>, facts: JobLaunchFacts) => JobLaunchText;
   /** Sent to a session that reached its role's call budget. */
-  windDownMessage:       string;
+  windDownMessage:                   string;
   /** The first line of every resumed session. */
-  resumeMessage:         string;
-  homeDirectory:         string;
-  log:                   (line: string) => void;
+  resumeMessage:                     string;
+  /** An answer worded as a plain user message, for a resumed session that no longer holds the question's request. */
+  answerMessageOf:                   (answer: DecisionAnswer) => string;
+  /** Overridden by specs of the fallback T1-P1 would need: the runner stops the host and resumes with the answer. */
+  deliversAnswersByControlResponse?: boolean;
+  homeDirectory:                     string;
+  log:                               (line: string) => void;
   /** The pass stops acting at once; the caller ends the runner `lease-taken-over`. */
-  onLeaseTakenOver:      (refusal: unknown) => void;
+  onLeaseTakenOver:                  (refusal: unknown) => void;
   /** Called inside the hold after each of its three phases, on the Board being changed; the step a spec reads the order at. */
-  afterHoldPhase?:       (phase: 'relayed-commands' | 'host-events' | 'lifecycle', board: Board) => void;
+  afterHoldPhase?:                   (phase: 'relayed-commands' | 'host-events' | 'lifecycle', board: Board) => void;
 }
 
 /** Derived each pass from the board, git and the runner's state, never stored; later tickets add the other kinds of design section 8.2. */
@@ -159,6 +166,8 @@ const GROUP_TARGET_PREFIX = 'group-';
 
 // T1b-P14's finding: the per-job ref denies hold, so a target moved by someone else requeues silently (owner answer Q38).
 const TARGET_REF_DENIES_HOLD = true;
+// T1-P1's finding: a live session takes the answer as the `control_response` allow with `updatedInput.answers`.
+const CONTROL_RESPONSE_DELIVERS_ANSWERS = true;
 const DEFAULT_MODEL = 'opus';
 const DEFAULT_EFFORT = 'medium';
 const ROLES_THAT_MAY_ASK: ReadonlySet<string> = new Set(['builder', 'reviewer', 'product-owner']);
@@ -261,7 +270,7 @@ function observe(request: DrivePassRequest, jobLaunchContext: JobLaunchContext):
  * A question opens its decision and a closing result moves the job to verification in the hold that reads them; the cursor moves with them.
  * A top-level usage refusal interrupts the job instead, and the error result after it is no closing result. Returns the usage limits hit.
  */
-function applyHostEvents(change: TrackerChange, adapter: AgentAdapter, hosts: readonly HostObservation[]): UsageLimitHit[] {
+function applyHostEvents(change: TrackerChange, adapter: AgentAdapter, hosts: readonly HostObservation[], trackerDirectory: string): UsageLimitHit[] {
   const { board, at } = change;
   const usageLimitHits: UsageLimitHit[] = [];
   for (const host of hosts) {
@@ -278,7 +287,7 @@ function applyHostEvents(change: TrackerChange, adapter: AgentAdapter, hosts: re
           usageLimitHits.push(hit);
         }
         if (event.kind === 'started' && (state === 'launching' || state === 'preparing')) board.moveJob(host.jobId, 'running', at);
-        if (event.kind === 'question' && state === 'running') openQuestion(board, host.jobId, event.requestId, event.questions, at);
+        if (event.kind === 'question' && state === 'running') QuestionRouting.openQuestion(board, host.jobId, event.requestId, event.questions, at);
         // A session's turn ends in a `result` too; it finishes only once the runner closed its input.
         if (event.kind === 'result' && state === 'running' && !SESSION_JOB_KINDS.includes(board.jobById(host.jobId)?.kind ?? 'build')) {
           board.moveJob(host.jobId, 'verifying', at);
@@ -297,6 +306,8 @@ function applyHostEvents(change: TrackerChange, adapter: AgentAdapter, hosts: re
       JobResumption.applyResumeFailure(board, job, at);
     } else if (hostIsGone && state === 'stopping' && job !== undefined && SESSION_JOB_KINDS.includes(job.kind)) {
       board.endJob(host.jobId, { outcome: 'closed' }, at);
+    } else if (hostIsGone && !closedWithResult && state === 'running' && job !== undefined && AnswerDelivery.stoppedForAnswerDelivery(trackerDirectory, job)) {
+      board.interruptJob(host.jobId, 'answer-delivery', at);
     } else if (sessionEndedCleanly && !closedWithResult && state === 'running' && job !== undefined && REPORTING_JOB_KINDS.includes(job.kind)) {
       board.endJob(host.jobId, { outcome: 'failed', cause: BUILD_JOB_CAUSES.noReport }, at);
     } else if (hostIsGone && !closedWithResult && (state === 'running' || state === 'waiting-for-answer')) {
@@ -304,21 +315,6 @@ function applyHostEvents(change: TrackerChange, adapter: AgentAdapter, hosts: re
     }
   }
   return usageLimitHits;
-}
-
-function openQuestion(board: Board, jobId: string, requestId: string, questions: readonly DecisionQuestionShape[], at: string): void {
-  const job = board.jobById(jobId);
-  if (job === undefined || job.answeredRequestIds.includes(requestId) || board.decisions().some((decision) => decision.requestId === requestId)) return;
-  board.openDecision({
-    kind:      'agent-question',
-    ticketIds: job.ticketIds,
-    jobId,
-    askedBy:   job.role ?? 'runner',
-    requestId,
-    questions: questions.map((question) => ({ ...question, options: question.options.map((option) => ({ ...option })) })),
-    context:   '',
-  }, at);
-  board.moveJob(jobId, 'waiting-for-answer', at);
 }
 
 /** One decision per folder, its context the folder itself, so a restart finding the same folder opens no second one. */
@@ -331,8 +327,6 @@ function openLeftoverWorktreeDecisions(change: TrackerChange, decisionWordingOf:
     }, change.at);
   }
 }
-
-type DecisionQuestionShape = Parameters<AgentAdapter['answerLineOf']>[1][number];
 
 function workingDirectoryOf(workspace: Workspace, job: Readonly<Job>): string {
   const worktreesRoot = join(workspace.rootDirectory, PRODUCT_NAMES.WORKTREES_FOLDER);
@@ -566,7 +560,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
         openLeftoverWorktreeDecisions(change, request.decisionWordingOf, leftoverWorktrees.splice(0));
         const replies = RelayInbox.applyPendingRequests(change, request.workspace.rootDirectory, observation.pendingRequests);
         request.afterHoldPhase?.('relayed-commands', change.board);
-        const usageLimitHits = applyHostEvents(change, request.agentAdapter, observation.hosts);
+        const usageLimitHits = applyHostEvents(change, request.agentAdapter, observation.hosts, request.workspace.trackerDirectory);
         request.afterHoldPhase?.('host-events', change.board);
         const buildJobRecords = JobLaunch.applyBuildJobObservations(change, jobLaunchContext, observation.buildJobs);
         const usageResetsAt = UsageLimits.usageResetsAtOf(observation.usageMarker, usageLimitHits);
@@ -606,7 +600,16 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
       spawnedInstances.add(`${job.id}:${job.hostInstance}`);
       launchHost(request, jobLaunchContext, written.board, observation.trackerId, job);
     }
-    await JobResumption.deliverResumeMessages(request.workspace.trackerDirectory, written.board, request.agentAdapter, request.resumeMessage);
+    const { trackerDirectory } = request.workspace;
+    const answerAwaitsDelivery = (job: Readonly<Job>): boolean => AnswerDelivery.answerAwaitsDelivery(trackerDirectory, job);
+    await JobResumption.deliverResumeMessages(trackerDirectory, written.board, request.agentAdapter, request.resumeMessage, answerAwaitsDelivery);
+    await AnswerDelivery.deliverAnswers({
+      trackerDirectory,
+      board:                     written.board,
+      adapter:                   request.agentAdapter,
+      deliversByControlResponse: request.deliversAnswersByControlResponse ?? CONTROL_RESPONSE_DELIVERS_ANSWERS,
+      answerMessageOf:           request.answerMessageOf,
+    });
     const heldTargets = written.board.checkCommand() === undefined ? [] : await mergeSlots.sweep();
     state = {
       generation:       request.generation,

@@ -193,6 +193,31 @@ const CLAIMS: PolicyClaim[] = [
     mutant: policyLine('SLOT_TAKING_JOB_KINDS.includes(job.kind))', 'SLOT_TAKING_JOB_KINDS.includes(job.kind) && job.state !== \'waiting-for-answer\')'),
   },
   {
+    name:  'a ticket whose ended job left its question open launches nothing until User answers',
+    facts: factsWith({
+      tickets:   [ticketOf('001', 'in-review')],
+      decisions: [{
+        id: 'E1', kind: 'agent-question', ticketIds: ['001'], jobId: null, askedBy: 'builder', requestId: 'request-1', questions: [], context: '', openedAt: FIXTURE_AT
+      }],
+    }),
+    holds:  launchesExactly([]),
+    mutant: policyLine('decision.kind === \'agent-question\' && decision.jobId === null && ', 'decision.kind === \'never\' && '),
+  },
+  {
+    name:  'an interrupted job whose question is open resumes only once it is answered, so the resume carries the answer',
+    facts: factsWith({
+      tickets: [ticketOf('001', 'in-progress')],
+      jobs:    [LIVE_ORCHESTRATOR, jobFixture({
+        id: 'J1', ticketIds: ['001'], state: 'interrupted', interruption: 'reboot'
+      })],
+      decisions: [{
+        id: 'E1', kind: 'agent-question', ticketIds: ['001'], jobId: 'J1', askedBy: 'builder', requestId: 'request-1', questions: [], context: '', openedAt: FIXTURE_AT
+      }],
+    }),
+    holds:  (steps) => !steps.some((step) => step.kind === 'resume-job'),
+    mutant: policyLine(' || jobAwaitsAnAnswer(job, facts)) return [];', ') return [];'),
+  },
+  {
     name:   'an orchestrator job takes no slot',
     facts:  factsWith({ tickets: [ticketOf('001', 'pending')], concurrencyLimit: 1 }),
     holds:  launchesExactly(['001']),

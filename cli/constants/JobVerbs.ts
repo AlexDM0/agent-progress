@@ -40,6 +40,7 @@ export const RELAYED_VERB_OF_CONTROL_KIND: Readonly<Record<ControlCommandKind, s
   'draft-drop':          'draft drop',
   'draft-close':         'draft close',
   'draft-abandon':       'draft abandon',
+  'decision-answer':     'decide',
   'runner-pause':        'run pause',
   'runner-resume':       'run resume',
   'runner-stop':         'run stop',

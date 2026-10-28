@@ -72,6 +72,7 @@ const EXAMPLE_OF_KIND: { readonly [Kind in ControlCommandKind]: ControlCommandOf
   'draft-drop':          { kind: 'draft-drop', draftId: 'D1', itemId: 'N1' },
   'draft-close':         { kind: 'draft-close', draftId: 'D1', ticketReferences: ['3'] },
   'draft-abandon':       { kind: 'draft-abandon', draftId: 'D1', reason: 'Filed elsewhere' },
+  'decision-answer':     { kind: 'decision-answer', decisionId: 'E1', answer: { form: 'letters', choices: ['a'] } },
   'runner-pause':        { kind: 'runner-pause' },
   'runner-resume':       { kind: 'runner-resume' },
   'runner-stop':         { kind: 'runner-stop', now: true },

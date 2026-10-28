@@ -178,7 +178,8 @@ export const LOG_RECORD_SCHEMA = {
     },
   },
   'decision-opened':    { subject: 'decision', fields: { kind: 'decision-kind', ticketIds: 'ticket-ids' } },
-  'decision-answered':  { subject: 'decision', fields: { answer: 'decision-answer' } },
+  // The question request it answered, so the runner delivers the answer to that request, however long after the answering hold.
+  'decision-answered':  { subject: 'decision', fields: { answer: 'decision-answer', requestId: 'optional-text' } },
   'decision-withdrawn': { subject: 'decision', fields: { reason: 'text' } },
   'incident-opened':    { subject: 'incident', fields: { kind: 'incident-kind', ticketIds: 'ticket-ids' } },
   'incident-handled':   { subject: 'incident', fields: { move: 'incident-move' } },

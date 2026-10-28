@@ -144,7 +144,7 @@ describe('answering a decision', () => {
     expect(answered.decision.id).toBe('E1');
     expect(progress.decisions).toEqual([]);
     expect(records).toEqual([{
-      at: AT, kind: 'decision-answered', decisionId: 'E1', fields: { answer }
+      at: AT, kind: 'decision-answered', decisionId: 'E1', fields: { answer, requestId: 'request-1' }
     }]);
   });
 

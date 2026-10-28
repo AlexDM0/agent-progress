@@ -177,6 +177,8 @@ function ticketIsHeld(ticket: LifecycleTicket, facts: LifecycleFacts): boolean {
   if (ticket.hold !== undefined || ticket.mergeQueued === true) return true;
   if (facts.observations.ticketIdsTouchingAgentConfig.includes(ticket.id)) return true;
   if (facts.decisions.some((decision) => TICKET_HOLDING_DECISION_KINDS.includes(decision.kind) && decision.ticketIds.includes(ticket.id))) return true;
+  // A question whose job ended holds its ticket until answered, whatever else holds it, so no fresh agent races the answer.
+  if (facts.decisions.some((decision) => decision.kind === 'agent-question' && decision.jobId === null && decision.ticketIds.includes(ticket.id))) return true;
   if (facts.incidents.some((incident) => incident.ticketIds.includes(ticket.id))) return true;
   return facts.observations.targetsHoldingManagedBlock.includes(targetOf(ticket, facts.observations));
 }
@@ -186,11 +188,17 @@ function jobResumeIsHeld(job: Readonly<Job>, facts: LifecycleFacts): boolean {
   return job.ticketIds.some((ticketId) => facts.observations.ticketIdsTouchingAgentConfig.includes(ticketId));
 }
 
+/** A session stopped at its question resumes only once the question is answered, so the resume can carry the answer. */
+function jobAwaitsAnAnswer(job: Readonly<Job>, facts: LifecycleFacts): boolean {
+  return facts.decisions.some((decision) => decision.jobId === job.id)
+    || facts.incidents.some((incident) => incident.jobId === job.id && (incident.kind === 'system-question' || incident.kind === 'malformed-ticket'));
+}
+
 function crashBoundStepsOf(facts: LifecycleFacts, limits: LifecycleLimits, resumesAreHeld: boolean): LifecycleStep[] {
   return facts.jobs.filter((job) => job.state === 'interrupted').flatMap((job): LifecycleStep[] => {
     if (SESSION_JOB_KINDS.includes(job.kind)) return [{ kind: 'replace-job', jobId: job.id }];
     if (isCrash(job.interruption) && job.crashResumes >= limits.JOB_RESUMES_BEFORE_FRESH) return [{ kind: 'replace-job', jobId: job.id }];
-    if (resumesAreHeld || jobResumeIsHeld(job, facts)) return [];
+    if (resumesAreHeld || jobResumeIsHeld(job, facts) || jobAwaitsAnAnswer(job, facts)) return [];
     return [{ kind: 'resume-job', jobId: job.id }];
   });
 }

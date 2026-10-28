@@ -72,8 +72,16 @@ export class Decisions {
     }
     const answer: DecisionAnswer = Object.fromEntries(answers.map((text, i) => [decision.questions[i]?.question ?? '', text]));
     this.removeDecision(decision);
-    const logged = this.records.logger.log({ kind: 'decision-answered', decisionId, fields: { answer: { ...answer } } }, at);
+    const fields = { answer: { ...answer }, ...(decision.requestId === null ? {} : { requestId: decision.requestId }) };
+    const logged = this.records.logger.log({ kind: 'decision-answered', decisionId, fields }, at);
     return { decision, answer, logged: [logged] };
+  }
+
+  /** A question whose job ended stays open on its ticket alone, so no fresh job inherits the dead session's pending request. */
+  rebindToTickets(decisionId: string): Readonly<Decision> {
+    const decision = this.requireOpenDecision(decisionId);
+    decision.jobId = null;
+    return decision;
   }
 
   withdrawDecision(decisionId: string, reason: string, at: string): DecisionClosed {

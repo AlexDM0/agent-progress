@@ -67,3 +67,15 @@ export const FIRST_INCIDENT_NUMBER = 1;
 
 /** The fact naming the AskUserQuestion request an incident was opened for, so a replayed request opens nothing twice. */
 export const REQUEST_ID_FACT = 'requestId';
+
+/** The fact carrying an agent's questions as JSON, so an escalation puts exactly the agent's words to the user. */
+export const QUESTIONS_FACT = 'questions';
+
+/** A ticket whose job ended with its question open is held `awaiting answer (E7)` until User answers it. */
+export const AWAITING_ANSWER_HOLD_PREFIX = 'awaiting answer';
+
+/** A v16 low `pending` ticket the runner's first start holds for its orchestrator's triage. */
+export const FIRST_RUN_REVIEW_HOLD = 'first-run review';
+
+/** The section of a ticket's body the answers to its ended job's questions go under, for the next agent. */
+export const QUESTIONS_SECTION_HEADING = '## Questions';

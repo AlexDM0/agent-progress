@@ -257,6 +257,14 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
         + `so it takes one answer for each, not ${detail.answerCount}. ${NOTHING_WAS_WRITTEN}`;
     case 'decision-without-questions':
       return `A decision asks at least one question, and this one asks none. ${NOTHING_WAS_WRITTEN}`;
+    case 'decision-has-several-questions':
+      return `Decision ${detail.decisionId} asks ${detail.questionCount} questions, so it takes one choice of letters for each; `
+        + `free text is given in the UI. ${NOTHING_WAS_WRITTEN}`;
+    case 'decision-option-unknown':
+      return `Question ${detail.questionNumber} of decision ${detail.decisionId} has ${detail.optionCount} `
+        + `${detail.optionCount === 1 ? 'option' : 'options'}, and "${detail.choice}" does not name them by letter. ${NOTHING_WAS_WRITTEN}`;
+    case 'decision-single-choice':
+      return `Question ${detail.questionNumber} of decision ${detail.decisionId} takes one option, not "${detail.choice}". ${NOTHING_WAS_WRITTEN}`;
     case 'unknown-incident':
       return `There is no incident ${detail.incidentId}. ${NOTHING_WAS_WRITTEN}`;
     case 'incident-closed':

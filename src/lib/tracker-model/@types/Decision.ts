@@ -55,3 +55,8 @@ export type DecisionOpening = Omit<Decision, 'id' | 'openedAt' | 'ticketIds' | '
 
 /** One answer per question, keyed by the question's text: the map agent-dashboard sends. */
 export type DecisionAnswer = Readonly<Record<string, string>>;
+
+/** How `decide` writes an answer: one choice of option letters per question (`b`, `ac` for a multi-select), or one free text. */
+export type DecisionAnswerForm =
+  | { form: 'letters'; choices: readonly string[] }
+  | { form: 'text'; text: string };

@@ -333,7 +333,11 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
       token    = writeToken(files);
       lifetime = runnerLifetime(request, files, generation, log);
       enterStep('reattach');
-      await openTrackerForWriting(request.commandArguments, context, (change) => change.board.recordRunnerStarted({ codeVersion, installVersion: INSTALL_VERSION }, change.at));
+      await openTrackerForWriting(request.commandArguments, context, (change) => {
+        // Before the record it looks for: only the first start on a board holds the v16 leftovers.
+        change.board.holdFirstRunLeftovers(change.at);
+        return change.board.recordRunnerStarted({ codeVersion, installVersion: INSTALL_VERSION }, change.at);
+      });
       await registerRunner(request, { url: server.url, processId: process.pid, startedAt: LocalTimeUtil.formatLocalIso(context.now()) });
       log(`Runner serving ${server.url} under lease ${generation} (code ${codeVersion}, install version ${INSTALL_VERSION}, agents ${context.agentAdapter.vendor}).`);
       if (!printedTheUrl) OutputUtil.printEntity(request.commandArguments, context, { url: server.url, generation }, server.url);
@@ -360,6 +364,7 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
         launchTextOf:          RunnerWording.launchTextOf,
         windDownMessage:       RunnerWording.windDownMessage(),
         resumeMessage:         RunnerWording.resumeMessage(),
+        answerMessageOf:       RunnerWording.answerMessageOf,
         homeDirectory:         context.homeDirectory,
         log,
         onLeaseTakenOver:      (refusal) => (current?.lifetime ?? startedLifetime).takenOver(refusal),

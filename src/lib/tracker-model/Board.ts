@@ -43,8 +43,8 @@ import type {
   TokenCredit,
   TrackerCleared
 }                                                           from './@types/BoardChanges.ts';
-import type { Concurrency, DispatchCapacity } from './@types/Concurrency.ts';
-import type { Decision, DecisionOpening }     from './@types/Decision.ts';
+import type { Concurrency, DispatchCapacity }                 from './@types/Concurrency.ts';
+import type { Decision, DecisionAnswerForm, DecisionOpening } from './@types/Decision.ts';
 import type {
   Draft,
   DraftNoteAddition,
@@ -93,7 +93,9 @@ import type {
   TicketStatus
 }                                                         from './@types/Ticket.ts';
 import type { DispatcherState, TrackerProgress, ViewRange } from './@types/TrackerProgress.ts';
+import { AgentQuestions }                                   from './AgentQuestions.ts';
 import { BoardRecords }                                     from './BoardRecords.ts';
+import { BoardRefusal }                                     from './BoardRefusal.ts';
 import { Decisions }                                        from './Decisions.ts';
 import { DispatchQueries }                                  from './DispatchQueries.ts';
 import { DisplayQueries }                                   from './DisplayQueries.ts';
@@ -190,6 +192,8 @@ export class Board {
 
   private readonly incidentRules: Incidents;
 
+  private readonly agentQuestions: AgentQuestions;
+
   constructor(input: BoardInput) {
     this.records            = new BoardRecords(input.progress, input.tickets, input.epics, input.drafts ?? [], input.logger, input.storedLogRecords ?? []);
     this.reviewBars         = new ReviewBars(this.records);
@@ -214,6 +218,7 @@ export class Board {
     this.mergeSlotClaims    = new MergeSlotClaims(this.records, this.jobRules);
     this.decisionRules      = new Decisions(this.records);
     this.incidentRules      = new Incidents(this.records, this.decisionRules);
+    this.agentQuestions     = new AgentQuestions(this.records, this.jobRules, this.decisionRules, this.ticketSettings, this.ticketEdits);
   }
 
   launchJob(launch: JobLaunch, at: string): JobChanged {
@@ -228,8 +233,10 @@ export class Board {
     return this.jobRules.interruptJob(jobId, cause, at);
   }
 
+  /** A ticket job ended `replaced` or `stopped` leaves its open questions on its ticket, held until User answers them. */
   endJob(jobId: string, ending: JobEnding, at: string): JobChanged {
-    return this.jobRules.endJob(jobId, ending, at);
+    const ended = this.jobRules.endJob(jobId, ending, at);
+    return { job: ended.job, logged: [...ended.logged, ...this.agentQuestions.rebindQuestionsOfEndedJob(ended.job, at)] };
   }
 
   setJobEventCursor(jobId: string, cursor: JobEventCursor): Readonly<Job> {
@@ -332,7 +339,31 @@ export class Board {
     const answered                    = this.decisionRules.answerDecision(decisionId, answers, at);
     const { jobId, requestId }        = answered.decision;
     if (jobId !== null && requestId !== null && this.jobRules.jobById(jobId) !== undefined) this.jobRules.addAnsweredRequestId(jobId, requestId);
-    return answered;
+    return { ...answered, logged: [...answered.logged, ...this.agentQuestions.afterAnswer(answered.decision, answered.answer, at)] };
+  }
+
+  /** `decide`'s forms: option letters per question, multi-select letters joined, or one free text for a one-question decision. */
+  answerDecisionInForm(decisionId: string, form: DecisionAnswerForm, at: string): DecisionAnswered {
+    return this.answerDecision(decisionId, this.agentQuestions.answersOf(decisionId, form), at);
+  }
+
+  /** Puts a question incident's own questions to User as an `agent-question`, with no word of the orchestrator's. */
+  escalateQuestionIncident(incidentId: string, at: string): IncidentEscalated {
+    const incident   = this.incidentRules.incidentById(incidentId);
+    const escalation = incident === undefined ? null : this.agentQuestions.escalationOf(incident);
+    if (incident === undefined) throw new BoardRefusal({ reason: 'unknown-incident', incidentId });
+    if (escalation === null) throw new BoardRefusal({ reason: 'decision-without-questions' });
+    return this.incidentRules.escalateIncident(incidentId, escalation, at);
+  }
+
+  /** The runner's first start holds the v16 low `pending` tickets `first-run review` and lists them in one `findings-delivered` incident. */
+  holdFirstRunLeftovers(at: string): Logged {
+    const held = this.agentQuestions.holdFirstRunLeftovers(at);
+    if (held.ticketIds.length === 0) return { logged: held.logged };
+    const opened = this.incidentRules.openIncident({
+      kind: 'findings-delivered', ticketIds: held.ticketIds, jobId: null, facts: {}, defaultMove: 'ticket-triage'
+    }, at);
+    return { logged: [...held.logged, ...opened.logged] };
   }
 
   withdrawDecision(decisionId: string, reason: string, at: string): DecisionClosed {
@@ -429,7 +460,7 @@ export class Board {
       case 'open-incident':
         return this.openIncident(step.incident, at).logged;
       case 'default-incident':
-        return this.defaultIncident(step.incidentId, step.cause, at).logged;
+        return this.defaultOrEscalateIncident(step.incidentId, step.cause, at);
       case 'stop-dispatching':
         return this.setDispatcherState('stopped', null, at).logged;
     }
@@ -437,6 +468,14 @@ export class Board {
 
   incidentById(incidentId: string): Readonly<Incident> | undefined {
     return this.incidentRules.incidentById(incidentId);
+  }
+
+  /** A question incident whose default is to escalate puts the agent's questions to User; every other default only closes the incident. */
+  private defaultOrEscalateIncident(incidentId: string, cause: IncidentDefaultCause, at: string): readonly LogRecord[] {
+    const incident = this.incidentRules.incidentById(incidentId);
+    const escalation = incident?.defaultMove === 'incident-escalate' ? this.agentQuestions.escalationOf(incident) : null;
+    if (escalation === null) return this.defaultIncident(incidentId, cause, at).logged;
+    return this.incidentRules.escalateIncident(incidentId, escalation, at).logged;
   }
 
   /** Puts a finding before the user's low-priority triage; the ticket is one the caller resolved. */

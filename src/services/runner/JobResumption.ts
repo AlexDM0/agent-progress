@@ -73,9 +73,15 @@ function resumeMessageMarkerOf(jobFolder: string, instance: number): string {
  * The first line of each resumed instance, written once its host answers; an answer delivery is resumed with the answer instead. The marker
  * is written only after the host took the line, so a host not yet listening is tried again on the next pass.
  */
-async function deliverResumeMessages(trackerDirectory: string, board: Board, adapter: AgentAdapter, resumeMessage: string): Promise<void> {
+async function deliverResumeMessages(
+  trackerDirectory: string,
+  board: Board,
+  adapter: AgentAdapter,
+  resumeMessage: string,
+  answerAwaitsDelivery: (job: Readonly<Job>) => boolean,
+): Promise<void> {
   for (const job of board.jobs()) {
-    if (job.state !== 'running' || !isResumedInstance(job) || job.interruption === 'answer-delivery') continue;
+    if (job.state !== 'running' || !isResumedInstance(job) || job.interruption === 'answer-delivery' || answerAwaitsDelivery(job)) continue;
     const jobFolder = HostFleet.jobFolderOf(trackerDirectory, job.id);
     const marker    = resumeMessageMarkerOf(jobFolder, job.hostInstance);
     if (existsSync(marker) || HostFleet.livenessOf(jobFolder, job.hostInstance).verdict !== 'live') continue;

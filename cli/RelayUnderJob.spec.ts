@@ -66,6 +66,7 @@ const ARGUMENTS_OF_KIND: { readonly [Kind in ControlCommandKind]: readonly strin
   'draft-drop':          ['draft', 'drop', 'D1', 'N1'],
   'draft-close':         ['draft', 'close', 'D1', '--tickets', '1'],
   'draft-abandon':       ['draft', 'abandon', 'D1', '--reason', 'dropped'],
+  'decision-answer':     ['decide', 'E1', 'a'],
   'runner-pause':        ['run', 'pause'],
   'runner-resume':       ['run', 'resume'],
   'runner-stop':         ['run', 'stop', '--now'],

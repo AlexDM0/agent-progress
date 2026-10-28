@@ -87,6 +87,12 @@ function resumeMessage(): string {
   return readFileSync(resourceFilePathOf('prompts', 'ResumeMessage.md'), 'utf8').trim().replaceAll('\n', ' ');
 }
 
+/** The first line of a session resumed after its question was answered: each question with User's answer, in the agent's own words. */
+function answerMessageOf(answer: Readonly<Record<string, string>>): string {
+  const answerLines = Object.entries(answer).map(([question, answerText]) => `Question: ${question}\nAnswer: ${answerText}`);
+  return `You were interrupted while waiting for the answer to your question; carry on with it.\n\n${answerLines.join('\n\n')}`;
+}
+
 const EARLIER_SESSION_NOTE = 'An earlier session was interrupted; uncommitted changes are its work.';
 
 /** A fresh job after a `replaced` one inherits its worktree, and is told so before anything else. */
@@ -137,6 +143,7 @@ export const RunnerWording = Object.freeze({
   launchTextOf: launchTextWithEarlierSessionNoteOf,
   windDownMessage,
   resumeMessage,
+  answerMessageOf,
   runnerStateOf,
   noticeTextOf,
   handoverWarningTextOf,

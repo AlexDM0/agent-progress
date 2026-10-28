@@ -3,6 +3,7 @@
  * Every value is plain JSON, so a command survives a relay file or an HTTP body unchanged; a body or request file is read before the
  * command is built, which carries its text. A ticket is named as it was written (`3`, `003`, `#3`), resolved inside the hold.
  */
+import type { DecisionAnswerForm }                 from '../../lib/tracker-model/@types/Decision.ts';
 import type { DraftNoteKind, DraftQuestionAsking } from '../../lib/tracker-model/@types/Draft.ts';
 import type {
   AgentEffort,
@@ -82,6 +83,7 @@ export type ControlCommand =
   | { kind: 'draft-drop'; draftId: string; itemId: string }
   | { kind: 'draft-close'; draftId: string; ticketReferences: string[] }
   | { kind: 'draft-abandon'; draftId: string; reason: string }
+  | { kind: 'decision-answer'; decisionId: string; answer: DecisionAnswerForm }
   | { kind: 'runner-pause' }
   | { kind: 'runner-resume' }
   /** Runtime only: sent to the live runner, which stops; the board is never changed by it. */

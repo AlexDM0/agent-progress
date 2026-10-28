@@ -49,7 +49,7 @@ const NOT_RELAYABLE_MUTATING_VERBS = [
  * `open` writes no tracker file but launches a browser and registers the dashboard, so a session under a job may not run it; `run
  * status` and `version` are read-only verbs design section 9.1 names, not yet offered under a job.
  */
-const READ_ONLY_VERBS = [...READ_ONLY_VERBS_UNDER_A_JOB, 'open', 'run status', 'version', 'merges'];
+const READ_ONLY_VERBS = [...READ_ONLY_VERBS_UNDER_A_JOB, 'open', 'run status', 'version', 'merges', 'decisions', 'await'];
 
 /** Verbs design section 9.2 retires, which no command replaces; they leave the table with T26. */
 const RETIRING_VERBS = ['hook', 'render', 'ticket claim'];
