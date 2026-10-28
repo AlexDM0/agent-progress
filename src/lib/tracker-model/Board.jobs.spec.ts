@@ -120,6 +120,28 @@ describe('the legality table', () => {
     expect(Object.keys(LEGAL_SOURCE_STATES_FOR_JOB_MOVE).sort()).toEqual([...JOB_STATES, 'ended'].sort());
   });
 
+  // Written from design section 3.2's job diagram, not from the table, so a wrong entry in the table fails here.
+  test('allows from each state exactly the moves the design draws', () => {
+    const DESIGNED_TARGETS_FROM_STATE: Readonly<Record<JobState, readonly JobMoveTarget[]>> = {
+      'launching':          ['preparing', 'running', 'merging', 'stopping', 'ended'],
+      'preparing':          ['running', 'interrupted', 'stopping', 'ended'],
+      'running':            ['waiting-for-answer', 'interrupted', 'verifying', 'stopping', 'ended'],
+      'waiting-for-answer': ['running', 'interrupted', 'stopping', 'ended'],
+      'interrupted':        ['running', 'awaiting-answer', 'stopping', 'ended'],
+      'awaiting-answer':    ['running', 'stopping', 'ended'],
+      'verifying':          ['gating', 'stopping', 'ended'],
+      'gating':             ['landing', 'stopping', 'ended'],
+      'merging':            ['gating', 'stopping', 'ended'],
+      'landing':            ['stopping', 'ended'],
+      'stopping':           ['interrupted', 'ended'],
+    };
+    for (const state of JOB_STATES) {
+      const allowedTargets = (Object.keys(LEGAL_SOURCE_STATES_FOR_JOB_MOVE) as JobMoveTarget[])
+        .filter((target) => LEGAL_SOURCE_STATES_FOR_JOB_MOVE[target].includes(state));
+      expect(allowedTargets.sort(), state).toEqual([...DESIGNED_TARGETS_FROM_STATE[state]].sort());
+    }
+  });
+
   // Planted from each state: every target the table does not list for it is refused, and nothing changes.
   test.each(JOB_STATES.map((state) => [state]))('from %s, every move the table does not allow is refused job-move-illegal', (state) => {
     const illegalTargets = (Object.keys(LEGAL_SOURCE_STATES_FOR_JOB_MOVE) as JobMoveTarget[])
