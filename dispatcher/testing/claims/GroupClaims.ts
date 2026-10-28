@@ -137,7 +137,9 @@ const GROUP_BRANCH_MERGE_COMMAND = 'merge --no-edit group-example-group`, never 
 // The diamond: 102's review outlasts 101's, so 101 integrates after 102's build forked, and the release ticket 103 is pipelined behind 102 alone.
 function pipelinedBuilderMergesTheGroupBranch(run: RecordedDispatchRun): boolean {
   const releaseBuildPrompt = buildPromptOf(run, RELEASE_TICKET_ID);
-  return eventIndexOf(run, 'main end review 101 integrated') < eventIndexOf(run, `main start build ${RELEASE_TICKET_ID}`)
+  return eventIndexOf(run, 'main start build 102') !== -1
+    && eventIndexOf(run, 'main start build 102') < eventIndexOf(run, 'main end review 101 integrated')
+    && eventIndexOf(run, 'main end review 101 integrated') < eventIndexOf(run, `main start build ${RELEASE_TICKET_ID}`)
     && eventIndexOf(run, `main start build ${RELEASE_TICKET_ID}`) < eventIndexOf(run, 'main end review 102 integrated')
     && releaseBuildPrompt.includes('--after 102`')
     && releaseBuildPrompt.includes(GROUP_BRANCH_MERGE_COMMAND)
