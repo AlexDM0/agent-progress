@@ -22,6 +22,7 @@ import {
 import { join }                          from 'node:path';
 import { afterEach, beforeEach, expect } from 'bun:test';
 
+import { PRODUCT_NAMES }                                           from '../src/shared/constants/ProductNames.ts';
 import { CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS }                 from '../src/testing/ChildProcessCaseTimeout.ts';
 import { createCanonicalScratchDirectory, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
 import { testWhenBashIsPresent }                                   from '../src/testing/ToolGuard.ts';
@@ -211,4 +212,48 @@ testWhenBashIsPresent('setup.sh --instruct-only leaves the home unchanged: no sk
   expect(exitCode, output).toBe(0);
   expect(snapshotOf(scratchHomeDirectory)).toEqual(homeBefore);
   expect(readFileSync(join(scratchHomeDirectory, '.zshrc'), 'utf8')).toBe(EXAMPLE_RC_CONTENT);
+}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
+
+function launchAgentPathOf(label: string): string {
+  return join(scratchHomeDirectory, 'Library', 'LaunchAgents', `${label}.plist`);
+}
+
+function runLoginRunner(loginArguments: readonly string[]): FinishedSetupRun {
+  const finished = Bun.spawnSync(['bash', SETUP_SCRIPT_PATH, '--login-runner', ...loginArguments], {
+    cwd: scratchHomeDirectory, env: setupScriptEnvironment(), stdin: 'ignore', stdout: 'pipe', stderr: 'pipe',
+  });
+  return { exitCode: finished.exitCode, output: `${finished.stdout.toString()}\n${finished.stderr.toString()}` };
+}
+
+testWhenBashIsPresent('setup.sh --login-runner writes a LaunchAgent labelled LAUNCH_AGENT_LABEL running run --detach at load, every path absolute', () => {
+  const repositoryDirectory = join(scratchDirectory, 'tracked-repository');
+  mkdirSync(repositoryDirectory);
+  const { exitCode, output } = runLoginRunner([repositoryDirectory]);
+  expect(exitCode, output).toBe(0);
+
+  const plist = readFileSync(launchAgentPathOf(PRODUCT_NAMES.LAUNCH_AGENT_LABEL), 'utf8');
+  expect(plist).toContain(`<key>Label</key>\n  <string>${PRODUCT_NAMES.LAUNCH_AGENT_LABEL}</string>`);
+  const programArguments = [join(fakeBunDirectory, 'bun'), join(CHECKOUT_DIRECTORY, 'agent-progress.ts'), 'run', '--detach'];
+  expect(plist).toContain(programArguments.map((argument) => `<string>${argument}</string>`).join('\n    '));
+  expect(plist).toContain(`<key>WorkingDirectory</key>\n  <string>${repositoryDirectory}</string>`);
+  expect(plist).toContain('<key>RunAtLoad</key>\n  <true/>');
+  expect(recordedBunCalls()).toEqual([]);
+}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
+
+testWhenBashIsPresent('setup.sh --login-runner refuses a second repository under the same label, takes one under its own, and --instruct-only writes nothing', () => {
+  const firstRepository = join(scratchDirectory, 'first-repository');
+  const secondRepository = join(scratchDirectory, 'second-repository');
+  mkdirSync(firstRepository);
+  mkdirSync(secondRepository);
+  const homeBefore = snapshotOf(scratchHomeDirectory);
+  expect(runLoginRunner([firstRepository, '--instruct-only']).exitCode).toBe(0);
+  expect(snapshotOf(scratchHomeDirectory)).toEqual(homeBefore);
+
+  expect(runLoginRunner([firstRepository]).exitCode).toBe(0);
+  const refused = runLoginRunner([secondRepository]);
+  expect(refused.exitCode).toBe(1);
+  expect(refused.output).toContain('pass --label');
+  expect(readFileSync(launchAgentPathOf(PRODUCT_NAMES.LAUNCH_AGENT_LABEL), 'utf8')).toContain(firstRepository);
+  expect(runLoginRunner([secondRepository, '--label', 'com.example-agency.runner']).exitCode).toBe(0);
+  expect(readFileSync(launchAgentPathOf('com.example-agency.runner'), 'utf8')).toContain(secondRepository);
 }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);

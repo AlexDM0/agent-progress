@@ -4,20 +4,32 @@
 # `core.hooksPath` pointed at its tracked `.githooks/`.
 #
 # It edits nothing outside $HOME/.claude, this repository's git config and, on the offer, one shell rc
-# file, and it deletes nothing that is not a symlink into this checkout. Per-repository setup, the
+# file (with --login-runner, only one file under ~/Library/LaunchAgents), and it deletes nothing that is not a symlink into this checkout. Per-repository setup, the
 # skills included, is `agent-progress init`'s job, not this one's.
 #
 # Usage: ./setup.sh [--instruct-only]
+#        ./setup.sh --login-runner <repository> [--label <label>] [--instruct-only]
 #   --instruct-only  changes nothing: every offer declines and every write is reported as "would".
+#   --login-runner   only writes ~/Library/LaunchAgents/<label>.plist, which runs `run --detach` in that repository at
+#                    login, so its runner is back after a reboot. A second repository needs a --label of its own.
 set -euo pipefail
+
+# The login item's default label: src/ProductNames.spec.ts holds it equal to LAUNCH_AGENT_LABEL.
+LAUNCH_AGENT_LABEL="com.agent-progress-v2.runner"
+USAGE="Usage: ./setup.sh [--instruct-only] | ./setup.sh --login-runner <repository> [--label <label>] [--instruct-only]"
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTRUCT_ONLY=0
-for argument in "$@"; do
-  case "$argument" in
+LOGIN_RUNNER_REPOSITORY=""
+LOGIN_RUNNER_LABEL="$LAUNCH_AGENT_LABEL"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
     --instruct-only) INSTRUCT_ONLY=1 ;;
-    *) printf "Unknown option: %s\nUsage: ./setup.sh [--instruct-only]\n" "$argument" >&2; exit 1 ;;
+    --login-runner) [[ $# -ge 2 ]] || { printf "%s\n" "$USAGE" >&2; exit 1; }; LOGIN_RUNNER_REPOSITORY="$2"; shift ;;
+    --label) [[ $# -ge 2 ]] || { printf "%s\n" "$USAGE" >&2; exit 1; }; LOGIN_RUNNER_LABEL="$2"; shift ;;
+    *) printf "Unknown option: %s\n%s\n" "$1" "$USAGE" >&2; exit 1 ;;
   esac
+  shift
 done
 
 ok()   { printf "  \033[32m✔\033[0m %s\n" "$1"; }
@@ -33,8 +45,69 @@ offer() {
   [[ "$answer" == "y" || "$answer" == "Y" ]]
 }
 
-step "1/4 Bun"
+xml_escaped() {
+  local text="$1"
+  text="${text//&/&amp;}"; text="${text//</&lt;}"; text="${text//>/&gt;}"
+  printf '%s' "$text"
+}
+
+# The runner restarts after a reboot only through User, agent-dashboard or this optional item; runtime code never installs it.
+write_login_runner() {
+  [[ -d "$LOGIN_RUNNER_REPOSITORY" ]] || { fail "$LOGIN_RUNNER_REPOSITORY is not a folder"; exit 1; }
+  local repository bun_path plist_directory plist_path
+  repository="$(cd "$LOGIN_RUNNER_REPOSITORY" && pwd -P)"
+  bun_path="$(command -v bun || true)"
+  [[ -n "$bun_path" ]] || { fail "bun not found; run ./setup.sh first"; exit 1; }
+  bun_path="$(cd "$(dirname "$bun_path")" && pwd -P)/$(basename "$bun_path")"
+  plist_directory="$HOME/Library/LaunchAgents"
+  plist_path="$plist_directory/$LOGIN_RUNNER_LABEL.plist"
+  if [[ -f "$plist_path" ]] && ! grep -qF "<string>$(xml_escaped "$repository")</string>" "$plist_path"; then
+    fail "$plist_path already starts the runner of another repository; pass --label <label> for $repository"
+    exit 1
+  fi
+  if [[ "$INSTRUCT_ONLY" == "1" ]]; then
+    warn "Would write $plist_path, running $bun_path $HERE/agent-progress.ts run --detach in $repository at login"
+    return
+  fi
+  mkdir -p "$plist_directory"
+  cat > "$plist_path" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>$(xml_escaped "$LOGIN_RUNNER_LABEL")</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$(xml_escaped "$bun_path")</string>
+    <string>$(xml_escaped "$HERE/agent-progress.ts")</string>
+    <string>run</string>
+    <string>--detach</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>$(xml_escaped "$repository")</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>$(xml_escaped "$PATH")</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+</dict>
+</plist>
+PLIST
+  ok "Wrote $plist_path: the runner of $repository starts at login"
+  warn "To start it now as well: launchctl bootstrap gui/$(id -u) \"$plist_path\""
+}
+
 export PATH="$HOME/.bun/bin:$PATH"
+if [[ -n "$LOGIN_RUNNER_REPOSITORY" ]]; then
+  step "The runner's login item (LaunchAgent)"
+  write_login_runner
+  exit 0
+fi
+
+step "1/4 Bun"
 if command -v bun >/dev/null 2>&1; then
   BUN_VERSION="$(bun --version)"
   ok "bun $BUN_VERSION found ($(command -v bun))"
