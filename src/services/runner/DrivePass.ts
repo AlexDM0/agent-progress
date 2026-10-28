@@ -639,7 +639,8 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
       legacyHostJobIds: legacyHostJobIdsOf(written.board, request.workspace.trackerDirectory),
     };
     const settled = observe(request, jobLaunchContext);
-    lastFingerprint = settled.fingerprint;
+    // An event a Watcher logged after this pass read its events is unapplied work, never a settled state an unforced wake may skip.
+    lastFingerprint = settled.hosts.some((host) => host.events.length > 0) ? null : settled.fingerprint;
     if (JobLaunch.someBuildJobAwaitsAPass(written.board, settled.buildJobs)) {
       forcedNext = true;
       wokenAgain = true;
