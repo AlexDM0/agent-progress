@@ -3,7 +3,8 @@
  * order, the wind-down turn of a `wind-down` request, and a session's closed input, with a stop frame after it for a `stop`. A frame waits
  * until its host is live, and a marker written once it was taken keeps a restart from sending it twice.
  */
-import { join } from 'node:path';
+import { existsSync } from 'node:fs';
+import { join }       from 'node:path';
 
 import type { ActingFrame }                from '../../lib/agent-host/@types/HostFrame.ts';
 import type { AgentAdapter }               from '../../lib/agent-launch/AgentAdapter.ts';
@@ -23,8 +24,17 @@ const MARKERS_FOLDER = 'control-frames';
 
 const SESSION_JOB_KINDS: readonly JobKind[] = ['orchestrator', 'product-owner'];
 
-async function sendOnce(jobFolder: string, job: Readonly<Job>, marker: string, frames: readonly ActingFrame[]): Promise<void> {
-  await HostFleet.sendFramesOnce(join(jobFolder, MARKERS_FOLDER, marker), jobFolder, job.hostInstance, frames);
+/** Whether the frames were taken, on this pass or an earlier one: a later frame of the job waits on an earlier one, so none overtakes it. */
+async function sendOnce(jobFolder: string, job: Readonly<Job>, marker: string, frames: readonly ActingFrame[]): Promise<boolean> {
+  const markerPath = join(jobFolder, MARKERS_FOLDER, marker);
+  await HostFleet.sendFramesOnce(markerPath, jobFolder, job.hostInstance, frames);
+  return existsSync(markerPath);
+}
+
+async function deliverInOrder(sends: readonly (() => Promise<boolean>)[]): Promise<void> {
+  for (const send of sends) {
+    if (!await send()) return;
+  }
 }
 
 async function deliverJobControls(request: JobControlDeliveryRequest): Promise<void> {
@@ -38,18 +48,19 @@ async function deliverJobControls(request: JobControlDeliveryRequest): Promise<v
   });
   for (const job of board.jobs()) {
     const jobFolder = HostFleet.jobFolderOf(request.trackerDirectory, job.id);
-    for (const message of messages.filter((candidate) => candidate.jobId === job.id)) {
-      await sendOnce(jobFolder, job, `message-${message.number}`, [{ kind: 'write', line: adapter.chatLineOf(message.text) }]);
-    }
+    const sends = messages.filter((candidate) => candidate.jobId === job.id).map((message) => async () => await sendOnce(
+      jobFolder, job, `message-${message.number}`, [{ kind: 'write', line: adapter.chatLineOf(message.text) }]
+    ));
     if (job.stopRequest === 'wind-down' && job.state === 'running') {
-      await sendOnce(jobFolder, job, 'wind-down', [{ kind: 'write', line: adapter.chatLineOf(request.windDownMessage) }]);
+      sends.push(async () => await sendOnce(jobFolder, job, 'wind-down', [{ kind: 'write', line: adapter.chatLineOf(request.windDownMessage) }]));
     }
     if (job.state === 'stopping' && SESSION_JOB_KINDS.includes(job.kind)) {
-      await sendOnce(jobFolder, job, `input-closed-${job.hostInstance}`, [{ kind: 'close-input' }]);
+      sends.push(async () => await sendOnce(jobFolder, job, `input-closed-${job.hostInstance}`, [{ kind: 'close-input' }]));
       if (job.stopRequest === 'stop') {
-        await sendOnce(jobFolder, job, `stop-${job.hostInstance}`, [{ kind: 'stop', graceMilliseconds: SESSION_STOP_GRACE_MILLISECONDS }]);
+        sends.push(async () => await sendOnce(jobFolder, job, `stop-${job.hostInstance}`, [{ kind: 'stop', graceMilliseconds: SESSION_STOP_GRACE_MILLISECONDS }]));
       }
     }
+    await deliverInOrder(sends);
   }
 }
 
