@@ -53,6 +53,8 @@ describe('denies what leaves the list', () => {
     ['a Bash call asking for the bare domain of a wildcard entry', bashCall(['example.org'])],
     ['a WebFetch of an unlisted host', webFetch('https://example.net/page')],
     ['a WebFetch of loopback', webFetch('http://127.0.0.1:8080/')],
+    ['a WebFetch of a host that merely ends in a listed domain\'s text', webFetch('https://evilregistry.example.com/')],
+    ['a Bash call asking for a domain that merely ends in a wildcard\'s text', bashCall(['evilexample.org'])],
   ])('%s is denied through the PreToolUse JSON at exit 0', async (_case, hookInput) => {
     const { exitCode, output } = await answerOf(hookInput);
     expect(exitCode).toBe(0);
