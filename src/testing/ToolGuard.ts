@@ -7,11 +7,16 @@ import { describe, test } from 'bun:test';
 
 import { EVERY_TOOL_REQUIRED_VARIABLE, everyToolIsRequired } from '../shared/Environment.ts';
 import { scratchRootLiesOutsideTheFixedTemporaryFolders }    from './FixedTemporaryFolders.ts';
-import { gitIsAvailable }                                    from './ScratchWorkspace.ts';
+import {
+  commitFile,
+  createScratchGitRepository,
+  gitIsAvailable,
+  removeScratchDirectory
+} from './ScratchWorkspace.ts';
 
 export type RequiredTool = 'git' | 'bash';
 
-export type SpecRequirement = RequiredTool | 'scratch-root-outside-tmp';
+export type SpecRequirement = RequiredTool | 'git-merge-tree-stdin' | 'scratch-root-outside-tmp';
 
 export interface SkippedSpec {
   readonly title:            string;
@@ -22,15 +27,43 @@ function bashIsAvailable(): boolean {
   return Bun.which('bash') !== null;
 }
 
+function plantedPairMergesOnStandardInput(): boolean {
+  const repositoryDirectory = createScratchGitRepository('merge-tree-stdin-probe');
+  try {
+    commitFile(repositoryDirectory, 'planted.txt', 'planted\n');
+    const finished = Bun.spawnSync(['git', 'merge-tree', '--stdin'], {
+      cwd:    repositoryDirectory,
+      stdin:  new TextEncoder().encode('HEAD^ HEAD\n'),
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+    return finished.exitCode === 0 && finished.stdout.toString().startsWith('1\0');
+  } catch {
+    return false;
+  } finally {
+    removeScratchDirectory(repositoryDirectory);
+  }
+}
+
+let gitMergeTreeStandardInputAnswer: boolean | null = null;
+
+/** Runs the feature on a planted pair, once per run, rather than reading git's version number. */
+function gitMergeTreeStandardInputWorks(): boolean {
+  gitMergeTreeStandardInputAnswer ??= gitIsAvailable() && plantedPairMergesOnStandardInput();
+  return gitMergeTreeStandardInputAnswer;
+}
+
 const REQUIREMENT_IS_MET: Readonly<Record<SpecRequirement, () => boolean>> = {
   'git':                      gitIsAvailable,
   'bash':                     bashIsAvailable,
+  'git-merge-tree-stdin':     gitMergeTreeStandardInputWorks,
   'scratch-root-outside-tmp': scratchRootLiesOutsideTheFixedTemporaryFolders,
 };
 
 const UNMET_REQUIREMENT_WORDING: Readonly<Record<SpecRequirement, string>> = {
   'git':                      'git is missing',
   'bash':                     'bash is missing',
+  'git-merge-tree-stdin':     'git merge-tree --stdin is missing',
   'scratch-root-outside-tmp': 'the scratch root lies under /tmp or /var/tmp',
 };
 
@@ -80,6 +113,11 @@ export function describeWhenGitIsPresent(title: string, body: () => void): void 
 
 export function testWhenGitIsPresent(claim: string, body: SpecBody, timeoutMilliseconds?: number): void {
   testWhenRequirementIsMet('git', claim, body, timeoutMilliseconds);
+}
+
+/** For a spec predicting merges: git with `merge-tree --write-tree` and `--stdin`. */
+export function describeWhenGitMergeTreeStdinIsPresent(title: string, body: () => void): void {
+  describeWhenRequirementIsMet('git-merge-tree-stdin', title, body);
 }
 
 export function testWhenBashIsPresent(claim: string, body: SpecBody, timeoutMilliseconds?: number): void {

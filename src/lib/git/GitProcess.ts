@@ -21,7 +21,7 @@ export interface GitRun {
 }
 
 /** `null` when git could not be started at all. No timeout: a git that hangs is the caller's to wait on. */
-function run(directory: string, gitArguments: readonly string[], hookPolicy: GitHookPolicy = 'hooks-off'): GitRun | null {
+function run(directory: string, gitArguments: readonly string[], hookPolicy: GitHookPolicy = 'hooks-off', standardInput?: string): GitRun | null {
   const hookOverrides = hookPolicy === 'hooks-off' ? HOOKS_OFF_OVERRIDES : [];
   try {
     const finished = Bun.spawnSync({
@@ -29,6 +29,7 @@ function run(directory: string, gitArguments: readonly string[], hookPolicy: Git
       cwd:    directory,
       stdout: 'pipe',
       stderr: 'pipe',
+      ...(standardInput === undefined ? {} : { stdin: new TextEncoder().encode(standardInput) }),
     });
     return {
       exitCode:       finished.exitCode,

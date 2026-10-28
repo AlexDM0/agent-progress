@@ -2,10 +2,16 @@
  * What a run on a machine without git does with a guarded spec: skips it by name, counts it in the preloaded report, and fails it instead
  * when `AGENT_PROGRESS_REQUIRE_EVERY_TOOL` is set. Each case runs `bun test` in a child whose PATH holds only `bun` (and, for the control,
  * `git`), since hiding git from this process would change every other spec in the run. The temp-folder guard is held the same way, its
- * child's `TMPDIR` putting the scratch root under `/tmp` or outside it.
+ * child's `TMPDIR` putting the scratch root under `/tmp` or outside it. The merge-prediction guard is held by the feature, not a version: a
+ * planted `git` that refuses `merge-tree` skips its suite under the feature's name.
  */
-import { mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
-import { join }                                  from 'node:path';
+import {
+  chmodSync,
+  mkdirSync,
+  symlinkSync,
+  writeFileSync
+} from 'node:fs';
+import { join } from 'node:path';
 import {
   afterEach,
   beforeEach,
@@ -41,6 +47,16 @@ const TEMPORARY_FOLDER_FIXTURE_SPEC_SOURCE = [
   `testWhenGitIsPresentAndTheScratchRootIsOutsideTmp(${JSON.stringify(TEMPORARY_FOLDER_GUARDED_CLAIM)}, () => expect(1).toBe(1));`,
 ].join('\n');
 
+const MERGE_TREE_GUARDED_SUITE_TITLE = 'an example suite that predicts merges';
+
+const MERGE_TREE_FIXTURE_SPEC_SOURCE = [
+  'import { expect, test } from \'bun:test\';',
+  `import { describeWhenGitMergeTreeStdinIsPresent } from ${JSON.stringify(TOOL_GUARD_MODULE_PATH)};`,
+  `describeWhenGitMergeTreeStdinIsPresent(${JSON.stringify(MERGE_TREE_GUARDED_SUITE_TITLE)}, () => {`,
+  '  test(\'holds\', () => expect(1).toBe(1));',
+  '});',
+].join('\n');
+
 let scratchDirectory = '';
 
 interface FinishedTestRun {
@@ -52,6 +68,7 @@ beforeEach(() => {
   scratchDirectory = createScratchDirectory('tool-guard');
   writeFileSync(join(scratchDirectory, 'Fixture.spec.ts'), FIXTURE_SPEC_SOURCE);
   writeFileSync(join(scratchDirectory, 'TemporaryFolderFixture.spec.ts'), TEMPORARY_FOLDER_FIXTURE_SPEC_SOURCE);
+  writeFileSync(join(scratchDirectory, 'MergeTreeFixture.spec.ts'), MERGE_TREE_FIXTURE_SPEC_SOURCE);
 });
 
 afterEach(() => {
@@ -95,6 +112,30 @@ testWhenGitIsPresent('with git on the PATH the guarded specs run and nothing is 
   const { exitCode, output } = testRunWithOnlyTheseTools([Bun.which('git') ?? 'git'], { [EVERY_TOOL_REQUIRED_VARIABLE]: '1' });
   expect(exitCode, output).toBe(0);
   expect(output).toContain('2 pass');
+  expect(output).not.toContain('skipped for a missing tool');
+}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
+
+/** A `git` on the PATH that refuses `merge-tree` the way a git older than 2.39 refuses `--stdin`, and passes everything else to the real one. */
+function plantGitWithoutMergeTreeStandardInput(): string {
+  const fakeGitDirectory = join(scratchDirectory, 'fake-git');
+  mkdirSync(fakeGitDirectory);
+  const fakeGitPath = join(fakeGitDirectory, 'git');
+  writeFileSync(fakeGitPath, `#!/bin/sh\nfor argument in "$@"; do [ "$argument" = merge-tree ] && exit 129; done\nexec ${JSON.stringify(Bun.which('git') ?? 'git')} "$@"\n`);
+  chmodSync(fakeGitPath, 0o755);
+  return fakeGitPath;
+}
+
+testWhenGitIsPresent('with a git lacking merge-tree --stdin the merge-prediction guard skips its suite, naming the missing feature', () => {
+  const { exitCode, output } = testRunWithOnlyTheseTools([plantGitWithoutMergeTreeStandardInput()], {}, './MergeTreeFixture.spec.ts');
+  expect(exitCode, output).toBe(0);
+  expect(output).toContain('1 spec(s) skipped for a missing tool or machine condition');
+  expect(output).toContain(`${MERGE_TREE_GUARDED_SUITE_TITLE} [git merge-tree --stdin is missing]`);
+}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
+
+testWhenGitIsPresent('with a git that runs merge-tree --stdin on the planted pair the merge-prediction guard runs its suite', () => {
+  const { exitCode, output } = testRunWithOnlyTheseTools([Bun.which('git') ?? 'git'], { [EVERY_TOOL_REQUIRED_VARIABLE]: '1' }, './MergeTreeFixture.spec.ts');
+  expect(exitCode, output).toBe(0);
+  expect(output).toContain('1 pass');
   expect(output).not.toContain('skipped for a missing tool');
 }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
