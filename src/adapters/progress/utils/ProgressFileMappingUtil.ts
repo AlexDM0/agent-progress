@@ -33,28 +33,29 @@ type KnownKeys = Readonly<Record<string, true>>;
 
 // Each table names every key of the model and of the stored form, so a field added to either fails to compile here until it is mapped.
 const KNOWN_PROGRESS_KEYS = {
-  version:               true,
-  trackerId:             true,
-  project:               true,
-  startedAt:             true,
-  view:                  true,
-  nextTaskId:            true,
-  concurrencyLimit:      true,
-  dispatcherState:       true,
-  dispatcherRunId:       true,
-  checkCommand:          true,
-  installCommand:        true,
-  checksDefinitionFiles: true,
-  gateKeyCommand:        true,
-  gateCachePaths:        true,
-  nextDraftId:           true,
-  nextJobId:             true,
-  jobs:                  true,
-  nextDecisionId:        true,
-  decisions:             true,
-  nextIncidentId:        true,
-  incidents:             true,
-  tasks:                 true,
+  version:                true,
+  trackerId:              true,
+  project:                true,
+  startedAt:              true,
+  view:                   true,
+  nextTaskId:             true,
+  concurrencyLimit:       true,
+  dispatcherState:        true,
+  dispatcherRunId:        true,
+  checkCommand:           true,
+  installCommand:         true,
+  checksDefinitionFiles:  true,
+  gateKeyCommand:         true,
+  gateCachePaths:         true,
+  nextDraftId:            true,
+  nextJobId:              true,
+  jobs:                   true,
+  nextDecisionId:         true,
+  decisions:              true,
+  nextIncidentId:         true,
+  incidents:              true,
+  overseerFirstStartedAt: true,
+  tasks:                  true,
 } as const satisfies Record<keyof TrackerProgress | keyof StoredProgressFile, true>;
 
 const KNOWN_JOB_KEYS = {
@@ -306,6 +307,7 @@ function progressOf(document: StoredProgressFile): TrackerProgress {
     ...(document.decisions === undefined ? {} : { decisions: document.decisions.map(decisionOf) }),
     ...(document.nextIncidentId === undefined ? {} : { nextIncidentId: document.nextIncidentId }),
     ...(document.incidents === undefined ? {} : { incidents: document.incidents.map(incidentOf) }),
+    ...(document.overseerFirstStartedAt === undefined ? {} : { overseerFirstStartedAt: document.overseerFirstStartedAt }),
     tasks:      document.tasks.map(taskOf),
   });
 }
@@ -432,6 +434,7 @@ function storedDocumentOf(progress: TrackerProgress): StoredProgressFile {
     ...(progress.decisions === undefined ? {} : { decisions: progress.decisions.map(storedDecisionOf) }),
     ...(progress.nextIncidentId === undefined ? {} : { nextIncidentId: progress.nextIncidentId }),
     ...(progress.incidents === undefined ? {} : { incidents: progress.incidents.map(storedIncidentOf) }),
+    ...(progress.overseerFirstStartedAt === undefined ? {} : { overseerFirstStartedAt: progress.overseerFirstStartedAt }),
     tasks:      progress.tasks.map(storedTaskOf),
   });
 }
