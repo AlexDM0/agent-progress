@@ -76,28 +76,29 @@ export interface StoredJob {
 }
 
 export interface StoredProgressFile {
-  version:                typeof CURRENT_PROGRESS_FILE_VERSION;
-  trackerId:              string;
-  project:                string;
-  startedAt:              string;
-  view:                   ViewRange;
-  nextTaskId:             number;
-  concurrencyLimit?:      number;
-  dispatcherState?:       DispatcherState;
-  dispatcherRunId?:       string;
-  checkCommand?:          string;
-  installCommand?:        string;
-  checksDefinitionFiles?: string[];
-  gateKeyCommand?:        string;
-  gateCachePaths?:        string[];
-  nextDraftId?:           number;
-  nextJobId?:             number;
-  jobs?:                  StoredJob[];
-  nextDecisionId?:        number;
-  decisions?:             StoredDecision[];
-  nextIncidentId?:        number;
-  incidents?:             StoredIncident[];
-  tasks:                  StoredTask[];
+  version:                 typeof CURRENT_PROGRESS_FILE_VERSION;
+  trackerId:               string;
+  project:                 string;
+  startedAt:               string;
+  view:                    ViewRange;
+  nextTaskId:              number;
+  concurrencyLimit?:       number;
+  dispatcherState?:        DispatcherState;
+  dispatcherRunId?:        string;
+  checkCommand?:           string;
+  installCommand?:         string;
+  checksDefinitionFiles?:  string[];
+  gateKeyCommand?:         string;
+  gateCachePaths?:         string[];
+  nextDraftId?:            number;
+  nextJobId?:              number;
+  jobs?:                   StoredJob[];
+  nextDecisionId?:         number;
+  decisions?:              StoredDecision[];
+  nextIncidentId?:         number;
+  incidents?:              StoredIncident[];
+  overseerFirstStartedAt?: string;
+  tasks:                   StoredTask[];
 }
 
 export interface StoredDecisionQuestionOption {

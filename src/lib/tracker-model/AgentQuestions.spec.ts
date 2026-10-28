@@ -9,7 +9,8 @@ import { describe, expect, test } from 'bun:test';
 
 import { boardFixture, refusalDetailOf, ticketFixture } from '../../testing/BoardFixtures.ts';
 import type { DecisionOpening, DecisionQuestion }       from './@types/Decision.ts';
-import type { Board }                                   from './Board.ts';
+import { Board }                                        from './Board.ts';
+import { createLogger }                                 from './Logger.ts';
 import { QUESTIONS_FACT, REQUEST_ID_FACT }              from './constants/DecisionAndIncidentVocabulary.ts';
 
 const AT = '2026-09-26T10:15:00+02:00';
@@ -175,5 +176,20 @@ describe('the runner\'s first start', () => {
     const fresh = boardFixture();
     expect(fresh.board.holdFirstRunLeftovers(AT).logged).toEqual([]);
     expect(fresh.board.incidents()).toEqual([]);
+  });
+
+  test('a start after clear threw the log away holds nothing: the first start is kept in progress.json', () => {
+    const { board, progress, tickets } = boardFixture({ tickets: [ticketFixture({ id: '001', status: 'pending', priority: 'normal' })] });
+    board.holdFirstRunLeftovers(AT);
+    board.recordRunnerStarted({ codeVersion: 'example', installVersion: 17 }, AT);
+    board.clearTracker({ ticketsSurvive: true }, AT);
+
+    const ticketsAfterClear = [...tickets, ticketFixture({ id: '002', status: 'pending', priority: 'low' })];
+    const restarted         = new Board({
+      progress, tickets: ticketsAfterClear, epics: [], logger: createLogger(() => undefined)
+    });
+    expect(restarted.holdFirstRunLeftovers(AT).logged).toEqual([]);
+    expect(restarted.tickets().map((ticket) => ticket.frontmatter.hold)).toEqual([undefined, undefined]);
+    expect(restarted.incidents()).toEqual([]);
   });
 });

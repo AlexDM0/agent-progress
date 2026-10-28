@@ -969,6 +969,7 @@ wrote them and are displayed as written, never re-parsed into a viewer's zone.
       "openedAt": "2026-09-18T21:41:00+02:00"
     }
   ],
+  "overseerFirstStartedAt": "2026-09-18T21:00:00+02:00", // optional: the runner's first start on this board, kept by clear
   "tasks": [
     {
       "id": 17,
@@ -1048,6 +1049,11 @@ since its answer is kept by question text; a closed incident is refused `inciden
 `unknown-incident`. A question is keyed by its `requestId` (an incident's by its `requestId` fact) against
 the open decisions and incidents and its job's `answeredRequestIds`, which an answer joins, so a replayed request opens
 nothing twice.
+
+`overseerFirstStartedAt` is written once, by the runner's first `runner-started` on the board, and never rewritten;
+`clear` keeps it. Only a start on a board with neither it nor a `runner-started` log record holds every low `pending`
+ticket `first-run review` under one `findings-delivered` incident, so a start after `clear` holds nothing. A value that
+is not text makes the file unreadable (exit 2).
 
 A row or history phase in a status the file format does not know, the retired `running` or
 `finished` included, makes the file unreadable (exit 2) with the same advice. A row is a review bar

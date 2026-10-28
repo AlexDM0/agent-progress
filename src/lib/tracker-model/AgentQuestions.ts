@@ -154,10 +154,12 @@ export class AgentQuestions {
 
   /**
    * The runner's first start on a board: every low `pending` ticket v16 left is held `first-run review`, and the ids are handed back for one
-   * `findings-delivered` incident; a board whose log holds a `runner-started` record, or no such ticket, holds nothing.
+   * `findings-delivered` incident; a board that stored its first Overseer start, whose log holds a `runner-started` record, or that has
+   * no such ticket, holds nothing.
    */
   holdFirstRunLeftovers(at: string): { ticketIds: string[]; logged: LogRecord[] } {
-    const runnerStartedBefore = [...this.records.storedLogRecords, ...this.records.loggedRecords].some((record) => record.kind === 'runner-started');
+    const runnerStartedBefore = this.records.progress.overseerFirstStartedAt !== undefined
+      || [...this.records.storedLogRecords, ...this.records.loggedRecords].some((record) => record.kind === 'runner-started');
     if (runnerStartedBefore) return { ticketIds: [], logged: [] };
     const leftovers = this.records.ticketRecords.filter(({ frontmatter }) => frontmatter.status === 'pending'
       && TicketDefaultsUtil.ticketPriorityOf(frontmatter) === 'low' && frontmatter.hold === undefined);
