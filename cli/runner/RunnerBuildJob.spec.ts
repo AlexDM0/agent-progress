@@ -207,15 +207,22 @@ function builderReport(fields: Record<string, unknown> = {}): string {
   });
 }
 
+/** In the ticket worktree only; the commit retries while a runner `git status` holds the worktree's index lock, as a live session would. */
+function commitInTicketWorktree(changeCommand: string, stagedPath: string, commitMessage: string): string {
+  const commitOnce = `git add ${stagedPath} && ${COMMIT} -m '${commitMessage}'`;
+  return `case "$PWD" in */ticket-*) ${changeCommand} && for attempt in $(seq 50); do ${commitOnce} && break; sleep 0.1; done;; esac`;
+}
+
 /**
  * Commits a file, reports, then waits for its input to close, as a builder whose session the runner ends after the report. Only in a
  * ticket's worktree: the orchestrator session plays the same steps in the main checkout, where a commit would move the target, which V14
  * fails as a foreign ref.
  */
+
 function buildingSession(commitMessage = 'Build the example', report = builderReport()): FakeAgentStep[] {
   return [
     { kind: 'print', line: fakeStartedLine('fake-session') },
-    { kind: 'shell', command: `case "$PWD" in */ticket-*) echo built > built.txt && git add built.txt && ${COMMIT} -m '${commitMessage}';; esac` },
+    { kind: 'shell', command: commitInTicketWorktree('echo built > built.txt', 'built.txt', commitMessage) },
     { kind: 'print', line: report },
     { kind: 'await-line' },
   ];
@@ -414,7 +421,7 @@ describe('failed passes', () => {
       { kind: 'print', line: fakeStartedLine('fake-session') },
       {
         kind:    'shell',
-        command: `case "$PWD" in */ticket-*) mkdir -p .claude && echo '{}' > .claude/settings.json && git add .claude && ${COMMIT} -m 'Build the example';; esac`
+        command: commitInTicketWorktree('mkdir -p .claude && echo \'{}\' > .claude/settings.json', '.claude', 'Build the example')
       },
       { kind: 'print', line: builderReport() },
       { kind: 'await-line' },
