@@ -1,7 +1,15 @@
 /** Whether one parsed log.jsonl line is a well-formed record of a known kind, and if not, the reason naming the offending field. */
-import { JsonRecordUtil }                                    from '../../lib/json-record/JsonRecordUtil.ts';
-import type { LogRecordKind }                                from '../../lib/tracker-model/@types/LogRecord.ts';
-import { DISPATCHER_STATES }                                 from '../../lib/tracker-model/constants/DispatcherStates.ts';
+import { JsonRecordUtil }     from '../../lib/json-record/JsonRecordUtil.ts';
+import type { LogRecordKind } from '../../lib/tracker-model/@types/LogRecord.ts';
+import { DISPATCHER_STATES }  from '../../lib/tracker-model/constants/DispatcherStates.ts';
+import {
+  FIRST_HOST_INSTANCE,
+  INTERRUPTION_CAUSES,
+  JOB_KINDS,
+  JOB_OUTCOMES,
+  JOB_ROLES,
+  RUNNER_STOP_REASONS
+}                                                            from '../../lib/tracker-model/constants/JobStates.ts';
 import type { LogFieldShape }                                from '../../lib/tracker-model/constants/LogRecordSchema.ts';
 import { LOG_RECORD_SCHEMA, LOG_RECORD_SUBJECT_IDS }         from '../../lib/tracker-model/constants/LogRecordSchema.ts';
 import { FIRST_REPEAT_REVIEW_ROUND, FIRST_REVIEW_BAR_ROUND } from '../../lib/tracker-model/constants/ReviewRounds.ts';
@@ -23,6 +31,19 @@ function textProblem(value: unknown, path: string): string | null {
 function listOfTextProblem(value: unknown, path: string, itemsAre: string): string | null {
   const isListOfText = Array.isArray(value) && value.every((item) => typeof item === 'string');
   return isListOfText ? null : `${path} is not a list of ${itemsAre}`;
+}
+
+function vocabularyProblem(value: unknown, path: string, vocabulary: readonly string[]): string | null {
+  if (typeof value === 'string' && vocabulary.includes(value)) return null;
+  return `${path} is ${JSON.stringify(value)}, which is not one of ${vocabulary.join(', ')}`;
+}
+
+function checkCommandProblem(value: unknown, path: string): string | null {
+  return value === null || BoardSettingsUtil.checkCommandIsWellFormed(value) ? null : `${path} is neither null nor a shell line that is not blank`;
+}
+
+function hostInstanceProblem(value: unknown, path: string): string | null {
+  return StoredValueUtil.wholeNumberIsAtLeast(value, FIRST_HOST_INSTANCE) ? null : `${path} is not a whole number of at least ${FIRST_HOST_INSTANCE}`;
 }
 
 function priorityProblem(value: unknown, path: string): string | null {
@@ -56,28 +77,36 @@ function dispatcherStateProblem(value: unknown, path: string): string | null {
 }
 
 const CHECK_FOR_FIELD_SHAPE: Readonly<Record<LogFieldShape, FieldShapeCheck>> = {
-  'text':              textProblem,
+  'text':               textProblem,
   // The same rule as a task's own `id`, so every id a row can hold is one a review-bar record can name.
-  'task-id':           (value, path) => (StoredValueUtil.valueIsAWholeNumber(value) ? null : `${path} is not a whole number`),
-  'optional-text':     (value, path) => (value === undefined ? null : textProblem(value, path)),
-  'priority':          priorityProblem,
-  'ticket-size':       ticketSizeProblem,
-  'optional-size':     (value, path) => (value === undefined ? null : ticketSizeProblem(value, path)),
-  'agent-pair':        agentPairProblem,
-  'ticket-ids':        (value, path) => listOfTextProblem(value, path, 'ticket ids'),
-  'epic-keys':         (value, path) => listOfTextProblem(value, path, 'epic keys'),
-  'network-domains':   (value, path) => listOfTextProblem(value, path, 'domains'),
-  'review-round':      reviewRoundProblem,
-  'chart-range':       (value, path) => (BoardSettingsUtil.viewRangeIsWellFormed(value) ? null : `${path} is not a chart range`),
-  'concurrency-limit': (value, path) => (BoardSettingsUtil.concurrencyLimitIsWellFormed(value) ? null : `${path} is not a whole number of agents`),
-  'dispatcher-state':  dispatcherStateProblem,
-  'dispatcher-run-id': (value, path) => (value === null || BoardSettingsUtil.dispatcherRunIdIsWellFormed(value) ? null : `${path} is neither null nor a run id`),
-  'check-command':     (value, path) => (value === null || BoardSettingsUtil.checkCommandIsWellFormed(value) ? null : `${path} is neither null nor a shell line that is not blank`),
-  'count':             (value, path) => (StoredValueUtil.wholeNumberIsAtLeast(value, 0) ? null : `${path} is not a whole number of at least 0`),
-  'review-bar-round':  reviewBarRoundProblem,
-  'review-verdict':    ReviewRecordFieldsUtil.verdictProblem,
-  'review-claims':     ReviewRecordFieldsUtil.claimsProblem,
-  'review-findings':   ReviewRecordFieldsUtil.findingsProblem,
+  'task-id':            (value, path) => (StoredValueUtil.valueIsAWholeNumber(value) ? null : `${path} is not a whole number`),
+  'optional-text':      (value, path) => (value === undefined ? null : textProblem(value, path)),
+  'priority':           priorityProblem,
+  'ticket-size':        ticketSizeProblem,
+  'optional-size':      (value, path) => (value === undefined ? null : ticketSizeProblem(value, path)),
+  'agent-pair':         agentPairProblem,
+  'ticket-ids':         (value, path) => listOfTextProblem(value, path, 'ticket ids'),
+  'epic-keys':          (value, path) => listOfTextProblem(value, path, 'epic keys'),
+  'network-domains':    (value, path) => listOfTextProblem(value, path, 'domains'),
+  'review-round':       reviewRoundProblem,
+  'chart-range':        (value, path) => (BoardSettingsUtil.viewRangeIsWellFormed(value) ? null : `${path} is not a chart range`),
+  'concurrency-limit':  (value, path) => (BoardSettingsUtil.concurrencyLimitIsWellFormed(value) ? null : `${path} is not a whole number of agents`),
+  'dispatcher-state':   dispatcherStateProblem,
+  'dispatcher-run-id':  (value, path) => (value === null || BoardSettingsUtil.dispatcherRunIdIsWellFormed(value) ? null : `${path} is neither null nor a run id`),
+  'check-command':      checkCommandProblem,
+  'count':              (value, path) => (StoredValueUtil.wholeNumberIsAtLeast(value, 0) ? null : `${path} is not a whole number of at least 0`),
+  'review-bar-round':   reviewBarRoundProblem,
+  'review-verdict':     ReviewRecordFieldsUtil.verdictProblem,
+  'review-claims':      ReviewRecordFieldsUtil.claimsProblem,
+  'review-findings':    ReviewRecordFieldsUtil.findingsProblem,
+  'nullable-text':      (value, path) => (value === null ? null : textProblem(value, path)),
+  'job-kind':           (value, path) => vocabularyProblem(value, path, JOB_KINDS),
+  'job-role':           (value, path) => (value === null ? null : vocabularyProblem(value, path, JOB_ROLES)),
+  'job-outcome':        (value, path) => vocabularyProblem(value, path, JOB_OUTCOMES),
+  'interruption-cause': (value, path) => vocabularyProblem(value, path, INTERRUPTION_CAUSES),
+  'host-instance':      hostInstanceProblem,
+  'permission-names':   (value, path) => listOfTextProblem(value, path, 'permission names'),
+  'runner-stop-reason': (value, path) => vocabularyProblem(value, path, RUNNER_STOP_REASONS),
 };
 
 function kindIsKnown(kind: unknown): kind is LogRecordKind {

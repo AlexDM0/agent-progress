@@ -1,5 +1,6 @@
 /** Why the Board refused a change: a reason code and the facts, never a sentence. The caller words it. */
-import type { TaskStatus } from './@types/Task.ts';
+import type { JobMoveTarget, JobState } from './@types/Job.ts';
+import type { TaskStatus }              from './@types/Task.ts';
 import type {
   IncompleteTicket,
   AgentPair,
@@ -73,7 +74,11 @@ export type BoardRefusalDetail =
   | { reason: 'draft-question-option-count'; draftId: string; optionCount: number; minimum: number; maximum: number }
   | { reason: 'draft-question-without-recommendation'; draftId: string }
   | { reason: 'unknown-draft-option-letters'; draftId: string; unknownLetters: readonly string[]; optionLetters: readonly string[] }
-  | { reason: 'several-letters-on-single-select-question'; draftId: string; letters: readonly string[] };
+  | { reason: 'several-letters-on-single-select-question'; draftId: string; letters: readonly string[] }
+  | { reason: 'unknown-job'; jobId: string }
+  | { reason: 'job-finished'; jobId: string }
+  | { reason: 'job-move-illegal'; jobId: string; state: JobState; targetState: JobMoveTarget }
+  | { reason: 'merge-queue-of-a-ticket-not-in-review'; ticketId: string; status: TicketStatus };
 
 export class BoardRefusal extends Error {
   readonly detail: BoardRefusalDetail;

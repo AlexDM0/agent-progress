@@ -2,17 +2,17 @@
  * What a dispatcher reads off the Board to start its next agent: the concurrency, the ready and held tickets, what a ticket still waits
  * on, which tickets have a builder or a reviewer at work, and the check command a release runs.
  */
-import type { Concurrency, DispatchCapacity } from './@types/Concurrency.ts';
-import type { Task }                          from './@types/Task.ts';
-import type { ReadyTicket, Ticket }           from './@types/Ticket.ts';
-import type { DispatcherState }               from './@types/TrackerProgress.ts';
-import type { BoardRecords }                  from './BoardRecords.ts';
-import type { GroupReleases }                 from './GroupReleases.ts';
-import { DEFAULT_DISPATCHER_STATE }           from './constants/DispatcherStates.ts';
-import { SETTLED_TICKET_STATUSES }            from './constants/Statuses.ts';
-import { ConcurrencyUtil }                    from './utils/ConcurrencyUtil.ts';
-import { TicketDefaultsUtil }                 from './utils/TicketDefaultsUtil.ts';
-import { TicketDependencyUtil }               from './utils/TicketDependencyUtil.ts';
+import type { Concurrency, DispatchCapacity }                               from './@types/Concurrency.ts';
+import type { Task }                                                        from './@types/Task.ts';
+import type { ReadyTicket, Ticket }                                         from './@types/Ticket.ts';
+import type { DispatcherState }                                             from './@types/TrackerProgress.ts';
+import type { BoardRecords }                                                from './BoardRecords.ts';
+import type { GroupReleases }                                               from './GroupReleases.ts';
+import { DEFAULT_DISPATCHER_STATE, DISPATCHER_STATE_READ_FOR_STORED_STATE } from './constants/DispatcherStates.ts';
+import { SETTLED_TICKET_STATUSES }                                          from './constants/Statuses.ts';
+import { ConcurrencyUtil }                                                  from './utils/ConcurrencyUtil.ts';
+import { TicketDefaultsUtil }                                               from './utils/TicketDefaultsUtil.ts';
+import { TicketDependencyUtil }                                             from './utils/TicketDependencyUtil.ts';
 
 export class DispatchQueries {
   constructor(
@@ -25,7 +25,7 @@ export class DispatchQueries {
   }
 
   dispatcherState(): DispatcherState {
-    return this.records.progress.dispatcherState ?? DEFAULT_DISPATCHER_STATE;
+    return DISPATCHER_STATE_READ_FOR_STORED_STATE[this.records.progress.dispatcherState ?? DEFAULT_DISPATCHER_STATE];
   }
 
   dispatcherRunId(): string | undefined {

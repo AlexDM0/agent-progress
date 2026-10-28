@@ -2,6 +2,7 @@
 import type { Concurrency }                     from './Concurrency.ts';
 import type { Draft }                           from './Draft.ts';
 import type { Epic }                            from './Epic.ts';
+import type { Job }                             from './Job.ts';
 import type { LogRecord, LogRecordFieldsOf }    from './LogRecord.ts';
 import type { Task, TaskStatus }                from './Task.ts';
 import type { AgentEffort, AgentModel, Ticket } from './Ticket.ts';
@@ -106,6 +107,11 @@ export interface EpicChanged extends Logged {
 /** `changed` is false for an edit that would write back what the epic already holds, which logs and writes nothing. */
 export interface EpicEdited extends EpicChanged {
   changed: boolean;
+}
+
+/** A move between live states logs nothing, so `logged` is empty for it: a job's state lives in progress.json. */
+export interface JobChanged extends Logged {
+  job: Readonly<Job>;
 }
 
 export interface DraftChanged extends Logged {

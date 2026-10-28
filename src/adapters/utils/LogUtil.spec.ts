@@ -134,6 +134,61 @@ test('every kind of record reads as the sentence the log held before there were 
   for (const [record, sentence] of SENTENCE_FOR_RECORD) expect(sentenceOf(record), record.kind).toBe(sentence);
 });
 
+// No earlier binary logged these, so their wording is this suite's own; a launch is claimed by its tickets, every other job record by none.
+describe('the runner and its jobs', () => {
+  const SENTENCE_AND_TICKET_IDS_FOR_RECORD: readonly (readonly [LogRecordContent, string, readonly string[]])[] = [
+    [{ kind: 'runner-started', fields: { codeVersion: 'a1b2c3d', installVersion: 17 } }, 'Runner started on code a1b2c3d, install version 17', []],
+    [{ kind: 'runner-stopped', fields: { reason: 'stopped' } }, 'Runner stopped', []],
+    [{ kind: 'runner-stopped', fields: { reason: 'handed-over' } }, 'Runner handed the board over to its successor', []],
+    [
+      {
+        kind:   'job-launched',
+        jobId:  'J3',
+        fields: {
+          kind:        'build',
+          role:        'builder',
+          ticketIds:   ['001', '002'],
+          attempt:     2,
+          target:      'group-example-shop',
+          parentJobId: null,
+        },
+      },
+      'Job J3 launched: build (builder) for #001, #002 onto group-example-shop, attempt 2',
+      ['001', '002'],
+    ],
+    [
+      {
+        kind:   'job-launched',
+        jobId:  'J5',
+        fields: {
+          kind:        'merge-agent',
+          role:        'resolver',
+          ticketIds:   [],
+          attempt:     1,
+          target:      null,
+          parentJobId: 'J4',
+        },
+      },
+      'Job J5 launched: merge-agent (resolver) under job J4, attempt 1',
+      [],
+    ],
+    [{ kind: 'job-interrupted', jobId: 'J3', fields: { cause: 'reboot', hostInstance: 1 } }, 'Job J3 interrupted (reboot) in host instance 1', []],
+    [{ kind: 'job-resumed', jobId: 'J3', fields: { hostInstance: 2, cause: 'reboot' } }, 'Job J3 resumed in host instance 2 after reboot', []],
+    [{ kind: 'job-ended', jobId: 'J3', fields: { outcome: 'built', commit: 'b2c3d4e', deniedPermissions: [] } }, 'Job J3 ended built at b2c3d4e', []],
+    [
+      { kind: 'job-ended', jobId: 'J4', fields: { outcome: 'failed', cause: 'no report', deniedPermissions: ['WebFetch', 'Bash(curl:*)'] } },
+      'Job J4 ended failed (no report); denied WebFetch, Bash(curl:*)',
+      [],
+    ],
+  ];
+
+  test.each(SENTENCE_AND_TICKET_IDS_FOR_RECORD)('%o reads as its sentence and is claimed by its tickets', (content, sentence, ticketIds) => {
+    const identified = identifiedEntryOf({ ...content, at: '2026-09-18T20:11:03+02:00' });
+    expect(identified.text).toBe(sentence);
+    expect(identified.ticketIds).toEqual([...ticketIds]);
+  });
+});
+
 test('a worded entry keeps the record\'s stamp and carries its sentence', () => {
   const at = '2026-09-18T20:11:03+02:00';
   const record: LogRecord = {

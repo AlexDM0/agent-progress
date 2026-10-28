@@ -9,7 +9,7 @@ import { describe, expect, test } from 'bun:test';
 import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures.ts';
 import { StatusDocumentUtil }                       from './StatusDocumentUtil.ts';
 
-const { inProgressIdsOf, boardWorkOf } = StatusDocumentUtil;
+const { inProgressIdsOf, boardWorkOf, jobsOf } = StatusDocumentUtil;
 
 describe('the key order', () => {
   test('is the ids of tickets, then of reviews, in flight', () => {
@@ -22,6 +22,24 @@ describe('the key order', () => {
     const { board } = boardFixture();
 
     expect(Object.keys(boardWorkOf(board, []))).toEqual(['reviewWaitingTickets', 'pausedBuilds', 'ticketRows']);
+  });
+});
+
+describe('the jobs', () => {
+  test('are empty on a board that never launched one', () => {
+    expect(jobsOf(boardFixture().board)).toEqual({ jobs: [] });
+  });
+
+  test('are the Board\'s unsettled jobs in launch order, an ended one left out', () => {
+    const { board } = boardFixture({ tickets: [ticketFixture({ id: '001' }), ticketFixture({ id: '002' })] });
+    const launch    = {
+      kind: 'build', role: 'builder', parentJobId: null, attempt: 1, target: 'main'
+    } as const;
+    board.launchJob({ ...launch, ticketIds: ['001'] }, '2026-09-18T20:11:03+02:00');
+    board.launchJob({ ...launch, ticketIds: ['002'] }, '2026-09-18T20:11:03+02:00');
+    board.endJob('J1', { outcome: 'built' }, '2026-09-18T20:11:03+02:00');
+
+    expect(jobsOf(board).jobs.map((job) => [job.id, job.ticketIds])).toEqual([['J2', ['002']]]);
   });
 });
 

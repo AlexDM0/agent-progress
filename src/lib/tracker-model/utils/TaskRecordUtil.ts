@@ -84,6 +84,9 @@ function transitionedTaskOf(task: Readonly<Task>, status: TaskStatus, at: string
     delete transitioned.reviewRound;
   }
 
+  // A landing moves the row out of in-review too, so this one rule ends every merge-queue entry.
+  if (status !== 'in-review') delete transitioned.mergeQueued;
+
   if (statusMoved || status === 're-review') transitioned.history = [...(task.history ?? []), { status, at }];
 
   transitioned.status = status;

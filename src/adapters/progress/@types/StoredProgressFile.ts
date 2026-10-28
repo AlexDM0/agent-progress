@@ -2,6 +2,14 @@
  * The shape progress.json is stored in, declared field by field rather than derived from the model, so a model change breaks the mappers'
  * compile instead of silently changing the format.
  */
+import type {
+  InterruptionCause,
+  JobKind,
+  JobOutcome,
+  JobRole,
+  JobState,
+  SlotPhase
+}                                             from '../../../lib/tracker-model/@types/Job.ts';
 import type { TaskStatus }                    from '../../../lib/tracker-model/@types/Task.ts';
 import type { DispatcherState, ViewRange }    from '../../../lib/tracker-model/@types/TrackerProgress.ts';
 import type { CURRENT_PROGRESS_FILE_VERSION } from '../constants/ProgressFileVersions.ts';
@@ -28,6 +36,37 @@ export interface StoredTask {
   reviewOf?:       string;
   reviewBarRound?: number;
   checkCommand?:   string;
+  mergeQueued?:    true;
+}
+
+export interface StoredJobEventCursor {
+  instance: number;
+  sequence: number;
+}
+
+export interface StoredMergeSlot {
+  target:    string;
+  targetTip: string;
+  branchTip: string;
+  phase:     SlotPhase;
+}
+
+export interface StoredJob {
+  id:                 string;
+  kind:               JobKind;
+  role:               JobRole | null;
+  ticketIds:          string[];
+  parentJobId:        string | null;
+  attempt:            number;
+  target:             string | null;
+  state:              JobState;
+  interruption?:      InterruptionCause;
+  hostInstance:       number;
+  eventCursor:        StoredJobEventCursor;
+  answeredRequestIds: string[];
+  crashResumes:       number;
+  slot?:              StoredMergeSlot;
+  outcome?:           JobOutcome;
 }
 
 export interface StoredProgressFile {
@@ -42,5 +81,7 @@ export interface StoredProgressFile {
   dispatcherRunId?:  string;
   checkCommand?:     string;
   nextDraftId?:      number;
+  nextJobId?:        number;
+  jobs?:             StoredJob[];
   tasks:             StoredTask[];
 }

@@ -4,7 +4,7 @@
  * new kind is one entry here plus its wording and its emitter.
  */
 
-export type LogRecordSubject = 'board' | 'ticket' | 'epic' | 'draft' | 'review-bar';
+export type LogRecordSubject = 'board' | 'ticket' | 'epic' | 'draft' | 'review-bar' | 'job';
 
 export type LogFieldShape =
   | 'text'
@@ -27,7 +27,15 @@ export type LogFieldShape =
   | 'review-bar-round'
   | 'review-verdict'
   | 'review-claims'
-  | 'review-findings';
+  | 'review-findings'
+  | 'nullable-text'
+  | 'job-kind'
+  | 'job-role'
+  | 'job-outcome'
+  | 'interruption-cause'
+  | 'host-instance'
+  | 'permission-names'
+  | 'runner-stop-reason';
 
 export interface LogRecordKindSchema {
   subject: LogRecordSubject;
@@ -43,6 +51,7 @@ export const LOG_RECORD_SUBJECT_IDS = {
   'epic':       { epicKey: 'text' },
   'draft':      { draftId: 'text' },
   'review-bar': { taskId: 'task-id', ticketId: 'text' },
+  'job':        { jobId: 'text' },
 } as const satisfies Readonly<Record<LogRecordSubject, Readonly<Record<string, LogFieldShape>>>>;
 
 export const LOG_RECORD_SCHEMA = {
@@ -113,8 +122,34 @@ export const LOG_RECORD_SCHEMA = {
   'dispatcher-set':        { subject: 'board', fields: { state: 'dispatcher-state', runId: 'dispatcher-run-id' } },
   'check-command-set':     { subject: 'board', fields: { command: 'check-command' } },
   'tracker-cleared':       { subject: 'board', fields: NO_FIELDS },
+  'runner-started':        { subject: 'board', fields: { codeVersion: 'text', installVersion: 'count' } },
+  'runner-stopped':        { subject: 'board', fields: { reason: 'runner-stop-reason' } },
+  // A job's state lives in progress.json; only its launch, its interruptions, its resumes and its end are logged.
+  'job-launched':          {
+    subject: 'job',
+    fields:  {
+      kind:        'job-kind',
+      role:        'job-role',
+      ticketIds:   'ticket-ids',
+      attempt:     'count',
+      target:      'nullable-text',
+      parentJobId: 'nullable-text',
+    },
+  },
+  'job-interrupted': { subject: 'job', fields: { cause: 'interruption-cause', hostInstance: 'host-instance' } },
+  'job-resumed':     { subject: 'job', fields: { hostInstance: 'host-instance', cause: 'interruption-cause' } },
+  // `cause` and `commit` are set only when the runner names them.
+  'job-ended':       {
+    subject: 'job',
+    fields:  {
+      outcome:           'job-outcome',
+      cause:             'optional-text',
+      commit:            'optional-text',
+      deniedPermissions: 'permission-names',
+    },
+  },
   // `totalInputTokens` is fresh input plus cache read plus cache creation; the run id and label are stored only for an agent a workflow run spawned.
-  'agent-stopped':         {
+  'agent-stopped': {
     subject: 'board',
     fields:  {
       agentId:              'text',

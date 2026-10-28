@@ -63,10 +63,8 @@ Next: 2 of 2 slots free; nothing ready
 
 At most five ready ids are named, then `and N more`; a held ready ticket is left out and named apart
 (`; held: #002`). The dispatcher's advice follows where it has any, addressed to the orchestrator
-rather than to whichever session ran the command: `; dispatcher finished: work ready for the
-orchestrator` when it is `finished` and a normal or high ticket is ready, `; dispatcher finished:
-only low priority ready, for the orchestrator to triage` when it is `finished` and only low tickets
-are ready, `; dispatcher stopped: wait for the user's go` when it is `stopped`. While the dispatcher
+rather than to whichever session ran the command: `; dispatcher stopped: wait for the user's go` when
+it reads `stopped`, as a stored `finished` does. While the dispatcher
 is `running`, `ticket add`, `priority`, `agent`,
 `depends`, `hold`, `unhold`, `reopen` and `status <id> pending` add one more line: the run picks the
 change up at its next agent's return and is never stopped or relaunched for it. `--json` output
@@ -249,7 +247,7 @@ Options in `[brackets]` are optional; `a|b` is a choice of one.
 
 | command | what it does |
 |---|---|
-| `status [--json] [--full] [--tickets-only]` | The project, the counts, the rows that are not delivered or abandoned, and the last five log entries newest first, then the Next line. `--json` prints the same working view for an agent — the unsettled rows and tickets, the last 10 log entries, and an `omitted` object counting what was left out. `--full` lists everything; with `--json` it prints the whole progress file plus every ticket's frontmatter. The `version` both `--json` documents carry is the document's own shape version, `1`, with the worded log directly after `tasks`, whatever version the stored file is at. Both `--json` documents carry `concurrency` — `limit`, `agentsInFlight`, `freeSlots`, `readyTicketIds`, `dispatcherState`, `heldTicketIds`, while one is stored `dispatcherRunId`, then `inProgressTicketIds` and `inProgressReviewOfIds` — and beside it `readyTickets`, then `reviewWaitingTickets`, `pausedBuilds` and `ticketRows`, and end with `tokensByOwner`. Both carry `epics` after `tickets`, every epic with its roll-up (see Epics), and each ticket carries `epics`, its list in order, empty when it has none; then `drafts`, every open draft (see Drafts). `--tickets-only`, with or without `--json` and `--full`, leaves out the free-standing task rows — every row that is no ticket's own row (`ticket` null) and no review bar (no `reviewOf`) — while the tickets, the log and the counts stay; the working view's `omitted` then adds `freeStandingTasks`. The human output breaks the token total down per owner: owners are grouped case-insensitively on the trimmed text and shown under the group's most common spelling (the first met on a tie), most tokens first, with the reported rows that carry no owner on a `no owner` line of their own. `tokensByOwner` carries the same over every row, whatever the flags: `{ owners: [{ owner, tokens, rows }], withoutOwner: { tokens, rows }, withoutTokens: { rows } }`, whose owner and `withoutOwner` tokens add up to the reported total. Both `--json` documents end with `ticketCountByStatus`, every ticket on the board counted per status (settled ones included, every status present, zero or not), so a reader totalling the board needs no `--full`. |
+| `status [--json] [--full] [--tickets-only]` | The project, the counts, the rows that are not delivered or abandoned, and the last five log entries newest first, then the Next line. `--json` prints the same working view for an agent — the unsettled rows and tickets, the last 10 log entries, and an `omitted` object counting what was left out. `--full` lists everything; with `--json` it prints the whole progress file plus every ticket's frontmatter. The `version` both `--json` documents carry is the document's own shape version, `1`, with the worded log directly after `tasks`, whatever version the stored file is at. Both `--json` documents carry `concurrency` — `limit`, `agentsInFlight`, `freeSlots`, `readyTicketIds`, `dispatcherState`, `heldTicketIds`, while one is stored `dispatcherRunId`, then `inProgressTicketIds` and `inProgressReviewOfIds` — and beside it `readyTickets`, then `reviewWaitingTickets`, `pausedBuilds` and `ticketRows`, and end with `tokensByOwner`. Both carry `epics` after `tickets`, every epic with its roll-up (see Epics), and each ticket carries `epics`, its list in order, empty when it has none; then `drafts`, every open draft (see Drafts). `--tickets-only`, with or without `--json` and `--full`, leaves out the free-standing task rows — every row that is no ticket's own row (`ticket` null) and no review bar (no `reviewOf`) — while the tickets, the log and the counts stay; the working view's `omitted` then adds `freeStandingTasks`. The human output breaks the token total down per owner: owners are grouped case-insensitively on the trimmed text and shown under the group's most common spelling (the first met on a tie), most tokens first, with the reported rows that carry no owner on a `no owner` line of their own. `tokensByOwner` carries the same over every row, whatever the flags: `{ owners: [{ owner, tokens, rows }], withoutOwner: { tokens, rows }, withoutTokens: { rows } }`, whose owner and `withoutOwner` tokens add up to the reported total. Both `--json` documents then carry `ticketCountByStatus`, every ticket on the board counted per status (settled ones included, every status present, zero or not), so a reader totalling the board needs no `--full`, and end with `jobs`, every unsettled job as `progress.json` stores it, empty when there is none. |
 | `ticket list [--status <s>] [--priority <p>] [--json]` | The tickets with their status, priority, type and row id, the model and effort after the title where the ticket names them, and "waiting on #003" where a dependency is unsettled. `--status` and `--priority` narrow the listing. `--json` carries no bodies. |
 | `ticket show <id> [--json]` | One ticket: its frontmatter, its priority, its model and effort where it names them, its body, and always its file path — which is what an agent needs in order to edit that body. Once the ticket was claimed or started it says whether the body changed since: a hash of the body now against the `claimedBodyHash` the claim recorded, never a clock; under `--json`, and in `status --json` and `ticket list --json`, that is `bodyChangedSinceClaim`, absent on a ticket never claimed. |
 
@@ -402,7 +400,7 @@ stored in the tracker.
 |---|---|
 | `concurrency [<n>] [--json]` | Print how many agents may be in flight at once, or store a new limit for every worktree: a whole number from 1 to 10. A higher one is refused at exit 1 with nothing written, and one an older tracker stored above 10 reads as 10. A tracker that never set one reads 2. A limit below the agents already in flight is accepted and simply leaves no free slot. A slot is an agent: the in-progress rows one `ticket claim` started count once, and every other in-progress row, such as a review bar, counts on its own. `--json` prints `{ limit, agentsInFlight, freeSlots }`, after a change as well. |
 | `checks ["<command>" \| --clear] [--restamp] [--json]` | Print the check command `release` runs on a branch's tip before it changes anything, or store one for every worktree with one log line (`Check command set to <command>`, `Check command cleared`): the repository's full check line, quoted as one argument. It lives in the tracker, never in the branch being released, and runs through the user's shell — `$SHELL`, else `/bin/sh` — in the branch's worktree. A new line is first run the same way in the main checkout, outside the lock: when it exits non-zero, nothing is stored or logged and it is refused at exit 1 with its last 20 lines, so a typo never stalls a release. `--clear` removes the key; a tracker that never set one runs none, and the read writes nothing. Every move of a ticket into in-progress (`ticket start`, `ticket claim`) stamps the stored line on its row as `checkCommand`, or removes the stamp when none is stored; so setting or clearing it while a ticket whose stamp would then differ is in progress or in review is refused at exit 1 (naming those tickets) unless `--restamp` is given, which stamps every in-progress and in-review ticket's row with the new line in the same write and logs a `ticket-check-command-restamped` line for each. A blank command, a command beside `--clear`, `--restamp` with neither, or `--clear` with none stored and no `--restamp` is refused at exit 1 with nothing written. Only the orchestrator's session changes it: `hook pre-tool-use` blocks a subagent's change. `--json` prints `{ checkCommand }`, `null` when none is stored, and a change adds `previousCheckCommand` and `restampedTicketIds`. |
-| `dispatcher [running\|finished\|stopped] [--run <runId>] [--json]` | Print where the dispatcher was left, or store a new state with one log line. `running`: a dispatcher is at work. `finished`: it ended by itself, and is relaunched when a normal or high ticket is ready. `stopped`: never started, or ended by the user, and it waits for the user's go however many tickets are filed meanwhile. A tracker that never set one reads `stopped`, and the read writes nothing; any other word is refused at exit 1. `running --run <runId>` stores the Workflow run beside the state — the one a killed run is resumed by, with the same args — and every write without `--run` clears it; `--run` beside another state or none, or an empty id, is refused at exit 1. `status --json` carries both as `concurrency.dispatcherState` and `concurrency.dispatcherRunId`. `--json` prints `{ dispatcherState, dispatcherRunId }`, the run id only while one is stored, and a change adds `previousState`. |
+| `dispatcher [running\|finished\|stopped] [--run <runId>] [--json]` | Print where the dispatcher was left, or store a new state with one log line. `running`: a dispatcher is at work. `finished`: it ended by itself; it is stored as written and reads as `stopped`, which fails closed. `stopped`: never started, or ended by the user, and it waits for the user's go however many tickets are filed meanwhile. A tracker that never set one reads `stopped`, and the read writes nothing; any other word is refused at exit 1. `running --run <runId>` stores the Workflow run beside the state — the one a killed run is resumed by, with the same args — and every write without `--run` clears it; `--run` beside another state or none, or an empty id, is refused at exit 1. `status --json` carries both as `concurrency.dispatcherState` and `concurrency.dispatcherRunId`. `--json` prints `{ dispatcherState, dispatcherRunId }`, the run id only while one is stored, and a change adds `previousState`. |
 
 **A slot is an agent.** `ticket claim 3 4 5` writes the same `agent` key on each of a bundle's rows,
 the claimed ids joined (`"003,004,005"`). The agents in flight are the `in-progress` rows grouped by
@@ -763,10 +761,29 @@ wrote them and are displayed as written, never re-parsed into a viewer's zone.
   "view": { "kind": "auto" },                    // or kind absolute|relative with from, to and tickMinutes (a number or null)
   "nextTaskId": 18,                              // never wound back, so an id is never reused
   "concurrencyLimit": 2,                         // optional: absent reads 2, above 10 reads 10
-  "dispatcherState": "running",                  // optional: running|finished|stopped, absent reads stopped
+  "dispatcherState": "running",                  // optional: running|finished|stopped, absent or finished reads stopped
   "dispatcherRunId": "wf_example-run-1",         // optional: the Workflow run to resume, only beside running
   "checkCommand": "bun run typecheck && bun test", // optional: the shell line release runs; absent runs none
   "nextDraftId": 3,                              // optional: the number the next draft takes, written by the first draft open, never wound back
+  "nextJobId": 5,                                // optional: the number the next job takes (J5), written by the first launch, never wound back
+  "jobs": [                                      // optional: the unsettled jobs in launch order, written by the first launch
+    {
+      "id": "J4",
+      "kind": "merge",                           // build|review|merge|merge-agent|refresh|orchestrator|product-owner
+      "role": null,                              // builder|reviewer|merge-fix|resolver|resolution-review|orchestrator|product-owner, or null for a merge or refresh job
+      "ticketIds": ["003"],
+      "parentJobId": null,                       // a merge agent's merge or refresh job, else null
+      "attempt": 1,                              // from 1
+      "target": "main",                          // the main line or group-<name>, or null for a session
+      "state": "merging",                        // launching|preparing|running|waiting-for-answer|interrupted|awaiting-answer|verifying|gating|merging|landing|stopping
+      "interruption": "reboot",                  // optional: host-lost|agent-crashed|reboot|answer-delivery|usage-limit, why it was last interrupted
+      "hostInstance": 1,                         // the newest host instance spawned or to spawn, from 1
+      "eventCursor": { "instance": 1, "sequence": 12 }, // the last host event applied
+      "answeredRequestIds": [],                  // the question requests already answered
+      "crashResumes": 0,                         // resumes after host-lost or agent-crashed only
+      "slot": { "target": "main", "targetTip": "a1b2c3d", "branchTip": "b2c3d4e", "phase": "merge-in" } // optional: while it holds its target's slot; phase merge-in|resolving|reviewing-resolution|gating|fixing|landing
+    }
+  ],
   "tasks": [
     {
       "id": 17,
@@ -781,6 +798,7 @@ wrote them and are displayed as written, never re-parsed into a viewer's zone.
       "agent": "003",                            // optional: the ids one ticket claim started, joined; one slot
       "reviewed": "2026-09-18T22:10:00+02:00",   // optional: when the row first reached reviewed; kept through delivery
       "reviewRound": 2,                          // optional: the review pass, from the second
+      "mergeQueued": true,                       // optional: once the ticket's review passed, until it lands or leaves in-review
       "history": [                               // optional: every status the row reached, oldest first,
         { "status": "pending",                   // starting with its filing; absent on a row filed
           "at": "2026-09-18T21:12:00+02:00" },   // before the field existed
@@ -817,8 +835,17 @@ the three, an empty or blank `dispatcherRunId`, a `checkCommand` that is not tex
 `nextDraftId` that is not a whole number of at least 1 makes the file unreadable (exit 2), and so does a
 present optional row key of the wrong shape: `reviewRound` below 2, `reviewBarRound` below 1, a row
 `checkCommand` that is not text or is blank, or a
-`history` that is not a list of known statuses with their stamps. A task is linked to at
-most one ticket. Task ids are never reused, not even after `task remove` or `clear`.
+`history` that is not a list of known statuses with their stamps, or a `mergeQueued` that is not `true`. A task is
+linked to at most one ticket. Task ids are never reused, not even after `task remove` or `clear`.
+
+`jobs`, `nextJobId` and a row's `mergeQueued` are each written only once set, so a file without them stays
+byte-identical; keys the tool does not know on a job, its `eventCursor` and its `slot` survive in the file's order. A
+`nextJobId` below 1, or a job whose field is missing, outside its vocabulary or of the wrong shape, makes the file
+unreadable (exit 2). Job ids are `J<n>`, never reused or gap-filled. A job ends only through `job-ended`, which takes it
+off `jobs` in the same write; a later move of an ended job is refused `job-finished`, and a move the job's state does
+not allow `job-move-illegal`. A job's state lives here and is never logged; no process identity is stored on the board.
+A stored `dispatcherState` of `finished` is never rewritten and reads as `stopped`, in `dispatcher` and in
+`status --json`.
 
 A row or history phase in a status the file format does not know, the retired `running` or
 `finished` included, makes the file unreadable (exit 2) with the same advice. A row is a review bar
@@ -827,7 +854,7 @@ by its `reviewOf` alone, never by its name.
 ### `.agent-progress/log.jsonl`
 
 One record per line, each a JSON object ending in a newline: `at`, `kind`, then `taskId`,
-`ticketId` or `epicKey` where the kind names them, then `fields`. `status` and the page word each
+`ticketId`, `epicKey`, `draftId` or `jobId` where the kind names them, then `fields`. `status` and the page word each
 record as a sentence; a note's sentence is its text.
 
 | kind | ids | fields |
@@ -857,6 +884,12 @@ record as a sentence; a note's sentence is its text.
 | `dispatcher-set` | — | `state`, `runId` (a run id or `null`) |
 | `tracker-cleared` | — | none |
 | `agent-stopped` | — | below |
+| `runner-started` | — | `codeVersion`, `installVersion` |
+| `runner-stopped` | — | `reason`: `stopped` or `handed-over` |
+| `job-launched` | `jobId` | `kind`, `role` (or `null`), `ticketIds`, `attempt`, `target` and `parentJobId` (each or `null`) |
+| `job-interrupted` | `jobId` | `cause`, `hostInstance`: the instance that was lost |
+| `job-resumed` | `jobId` | `hostInstance`: the instance spawned, `cause`: the interruption it resumes from |
+| `job-ended` | `jobId` | `outcome`, `cause` and `commit` each only when named, `deniedPermissions` |
 
 ```
 {"at":"2026-09-18T21:30:54+02:00","kind":"ticket-started","ticketId":"003","fields":{}}

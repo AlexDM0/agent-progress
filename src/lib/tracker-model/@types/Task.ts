@@ -52,4 +52,6 @@ export interface Task {
    * differs from the command it would run. Absent when none was stored then.
    */
   checkCommand?:   string;
+  /** On a ticket's row once its review passed, until it lands or leaves in-review; absent on every other row. */
+  mergeQueued?:    true;
 }

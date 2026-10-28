@@ -13,6 +13,7 @@ import { OLDER_FORMAT_ADVICE }                               from '../../constan
 import { StoredValueUtil }                                   from '../../utils/StoredValueUtil.ts';
 import type { StoredProgressFile, StoredTaskPhase }          from '../@types/StoredProgressFile.ts';
 import { CURRENT_PROGRESS_FILE_VERSION }                     from '../constants/ProgressFileVersions.ts';
+import { StoredJobValidationUtil }                           from './StoredJobValidationUtil.ts';
 
 function textFieldIsPresent(candidate: Record<string, unknown>, field: string): boolean {
   return typeof candidate[field] === 'string';
@@ -79,6 +80,7 @@ function taskProblem(value: unknown, index: number): string | null {
   if (task['checkCommand'] !== undefined && !BoardSettingsUtil.checkCommandIsWellFormed(task['checkCommand'])) {
     return `tasks[${index}].checkCommand is present and is not a shell line that is not blank`;
   }
+  if (task['mergeQueued'] !== undefined && task['mergeQueued'] !== true) return `tasks[${index}].mergeQueued is present and is not true`;
   return null;
 }
 
@@ -114,6 +116,8 @@ function documentHeaderProblemOf(candidate: unknown): string | null {
   if (candidate['nextDraftId'] !== undefined && !StoredValueUtil.wholeNumberIsAtLeast(candidate['nextDraftId'], FIRST_DRAFT_NUMBER)) {
     return `nextDraftId is ${JSON.stringify(candidate['nextDraftId'])}, and when present it has to be a whole number of at least ${FIRST_DRAFT_NUMBER}`;
   }
+  const jobsProblem = StoredJobValidationUtil.jobsProblemOf(candidate);
+  if (jobsProblem !== null) return jobsProblem;
   if (!Array.isArray(candidate['tasks'])) return 'tasks is not an array';
   if (Object.hasOwn(candidate, 'log')) return `log is present, and a version ${CURRENT_PROGRESS_FILE_VERSION} file keeps its log in log.jsonl`;
   return null;

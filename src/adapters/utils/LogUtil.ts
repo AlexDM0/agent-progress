@@ -164,7 +164,34 @@ function sentenceOf(record: LogRecordContent): string {
       return 'Tracker cleared';
     case 'agent-stopped':
       return agentStoppedTextOf(record.fields);
+    case 'runner-started':
+      return `Runner started on code ${record.fields.codeVersion}, install version ${record.fields.installVersion}`;
+    case 'runner-stopped':
+      return record.fields.reason === 'handed-over' ? 'Runner handed the board over to its successor' : 'Runner stopped';
+    case 'job-launched':
+      return jobLaunchedTextOf(record.jobId, record.fields);
+    case 'job-interrupted':
+      return `Job ${record.jobId} interrupted (${record.fields.cause}) in host instance ${record.fields.hostInstance}`;
+    case 'job-resumed':
+      return `Job ${record.jobId} resumed in host instance ${record.fields.hostInstance} after ${record.fields.cause}`;
+    case 'job-ended':
+      return jobEndedTextOf(record.jobId, record.fields);
   }
+}
+
+function jobLaunchedTextOf(jobId: string, launch: LogRecordFieldsOf<'job-launched'>): string {
+  const role    = launch.role === null ? '' : ` (${launch.role})`;
+  const tickets = launch.ticketIds.length === 0 ? '' : ` for ${TicketPhraseUtil.ticketReferencesText(launch.ticketIds)}`;
+  const target  = launch.target === null ? '' : ` onto ${launch.target}`;
+  const parent  = launch.parentJobId === null ? '' : ` under job ${launch.parentJobId}`;
+  return `Job ${jobId} launched: ${launch.kind}${role}${tickets}${target}${parent}, attempt ${launch.attempt}`;
+}
+
+function jobEndedTextOf(jobId: string, ending: LogRecordFieldsOf<'job-ended'>): string {
+  const cause  = ending.cause === undefined ? '' : ` (${ending.cause})`;
+  const commit = ending.commit === undefined ? '' : ` at ${ending.commit}`;
+  const denied = ending.deniedPermissions.length === 0 ? '' : `; denied ${ending.deniedPermissions.join(', ')}`;
+  return `Job ${jobId} ended ${ending.outcome}${cause}${commit}${denied}`;
 }
 
 function wordedEntryOf(record: LogRecord): WordedLogEntry {
@@ -178,7 +205,7 @@ function taskIdsConcernedBy(record: LogRecordContent): number[] {
 function ticketIdsConcernedBy(record: LogRecordContent): string[] {
   if (record.kind === 'ticket-dependencies-set') return [...new Set([record.ticketId, ...record.fields.dependsOn])];
   if (record.kind === 'ticket-introduced-by-set' && record.fields.introducedBy !== undefined) return [record.ticketId, record.fields.introducedBy];
-  if (record.kind === 'draft-closed') return [...record.fields.ticketIds];
+  if (record.kind === 'draft-closed' || record.kind === 'job-launched') return [...record.fields.ticketIds];
   return 'ticketId' in record ? [record.ticketId] : [];
 }
 

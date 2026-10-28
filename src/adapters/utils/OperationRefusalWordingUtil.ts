@@ -2,8 +2,10 @@
  * Words an `OperationRefusal` wherever the command line prints one: its own message, or its detail. A Board refusal carries only its reason
  * code and facts, and the install-version mismatch is worded as one paragraph, so the SubagentStop hook's one-report rule holds.
  */
+import type { JobMoveTarget }                                from '../../lib/tracker-model/@types/Job.ts';
 import type { IncompleteTicket, ReadinessGap, TicketStatus } from '../../lib/tracker-model/@types/Ticket.ts';
 import type { BoardRefusalDetail }                           from '../../lib/tracker-model/BoardRefusal.ts';
+import { LEGAL_SOURCE_STATES_FOR_JOB_MOVE }                  from '../../lib/tracker-model/constants/JobMoveLegality.ts';
 import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS }           from '../../lib/tracker-model/constants/TicketMoveLegality.ts';
 import { TicketMoveUtil }                                    from '../../lib/tracker-model/utils/TicketMoveUtil.ts';
 import { ROOT_OVERRIDE_VARIABLE }                            from '../../shared/Environment.ts';
@@ -226,7 +228,22 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
         + `and carries the release mark of group ${detail.group}, so it was not moved to ${detail.targetStatus}: `
         + `the group already has its open release ticket, #${detail.releaseTicketId}, and a group has one. `
         + `Clear that mark with \`${PRODUCT_NAMES.PROGRAM} ticket release-of ${detail.releaseTicketId} --clear\` first. ${NOTHING_WAS_WRITTEN}`;
+    case 'unknown-job':
+      return `There is no job ${detail.jobId}. ${NOTHING_WAS_WRITTEN}`;
+    case 'job-finished':
+      return `Job ${detail.jobId} is finished, and a finished job is never continued. ${NOTHING_WAS_WRITTEN}`;
+    case 'job-move-illegal':
+      return `Job ${detail.jobId} is ${detail.state}, so it cannot move to ${detail.targetState}: `
+        + `only a job ${legalJobSourcesText(detail.targetState)} can. ${NOTHING_WAS_WRITTEN}`;
+    case 'merge-queue-of-a-ticket-not-in-review':
+      return `Ticket #${detail.ticketId} is ${StatusWordingUtil.statusTextFor(detail.status)}, `
+        + `so it was not queued to merge: only a ticket in review whose review passed is. ${NOTHING_WAS_WRITTEN}`;
   }
+}
+
+function legalJobSourcesText(targetState: JobMoveTarget): string {
+  const sourceStates = LEGAL_SOURCE_STATES_FOR_JOB_MOVE[targetState];
+  return sourceStates.length === 0 ? 'being launched' : sourceStates.join(' or ');
 }
 
 function installVersionMismatchMessageOf(detail: InstallVersionMismatchDetail): string {

@@ -2,11 +2,19 @@
  * A validated progress.json in the current format mapped to the model and back, field by field. Keys the file held that the tool does not
  * know ride along on the model's objects in the file's order and are written back; nothing else reaches the file unless a mapper names it.
  */
-import type { Task, TaskPhase }                                              from '../../../lib/tracker-model/@types/Task.ts';
-import type { TrackerProgress }                                              from '../../../lib/tracker-model/@types/TrackerProgress.ts';
-import type { WordedLogEntry }                                               from '../../../shared/@types/WordedLogEntry.ts';
-import type { WordedProgressDocument }                                       from '../../../shared/@types/WordedProgressDocument.ts';
-import type { StoredProgressFile, StoredTask, StoredTaskPhase }              from '../@types/StoredProgressFile.ts';
+import type { Job, JobEventCursor, MergeSlot } from '../../../lib/tracker-model/@types/Job.ts';
+import type { Task, TaskPhase }                from '../../../lib/tracker-model/@types/Task.ts';
+import type { TrackerProgress }                from '../../../lib/tracker-model/@types/TrackerProgress.ts';
+import type { WordedLogEntry }                 from '../../../shared/@types/WordedLogEntry.ts';
+import type { WordedProgressDocument }         from '../../../shared/@types/WordedProgressDocument.ts';
+import type {
+  StoredJob,
+  StoredJobEventCursor,
+  StoredMergeSlot,
+  StoredProgressFile,
+  StoredTask,
+  StoredTaskPhase
+}                                                                            from '../@types/StoredProgressFile.ts';
 import { CURRENT_PROGRESS_FILE_VERSION, EMBEDDED_LOG_PROGRESS_FILE_VERSION } from '../constants/ProgressFileVersions.ts';
 
 type KnownKeys = Readonly<Record<string, true>>;
@@ -24,8 +32,37 @@ const KNOWN_PROGRESS_KEYS = {
   dispatcherRunId:  true,
   checkCommand:     true,
   nextDraftId:      true,
+  nextJobId:        true,
+  jobs:             true,
   tasks:            true,
 } as const satisfies Record<keyof TrackerProgress | keyof StoredProgressFile, true>;
+
+const KNOWN_JOB_KEYS = {
+  id:                 true,
+  kind:               true,
+  role:               true,
+  ticketIds:          true,
+  parentJobId:        true,
+  attempt:            true,
+  target:             true,
+  state:              true,
+  interruption:       true,
+  hostInstance:       true,
+  eventCursor:        true,
+  answeredRequestIds: true,
+  crashResumes:       true,
+  slot:               true,
+  outcome:            true,
+} as const satisfies Record<keyof Job | keyof StoredJob, true>;
+
+const KNOWN_EVENT_CURSOR_KEYS = { instance: true, sequence: true } as const satisfies Record<keyof JobEventCursor | keyof StoredJobEventCursor, true>;
+
+const KNOWN_MERGE_SLOT_KEYS = {
+  target:    true,
+  targetTip: true,
+  branchTip: true,
+  phase:     true,
+} as const satisfies Record<keyof MergeSlot | keyof StoredMergeSlot, true>;
 
 const KNOWN_TASK_KEYS = {
   id:             true,
@@ -44,6 +81,7 @@ const KNOWN_TASK_KEYS = {
   reviewOf:       true,
   reviewBarRound: true,
   checkCommand:   true,
+  mergeQueued:    true,
 } as const satisfies Record<keyof Task | keyof StoredTask, true>;
 
 const KNOWN_TASK_PHASE_KEYS = { status: true, at: true } as const satisfies Record<keyof TaskPhase | keyof StoredTaskPhase, true>;
@@ -105,6 +143,40 @@ function taskOf(stored: StoredTask): Task {
     ...(stored.reviewOf === undefined ? {} : { reviewOf: stored.reviewOf }),
     ...(stored.reviewBarRound === undefined ? {} : { reviewBarRound: stored.reviewBarRound }),
     ...(stored.checkCommand === undefined ? {} : { checkCommand: stored.checkCommand }),
+    ...(stored.mergeQueued === undefined ? {} : { mergeQueued: stored.mergeQueued }),
+  });
+}
+
+function eventCursorOf(stored: StoredJobEventCursor): JobEventCursor {
+  return readInFileOrder(stored, KNOWN_EVENT_CURSOR_KEYS, { instance: stored.instance, sequence: stored.sequence });
+}
+
+function mergeSlotOf(stored: StoredMergeSlot): MergeSlot {
+  return readInFileOrder(stored, KNOWN_MERGE_SLOT_KEYS, {
+    target:    stored.target,
+    targetTip: stored.targetTip,
+    branchTip: stored.branchTip,
+    phase:     stored.phase,
+  });
+}
+
+function jobOf(stored: StoredJob): Job {
+  return readInFileOrder(stored, KNOWN_JOB_KEYS, {
+    id:                 stored.id,
+    kind:               stored.kind,
+    role:               stored.role,
+    ticketIds:          [...stored.ticketIds],
+    parentJobId:        stored.parentJobId,
+    attempt:            stored.attempt,
+    target:             stored.target,
+    state:              stored.state,
+    ...(stored.interruption === undefined ? {} : { interruption: stored.interruption }),
+    hostInstance:       stored.hostInstance,
+    eventCursor:        eventCursorOf(stored.eventCursor),
+    answeredRequestIds: [...stored.answeredRequestIds],
+    crashResumes:       stored.crashResumes,
+    ...(stored.slot === undefined ? {} : { slot: mergeSlotOf(stored.slot) }),
+    ...(stored.outcome === undefined ? {} : { outcome: stored.outcome }),
   });
 }
 
@@ -120,6 +192,8 @@ function progressOf(document: StoredProgressFile): TrackerProgress {
     ...(document.dispatcherRunId === undefined ? {} : { dispatcherRunId: document.dispatcherRunId }),
     ...(document.checkCommand === undefined ? {} : { checkCommand: document.checkCommand }),
     ...(document.nextDraftId === undefined ? {} : { nextDraftId: document.nextDraftId }),
+    ...(document.nextJobId === undefined ? {} : { nextJobId: document.nextJobId }),
+    ...(document.jobs === undefined ? {} : { jobs: document.jobs.map(jobOf) }),
     tasks:      document.tasks.map(taskOf),
   });
 }
@@ -146,6 +220,40 @@ function storedTaskOf(task: Task): StoredTask {
     ...(task.reviewOf === undefined ? {} : { reviewOf: task.reviewOf }),
     ...(task.reviewBarRound === undefined ? {} : { reviewBarRound: task.reviewBarRound }),
     ...(task.checkCommand === undefined ? {} : { checkCommand: task.checkCommand }),
+    ...(task.mergeQueued === undefined ? {} : { mergeQueued: task.mergeQueued }),
+  });
+}
+
+function storedEventCursorOf(cursor: JobEventCursor): StoredJobEventCursor {
+  return writtenInModelOrder(cursor, [], { instance: cursor.instance, sequence: cursor.sequence });
+}
+
+function storedMergeSlotOf(slot: MergeSlot): StoredMergeSlot {
+  return writtenInModelOrder(slot, [], {
+    target:    slot.target,
+    targetTip: slot.targetTip,
+    branchTip: slot.branchTip,
+    phase:     slot.phase,
+  });
+}
+
+function storedJobOf(job: Job): StoredJob {
+  return writtenInModelOrder(job, [], {
+    id:                 job.id,
+    kind:               job.kind,
+    role:               job.role,
+    ticketIds:          [...job.ticketIds],
+    parentJobId:        job.parentJobId,
+    attempt:            job.attempt,
+    target:             job.target,
+    state:              job.state,
+    ...(job.interruption === undefined ? {} : { interruption: job.interruption }),
+    hostInstance:       job.hostInstance,
+    eventCursor:        storedEventCursorOf(job.eventCursor),
+    answeredRequestIds: [...job.answeredRequestIds],
+    crashResumes:       job.crashResumes,
+    ...(job.slot === undefined ? {} : { slot: storedMergeSlotOf(job.slot) }),
+    ...(job.outcome === undefined ? {} : { outcome: job.outcome }),
   });
 }
 
@@ -163,6 +271,8 @@ function storedDocumentOf(progress: TrackerProgress): StoredProgressFile {
     ...(progress.dispatcherRunId === undefined ? {} : { dispatcherRunId: progress.dispatcherRunId }),
     ...(progress.checkCommand === undefined ? {} : { checkCommand: progress.checkCommand }),
     ...(progress.nextDraftId === undefined ? {} : { nextDraftId: progress.nextDraftId }),
+    ...(progress.nextJobId === undefined ? {} : { nextJobId: progress.nextJobId }),
+    ...(progress.jobs === undefined ? {} : { jobs: progress.jobs.map(storedJobOf) }),
     tasks:      progress.tasks.map(storedTaskOf),
   });
 }

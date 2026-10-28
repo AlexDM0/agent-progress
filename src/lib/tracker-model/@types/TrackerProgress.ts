@@ -1,3 +1,4 @@
+import type { Job }  from './Job.ts';
 import type { Task } from './Task.ts';
 
 /** `relative` forms are stored raw (`"-2h"`, `"start"`, `"now"`) and resolved against an explicit `now` at layout time. */
@@ -6,7 +7,10 @@ export type ViewRange =
   | { kind: 'absolute'; from: string; to: string; tickMinutes: number | null }
   | { kind: 'relative'; from: string; to: string; tickMinutes: number | null };
 
-/** `finished` ended by itself and is relaunched when a ticket is ready; `stopped`, never started or ended by the user, waits for the user's go. */
+/**
+ * `finished` ended by itself; `stopped`, never started or ended by the user, waits for the user's go. A stored `finished` reads as `stopped`,
+ * which fails closed: nothing starts before the user looks.
+ */
 export type DispatcherState = 'running' | 'finished' | 'stopped';
 
 export interface TrackerProgress {
@@ -26,5 +30,9 @@ export interface TrackerProgress {
   checkCommand?:     string;
   /** The number the next draft takes, never wound back; absent on a tracker that never opened a draft. */
   nextDraftId?:      number;
+  /** The number the next job takes, never wound back; absent on a tracker that never launched a job. */
+  nextJobId?:        number;
+  /** The unsettled jobs, in launch order; an ended job leaves in the hold that ended it. Absent on a tracker that never launched one. */
+  jobs?:             Job[];
   tasks:             Task[];
 }

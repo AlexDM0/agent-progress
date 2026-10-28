@@ -76,13 +76,17 @@ describeWhenGitIsPresent('the dispatcher state', () => {
     expect(readFileSync(progressFilePath(), 'utf8')).toBe(writtenWithoutState);
   });
 
-  test.each<[DispatcherState]>([['running'], ['stopped'], ['finished']])('"%s" is stored in the progress file with one log line and read back', async (state) => {
-    await run(['dispatcher', state]);
+  // A stored `finished` is never rewritten, and reads as `stopped`, which fails closed.
+  test.each<[DispatcherState, DispatcherState]>([['running', 'running'], ['stopped', 'stopped'], ['finished', 'stopped']])(
+    '"%s" is stored in the progress file with one log line and read back as %s',
+    async (state, readState) => {
+      await run(['dispatcher', state]);
 
-    expect(storedProgressOf(repositoryDirectory).dispatcherState).toBe(state);
-    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe(`Dispatcher set to ${state}`);
-    expect((await run(['dispatcher'])).outputText()).toBe(state);
-  });
+      expect(storedProgressOf(repositoryDirectory).dispatcherState).toBe(state);
+      expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe(`Dispatcher set to ${state}`);
+      expect((await run(['dispatcher'])).outputText()).toBe(readState);
+    },
+  );
 
   test('setting a state names the one it replaced', async () => {
     await run(['dispatcher', 'running']);
@@ -110,11 +114,14 @@ describeWhenGitIsPresent('the dispatcher state', () => {
     expect(context.errorText()).toContain('dispatcherState');
   });
 
-  test('status --json carries the state in its concurrency block', async () => {
+  test('status --json carries the state in its concurrency block, a stored finished read as stopped', async () => {
+    await run(['dispatcher', 'running']);
+    const runningDocument = JSON.parse((await run(['status', '--json'])).outputText()) as { concurrency: { dispatcherState: string } };
     await run(['dispatcher', 'finished']);
+    const finishedDocument = JSON.parse((await run(['status', '--json'])).outputText()) as { concurrency: { dispatcherState: string } };
 
-    const document = JSON.parse((await run(['status', '--json'])).outputText()) as { concurrency: { dispatcherState: string } };
-    expect(document.concurrency.dispatcherState).toBe('finished');
+    expect(runningDocument.concurrency.dispatcherState).toBe('running');
+    expect(finishedDocument.concurrency.dispatcherState).toBe('stopped');
   });
 });
 
@@ -148,7 +155,7 @@ describeWhenGitIsPresent('the stored run id', () => {
     await run(['dispatcher', state]);
 
     expect(storedProgressOf(repositoryDirectory).dispatcherRunId).toBeUndefined();
-    expect((await run(['dispatcher'])).outputText()).toBe(state);
+    expect(storedProgressOf(repositoryDirectory).dispatcherState).toBe(state);
     expect((await statusConcurrency()).dispatcherRunId).toBeUndefined();
   });
 
@@ -184,18 +191,11 @@ describeWhenGitIsPresent('the advice the Next line gives', () => {
     await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
   });
 
-  test('a finished dispatcher with a ticket ready is to be launched', async () => {
+  // A stored `finished` reads as `stopped`, so nothing is launched before the user looks.
+  test('a finished dispatcher with a ticket ready waits for the user\'s go, as a stopped one does', async () => {
     await run(['dispatcher', 'finished']);
 
-    expect(await statusNextLine()).toBe('Next: 2 of 2 slots free; ready: #001; dispatcher finished: work ready for the orchestrator');
-  });
-
-  // The priority is read from the ticket files by the command itself, which the util's own spec cannot reach.
-  test('a finished dispatcher with only a low ticket ready advises triage before a launch', async () => {
-    await run(['ticket', 'priority', '1', 'low']);
-    await run(['dispatcher', 'finished']);
-
-    expect(await statusNextLine()).toBe('Next: 2 of 2 slots free; ready: #001; dispatcher finished: only low priority ready, for the orchestrator to triage');
+    expect(await statusNextLine()).toBe('Next: 2 of 2 slots free; ready: #001; dispatcher stopped: wait for the user\'s go');
   });
 
   test('a board never started waits for the user\'s go however many tickets are ready', async () => {

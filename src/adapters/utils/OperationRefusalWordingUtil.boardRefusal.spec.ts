@@ -369,3 +369,27 @@ test('every reason words as the refusal the command printed before the Board ref
   expect(new Set(MESSAGE_FOR_REFUSAL.map(([detail]) => detail.reason)).size, 'the table covers every reason').toBe(REFUSAL_REASON_COUNT);
   for (const [detail, message] of MESSAGE_FOR_REFUSAL) expect(messageOf(detail), detail.reason).toBe(namingThisProgram(message));
 });
+
+// No earlier command refused for a job, so these rows are this suite's own wording; an illegal move names the states the table allows.
+test.each<[BoardRefusalDetail, string]>([
+  [{ reason: 'unknown-job', jobId: 'J9' }, 'There is no job J9. Nothing was written.'],
+  [{ reason: 'job-finished', jobId: 'J3' }, 'Job J3 is finished, and a finished job is never continued. Nothing was written.'],
+  [
+    {
+      reason: 'job-move-illegal', jobId: 'J3', state: 'running', targetState: 'landing'
+    },
+    'Job J3 is running, so it cannot move to landing: only a job gating can. Nothing was written.',
+  ],
+  [
+    {
+      reason: 'job-move-illegal', jobId: 'J3', state: 'running', targetState: 'launching'
+    },
+    'Job J3 is running, so it cannot move to launching: only a job being launched can. Nothing was written.',
+  ],
+  [
+    { reason: 'merge-queue-of-a-ticket-not-in-review', ticketId: '004', status: 'in-progress' },
+    'Ticket #004 is in-progress, so it was not queued to merge: only a ticket in review whose review passed is. Nothing was written.',
+  ],
+])('the job refusal %o words as its sentence', (detail, message) => {
+  expect(messageOf(detail)).toBe(message);
+});

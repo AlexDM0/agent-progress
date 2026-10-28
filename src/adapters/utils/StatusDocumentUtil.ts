@@ -8,6 +8,7 @@ import type {
   PausedBuildEntry,
   ReviewBarEntry,
   StatusBoardWork,
+  StatusJobs,
   TicketRowEntry,
   TicketRowsEntry
 }                             from '../@types/StatusDocumentFields.ts';
@@ -56,7 +57,13 @@ function boardWorkOf(board: Board, listedTickets: readonly Readonly<Ticket>[]): 
   };
 }
 
+/** Carried by both documents, empty on a tracker that launched none, so a reader never has to tell an absent list from an empty one. */
+function jobsOf(board: Board): StatusJobs {
+  return { jobs: board.jobs() };
+}
+
 export const StatusDocumentUtil = {
   inProgressIdsOf,
   boardWorkOf,
+  jobsOf,
 } as const;

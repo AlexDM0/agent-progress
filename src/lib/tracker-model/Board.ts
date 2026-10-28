@@ -13,6 +13,7 @@ import type {
   DraftClaimChanged,
   EpicChanged,
   EpicEdited,
+  JobChanged,
   Logged,
   ReviewBarRequest,
   ReviewBarStarted,
@@ -49,6 +50,15 @@ import type {
   EpicEdit,
   EpicRollup
 }                                                           from './@types/Epic.ts';
+import type {
+  InterruptionCause,
+  Job,
+  JobEnding,
+  JobEventCursor,
+  JobLaunch,
+  MergeSlot,
+  RunnerStopReason
+}                                              from './@types/Job.ts';
 import type { AgentUsage, LogRecord }          from './@types/LogRecord.ts';
 import type { DisplayState, Task, TaskStatus } from './@types/Task.ts';
 import type {
@@ -67,7 +77,10 @@ import { DraftContents }                                    from './DraftContent
 import { Drafts }                                           from './Drafts.ts';
 import { Epics }                                            from './Epics.ts';
 import { GroupReleases }                                    from './GroupReleases.ts';
+import type { SteppedJobState }                             from './Jobs.ts';
+import { Jobs }                                             from './Jobs.ts';
 import type { Logger }                                      from './Logger.ts';
+import { MergeQueueMarks }                                  from './MergeQueueMarks.ts';
 import { ReviewBars }                                       from './ReviewBars.ts';
 import type { ReviewStatisticsReport }                      from './ReviewStatistics.ts';
 import { ReviewStatistics }                                 from './ReviewStatistics.ts';
@@ -130,6 +143,10 @@ export class Board {
 
   private readonly draftContents: DraftContents;
 
+  private readonly jobRules: Jobs;
+
+  private readonly mergeQueueMarks: MergeQueueMarks;
+
   constructor(input: BoardInput) {
     this.records            = new BoardRecords(input.progress, input.tickets, input.epics, input.drafts ?? [], input.logger, input.storedLogRecords ?? []);
     this.reviewBars         = new ReviewBars(this.records);
@@ -149,6 +166,61 @@ export class Board {
     this.epicRules          = new Epics(this.records, this.displayQueries);
     this.draftRules         = new Drafts(this.records);
     this.draftContents      = new DraftContents(this.records, this.draftRules);
+    this.jobRules           = new Jobs(this.records);
+    this.mergeQueueMarks    = new MergeQueueMarks(this.records);
+  }
+
+  launchJob(launch: JobLaunch, at: string): JobChanged {
+    return this.jobRules.launchJob(launch, at);
+  }
+
+  moveJob(jobId: string, targetState: SteppedJobState, at: string): JobChanged {
+    return this.jobRules.moveJob(jobId, targetState, at);
+  }
+
+  interruptJob(jobId: string, cause: InterruptionCause, at: string): JobChanged {
+    return this.jobRules.interruptJob(jobId, cause, at);
+  }
+
+  endJob(jobId: string, ending: JobEnding, at: string): JobChanged {
+    return this.jobRules.endJob(jobId, ending, at);
+  }
+
+  setJobEventCursor(jobId: string, cursor: JobEventCursor): Readonly<Job> {
+    return this.jobRules.setJobEventCursor(jobId, cursor);
+  }
+
+  addAnsweredRequestId(jobId: string, requestId: string): Readonly<Job> {
+    return this.jobRules.addAnsweredRequestId(jobId, requestId);
+  }
+
+  setJobSlot(jobId: string, slot: MergeSlot | null): Readonly<Job> {
+    return this.jobRules.setJobSlot(jobId, slot);
+  }
+
+  recordRunnerStarted(versions: { codeVersion: string; installVersion: number }, at: string): Logged {
+    return this.jobRules.recordRunnerStarted(versions, at);
+  }
+
+  recordRunnerStopped(reason: RunnerStopReason, at: string): Logged {
+    return this.jobRules.recordRunnerStopped(reason, at);
+  }
+
+  setTicketMergeQueued(ticketId: string, queued: boolean, at: string): Readonly<Task> | null {
+    return this.mergeQueueMarks.setTicketMergeQueued(ticketId, queued, at);
+  }
+
+  ticketIsMergeQueued(ticketId: string): boolean {
+    return this.mergeQueueMarks.ticketIsMergeQueued(ticketId);
+  }
+
+  /** The unsettled jobs, in launch order. */
+  jobs(): readonly Readonly<Job>[] {
+    return this.jobRules.jobs();
+  }
+
+  jobById(jobId: string): Readonly<Job> | undefined {
+    return this.jobRules.jobById(jobId);
   }
 
   setChartRange(view: ViewRange, at: string): Logged {

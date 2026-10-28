@@ -273,10 +273,11 @@ test('a Board with a free slot and one ready ticket names the free slot and that
   expect(nextLineOf(board)).toBe('Next: 1 of 2 slots free; ready: #001');
 });
 
-test('a Board whose only ready ticket is low, under a finished dispatcher, advises triage before a launch', () => {
+// The Board reads a stored `finished` as `stopped`, so a Board's line never advises a launch the user has not given the go for.
+test('a Board whose only ready ticket is low, under a stored finished dispatcher, waits for the user\'s go', () => {
   const { board, progress } = boardFixture({ tickets: [ticketFixture({ id: '001', status: 'delivered' }), ticketFixture({ id: '002', priority: 'low' })] });
   progress.dispatcherState  = 'finished';
-  expect(nextLineOf(board)).toBe('Next: 2 of 2 slots free; ready: #002; dispatcher finished: only low priority ready, for the orchestrator to triage');
+  expect(nextLineOf(board)).toBe('Next: 2 of 2 slots free; ready: #002; dispatcher stopped: wait for the user\'s go');
 });
 
 test('a Board whose only open normal work is held names its low tickets ready', () => {

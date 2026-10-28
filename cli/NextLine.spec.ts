@@ -150,8 +150,8 @@ describeWhenGitIsPresent('a held ticket on the line', () => {
     await run(['ticket', 'abandon', '3', '--reason', 'superseded by #2']);
     await run(['dispatcher', 'finished']);
 
-    expect(await nextLineAfter(['ticket', 'hold', '2'])).toBe('Next: 2 of 2 slots free; nothing ready; held: #002');
-    expect(await nextLineAfter(['status'])).toBe('Next: 2 of 2 slots free; nothing ready; held: #002');
+    expect(await nextLineAfter(['ticket', 'hold', '2'])).toBe('Next: 2 of 2 slots free; nothing ready; held: #002; dispatcher stopped: wait for the user\'s go');
+    expect(await nextLineAfter(['status'])).toBe('Next: 2 of 2 slots free; nothing ready; held: #002; dispatcher stopped: wait for the user\'s go');
   });
 });
 

@@ -112,6 +112,20 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
     cacheReadInputTokens: 250_000,
     outputTokens:         9_000,
   }, [], at);
+  board.recordRunnerStarted({ codeVersion: 'a1b2c3d', installVersion: 17 }, at);
+  const { job } = board.launchJob({
+    kind:        'build',
+    role:        'builder',
+    ticketIds:   ['002'],
+    parentJobId: null,
+    attempt:     1,
+    target:      'main',
+  }, at);
+  board.moveJob(job.id, 'running', at);
+  board.interruptJob(job.id, 'agent-crashed', at);
+  board.moveJob(job.id, 'running', at);
+  board.endJob(job.id, { outcome: 'failed', cause: 'no report', deniedPermissions: ['WebFetch'] }, at);
+  board.recordRunnerStopped('stopped', at);
   board.clearTracker({ ticketsSurvive: true }, at);
   return records;
 }
