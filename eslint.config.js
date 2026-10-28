@@ -9,7 +9,10 @@ const CONFINED_REACHES = [
     allowedIn: ['src/shared/Environment.ts', 'src/shared/Environment.spec.ts'],
     property:  { object: 'process', property: 'env', message: 'Read the environment through src/shared/Environment.ts.' },
   },
-  { allowedIn: ['agent-progress.ts'], property: { object: 'process', property: 'exit', message: 'Only agent-progress.ts exits; return an exit code.' } },
+  {
+    allowedIn: ['agent-progress.ts', 'agent-host.ts'],
+    property:  { object: 'process', property: 'exit', message: 'Only agent-progress.ts and agent-host.ts exit; return an exit code.' },
+  },
   { allowedIn: [], property: { object: 'process', property: 'chdir', message: 'Never change the working directory; pass a directory instead.' } },
   {
     // The bundle spec proves a fixture lies outside the test runner's directory.
@@ -69,7 +72,7 @@ export default [
   { files: ['**/*.ts'], rules: confinedReachRules(null) },
   ...CONFINED_REACH_SITES.map((site) => ({ files: [site], rules: confinedReachRules(site) })),
   {
-    files:   ['src/**/*.ts', 'cli/**/*.ts', 'agent-progress.ts'],
+    files:   ['src/**/*.ts', 'cli/**/*.ts', 'agent-progress.ts', 'agent-host.ts'],
     ignores: [...SPECS_AND_TESTING_FOLDERS, 'cli/CommandContext.ts'],
     rules:   {
       'no-restricted-syntax': [

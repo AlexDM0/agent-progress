@@ -13,6 +13,7 @@ type ImportViolation =
   | 'feature-imports-another-feature'
   | 'command-imports-a-sibling-command'
   | 'binary-imports-beyond-cli'
+  | 'host-binary-imports-beyond-its-package'
   | 'test-helper-imported-outside-its-allowlist'
   | 'lib-imports-an-undeclared-package'
   | 'tracker-model-reaches-outside-itself'
@@ -21,6 +22,7 @@ type ImportViolation =
 
 type Layer =
   | 'binary'
+  | 'host-binary'
   | 'lib'
   | 'shared'
   | 'adapters'
@@ -43,6 +45,8 @@ interface Finding {
 }
 
 const BINARY_PATH = 'agent-progress.ts';
+const HOST_BINARY_PATH = 'agent-host.ts';
+const HOST_PACKAGE_FOLDER = 'src/lib/agent-host/';
 const FEATURES = ['cli', 'page', 'dispatcher'] as const satisfies readonly Layer[];
 const SOURCE_LAYERS = [
   'lib', 'shared', 'adapters', 'render-service', 'tracker-service', 'lifecycle-service', 'control-service', 'runner-service',
@@ -51,6 +55,8 @@ const SOURCE_LAYERS = [
 /** What each layer may import, a folder in a testing folder aside: those are judged by `TESTING_FOLDER_IMPORTERS` alone. */
 const LAYER_REACH: Readonly<Record<Layer, readonly Layer[]>> = {
   'binary':            ['cli'],
+  // Narrowed further to its own package by directionFinding.
+  'host-binary':       ['lib'],
   'lib':               ['lib'],
   'shared':            ['lib', 'shared'],
   'adapters':          ['lib', 'shared', 'adapters'],
@@ -106,6 +112,7 @@ function isInside(path: string, folder: string): boolean {
 
 function layerOf(path: string): Layer {
   if (path === BINARY_PATH) return 'binary';
+  if (path === HOST_BINARY_PATH) return 'host-binary';
   const [topFolder, layerFolder, unitFolder] = path.split('/');
   if (topFolder === 'cli' || topFolder === 'page' || topFolder === 'dispatcher') return topFolder;
   if (topFolder !== 'src' || layerFolder === undefined) return 'unplaced';
@@ -193,6 +200,9 @@ function testingFolderFinding(edge: ImportEdge, targetPath: string, allowlists: 
 function directionFinding(edge: ImportEdge, targetPath: string): Finding | null {
   const fromLayer = layerOf(edge.fromPath);
   const targetLayer = layerOf(targetPath);
+  if (fromLayer === 'host-binary' && !isInside(targetPath, HOST_PACKAGE_FOLDER)) {
+    return edgeFinding(edge, 'host-binary-imports-beyond-its-package', `${HOST_BINARY_PATH} imports only ${HOST_PACKAGE_FOLDER}`);
+  }
   if (testingFolderOf(targetPath) !== null || LAYER_REACH[fromLayer].includes(targetLayer)) return null;
   if (fromLayer === 'binary') {
     return edgeFinding(edge, 'binary-imports-beyond-cli', `${BINARY_PATH} imports only cli/`);
@@ -228,7 +238,12 @@ function edgeFindingsOf(edge: ImportEdge, declarations: ReadonlyMap<string, read
     return [edgeFinding(edge, 'barrel', 'a re-export makes one module stand for others')];
   }
   const libVerdict = libFinding(edge, declarations);
-  if (edge.target.kind === 'package') return [libVerdict];
+  if (edge.target.kind === 'package') {
+    const hostBinaryVerdict = layerOf(edge.fromPath) === 'host-binary'
+      ? edgeFinding(edge, 'host-binary-imports-beyond-its-package', `${HOST_BINARY_PATH} imports only ${HOST_PACKAGE_FOLDER}`)
+      : null;
+    return [libVerdict, hostBinaryVerdict];
+  }
   const targetPath = edge.target.path;
   return [
     directionFinding(edge, targetPath),
@@ -361,6 +376,7 @@ describe('the scan itself', () => {
   test('it read the root, page and dispatcher programs and found the imports inside the repository in each', () => {
     const repositoryEdges = GRAPH.edges.filter((edge) => edge.target.kind === 'repository-file');
     expect(GRAPH.scannedPaths).toContain(BINARY_PATH);
+    expect(GRAPH.scannedPaths).toContain(HOST_BINARY_PATH);
     for (const topFolder of ['cli/', 'page/', 'dispatcher/', 'src/lib/', 'src/shared/', 'src/adapters/', 'src/services/', 'src/testing/']) {
       expect(GRAPH.scannedPaths.filter((path) => isInside(path, topFolder)).length, `files under ${topFolder}`).toBeGreaterThanOrEqual(5);
       expect(repositoryEdges.filter((edge) => isInside(edge.fromPath, topFolder)).length, `imports made under ${topFolder}`).toBeGreaterThanOrEqual(5);
@@ -385,6 +401,7 @@ describe('the scan itself', () => {
     expect(commandFolders.size, 'command folders under cli/').toBeGreaterThanOrEqual(10);
     expect(libPackages.size, 'packages under src/lib/').toBeGreaterThanOrEqual(4);
     expect(declaredLibDependenciesOf(GRAPH).get('claude-code')).toEqual(['agent-launch', 'atomic-file', 'json-record', 'local-time']);
+    expect(declaredLibDependenciesOf(GRAPH).get('agent-host')).toEqual(['atomic-file', 'process-identity']);
   });
 
   test('every allowlist entry and every declared lib dependency is still used, and every testing folder is listed', () => {
@@ -447,6 +464,19 @@ describe('the guard still names each violation, planted in memory', () => {
     expect(plantedSentencesOf({ 'agent-progress.ts': importing('./src/shared/Environment.ts') })).toEqual([
       'binary-imports-beyond-cli — agent-progress.ts:1 imports src/shared/Environment.ts: agent-progress.ts imports only cli/',
     ]);
+  });
+
+  test('the host binary importing anything but its package, another lib package and a builtin included, and not its package', () => {
+    expect(plantedSentencesOf({ 'agent-host.ts': importing('./src/lib/claude-code/ClaudeCodeAdapter.ts') })).toEqual([
+      'host-binary-imports-beyond-its-package — agent-host.ts:1 imports src/lib/claude-code/ClaudeCodeAdapter.ts: agent-host.ts imports only src/lib/agent-host/',
+    ]);
+    expect(plantedSentencesOf({ 'agent-host.ts': importing('./cli/Main.ts') })).toEqual([
+      'host-binary-imports-beyond-its-package — agent-host.ts:1 imports cli/Main.ts: agent-host.ts imports only src/lib/agent-host/',
+    ]);
+    expect(plantedSentencesOf({ 'agent-host.ts': importing('node:fs') })).toEqual([
+      'host-binary-imports-beyond-its-package — agent-host.ts:1 imports node:fs: agent-host.ts imports only src/lib/agent-host/',
+    ]);
+    expect(plantedSentencesOf({ 'agent-host.ts': importing('./src/lib/agent-host/AgentHost.ts') })).toEqual([]);
   });
 
   test('a test-only folder imported by shipped code, by a spec outside its allowlist or with no entry at all, and not by an allowed spec', () => {
@@ -544,6 +574,10 @@ describe('the imports of the tree', () => {
 
   test('agent-progress.ts imports only cli/', () => {
     expect(sentencesAbout(FINDINGS, 'binary-imports-beyond-cli')).toEqual([]);
+  });
+
+  test('agent-host.ts imports only src/lib/agent-host/', () => {
+    expect(sentencesAbout(FINDINGS, 'host-binary-imports-beyond-its-package')).toEqual([]);
   });
 
   test('nothing that ships imports a testing folder, and each testing folder is imported only by the specs its entry names', () => {

@@ -66,6 +66,7 @@ const PLANTED_VIOLATIONS: readonly PlantedViolation[] = [
 const PLANTED_EXCEPTIONS: readonly (readonly [string, string, string])[] = [
   ['the environment module reading the environment', 'src/shared/Environment.ts', 'export const home = process.env[\'HOME\'];\n'],
   ['the binary exiting', 'agent-progress.ts', 'process.exit(1);\n'],
+  ['the host binary exiting', 'agent-host.ts', 'process.exit(1);\n'],
   ['the command context reading the directory', 'cli/CommandContext.ts', 'export const here = process.cwd();\n'],
   ['the command context reading the home directory', 'cli/CommandContext.ts', HOME_DIRECTORY_IMPORT],
   ['the preference store reaching storage', 'page/preferences/PreferenceStore.ts', 'export const storage = (): Storage => window.sessionStorage;\n'],

@@ -92,10 +92,10 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 ### Runtime
 
 - `eslint.config.js` (`CONFINED_REACHES`, the clock selectors) holds `process.env` to `src/shared/Environment.ts`,
-  `process.exit` to `agent-progress.ts`, `process.cwd`, `homedir()` and the clock in `src/` and `cli/` to
-  `cli/CommandContext.ts`, and `process.chdir` to nowhere. The environment is read through documented getters; specs
-  set it in a child process (one exception, Deviations). The product's own variables are named from
-  `PRODUCT_NAMES.ENVIRONMENT_PREFIX`, never as literals.
+  `process.exit` to `agent-progress.ts` and `agent-host.ts` (Deviations), `process.cwd`, `homedir()` and the clock
+  in `src/` and `cli/` to `cli/CommandContext.ts`, and `process.chdir` to nowhere. The environment is read through
+  documented getters; specs set it in a child process (one exception, Deviations). The product's own variables are
+  named from `PRODUCT_NAMES.ENVIRONMENT_PREFIX`, never as literals.
 - No work at module load (entry points excepted, Deviations). The render service keeps no module state: the page
   bundle and configured Marked live in the render state the command context carries.
 - Factories of closures over classes, except for state carried across calls, domain and ingestion classes. A
@@ -177,11 +177,13 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 | Rule | Done instead | Why |
 | --- | --- | --- |
 | Ingestion reads, validates and maps in separate steps. | The ticket parse is one line-oriented pass. | A second walk would risk the unowned lines kept byte for byte. |
-| No work at module load. | `agent-progress.ts` runs the command on import, `page/PageStart.ts` starts the page, the preload `src/testing/TestRunReport.ts` registers its report, the preload `cli/testing/OtherProductNamesPreload.ts` registers its name swap, the fake agent `src/testing/fake-agent/FakeAgentChild.ts` plays its scenario. | They are entry points. |
+| No work at module load. | `agent-progress.ts` runs the command on import, `agent-host.ts` runs its host, `page/PageStart.ts` starts the page, the preload `src/testing/TestRunReport.ts` registers its report, the preload `cli/testing/OtherProductNamesPreload.ts` registers its name swap, the fake agent `src/testing/fake-agent/FakeAgentChild.ts` plays its scenario. | They are entry points. |
 | Specs never set the environment in-process. | `src/shared/Environment.spec.ts` does, once. | It tests the getters themselves. |
 | A frozen table comes from the previous implementation. | `dispatcher/testing/FrozenDispatchTraces.json` is retaken from the bundle, only in a commit meant to change what agents are told, its diff showing prompt text or wire names and no decision; `cli/FrozenInstalledSurface.json` is taken from the installed files. | No previous implementation holds them. |
 | Only the current stored format is read. | A ticket stored with `type` `change` or `feature` reads as `ticket` everywhere, and every write keeps its stored `type` line. | Stored tickets are never rewritten; both are older names for `ticket`. |
 | Only the current stored format is read. | A stored `dispatcherState` `finished` reads as `stopped`. | Stored files are never rewritten; reading it as stopped fails closed. |
+| Only `agent-progress.ts` exits. | `agent-host.ts`, the host binary, exits with the code `runHost` in `src/lib/agent-host/` returns, and imports nothing else, held by `src/ImportDirection.spec.ts` and `src/lib/agent-host/HostBundleClosure.spec.ts`. | It is a second entry point: the runner bundles and spawns it, detached, once per job instance. |
+| Every write of a file a reader may hold open goes through the atomic-file package. | A host appends its `events-<instance>.ndjson` in place, fsynced before its `end` is written. | An append-only log is never replaced; a reader ignores an unterminated last line. |
 | A `src/lib/` package leaves a refusal as a verdict. | The tracker model's `Board` throws `BoardRefusal`. | A domain class throws a typed domain error. |
 | A feature never reaches another. | `cli/` reaches `dispatcher/`, the render service `page/`, by path, to bundle them. | Bundled, never imported. |
 | One reference per fact. | `resources/templates/Reference.md`, installed as `.agent-progress/reference.md`, copies three `docs/cli.md` sections verbatim (ticket format, ticket moves, exit codes); a change to either changes both, held by `cli/ReferenceCopies.spec.ts`. | Agents elsewhere cannot read `docs/cli.md`. |
@@ -272,6 +274,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 
 ```
 agent-progress.ts    the bin shim: runs the command line and exits with its number
+agent-host.ts        the host shim: runs one job instance's host from src/lib/agent-host/ and exits with its number
 cli/                 feature: the command surface, its commands grouped into sets
 page/                feature: the browser page, one DOM-only project: its entry and views, the shell it starts
                      with under page/shell/, and the chip parts under page/chips/
