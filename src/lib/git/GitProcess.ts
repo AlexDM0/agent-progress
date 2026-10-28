@@ -1,6 +1,6 @@
 /**
- * The git building block: `GitProcess.run` is the one place git is spawned, with paths printed unquoted, and the modules beside it answer
- * repository questions on it as verdicts. It depends on `src/lib/atomic-file` only, through GitIgnore.
+ * The git building block: `GitProcess.run` is the one place git is spawned, with paths printed unquoted and hooks off unless asked for,
+ * and the modules beside it answer repository questions on it as verdicts. It depends on `src/lib/atomic-file` only, through GitIgnore and Worktrees.
  */
 import { existsSync, statSync } from 'node:fs';
 
@@ -9,6 +9,11 @@ const GIT_SUCCESS_EXIT_CODE = 0;
 // Callers parse paths out of git's output, which must not arrive octal-escaped and quoted.
 const CONFIGURATION_OVERRIDES = ['-c', 'core.quotePath=false'];
 
+// A repository's hooks are worker-writable code, so a git spawned here runs none unless the caller asks for them.
+const HOOKS_OFF_OVERRIDES = ['-c', 'core.hooksPath=/dev/null'];
+
+export type GitHookPolicy = 'hooks-off' | 'repository-hooks';
+
 export interface GitRun {
   exitCode:       number;
   standardOutput: string;
@@ -16,10 +21,11 @@ export interface GitRun {
 }
 
 /** `null` when git could not be started at all. No timeout: a git that hangs is the caller's to wait on. */
-function run(directory: string, gitArguments: readonly string[]): GitRun | null {
+function run(directory: string, gitArguments: readonly string[], hookPolicy: GitHookPolicy = 'hooks-off'): GitRun | null {
+  const hookOverrides = hookPolicy === 'hooks-off' ? HOOKS_OFF_OVERRIDES : [];
   try {
     const finished = Bun.spawnSync({
-      cmd:    ['git', ...CONFIGURATION_OVERRIDES, ...gitArguments],
+      cmd:    ['git', ...CONFIGURATION_OVERRIDES, ...hookOverrides, ...gitArguments],
       cwd:    directory,
       stdout: 'pipe',
       stderr: 'pipe',

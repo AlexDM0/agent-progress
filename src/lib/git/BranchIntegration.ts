@@ -3,8 +3,8 @@
  * from the main line, which commit a worktree stands at and what it holds beside it, the fast-forward itself, and the two cleanups.
  * Nothing here forces anything: a refusal git gives is handed back with its reason.
  */
-import { GitProcess }                from './GitProcess.ts';
-import { NOT_AN_ANCESTOR_EXIT_CODE } from './constants/GitConventions.ts';
+import { GitProcess, type GitHookPolicy } from './GitProcess.ts';
+import { NOT_AN_ANCESTOR_EXIT_CODE }      from './constants/GitConventions.ts';
 
 const DETACHED_HEAD_EXIT_CODE = 1;
 
@@ -101,10 +101,13 @@ function blockingFilesOf(directory: string, commit: string): string[] {
   return pathsChangedBetween(directory, commit).filter((path) => uncommittedPaths.has(path));
 }
 
-/** Merges the commit that was checked, not the branch name, so a commit made to the branch after the check is not merged unseen. */
-export function fastForwardTo(directory: string, commit: string): FastForwardOutcome {
+/**
+ * Merges the commit that was checked, not the branch name, so a commit made to the branch after the check is not merged unseen. The
+ * repository's own merge hooks run unless the caller turns them off.
+ */
+export function fastForwardTo(directory: string, commit: string, hookPolicy: GitHookPolicy = 'repository-hooks'): FastForwardOutcome {
   const mergeArguments = ['merge', '--ff-only', '--quiet', commit];
-  const run            = GitProcess.run(directory, mergeArguments);
+  const run            = GitProcess.run(directory, mergeArguments, hookPolicy);
   if (!GitProcess.succeeded(run)) return { verdict: 'refused', reason: GitProcess.failureReasonOf(run, mergeArguments), blockingFiles: blockingFilesOf(directory, commit) };
   const headCommit = GitProcess.resolvedCommitOf(directory, 'HEAD');
   if (headCommit !== commit) return { verdict: 'refused', reason: `git merge --ff-only ${commit} exited 0, yet HEAD is ${headCommit ?? 'unreadable'}.`, blockingFiles: [] };

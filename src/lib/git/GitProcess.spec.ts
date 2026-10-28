@@ -72,6 +72,15 @@ describeWhenGitIsPresent('a git run', () => {
     expect(finishedRun?.standardOutput).toBe('?? café.txt\n');
   });
 
+  // The repository's hooks are worker-writable code: a run turns them off unless its caller asks for them by name.
+  test('a run sees no hooks folder by default, and the repository\'s own only when it asks for repository hooks', () => {
+    const repositoryDirectory = scratchGitRepository('git-process-hooks');
+    gitOutputIn(repositoryDirectory, ['config', 'core.hooksPath', '.githooks']);
+    expect(run(repositoryDirectory, ['config', 'core.hooksPath'])?.standardOutput).toBe('/dev/null\n');
+    expect(run(repositoryDirectory, ['config', 'core.hooksPath'], 'hooks-off')?.standardOutput).toBe('/dev/null\n');
+    expect(run(repositoryDirectory, ['config', 'core.hooksPath'], 'repository-hooks')?.standardOutput).toBe('.githooks\n');
+  });
+
   test('a working directory that does not exist reads as git not started, never as a throw', () => {
     const parentDirectory = createScratchDirectory('git-process-missing');
     scratchDirectories.push(parentDirectory);

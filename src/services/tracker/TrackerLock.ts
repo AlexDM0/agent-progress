@@ -19,6 +19,7 @@ import { join } from 'node:path';
 
 import { createFileAtomically }              from '../../lib/atomic-file/AtomicFile.ts';
 import { LocalTimeUtil }                     from '../../lib/local-time/LocalTimeUtil.ts';
+import { processIsGone }                     from '../../lib/process-identity/ProcessIdentity.ts';
 import { OperationRefusal }                  from '../../shared/OperationRefusal.ts';
 import { LIMITS }                            from '../../shared/constants/Limits.ts';
 import { replayHoldJournal, type HoldFence } from './HoldJournal.ts';
@@ -43,26 +44,6 @@ type AcquireStep = typeof ACQUIRE_STEPS[number];
 
 const GENERATION_FILE_PREFIX    = 'generation-';
 const GENERATION_DIGITS_PATTERN = /^[1-9]\d*$/;
-const NO_SUCH_PROCESS_CODE      = 'ESRCH';
-
-function errorCodeOf(error: unknown): string | undefined {
-  return typeof error === 'object' && error !== null && 'code' in error ? String((error as { code: unknown }).code) : undefined;
-}
-
-/**
- * Anything other than `ESRCH` means alive: `EPERM` is a live process owned by another user, and
- * reading it as dead would hand one user's lock to another. A non-positive id is refused before the
- * call, because `process.kill(0, …)` addresses the caller's whole process group.
- */
-function processIsGone(processId: number): boolean {
-  if (!Number.isSafeInteger(processId) || processId <= 0) return false;
-  try {
-    process.kill(processId, 0);
-    return false;
-  } catch (error) {
-    return errorCodeOf(error) === NO_SUCH_PROCESS_CODE;
-  }
-}
 
 function generationNumberOf(fileName: string): number | null {
   if (!fileName.startsWith(GENERATION_FILE_PREFIX)) return null;
