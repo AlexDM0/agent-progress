@@ -3,7 +3,7 @@ import type { ProcessIdentity } from '../process-identity/ProcessIdentity.ts';
 export type HostState = 'claimed' | 'running' | 'ended';
 
 /** `exited` and `signalled` are the child's own end; the other two mean no child ever ran. */
-export type HostEndReason = 'exited' | 'signalled' | 'launch-unreadable' | 'spawn-failed';
+export type HostEndReason = 'exited' | 'signalled' | 'launch-unreadable' | 'socket-unbindable' | 'spawn-failed';
 
 export interface HostEnd {
   readonly reason:   HostEndReason;
@@ -23,6 +23,9 @@ export interface HostRecord {
   readonly hostInstance:          number;
   readonly state:                 HostState;
   readonly host:                  ProcessIdentity | null;
+  /** Both known once the launch file is read. */
+  readonly hostCodeVersion?:      string;
+  readonly socketPath?:           string;
   readonly childProcess?:         ProcessIdentity | null;
   readonly childProcessGroupId?:  number;
   readonly end?:                  HostEnd;

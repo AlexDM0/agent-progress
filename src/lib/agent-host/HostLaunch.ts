@@ -3,9 +3,11 @@
  * a process host gives it none and answers nothing. Keys a later protocol adds are left unread.
  */
 import { readFileSync } from 'node:fs';
+import { isAbsolute }   from 'node:path';
 
-import type { StandingReply }    from './StandingReplies.ts';
-import { HOST_PROTOCOL_VERSION } from './constants/HostProtocol.ts';
+import { socketPathFits }                                      from './HostSocketPath.ts';
+import type { StandingReply }                                  from './StandingReplies.ts';
+import { HOST_PROTOCOL_VERSION, HOST_SOCKET_PATH_LIMIT_BYTES } from './constants/HostProtocol.ts';
 
 export type HostKind = 'agent' | 'process';
 
@@ -18,6 +20,13 @@ export interface HostLaunch {
   readonly workingDirectory: string;
   readonly standingReplies:  readonly StandingReply[];
   readonly protocolVersion:  number;
+  /** Named in `welcome`, so a client knows which job it reached. */
+  readonly jobId:            string;
+  /** The code the runner pinned this host to, recorded and named in `welcome`. */
+  readonly hostCodeVersion:  string;
+  readonly socketPath:       string;
+  /** What a client's `hello` must carry; only the launch file holds it. */
+  readonly hostSecret:       string;
 }
 
 export type HostLaunchReading =
@@ -55,7 +64,7 @@ export function hostLaunchOf(launchText: string): HostLaunchReading {
   }
   if (!isRecord(parsed)) return { verdict: 'unreadable', reason: 'the launch file is not a JSON object' };
   const {
-    kind, argv, environment, workingDirectory, standingReplies, protocolVersion
+    kind, argv, environment, workingDirectory, standingReplies, protocolVersion, jobId, hostCodeVersion, socketPath, hostSecret,
   } = parsed;
   if (typeof kind !== 'string' || !HOST_KINDS.includes(kind)) return { verdict: 'unreadable', reason: 'kind is neither agent nor process' };
   if (!isStringList(argv) || argv.length === 0) return { verdict: 'unreadable', reason: 'argv is not a non-empty list of strings' };
@@ -63,6 +72,12 @@ export function hostLaunchOf(launchText: string): HostLaunchReading {
   if (typeof workingDirectory !== 'string') return { verdict: 'unreadable', reason: 'workingDirectory is not a string' };
   if (!Array.isArray(standingReplies) || !standingReplies.every(isStandingReply)) return { verdict: 'unreadable', reason: 'standingReplies is not a list of rules' };
   if (protocolVersion !== HOST_PROTOCOL_VERSION) return { verdict: 'unreadable', reason: `protocolVersion ${String(protocolVersion)} is not ${HOST_PROTOCOL_VERSION}` };
+  if (typeof jobId !== 'string' || jobId === '') return { verdict: 'unreadable', reason: 'jobId is not a non-empty string' };
+  if (typeof hostCodeVersion !== 'string') return { verdict: 'unreadable', reason: 'hostCodeVersion is not a string' };
+  if (typeof socketPath !== 'string' || !isAbsolute(socketPath) || !socketPathFits(socketPath)) {
+    return { verdict: 'unreadable', reason: `socketPath is not an absolute path under ${HOST_SOCKET_PATH_LIMIT_BYTES} bytes` };
+  }
+  if (typeof hostSecret !== 'string' || hostSecret === '') return { verdict: 'unreadable', reason: 'hostSecret is not a non-empty string' };
   return {
     verdict: 'read',
     launch:  {
@@ -72,6 +87,10 @@ export function hostLaunchOf(launchText: string): HostLaunchReading {
       workingDirectory,
       standingReplies,
       protocolVersion,
+      jobId,
+      hostCodeVersion,
+      socketPath,
+      hostSecret,
     },
   };
 }

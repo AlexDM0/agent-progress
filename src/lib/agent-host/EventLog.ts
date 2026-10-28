@@ -19,6 +19,8 @@ export interface EventLogEntry {
 
 export interface EventLogWriter {
   readonly append:       (origin: EventOrigin, line: string) => EventLogEntry;
+  /** Flushed to the disk before a client is told the log's history. */
+  readonly sync:         () => void;
   /** Flushed to the disk before anything that tells a reader the log is complete, such as the host's `end`. */
   readonly syncAndClose: () => void;
 }
@@ -38,6 +40,9 @@ export function createEventLogWriter(eventLogPath: string): EventLogWriter {
       const entry: EventLogEntry = { sequence: lastSequence, origin, line };
       writeSync(fileDescriptor, `${JSON.stringify(entry)}\n`);
       return entry;
+    },
+    sync: () => {
+      fsyncSync(fileDescriptor);
     },
     syncAndClose: () => {
       fsyncSync(fileDescriptor);

@@ -14,10 +14,14 @@ const WELL_FORMED = {
   workingDirectory: '/tmp',
   standingReplies:  [{ whenAllEqual: { type: 'control_request' }, whenNoneEqual: {}, replyTemplate: 'reply' }],
   protocolVersion:  HOST_PROTOCOL_VERSION,
+  jobId:            'J-1',
+  hostCodeVersion:  'code-1',
+  socketPath:       '/tmp/hosts/0123456789abcdef.sock',
+  hostSecret:       'example-secret',
 };
 
 test('reads a well-formed launch file and leaves a key a later protocol adds unread', () => {
-  expect(hostLaunchOf(JSON.stringify({ ...WELL_FORMED, hostSecret: 'later' }))).toEqual({ verdict: 'read', launch: WELL_FORMED });
+  expect(hostLaunchOf(JSON.stringify({ ...WELL_FORMED, laterKey: 'later' }))).toEqual({ verdict: 'read', launch: WELL_FORMED });
 });
 
 test.each([
@@ -29,6 +33,11 @@ test.each([
   ['no working directory', JSON.stringify({ ...WELL_FORMED, workingDirectory: null }), 'workingDirectory'],
   ['a rule with no template', JSON.stringify({ ...WELL_FORMED, standingReplies: [{ whenAllEqual: {}, whenNoneEqual: {} }] }), 'standingReplies'],
   ['another protocol', JSON.stringify({ ...WELL_FORMED, protocolVersion: HOST_PROTOCOL_VERSION + 1 }), 'protocolVersion'],
+  ['no job id', JSON.stringify({ ...WELL_FORMED, jobId: '' }), 'jobId'],
+  ['no host code version', JSON.stringify({ ...WELL_FORMED, hostCodeVersion: 1 }), 'hostCodeVersion'],
+  ['a relative socket path', JSON.stringify({ ...WELL_FORMED, socketPath: 'hosts/a.sock' }), 'socketPath'],
+  ['a socket path of 104 bytes', JSON.stringify({ ...WELL_FORMED, socketPath: `/${'s'.repeat(103)}` }), 'socketPath'],
+  ['no host secret', JSON.stringify({ ...WELL_FORMED, hostSecret: '' }), 'hostSecret'],
 ])('refuses %s, naming it', (_title, launchText, namedInReason) => {
   const reading = hostLaunchOf(launchText);
   expect(reading.verdict).toBe('unreadable');

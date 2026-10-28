@@ -2,10 +2,11 @@
  * The host binary end to end, spawned as the runner spawns it with small `bun -e` children. What matters: exactly one of two racing hosts
  * of one instance spawns the child; the child runs in a process group of its own with its stderr in the host log; the host file records
  * both identities, the group and the versions, then `end`; every stdout line and every line written to the child is in the numbered log;
- * a standing reply answers a permission request but never a question; a process host gives its child no stdin.
+ * a standing reply answers a permission request but never a question; a process host gives its child no stdin. Every host here ends only
+ * once a client acknowledges its end, as the runner does; protocol 1 itself is `AgentHost.protocol.spec.ts`.
  */
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { join }                                    from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { join }                     from 'node:path';
 import {
   afterEach,
   beforeEach,
@@ -15,15 +16,13 @@ import {
 } from 'bun:test';
 
 import { CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS }         from '../../testing/ChildProcessCaseTimeout.ts';
-import { createScratchDirectory, removeScratchDirectory }  from '../../testing/ScratchWorkspace.ts';
+import { type HostJob, type SpawnedHost, createHostJob }   from '../../testing/HostJob.ts';
 import { type EventLogEntry, eventLogEntriesOf }           from './EventLog.ts';
 import { hostFilesOf }                                     from './HostFiles.ts';
 import type { HostKind }                                   from './HostLaunch.ts';
 import type { HostRecord }                                 from './HostRecord.ts';
 import type { StandingReply }                              from './StandingReplies.ts';
 import { EVENT_LOG_FORMAT_VERSION, HOST_PROTOCOL_VERSION } from './constants/HostProtocol.ts';
-
-const HOST_BINARY_PATH = new URL('../../../agent-host.ts', import.meta.url).pathname;
 
 const PERMISSION_REQUEST = '{"type":"control_request","request_id":"r-1","request":{"subtype":"can_use_tool","tool_name":"Bash"}}';
 const QUESTION_REQUEST = '{"type":"control_request","request_id":"r-2","request":{"subtype":"can_use_tool","tool_name":"AskUserQuestion"}}';
@@ -34,25 +33,39 @@ const DENY_ALL_BUT_QUESTIONS: StandingReply = {
   replyTemplate: '{"type":"control_response","request_id":"{{request_id}}","behavior":"deny"}',
 };
 
+let currentHostJob: HostJob | null = null;
 let jobFolder = '';
 
 beforeEach(() => {
-  jobFolder = createScratchDirectory('agent-host');
+  currentHostJob = createHostJob();
+  ({ jobFolder } = currentHostJob);
 });
 
 afterEach(() => {
-  removeScratchDirectory(jobFolder);
+  currentHostJob?.remove();
 });
 
-function writeLaunch(instance: number, kind: HostKind, childScript: string, standingReplies: readonly StandingReply[] = []): void {
-  const launch = {
-    kind, argv: [process.execPath, '-e', childScript], environment: {}, workingDirectory: jobFolder, standingReplies, protocolVersion: HOST_PROTOCOL_VERSION,
-  };
-  writeFileSync(hostFilesOf(jobFolder, instance).launchPath, JSON.stringify(launch));
+function hostJob(): HostJob {
+  if (currentHostJob === null) throw new Error('no host job outside a test');
+  return currentHostJob;
 }
 
-function spawnHost(instance: number): Bun.Subprocess<'ignore', 'pipe', 'pipe'> {
-  return Bun.spawn([process.execPath, HOST_BINARY_PATH, jobFolder, String(instance)], { stdin: 'ignore', stdout: 'pipe', stderr: 'pipe' });
+function writeLaunch(instance: number, kind: HostKind, childScript: string, standingReplies: readonly StandingReply[] = []): void {
+  hostJob().writeLaunch(instance, kind, childScript, standingReplies);
+}
+
+function spawnHost(instance: number): SpawnedHost {
+  return hostJob().spawnHost(instance);
+}
+
+/** Attaches as the runner does, waits for the child's end, acknowledges it and returns the host's exit code. */
+async function acknowledgedExitOf(host: SpawnedHost, instance: number, kind: HostKind): Promise<number> {
+  const client = await hostJob().attach(instance);
+  await client.nextFrame((frame) => (frame.kind === 'welcome' || frame.kind === 'state') && frame.state === 'ended');
+  client.send(kind === 'agent' ? { kind: 'close-input' } : { kind: 'stop', graceMilliseconds: 0 });
+  const exitCode = await host.exited;
+  client.close();
+  return exitCode;
 }
 
 function hostRecordOf(instance: number): HostRecord {
@@ -70,7 +83,8 @@ describe('the claim', () => {
     const markerPath = join(jobFolder, 'spawned.txt');
     writeLaunch(1, 'process', `require('node:fs').appendFileSync(${JSON.stringify(markerPath)}, 'spawned\\n'); await Bun.sleep(200);`);
     const [first, second] = [spawnHost(1), spawnHost(1)];
-    expect(await Promise.all([first.exited, second.exited])).toEqual([0, 0]);
+    const exitCodes = await Promise.all([acknowledgedExitOf(first, 1, 'process'), second.exited]);
+    expect(exitCodes).toEqual([0, 0]);
     expect(readFileSync(markerPath, 'utf8')).toBe('spawned\n');
     expect(hostRecordOf(1).state).toBe('ended');
   }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
@@ -91,13 +105,15 @@ describe('the child and the host file', () => {
     ].join('\n');
     writeLaunch(1, 'agent', childScript);
     const host = spawnHost(1);
-    expect(await host.exited).toBe(0);
+    expect(await acknowledgedExitOf(host, 1, 'agent')).toBe(0);
     const [childLine] = eventsOf(1);
     const child = JSON.parse(childLine?.line ?? '{}') as { pid: number; group: number };
     expect(child.group).toBe(child.pid);
     expect(hostRecordOf(1)).toMatchObject({
       protocolVersion:       HOST_PROTOCOL_VERSION,
       eventLogFormatVersion: EVENT_LOG_FORMAT_VERSION,
+      hostCodeVersion:       'code-example',
+      socketPath:            hostJob().socketPathOf(1),
       hostInstance:          1,
       state:                 'ended',
       host:                  { processId: host.pid },
@@ -110,16 +126,15 @@ describe('the child and the host file', () => {
 
   test('a child killed by a signal ends as signalled, with no exit code', async () => {
     writeLaunch(1, 'agent', 'console.log("before"); process.kill(process.pid, "SIGKILL");');
-    expect(await spawnHost(1).exited).toBe(0);
+    expect(await acknowledgedExitOf(spawnHost(1), 1, 'agent')).toBe(0);
     expect(hostRecordOf(1).end).toEqual({ reason: 'signalled', exitCode: null, signal: 'SIGKILL' });
   }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
-  test('a child that cannot be spawned ends as spawn-failed', async () => {
-    writeFileSync(hostFilesOf(jobFolder, 1).launchPath, JSON.stringify({
-      kind: 'process', argv: [join(jobFolder, 'missing-program')], environment: {}, workingDirectory: jobFolder, standingReplies: [], protocolVersion: HOST_PROTOCOL_VERSION,
-    }));
+  test('a child that cannot be spawned ends as spawn-failed, and its host exits without lingering', async () => {
+    hostJob().writeLaunchFile(1, 'process', [join(jobFolder, 'missing-program')]);
     expect(await spawnHost(1).exited).toBe(1);
     expect(hostRecordOf(1)).toMatchObject({ state: 'ended', end: { reason: 'spawn-failed', exitCode: null, signal: null } });
+    expect(existsSync(hostJob().socketPathOf(1))).toBe(false);
   }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 });
 
@@ -132,7 +147,7 @@ describe('the event log and standing replies', () => {
       'process.exit(0);',
     ].join('\n');
     writeLaunch(1, 'agent', childScript, [DENY_ALL_BUT_QUESTIONS]);
-    expect(await spawnHost(1).exited).toBe(0);
+    expect(await acknowledgedExitOf(spawnHost(1), 1, 'agent')).toBe(0);
     const reply = '{"type":"control_response","request_id":"r-1","behavior":"deny"}';
     expect(eventsOf(1)).toEqual([
       { sequence: 1, origin: 'agent', line: PERMISSION_REQUEST },
@@ -151,7 +166,7 @@ describe('the event log and standing replies', () => {
       'process.exit(3);',
     ].join('\n');
     writeLaunch(1, 'process', childScript, [DENY_ALL_BUT_QUESTIONS]);
-    expect(await spawnHost(1).exited).toBe(0);
+    expect(await acknowledgedExitOf(spawnHost(1), 1, 'process')).toBe(0);
     expect(eventsOf(1)).toEqual([
       { sequence: 1, origin: 'agent', line: PERMISSION_REQUEST },
       { sequence: 2, origin: 'agent', line: '{"inputLength":0}' },

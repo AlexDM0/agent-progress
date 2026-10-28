@@ -64,7 +64,7 @@ describe('the host bundle closure', () => {
     const builtins = SCANNER.graph.edges
       .filter((edge) => closureOf(SCANNER.graph).includes(edge.fromPath) && edge.target.kind === 'package')
       .map((edge) => (edge.target.kind === 'package' ? edge.target.specifier : ''));
-    expect([...new Set(builtins)].sort()).toEqual(['node:crypto', 'node:fs', 'node:path']);
+    expect([...new Set(builtins)].sort()).toEqual(['node:crypto', 'node:fs', 'node:net', 'node:path']);
   });
 
   test('its shipped files name no product and no vendor', () => {
