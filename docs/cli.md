@@ -210,6 +210,8 @@ command's own no-tracker refusal is unchanged.
   exits 0, crediting nothing, like every other hook failure. Tokens are credited again once `update`
   has run.
 - `hook post-tool-use` renders nothing on a mismatch, silently, at exit 0.
+- `hook bash-domains` skips the check, so a mismatch changes nothing: it still answers its call at
+  exit 0.
 - `update`, and `init` on an existing tracker, are what lift the refusal. They refuse, at exit 1 with
   the same paragraph and writing nothing, only files a newer agent-progress installed, so an older
   agent-progress never writes its files over a newer one's, and a directory at the file's path, which
@@ -614,7 +616,7 @@ until the group's install version bump; the exit-code table below holds them the
 
 | code | meaning | examples |
 |---|---|---|
-| **0** | done, or there was nothing to do | also a store write whose page could not be rebuilt (reported on standard error, with an error banner on the page when only its script failed; `render` rebuilds it), a release whose cleanup git declined, every `hook subagent-stop` run as `init` and `update` wire it (a wrong event word, an extra argument or an option is refused at exit 1), every `hook pre-tool-use` run it lets through, and every `hook post-tool-use` run |
+| **0** | done, or there was nothing to do | also a store write whose page could not be rebuilt (reported on standard error, with an error banner on the page when only its script failed; `render` rebuilds it), a release whose cleanup git declined, every `hook subagent-stop` run as `init` and `update` wire it (a wrong event word, an extra argument or an option is refused at exit 1), every `hook pre-tool-use` run it lets through, every `hook post-tool-use` run, and every `hook bash-domains` run, a deny answered through its JSON |
 | **1** | a refusal the caller can act on | no tracker here (run `{{program}} init`), no such task or ticket, a missing `--reason`, a move the matrix refuses, a claim with no free slot, lowering a ticket that is not pending, a `network` domain that is not public, a release refused (`main-moved` among them), installed files of another install version (every command but `init`, `update`, `help`, `status` and `hook subagent-stop`, which reports it at exit 0; run `{{program}} update`), `init` or `update` over files a newer {{program}} installed or a `version.json` naming a retired agent host, `hook` given a wrong event word, an extra argument or an option, and an unknown command |
 | **2** | a state the tool will not repair on its own | an unreadable or malformed progress file, an unreadable or malformed log.jsonl, a malformed ticket file a command names, a lock it could not take, a release reason `git-failed` or `tracker-failed`, `hook pre-tool-use` blocking a subagent's change to the check command (exit 2 is how Claude Code reads a block), and any error the tool did not expect |
 
