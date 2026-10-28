@@ -15,6 +15,7 @@ import type { TrackerProgress }                             from '../@types/Trac
 import { Board }                                            from '../Board.ts';
 import { BoardRefusal }                                     from '../BoardRefusal.ts';
 import { createLogger }                                     from '../Logger.ts';
+import type { MergeTargetOf }                               from '../MergeSlotClaims.ts';
 import { FIXTURE_AT, FIXTURE_LIMITS, FIXTURE_OBSERVATIONS } from './LifecycleFixtures.ts';
 
 const WORLD_CONCURRENCY_LIMIT = 2;
@@ -37,9 +38,15 @@ const CRASH_CAUSES: readonly string[] = ['host-lost', 'agent-crashed'];
 
 const WORLD_TARGETS: readonly string[] = ['main', 'group-example'];
 
+/** How often an allocation that finds nothing queued on the group claims a refresh: rare enough that the release still reaches its slot. */
+const WORLD_REFRESH_CHANCE = 0.2;
+
 function worldTargetOf(group: string | undefined): string {
   return group === undefined ? 'main' : `group-${group}`;
 }
+
+/** A group's release ticket merges into the main line; every other ticket of a group into the group's branch. */
+const worldMergeTargetOf: MergeTargetOf = (ticket) => (ticket.releasesGroup === true ? 'main' : worldTargetOf(ticket.group));
 
 const WORLD_WORDING: DecisionWording = {
   questions: [{
@@ -91,6 +98,8 @@ export class LifecycleWorld {
     worldTicket('004', { group: 'example' }),
     worldTicket('005', { group: 'example', dependsOn: ['004'] }),
     worldTicket('006', { priority: 'high' }),
+    // A release with no dependency, so seeds reach its main-line merge while the group still refreshes.
+    worldTicket('007', { group: 'example', releasesGroup: true }),
   ];
 
   private readonly progress: TrackerProgress = {
@@ -262,18 +271,28 @@ export class LifecycleWorld {
   /** A runner's allocation at a random moment: the claim itself must refuse whatever would break a slot invariant. */
   private claimASlot(): void {
     const target = this.pick(WORLD_TARGETS) ?? 'main';
-    const candidate = this.pick(this.board.mergeCandidatesOf(target, worldTargetOf));
-    if (candidate === undefined) return;
+    const tip = `tip-${this.logRecords.length}`;
     try {
+      const candidate = this.pick(this.board.mergeCandidatesOf(target, worldMergeTargetOf));
+      // With nothing queued on the group, the runner's refresh may be due.
+      if (candidate === undefined && target !== 'main' && this.random() < WORLD_REFRESH_CHANCE) {
+        this.board.claimRefreshSlot({
+          group: 'example', target, targetTip: tip, mainTip: `main-${tip}`
+        }, FIXTURE_AT);
+      }
+      if (candidate === undefined) return;
       this.board.claimMergeSlot({
-        ticketId: candidate.ticketId, target, targetTip: `tip-${this.logRecords.length}`, branchTip: `branch-${candidate.ticketId}`, predictedConflictFiles: []
-      }, worldTargetOf, FIXTURE_AT);
+        ticketId: candidate.ticketId, target, targetTip: tip, branchTip: `branch-${candidate.ticketId}`, predictedConflictFiles: []
+      }, worldMergeTargetOf, FIXTURE_AT);
     } catch (refusal) {
       if (!(refusal instanceof BoardRefusal)) throw refusal;
     }
   }
 
-  /** Lands only on a tree it gated first, or frees the slot as a moved target does, leaving the ticket queued. */
+  /**
+   * Lands only on a tree it gated first, or frees the slot as a moved target does, leaving the ticket queued. A group's ticket is integrated
+   * and approved, a release delivers its bundle, and a refresh lands on its group's branch.
+   */
   private actOnMerge(job: Readonly<Job>): void {
     const ticketId = job.ticketIds[0] ?? '';
     if (this.random() < 0.5) {
@@ -281,15 +300,27 @@ export class LifecycleWorld {
       return;
     }
     const tree = `tree-${job.id}`;
+    const target = job.target ?? 'main';
     this.board.recordGateRan({ tree, outcome: 'passed', cached: false }, FIXTURE_AT);
-    this.board.recordMergeLanded(job.id, { target: job.target ?? 'main', commit: tree, kind: 'landed' }, FIXTURE_AT);
-    this.board.endJob(job.id, { outcome: 'landed', commit: tree }, FIXTURE_AT);
-    this.moveTicketWhenBuilt(ticketId, 'in-review', 'delivered');
+    this.board.recordMergeLanded(job.id, { target, commit: tree, kind: target === 'main' ? 'landed' : 'integrated' }, FIXTURE_AT);
+    if (job.kind === 'refresh') {
+      this.board.endJob(job.id, { outcome: 'refreshed', commit: tree }, FIXTURE_AT);
+      return;
+    }
+    this.board.endJob(job.id, { outcome: target === 'main' ? 'landed' : 'integrated', commit: tree }, FIXTURE_AT);
     this.board.setTicketMergeQueued(ticketId, false, FIXTURE_AT);
+    if (target !== 'main') {
+      this.moveTicketWhenBuilt(ticketId, 'in-review', 'reviewed');
+      return;
+    }
+    const group = this.groupOf(ticketId);
+    const bundle = group === undefined ? [] : this.board.releaseBundleTicketIdsOf(group);
+    bundle.forEach((bundleTicketId) => this.moveTicketWhenBuilt(bundleTicketId, 'reviewed', 'delivered'));
+    this.moveTicketWhenBuilt(ticketId, 'in-review', 'delivered');
   }
 
   private actOn(job: Readonly<Job>): void {
-    if (job.kind === 'merge') {
+    if (job.kind === 'merge' || job.kind === 'refresh') {
       this.actOnMerge(job);
       return;
     }
@@ -331,16 +362,26 @@ export class LifecycleWorld {
     return this.tickets.find((candidate) => candidate.frontmatter.id === ticketId)?.frontmatter.status;
   }
 
+  private releasesItsGroup(ticketId: string): boolean {
+    return this.tickets.find((candidate) => candidate.frontmatter.id === ticketId)?.frontmatter.releasesGroup === true;
+  }
+
   private groupOf(ticketId: string): string | undefined {
     return this.tickets.find((candidate) => candidate.frontmatter.id === ticketId)?.frontmatter.group;
   }
 
-  /** At most one merge per target; a target moving only to a tree gated first; no ticket slotted again before its last merge job ended. */
+  /**
+   * At most one merge or refresh per target, so never two refreshes; never a refresh beside its group's release merging main; a target
+   * moving only to a tree gated first; no ticket slotted again before its last merge job ended.
+   */
   private checkMergeInvariants(turn: number): void {
+    const jobs = this.board.jobs();
     for (const target of WORLD_TARGETS) {
-      const holders = this.board.jobs().filter((job) => job.kind === 'merge' && job.target === target).length;
+      const holders = jobs.filter((job) => (job.kind === 'merge' || job.kind === 'refresh') && job.target === target).length;
       if (holders > 1) this.violations.push(`turn ${turn}: ${holders} merge jobs hold ${target}`);
     }
+    const releaseIsMerging = jobs.some((job) => job.kind === 'merge' && job.ticketIds.some((ticketId) => this.releasesItsGroup(ticketId)));
+    if (releaseIsMerging && jobs.some((job) => job.kind === 'refresh')) this.violations.push(`turn ${turn}: a refresh runs beside its group's release`);
     const gatedTrees = new Set<string>();
     const openMergeJobByTicketId = new Map<string, string>();
     for (const record of this.logRecords) {

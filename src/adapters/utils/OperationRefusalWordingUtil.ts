@@ -246,6 +246,8 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
     case 'higher-priority-queued':
       return `Ticket #${detail.ticketId} waits: ${TicketPhraseUtil.ticketReferencesText(detail.queuedTicketIds)} of a higher priority `
         + `queued to merge first. ${NOTHING_WAS_WRITTEN}`;
+    case 'refresh-beside-a-queued-release':
+      return `Group ${detail.group} is not refreshed: its release ticket #${detail.releaseTicketId} is queued to merge main itself. ${NOTHING_WAS_WRITTEN}`;
     case 'unknown-decision':
       return `There is no decision ${detail.decisionId}. ${NOTHING_WAS_WRITTEN}`;
     case 'decision-already-answered':

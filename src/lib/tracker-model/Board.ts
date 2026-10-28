@@ -113,8 +113,10 @@ import {
   type MergeCandidate,
   type MergeLanding,
   MergeSlotClaims,
-  type MergeSlotClaim
-}                                                           from './MergeSlotClaims.ts';
+  type MergeSlotClaim,
+  type MergeTargetOf,
+  type RefreshSlotClaim
+}                                                         from './MergeSlotClaims.ts';
 import { ReviewBars }                    from './ReviewBars.ts';
 import type { ReviewStatisticsReport }   from './ReviewStatistics.ts';
 import { ReviewStatistics }              from './ReviewStatistics.ts';
@@ -282,12 +284,26 @@ export class Board {
     return this.mergeSlotClaims.slotHolderOf(target);
   }
 
-  mergeCandidatesOf(target: string, targetOf: (group: string | undefined) => string): MergeCandidate[] {
+  mergeCandidatesOf(target: string, targetOf: MergeTargetOf): MergeCandidate[] {
     return this.mergeSlotClaims.mergeCandidatesOf(target, targetOf);
   }
 
-  claimMergeSlot(claim: MergeSlotClaim, targetOf: (group: string | undefined) => string, at: string): JobChanged {
+  claimMergeSlot(claim: MergeSlotClaim, targetOf: MergeTargetOf, at: string): JobChanged {
     return this.mergeSlotClaims.claimMergeSlot(claim, targetOf, at);
+  }
+
+  claimRefreshSlot(claim: RefreshSlotClaim, at: string): JobChanged {
+    return this.mergeSlotClaims.claimRefreshSlot(claim, at);
+  }
+
+  /** The group's release ticket id while it is queued to merge or holds the main line's slot. */
+  groupReleaseQueuedOrSlotted(group: string): string | null {
+    return this.mergeSlotClaims.releaseIsQueuedOrSlotted(group);
+  }
+
+  /** The tickets the group's release delivers, walked through `dependsOn` from its open release ticket. */
+  releaseBundleTicketIdsOf(group: string): string[] {
+    return this.mergeSlotClaims.releaseBundleOf(group).map((ticket) => ticket.frontmatter.id);
   }
 
   recordMergeLanded(jobId: string, landing: MergeLanding, at: string): Logged {

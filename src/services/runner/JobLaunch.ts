@@ -44,6 +44,7 @@ import {
 import { ReviewOutcome }                     from '../lifecycle/ReviewOutcome.ts';
 import type { TrackerChange }                from '../tracker/TrackerPipeline.ts';
 import type { Workspace }                    from '../tracker/Workspace.ts';
+import { GroupWorktrees }                    from './GroupWorktrees.ts';
 import { HostFleet }                         from './HostFleet.ts';
 import type { ProcessHostSandbox }           from './ProcessHostSandbox.ts';
 import { RelayInbox }                        from './RelayInbox.ts';
@@ -561,15 +562,20 @@ function spawnProcessHost(context: JobLaunchContext, trackerId: string, job: Rea
   context.log(`Spawned the ${folderName} host of job ${job.id} (#${ticketIdOf(job)})${context.sandbox.isUsable() ? ' under sandbox-exec' : ', unsandboxed'}.`);
 }
 
+/** A group ticket's branch forks off the group's tip, so the group's worktree is created from the main line's tip at its first launch. */
 function createWorktree(context: JobLaunchContext, job: Readonly<Job>): void {
   const { rootDirectory } = context.workspace;
   const worktree = worktreeOf(context.workspace, job);
+  const target = job.target ?? context.mainLine;
+  const group = target.startsWith(context.groupTargetPrefix)
+    ? GroupWorktrees.prepareGroupWorktree(rootDirectory, join(rootDirectory, PRODUCT_NAMES.WORKTREES_FOLDER), target, context.mainLine)
+    : null;
   const branchExists = GitProcess.resolvedCommitOf(rootDirectory, `refs/heads/${branchOf(job)}`) !== null;
-  const run = GitProcess.run(rootDirectory, branchExists
+  const run = group?.verdict === 'git-failed' ? null : GitProcess.run(rootDirectory, branchExists
     ? ['worktree', 'add', worktree, branchOf(job)]
-    : ['worktree', 'add', '-b', branchOf(job), worktree, job.target ?? context.mainLine]);
+    : ['worktree', 'add', '-b', branchOf(job), worktree, target]);
   if (GitProcess.succeeded(run)) return;
-  const errorText = run?.standardError.trim() ?? 'git did not run';
+  const errorText = group?.verdict === 'git-failed' ? group.reason : run?.standardError.trim() ?? 'git did not run';
   mkdirSync(jobFolderOf(context.workspace, job), { recursive: true });
   writeFileSync(join(jobFolderOf(context.workspace, job), JOB_FILES.worktreeFailure), `${errorText}\n`);
   context.log(`Creating the worktree of job ${job.id} failed: ${errorText}`);

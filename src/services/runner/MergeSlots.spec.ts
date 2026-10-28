@@ -2,10 +2,11 @@
  * The main line's merge slot on a scratch repository (design section 6). What matters: candidates land one at a time in queue order, each
  * on its gated merged tree and by fast-forward alone; a conflict gets a resolver that can end only in a landing or a `merge-refused`
  * decision; a moved target, a dirty checkout and a refused stamp each map to one outcome that cannot loop; and a slot is kept while
- * anything holds it, recovered only when nothing does.
+ * anything holds it, recovered only when nothing does. A group's tickets and refreshes land by `merge --ff-only` in the group's own
+ * worktree, a refresh is due only as MergeQueueUtil says and never beside a queued release, and the release lands the whole bundle on main.
  */
-import { writeFileSync } from 'node:fs';
-import { join }          from 'node:path';
+import { existsSync, writeFileSync } from 'node:fs';
+import { join }                      from 'node:path';
 
 import { afterEach, expect, test }  from 'bun:test';
 import { commitFile, gitOutputIn }  from '../../testing/ScratchWorkspace.ts';
@@ -293,5 +294,105 @@ describeWhenGitIsPresent('slot recovery', () => {
     await harness.slots.sweep();
     expect(harness.board.tickets()[0]?.frontmatter.status).toBe('delivered');
     expect(kindsLogged(harness, 'merge-landed')).toHaveLength(1);
+  });
+});
+
+describeWhenGitIsPresent('a group\'s slot in its own worktree', () => {
+  const groupWorktree = (current: MergeSlotsHarness): string => join(`${current.repository}-worktrees`, 'group-example');
+
+  test('a group ticket lands by merge --ff-only in the group worktree after the compare-and-swap, is approved, and main stays put', async () => {
+    harness = createMergeSlotsHarness([{ id: '010', group: 'example', change: ['cart.ts', 'export const cart = 1;\n'] }]);
+    const mainTip = harness.tipOf('main');
+    const groupTip = harness.tipOf('group-example');
+    expect(groupTip).toBe(mainTip);
+    commitFile(harness.repository, 'main-only.ts', 'export const mainOnly = 1;\n');
+
+    await harness.slots.sweep();
+
+    const [landing] = kindsLogged(harness, 'merge-landed').map((record) => record['fields'] as { commit: string; kind: string; target: string });
+    expect(landing).toMatchObject({ target: 'group-example', kind: 'integrated' });
+    expect(harness.tipOf('group-example')).toBe(landing?.commit ?? '');
+    expect(gitOutputIn(groupWorktree(harness), ['rev-parse', 'HEAD'])).toBe(landing?.commit ?? '');
+    expect(gitOutputIn(harness.repository, ['rev-parse', `${landing?.commit ?? ''}^1`])).toBe(groupTip);
+    expect(kindsLogged(harness, 'merge-started')[0]?.['fields']).toMatchObject({ target: 'group-example', targetTip: groupTip });
+    expect(harness.board.tickets()[0]?.frontmatter.status).toBe('reviewed');
+    expect(kindsLogged(harness, 'job-ended').map((record) => (record['fields'] as { outcome: string }).outcome)).toEqual(['integrated']);
+    expect(harness.tipOf('main')).not.toBe(landing?.commit ?? '');
+  });
+
+  test('a refresh merges main in a temporary worktree, lands the same way, and is not due again once the group holds main', async () => {
+    harness = createMergeSlotsHarness([{
+      id: '010', group: 'example', status: 'reviewed', change: ['cart.ts', 'export const cart = 1;\n']
+    }], { GROUP_REFRESH_AFTER_MAIN_COMMITS: 1 });
+    const groupTip = harness.tipOf('group-example');
+    commitFile(harness.repository, 'main-only.ts', 'export const mainOnly = 1;\n');
+    const mainTip = harness.tipOf('main');
+
+    await harness.slots.sweep();
+    await harness.slots.sweep();
+
+    const launched = kindsLogged(harness, 'job-launched').map((record) => record['fields'] as { kind: string; target: string });
+    expect(launched).toEqual([expect.objectContaining({ kind: 'refresh', target: 'group-example' })]);
+    expect(kindsLogged(harness, 'merge-started')[0]?.['fields']).toMatchObject({ target: 'group-example', targetTip: groupTip, branchTip: mainTip });
+    const newGroupTip = harness.tipOf('group-example');
+    expect(gitOutputIn(harness.repository, ['rev-parse', `${newGroupTip}^1`, `${newGroupTip}^2`]).split('\n')).toEqual([groupTip, mainTip]);
+    expect(kindsLogged(harness, 'job-ended').map((record) => (record['fields'] as { outcome: string }).outcome)).toEqual(['refreshed']);
+    expect(existsSync(join(`${harness.repository}-worktrees`, 'refresh-group-example'))).toBe(false);
+  });
+
+  test('a refresh below GROUP_REFRESH_AFTER_MAIN_COMMITS with a clean prediction is not due', async () => {
+    harness = createMergeSlotsHarness([{
+      id: '010', group: 'example', status: 'reviewed', change: ['cart.ts', 'export const cart = 1;\n']
+    }], { GROUP_REFRESH_AFTER_MAIN_COMMITS: 2 });
+    commitFile(harness.repository, 'main-only.ts', 'export const mainOnly = 1;\n');
+    await harness.slots.sweep();
+    expect(kindsLogged(harness, 'job-launched')).toEqual([]);
+  });
+
+  test('the release merges main once in its own worktree, gates, fast-forwards main, delivers the bundle and removes the group', async () => {
+    harness = createMergeSlotsHarness([
+      {
+        id: '010', group: 'example', status: 'reviewed', change: ['cart.ts', 'export const cart = 1;\n']
+      },
+      {
+        id: '011', group: 'example', status: 'reviewed', dependsOn: ['010'], change: ['totals.ts', 'export const totals = 1;\n']
+      },
+      {
+        id: '012', group: 'example', releasesGroup: true, dependsOn: ['011'], change: ['release.ts', 'export const release = 1;\n']
+      },
+    ], { GROUP_REFRESH_AFTER_MAIN_COMMITS: 1 });
+    commitFile(harness.repository, 'main-only.ts', 'export const mainOnly = 1;\n');
+    const mainTip = harness.tipOf('main');
+    const releaseTip = harness.tipOf('ticket-012');
+
+    await harness.slots.sweep();
+
+    expect(kindsLogged(harness, 'job-launched').map((record) => (record['fields'] as { kind: string }).kind)).toEqual(['merge']);
+    expect(kindsLogged(harness, 'merge-started')[0]?.['fields']).toMatchObject({ target: 'main', targetTip: mainTip, branchTip: releaseTip });
+    const [landing] = kindsLogged(harness, 'merge-landed').map((record) => record['fields'] as { commit: string; kind: string });
+    expect(landing?.kind).toBe('landed');
+    expect(harness.tipOf('main')).toBe(landing?.commit ?? '');
+    expect(gitOutputIn(harness.repository, ['rev-parse', `${landing?.commit ?? ''}^1`, `${landing?.commit ?? ''}^2`]).split('\n')).toEqual([releaseTip, mainTip]);
+    expect(harness.gatedTrees).toEqual([gitOutputIn(harness.repository, ['rev-parse', `${landing?.commit ?? ''}^{tree}`])]);
+    expect(harness.board.tickets().map((ticket) => ticket.frontmatter.status)).toEqual(['delivered', 'delivered', 'delivered']);
+    expect(existsSync(groupWorktree(harness))).toBe(false);
+    expect(Bun.spawnSync(['git', 'rev-parse', '--verify', '--quiet', 'refs/heads/group-example'], { cwd: harness.repository }).exitCode).not.toBe(0);
+  });
+
+  test('a release ticket whose bundle has not all integrated waits, and the group is not refreshed while it is queued', async () => {
+    harness = createMergeSlotsHarness([
+      {
+        id: '010', group: 'example', status: 'reviewed', change: ['cart.ts', 'export const cart = 1;\n']
+      },
+      {
+        id: '012', group: 'example', releasesGroup: true, dependsOn: ['010', '011'], change: ['release.ts', 'export const release = 1;\n']
+      },
+      { id: '011', group: 'example', change: ['base.ts', 'export const base = 2;\n'] },
+    ], { GROUP_REFRESH_AFTER_MAIN_COMMITS: 1 });
+    harness.board.setTicketMergeQueued('011', false, HARNESS_AT);
+    commitFile(harness.repository, 'main-only.ts', 'export const mainOnly = 1;\n');
+    await harness.slots.sweep();
+    expect(kindsLogged(harness, 'job-launched')).toEqual([]);
+    expect(harness.board.groupReleaseQueuedOrSlotted('example')).toBe('012');
   });
 });

@@ -596,9 +596,10 @@ the ticket `in-review` and ends the job `built`; the policy then launches the re
 A ticket an open incident names launches no new job until the incident is settled. Where `sandbox-exec` cannot apply
 a profile, the process hosts run unconfined and gate passes are kept in the runner's memory only.
 
-### The main line's merge slot
+### The merge slots
 
-After each pass the runner sweeps the main line's one merge slot. A queued ticket (in review, `mergeQueued`, unheld,
+After each pass the runner sweeps one merge slot per target: the main line and each `group-<name>` with an open
+ticket. A queued ticket (in review, `mergeQueued`, unheld,
 no open `waiver` or `landing-refused` decision) is a candidate; candidates are predicted with `git merge-tree` and
 ordered by priority, clean before conflicting, fewest conflicts caused, readiness, then id. The claim, in its own
 hold, refuses while a merge job holds the slot, when either tip moved since the prediction, and
@@ -609,6 +610,22 @@ conflict launches a `merge-agent` job, role `resolver`, which cannot ask and has
 merged tree is gated, then landed by a compare-and-swap fast-forward in the main checkout, logging `merge-landed` and
 delivering the ticket. `git log --first-parent` of the main line therefore runs through ticket branches; the
 `merge-landed` records keep the per-ticket view.
+
+A group integrates in its own worktree, `<worktrees>/group-<name>/` on `group-<name>`, created from the main line's
+tip at the group's first launch; each group ticket's branch forks off the group's tip. A group ticket's slot targets
+`group-<name>`: after the compare-and-swap it lands by `merge --ff-only` in the group worktree, logging `merge-landed`
+of kind `integrated`, and the ticket moves to `reviewed`. Only landings touch the group worktree. A refresh is due when
+`git rev-list --count group-<name>..<main line>` reaches `GROUP_REFRESH_AFTER_MAIN_COMMITS` (30) or the group's tip is
+predicted to conflict with the main line, and never while the group's release ticket is queued or holds the main
+line's slot, nor while a refused refresh's `merge-refused` decision is open. It is a `refresh` job holding the group's
+slot, with `slot.branchTip` the main line's tip: it merges that tip in a temporary detached worktree
+`<worktrees>/refresh-group-<name>/`, gates, lands by the same `merge --ff-only`, ends `refreshed` and removes the
+temporary worktree; the claim refuses `refresh-beside-a-queued-release`, and `merge-slot-held` while the slot is held,
+so there are never two refreshes. The group's release ticket targets the main line, a candidate only once every other
+ticket of its bundle (walked through `dependsOn`) is `reviewed` and no refresh holds the group's slot, with the
+bundle's highest priority. It merges the main line once in its own worktree, gates, fast-forwards the main line and
+delivers the whole bundle; the group worktree is then removed and `group-<name>` deleted with `branch -d`, never
+forced.
 
 | what happens | what the runner does |
 | --- | --- |

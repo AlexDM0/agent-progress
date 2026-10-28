@@ -82,6 +82,7 @@ export type BoardRefusalDetail =
   | { reason: 'merge-slot-held'; target: string; jobId: string }
   | { reason: 'merge-candidate-not-queued'; ticketId: string; target: string }
   | { reason: 'higher-priority-queued'; ticketId: string; queuedTicketIds: readonly string[] }
+  | { reason: 'refresh-beside-a-queued-release'; group: string; releaseTicketId: string }
   | { reason: 'unknown-decision'; decisionId: string }
   | { reason: 'decision-already-answered'; decisionId: string }
   | { reason: 'decision-answer-count'; decisionId: string; answerCount: number; questionCount: number }

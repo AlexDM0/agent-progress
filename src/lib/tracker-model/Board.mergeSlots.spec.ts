@@ -5,10 +5,11 @@
 import { describe, expect, test } from 'bun:test';
 
 import { boardFixture, refusalDetailOf, ticketFixture } from '../../testing/BoardFixtures.ts';
+import type { MergeTargetOf }                           from './MergeSlotClaims.ts';
 
 const AT = '2026-10-28T10:00:00+01:00';
 
-const targetOf = (group: string | undefined): string => (group === undefined ? 'main' : `group-${group}`);
+const targetOf: MergeTargetOf = (ticket) => (ticket.group === undefined || ticket.releasesGroup === true ? 'main' : `group-${ticket.group}`);
 
 function queuedBoard(): ReturnType<typeof boardFixture>['board'] {
   const { board } = boardFixture({
@@ -70,5 +71,63 @@ describe('claiming the main line\'s merge slot', () => {
       context: 'acceptance-unaccounted'
     }, AT);
     expect(board.mergeCandidatesOf('main', targetOf).map((candidate) => candidate.ticketId)).toEqual(['001', '003']);
+  });
+});
+
+function groupBoard(integratedStatus: 'in-review' | 'reviewed'): ReturnType<typeof boardFixture>['board'] {
+  const { board } = boardFixture({
+    tickets: [
+      ticketFixture({
+        id: '010', status: integratedStatus, group: 'example', priority: 'high'
+      }),
+      ticketFixture({
+        id: '011', status: 'reviewed', group: 'example', dependsOn: ['010']
+      }),
+      ticketFixture({
+        id: '012', status: 'in-review', group: 'example', dependsOn: ['011'], releasesGroup: true
+      }),
+    ],
+  });
+  board.queueTicketForMerge('012', 'main', AT);
+  return board;
+}
+
+describe('a group\'s release and refresh on the board', () => {
+  test('the release ticket targets main only once its bundle, walked through dependsOn, integrated, carrying the bundle\'s highest priority', () => {
+    expect(groupBoard('in-review').mergeCandidatesOf('main', targetOf)).toEqual([]);
+    const board = groupBoard('reviewed');
+    expect(board.mergeCandidatesOf('main', targetOf)).toMatchObject([{ ticketId: '012', priority: 'high' }]);
+    expect(board.mergeCandidatesOf('group-example', targetOf)).toEqual([]);
+    expect(board.releaseBundleTicketIdsOf('example')).toEqual(['012', '011', '010']);
+  });
+
+  test('a refresh holds the group\'s slot, so a second is refused and the release waits until it ends', () => {
+    const board = groupBoard('reviewed');
+    board.setTicketMergeQueued('012', false, AT);
+    const { job } = board.claimRefreshSlot({
+      group: 'example', target: 'group-example', targetTip: 'a'.repeat(40), mainTip: 'c'.repeat(40)
+    }, AT);
+    expect(job).toMatchObject({
+      kind:      'refresh',
+      ticketIds: [],
+      state:     'merging',
+      slot:      {
+        target: 'group-example', targetTip: 'a'.repeat(40), branchTip: 'c'.repeat(40), phase: 'merge-in'
+      }
+    });
+    expect(refusalDetailOf(() => board.claimRefreshSlot({
+      group: 'example', target: 'group-example', targetTip: 'a'.repeat(40), mainTip: 'c'.repeat(40)
+    }, AT))).toEqual({ reason: 'merge-slot-held', target: 'group-example', jobId: job.id });
+    board.queueTicketForMerge('012', 'main', AT);
+    expect(board.mergeCandidatesOf('main', targetOf)).toEqual([]);
+    board.endJob(job.id, { outcome: 'refreshed' }, AT);
+    expect(board.mergeCandidatesOf('main', targetOf).map((candidate) => candidate.ticketId)).toEqual(['012']);
+  });
+
+  test('no refresh is claimed once the group\'s release ticket is queued', () => {
+    const board = groupBoard('reviewed');
+    expect(refusalDetailOf(() => board.claimRefreshSlot({
+      group: 'example', target: 'group-example', targetTip: 'a'.repeat(40), mainTip: 'c'.repeat(40)
+    }, AT))).toEqual({ reason: 'refresh-beside-a-queued-release', group: 'example', releaseTicketId: '012' });
   });
 });

@@ -31,6 +31,7 @@ import type { RenderState }                                                     
 import { writeTracker, type TrackerChange }                                      from '../tracker/TrackerPipeline.ts';
 import { requireProgressFile }                                                   from '../tracker/TrackerReader.ts';
 import type { Workspace }                                                        from '../tracker/Workspace.ts';
+import { GroupWorktrees }                                                        from './GroupWorktrees.ts';
 import { HostFleet, type HostLiveness }                                          from './HostFleet.ts';
 import {
   BUILD_JOB_CAUSES,
@@ -338,6 +339,9 @@ function workingDirectoryOf(workspace: Workspace, job: Readonly<Job>): string {
   const [ticketId] = job.ticketIds;
   const ticketWorktree = ticketId === undefined ? null : join(worktreesRoot, `ticket-${ticketId}`);
   if (ticketWorktree !== null && existsSync(ticketWorktree)) return ticketWorktree;
+  // A refresh's resolver names no ticket: it resolves in the refresh's temporary worktree.
+  const refreshWorktree = job.kind === 'merge-agent' && ticketId === undefined && job.target !== null ? GroupWorktrees.refreshWorktreeOf(worktreesRoot, job.target) : null;
+  if (refreshWorktree !== null && existsSync(refreshWorktree)) return refreshWorktree;
   // Preparing a ticket's worktree is a later step of the chain; until it exists the session works in a folder of its own.
   const sessionFolder = join(worktreesRoot, 'sessions', job.id);
   mkdirSync(sessionFolder, { recursive: true });
@@ -490,6 +494,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     repositoryRoot:    request.workspace.rootDirectory,
     mainLine:          request.mainLine,
     groupTargetPrefix: GROUP_TARGET_PREFIX,
+    worktreesRoot:     join(request.workspace.rootDirectory, PRODUCT_NAMES.WORKTREES_FOLDER),
     worktreeOf:        (ticketId) => join(request.workspace.rootDirectory, PRODUCT_NAMES.WORKTREES_FOLDER, `ticket-${ticketId}`),
     limits:            MERGE_SLOT_LIMITS,
     refDeniesHold:     TARGET_REF_DENIES_HOLD,

@@ -1,7 +1,9 @@
 /**
- * The main line's merge slot, run by the runner after each pass (design section 6): allocation, the one merge-in against the recorded tip,
- * a resolver for a conflict git cannot settle, the gate on the merged tree and the compare-and-swap landing. Every phase is written on the
- * merge job's slot in its own hold, and every outcome ends the job or opens what User or the orchestrator answers, so nothing loops.
+ * The merge slots, one per target, run by the runner after each pass (design section 6): allocation, the one merge-in against the recorded
+ * tip, a resolver for a conflict git cannot settle, the gate on the merged tree and the compare-and-swap landing. The main line lands in the
+ * main checkout; a group's tickets and its refreshes land in the group's own worktree, and its release ticket lands the bundle on the main
+ * line. Every phase is written on the merge job's slot in its own hold, and every outcome ends the job or opens what User or the orchestrator
+ * answers, so nothing loops.
  */
 import { readCurrentBranch }           from '../../lib/git/BranchIntegration.ts';
 import { GitProcess }                  from '../../lib/git/GitProcess.ts';
@@ -17,12 +19,14 @@ import type {
 import type { DecisionDraft, DecisionWording } from '../../lib/tracker-model/@types/LifecycleStep.ts';
 import type { Board }                          from '../../lib/tracker-model/Board.ts';
 import { BoardRefusal }                        from '../../lib/tracker-model/BoardRefusal.ts';
-import type { MergeCandidate }                 from '../../lib/tracker-model/MergeSlotClaims.ts';
+import type { MergeCandidate, MergeTargetOf }  from '../../lib/tracker-model/MergeSlotClaims.ts';
 import { MERGE_PRIORITY_RANK }                 from '../../lib/tracker-model/MergeSlotClaims.ts';
 import { PARKED_HOLD_PREFIX }                  from '../../lib/tracker-model/constants/DecisionAndIncidentVocabulary.ts';
+import { MergeQueueUtil, type MergeForecast }  from '../../lib/tracker-model/utils/MergeQueueUtil.ts';
 import type { MergeSlotLimits }                from '../../shared/constants/MergeSlotLimits.ts';
 import { LANDING_OUTCOME_OF_REFUSAL, Landing } from '../lifecycle/Landing.ts';
 import { MergeRun }                            from '../lifecycle/MergeRun.ts';
+import { GroupWorktrees }                      from './GroupWorktrees.ts';
 
 export interface MergeSlotHold {
   board: Board;
@@ -43,6 +47,8 @@ export interface MergeSlotsContext {
   repositoryRoot:      string;
   mainLine:            string;
   groupTargetPrefix:   string;
+  /** Where the group worktrees and the refresh worktrees live, beside the ticket worktrees. */
+  worktreesRoot:       string;
   worktreeOf:          (ticketId: string) => string;
   limits:              MergeSlotLimits;
   /** T1b-P14's finding: with the per-job ref denies holding, a target moved by someone else requeues silently. */
@@ -58,7 +64,7 @@ export interface MergeSlotsContext {
   dispatchIsStopped:   () => boolean;
 }
 
-/** The `dirty-main-checkout` notice: the main checkout's branch, or the files blocking the fast-forward. */
+/** The `dirty-main-checkout` notice: the target checkout's branch, or the files blocking the fast-forward. */
 export interface HeldTarget {
   target:        string;
   branch:        string | null;
@@ -86,6 +92,9 @@ const REQUEUE_CAUSES = { orphaned: 'orphaned', targetMoved: 'target-moved', targ
 
 const LANDING_REFUSED_DECISION: DecisionKind = 'landing-refused';
 
+/** A refused refresh names no ticket: its `merge-refused` context starts with the group's target, which keeps the next refresh waiting. */
+const REFRESH_REFUSAL_SEPARATOR = ': ';
+
 function reportFieldOf(report: unknown, field: string): unknown {
   return typeof report === 'object' && report !== null && Object.hasOwn(report, field) ? (report as Record<string, unknown>)[field] : undefined;
 }
@@ -97,6 +106,10 @@ function slotOf(job: Readonly<Job>): Readonly<MergeSlot> {
 
 function ticketIdOf(job: Readonly<Job>): string {
   return job.ticketIds[0] ?? '';
+}
+
+function isRefresh(job: Readonly<Job>): boolean {
+  return job.kind === 'refresh';
 }
 
 function mergeAgentOf(board: Board, job: Readonly<Job>): Readonly<Job> | undefined {
@@ -121,10 +134,28 @@ function uncommittedPathsOf(directory: string): string[] | null {
   return status.standardOutput.split('\n').filter((line) => line !== '').map((line) => line.slice('XY '.length));
 }
 
+function forecastOf(prediction: ReturnType<typeof predictMerge>): MergeForecast {
+  return prediction.verdict;
+}
+
 export function createMergeSlots(context: MergeSlotsContext): MergeSlots {
-  const { mainLine } = context;
-  const targetOf     = (group: string | undefined): string => (group === undefined ? mainLine : `${context.groupTargetPrefix}${group}`);
-  let heldTarget: HeldTarget | null = null;
+  const { mainLine, groupTargetPrefix } = context;
+  const targetOf: MergeTargetOf = (ticket) => (
+    ticket.group === undefined || ticket.releasesGroup === true ? mainLine : `${groupTargetPrefix}${ticket.group}`
+  );
+  const groupOf = (target: string): string => target.slice(groupTargetPrefix.length);
+  const heldTargets = new Map<string, HeldTarget>();
+
+  /** Main lands in the main checkout; a group branch in its own worktree, created from the main line's tip when the group has none yet. */
+  function targetDirectoryOf(target: string): string | null {
+    if (target === mainLine) return context.repositoryRoot;
+    const prepared = GroupWorktrees.prepareGroupWorktree(context.repositoryRoot, context.worktreesRoot, target, mainLine);
+    return prepared.verdict === 'ready' ? prepared.path : null;
+  }
+
+  function slotWorktreeOf(job: Readonly<Job>): string {
+    return isRefresh(job) ? GroupWorktrees.refreshWorktreeOf(context.worktreesRoot, job.target ?? '') : context.worktreeOf(ticketIdOf(job));
+  }
 
   function openDecision(hold: MergeSlotHold, kind: DecisionKind, ticketIds: readonly string[], decisionContext: string): void {
     const draft: DecisionDraft = { kind, ticketIds, jobId: null };
@@ -137,9 +168,11 @@ export function createMergeSlots(context: MergeSlotsContext): MergeSlots {
     hold.board.setJobSlot(job.id, { ...slotOf(job), phase });
   }
 
-  /** Frees the slot with the worktree back at the recorded branch tip; the ticket stays queued unless the caller took it out. */
+  /** Frees the slot with the worktree back at its recorded start, a refresh's removed; the ticket stays queued unless the caller took it out. */
   async function freeSlot(job: Readonly<Job>, ending: JobEnding, inHold: (hold: MergeSlotHold) => void = () => undefined): Promise<void> {
-    MergeRun.restoreBranchTip(context.worktreeOf(ticketIdOf(job)), slotOf(job).branchTip);
+    const worktree = slotWorktreeOf(job);
+    MergeRun.restoreBranchTip(worktree, MergeRun.sidesOf(job, slotOf(job)).startTip);
+    if (isRefresh(job)) GroupWorktrees.removeWorktree(context.repositoryRoot, worktree);
     await context.hold((hold) => {
       const agent = mergeAgentOf(hold.board, job);
       if (agent !== undefined) hold.board.endJob(agent.id, { outcome: 'stopped', cause: ending.cause ?? 'merge-ended' }, hold.at);
@@ -150,14 +183,14 @@ export function createMergeSlots(context: MergeSlotsContext): MergeSlots {
 
   /** The merge aborts, the slot frees and User is asked; a `reportKind` also opens the orchestrator's incident, with no job waiting. */
   async function refuseMerge(job: Readonly<Job>, cause: string, notes: string, reportKind: unknown = null): Promise<void> {
-    const ticketId = ticketIdOf(job);
+    const ticketIds = isRefresh(job) ? [] : [ticketIdOf(job)];
     await freeSlot(job, { outcome: 'failed', cause }, (hold) => {
-      hold.board.setTicketMergeQueued(ticketId, false, hold.at);
-      openDecision(hold, 'merge-refused', [ticketId], notes);
+      ticketIds.forEach((ticketId) => hold.board.setTicketMergeQueued(ticketId, false, hold.at));
+      openDecision(hold, 'merge-refused', ticketIds, isRefresh(job) ? `${job.target ?? ''}${REFRESH_REFUSAL_SEPARATOR}${notes}` : notes);
       if (reportKind !== 'malformed-ticket' && reportKind !== 'system-blocker') return;
       hold.board.openIncident({
         kind:        reportKind === 'malformed-ticket' ? 'malformed-ticket' : 'system-question',
-        ticketIds:   [ticketId],
+        ticketIds,
         jobId:       null,
         facts:       { notes, mergeJobId: job.id },
         defaultMove: 'incident-escalate',
@@ -166,15 +199,22 @@ export function createMergeSlots(context: MergeSlotsContext): MergeSlots {
   }
 
   async function runMergeIn(job: Readonly<Job>): Promise<boolean> {
-    const worktree = context.worktreeOf(ticketIdOf(job));
+    const worktree = slotWorktreeOf(job);
     const slot     = slotOf(job);
+    if (isRefresh(job)) {
+      const prepared = GroupWorktrees.prepareRefreshWorktree(context.repositoryRoot, context.worktreesRoot, slot.target, slot.targetTip);
+      if (prepared.verdict === 'git-failed') {
+        await refuseMerge(job, MERGE_REFUSED_CAUSES.gitFailed, prepared.reason);
+        return true;
+      }
+    }
     if (MergeRun.mergeIsInProgress(worktree)) {
       // A live holder keeps its slot; only a merge-in left behind by nobody is aborted and requeued.
       if (context.hostIsLive(job)) return false;
       await freeSlot(job, { outcome: 'stopped', cause: REQUEUE_CAUSES.orphaned });
       return true;
     }
-    const merge = MergeRun.mergeInOnce(worktree, slot);
+    const merge = MergeRun.mergeInOnce(worktree, MergeRun.sidesOf(job, slot));
     if (merge.verdict === 'merged' || merge.verdict === 'already-descends') {
       await context.hold((hold) => setPhase(hold, job, 'gating'));
       return true;
@@ -204,7 +244,7 @@ export function createMergeSlots(context: MergeSlotsContext): MergeSlots {
     await context.stopMergeAgent(agent);
     const notes     = String(reportFieldOf(reading.report, 'notes') ?? '');
     const outcome    = reportFieldOf(reading.report, 'outcome');
-    const worktree   = context.worktreeOf(ticketIdOf(job));
+    const worktree   = slotWorktreeOf(job);
     if (outcome === 'cannot-resolve') {
       await refuseMerge(job, MERGE_REFUSED_CAUSES.cannotResolve, notes, reportFieldOf(reading.report, 'reportKind') ?? null);
       return true;
@@ -214,7 +254,7 @@ export function createMergeSlots(context: MergeSlotsContext): MergeSlots {
       return true;
     }
     const resolvedFiles = reportFieldOf(reading.report, 'resolvedFiles');
-    if (!MergeRun.resolutionIsSound(worktree, slotOf(job), Array.isArray(resolvedFiles) ? resolvedFiles.map(String) : [])) {
+    if (!MergeRun.resolutionIsSound(worktree, MergeRun.sidesOf(job, slotOf(job)), Array.isArray(resolvedFiles) ? resolvedFiles.map(String) : [])) {
       await refuseMerge(job, MERGE_REFUSED_CAUSES.unresolved, notes);
       return true;
     }
@@ -249,7 +289,7 @@ export function createMergeSlots(context: MergeSlotsContext): MergeSlots {
 
   async function runGate(job: Readonly<Job>, hasOpenIncident: boolean): Promise<boolean> {
     if (hasOpenIncident) return false;
-    const worktree = context.worktreeOf(ticketIdOf(job));
+    const worktree = slotWorktreeOf(job);
     const treeId   = MergeRun.treeOf(worktree);
     if (treeId === null) {
       await refuseMerge(job, MERGE_REFUSED_CAUSES.gitFailed, 'The merged tree cannot be read.');
@@ -273,44 +313,81 @@ export function createMergeSlots(context: MergeSlotsContext): MergeSlots {
     return true;
   }
 
-  function targetHeldBy(branch: string | null, blockingFiles: readonly string[]): HeldTarget {
-    return { target: mainLine, branch, blockingFiles };
+  function currentBranchIn(directory: string): string | null {
+    const branch = readCurrentBranch(directory);
+    return branch.verdict === 'on-branch' ? branch.branch : null;
   }
 
-  /** Rechecked every sweep: the checkout back on the main line with nothing uncommitted clears the notice. */
-  function recheckHeldTarget(): void {
-    if (heldTarget === null) return;
-    const branch = readCurrentBranch(context.repositoryRoot);
-    const onMainLine = branch.verdict === 'on-branch' && branch.branch === mainLine;
-    if (onMainLine && (uncommittedPathsOf(context.repositoryRoot) ?? ['?']).length === 0) heldTarget = null;
+  /** Rechecked every sweep: each held target's checkout back on its branch with nothing uncommitted clears its notice. */
+  function recheckHeldTargets(): void {
+    for (const target of [...heldTargets.keys()]) {
+      const directory = target === mainLine ? context.repositoryRoot : GroupWorktrees.groupWorktreeOf(context.worktreesRoot, target);
+      if (currentBranchIn(directory) === target && (uncommittedPathsOf(directory) ?? ['?']).length === 0) heldTargets.delete(target);
+    }
+  }
+
+  /** What the landing does on the board once git moved the target: deliver, approve a group's ticket, or record a refresh. */
+  function landOnTheBoard(hold: MergeSlotHold, job: Readonly<Job>, commit: string): void {
+    const slot     = slotOf(job);
+    const ticketId = ticketIdOf(job);
+    if (isRefresh(job)) {
+      hold.board.recordMergeLanded(job.id, { target: slot.target, commit, kind: 'integrated' }, hold.at);
+      hold.board.endJob(job.id, { outcome: 'refreshed', commit }, hold.at);
+      return;
+    }
+    if (slot.target !== mainLine) {
+      hold.board.moveTicket(ticketId, 'reviewed', { checksLegality: true }, hold.at);
+      hold.board.recordMergeLanded(job.id, { target: slot.target, commit, kind: 'integrated' }, hold.at);
+      hold.board.endJob(job.id, { outcome: 'integrated', commit }, hold.at);
+      return;
+    }
+    const tickets  = hold.board.tickets();
+    const group    = tickets.find((candidate) => candidate.frontmatter.id === ticketId)?.frontmatter.group;
+    // The bundle's integrated tickets go with the release; one delivered already stays as it is.
+    const released = group === undefined ? [] : hold.board.releaseBundleTicketIdsOf(group).filter((bundleTicketId) => (
+      bundleTicketId !== ticketId && tickets.some((candidate) => candidate.frontmatter.id === bundleTicketId && candidate.frontmatter.status === 'reviewed')
+    ));
+    hold.board.releaseTickets([ticketId, ...released], { branch: `ticket-${ticketId}`, commit }, hold.at);
+    hold.board.recordMergeLanded(job.id, { target: mainLine, commit, kind: 'landed' }, hold.at);
+    hold.board.endJob(job.id, { outcome: 'landed', commit }, hold.at);
+  }
+
+  /** After the landing hold: a refresh's temporary worktree goes, and a release removes the group's worktree and deletes its branch. */
+  function cleanUpAfterLanding(job: Readonly<Job>, releasedGroup: string | undefined): void {
+    if (isRefresh(job)) GroupWorktrees.removeWorktree(context.repositoryRoot, slotWorktreeOf(job));
+    if (releasedGroup !== undefined) GroupWorktrees.removeGroup(context.repositoryRoot, context.worktreesRoot, `${groupTargetPrefix}${releasedGroup}`);
   }
 
   async function runLanding(job: Readonly<Job>): Promise<boolean> {
     const ticketId     = ticketIdOf(job);
     const slot         = slotOf(job);
-    const mergedCommit = MergeRun.headOf(context.worktreeOf(ticketId));
-    if (mergedCommit === null) {
-      await refuseMerge(job, MERGE_REFUSED_CAUSES.gitFailed, 'The merged commit cannot be read.');
+    const mergedCommit = MergeRun.headOf(slotWorktreeOf(job));
+    const directory    = targetDirectoryOf(slot.target);
+    if (mergedCommit === null || directory === null) {
+      await refuseMerge(job, MERGE_REFUSED_CAUSES.gitFailed, mergedCommit === null ? 'The merged commit cannot be read.' : `The ${slot.target} worktree cannot be prepared.`);
       return true;
     }
+    let releasedGroup: string | undefined = undefined;
     const landed = await context.hold((hold) => {
       const ticket = hold.board.tickets().find((candidate) => candidate.frontmatter.id === ticketId);
       const ticketRefusal = ticket === undefined ? null : Landing.ticketRefusalOf(hold.board, [ticket]);
       if (ticketRefusal !== null) return ticketRefusal;
       const verdict = Landing.landOnTarget({
-        target:            { branch: mainLine, directory: context.repositoryRoot },
+        target:            { branch: slot.target, directory },
         mergedCommit,
         expectedTargetTip: slot.targetTip,
-        recordedLandings:  hold.board.recordedLandingsOn(mainLine),
+        recordedLandings:  hold.board.recordedLandingsOn(slot.target),
         hookPolicy:        'hooks-off',
       });
       if (verdict.verdict === 'refused') return verdict;
-      hold.board.releaseTickets([ticketId], { branch: `ticket-${ticketId}`, commit: verdict.commit }, hold.at);
-      hold.board.recordMergeLanded(job.id, { target: mainLine, commit: verdict.commit, kind: 'landed' }, hold.at);
-      hold.board.endJob(job.id, { outcome: 'landed', commit: verdict.commit }, hold.at);
+      if (slot.target === mainLine && ticket?.frontmatter.releasesGroup === true) releasedGroup = ticket.frontmatter.group;
+      landOnTheBoard(hold, job, verdict.commit);
       return verdict;
     });
-    if (landed.verdict !== 'refused') return true;
+    if (landed.verdict !== 'refused') {
+      cleanUpAfterLanding(job, releasedGroup);
+      return true;
+    }
     switch (LANDING_OUTCOME_OF_REFUSAL[landed.reason]) {
       case 'requeue-from-branch-tip':
         await freeSlot(job, { outcome: 'stopped', cause: 'target-moved-by-a-recorded-landing' });
@@ -318,7 +395,7 @@ export function createMergeSlots(context: MergeSlotsContext): MergeSlots {
       case 'open-target-moved':
         return settleMovedTarget(job, landed.facts.targetTip ?? '');
       case 'hold-target':
-        heldTarget = targetHeldBy(currentBranchOf(), landed.facts.blockingFiles ?? []);
+        heldTargets.set(slot.target, { target: slot.target, branch: currentBranchIn(directory), blockingFiles: landed.facts.blockingFiles ?? [] });
         await freeSlot(job, { outcome: 'stopped', cause: REQUEUE_CAUSES.targetHeld });
         return true;
       case 'hold-ticket':
@@ -333,11 +410,6 @@ export function createMergeSlots(context: MergeSlotsContext): MergeSlots {
     }
   }
 
-  function currentBranchOf(): string | null {
-    const branch = readCurrentBranch(context.repositoryRoot);
-    return branch.verdict === 'on-branch' ? branch.branch : null;
-  }
-
   /** Q38: requeued silently while the ref denies hold, parked after TARGET_MOVED_MERGES_BEFORE_PARKING moves in a row; else one decision per tip. */
   async function settleMovedTarget(job: Readonly<Job>, newTip: string): Promise<boolean> {
     const ticketId = ticketIdOf(job);
@@ -349,7 +421,7 @@ export function createMergeSlots(context: MergeSlotsContext): MergeSlots {
       });
     }
     await freeSlot(job, { outcome: 'stopped', cause: REQUEUE_CAUSES.targetMoved }, (hold) => {
-      if (targetMovesInARowOf(hold.board, ticketId) < context.limits.TARGET_MOVED_MERGES_BEFORE_PARKING) return;
+      if (isRefresh(job) || targetMovesInARowOf(hold.board, ticketId) < context.limits.TARGET_MOVED_MERGES_BEFORE_PARKING) return;
       hold.board.holdTicket(ticketId, `${PARKED_HOLD_PREFIX}target-moved`, hold.at);
       openDecision(hold, 'parked', [ticketId], REQUEUE_CAUSES.targetMoved);
     });
@@ -372,25 +444,25 @@ export function createMergeSlots(context: MergeSlotsContext): MergeSlots {
     }
   }
 
-  async function advanceTheSlot(): Promise<boolean> {
+  async function advanceTheSlot(target: string): Promise<boolean> {
     const holding = await context.hold((hold) => {
-      const job = hold.board.mergeSlotHolderOf(mainLine);
+      const job = hold.board.mergeSlotHolderOf(target);
       return job === undefined ? null : { job, hasOpenIncident: hold.board.incidents().some((incident) => incident.jobId === job.id) };
     });
     if (holding === null || holding.job.slot === undefined) return false;
     return advance(holding.job, holding.hasOpenIncident);
   }
 
-  function predictionOf(candidate: MergeCandidate): { candidate: MergeCandidate; branchTip: string | null; conflictedFiles: string[] | null } {
+  function predictionOf(target: string, candidate: MergeCandidate): { candidate: MergeCandidate; branchTip: string | null; conflictedFiles: string[] | null } {
     const branch    = `ticket-${candidate.ticketId}`;
     const branchTip = GitProcess.resolvedCommitOf(context.repositoryRoot, `refs/heads/${branch}`);
-    const predicted = predictMerge(context.repositoryRoot, { target: mainLine, branch });
+    const predicted = predictMerge(context.repositoryRoot, { target, branch });
     return { candidate, branchTip, conflictedFiles: predicted.verdict === 'clean' ? [] : predicted.verdict === 'conflicting' ? predicted.conflictedFiles : null };
   }
 
   /** Design section 6.2's order: priority, clean first, fewest conflicts caused among the clean, readiness, ticket id. */
-  function orderedPredictions(candidates: readonly MergeCandidate[]): ReturnType<typeof predictionOf>[] {
-    const predictions = candidates.map(predictionOf).filter((prediction) => prediction.branchTip !== null);
+  function orderedPredictions(target: string, candidates: readonly MergeCandidate[]): ReturnType<typeof predictionOf>[] {
+    const predictions = candidates.map((candidate) => predictionOf(target, candidate)).filter((prediction) => prediction.branchTip !== null);
     const clean       = predictions.filter((prediction) => prediction.conflictedFiles?.length === 0);
     const conflictsCaused = new Map(predictions.map((prediction) => {
       const others = clean.filter((other) => other.candidate.ticketId !== prediction.candidate.ticketId);
@@ -407,39 +479,96 @@ export function createMergeSlots(context: MergeSlotsContext): MergeSlots {
     ));
   }
 
-  async function allocate(): Promise<boolean> {
-    if (heldTarget !== null || context.dispatchIsStopped()) return false;
-    const candidates = await context.hold((hold) => (hold.board.mergeSlotHolderOf(mainLine) === undefined ? hold.board.mergeCandidatesOf(mainLine, targetOf) : []));
-    const [first] = orderedPredictions(candidates);
+  /** A refused claim (a higher priority queued meanwhile, the slot taken, a release queued) is derived again in the next round. */
+  function claimed(claim: () => void): boolean {
+    try {
+      claim();
+      return true;
+    } catch (refusal) {
+      if (refusal instanceof BoardRefusal) return true;
+      throw refusal;
+    }
+  }
+
+  /** Due as MergeQueueUtil says, never while a refused refresh of the group waits for User or main holds nothing the group lacks. */
+  function refreshIsDue(target: string, releaseIsQueuedOrSlotted: boolean, refreshWasRefused: boolean): boolean {
+    if (refreshWasRefused) return false;
+    const count = GitProcess.run(context.repositoryRoot, ['rev-list', '--count', `${target}..${mainLine}`]);
+    const mainCommitsAheadOfGroup = GitProcess.succeeded(count) ? Number(count.standardOutput.trim()) : null;
+    if (mainCommitsAheadOfGroup === 0) return false;
+    return MergeQueueUtil.groupRefreshIsDue({
+      mainCommitsAheadOfGroup,
+      groupTipAgainstMain:            forecastOf(predictMerge(context.repositoryRoot, { target, branch: mainLine })),
+      releaseTicketIsQueuedOrSlotted: releaseIsQueuedOrSlotted,
+    }, context.limits);
+  }
+
+  async function allocateRefresh(target: string, releaseIsQueuedOrSlotted: boolean, refreshWasRefused: boolean): Promise<boolean> {
+    const targetTip = GitProcess.resolvedCommitOf(context.repositoryRoot, `refs/heads/${target}`);
+    const mainTip   = GitProcess.resolvedCommitOf(context.repositoryRoot, `refs/heads/${mainLine}`);
+    if (targetTip === null || mainTip === null || !refreshIsDue(target, releaseIsQueuedOrSlotted, refreshWasRefused)) return false;
+    return context.hold((hold) => {
+      const tipsMoved = GitProcess.resolvedCommitOf(context.repositoryRoot, `refs/heads/${target}`) !== targetTip
+        || GitProcess.resolvedCommitOf(context.repositoryRoot, `refs/heads/${mainLine}`) !== mainTip;
+      return tipsMoved || claimed(() => hold.board.claimRefreshSlot({
+        group: groupOf(target), target, targetTip, mainTip
+      }, hold.at));
+    });
+  }
+
+  async function allocate(target: string): Promise<boolean> {
+    if (heldTargets.has(target) || context.dispatchIsStopped()) return false;
+    const queue = await context.hold((hold) => {
+      if (hold.board.mergeSlotHolderOf(target) !== undefined) return null;
+      const isGroup = target !== mainLine;
+      return {
+        candidates:               hold.board.mergeCandidatesOf(target, targetOf),
+        releaseIsQueuedOrSlotted: isGroup && hold.board.groupReleaseQueuedOrSlotted(groupOf(target)) !== null,
+        refreshWasRefused:        isGroup && hold.board.decisions().some((decision) => (
+          decision.kind === 'merge-refused' && decision.ticketIds.length === 0 && decision.context.startsWith(`${target}${REFRESH_REFUSAL_SEPARATOR}`)
+        )),
+      };
+    });
+    if (queue === null) return false;
+    if (target !== mainLine && await allocateRefresh(target, queue.releaseIsQueuedOrSlotted, queue.refreshWasRefused)) return true;
+    const [first] = orderedPredictions(target, queue.candidates);
     if (first?.branchTip === undefined || first.branchTip === null) return false;
-    const targetTip = GitProcess.resolvedCommitOf(context.repositoryRoot, `refs/heads/${mainLine}`);
+    const targetTip = GitProcess.resolvedCommitOf(context.repositoryRoot, `refs/heads/${target}`);
     if (targetTip === null) return false;
     const { branchTip } = first;
     return context.hold((hold) => {
-      const tipsMoved = GitProcess.resolvedCommitOf(context.repositoryRoot, `refs/heads/${mainLine}`) !== targetTip
+      const tipsMoved = GitProcess.resolvedCommitOf(context.repositoryRoot, `refs/heads/${target}`) !== targetTip
         || GitProcess.resolvedCommitOf(context.repositoryRoot, `refs/heads/ticket-${first.candidate.ticketId}`) !== branchTip;
-      if (tipsMoved) return true;
-      try {
-        hold.board.claimMergeSlot({
-          ticketId: first.candidate.ticketId, target: mainLine, targetTip, branchTip, predictedConflictFiles: first.conflictedFiles ?? [],
-        }, targetOf, hold.at);
-        return true;
-      } catch (refusal) {
-        // A refused claim (a higher priority queued meanwhile, the slot taken) is derived again in the next round.
-        if (refusal instanceof BoardRefusal) return true;
-        throw refusal;
+      return tipsMoved || claimed(() => hold.board.claimMergeSlot({
+        ticketId: first.candidate.ticketId, target, targetTip, branchTip, predictedConflictFiles: first.conflictedFiles ?? [],
+      }, targetOf, hold.at));
+    });
+  }
+
+  /** The main line, every group with an open ticket, and every target a slot still holds. */
+  async function liveTargets(): Promise<string[]> {
+    return context.hold((hold) => {
+      const targets = new Set([mainLine]);
+      for (const { frontmatter } of hold.board.tickets()) {
+        if (frontmatter.group !== undefined && frontmatter.status !== 'delivered' && frontmatter.status !== 'abandoned') targets.add(`${groupTargetPrefix}${frontmatter.group}`);
       }
+      for (const job of hold.board.jobs()) if ((job.kind === 'merge' || isRefresh(job)) && job.target !== null) targets.add(job.target);
+      return [...targets];
     });
   }
 
   async function sweep(): Promise<readonly HeldTarget[]> {
-    recheckHeldTarget();
+    recheckHeldTargets();
     for (let round = 0; round < ROUNDS_PER_SWEEP; round += 1) {
-      const advanced  = await advanceTheSlot();
-      const allocated = await allocate();
-      if (!advanced && !allocated) break;
+      let moved = false;
+      for (const target of await liveTargets()) {
+        const advanced  = await advanceTheSlot(target);
+        const allocated = await allocate(target);
+        moved = moved || advanced || allocated;
+      }
+      if (!moved) break;
     }
-    return heldTarget === null ? [] : [heldTarget];
+    return [...heldTargets.values()];
   }
 
   return { sweep };

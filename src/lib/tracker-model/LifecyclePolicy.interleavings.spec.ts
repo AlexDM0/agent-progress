@@ -2,8 +2,8 @@
  * Seeded interleavings of the lifecycle over one Board, a fake agent and a fake user acting at random between passes. What matters is what no
  * order of events may break: never two live jobs for one ticket, never a launch past the concurrency limit, never a resume of a session or of
  * a job that was not interrupted, every question answered at most once, never two host instances live for one job, never a resume of a
- * finished session or a crash resume past the bound, and at most one git operation per worktree at a time. A failing seed names itself, so it
- * replays exactly.
+ * finished session or a crash resume past the bound, at most one git operation per worktree at a time, at most one merge or refresh per
+ * target (so never two refreshes), and never a refresh beside its group's release. A failing seed names itself, so it replays exactly.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -46,9 +46,16 @@ describe('the lifecycle under seeded interleavings', () => {
     [
       'two merges on one target',
       'src/lib/tracker-model/MergeSlotClaims.ts',
-      '    if (holder !== undefined) throw new BoardRefusal({ reason: \'merge-slot-held\', target: claim.target, jobId: holder.id });\n',
+      '    if (holder !== undefined) throw new BoardRefusal({ reason: \'merge-slot-held\', target, jobId: holder.id });\n',
       '',
       'merge jobs hold',
+    ],
+    [
+      'a refresh beside its group\'s release',
+      'src/lib/tracker-model/MergeSlotClaims.ts',
+      '    if (releaseTicketId !== null) throw new BoardRefusal({ reason: \'refresh-beside-a-queued-release\', group: claim.group, releaseTicketId });\n',
+      '',
+      'a refresh runs beside its group\'s release',
     ],
     [
       'a crash resume past the bound',

@@ -16,6 +16,7 @@ import {
   gitOutputIn,
   removeScratchDirectory
 }                                            from '../../../testing/ScratchWorkspace.ts';
+import { GroupWorktrees }                                            from '../GroupWorktrees.ts';
 import { createMergeSlots, type MergeAgentReading, type MergeSlots } from '../MergeSlots.ts';
 
 export const HARNESS_AT = '2026-10-28T10:00:00+01:00';
@@ -24,11 +25,17 @@ export const HARNESS_AT = '2026-10-28T10:00:00+01:00';
 export const ACCOUNTED_BODY = '## Acceptance\n\nA1. Example cart totals add up.\n\n## Review\n\n- A1 holds — Example probe.\n';
 
 export interface HarnessTicket {
-  id:        string;
-  priority?: TicketPriority;
+  id:             string;
+  priority?:      TicketPriority;
   /** Committed on the ticket branch: `[file, content]`. */
-  change:    [string, string];
-  body?:     string;
+  change:         [string, string];
+  body?:          string;
+  /** A group ticket's branch forks off `group-<group>`, whose worktree the harness makes from main's tip first. */
+  group?:         string;
+  releasesGroup?: true;
+  dependsOn?:     string[];
+  /** `in-review` and queued unless set; a ticket of the bundle already integrated is `reviewed`. */
+  status?:        'in-review' | 'reviewed';
 }
 
 export interface MergeSlotsHarness {
@@ -58,18 +65,32 @@ export function createMergeSlotsHarness(tickets: readonly HarnessTicket[], limit
   const repository = createScratchGitRepository('merge-slots');
   gitOutputIn(repository, ['checkout', '-q', '-B', 'main']);
   commitFile(repository, 'base.ts', 'export const base = 1;\n');
-  const worktreeOf = (ticketId: string): string => join(`${repository}-worktrees`, `ticket-${ticketId}`);
+  const worktreesRoot = `${repository}-worktrees`;
+  const worktreeOf = (ticketId: string): string => join(worktreesRoot, `ticket-${ticketId}`);
   for (const ticket of tickets) {
-    gitOutputIn(repository, ['worktree', 'add', '-q', '-b', `ticket-${ticket.id}`, worktreeOf(ticket.id), 'main']);
+    const base = ticket.group === undefined ? 'main' : `group-${ticket.group}`;
+    if (ticket.group !== undefined) GroupWorktrees.prepareGroupWorktree(repository, worktreesRoot, base, 'main');
+    gitOutputIn(repository, ['worktree', 'add', '-q', '-b', `ticket-${ticket.id}`, worktreeOf(ticket.id), base]);
     commitFile(worktreeOf(ticket.id), ...ticket.change);
+    // An integrated ticket's work already stands on the group branch, so a ticket listed after it forks off that tip.
+    if (ticket.group !== undefined && ticket.status === 'reviewed') {
+      gitOutputIn(GroupWorktrees.groupWorktreeOf(worktreesRoot, base), ['merge', '-q', '--ff-only', `ticket-${ticket.id}`]);
+    }
   }
   const { board } = boardFixture({
     tickets: tickets.map((ticket) => ({
-      ...ticketFixture({ id: ticket.id, status: 'in-review', ...(ticket.priority === undefined ? {} : { priority: ticket.priority }) }),
+      ...ticketFixture({
+        id:     ticket.id,
+        status: ticket.status ?? 'in-review',
+        ...(ticket.priority === undefined ? {} : { priority: ticket.priority }),
+        ...(ticket.group === undefined ? {} : { group: ticket.group }),
+        ...(ticket.releasesGroup === undefined ? {} : { releasesGroup: ticket.releasesGroup }),
+        ...(ticket.dependsOn === undefined ? {} : { dependsOn: ticket.dependsOn }),
+      }),
       body: ticket.body ?? ACCOUNTED_BODY,
     })),
   });
-  for (const ticket of tickets) board.queueTicketForMerge(ticket.id, 'main', HARNESS_AT);
+  for (const ticket of tickets.filter((each) => each.status === undefined)) board.queueTicketForMerge(ticket.id, 'main', HARNESS_AT);
 
   const phases: string[] = [];
   const gatedTrees: string[] = [];
@@ -82,6 +103,7 @@ export function createMergeSlotsHarness(tickets: readonly HarnessTicket[], limit
     repositoryRoot:    repository,
     mainLine:          'main',
     groupTargetPrefix: 'group-',
+    worktreesRoot,
     worktreeOf,
     limits:            { ...MERGE_SLOT_LIMITS, ...limits },
     get refDeniesHold() {

@@ -98,7 +98,7 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
     targetTip:              'b2c3d4e5f60718293a4b5c6d7e8f901234567890',
     branchTip:              'c3d4e5f60718293a4b5c6d7e8f90123456789012',
     predictedConflictFiles: ['src/example/ExampleCheckout.ts'],
-  }, (group) => (group === undefined ? 'main' : `group-${group}`), at);
+  }, (ticket) => (ticket.group === undefined ? 'main' : `group-${ticket.group}`), at);
   board.recordMergeLanded(merge.job.id, { target: 'main', commit: 'd4e5f60718293a4b5c6d7e8f9012345678901234', kind: 'landed' }, at);
   board.endJob(merge.job.id, { outcome: 'landed', commit: 'd4e5f60718293a4b5c6d7e8f9012345678901234' }, at);
   board.rereviewTicket('001', at);

@@ -62,6 +62,7 @@ import { writeTracker, type TrackerChange }                     from '../tracker
 import { requireProgressFile }                                  from '../tracker/TrackerReader.ts';
 import { workspacePathsFor, type Workspace }                    from '../tracker/Workspace.ts';
 import { createDrivePass, type DrivePass, type JobLaunchFacts } from './DrivePass.ts';
+import { GroupWorktrees }                                       from './GroupWorktrees.ts';
 import { HOST_ENTRY_PATH, HostBundle }                          from './HostBundle.ts';
 import { HostFleet }                                            from './HostFleet.ts';
 import { Reattachment }                                         from './Reattachment.ts';
@@ -845,6 +846,60 @@ describeWhenGitIsPresent('the main-line merge rows', () => {
     const landed = harness.board.logRecordsSoFar().filter((record) => record.kind === 'merge-landed');
     expect(landed).toHaveLength(1);
     gitOutputIn(harness.repository, ['merge-base', '--is-ancestor', harness.tipOf('main'), landed[0]?.kind === 'merge-landed' ? landed[0].fields.commit : '']);
+    harness.remove();
+  });
+});
+
+describeWhenGitIsPresent('the group merge rows', () => {
+  const groupWorktreeOf = (repository: string): string => join(`${repository}-worktrees`, 'group-example');
+
+  test('crash after a group ticket\'s fast-forward, before the board write: the merged commit is an ancestor of the group tip, so it is approved', async () => {
+    const harness = createMergeSlotsHarness([{ id: '010', group: 'example', change: ['cart.ts', 'export const cart = 1;\n'] }]);
+    const mergedCommit = (): string => gitOutputIn(harness.worktreeOf('010'), ['rev-parse', 'HEAD']);
+    harness.settings.beforeGate = () => gitOutputIn(groupWorktreeOf(harness.repository), ['merge', '-q', '--ff-only', mergedCommit()]);
+    await harness.slots.sweep();
+    expect(harness.board.tickets()[0]?.frontmatter.status).toBe('reviewed');
+    expect(harness.board.logRecordsSoFar().filter((record) => record.kind === 'merge-landed')).toHaveLength(1);
+    harness.remove();
+  });
+
+  test('crash after the release\'s fast-forward of main, before the board write: the whole bundle is delivered', async () => {
+    const harness = createMergeSlotsHarness([
+      {
+        id: '010', group: 'example', status: 'reviewed', change: ['cart.ts', 'export const cart = 1;\n']
+      },
+      {
+        id: '012', group: 'example', releasesGroup: true, dependsOn: ['010'], change: ['release.ts', 'export const release = 1;\n']
+      },
+    ]);
+    harness.settings.beforeGate = () => gitOutputIn(harness.repository, ['merge', '-q', '--ff-only', gitOutputIn(harness.worktreeOf('012'), ['rev-parse', 'HEAD'])]);
+    await harness.slots.sweep();
+    expect(harness.board.tickets().map((ticket) => ticket.frontmatter.status)).toEqual(['delivered', 'delivered']);
+    harness.remove();
+  });
+
+  test('a refresh mid-merge with no live holder: aborted, its temporary worktree removed, and never two refreshes on the group at once', async () => {
+    const harness = createMergeSlotsHarness([{
+      id: '010', group: 'example', status: 'reviewed', change: ['base.ts', 'export const base = 2;\n']
+    }]);
+    commitFile(harness.repository, 'base.ts', 'export const base = 3;\n');
+    const worktreesRoot = `${harness.repository}-worktrees`;
+    const groupTip = harness.tipOf('group-example');
+    const { job: orphaned } = harness.board.claimRefreshSlot({
+      group: 'example', target: 'group-example', targetTip: groupTip, mainTip: harness.tipOf('main')
+    }, HARNESS_AT);
+    const refreshWorktree = GroupWorktrees.refreshWorktreeOf(worktreesRoot, 'group-example');
+    GroupWorktrees.prepareRefreshWorktree(harness.repository, worktreesRoot, 'group-example', groupTip);
+    Bun.spawnSync(['git', 'merge', '--no-ff', '--no-edit', harness.tipOf('main')], { cwd: refreshWorktree });
+
+    await harness.slots.sweep();
+
+    const ended = harness.board.logRecordsSoFar().find((record) => record.kind === 'job-ended' && record.jobId === orphaned.id);
+    expect(ended?.kind === 'job-ended' ? ended.fields.cause : null).toBe('orphaned');
+    const refreshes = harness.board.jobs().filter((job) => job.kind === 'refresh');
+    expect(refreshes).toHaveLength(1);
+    expect(refreshes[0]?.slot?.phase).toBe('resolving');
+    expect(harness.tipOf('group-example')).toBe(groupTip);
     harness.remove();
   });
 });

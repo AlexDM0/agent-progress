@@ -25,6 +25,7 @@ import { PRODUCT_NAMES }                               from '../../shared/consta
 import { REATTACH_HELLO_TIMEOUT_MILLISECONDS }         from '../../shared/constants/RunnerLimits.ts';
 import { requireProgressFile }                         from '../tracker/TrackerReader.ts';
 import type { Workspace }                              from '../tracker/Workspace.ts';
+import { GroupWorktrees }                              from './GroupWorktrees.ts';
 import { HostFleet }                                   from './HostFleet.ts';
 import { JobLaunch }                                   from './JobLaunch.ts';
 import { LegacyHostReader }                            from './LegacyHostReader.ts';
@@ -153,7 +154,8 @@ function branchOwnedWorktreesOf(repositoryRoot: string): Set<string> {
 function leftoverWorktreesOf(workspace: Workspace, jobs: readonly Readonly<Job>[]): string[] {
   const worktreesRoot = join(workspace.rootDirectory, PRODUCT_NAMES.WORKTREES_FOLDER);
   if (!existsSync(worktreesRoot)) return [];
-  const jobOwned    = new Set(jobs.filter(JobLaunch.isWorktreeJob).map((job) => canonicalPathOf(JobLaunch.worktreeOf(workspace, job))));
+  const refreshOwned = jobs.filter((job) => job.kind === 'refresh' && job.target !== null).map((job) => GroupWorktrees.refreshWorktreeOf(worktreesRoot, job.target ?? ''));
+  const jobOwned     = new Set([...jobs.filter(JobLaunch.isWorktreeJob).map((job) => JobLaunch.worktreeOf(workspace, job)), ...refreshOwned].map(canonicalPathOf));
   const branchOwned = branchOwnedWorktreesOf(workspace.rootDirectory);
   return readdirSync(worktreesRoot, { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && !RUNNER_OWNED_FOLDERS.has(entry.name))

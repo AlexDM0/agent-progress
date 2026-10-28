@@ -10,11 +10,24 @@ import {
   type TipRestoreOutcome
 } from '../../lib/git/BranchMerge.ts';
 import { GitProcess }          from '../../lib/git/GitProcess.ts';
-import type { MergeSlot }      from '../../lib/tracker-model/@types/Job.ts';
+import type { Job, MergeSlot } from '../../lib/tracker-model/@types/Job.ts';
 import { VERIFICATION_CHECKS } from './JobVerification.ts';
+
+/** The commit the slot worktree starts from, its merge's first parent, and the one merged into it, its second. */
+export interface MergeSides {
+  startTip:  string;
+  mergedTip: string;
+}
 
 const DIFF_FILE_HEADER = /^(?:\+\+\+|---) /;
 const CHANGED_LINE     = /^[+-]/;
+
+/** A ticket's merge starts from its branch and merges the target in; a group refresh starts from the group's tip and merges main's in. */
+function sidesOf(job: Readonly<Pick<Job, 'kind'>>, slot: Readonly<MergeSlot>): MergeSides {
+  return job.kind === 'refresh'
+    ? { startTip: slot.targetTip, mergedTip: slot.branchTip }
+    : { startTip: slot.branchTip, mergedTip: slot.targetTip };
+}
 
 function mergeIsInProgress(worktreePath: string): boolean {
   return GitProcess.resolvedCommitOf(worktreePath, 'MERGE_HEAD') !== null;
@@ -30,8 +43,8 @@ function treeOf(worktreePath: string): string | null {
 }
 
 /** Against the recorded commit, never the moving name: a branch already descending from it is left as it is. */
-function mergeInOnce(worktreePath: string, slot: Readonly<MergeSlot>): MergeOutcome {
-  return mergeIn(worktreePath, slot.targetTip);
+function mergeInOnce(worktreePath: string, sides: Readonly<MergeSides>): MergeOutcome {
+  return mergeIn(worktreePath, sides.mergedTip);
 }
 
 /** An unfinished merge is aborted first, then the worktree is reset to the tip the slot recorded, so the next attempt holds one merge-in. */
@@ -41,15 +54,15 @@ function restoreBranchTip(worktreePath: string, branchTip: string): TipRestoreOu
 }
 
 /** V10: nothing left unmerged, the conflicted files clean of whitespace errors, and a merge commit whose parents are the two recorded tips. */
-function resolutionIsSound(worktreePath: string, slot: Readonly<MergeSlot>, conflictedFiles: readonly string[]): boolean {
+function resolutionIsSound(worktreePath: string, sides: Readonly<MergeSides>, conflictedFiles: readonly string[]): boolean {
   return VERIFICATION_CHECKS.V10({
     role:             'resolver',
     worktreePath,
-    startCommit:      slot.branchTip,
+    startCommit:      sides.startTip,
     report:           null,
     ticketBody:       '',
     bodyHashAtLaunch: '',
-    merge:            { branchTip: slot.branchTip, targetTip: slot.targetTip, conflictedFiles },
+    merge:            { branchTip: sides.startTip, targetTip: sides.mergedTip, conflictedFiles },
   }).verdict === 'passed';
 }
 
@@ -67,5 +80,6 @@ export const MergeRun = Object.freeze({
   resolutionIsSound,
   resolutionLinesOf,
   restoreBranchTip,
+  sidesOf,
   treeOf,
 });
