@@ -331,6 +331,26 @@ describe('failed passes', () => {
     expect(drivePass.state().notices).toContainEqual({ kind: 'attribution-found', ticketId: '001' });
   }, BUILD_TEST_TIMEOUT_MILLISECONDS);
 
+  test('a commit changing .claude/ fails the pass on V13, opens branch-touches-agent-config and launches no review while it is open', async () => {
+    await run(['checks', 'true']);
+    const drivePass = await drivePassPlaying([
+      { kind: 'print', line: fakeStartedLine('fake-session') },
+      {
+        kind:    'shell',
+        command: `case "$PWD" in */ticket-*) mkdir -p .claude && echo '{}' > .claude/settings.json && git add .claude && ${COMMIT} -m 'Build the example';; esac`
+      },
+      { kind: 'print', line: builderReport() },
+      { kind: 'await-line' },
+    ]);
+    const agentConfigDecisionIsOpen = (): boolean => (storedProgressOf(repositoryDirectory).decisions ?? [])
+      .some((decision) => decision.kind === 'branch-touches-agent-config' && decision.ticketIds.includes('001'));
+    await passUntil(drivePass, agentConfigDecisionIsOpen, 'the branch-touches-agent-config decision');
+    expect(buildJobEnding()).toMatchObject({ outcome: 'failed', cause: 'branch-touches-agent-config' });
+    await passUntil(drivePass, () => true, 'one more pass');
+    expect(loggedEntries('job-launched').filter((entry) => entry.fields['kind'] !== 'build' && entry.fields['kind'] !== 'orchestrator')).toEqual([]);
+    expect(agentConfigDecisionIsOpen()).toBe(true);
+  }, BUILD_TEST_TIMEOUT_MILLISECONDS);
+
   test('a session ending without a report ends failed with cause no-report', async () => {
     await run(['checks', 'true']);
     const drivePass = await drivePassPlaying([{ kind: 'print', line: fakeStartedLine('fake-session') }, { kind: 'exit', code: 0 }]);
