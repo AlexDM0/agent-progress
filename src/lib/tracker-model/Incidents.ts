@@ -78,6 +78,8 @@ export class Incidents {
 
   /** Opens an `agent-question` decision on the incident's tickets, job and request, then logs the escalation naming it. */
   escalateIncident(incidentId: string, escalation: IncidentEscalation, at: string): IncidentEscalated {
+    this.requireOpenIncident(incidentId);
+    this.decisionRules.requireQuestions(escalation);
     const incident     = this.closeIncident(incidentId);
     const { decision, logged } = this.decisionRules.openUnmatchedDecision({
       kind:      'agent-question',

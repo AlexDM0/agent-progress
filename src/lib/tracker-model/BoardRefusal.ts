@@ -82,6 +82,7 @@ export type BoardRefusalDetail =
   | { reason: 'unknown-decision'; decisionId: string }
   | { reason: 'decision-already-answered'; decisionId: string }
   | { reason: 'decision-answer-count'; decisionId: string; answerCount: number; questionCount: number }
+  | { reason: 'decision-without-questions' }
   | { reason: 'unknown-incident'; incidentId: string }
   | { reason: 'incident-closed'; incidentId: string };
 

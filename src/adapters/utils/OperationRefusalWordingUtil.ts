@@ -245,6 +245,8 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
     case 'decision-answer-count':
       return `Decision ${detail.decisionId} asks ${detail.questionCount} ${detail.questionCount === 1 ? 'question' : 'questions'}, `
         + `so it takes one answer for each, not ${detail.answerCount}. ${NOTHING_WAS_WRITTEN}`;
+    case 'decision-without-questions':
+      return `A decision asks at least one question, and this one asks none. ${NOTHING_WAS_WRITTEN}`;
     case 'unknown-incident':
       return `There is no incident ${detail.incidentId}. ${NOTHING_WAS_WRITTEN}`;
     case 'incident-closed':

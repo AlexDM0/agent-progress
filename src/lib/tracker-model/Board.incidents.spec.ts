@@ -144,6 +144,16 @@ describe('closing an incident', () => {
     expect(board.escalateIncident('I1', { askedBy: 'orchestrator', questions: [AGENT_WORDS], context: '' }, AT).decision.requestId).toBeNull();
   });
 
+  test('an escalation asking no question is refused decision-without-questions and leaves the incident open', () => {
+    const { board, records } = freshBoard();
+    board.openIncident(SYSTEM_QUESTION, AT);
+    records.length = 0;
+    expect(refusalDetailOf(() => board.escalateIncident('I1', { askedBy: 'builder', questions: [], context: '' }, AT))).toEqual({ reason: 'decision-without-questions' });
+    expect(board.incidentById('I1')?.id).toBe('I1');
+    expect(board.decisions()).toEqual([]);
+    expect(records).toEqual([]);
+  });
+
   test.each(CLOSES)('a closed incident refuses being closed again by %s', (_close, close) => {
     for (const [, firstClose] of CLOSES) {
       const { board, records } = freshBoard();

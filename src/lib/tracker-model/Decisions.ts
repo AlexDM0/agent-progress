@@ -50,6 +50,7 @@ export class Decisions {
 
   /** Opens without matching the request: an escalation carries over the request of the incident it closes. */
   openUnmatchedDecision(opening: DecisionOpening, at: string): { decision: Readonly<Decision>; logged: LogRecord[] } {
+    this.requireQuestions(opening);
     const decision = copyOf(opening, this.takeNextDecisionId(), at);
     this.records.progress.decisions ??= [];
     this.records.progress.decisions.push(decision);
@@ -79,6 +80,11 @@ export class Decisions {
     const decision = this.requireOpenDecision(decisionId);
     this.removeDecision(decision);
     return { decision, logged: [this.records.logger.log({ kind: 'decision-withdrawn', decisionId, fields: { reason } }, at)] };
+  }
+
+  /** Its answer is logged keyed by its questions, and the log refuses an empty answer, so a decision without one could never be answered. */
+  requireQuestions(opening: Pick<DecisionOpening, 'questions'>): void {
+    if (opening.questions.length === 0) throw new BoardRefusal({ reason: 'decision-without-questions' });
   }
 
   /** A decision leaves the board only by its answer or its withdrawal, so a well-formed id below the counter was already settled. */

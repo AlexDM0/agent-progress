@@ -79,6 +79,14 @@ describe('opening a decision', () => {
     board.openDecision(outage, AT);
     expect(board.decisions().map((decision) => decision.id)).toEqual(['E1', 'E2']);
   });
+
+  test('one asking no question is refused decision-without-questions, since its empty answer would make the log unreadable', () => {
+    const { board, progress, records } = boardWithAJob();
+    expect(refusalDetailOf(() => board.openDecision({ ...AGENT_QUESTION, questions: [] }, AT))).toEqual({ reason: 'decision-without-questions' });
+    expect(progress.decisions).toBeUndefined();
+    expect(progress.nextDecisionId).toBeUndefined();
+    expect(records).toEqual([]);
+  });
 });
 
 describe('a replayed question request', () => {
