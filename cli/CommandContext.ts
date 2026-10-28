@@ -6,7 +6,9 @@
 import { homedir, tmpdir } from 'node:os';
 import { createInterface } from 'node:readline';
 
-import { createRenderState, type RenderState } from '../src/services/render/RenderState.ts';
+import { createRenderState, type RenderState }                  from '../src/services/render/RenderState.ts';
+import { relayDirectory, runnerJobId }                          from '../src/shared/Environment.ts';
+import { RELAY_REPLY_INTERVAL_MILLISECONDS, RELAY_REPLY_TRIES } from '../src/shared/constants/RunnerLimits.ts';
 
 export interface CommandContext {
   currentDirectory:        string;
@@ -27,6 +29,25 @@ export interface CommandContext {
   commandVerb:             string;
   /** Created once per invocation; holds the render service's memos, the page bundle and the configured Marked. */
   renderState:             RenderState;
+  /** Present only when the runner launched this process for a job: then a mutating verb relays rather than opening the tracker. */
+  job?:                    JobContext;
+}
+
+export interface JobContext {
+  jobId:                     string;
+  relayDirectory:            string;
+  replyTries:                number;
+  replyIntervalMilliseconds: number;
+}
+
+/** Both getters set, or no job: one alone is a session the runner did not launch whole, which runs as any other process does. */
+function jobContextOfThisProcess(): JobContext | undefined {
+  const jobId          = runnerJobId();
+  const relayFolder    = relayDirectory();
+  if (jobId === undefined || relayFolder === undefined) return undefined;
+  return {
+    jobId, relayDirectory: relayFolder, replyTries: RELAY_REPLY_TRIES, replyIntervalMilliseconds: RELAY_REPLY_INTERVAL_MILLISECONDS
+  };
 }
 
 /** Beside `tmpdir()`, which on macOS is a per-user folder under `/var/folders`; Claude Code keeps its scratchpads under `/tmp`. */
@@ -39,7 +60,9 @@ export function temporaryDirectoriesOfThisMachine(): string[] {
 
 /** A function, never a module constant: a constant would read `process.cwd()` at import time and hand every spec the test runner's directory. */
 export function createProcessContext(): CommandContext {
+  const job = jobContextOfThisProcess();
   return {
+    ...(job === undefined ? {} : { job }),
     currentDirectory:        process.cwd(),
     now:                     () => new Date(),
     standardOutput:          (text: string) => console.log(text),

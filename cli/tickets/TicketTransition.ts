@@ -6,6 +6,7 @@ import { ControlService }                        from '../../src/services/contro
 import { PRODUCT_NAMES }                         from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                   from '../CommandContext.ts';
 import { openTrackerForWritingThenReadNextLine } from '../OpenTrackerForWriting.ts';
+import { relayWhenUnderJob }                     from '../RelayUnderJob.ts';
 import type { ArgumentParser }                   from '../arguments/ArgumentParser.ts';
 import { NextLineUtil }                          from '../utils/NextLineUtil.ts';
 import { OptionValueUtil }                       from '../utils/OptionValueUtil.ts';
@@ -28,15 +29,16 @@ export async function transitionOneTicket(
   const commit = commandArguments.option('commit');
   const reason = commandArguments.option('reason');
   const tokens = OptionValueUtil.tokenCountFrom(commandArguments);
+  const moveDetails = {
+    ...(branch === undefined ? {} : { branch }),
+    ...(commit === undefined ? {} : { commit }),
+    ...(reason === undefined ? {} : { reason }),
+    ...(tokens === undefined ? {} : { tokens }),
+  };
+  if (targetStatus === 'abandoned' && checksLegality) await relayWhenUnderJob(context, { kind: 'ticket-abandon', ticketReference: reference, ...moveDetails });
 
   const { result: moved, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
     const { board }   = change;
-    const moveDetails = {
-      ...(branch === undefined ? {} : { branch }),
-      ...(commit === undefined ? {} : { commit }),
-      ...(reason === undefined ? {} : { reason }),
-      ...(tokens === undefined ? {} : { tokens }),
-    };
     // `ticket abandon` is a control command; `ticket status <id> abandoned` is the by-hand override that skips the legality matrix.
     const move = targetStatus === 'abandoned' && checksLegality
       ? ControlService.apply({ kind: 'ticket-abandon', ticketReference: reference, ...moveDetails }, change).result

@@ -313,6 +313,39 @@ describe('releasesGroup', () => {
   });
 });
 
+describe('filedByJob and findingRoute', () => {
+  const FINDING_TICKET = FULL_TICKET.replace('task: 17', 'filedByJob: "J12"\nfindingRoute: "orchestrator"\ntask: 17');
+
+  test('a finding a job filed reads both keys and writes back byte for byte', () => {
+    const { frontmatter, body, lineEnding } = parsedDocument(FINDING_TICKET);
+
+    expect(frontmatter.filedByJob).toBe('J12');
+    expect(frontmatter.findingRoute).toBe('orchestrator');
+    expect(TicketDocumentUtil.ticketDocumentTextOf(frontmatter, body, lineEnding)).toBe(FINDING_TICKET);
+  });
+
+  test('triaging the finding to User rewrites only its route line', () => {
+    const { frontmatter, body, lineEnding } = parsedDocument(FINDING_TICKET);
+    frontmatter.findingRoute = 'user';
+
+    expect(TicketDocumentUtil.ticketDocumentTextOf(frontmatter, body, lineEnding))
+      .toBe(FINDING_TICKET.replace('findingRoute: "orchestrator"', 'findingRoute: "user"'));
+  });
+
+  test('a ticket no job filed carries neither key and writes back without them', () => {
+    const { frontmatter, body, lineEnding } = parsedDocument(FULL_TICKET);
+
+    expect(frontmatter.filedByJob).toBeUndefined();
+    expect(frontmatter.findingRoute).toBeUndefined();
+    expect(TicketDocumentUtil.ticketDocumentTextOf(frontmatter, body, lineEnding)).toBe(FULL_TICKET);
+  });
+
+  test('a route outside orchestrator and user is malformed at its line', () => {
+    expect(TicketDocumentUtil.parsedTicketDocumentOf(FINDING_TICKET.replace('findingRoute: "orchestrator"', 'findingRoute: "runner"')))
+      .toEqual({ verdict: 'malformed', reason: '`findingRoute` is not a known finding route: runner', line: 15 });
+  });
+});
+
 describe('dependsOn', () => {
   // An agent editing a ticket by hand writes whatever looks natural; every spelling of the same ids has to read the same.
   test('reads ids written with commas or spaces, with or without a hash or padding, once each', () => {

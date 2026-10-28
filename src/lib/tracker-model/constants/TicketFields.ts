@@ -1,5 +1,5 @@
 /** The vocabularies of a ticket's own fields, the priority an absent key reads as, the lowest ticket number and the width a ticket id is padded to. */
-import type { TicketPriority } from '../@types/Ticket.ts';
+import type { FindingRoute, TicketPriority } from '../@types/Ticket.ts';
 
 export const TICKET_TYPES = ['ticket', 'bug', 'research'] as const;
 
@@ -9,6 +9,8 @@ export const RETIRED_TICKET_TYPES = ['change', 'feature'] as const;
 export const TICKET_PRIORITIES = ['low', 'normal', 'high'] as const;
 
 export const TICKET_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'] as const;
+
+export const FINDING_ROUTES = ['orchestrator', 'user'] as const satisfies readonly FindingRoute[];
 
 export const DEFAULT_TICKET_PRIORITY: TicketPriority = 'normal';
 

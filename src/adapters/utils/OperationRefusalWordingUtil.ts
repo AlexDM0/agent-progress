@@ -8,6 +8,7 @@ import type { BoardRefusalDetail }                           from '../../lib/tra
 import { LEGAL_SOURCE_STATES_FOR_JOB_MOVE }                  from '../../lib/tracker-model/constants/JobMoveLegality.ts';
 import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS }           from '../../lib/tracker-model/constants/TicketMoveLegality.ts';
 import { TicketMoveUtil }                                    from '../../lib/tracker-model/utils/TicketMoveUtil.ts';
+import type { RoleCommandRefusalReason }                     from '../../shared/@types/RoleCommandRefusalReason.ts';
 import { ROOT_OVERRIDE_VARIABLE }                            from '../../shared/Environment.ts';
 import type { OperationRefusal }                             from '../../shared/OperationRefusal.ts';
 import type { OperationRefusalDetail }                       from '../../shared/OperationRefusal.ts';
@@ -355,11 +356,42 @@ function messageOf(refusal: OperationRefusal): string {
         + 'Nothing was written; repair or delete it first.';
     case 'no-check-command-to-clear':
       return 'No check command is set, so there is none to clear.';
+    case 'role-command-refused':
+      return `The runner refused the relayed ${detail.commandKind}: ${ROLE_COMMAND_REFUSAL_TEXT[detail.reason]} (${detail.reason}). ${NOTHING_WAS_WRITTEN}`;
+    case 'verb-not-relayable':
+      return `\`${PRODUCT_NAMES.PROGRAM} ${detail.verb}\` cannot run under job ${detail.jobId}: it is neither read-only nor a command the runner `
+        + `applies through the relay. ${NOTHING_WAS_WRITTEN}`;
+    case 'malformed-relay-reply':
+      return `The runner's reply ${detail.replyFilePath} cannot be read, so whether the request was applied is unknown.`;
   }
+}
+
+const ROLE_COMMAND_REFUSAL_TEXT: Readonly<Record<RoleCommandRefusalReason, string>> = {
+  'relay-identity-mismatch':      'a request may not name a job, a role or an admission; the relay folder says who sent it',
+  'command-not-allowed-for-role': 'this job\'s role may not run it',
+  'worker-filing-flag':           'a worker files only a low finding, with --priority low and the flags a finding takes, and --needs-user only through its relay',
+  'worker-filing-limit':          'this job has already filed as many findings as one job may',
+  'not-own-draft':                'it changes only a draft ticket this job filed',
+  'incident-move-not-allowed':    'it is legal only as a move the named delivered incident allows',
+  'finding-not-listed':           'the named findings-delivered incident does not list that ticket',
+};
+
+/** What a relayed verb prints once the runner answered it, or once it gave up waiting; a refusal is worded by `messageOf`. */
+function relayAnsweredMessageOf(requestId: string, outcome: 'done' | 'nothing-to-do', ticketIds: readonly string[]): string {
+  const ticketsText = ticketIds.length === 0 ? '' : ` (${ticketIds.map((ticketId) => `#${ticketId}`).join(', ')})`;
+  return outcome === 'done'
+    ? `done ${requestId}${ticketsText}: the runner applied the request.`
+    : `nothing-to-do ${requestId}${ticketsText}: the runner found the change already made.`;
+}
+
+function relayQueuedMessageOf(requestId: string): string {
+  return `queued ${requestId}`;
 }
 
 export const OperationRefusalWordingUtil = {
   boardRefusalMessageOf,
   installVersionMismatchMessageOf,
   messageOf,
+  relayAnsweredMessageOf,
+  relayQueuedMessageOf,
 } as const;

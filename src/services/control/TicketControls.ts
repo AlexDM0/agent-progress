@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { TicketAcceptanceUtil }               from '../../adapters/tickets/utils/TicketAcceptanceUtil.ts';
 import type { ControlCommandOf as CommandOf } from '../../shared/@types/ControlCommand.ts';
 import { filledTemplateOf }                   from '../../shared/FilledTemplate.ts';
+import { OperationRefusal }                   from '../../shared/OperationRefusal.ts';
 import { resourceFilePathOf }                 from '../../shared/ResourceFilePath.ts';
 import { createTicket }                       from '../tracker/TicketStore.ts';
 import type { TrackerChange }                 from '../tracker/TrackerPipeline.ts';
@@ -17,6 +18,9 @@ function bodyForNewTicket(bodyText: string | null, ticketId: string, title: stri
 }
 
 function addTicket(command: CommandOf<'ticket-add'>, change: TrackerChange) {
+  if (command.needsUser === true && command.admission?.findingRoute !== 'user') {
+    throw new OperationRefusal('refused', { kind: 'role-command-refused', reason: 'worker-filing-flag', commandKind: command.kind });
+  }
   const ticket = createTicket(change.workspace, {
     title:   command.title,
     type:    command.type,
@@ -32,6 +36,8 @@ function addTicket(command: CommandOf<'ticket-add'>, change: TrackerChange) {
   if (command.size !== undefined) ticket.frontmatter.size = command.size;
   if (command.model !== undefined) ticket.frontmatter.model = command.model;
   if (command.effort !== undefined) ticket.frontmatter.effort = command.effort;
+  if (command.admission !== undefined) ticket.frontmatter.filedByJob = command.admission.filedByJob;
+  if (command.admission?.findingRoute !== undefined) ticket.frontmatter.findingRoute = command.admission.findingRoute;
   const filing = change.board.fileTicket(ticket, change.at);
   if (command.network.length === 0) return filing;
   const networkSet = change.board.setTicketNetwork(ticket.frontmatter.id, command.network, change.at);

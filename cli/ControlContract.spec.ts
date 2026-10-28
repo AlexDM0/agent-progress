@@ -5,37 +5,15 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { CONTROL_COMMAND_KINDS }   from '../src/services/control/ControlService.ts';
-import type { ControlCommandKind } from '../src/shared/@types/ControlCommand.ts';
-import { COMMAND_NAMES }           from './CommandTable.ts';
-import { DRAFT_SUBCOMMAND_NAMES }  from './drafts/DraftCommand.ts';
-import { EPIC_SUBCOMMAND_NAMES }   from './epics/EpicCommand.ts';
-import { TICKET_SUBCOMMAND_NAMES } from './tickets/TicketCommand.ts';
+import { CONTROL_COMMAND_KINDS }                                     from '../src/services/control/ControlService.ts';
+import type { ControlCommandKind }                                   from '../src/shared/@types/ControlCommand.ts';
+import { COMMAND_NAMES }                                             from './CommandTable.ts';
+import { READ_ONLY_VERBS_UNDER_A_JOB, RELAYED_VERB_OF_CONTROL_KIND } from './constants/JobVerbs.ts';
+import { DRAFT_SUBCOMMAND_NAMES }                                    from './drafts/DraftCommand.ts';
+import { EPIC_SUBCOMMAND_NAMES }                                     from './epics/EpicCommand.ts';
+import { TICKET_SUBCOMMAND_NAMES }                                   from './tickets/TicketCommand.ts';
 
-const VERB_OF_KIND: { readonly [Kind in ControlCommandKind]: string } = {
-  'ticket-add':      'ticket add',
-  'ticket-edit':     'ticket edit',
-  'ticket-depends':  'ticket depends',
-  'ticket-priority': 'ticket priority',
-  'ticket-epic':     'ticket epic',
-  'ticket-abandon':  'ticket abandon',
-  'ticket-ready':    'ticket ready',
-  'ticket-network':  'ticket network',
-  'ticket-hold':     'ticket hold',
-  'ticket-unhold':   'ticket unhold',
-  'epic-add':        'epic add',
-  'draft-open':      'draft open',
-  'draft-claim':     'draft claim',
-  'draft-release':   'draft release',
-  'draft-note':      'draft note',
-  'draft-ask':       'draft ask',
-  'draft-answer':    'draft answer',
-  'draft-drop':      'draft drop',
-  'draft-close':     'draft close',
-  'draft-abandon':   'draft abandon',
-  'concurrency-set': 'concurrency',
-  'checks-set':      'checks',
-};
+const VERB_OF_KIND: { readonly [Kind in ControlCommandKind]: string } = RELAYED_VERB_OF_CONTROL_KIND;
 
 /** Mutating verbs User runs by hand: never relayed, never offered in the UI (design section 9.1). */
 const NOT_RELAYABLE_MUTATING_VERBS = [
@@ -65,9 +43,8 @@ const NOT_RELAYABLE_MUTATING_VERBS = [
   'dispatcher',
 ];
 
-const READ_ONLY_VERBS = [
-  'status', 'usage', 'review-stats', 'open', 'help', 'ticket list', 'ticket show', 'epic list', 'epic show', 'draft list', 'draft show',
-];
+/** `open` writes no tracker file but launches a browser and registers the dashboard, so a session under a job may not run it. */
+const READ_ONLY_VERBS = [...READ_ONLY_VERBS_UNDER_A_JOB, 'open'];
 
 /** Verbs design section 9.2 retires, which no command replaces; they leave the table with T26. */
 const RETIRING_VERBS = ['hook', 'render', 'ticket claim'];

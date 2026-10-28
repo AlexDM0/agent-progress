@@ -48,6 +48,34 @@ export function agentProgressRootOverride(): string | undefined {
   return value;
 }
 
+export function jobIdVariableOf({ ENVIRONMENT_PREFIX }: Pick<ProductNames, 'ENVIRONMENT_PREFIX'>): string {
+  return `${ENVIRONMENT_PREFIX}JOB_ID`;
+}
+
+export function relayDirectoryVariableOf({ ENVIRONMENT_PREFIX }: Pick<ProductNames, 'ENVIRONMENT_PREFIX'>): string {
+  return `${ENVIRONMENT_PREFIX}RELAY_DIRECTORY`;
+}
+
+export const JOB_ID_VARIABLE = jobIdVariableOf(PRODUCT_NAMES);
+
+export const RELAY_DIRECTORY_VARIABLE = relayDirectoryVariableOf(PRODUCT_NAMES);
+
+/** The runner's job this process runs under, set on every session it launches; empty or whitespace-only reads as unset. */
+export function runnerJobId(): string | undefined {
+  return nonBlankValueOf(JOB_ID_VARIABLE);
+}
+
+/** The job's relay folder, the one place outside its working directory the session may write; empty or whitespace-only reads as unset. */
+export function relayDirectory(): string | undefined {
+  return nonBlankValueOf(RELAY_DIRECTORY_VARIABLE);
+}
+
+function nonBlankValueOf(variable: string): string | undefined {
+  const value = process.env[variable];
+  if (value === undefined || value.trim().length === 0) return undefined;
+  return value;
+}
+
 /** The user's shell, which runs the check command `release` runs; an empty or whitespace-only value reads as unset, and the caller picks a default. */
 export function userShell(): string | undefined {
   const value = process.env[USER_SHELL_VARIABLE];

@@ -86,7 +86,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   mismatch is its one detail). Every printed refusal is worded by the one refusal-wording util in `src/adapters/`,
   which no service imports.
 - Exit codes: 0 done or nothing to do; 1 an actionable refusal or unknown command; 2 `unrepaired` or any other
-  throw. An adapter maps them, `cli/Main.ts` applies the mapping, `agent-progress.ts` exits. Five deliberate exit-0
+  throw. An adapter maps them, `cli/Main.ts` applies the mapping, `agent-progress.ts` exits. Six deliberate exit-0
   failures are under Deviations.
 
 ### Runtime
@@ -187,6 +187,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 | One reference per fact. | `resources/templates/Reference.md`, installed as `.agent-progress/reference.md`, copies three `docs/cli.md` sections verbatim (ticket format, ticket moves, exit codes); a change to either changes both, held by `cli/ReferenceCopies.spec.ts`. | Agents elsewhere cannot read `docs/cli.md`. |
 | A failure exits non-zero. | Exit 0 for: `hook subagent-stop` after its arguments are read; a store write whose render failed (reported on stderr); `release` when git declined the worktree removal or `branch -d` after the merge (reported). | The agent finished; the store holds the change; the release happened. |
 | A failure exits non-zero. | `hook post-tool-use` exits 0 silently whatever goes wrong: no tracker, another install version, an unreadable store, a held lock. | It runs after every tool call, and a failing hook would reach the agent's call; `render` reports what is wrong. |
+| A failure exits non-zero. | A verb relayed under a job whose reply does not come within `RELAY_REPLY_TRIES` × `RELAY_REPLY_INTERVAL_MILLISECONDS` prints `queued <requestId>` and exits 0. | The request is written; the runner applies it later, and the id is what a filed finding cites. |
 | A failure exits non-zero. | A monitor registry (`~/.agent-progress-monitor/projects.json`) that cannot be read or written, a newer version or a malformed one is reported on stderr and the command keeps its exit code. | The command's own work is done; the registry is only a pointer for a monitor. |
 
 ## Local rules

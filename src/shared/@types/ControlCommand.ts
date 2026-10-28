@@ -7,12 +7,19 @@ import type { DraftNoteKind, DraftQuestionAsking } from '../../lib/tracker-model
 import type {
   AgentEffort,
   AgentModel,
+  FindingRoute,
   TicketPriority,
   TicketSize,
   TicketType
 } from '../../lib/tracker-model/@types/Ticket.ts';
 
 export type ListEdit = 'replace' | 'add' | 'remove';
+
+/** What the runner stamps on a ticket its relay filed: the filing job, from the relay folder's job record, and a worker finding's route. */
+export interface FilingAdmission {
+  filedByJob:    string;
+  findingRoute?: FindingRoute;
+}
 
 export type ControlCommand =
   | {
@@ -31,6 +38,10 @@ export type ControlCommand =
     foundInReview: string | null;
     /** Null files the ticket template's body. */
     bodyText:      string | null;
+    /** `--needs-user`, relay-only: a worker's finding only User can settle. Refused `worker-filing-flag` anywhere else. */
+    needsUser?:    true;
+    /** Set only by `RoleCommandPolicy`'s admission of a relayed filing, never by a request: a request carrying it is refused. */
+    admission?:    FilingAdmission;
   }
   | {
     kind:              'ticket-edit';
@@ -52,7 +63,12 @@ export type ControlCommand =
     commit?:         string;
     tokens?:         number;
   }
-  | { kind: 'ticket-ready'; ticketReferences: string[] }
+  | {
+    kind:             'ticket-ready';
+    ticketReferences: string[];
+    /** The `findings-delivered` incident an orchestrator readies a finding under; absent when User readies. */
+    incidentId?:      string;
+  }
   | { kind: 'ticket-network'; ticketReference: string; domains: string[] }
   | { kind: 'ticket-hold'; ticketReference: string; reason: string }
   | { kind: 'ticket-unhold'; ticketReference: string }

@@ -7,6 +7,7 @@ import { OperationRefusal }                      from '../../src/shared/Operatio
 import { PRODUCT_NAMES }                         from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                   from '../CommandContext.ts';
 import { openTrackerForWritingThenReadNextLine } from '../OpenTrackerForWriting.ts';
+import { relayWhenUnderJob }                     from '../RelayUnderJob.ts';
 import { suppliedMarkdownBodyOf }                from '../SuppliedMarkdownBody.ts';
 import type { ArgumentParser }                   from '../arguments/ArgumentParser.ts';
 import { NextLineUtil }                          from '../utils/NextLineUtil.ts';
@@ -16,7 +17,7 @@ import { TICKET_USAGE }                          from './constants/TicketUsage.t
 import { TicketArgumentUtil }                    from './utils/TicketArgumentUtil.ts';
 
 const ADD_OPTION_NAMES = [
-  'type', 'priority', 'size', 'model', 'effort', 'group', 'depends-on', 'epic', 'network', 'introduced-by', 'found-in-review', 'body', 'body-file', 'at', 'json',
+  'type', 'priority', 'size', 'model', 'effort', 'group', 'depends-on', 'epic', 'network', 'introduced-by', 'found-in-review', 'body', 'body-file', 'at', 'json', 'needs-user',
 ];
 
 function draftFilingNoteOf(ticketId: string): string {
@@ -68,7 +69,9 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
     introducedBy,
     foundInReview,
     bodyText: suppliedBody ?? null,
+    ...(commandArguments.flag('needs-user') ? { needsUser: true as const } : {}),
   };
+  await relayWhenUnderJob(context, command);
   const { result: filed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(
     commandArguments,
     context,

@@ -7,6 +7,7 @@ import { PRODUCT_NAMES }                         from '../../src/shared/constant
 import { DispatcherClaimNoteUtil }               from '../../src/shared/utils/DispatcherClaimNoteUtil.ts';
 import type { CommandContext }                   from '../CommandContext.ts';
 import { openTrackerForWritingThenReadNextLine } from '../OpenTrackerForWriting.ts';
+import { relayWhenUnderJob }                     from '../RelayUnderJob.ts';
 import type { ArgumentParser }                   from '../arguments/ArgumentParser.ts';
 import { NextLineUtil }                          from '../utils/NextLineUtil.ts';
 import { OutputUtil }                            from '../utils/OutputUtil.ts';
@@ -36,6 +37,7 @@ export async function holdOrUnholdTicket(holds: boolean, commandArguments: Argum
     throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} ticket ${verb} needs a ticket id.\n  Usage: ${TICKET_USAGE}`);
   }
   const reason = commandArguments.option('reason') ?? '';
+  await relayWhenUnderJob(context, holds ? { kind: 'ticket-hold', ticketReference: reference, reason } : { kind: 'ticket-unhold', ticketReference: reference });
 
   const { result: changed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
     const { board } = change;

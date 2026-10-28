@@ -5,11 +5,13 @@ import { BoardSettingsUtil }                           from '../../../src/lib/tr
 import { ControlService }                              from '../../../src/services/control/ControlService.ts';
 import { requireProgressFile, requireTracker }         from '../../../src/services/tracker/TrackerReader.ts';
 import { requireWorkspace }                            from '../../../src/services/tracker/Workspace.ts';
+import type { ControlCommandOf }                       from '../../../src/shared/@types/ControlCommand.ts';
 import { OperationRefusal, refusalIsOperationRefusal } from '../../../src/shared/OperationRefusal.ts';
 import { PRODUCT_NAMES }                               from '../../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                         from '../../CommandContext.ts';
 import type { CommandHandler }                         from '../../CommandHandler.ts';
 import { openTrackerForWriting }                       from '../../OpenTrackerForWriting.ts';
+import { relayWhenUnderJob }                           from '../../RelayUnderJob.ts';
 import type { ArgumentParser }                         from '../../arguments/ArgumentParser.ts';
 import { OutputUtil }                                  from '../../utils/OutputUtil.ts';
 import {
@@ -83,6 +85,9 @@ export const checksCommand: CommandHandler = async (commandArguments, context) =
   }
   const checkCommand = storedCommandFrom(commandArguments);
   const restamps     = commandArguments.flag('restamp');
+  const command: ControlCommandOf<'checks-set'> = { kind: 'checks-set', command: checkCommand, restamps };
+  // Relayed before the trial run: the runner, not a session's worktree, decides whether the line may be stored.
+  await relayWhenUnderJob(context, command);
   if (checkCommand !== null) {
     if (!restamps) refuseAChangeTheTicketsInFlightWouldBlock(checkCommand, context);
     await requireTheCommandPassesInTheMainCheckout(checkCommand, commandArguments, context);
@@ -91,7 +96,7 @@ export const checksCommand: CommandHandler = async (commandArguments, context) =
   const { logged, previousCheckCommand, restampedTicketIds } = await openTrackerForWriting(
     commandArguments,
     context,
-    (change) => ControlService.apply({ kind: 'checks-set', command: checkCommand, restamps }, change).result,
+    (change) => ControlService.apply(command, change).result,
   ).catch((error: unknown) => {
     if (refusalIsOperationRefusal(error) && error.detail?.kind === 'no-check-command-to-clear') {
       throw new OperationRefusal('refused', `${OperationRefusalWordingUtil.messageOf(error)}\n  Usage: ${USAGE}`);

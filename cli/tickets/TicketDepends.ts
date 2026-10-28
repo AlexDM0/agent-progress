@@ -8,6 +8,7 @@ import { OperationRefusal }                      from '../../src/shared/Operatio
 import { PRODUCT_NAMES }                         from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                   from '../CommandContext.ts';
 import { openTrackerForWritingThenReadNextLine } from '../OpenTrackerForWriting.ts';
+import { relayWhenUnderJob }                     from '../RelayUnderJob.ts';
 import type { ArgumentParser }                   from '../arguments/ArgumentParser.ts';
 import { NextLineUtil }                          from '../utils/NextLineUtil.ts';
 import { OutputUtil }                            from '../utils/OutputUtil.ts';
@@ -54,6 +55,7 @@ export async function setTicketDependencies(commandArguments: ArgumentParser, co
   const command: ControlCommandOf<'ticket-depends'> = {
     kind: 'ticket-depends', ticketReference: reference, edit: edit.kind, ticketIds: edit.ticketIds
   };
+  await relayWhenUnderJob(context, command);
   const { result: changed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(
     commandArguments,
     context,

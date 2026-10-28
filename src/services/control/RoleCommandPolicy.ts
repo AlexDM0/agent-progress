@@ -1,0 +1,118 @@
+/**
+ * Which relayed control commands each job role may run, as a pure table over the job record and the command (design section 4.4). The
+ * role and the job id come from the relay folder's job record, never from the request; an admitted filing comes back stamped with both.
+ */
+import type { Incident }                                 from '../../lib/tracker-model/@types/Incident.ts';
+import type { JobRole }                                  from '../../lib/tracker-model/@types/Job.ts';
+import type { TicketStatus }                             from '../../lib/tracker-model/@types/Ticket.ts';
+import { TicketIdUtil }                                  from '../../lib/tracker-model/utils/TicketIdUtil.ts';
+import type { ControlCommand, ControlCommandOf }         from '../../shared/@types/ControlCommand.ts';
+import type { RoleCommandRefusalReason }                 from '../../shared/@types/RoleCommandRefusalReason.ts';
+import { WORKER_FILINGS_PER_JOB }                        from '../../shared/constants/RunnerLimits.ts';
+import { ALLOWED_MOVES_BY_INCIDENT_KIND, FINDING_MOVES } from './constants/AllowedMovesByIncidentKind.ts';
+
+/** The job record as the policy reads it: its role, what it filed so far (by `filedByJob`) and, for an orchestrator, what it was delivered. */
+export interface RelayingJob {
+  id:                 string;
+  role:               JobRole | null;
+  filedTickets:       ReadonlyArray<{ id: string; status: TicketStatus }>;
+  deliveredIncidents: ReadonlyArray<Pick<Incident, 'id' | 'kind' | 'ticketIds'>>;
+}
+
+export type RoleCommandVerdict =
+  | { verdict: 'admitted'; command: ControlCommand }
+  | { verdict: 'refused'; reason: RoleCommandRefusalReason };
+
+const WORKER_ROLES: ReadonlySet<JobRole> = new Set(['builder', 'reviewer', 'merge-fix']);
+
+/** Kinds the product owner may run on any ticket; `intake-close` arrives with the intake commands. */
+const PRODUCT_OWNER_KINDS: ReadonlySet<string> = new Set([
+  'ticket-depends',
+  'epic-add',
+  'draft-open',
+  'draft-claim',
+  'draft-release',
+  'draft-note',
+  'draft-ask',
+  'draft-answer',
+  'draft-drop',
+  'draft-close',
+  'draft-abandon',
+  'intake-close',
+]);
+
+const PRODUCT_OWNER_OWN_DRAFT_KINDS: ReadonlySet<string> = new Set(['ticket-edit', 'ticket-priority', 'ticket-network', 'ticket-epic', 'ticket-abandon']);
+
+const FIELDS_ONLY_THE_RUNNER_DECIDES = ['jobId', 'role', 'admission'] as const;
+
+function refused(reason: RoleCommandRefusalReason): RoleCommandVerdict {
+  return { verdict: 'refused', reason };
+}
+
+function fieldOf(command: ControlCommand, field: string): unknown {
+  return Object.hasOwn(command, field) ? (command as unknown as Record<string, unknown>)[field] : undefined;
+}
+
+/** A worker's one filing is a low finding: only `--priority low`, `--needs-user`, `--type`, `--size`, the body and the two ticket links. */
+function workerFilingIsShaped(command: ControlCommandOf<'ticket-add'>): boolean {
+  return command.priority === 'low'
+    && command.model === undefined
+    && command.effort === undefined
+    && command.group === undefined
+    && command.dependsOn.length === 0
+    && command.epics.length === 0
+    && command.network.length === 0;
+}
+
+function workerVerdictOf(job: RelayingJob, command: ControlCommand): RoleCommandVerdict {
+  if (command.kind !== 'ticket-add') return refused('command-not-allowed-for-role');
+  if (!workerFilingIsShaped(command)) return refused('worker-filing-flag');
+  if (job.filedTickets.length >= WORKER_FILINGS_PER_JOB) return refused('worker-filing-limit');
+  const findingRoute = command.needsUser === true ? 'user' : 'orchestrator';
+  return { verdict: 'admitted', command: { ...command, admission: { filedByJob: job.id, findingRoute } } };
+}
+
+function productOwnerVerdictOf(job: RelayingJob, command: ControlCommand): RoleCommandVerdict {
+  if (command.kind === 'ticket-add') {
+    if (command.needsUser === true) return refused('worker-filing-flag');
+    return { verdict: 'admitted', command: { ...command, admission: { filedByJob: job.id } } };
+  }
+  if (PRODUCT_OWNER_KINDS.has(command.kind)) return { verdict: 'admitted', command };
+  if (!PRODUCT_OWNER_OWN_DRAFT_KINDS.has(command.kind)) return refused('command-not-allowed-for-role');
+  const ticketReference = fieldOf(command, 'ticketReference');
+  const ticketId        = typeof ticketReference === 'string' ? TicketIdUtil.parseTicketReference(ticketReference) : null;
+  const ownDraft        = job.filedTickets.some((filed) => filed.id === ticketId && filed.status === 'draft');
+  return ownDraft ? { verdict: 'admitted', command } : refused('not-own-draft');
+}
+
+function referencedTicketTextsOf(command: ControlCommand): unknown[] {
+  const references = fieldOf(command, 'ticketReferences');
+  if (Array.isArray(references)) return references;
+  return [fieldOf(command, 'ticketReference')];
+}
+
+function orchestratorVerdictOf(job: RelayingJob, command: ControlCommand): RoleCommandVerdict {
+  const incidentId = fieldOf(command, 'incidentId');
+  const incident   = job.deliveredIncidents.find((delivered) => delivered.id === incidentId);
+  if (incident === undefined) return refused('incident-move-not-allowed');
+  const move = ALLOWED_MOVES_BY_INCIDENT_KIND[incident.kind].find((allowed) => allowed === command.kind);
+  if (move === undefined) return refused('incident-move-not-allowed');
+  if (!FINDING_MOVES.includes(move)) return { verdict: 'admitted', command };
+  const everyTicketIsListed = referencedTicketTextsOf(command).every((reference) => {
+    const ticketId = typeof reference === 'string' ? TicketIdUtil.parseTicketReference(reference) : null;
+    return ticketId !== null && incident.ticketIds.includes(ticketId);
+  });
+  return everyTicketIsListed ? { verdict: 'admitted', command } : refused('finding-not-listed');
+}
+
+/** Resolver and resolution-review relay nothing; a job with no role runs no agent, so it relays nothing either. */
+function verdictOf(job: RelayingJob, command: ControlCommand): RoleCommandVerdict {
+  if (FIELDS_ONLY_THE_RUNNER_DECIDES.some((field) => Object.hasOwn(command, field))) return refused('relay-identity-mismatch');
+  if (job.role === null) return refused('command-not-allowed-for-role');
+  if (WORKER_ROLES.has(job.role)) return workerVerdictOf(job, command);
+  if (job.role === 'product-owner') return productOwnerVerdictOf(job, command);
+  if (job.role === 'orchestrator') return orchestratorVerdictOf(job, command);
+  return refused('command-not-allowed-for-role');
+}
+
+export const RoleCommandPolicy = Object.freeze({ verdictOf });

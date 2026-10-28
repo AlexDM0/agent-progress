@@ -334,11 +334,13 @@ output never carries either.
       [--body <markdown>]     below the frontmatter freely. --depends-on files it already waiting
       [--body-file <path|->]  on other tickets (\`3,4\`), as \`ticket depends\` does; --epic files it
       [--at <when>]           in existing epics (\`checkout-redesign,loyalty-programme\`, the first
-                              its primary one), as \`ticket epic\` does. --introduced-by names the
+      [--needs-user]          its primary one), as \`ticket epic\` does. --introduced-by names the
                               delivered ticket whose change introduced a bug, as
                               \`ticket introduced-by\` does; --found-in-review names the ticket
                               whose review found this one, a ticket that must exist. --network
-                              sets its network line, as \`ticket network\` does. --priority
+                              sets its network line, as \`ticket network\` does. --needs-user
+                              routes a worker's relayed low finding to User; it is refused
+                              anywhere but under a job. --priority
                               defaults to normal and only orders the ready tickets, low last.
                               --model (haiku, sonnet, opus, fable)
                               and --effort (low, medium, high, xhigh, max) name what the agents

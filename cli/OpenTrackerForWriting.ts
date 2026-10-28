@@ -2,6 +2,7 @@
 import type { DispatcherState }                                  from '../src/lib/tracker-model/@types/TrackerProgress.ts';
 import { writeTracker, type TrackerChange, type TrackerWritten } from '../src/services/tracker/TrackerPipeline.ts';
 import { requireWorkspace }                                      from '../src/services/tracker/Workspace.ts';
+import { OperationRefusal }                                      from '../src/shared/OperationRefusal.ts';
 import type { CommandContext }                                   from './CommandContext.ts';
 import { registerWrittenDashboard }                              from './RegisterWrittenDashboard.ts';
 import type { ArgumentParser }                                   from './arguments/ArgumentParser.ts';
@@ -14,6 +15,10 @@ async function writeTrackerForCommand<MutationResult>(
   context: CommandContext,
   mutate: (change: TrackerChange) => MutationResult | Promise<MutationResult>,
 ): Promise<TrackerWritten<MutationResult>> {
+  // A relayed verb ended at its relay; one reaching the tracker under a job wrote something no control command carries.
+  if (context.job !== undefined) {
+    throw new OperationRefusal('refused', { kind: 'verb-not-relayable', verb: context.commandVerb, jobId: context.job.jobId });
+  }
   const workspace = requireWorkspace(context.currentDirectory);
   const at        = OptionValueUtil.atStampFrom(commandArguments, context.now());
   const written   = await writeTracker({

@@ -4,6 +4,7 @@
  */
 import {
   existsSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   rmSync
@@ -21,14 +22,17 @@ import {
 }                                                         from 'bun:test';
 import { createInstallManifestWriter }                    from '../src/adapters/install/InstallManifestWriter.ts';
 import { OperationRefusalWordingUtil }                    from '../src/adapters/utils/OperationRefusalWordingUtil.ts';
+import { JOB_ID_VARIABLE, RELAY_DIRECTORY_VARIABLE }      from '../src/shared/Environment.ts';
 import { OperationRefusal }                               from '../src/shared/OperationRefusal.ts';
 import { PRODUCT_NAMES }                                  from '../src/shared/constants/ProductNames.ts';
+import { CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS }        from '../src/testing/ChildProcessCaseTimeout.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
 import { COMMAND_NAMES }                                  from './CommandTable.ts';
 import { installedFilePathsIn }                           from './InstalledFiles.ts';
 import { runCommandLine }                                 from './Main.ts';
 import { INSTALL_VERSION }                                from './constants/InstallVersion.ts';
 import { createCapturedCommandContext }                   from './testing/CapturedCommandContext.ts';
+import { runAgentProgress }                               from './testing/CliProcess.ts';
 import * as realRenderCommandModule                       from './tracking/render/RenderCommand.ts';
 
 let errorThrownByTheStubbedCommand: unknown = null;
@@ -210,6 +214,26 @@ describe('a tracker whose installed files are of another install version', () =>
     expect(await runCommandLine(['status', '--json', '--full'], statusWithTheManifest)).toBe(0);
     expect(statusWithoutTheManifest.outputText()).toBe(statusWithTheManifest.outputText());
   });
+
+  test('under a job a mutating verb relays before the install check, writing a versioned request, and prints queued at exit 0', async () => {
+    const relayFolder = createScratchDirectory('main-relay');
+    try {
+      const result = await runAgentProgress(['ticket', 'add', 'Found beside the work', '--type', 'bug', '--priority', 'low'], {
+        currentDirectory: trackedDirectory,
+        environment:      { [JOB_ID_VARIABLE]: 'J7', [RELAY_DIRECTORY_VARIABLE]: relayFolder },
+      });
+      const [requestFileName, ...otherFileNames] = readdirSync(join(relayFolder, 'requests'));
+      const request = JSON.parse(readFileSync(join(relayFolder, 'requests', requestFileName ?? ''), 'utf8')) as { relayFormatVersion: number; requestId: string };
+
+      expect(result.exitCode, result.standardError).toBe(0);
+      expect(otherFileNames).toEqual([]);
+      expect(request.relayFormatVersion).toBe(1);
+      expect(result.standardOutput.trim()).toBe(`queued ${request.requestId}`);
+      expect(existsSync(installedFilePathsIn(trackedDirectory).installManifest)).toBe(false);
+    } finally {
+      removeScratchDirectory(relayFolder);
+    }
+  }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
   test('init runs and records the install version, after which a refused command runs', async () => {
     expect(await runCommandLine(['init', '--no-claude-md', '--no-hooks'], trackedContext())).toBe(0);

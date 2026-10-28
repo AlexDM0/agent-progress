@@ -2,13 +2,15 @@
  * The dispatch, and the only place an exit code is decided: 0 done or nothing to do, 1 a refusal the
  * caller can act on, 2 a state the tool will not repair. It returns the number rather than exiting.
  */
-import { OperationRefusalWordingUtil } from '../src/adapters/utils/OperationRefusalWordingUtil.ts';
-import { refusalIsOperationRefusal }   from '../src/shared/OperationRefusal.ts';
-import type { CommandContext }         from './CommandContext.ts';
-import { commandLoaderFor }            from './CommandTable.ts';
-import { helpText }                    from './HelpText.ts';
-import { requireCurrentInstall }       from './InstallVersionCheck.ts';
-import { createArgumentParser }        from './arguments/ArgumentParser.ts';
+import { OperationRefusalWordingUtil }                               from '../src/adapters/utils/OperationRefusalWordingUtil.ts';
+import { OperationRefusal, refusalIsOperationRefusal }               from '../src/shared/OperationRefusal.ts';
+import type { CommandContext }                                       from './CommandContext.ts';
+import { commandLoaderFor }                                          from './CommandTable.ts';
+import { helpText }                                                  from './HelpText.ts';
+import { requireCurrentInstall }                                     from './InstallVersionCheck.ts';
+import { refusalIsRelayConcluded }                                   from './RelayUnderJob.ts';
+import { createArgumentParser }                                      from './arguments/ArgumentParser.ts';
+import { READ_ONLY_VERBS_UNDER_A_JOB, RELAYED_VERB_OF_CONTROL_KIND } from './constants/JobVerbs.ts';
 
 const HELP_OPTION_NAME = 'help';
 const HELP_SHORT_ALIAS = '-h';
@@ -23,6 +25,16 @@ const COMMANDS_THAT_CHECK_THEIR_OWN_INSTALL = new Set(['hook', 'release']);
 const COMMANDS_WITH_A_SUBCOMMAND = new Set(['task', 'ticket', 'epic', 'draft', 'hook']);
 
 type HelpRequest = 'reference' | 'ambiguous' | 'none';
+
+/** How a verb runs: `direct` outside a job or when read-only, `relayed` when it builds a control command, `refused` otherwise. */
+type JobRoute = 'direct' | 'relayed' | 'refused';
+
+const RELAYED_VERBS_UNDER_A_JOB = new Set(Object.values(RELAYED_VERB_OF_CONTROL_KIND));
+
+function jobRouteOf(context: CommandContext, commandVerb: string): JobRoute {
+  if (context.job === undefined || READ_ONLY_VERBS_UNDER_A_JOB.includes(commandVerb)) return 'direct';
+  return RELAYED_VERBS_UNDER_A_JOB.has(commandVerb) ? 'relayed' : 'refused';
+}
 
 function commandVerbOf(command: string, remainingArguments: readonly string[]): string {
   const subcommand = remainingArguments[0];
@@ -62,14 +74,21 @@ export async function runCommandLine(commandLineArguments: readonly string[], co
     return 1;
   }
 
+  const commandVerb = commandVerbOf(command, remainingArguments);
+  const jobRoute    = jobRouteOf(context, printsTheHelp ? 'help' : commandVerb);
   try {
+    if (jobRoute === 'refused' && context.job !== undefined) {
+      throw new OperationRefusal('refused', { kind: 'verb-not-relayable', verb: commandVerb, jobId: context.job.jobId });
+    }
     const runCommand = await loadCommand();
-    if (!COMMANDS_THE_INSTALL_CHECK_SPARES.has(command) && !COMMANDS_THAT_CHECK_THEIR_OWN_INSTALL.has(command)) {
+    // A relayed verb writes nothing of this install's: the runner applies it, so it relays before any install check.
+    if (jobRoute !== 'relayed' && !COMMANDS_THE_INSTALL_CHECK_SPARES.has(command) && !COMMANDS_THAT_CHECK_THEIR_OWN_INSTALL.has(command)) {
       requireCurrentInstall(context.currentDirectory);
     }
-    await runCommand(createArgumentParser(printsTheHelp ? [] : remainingArguments), { ...context, commandVerb: commandVerbOf(command, remainingArguments) });
+    await runCommand(createArgumentParser(printsTheHelp ? [] : remainingArguments), { ...context, commandVerb });
     return 0;
   } catch (error) {
+    if (refusalIsRelayConcluded(error)) return error.exitCode;
     if (refusalIsOperationRefusal(error)) {
       context.standardError(OperationRefusalWordingUtil.messageOf(error));
       return error.status === 'refused' ? 1 : 2;

@@ -11,6 +11,7 @@ import { OperationRefusal }                                                   fr
 import { PRODUCT_NAMES }                                                      from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                                                from '../CommandContext.ts';
 import { openTrackerForWritingThenReadNextLine }                              from '../OpenTrackerForWriting.ts';
+import { relayWhenUnderJob }                                                  from '../RelayUnderJob.ts';
 import type { ArgumentParser }                                                from '../arguments/ArgumentParser.ts';
 import { SUBCOMMAND_WITH_TWO_ARGUMENTS_POSITIONAL_COUNT }                     from '../arguments/constants/SubcommandPositionalCounts.ts';
 import { OutputUtil }                                                         from '../utils/OutputUtil.ts';
@@ -90,6 +91,7 @@ async function readyTheNamedTickets(commandArguments: ArgumentParser, context: C
   if (references.length === 0) throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} ticket ready needs a ticket id.\n  Usage: ${TICKET_USAGE}`);
 
   const command: ControlCommandOf<'ticket-ready'> = { kind: 'ticket-ready', ticketReferences: references };
+  await relayWhenUnderJob(context, command);
   const { result: readied, nextLine } = await openTrackerForWritingThenReadNextLine(
     commandArguments,
     context,

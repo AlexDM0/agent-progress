@@ -6,6 +6,7 @@ import { OperationRefusal }                               from '../../src/shared
 import { PRODUCT_NAMES }                                  from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                            from '../CommandContext.ts';
 import { openTrackerForWriting }                          from '../OpenTrackerForWriting.ts';
+import { relayWhenUnderJob }                              from '../RelayUnderJob.ts';
 import { suppliedMarkdownBodyOf }                         from '../SuppliedMarkdownBody.ts';
 import type { ArgumentParser }                            from '../arguments/ArgumentParser.ts';
 import { SUBCOMMAND_WITH_TWO_ARGUMENTS_POSITIONAL_COUNT } from '../arguments/constants/SubcommandPositionalCounts.ts';
@@ -39,6 +40,7 @@ async function addEpic(commandArguments: ArgumentParser, context: CommandContext
   const command: ControlCommandOf<'epic-add'> = {
     kind: 'epic-add', key, title, bodyText: body
   };
+  await relayWhenUnderJob(context, command);
   const added = await openTrackerForWriting(commandArguments, context, (change) => ControlService.apply(command, change).result);
   const { frontmatter } = added.epic;
   OutputUtil.printEntity(
