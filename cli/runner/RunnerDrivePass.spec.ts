@@ -28,7 +28,7 @@ import { UsageMarkerFile }                                                 from 
 import { hostFilesOf }                                                     from '../../src/lib/agent-host/HostFiles.ts';
 import type { HostRecord }                                                 from '../../src/lib/agent-host/HostRecord.ts';
 import type { AgentAdapter }                                               from '../../src/lib/agent-launch/AgentAdapter.ts';
-import { identityOf }                                                      from '../../src/lib/process-identity/ProcessIdentity.ts';
+import { identityOf, sameProcess }                                         from '../../src/lib/process-identity/ProcessIdentity.ts';
 import type { Board }                                                      from '../../src/lib/tracker-model/Board.ts';
 import { createRenderState }                                               from '../../src/services/render/RenderState.ts';
 import { createDrivePass, type DrivePass }                                 from '../../src/services/runner/DrivePass.ts';
@@ -51,10 +51,16 @@ const SPEC_CLOCK = (): Date => new Date('2026-09-18T20:11:03Z');
 const HOST_WAIT_TRIES = 200;
 const HOST_WAIT_MILLISECONDS = 50;
 const PASS_TEST_TIMEOUT_MILLISECONDS = 30_000;
+/** Room for a running pass to finish and every Watcher's claim to be waited for. */
+const TEARDOWN_TIMEOUT_MILLISECONDS = 30_000;
 
 let repositoryDirectory = '';
 let monitorFolder = '';
 let runnerLog: string[] = [];
+const drivePassesOfThisTest: DrivePass[] = [];
+let currentTeardown = { started: false };
+let wakesInProgress = 0;
+const LAUNCH_FILE_PATTERN = /^launch-(\d+)\.json$/;
 
 async function run(commandLineArguments: readonly string[]) {
   const context  = createCapturedCommandContext({ currentDirectory: repositoryDirectory, now: SPEC_CLOCK });
@@ -70,6 +76,7 @@ async function drivePassWith(
   afterHoldPhase?: (phase: string, board: Board) => void,
   clock: { stamp: string } = { stamp: SPEC_STAMP },
 ): Promise<DrivePass> {
+  const teardownOfThisTest = currentTeardown;
   const workspace = requireWorkspace(repositoryDirectory);
   const { runnerDirectory } = runnerFilesIn(workspace.trackerDirectory);
   mkdirSync(runnerDirectory, { recursive: true });
@@ -86,7 +93,7 @@ async function drivePassWith(
   });
   if (acquisition.verdict !== 'acquired') throw new Error('the scratch lease was not acquired');
   const hostBundlePath = await HostBundle.pinHostBundle({ runnerDirectory, codeVersion: 'code-example', entryPath: HOST_ENTRY_PATH });
-  return createDrivePass({
+  const drivePass = createDrivePass({
     workspace,
     renderState:           createRenderState(),
     now:                   () => new Date(Date.parse(clock.stamp)),
@@ -111,6 +118,20 @@ async function drivePassWith(
     onLeaseTakenOver:      () => runnerLog.push('taken over'),
     ...(afterHoldPhase === undefined ? {} : { afterHoldPhase }),
   });
+  // A test that timed out while the bundle was pinned arrives here after its teardown, so its pass never runs.
+  if (teardownOfThisTest.started) await drivePass.stop();
+  else drivePassesOfThisTest.push(drivePass);
+  return {
+    ...drivePass,
+    wake: (forced) => {
+      wakesInProgress += 1;
+      try {
+        drivePass.wake(forced);
+      } finally {
+        wakesInProgress -= 1;
+      }
+    },
+  };
 }
 
 async function passOnce(drivePass: DrivePass, forced = true): Promise<void> {
@@ -140,20 +161,48 @@ function buildJobId(): string {
 /** A session that starts and then waits on its stdin, so its host stays live until the spec ends it. */
 const WAITING_SESSION = fakeAgentAdapter([{ kind: 'print', line: fakeStartedLine('fake-session') }, { kind: 'await-line' }]);
 
-/** Every host a spec spawned, and its child's process group, is ended, so no fake session outlives the spec. */
-function endEveryHost(): void {
-  const jobsFolder = join(requireWorkspace(repositoryDirectory).trackerDirectory, 'jobs');
+/** Every folder under `folder` holding a launch file: a job's agent hosts and, nested in it, its process hosts. */
+function hostFoldersUnder(folder: string): string[] {
+  const entries = readdirSync(folder, { withFileTypes: true });
+  const holdsALaunch = entries.some((entry) => entry.isFile() && LAUNCH_FILE_PATTERN.test(entry.name));
+  const nested = entries.filter((entry) => entry.isDirectory()).flatMap((entry) => hostFoldersUnder(join(folder, entry.name)));
+  return holdsALaunch ? [folder, ...nested] : nested;
+}
+
+/** A Watcher spawned in the last pass may not have claimed its instance yet, so its record is waited for rather than read once. */
+async function claimedRecordOf(hostFolder: string, instance: number): Promise<HostRecord | null> {
+  for (let attempt = 0; attempt < HOST_WAIT_TRIES; attempt += 1) {
+    const record = HostFleet.hostRecordOf(hostFolder, instance);
+    if (record !== null) return record;
+    await Bun.sleep(HOST_WAIT_MILLISECONDS);
+  }
+  return null;
+}
+
+function killQuietly(target: number): void {
+  try {
+    process.kill(target, 'SIGKILL');
+  } catch {
+    // Already gone.
+  }
+}
+
+/**
+ * Every Watcher a launch file was written for is ended, then its child's process group, so no fake session outlives the spec. The Watcher
+ * goes first, so it cannot spawn a child after its record was read; a process id that now names another process is left alone.
+ */
+async function endEveryHost(repositoryOfThisTest: string): Promise<void> {
+  const jobsFolder = join(requireWorkspace(repositoryOfThisTest).trackerDirectory, 'jobs');
   if (!existsSync(jobsFolder)) return;
-  for (const jobId of readdirSync(jobsFolder)) {
-    for (const fileName of readdirSync(join(jobsFolder, jobId)).filter((name) => /^host-\d+\.json$/.test(name))) {
-      const record = JSON.parse(readFileSync(join(jobsFolder, jobId, fileName), 'utf8')) as HostRecord;
-      for (const target of [record.childProcessGroupId === undefined ? null : -record.childProcessGroupId, record.host?.processId ?? null]) {
-        try {
-          if (target !== null) process.kill(target, 'SIGKILL');
-        } catch {
-          // Already gone.
-        }
-      }
+  for (const hostFolder of hostFoldersUnder(jobsFolder)) {
+    const instances = readdirSync(hostFolder).flatMap((name) => LAUNCH_FILE_PATTERN.exec(name)?.slice(1).map(Number) ?? []);
+    for (const instance of instances) {
+      const claimed = await claimedRecordOf(hostFolder, instance);
+      const watcher = claimed?.host ?? null;
+      const current = watcher === null ? null : identityOf(watcher.processId);
+      if (watcher !== null && current !== null && sameProcess(current, watcher)) killQuietly(watcher.processId);
+      const childProcessGroupId = HostFleet.hostRecordOf(hostFolder, instance)?.childProcessGroupId;
+      if (childProcessGroupId !== undefined) killQuietly(-childProcessGroupId);
     }
   }
 }
@@ -182,6 +231,7 @@ function lowFinding(requestId: string, title: string): Parameters<typeof writeRe
 }
 
 beforeEach(async () => {
+  currentTeardown = { started: false };
   repositoryDirectory = await createInitializedScratchRepository('drive-pass', ['--project', 'Example Agency'], SPEC_CLOCK);
   monitorFolder = createScratchDirectory('h');
   runnerLog = [];
@@ -190,11 +240,20 @@ beforeEach(async () => {
   await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Export the example roles']);
 });
 
-afterEach(() => {
-  endEveryHost();
-  removeScratchDirectory(monitorFolder);
-  removeScratchDirectory(repositoryDirectory);
-});
+// A timed-out test's passes are stopped, and a wake the teardown interrupted (Bun ticks inside a sync spawn) waited out, before removal;
+// the folders are taken before the first await, so a late teardown never ends the next test's hosts or folders.
+afterEach(async () => {
+  currentTeardown.started = true;
+  const repositoryOfThisTest = repositoryDirectory;
+  const monitorFolderOfThisTest = monitorFolder;
+  const drivePasses = drivePassesOfThisTest.splice(0);
+  await Promise.all(drivePasses.map(async (drivePass) => await drivePass.stop()));
+  while (wakesInProgress > 0) await Bun.sleep(HOST_WAIT_MILLISECONDS);
+  await Promise.all(drivePasses.map(async (drivePass) => await drivePass.idle()));
+  await endEveryHost(repositoryOfThisTest);
+  removeScratchDirectory(monitorFolderOfThisTest);
+  removeScratchDirectory(repositoryOfThisTest);
+}, TEARDOWN_TIMEOUT_MILLISECONDS);
 
 /** A build job launches, prepares its worktree, then runs: forced passes until its session's host is spawned. */
 async function passUntilBuildSessionSpawned(drivePass: DrivePass): Promise<void> {
