@@ -28,6 +28,7 @@ import {
   expect,
   test,
 } from 'bun:test';
+import type { EventLogEntry }                            from '../../lib/agent-host/EventLog.ts';
 import { hostFilesOf }                                   from '../../lib/agent-host/HostFiles.ts';
 import type { HostRecord }                               from '../../lib/agent-host/HostRecord.ts';
 import { HOST_PROTOCOL_OLDEST_SUPPORTED }                from '../../lib/agent-host/constants/HostProtocol.ts';
@@ -222,6 +223,7 @@ interface SessionScenario {
 
 const SESSION_STAMP          = '2026-09-18T22:11:03+02:00';
 const RESUME_MESSAGE         = 'Example resume message';
+const EARLIER_SESSION_NOTE   = 'Example earlier-session note.';
 const ANSWER_MESSAGE_PREFIX  = 'Example answers';
 const FOREIGN_BOOT           = 'example-foreign-boot';
 const WAIT_TRIES             = 300;
@@ -325,7 +327,7 @@ async function startedRunner(
     }),
     launchTextOf: (job, facts) => {
       launchFacts.push({ jobId: job.id, facts });
-      return { firstMessage: `Example first message of ${job.id}`, roleBrief: 'Example role' };
+      return { firstMessage: `${facts.earlierSessionReplaced ? `${EARLIER_SESSION_NOTE} ` : ''}Example first message of ${job.id}`, roleBrief: 'Example role' };
     },
     windDownMessage:  'Example wind-down message',
     resumeMessage:    RESUME_MESSAGE,
@@ -533,6 +535,36 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
     expect(requireBuildJob()).toMatchObject({ id: job.id, state: 'running', hostInstance: 1 });
     expect(requireBuildJob().eventCursor.sequence).toBeGreaterThan(storedCursor.sequence);
     expect(storedRecords().filter((record) => record.kind === 'job-interrupted')).toEqual([]);
+  }, ROW_TIMEOUT_MILLISECONDS);
+
+  test('a fresh session takes its first message as its first input, once, and a later pass sends it no second time', async () => {
+    const drivePass = await startedRunner(recordingAdapter({ fresh: LINE_THEN_WAITING_STEPS, resumed: WAITING_STEPS }));
+    const job       = await runningBuildSession(drivePass);
+    const firstLine = recordingAdapter({ fresh: [], resumed: [] }).chatLineOf(`Example first message of ${job.id}`);
+    await passUntil(drivePass, () => eventLogTextOf(job.id, 1).includes('after-the-line'), 'the fresh session never took its first message');
+    await passOnce(drivePass);
+
+    const clientLines = (HostFleet.eventsAfter(sessionJobFolder(job.id), 1, 0) as readonly EventLogEntry[]).filter((entry) => entry.origin === 'client');
+    expect(clientLines.map((entry) => entry.line)).toEqual([JSON.stringify({ kind: 'write', line: firstLine })]);
+    expect(existsSync(join(sessionJobFolder(job.id), 'first-message-1.sent'))).toBe(true);
+  }, ROW_TIMEOUT_MILLISECONDS);
+
+  test('a replaced job\'s fresh session takes the earlier-session note in its first message', async () => {
+    const drivePass = await startedRunner(recordingAdapter({ fresh: [STARTED, { kind: 'await-line' }, { kind: 'crash' }], resumed: [{ kind: 'exit', code: 1 }] }));
+    const resumeFailed = (): Readonly<{ id: string; jobId: string | null }> | undefined => (
+      (requireProgressFile(sessionWorkspace).incidents ?? []).find((incident) => incident.kind === 'resume-failed')
+    );
+    await passUntil(drivePass, () => resumeFailed() !== undefined, 'resume-failed never opened');
+    const firstJobId = resumeFailed()?.jobId ?? '';
+    expect(eventLogTextOf(firstJobId, 1)).toContain(`Example first message of ${firstJobId}`);
+    expect(eventLogTextOf(firstJobId, 1)).not.toContain(EARLIER_SESSION_NOTE);
+
+    await writeTracker({
+      workspace: sessionWorkspace, at: CHANGED_AT, now, renderState, mutate: (change) => { change.board.defaultIncident(resumeFailed()?.id ?? '', 'turn-closed', change.at); },
+    });
+    await passUntil(drivePass, () => launches.some((launch) => launch.jobId !== firstJobId), 'no fresh job was launched');
+    const freshJobId = launches.find((launch) => launch.jobId !== firstJobId)?.jobId ?? '';
+    await passUntil(drivePass, () => eventLogTextOf(freshJobId, 1).includes(EARLIER_SESSION_NOTE), 'the fresh session never took the earlier-session note');
   }, ROW_TIMEOUT_MILLISECONDS);
 
   test('host dies with its agent alive: the agent group is killed first, the job is interrupted host-lost and resumed by id in place, told so', async () => {

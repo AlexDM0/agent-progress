@@ -397,6 +397,7 @@ function launchHost(request: DrivePassRequest, jobLaunchContext: JobLaunchContex
   const text             = request.launchTextOf(job, launchFactsOf(board, job));
   const launchParts      = JobResumption.launchPartsOf(job, text.firstMessage, request.resumeMessage);
   if (JobLaunch.isWorktreeJob(job)) JobLaunch.recordJobStart(jobLaunchContext, board, job);
+  if (!launchParts.resume) JobResumption.storeFirstMessage(jobFolder, job.hostInstance, launchParts.firstMessage);
   const launchRequest: AgentLaunchRequest = {
     sessionId:         agentAdapter.sessionIdOf(trackerId, job.id),
     resume:            launchParts.resume,
@@ -613,6 +614,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     await stopLimitedJobs(written.board, observation.trackerId, written.result.usageLimitHits);
     scheduleThePassAtTheReset(written.result.usageResetsAt);
     await JobLaunch.runBuildJobEffects(jobLaunchContext, written.board, observation.trackerId, observation.buildJobs);
+    await JobResumption.deliverFirstMessages(request.workspace.trackerDirectory, written.board, request.agentAdapter);
     await JobControlDelivery.deliverJobControls({
       trackerDirectory: request.workspace.trackerDirectory, board: written.board, adapter: request.agentAdapter, windDownMessage: request.windDownMessage,
     });

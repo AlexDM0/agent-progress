@@ -1,13 +1,30 @@
 /**
  * The resume rules as pure verdicts. What matters: only an instance past the first is a resume, and it is told it was interrupted rather
  * than handed its task again; a resume fails only when the session exited by itself before it ever started; and only the newest earlier job
- * of the same work decides whether a fresh job inherits a replaced session's worktree.
+ * of the same work decides whether a fresh job inherits a replaced session's worktree. A fresh instance's first message survives a Watcher
+ * not yet listening and is sent once, its marker following the accepted frame.
  */
-import { describe, expect, test } from 'bun:test';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { createServer }                         from 'node:net';
+import { dirname, join }                        from 'node:path';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  test
+} from 'bun:test';
 
-import type { Job }       from '../../lib/tracker-model/@types/Job.ts';
-import type { LogRecord } from '../../lib/tracker-model/@types/LogRecord.ts';
-import { JobResumption }  from './JobResumption.ts';
+import { hostFilesOf }                                     from '../../lib/agent-host/HostFiles.ts';
+import { readHostLaunch }                                  from '../../lib/agent-host/HostLaunch.ts';
+import { type HostRecord, hostRecordTextOf }               from '../../lib/agent-host/HostRecord.ts';
+import { EVENT_LOG_FORMAT_VERSION, HOST_PROTOCOL_VERSION } from '../../lib/agent-host/constants/HostProtocol.ts';
+import { identityOf }                                      from '../../lib/process-identity/ProcessIdentity.ts';
+import type { Job }                                        from '../../lib/tracker-model/@types/Job.ts';
+import type { LogRecord }                                  from '../../lib/tracker-model/@types/LogRecord.ts';
+import { createScratchDirectory, removeScratchDirectory }  from '../../testing/ScratchWorkspace.ts';
+import { HostFleet }                                       from './HostFleet.ts';
+import { JobResumption }                                   from './JobResumption.ts';
 
 const AT = '2026-09-18T22:11:03+02:00';
 
@@ -50,6 +67,80 @@ describe('the launch of a job\'s current instance', () => {
   test('the first instance gets its task; a later one resumes and is told it was interrupted', () => {
     expect(JobResumption.launchPartsOf(buildJob(), 'Example task', 'Example resume')).toEqual({ resume: false, firstMessage: 'Example task' });
     expect(JobResumption.launchPartsOf(buildJob({ hostInstance: 2 }), 'Example task', 'Example resume')).toEqual({ resume: true, firstMessage: 'Example resume' });
+  });
+});
+
+describe('the first message of a fresh instance', () => {
+  let trackerDirectory = '';
+  let monitorFolder    = '';
+
+  beforeEach(() => {
+    trackerDirectory = createScratchDirectory('first-message');
+    monitorFolder    = createScratchDirectory('h');
+  });
+
+  afterEach(() => {
+    removeScratchDirectory(trackerDirectory);
+    removeScratchDirectory(monitorFolder);
+  });
+
+  /** A job folder whose instance-1 Watcher reads as live, this process standing in for it; answers the socket its launch file names. */
+  function plantedLiveWatcher(job: Job): string {
+    const jobFolder = HostFleet.jobFolderOf(trackerDirectory, job.id);
+    HostFleet.writeLaunchFiles({
+      jobFolder,
+      instance:         1,
+      jobId:            job.id,
+      trackerId:        'example-tracker',
+      monitorFolder,
+      hostCodeVersion:  'code-example',
+      workingDirectory: trackerDirectory,
+      plan:             {
+        argv: ['true'], environment: {}, files: [], standingReplies: []
+      },
+    });
+    const record: HostRecord = {
+      protocolVersion: HOST_PROTOCOL_VERSION, eventLogFormatVersion: EVENT_LOG_FORMAT_VERSION, hostInstance: 1, state: 'running', host: identityOf(process.pid),
+    };
+    writeFileSync(hostFilesOf(jobFolder, 1).hostRecordPath, hostRecordTextOf(record));
+    const reading = readHostLaunch(hostFilesOf(jobFolder, 1).launchPath);
+    if (reading.verdict !== 'read') throw new Error('the planted launch file is unreadable');
+    return reading.launch.socketPath;
+  }
+
+  test('a Watcher refusing the first connection is sent the line on the next pass, and never again once it took it', async () => {
+    const job        = buildJob();
+    const jobs       = { jobs: (): readonly Readonly<Job>[] => [job] };
+    const adapter    = { chatLineOf: (message: string): string => `chat:${message}` };
+    const socketPath = plantedLiveWatcher(job);
+    const jobFolder  = HostFleet.jobFolderOf(trackerDirectory, job.id);
+    JobResumption.storeFirstMessage(jobFolder, 1, 'Example task');
+
+    await JobResumption.deliverFirstMessages(trackerDirectory, jobs, adapter);
+    expect(existsSync(join(jobFolder, 'first-message-1.sent'))).toBe(false);
+
+    const received: string[] = [];
+    const watcher = createServer((socket) => socket.on('data', (chunk) => received.push(chunk.toString())));
+    mkdirSync(dirname(socketPath), { recursive: true });
+    await new Promise<void>((resolve) => watcher.listen(socketPath, resolve));
+    try {
+      await JobResumption.deliverFirstMessages(trackerDirectory, jobs, adapter);
+      await JobResumption.deliverFirstMessages(trackerDirectory, jobs, adapter);
+    } finally {
+      await new Promise<void>((resolve) => watcher.close(() => resolve()));
+    }
+    const writes = received.join('').split('\n').filter((line) => line.includes('"write"'));
+    expect(writes).toEqual([JSON.stringify({ kind: 'write', line: 'chat:Example task' })]);
+    expect(existsSync(join(jobFolder, 'first-message-1.sent'))).toBe(true);
+  });
+
+  test('a resumed instance is never sent a stored first message', async () => {
+    const job = buildJob({ hostInstance: 2 });
+    plantedLiveWatcher(job);
+    const jobFolder = HostFleet.jobFolderOf(trackerDirectory, job.id);
+    JobResumption.storeFirstMessage(jobFolder, 2, 'Example task');
+    await JobResumption.deliverFirstMessages(trackerDirectory, { jobs: () => [job] }, { chatLineOf: (message) => message });
+    expect(existsSync(join(jobFolder, 'first-message-2.sent'))).toBe(false);
   });
 });
 

@@ -3,15 +3,16 @@
  * told first that it was interrupted; a resume the vendor cannot take ends the job `replaced` and opens `resume-failed`; and the fresh job
  * after a `replaced` one is told that an earlier session's uncommitted changes are its work.
  */
-import { existsSync, writeFileSync } from 'node:fs';
-import { join }                      from 'node:path';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { join }                                    from 'node:path';
 
-import type { EventLogEntry } from '../../lib/agent-host/EventLog.ts';
-import type { AgentAdapter }  from '../../lib/agent-launch/AgentAdapter.ts';
-import type { Job, JobKind }  from '../../lib/tracker-model/@types/Job.ts';
-import type { LogRecord }     from '../../lib/tracker-model/@types/LogRecord.ts';
-import type { Board }         from '../../lib/tracker-model/Board.ts';
-import { HostFleet }          from './HostFleet.ts';
+import type { EventLogEntry }  from '../../lib/agent-host/EventLog.ts';
+import type { AgentAdapter }   from '../../lib/agent-launch/AgentAdapter.ts';
+import { writeFileAtomically } from '../../lib/atomic-file/AtomicFile.ts';
+import type { Job, JobKind }   from '../../lib/tracker-model/@types/Job.ts';
+import type { LogRecord }      from '../../lib/tracker-model/@types/LogRecord.ts';
+import type { Board }          from '../../lib/tracker-model/Board.ts';
+import { HostFleet }           from './HostFleet.ts';
 
 const FIRST_HOST_INSTANCE = 1;
 
@@ -73,6 +74,35 @@ function resumeMessageMarkerOf(jobFolder: string, instance: number): string {
  * The first line of each resumed instance, written once its host answers; an answer delivery is resumed with the answer instead. The marker
  * is written only after the host took the line, so a host not yet listening is tried again on the next pass.
  */
+function firstMessagePathOf(jobFolder: string, instance: number): string {
+  return join(jobFolder, `first-message-${instance}.txt`);
+}
+
+function firstMessageMarkerOf(jobFolder: string, instance: number): string {
+  return join(jobFolder, `first-message-${instance}.sent`);
+}
+
+/** Kept beside a fresh instance's launch files until a pass finds its Watcher live, so an Overseer restart in between loses nothing. */
+function storeFirstMessage(jobFolder: string, instance: number, message: string): void {
+  writeFileAtomically(firstMessagePathOf(jobFolder, instance), message);
+}
+
+/**
+ * The task text of each fresh instance, its session's first input, written once its Watcher answers. The marker is written only after the
+ * Watcher took the line, so one not yet listening is tried again on the next pass, and a delivered line is never sent twice.
+ */
+async function deliverFirstMessages(trackerDirectory: string, board: Pick<Board, 'jobs'>, adapter: Pick<AgentAdapter, 'chatLineOf'>): Promise<void> {
+  for (const job of board.jobs()) {
+    if (isResumedInstance(job)) continue;
+    const jobFolder   = HostFleet.jobFolderOf(trackerDirectory, job.id);
+    const messagePath = firstMessagePathOf(jobFolder, job.hostInstance);
+    const marker      = firstMessageMarkerOf(jobFolder, job.hostInstance);
+    if (!existsSync(messagePath) || existsSync(marker) || HostFleet.livenessOf(jobFolder, job.hostInstance).verdict !== 'live') continue;
+    const line = adapter.chatLineOf(readFileSync(messagePath, 'utf8'));
+    if (await HostFleet.sendFrames(jobFolder, job.hostInstance, [{ kind: 'write', line }])) writeFileSync(marker, '');
+  }
+}
+
 async function deliverResumeMessages(
   trackerDirectory: string,
   board: Board,
@@ -96,5 +126,7 @@ export const JobResumption = Object.freeze({
   resumeFailed,
   applyResumeFailure,
   earlierSessionWasReplaced,
+  storeFirstMessage,
+  deliverFirstMessages,
   deliverResumeMessages,
 });
