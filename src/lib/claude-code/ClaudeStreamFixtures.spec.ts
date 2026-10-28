@@ -138,6 +138,14 @@ describe('rate-limit-window-rejected-under-allowed (P10)', () => {
   });
 });
 
+describe('permission-denials-under-deny-rules (P5)', () => {
+  test('lists every call the //-anchored deny rules refused on its result, an Edit of a gates file among them', () => {
+    const denials = (onlyResult(recordsOf('permission-denials-under-deny-rules.stdout.jsonl'))['permission_denials'] ?? []) as StreamRecord[];
+    expect(denials.length).toBeGreaterThan(0);
+    expect(denials.some((denial) => denial['tool_name'] === 'Edit' && JSON.stringify(denial['tool_input']).includes('/gates/'))).toBe(true);
+  });
+});
+
 describe('mid-turn-line-folded (P8)', () => {
   const stdout = recordsOf('mid-turn-line-folded.stdout.jsonl');
   const stdin = recordsOf('mid-turn-line-folded.stdin.jsonl');

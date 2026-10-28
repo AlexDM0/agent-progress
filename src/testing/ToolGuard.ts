@@ -5,8 +5,13 @@
  */
 import { describe, test } from 'bun:test';
 
-import { EVERY_TOOL_REQUIRED_VARIABLE, everyToolIsRequired } from '../shared/Environment.ts';
-import { scratchRootLiesOutsideTheFixedTemporaryFolders }    from './FixedTemporaryFolders.ts';
+import {
+  EVERY_TOOL_REQUIRED_VARIABLE,
+  everyToolIsRequired,
+  REAL_AGENT_SPECS_VARIABLE,
+  realAgentSpecsAreOn
+} from '../shared/Environment.ts';
+import { scratchRootLiesOutsideTheFixedTemporaryFolders } from './FixedTemporaryFolders.ts';
 import {
   commitFile,
   createScratchGitRepository,
@@ -16,7 +21,10 @@ import {
 
 export type RequiredTool = 'git' | 'bash';
 
-export type SpecRequirement = RequiredTool | 'git-merge-tree-stdin' | 'scratch-root-outside-tmp';
+export type SpecRequirement = RequiredTool | 'claude' | 'git-merge-tree-stdin' | 'scratch-root-outside-tmp' | 'real-agent-opt-in';
+
+/** Left off by choice rather than missing, so requiring every tool still skips it. */
+const OPT_IN_REQUIREMENTS: readonly SpecRequirement[] = ['real-agent-opt-in'];
 
 export interface SkippedSpec {
   readonly title:            string;
@@ -53,18 +61,26 @@ function gitMergeTreeStandardInputWorks(): boolean {
   return gitMergeTreeStandardInputAnswer;
 }
 
+function claudeIsAvailable(): boolean {
+  return Bun.which('claude') !== null;
+}
+
 const REQUIREMENT_IS_MET: Readonly<Record<SpecRequirement, () => boolean>> = {
   'git':                      gitIsAvailable,
   'bash':                     bashIsAvailable,
+  'claude':                   claudeIsAvailable,
   'git-merge-tree-stdin':     gitMergeTreeStandardInputWorks,
   'scratch-root-outside-tmp': scratchRootLiesOutsideTheFixedTemporaryFolders,
+  'real-agent-opt-in':        realAgentSpecsAreOn,
 };
 
 const UNMET_REQUIREMENT_WORDING: Readonly<Record<SpecRequirement, string>> = {
   'git':                      'git is missing',
   'bash':                     'bash is missing',
+  'claude':                   'claude is missing',
   'git-merge-tree-stdin':     'git merge-tree --stdin is missing',
   'scratch-root-outside-tmp': 'the scratch root lies under /tmp or /var/tmp',
+  'real-agent-opt-in':        `${REAL_AGENT_SPECS_VARIABLE} is not set`,
 };
 
 type SpecBody = () => void | Promise<unknown>;
@@ -85,7 +101,7 @@ function describeWhenRequirementIsMet(requirement: SpecRequirement, title: strin
     return;
   }
   const namedTitle = titleNamingTheUnmetRequirement(title, requirement);
-  if (everyToolIsRequired()) {
+  if (everyToolIsRequired() && !OPT_IN_REQUIREMENTS.includes(requirement)) {
     test(namedTitle, () => failBecauseRequirementIsUnmet(requirement));
     return;
   }
@@ -99,7 +115,7 @@ function testWhenRequirementIsMet(requirement: SpecRequirement, claim: string, b
     return;
   }
   const namedClaim = titleNamingTheUnmetRequirement(claim, requirement);
-  if (everyToolIsRequired()) {
+  if (everyToolIsRequired() && !OPT_IN_REQUIREMENTS.includes(requirement)) {
     test(namedClaim, () => failBecauseRequirementIsUnmet(requirement));
     return;
   }
@@ -131,6 +147,15 @@ export function testWhenGitIsPresentAndTheScratchRootIsOutsideTmp(claim: string,
     return;
   }
   testWhenRequirementIsMet('scratch-root-outside-tmp', claim, body, timeoutMilliseconds);
+}
+
+/** For a spec that launches a real Claude Code session: skipped unless opted into, and failed when opted into without `claude` present. */
+export function testWhenRealClaudeSpecsAreOn(claim: string, body: SpecBody, timeoutMilliseconds?: number): void {
+  if (!REQUIREMENT_IS_MET['real-agent-opt-in']()) {
+    testWhenRequirementIsMet('real-agent-opt-in', claim, body, timeoutMilliseconds);
+    return;
+  }
+  testWhenRequirementIsMet('claude', claim, body, timeoutMilliseconds);
 }
 
 export function skippedSpecsSoFar(): readonly SkippedSpec[] {

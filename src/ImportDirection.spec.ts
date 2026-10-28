@@ -384,7 +384,7 @@ describe('the scan itself', () => {
     const libPackages = new Set(GRAPH.scannedPaths.flatMap((path) => libPackageOf(path) ?? []));
     expect(commandFolders.size, 'command folders under cli/').toBeGreaterThanOrEqual(10);
     expect(libPackages.size, 'packages under src/lib/').toBeGreaterThanOrEqual(4);
-    expect(declaredLibDependenciesOf(GRAPH).get('claude-code')).toEqual(['atomic-file', 'json-record', 'local-time']);
+    expect(declaredLibDependenciesOf(GRAPH).get('claude-code')).toEqual(['agent-launch', 'atomic-file', 'json-record', 'local-time']);
   });
 
   test('every allowlist entry and every declared lib dependency is still used, and every testing folder is listed', () => {
@@ -517,7 +517,7 @@ describe('the guard still names each violation, planted in memory', () => {
   test('an allowlist entry or a declared lib dependency nothing uses any more, and a testing folder without an entry', () => {
     const plantedAllowlists: Allowlists = { testingFolderImporters: { ...TESTING_FOLDER_IMPORTERS, 'cli/testing/': ['cli/', 'dispatcher/'], 'src/retired/testing/': ['src/'] }, };
     const mainModulePath = 'src/lib/claude-code/ClaudeTranscripts.ts';
-    const plantedHeader = GRAPH.sourceTextOf(mainModulePath).replace('depends on `src/lib/atomic-file`', 'depends on `src/lib/git`, `src/lib/atomic-file`');
+    const plantedHeader = GRAPH.sourceTextOf(mainModulePath).replace('depends on `src/lib/agent-launch`', 'depends on `src/lib/git`, `src/lib/agent-launch`');
     const plantedGraph = SCANNER.graphWithPlantedFiles({ [mainModulePath]: plantedHeader, 'src/shared/testing/PlantedFixture.ts': 'export const planted = 1;\n' });
     expect(unusedAllowancesOf(plantedGraph, plantedAllowlists)).toEqual([
       'TESTING_FOLDER_IMPORTERS lets dispatcher/ import cli/testing/, and nothing there does',

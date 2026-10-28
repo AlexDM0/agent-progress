@@ -6,10 +6,15 @@
 import { join }         from 'node:path';
 import { expect, test } from 'bun:test';
 
-import { CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS }                                         from '../testing/ChildProcessCaseTimeout.ts';
-import { jsonPrintedByAChildProcess }                                                      from '../testing/JsonPrintedByAChildProcess.ts';
-import { agentProgressRootOverride, EVERY_TOOL_REQUIRED_VARIABLE, ROOT_OVERRIDE_VARIABLE } from './Environment.ts';
-import { PRODUCT_NAMES }                                                                   from './constants/ProductNames.ts';
+import { CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS } from '../testing/ChildProcessCaseTimeout.ts';
+import { jsonPrintedByAChildProcess }              from '../testing/JsonPrintedByAChildProcess.ts';
+import {
+  agentProgressRootOverride,
+  EVERY_TOOL_REQUIRED_VARIABLE,
+  REAL_AGENT_SPECS_VARIABLE,
+  ROOT_OVERRIDE_VARIABLE
+} from './Environment.ts';
+import { PRODUCT_NAMES } from './constants/ProductNames.ts';
 
 const ENVIRONMENT_MODULE_PATH = join(import.meta.dir, 'Environment.ts');
 
@@ -98,6 +103,22 @@ test('any other AGENT_PROGRESS_REQUIRE_EVERY_TOOL value requires every tool, so 
   for (const requiringValue of ['1', 'true', 'yes']) {
     expect(everyToolRequirementSeenByAChildProcess({ [EVERY_TOOL_REQUIRED_VARIABLE]: requiringValue }), requiringValue).toBe(true);
   }
+}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
+
+function realAgentSpecsSeenByAChildProcess(childEnvironment: Record<string, string>): boolean {
+  const source = [
+    `const loaded = await import(${JSON.stringify(ENVIRONMENT_MODULE_PATH)});`,
+    'console.log(JSON.stringify(loaded.realAgentSpecsAreOn()));',
+  ].join('\n');
+  return jsonPrintedByAChildProcess(childEnvironment, source) as boolean;
+}
+
+test('the real-agent specs are on only for a set, non-zero opt-in, never because every tool is required', () => {
+  expect(REAL_AGENT_SPECS_VARIABLE).toBe(`${PRODUCT_NAMES.ENVIRONMENT_PREFIX}REAL_AGENT_SPECS`);
+  expect(realAgentSpecsSeenByAChildProcess({})).toBe(false);
+  expect(realAgentSpecsSeenByAChildProcess({ [EVERY_TOOL_REQUIRED_VARIABLE]: '1' })).toBe(false);
+  for (const offValue of ['', ' ', '0']) expect(realAgentSpecsSeenByAChildProcess({ [REAL_AGENT_SPECS_VARIABLE]: offValue }), JSON.stringify(offValue)).toBe(false);
+  expect(realAgentSpecsSeenByAChildProcess({ [REAL_AGENT_SPECS_VARIABLE]: '1' })).toBe(true);
 }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
 test('the environment copy holds every variable verbatim, and nothing else', () => {

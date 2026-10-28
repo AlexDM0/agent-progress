@@ -14,7 +14,13 @@ export function everyToolRequiredVariableOf({ ENVIRONMENT_PREFIX }: Pick<Product
   return `${ENVIRONMENT_PREFIX}REQUIRE_EVERY_TOOL`;
 }
 
+export function realAgentSpecsVariableOf({ ENVIRONMENT_PREFIX }: Pick<ProductNames, 'ENVIRONMENT_PREFIX'>): string {
+  return `${ENVIRONMENT_PREFIX}REAL_AGENT_SPECS`;
+}
+
 export const ROOT_OVERRIDE_VARIABLE = rootOverrideVariableOf(PRODUCT_NAMES);
+
+export const REAL_AGENT_SPECS_VARIABLE = realAgentSpecsVariableOf(PRODUCT_NAMES);
 
 export const EVERY_TOOL_REQUIRED_VARIABLE = everyToolRequiredVariableOf(PRODUCT_NAMES);
 
@@ -26,6 +32,14 @@ const USER_SHELL_VARIABLE = 'SHELL';
  */
 export function everyToolIsRequired(): boolean {
   return switchIsOn(EVERY_TOOL_REQUIRED_VARIABLE);
+}
+
+/**
+ * Opts into the specs that launch a real coding agent, which spend the machine's subscription; read like the every-tool switch. Requiring
+ * every tool never opts in: a spec left off by this switch is skipped, not failed.
+ */
+export function realAgentSpecsAreOn(): boolean {
+  return switchIsOn(REAL_AGENT_SPECS_VARIABLE);
 }
 
 /** A copy of the whole environment, for a child process that should inherit it with a variable or two replaced; a variable without a value is left out. */
