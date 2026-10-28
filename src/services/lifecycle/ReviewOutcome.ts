@@ -273,6 +273,9 @@ function answerWaiver(board: Board, decisionId: string, answers: readonly string
   return { answer: answered.answer, logged };
 }
 
+/** A failed pass takes no round verdict, and a granted one is converging: neither was refused another round. */
+const VERDICTS_TAKING_NO_REFUSED_ROUND: readonly string[] = ['round-requested', 'does-not-hold'];
+
 /** The tickets whose newest review reworked past the threshold yet was refused another round: the findings are not converging. */
 function nonConvergingTicketIdsOf(records: readonly LogRecord[], limits: RoundLimits): string[] {
   const newestByTicketId = new Map<string, Extract<LogRecord, { kind: 'review-recorded' }>>();
@@ -281,7 +284,7 @@ function nonConvergingTicketIdsOf(records: readonly LogRecord[], limits: RoundLi
     if (record.kind === 'ticket-delivered' || record.kind === 'ticket-abandoned') newestByTicketId.delete(record.ticketId);
   }
   return [...newestByTicketId.values()]
-    .filter((record) => record.fields.totalReworkedCodeLines > limits.REWORK_ROUND_THRESHOLD_LINES && record.fields.verdict !== 'round-requested')
+    .filter((record) => record.fields.totalReworkedCodeLines > limits.REWORK_ROUND_THRESHOLD_LINES && !VERDICTS_TAKING_NO_REFUSED_ROUND.includes(record.fields.verdict))
     .map((record) => record.ticketId)
     .sort();
 }

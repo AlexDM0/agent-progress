@@ -244,6 +244,14 @@ describeWhenGitIsPresent('a review pass settled by code', () => {
     expect(ReviewOutcome.nonConvergingTicketIdsOf(logRecords, LIFECYCLE_LIMITS)).toEqual(['001']);
   });
 
+  test('a failed pass over the threshold takes no round verdict, so it shows no rounds-not-converging', () => {
+    commitManyCodeLines('rework.ts');
+    const outcome = settle(reviewJobAtRound(1), report([claim('A1', 'holds'), claim('A2', 'does-not-hold')]));
+
+    expect(outcome).toMatchObject({ move: 'fixer', reworkedLines: OVER_THRESHOLD_LINES });
+    expect(ReviewOutcome.nonConvergingTicketIdsOf(logRecords, LIFECYCLE_LIMITS)).toEqual([]);
+  });
+
   test('a waiver proposal opens a waiver decision, keeps the ticket out of the merge queue and holds every launch on it', () => {
     board.setTicketMergeQueued('001', true, AT);
     const jobId = reviewJobAtRound(1);
