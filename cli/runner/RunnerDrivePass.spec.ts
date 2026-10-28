@@ -2,7 +2,9 @@
  * The DrivePass on a scratch tracker with the fake agent, end to end through the pinned host bundle. What matters: a readied ticket gets a
  * `launching` job and a host running the fake child in one pass; a relay request and the `result` of the turn that wrote it, read in one
  * pass, are applied request first; a request in another job's folder, or naming a job, is refused and a replay is never applied twice;
- * a pass with nothing changed does not run, however late; and the notices are derived each pass, never stored.
+ * a pass with nothing changed does not run, however late; and the notices are derived each pass, never stored. Beside the runner, a
+ * written verb nudges a live lease's URL once its write is stored and is silent when nobody answers, and `ticket deliver --by-hand`
+ * records only, refused while a lease is live or a job of the ticket is.
  */
 import {
   existsSync,
@@ -25,6 +27,7 @@ import { relayReplyFilePathOf, writeRelayRequest }                         from 
 import { hostFilesOf }                                                     from '../../src/lib/agent-host/HostFiles.ts';
 import type { HostRecord }                                                 from '../../src/lib/agent-host/HostRecord.ts';
 import type { AgentAdapter }                                               from '../../src/lib/agent-launch/AgentAdapter.ts';
+import { identityOf }                                                      from '../../src/lib/process-identity/ProcessIdentity.ts';
 import type { Board }                                                      from '../../src/lib/tracker-model/Board.ts';
 import { createRenderState }                                               from '../../src/services/render/RenderState.ts';
 import { createDrivePass, type DrivePass }                                 from '../../src/services/runner/DrivePass.ts';
@@ -274,5 +277,84 @@ describe('waking', () => {
     await passOnce(drivePass);
     expect(drivePass.state().notices).toEqual([{ kind: 'claude-md-block-committed', target: currentBranchOf(repositoryDirectory) }]);
     expect(readFileSync(join(repositoryDirectory, '.agent-progress-v2', 'progress.json'), 'utf8')).not.toContain('claude-md-block-committed');
+  }, PASS_TEST_TIMEOUT_MILLISECONDS);
+});
+
+async function runRefused(commandLineArguments: readonly string[]): Promise<string> {
+  const context  = createCapturedCommandContext({ currentDirectory: repositoryDirectory, now: SPEC_CLOCK });
+  const exitCode = await runCommandLine(commandLineArguments, context);
+  expect(exitCode, `\`${commandLineArguments.join(' ')}\` was not refused: ${context.outputText()}`).toBe(1);
+  return `${context.outputText()}\n${context.errorText()}`;
+}
+
+/** A lease naming this very process, so it reads as live, its URL the given one. */
+function acquireLiveLease(url: string): { runnerDirectory: string; generation: number } {
+  const { runnerDirectory } = runnerFilesIn(requireWorkspace(repositoryDirectory).trackerDirectory);
+  mkdirSync(runnerDirectory, { recursive: true });
+  const identity = identityOf(process.pid);
+  if (identity === null) throw new Error('this process has no readable identity');
+  const acquisition = RunnerLease.acquire(runnerDirectory, {
+    processId:                identity.processId,
+    processStartEpochSeconds: identity.startEpochSeconds,
+    bootIdentity:             identity.bootIdentity,
+    port:                     Number(new URL(url).port),
+    url,
+    tokenFile:                join(runnerDirectory, 'token'),
+    codeVersion:              'code-example',
+    installVersion:           1,
+    hostProtocolVersion:      1,
+  });
+  if (acquisition.verdict !== 'acquired') throw new Error('the live lease was not acquired');
+  return { runnerDirectory, generation: acquisition.generation };
+}
+
+function deliveredRecordsOf(ticketId: string): unknown[] {
+  return storedLogTextOf(repositoryDirectory).split('\n').filter((line) => line !== '')
+    .map((line) => JSON.parse(line) as { kind: string; ticketId?: string; fields: unknown })
+    .filter((entry) => entry.kind === 'ticket-delivered' && entry.ticketId === ticketId).map((entry) => entry.fields);
+}
+
+describe('the verbs beside a runner', () => {
+  test('a written verb nudges the live lease\'s URL body-less once its write is stored, and stays silent when nobody answers', async () => {
+    const nudges: { method: string; path: string; body: string; writeWasStored: boolean }[] = [];
+    const fakeRunner = Bun.serve({
+      port:  0,
+      fetch: async (request) => {
+        const writeWasStored = storedLogTextOf(repositoryDirectory).includes('Example milestone');
+        nudges.push({
+          method: request.method, path: new URL(request.url).pathname, body: await request.text(), writeWasStored
+        });
+        return Response.json({ outcome: 'done' });
+      },
+    });
+    try {
+      acquireLiveLease(fakeRunner.url.href);
+      await run(['log', 'Example milestone']);
+      expect(nudges).toEqual([{
+        method: 'POST', path: '/api/nudge', body: '', writeWasStored: true
+      }]);
+    } finally {
+      await fakeRunner.stop(true);
+    }
+    const unanswered = await run(['log', 'Example milestone nobody hears']);
+    expect(unanswered.errorText()).toBe('');
+  }, PASS_TEST_TIMEOUT_MILLISECONDS);
+
+  test('ticket deliver --by-hand is refused runner-owns-the-lifecycle while a lease is live, and records byHand once none is', async () => {
+    const lease = acquireLiveLease('http://127.0.0.1:1/');
+    expect(await runRefused(['ticket', 'deliver', '001', '--by-hand'])).toContain('A runner drives this board at http://127.0.0.1:1/');
+    expect(deliveredRecordsOf('001')).toEqual([]);
+
+    RunnerLease.release(lease.runnerDirectory, lease.generation);
+    await run(['ticket', 'deliver', '001', '--by-hand']);
+    expect(deliveredRecordsOf('001')).toEqual([{ byHand: true }]);
+    expect(storedProgressOf(repositoryDirectory).jobs ?? []).toEqual([]);
+  }, PASS_TEST_TIMEOUT_MILLISECONDS);
+
+  test('ticket deliver --by-hand is refused ticket-has-live-job while a job of the ticket is on the board', async () => {
+    const drivePass = await drivePassWith(WAITING_SESSION);
+    await passOnce(drivePass);
+    expect(await runRefused(['ticket', 'deliver', '001', '--by-hand'])).toContain(`Ticket #001 has job ${buildJobId()} live (launching)`);
+    expect(deliveredRecordsOf('001')).toEqual([]);
   }, PASS_TEST_TIMEOUT_MILLISECONDS);
 });
