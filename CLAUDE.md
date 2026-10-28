@@ -156,6 +156,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   ways.
 - Tests never touch live data: every spec works under the scratch root, checked by `src/testing/TrackerIsolation.ts`;
   the binary is spawned only through `cli/testing/CliProcess.ts`.
+- No spec starts a real agent session: the preload `src/testing/ClaudeLaunchGuard.ts` puts a recording `claude` first on
+  the run's and every spawned binary's `PATH` and fails the run naming the spec that reached it.
 - `src/TestFileConventions.spec.ts` holds that no `.test.ts` file exists and no spec or test helper creates the real
   process context.
 - Each dispatcher decision in the `dispatcher/Dispatcher.*.spec.ts` suites must hold on the built bundle and fail on
@@ -177,8 +179,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 | Rule | Done instead | Why |
 | --- | --- | --- |
 | Ingestion reads, validates and maps in separate steps. | The ticket parse is one line-oriented pass. | A second walk would risk the unowned lines kept byte for byte. |
-| No work at module load. | `agent-progress.ts` runs the command on import, `agent-host.ts` runs its host, `page/PageStart.ts` starts the page, the preload `src/testing/TestRunReport.ts` registers its report, the preload `cli/testing/OtherProductNamesPreload.ts` registers its name swap, the fake agent `src/testing/fake-agent/FakeAgentChild.ts` plays its scenario. | They are entry points. |
-| Specs never set the environment in-process. | `src/shared/Environment.spec.ts` does, once. | It tests the getters themselves. |
+| No work at module load. | `agent-progress.ts` runs the command on import, `agent-host.ts` runs its host, `page/PageStart.ts` starts the page, the preload `src/testing/TestRunReport.ts` registers its report, the preload `src/testing/ClaudeLaunchGuard.ts` installs its `claude` trap, the preload `cli/testing/OtherProductNamesPreload.ts` registers its name swap, the fake agent `src/testing/fake-agent/FakeAgentChild.ts` plays its scenario. | They are entry points. |
+| Specs never set the environment in-process. | `src/shared/Environment.spec.ts` does, once; the preload `src/testing/ClaudeLaunchGuard.ts` prepends its trap to `PATH`. | It tests the getters themselves; the trap must lead every spawn's `PATH`. |
 | A frozen table comes from the previous implementation. | `dispatcher/testing/FrozenDispatchTraces.json` is retaken from the bundle, only in a commit meant to change what agents are told, its diff showing prompt text or wire names and no decision; `cli/FrozenInstalledSurface.json` is taken from the installed files. | No previous implementation holds them. |
 | Only the current stored format is read. | A ticket stored with `type` `change` or `feature` reads as `ticket` everywhere, and every write keeps its stored `type` line. | Stored tickets are never rewritten; both are older names for `ticket`. |
 | Only the current stored format is read. | A stored `dispatcherState` `finished` reads as `stopped`. | Stored files are never rewritten; reading it as stopped fails closed. |

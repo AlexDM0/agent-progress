@@ -14,10 +14,6 @@ export function everyToolRequiredVariableOf({ ENVIRONMENT_PREFIX }: Pick<Product
   return `${ENVIRONMENT_PREFIX}REQUIRE_EVERY_TOOL`;
 }
 
-export function realAgentSpecsVariableOf({ ENVIRONMENT_PREFIX }: Pick<ProductNames, 'ENVIRONMENT_PREFIX'>): string {
-  return `${ENVIRONMENT_PREFIX}REAL_AGENT_SPECS`;
-}
-
 export function fakeAgentVariableOf({ ENVIRONMENT_PREFIX }: Pick<ProductNames, 'ENVIRONMENT_PREFIX'>): string {
   return `${ENVIRONMENT_PREFIX}FAKE_AGENT`;
 }
@@ -34,8 +30,6 @@ export function fakeAgentIsOn(): boolean {
 
 export const ROOT_OVERRIDE_VARIABLE = rootOverrideVariableOf(PRODUCT_NAMES);
 
-export const REAL_AGENT_SPECS_VARIABLE = realAgentSpecsVariableOf(PRODUCT_NAMES);
-
 export const EVERY_TOOL_REQUIRED_VARIABLE = everyToolRequiredVariableOf(PRODUCT_NAMES);
 
 const USER_SHELL_VARIABLE = 'SHELL';
@@ -48,14 +42,6 @@ const EXECUTABLE_SEARCH_PATH_SEPARATOR = ':';
  */
 export function everyToolIsRequired(): boolean {
   return switchIsOn(EVERY_TOOL_REQUIRED_VARIABLE);
-}
-
-/**
- * Opts into the specs that launch a real coding agent, which spend the machine's subscription; read like the every-tool switch. Requiring
- * every tool never opts in: a spec left off by this switch is skipped, not failed.
- */
-export function realAgentSpecsAreOn(): boolean {
-  return switchIsOn(REAL_AGENT_SPECS_VARIABLE);
 }
 
 /** A copy of the whole environment, for a child process that should inherit it with a variable or two replaced; a variable without a value is left out. */
@@ -109,6 +95,11 @@ function nonBlankValueOf(variable: string): string | undefined {
 /** The folders of `PATH`, in order, empty entries left out: the executables a gate's cache path must never let a branch replace. */
 export function executableSearchPath(): string[] {
   return (process.env[EXECUTABLE_SEARCH_PATH_VARIABLE] ?? '').split(EXECUTABLE_SEARCH_PATH_SEPARATOR).filter((folder) => folder !== '');
+}
+
+/** The one write to this process's environment outside a spec, for the test preload that puts the `claude` trap ahead of every real `claude`. */
+export function prependToExecutableSearchPath(folder: string): void {
+  process.env[EXECUTABLE_SEARCH_PATH_VARIABLE] = [folder, ...executableSearchPath()].join(EXECUTABLE_SEARCH_PATH_SEPARATOR);
 }
 
 /** The user's shell, which runs the check command `release` runs; an empty or whitespace-only value reads as unset, and the caller picks a default. */

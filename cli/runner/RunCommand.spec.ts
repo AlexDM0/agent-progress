@@ -157,7 +157,7 @@ function announcedVendorSince(fromOffset: number): string | null {
 }
 
 describe('the agent adapter of a spec-spawned runner', () => {
-  test('is the fake agent by default, and the guard reads the vendor\'s once the fake-agent switch is planted off', async () => {
+  test('is the fake agent by default, and stays the fake agent when a spec\'s environment plants the fake-agent switch off', async () => {
     const runner = startRunner();
     expect(await runner.firstOutputLine).toStartWith('http://127.0.0.1:');
     expect(announcedVendorSince(0)).toBe(FAKE_AGENT_VENDOR);
@@ -168,7 +168,7 @@ describe('the agent adapter of a spec-spawned runner', () => {
     const switchedOff = { [fakeAgentVariableOf(PRODUCT_NAMES)]: '0' };
     const planted     = startAgentProgress(['run', '--port', '0'], { currentDirectory: repositoryDirectory, homeDirectory, environment: switchedOff });
     expect(await planted.firstOutputLine).toStartWith('http://127.0.0.1:');
-    expect(announcedVendorSince(logLength)).toBe('claude-code');
+    expect(announcedVendorSince(logLength)).toBe(FAKE_AGENT_VENDOR);
     await stopRunner();
     expect((await planted.finished).exitCode).toBe(0);
   }, RUNNER_TEST_TIMEOUT_MILLISECONDS);

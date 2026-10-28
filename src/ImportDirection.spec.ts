@@ -53,8 +53,6 @@ const VENDOR_ADAPTER_PATH = 'src/lib/claude-code/ClaudeCodeAdapter.ts';
 const VENDOR_ADAPTER_PACKAGE_FOLDER = 'src/lib/claude-code/';
 /** The one shipping module that chooses the adapter; everything else reaches a session through the launcher port it hands over. */
 const VENDOR_ADAPTER_SEAM = 'cli/CommandContext.ts';
-/** The specs that launch the real vendor, opted into by the real-agent switch. */
-const REAL_VENDOR_SPEC_SUFFIX = '.realAgent.spec.ts';
 const SOURCE_LAYERS = [
   'lib', 'shared', 'adapters', 'render-service', 'tracker-service', 'lifecycle-service', 'control-service', 'runner-service',
 ] as const satisfies readonly Layer[];
@@ -250,8 +248,8 @@ function libFinding(edge: ImportEdge, declarations: ReadonlyMap<string, readonly
 
 function vendorSeamFinding(edge: ImportEdge, targetPath: string): Finding | null {
   if (targetPath !== VENDOR_ADAPTER_PATH || isInside(edge.fromPath, VENDOR_ADAPTER_PACKAGE_FOLDER)) return null;
-  if (edge.fromPath === VENDOR_ADAPTER_SEAM || edge.fromPath.endsWith(REAL_VENDOR_SPEC_SUFFIX)) return null;
-  return edgeFinding(edge, 'vendor-adapter-imported-outside-its-seam', `only ${VENDOR_ADAPTER_SEAM} and the real-vendor specs choose the vendor's adapter`);
+  if (edge.fromPath === VENDOR_ADAPTER_SEAM) return null;
+  return edgeFinding(edge, 'vendor-adapter-imported-outside-its-seam', `only ${VENDOR_ADAPTER_SEAM} chooses the vendor's adapter`);
 }
 
 function edgeFindingsOf(edge: ImportEdge, declarations: ReadonlyMap<string, readonly string[]>, allowlists: Allowlists): readonly (Finding | null)[] {
@@ -492,7 +490,7 @@ describe('the guard still names each violation, planted in memory', () => {
     expect(plantedSentencesOf({ 'agent-host.ts': importing('./src/lib/claude-code/ClaudeCodeAdapter.ts') })).toEqual([
       'host-binary-imports-beyond-its-package — agent-host.ts:1 imports src/lib/claude-code/ClaudeCodeAdapter.ts: agent-host.ts imports only src/lib/agent-host/',
       'vendor-adapter-imported-outside-its-seam — agent-host.ts:1 imports src/lib/claude-code/ClaudeCodeAdapter.ts: '
-        + 'only cli/CommandContext.ts and the real-vendor specs choose the vendor\'s adapter',
+        + 'only cli/CommandContext.ts chooses the vendor\'s adapter',
     ]);
     expect(plantedSentencesOf({ 'agent-host.ts': importing('./cli/Main.ts') })).toEqual([
       'host-binary-imports-beyond-its-package — agent-host.ts:1 imports cli/Main.ts: agent-host.ts imports only src/lib/agent-host/',
@@ -528,16 +526,17 @@ describe('the guard still names each violation, planted in memory', () => {
     expect(plantedSentencesOf({ 'src/shared/PlantedValue.spec.ts': importing('../testing/ScratchWorkspace.ts') })).toEqual([]);
   });
 
-  test('the vendor\'s adapter imported outside its seam, by a service, a test helper or a plain spec, and not by the seam or a real-vendor spec', () => {
+  test('the vendor\'s adapter imported outside its seam, by a service, a test helper or any spec outside its package, and not by the seam', () => {
     const vendorSentenceOf = (importerPath: string): string => `vendor-adapter-imported-outside-its-seam — ${importerPath}:1 imports `
-      + 'src/lib/claude-code/ClaudeCodeAdapter.ts: only cli/CommandContext.ts and the real-vendor specs choose the vendor\'s adapter';
+      + 'src/lib/claude-code/ClaudeCodeAdapter.ts: only cli/CommandContext.ts chooses the vendor\'s adapter';
     expect(plantedSentencesOf({ 'src/services/runner/PlantedLaunch.ts': importing('../../lib/claude-code/ClaudeCodeAdapter.ts') }))
       .toEqual([vendorSentenceOf('src/services/runner/PlantedLaunch.ts')]);
     expect(plantedSentencesOf({ 'src/testing/PlantedAdapter.ts': importing('../lib/claude-code/ClaudeCodeAdapter.ts') }))
       .toEqual([vendorSentenceOf('src/testing/PlantedAdapter.ts')]);
     expect(plantedSentencesOf({ 'cli/runner/PlantedRun.spec.ts': importing('../../src/lib/claude-code/ClaudeCodeAdapter.ts') }))
       .toEqual([vendorSentenceOf('cli/runner/PlantedRun.spec.ts')]);
-    expect(plantedSentencesOf({ 'cli/runner/PlantedRun.realAgent.spec.ts': importing('../../src/lib/claude-code/ClaudeCodeAdapter.ts') })).toEqual([]);
+    expect(plantedSentencesOf({ 'cli/runner/PlantedRun.realAgent.spec.ts': importing('../../src/lib/claude-code/ClaudeCodeAdapter.ts') }))
+      .toEqual([vendorSentenceOf('cli/runner/PlantedRun.realAgent.spec.ts')]);
     expect(plantedSentencesOf({ 'src/lib/claude-code/PlantedPlan.ts': importing('./ClaudeCodeAdapter.ts') })).toEqual([]);
   });
 
@@ -627,7 +626,7 @@ describe('the imports of the tree', () => {
     expect(sentencesAbout(FINDINGS, 'test-helper-imported-outside-its-allowlist')).toEqual([]);
   });
 
-  test('outside src/lib/claude-code/ only cli/CommandContext.ts and the real-vendor specs import ClaudeCodeAdapter.ts', () => {
+  test('outside src/lib/claude-code/ only cli/CommandContext.ts imports ClaudeCodeAdapter.ts', () => {
     expect(sentencesAbout(FINDINGS, 'vendor-adapter-imported-outside-its-seam')).toEqual([]);
     expect(GRAPH.edges.some((edge) => edge.fromPath === VENDOR_ADAPTER_SEAM && edge.target.kind === 'repository-file' && edge.target.path === VENDOR_ADAPTER_PATH))
       .toBe(true);

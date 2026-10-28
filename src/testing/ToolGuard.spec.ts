@@ -19,7 +19,7 @@ import {
   test,
 } from 'bun:test';
 
-import { EVERY_TOOL_REQUIRED_VARIABLE, REAL_AGENT_SPECS_VARIABLE }                 from '../shared/Environment.ts';
+import { EVERY_TOOL_REQUIRED_VARIABLE }                                            from '../shared/Environment.ts';
 import { CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS }                                 from './ChildProcessCaseTimeout.ts';
 import { createScratchDirectory, removeScratchDirectory }                          from './ScratchWorkspace.ts';
 import { testWhenGitIsPresent, testWhenGitIsPresentAndTheScratchRootIsOutsideTmp } from './ToolGuard.ts';
@@ -155,35 +155,6 @@ testWhenGitIsPresent('with the scratch root under /tmp and AGENT_PROGRESS_REQUIR
   expect(exitCode, output).not.toBe(0);
   expect(output).toContain('but the scratch root lies under /tmp or /var/tmp on this machine');
   expect(output).not.toContain('skipped for a missing tool');
-}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
-
-const REAL_AGENT_GUARDED_CLAIM = 'an example claim that launches a real agent';
-
-function realAgentGuardedRun(extraEnvironment: Record<string, string>): FinishedTestRun {
-  writeFileSync(join(scratchDirectory, 'RealAgentFixture.spec.ts'), [
-    'import { expect } from \'bun:test\';',
-    `import { testWhenRealClaudeSpecsAreOn } from ${JSON.stringify(TOOL_GUARD_MODULE_PATH)};`,
-    `testWhenRealClaudeSpecsAreOn(${JSON.stringify(REAL_AGENT_GUARDED_CLAIM)}, () => expect(1).toBe(1));`,
-  ].join('\n'));
-  return testRunWithOnlyTheseTools([], extraEnvironment, './RealAgentFixture.spec.ts');
-}
-
-test('a real-agent spec left un-opted-in is skipped and named, even when every tool is required', () => {
-  const { exitCode, output } = realAgentGuardedRun({ [EVERY_TOOL_REQUIRED_VARIABLE]: '1' });
-  expect(exitCode, output).toBe(0);
-  expect(output).toContain(`${REAL_AGENT_GUARDED_CLAIM} [${REAL_AGENT_SPECS_VARIABLE} is not set]`);
-}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
-
-test('a real-agent spec opted into without claude on the PATH is skipped naming claude', () => {
-  const skipped = realAgentGuardedRun({ [REAL_AGENT_SPECS_VARIABLE]: '1' });
-  expect(skipped.exitCode, skipped.output).toBe(0);
-  expect(skipped.output).toContain(`${REAL_AGENT_GUARDED_CLAIM} [claude is missing]`);
-}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
-
-test('a real-agent spec opted into without claude on the PATH fails when every tool is required', () => {
-  const failed = realAgentGuardedRun({ [REAL_AGENT_SPECS_VARIABLE]: '1', [EVERY_TOOL_REQUIRED_VARIABLE]: '1' });
-  expect(failed.exitCode, failed.output).not.toBe(0);
-  expect(failed.output).toContain('but claude is missing on this machine');
 }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
 testWhenGitIsPresentAndTheScratchRootIsOutsideTmp('with the scratch root outside both fixed temp folders the temp-folder guard runs its spec', () => {
