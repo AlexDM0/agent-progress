@@ -11,6 +11,7 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  rmSync,
   statSync,
   writeFileSync
 } from 'node:fs';
@@ -220,6 +221,37 @@ describe('run --detach, status, restart and stop', () => {
     expect(JSON.parse(status.standardOutput)).toMatchObject({ url, handoverWarning: { step: 'read-host-files' } });
     expect((await runAgentProgress(['run', 'status'], { currentDirectory: repositoryDirectory, homeDirectory })).standardOutput)
       .toContain('warning: the handover to code');
+    await stopRunner();
+  }, RUNNER_TEST_TIMEOUT_MILLISECONDS);
+
+  test('update ends by handing a live runner on other code to the code on disk; a failed handover exits 1, its install writes standing', async () => {
+    const withNoRunner = await runAgentProgress(['update'], { currentDirectory: repositoryDirectory, homeDirectory });
+    expect(withNoRunner.exitCode, withNoRunner.standardError).toBe(0);
+    expect(withNoRunner.standardOutput).not.toContain('Handing the runner');
+
+    const detached = await runAgentProgress(['run', '--detach', '--port', '0', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
+    expect(detached.exitCode, detached.standardError).toBe(0);
+    const onTheSameCode = await runAgentProgress(['update'], { currentDirectory: repositoryDirectory, homeDirectory });
+    expect(onTheSameCode.standardOutput).not.toContain('Handing the runner');
+
+    // The live runner's lease says it runs older code, as after a pull into the checkout the binary links to.
+    writeFileSync(join(runnerDirectory(), 'lease-1.json'), `${JSON.stringify({ ...leaseOf('lease-1.json'), codeVersion: 'code-older' })}\n`);
+    const updated = await runAgentProgress(['update'], { currentDirectory: repositoryDirectory, homeDirectory });
+    expect(updated.exitCode, `${updated.standardError}\n${runnerLogText()}`).toBe(0);
+    expect(updated.standardOutput).toContain(`Runner handed over to code ${CodeVersion.onDisk()}`);
+    expect(leaseFileNames()).toEqual(['lease-2.json']);
+
+    writeFileSync(join(runnerDirectory(), 'lease-2.json'), `${JSON.stringify({ ...leaseOf('lease-2.json'), codeVersion: 'code-older' })}\n`);
+    const { eventLogPath } = hostFilesOf(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'jobs', 'J1'), 1);
+    for (let attempt = 0; attempt < HOST_WAIT_TRIES && !existsSync(eventLogPath); attempt++) await Bun.sleep(HOST_WAIT_MILLISECONDS);
+    appendFileSync(eventLogPath, 'not an event\n');
+    const manifestPath = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'version.json');
+    rmSync(manifestPath);
+    const failed = await runAgentProgress(['update'], { currentDirectory: repositoryDirectory, homeDirectory });
+    expect(failed.exitCode, failed.standardError).toBe(1);
+    expect(failed.standardError).toContain('failed at read-host-files');
+    expect(existsSync(manifestPath)).toBe(true);
+    expect(leaseFileNames()).toEqual(['lease-2.json']);
     await stopRunner();
   }, RUNNER_TEST_TIMEOUT_MILLISECONDS);
 
