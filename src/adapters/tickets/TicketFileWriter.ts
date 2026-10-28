@@ -5,20 +5,22 @@ import type { Ticket }             from '../../lib/tracker-model/@types/Ticket.t
 import { TicketDocumentUtil }      from './utils/TicketDocumentUtil.ts';
 
 /** Writes through `src/lib/atomic-file/AtomicFile.ts` and never touches `updated`; only `src/lib/tracker-model/Board.ts` knows that a ticket changed. */
-export function createTicketFileWriter(): { write(ticket: Readonly<Ticket>): void } {
+export function createTicketFileWriter(): { write(ticket: Readonly<Ticket>): void; contentsOf(ticket: Readonly<Ticket>): string } {
+  /** Reads the stored file, so it is taken before anything replaces it. */
+  function contentsOf(ticket: Readonly<Ticket>): string {
+    const storedFrontmatterText = unchangedStoredFrontmatterTextOf(ticket);
+    return storedFrontmatterText === null
+      ? TicketDocumentUtil.ticketDocumentTextOf(ticket.frontmatter, ticket.body, ticket.lineEnding, ticket.storedType)
+      : `${storedFrontmatterText}${ticket.body}`;
+  }
+
   function write(ticket: Readonly<Ticket>): void {
     // The directory is recreated rather than assumed: `clear --all` may have removed it.
     mkdirSync(dirname(ticket.filePath), { recursive: true });
-    const storedFrontmatterText = unchangedStoredFrontmatterTextOf(ticket);
-    writeFileAtomically(
-      ticket.filePath,
-      storedFrontmatterText === null
-        ? TicketDocumentUtil.ticketDocumentTextOf(ticket.frontmatter, ticket.body, ticket.lineEnding, ticket.storedType)
-        : `${storedFrontmatterText}${ticket.body}`,
-    );
+    writeFileAtomically(ticket.filePath, contentsOf(ticket));
   }
 
-  return { write };
+  return { write, contentsOf };
 }
 
 /**

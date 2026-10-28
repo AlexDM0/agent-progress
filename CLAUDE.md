@@ -37,7 +37,7 @@ guard spec holds is one line naming the guard: the spec is the full statement.
 ### Imports
 
 ```
-src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → tracker)  →  features (cli/, page/, dispatcher/)
+src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → tracker → runner)  →  features (cli/, page/, dispatcher/)
 ```
 
 - `src/ImportDirection.spec.ts` holds the direction, cycles, barrels, feature and sibling-command isolation, the bin

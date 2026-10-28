@@ -26,6 +26,7 @@ type Layer =
   | 'adapters'
   | 'render-service'
   | 'tracker-service'
+  | 'runner-service'
   | 'test-support'
   | 'repository-guard'
   | 'cli'
@@ -41,7 +42,7 @@ interface Finding {
 
 const BINARY_PATH = 'agent-progress.ts';
 const FEATURES = ['cli', 'page', 'dispatcher'] as const satisfies readonly Layer[];
-const SOURCE_LAYERS = ['lib', 'shared', 'adapters', 'render-service', 'tracker-service'] as const satisfies readonly Layer[];
+const SOURCE_LAYERS = ['lib', 'shared', 'adapters', 'render-service', 'tracker-service', 'runner-service'] as const satisfies readonly Layer[];
 
 /** What each layer may import, a folder in a testing folder aside: those are judged by `TESTING_FOLDER_IMPORTERS` alone. */
 const LAYER_REACH: Readonly<Record<Layer, readonly Layer[]>> = {
@@ -51,6 +52,7 @@ const LAYER_REACH: Readonly<Record<Layer, readonly Layer[]>> = {
   'adapters':         ['lib', 'shared', 'adapters'],
   'render-service':   ['lib', 'shared', 'adapters', 'render-service'],
   'tracker-service':  ['lib', 'shared', 'adapters', 'render-service', 'tracker-service'],
+  'runner-service':   ['lib', 'shared', 'adapters', 'render-service', 'tracker-service', 'runner-service'],
   'test-support':     [...SOURCE_LAYERS],
   'repository-guard': [],
   'cli':              [...SOURCE_LAYERS, 'cli'],
@@ -111,7 +113,8 @@ function layerOf(path: string): Layer {
       return 'adapters';
     case 'services':
       if (unitFolder === 'render') return 'render-service';
-      return unitFolder === 'tracker' ? 'tracker-service' : 'unplaced';
+      if (unitFolder === 'tracker') return 'tracker-service';
+      return unitFolder === 'runner' ? 'runner-service' : 'unplaced';
     case 'testing':
       return 'test-support';
     default:
@@ -394,6 +397,11 @@ describe('the guard still names each violation, planted in memory', () => {
       'layer-imports-upward — src/shared/PlantedValue.ts:1 imports cli/Main.ts: shared reaches only lib, shared, not cli',
     ]);
     expect(plantedSentencesOf({ 'src/services/tracker/PlantedStep.ts': importing('../render/RenderState.ts') })).toEqual([]);
+    expect(plantedSentencesOf({ 'src/services/tracker/PlantedStep.ts': importing('../runner/PlantedPass.ts') })).toEqual([
+      'layer-imports-upward — src/services/tracker/PlantedStep.ts:1 imports src/services/runner/PlantedPass.ts: '
+        + 'tracker-service reaches only lib, shared, adapters, render-service, tracker-service, not runner-service',
+    ]);
+    expect(plantedSentencesOf({ 'src/services/runner/PlantedPass.ts': importing('../tracker/TrackerLock.ts') })).toEqual([]);
   });
 
   test('a feature importing another feature', () => {

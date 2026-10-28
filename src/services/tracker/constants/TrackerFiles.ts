@@ -11,4 +11,5 @@ export const TRACKER_FILES = {
   EPICS_DIRECTORY_NAME:   'epics',
   DRAFTS_DIRECTORY_NAME:  'filing-cabinet',
   LOCK_DIRECTORY_NAME:    '.lock',
+  HOLD_JOURNAL_FILE_NAME: 'hold-journal.json',
 } as const;

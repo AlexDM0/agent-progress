@@ -740,14 +740,17 @@ nobody closed.
   epics/<key>.md         one file per epic, the folder made by the first epic add
   filing-cabinet/D1.json one file per open draft, the folder made by the first draft open
   .lock/                 the lock's generation records
+  hold-journal.json      the write a lock hold committed to, present only until its files are written
 ```
 
 A mutating command writes, under one lock hold, the progress file, then the tickets it changed, then
 the epics it added, changed or removed, then the drafts it opened, changed or removed, then
 `log.jsonl`, then the page, so a log line never describes
-an unstored change. Every file a reader may hold open is written atomically: a temporary file beside the target,
-fsync, rename. Timestamps carry the offset of the machine that wrote them and are displayed as written, never
-re-parsed into a viewer's zone.
+an unstored change. Before the first of those files it writes `hold-journal.json` with every file's new contents, and
+removes the journal after the last; before the journal and before each file it checks that no newer command took its
+lock over as stale, and one that was stops at exit 2 writing nothing further. Every file a reader may hold open is
+written atomically: a temporary file beside the target, fsync, rename. Timestamps carry the offset of the machine that
+wrote them and are displayed as written, never re-parsed into a viewer's zone.
 
 ### `.agent-progress/progress.json`
 
@@ -876,6 +879,35 @@ transcript when it has one; each is written only when known, so a plain subagent
 ```
 {"at":"2026-09-18T22:10:00+02:00","kind":"agent-stopped","fields":{"agentId":"a1","agentType":"workflow-subagent","apiCallCount":2,"endContextTokens":140020,"totalInputTokens":230030,"cacheReadInputTokens":230000,"outputTokens":2000,"workflowRunId":"wf_example","agentLabel":"build #7"}}
 ```
+
+### `.agent-progress/hold-journal.json`
+
+```
+{
+  "version": 1,
+  "files": [
+    {
+      "path": "progress.json",
+      "contents": "{\n  \"version\": 1,\n  …\n}\n"
+    },
+    {
+      "path": "epics/checkout-redesign.md",
+      "removed": true
+    },
+    {
+      "path": "log.jsonl",
+      "contents": "{\"at\":\"2026-09-18T20:05:00+02:00\",\"kind\":\"note\",\"fields\":{\"text\":\"Example\"}}\n"
+    }
+  ]
+}
+```
+
+The write one lock hold committed to, in the order it writes the files, indented two spaces and ending in a newline,
+written atomically. Each entry's `path` is relative to the data folder and never leaves it; it carries either the
+file's whole new `contents`, `log.jsonl` included, or `"removed": true`. Every command that takes the lock first
+finishes a journal it finds, rewriting or removing each file verbatim, then removes it. A journal that cannot be read,
+another `version`, or an entry breaking these rules stops every write at exit 2 until it is repaired or removed;
+`status`, which takes no lock, reports it on standard error and replays nothing.
 
 ### `.agent-progress/version.json`
 

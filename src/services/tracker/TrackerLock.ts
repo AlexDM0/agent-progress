@@ -17,11 +17,12 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 
-import { createFileAtomically } from '../../lib/atomic-file/AtomicFile.ts';
-import { LocalTimeUtil }        from '../../lib/local-time/LocalTimeUtil.ts';
-import { OperationRefusal }     from '../../shared/OperationRefusal.ts';
-import { LIMITS }               from '../../shared/constants/Limits.ts';
-import type { Workspace }       from './Workspace.ts';
+import { createFileAtomically }              from '../../lib/atomic-file/AtomicFile.ts';
+import { LocalTimeUtil }                     from '../../lib/local-time/LocalTimeUtil.ts';
+import { OperationRefusal }                  from '../../shared/OperationRefusal.ts';
+import { LIMITS }                            from '../../shared/constants/Limits.ts';
+import { replayHoldJournal, type HoldFence } from './HoldJournal.ts';
+import type { Workspace }                    from './Workspace.ts';
 
 interface LockPayload {
   processId:  number;
@@ -200,17 +201,37 @@ export const LockGenerationSteps = {
   release,
 } as const;
 
+/** The hold `action` runs under: `requireStillHeld` refuses `lock-taken-over` (unrepaired) once a newer generation exists. */
+function lockHoldOf(lockDirectoryPath: string, heldGeneration: number): HoldFence {
+  return {
+    requireStillHeld: () => {
+      if (newerGenerationExists(lockDirectoryPath, heldGeneration)) throw new OperationRefusal('unrepaired', { kind: 'lock-taken-over', lockDirectoryPath });
+    },
+  };
+}
+
+function replayingTheJournalFirst<ActionResult>(
+  workspace: Workspace,
+  action: (hold: HoldFence) => Promise<ActionResult> | ActionResult,
+): (hold: HoldFence) => Promise<ActionResult> | ActionResult {
+  return (hold) => {
+    replayHoldJournal(workspace, hold);
+    return action(hold);
+  };
+}
+
 /**
- * Run `action` with this tracker's lock held, releasing it however `action` ends. A held record is taken over once its
- * process is gone or its stamp is more than `LIMITS.LOCK_STALE_MILLISECONDS` old, live holder or not; one stamped in the future
- * by a live holder never goes stale. Throws `OperationRefusal('unrepaired')`, its detail `tracker-lock-held` — exit 2 — when the retry budget runs out.
+ * Run `action` with this tracker's lock held, releasing it however `action` ends, after replaying any hold journal a cut-short hold left.
+ * A held record is taken over once its process is gone or its stamp is more than `LIMITS.LOCK_STALE_MILLISECONDS` old, live holder or not;
+ * one stamped in the future by a live holder never goes stale. Throws `OperationRefusal('unrepaired')`, its detail `tracker-lock-held` — exit
+ * 2 — when the retry budget runs out.
  */
 export function withLock<ActionResult>(
   workspace: Workspace,
-  action: () => Promise<ActionResult> | ActionResult,
+  action: (hold: HoldFence) => Promise<ActionResult> | ActionResult,
   now: () => Date,
 ): Promise<ActionResult> {
-  return withLockAt(workspace.lockDirectoryPath, action, now);
+  return withLockAt(workspace.lockDirectoryPath, replayingTheJournalFirst(workspace, action), now);
 }
 
 export type LockIfFreeOutcome<ActionResult> = { verdict: 'ran'; result: ActionResult } | { verdict: 'held' };
@@ -218,7 +239,7 @@ export type LockIfFreeOutcome<ActionResult> = { verdict: 'ran'; result: ActionRe
 /** `withLock` that never waits: a lock another process holds is the `held` verdict at once, and `action` never runs. */
 export async function withLockIfFree<ActionResult>(
   workspace: Workspace,
-  action: () => Promise<ActionResult> | ActionResult,
+  action: (hold: HoldFence) => Promise<ActionResult> | ActionResult,
   now: () => Date,
 ): Promise<LockIfFreeOutcome<ActionResult>> {
   const payload: LockPayload = { acquiredAt: LocalTimeUtil.formatLocalIso(now()), processId: process.pid };
@@ -232,7 +253,7 @@ export async function withLockIfFree<ActionResult>(
   if (heldGeneration === null) return { verdict: 'held' };
 
   try {
-    return { verdict: 'ran', result: await action() };
+    return { verdict: 'ran', result: await replayingTheJournalFirst(workspace, action)(lockHoldOf(workspace.lockDirectoryPath, heldGeneration)) };
   } finally {
     release(workspace.lockDirectoryPath, heldGeneration, { acquiredAt: LocalTimeUtil.formatLocalIso(now()), processId: process.pid });
   }
@@ -241,7 +262,7 @@ export async function withLockIfFree<ActionResult>(
 /** `withLock` on any lock directory, for a file several trackers' commands share; held, it throws the same refusal. */
 export async function withLockAt<ActionResult>(
   lockDirectoryPath: string,
-  action: () => Promise<ActionResult> | ActionResult,
+  action: (hold: HoldFence) => Promise<ActionResult> | ActionResult,
   now: () => Date,
 ): Promise<ActionResult> {
   const payload: LockPayload = { acquiredAt: LocalTimeUtil.formatLocalIso(now()), processId: process.pid };
@@ -263,7 +284,7 @@ export async function withLockAt<ActionResult>(
   }
 
   try {
-    return await action();
+    return await action(lockHoldOf(lockDirectoryPath, heldGeneration));
   } finally {
     release(lockDirectoryPath, heldGeneration, { acquiredAt: LocalTimeUtil.formatLocalIso(now()), processId: process.pid });
   }

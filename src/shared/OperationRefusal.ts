@@ -15,6 +15,8 @@ export type OperationRefusalDetail =
   | { kind: 'no-tracker-at-override'; overrideDirectory: string }
   | { kind: 'no-tracker-found'; searchedFrom: string }
   | { kind: 'tracker-lock-held'; lockDirectoryPath: string }
+  | { kind: 'lock-taken-over'; lockDirectoryPath: string }
+  | { kind: 'malformed-hold-journal'; journalFilePath: string; reason: string }
   | { kind: 'template-token-not-unique'; templateFilePath: string; token: string; occurrenceCount: number }
   | { kind: 'install-version-mismatch'; rootDirectory: string; manifestFilePath: string; installVersion: number; mismatch: InstallVersionMismatch }
   | { kind: 'older-program-present'; rootDirectory: string; olderDataFolderPath: string; program: string; olderProgram: string };

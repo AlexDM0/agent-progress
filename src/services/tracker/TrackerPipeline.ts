@@ -1,27 +1,30 @@
 /**
  * The sequence every mutating command follows, written once and all inside the lock: read the tracker into a Board, mutate, write the progress
  * file, then the tickets the Board changed, then the epics it changed or removed, then the drafts, then log.jsonl, then render from disk, so
- * no older render lands last and the progress file is never behind the tickets.
+ * no older render lands last and the progress file is never behind the tickets. The writes commit through the hold journal, fenced
+ * against a takeover of the lock.
  */
-import { createDraftFileWriter }                        from '../../adapters/drafts/DraftFileWriter.ts';
-import { createEpicFileWriter }                         from '../../adapters/epics/EpicFileWriter.ts';
-import { createLogFileWriter }                          from '../../adapters/log/LogFileWriter.ts';
-import { createLogRecordCollector }                     from '../../adapters/log/LogRecordCollector.ts';
-import { createProgressFileWriter }                     from '../../adapters/progress/ProgressFileWriter.ts';
-import { createTicketFileWriter }                       from '../../adapters/tickets/TicketFileWriter.ts';
-import type { LogRecord }                               from '../../lib/tracker-model/@types/LogRecord.ts';
-import { Board }                                        from '../../lib/tracker-model/Board.ts';
-import { refusalIsBoardRefusal }                        from '../../lib/tracker-model/BoardRefusal.ts';
-import { createLogger }                                 from '../../lib/tracker-model/Logger.ts';
-import { OperationRefusal }                             from '../../shared/OperationRefusal.ts';
-import type { RenderState }                             from '../render/RenderState.ts';
-import { renderDashboard, type DashboardRenderOutcome } from './DashboardRendering.ts';
-import { draftFilePathOf, type MalformedDraftFile }     from './DraftStore.ts';
-import { deleteEveryEpicFile, type MalformedEpicFile }  from './EpicStore.ts';
-import { deleteAllTickets, type MalformedTicketFile }   from './TicketStore.ts';
-import { withLock }                                     from './TrackerLock.ts';
-import { requireTracker, type TrackerContents }         from './TrackerReader.ts';
-import type { Workspace }                               from './Workspace.ts';
+import { createDraftFileWriter }                           from '../../adapters/drafts/DraftFileWriter.ts';
+import { createEpicFileWriter }                            from '../../adapters/epics/EpicFileWriter.ts';
+import type { JournaledFile }                              from '../../adapters/hold-journal/HoldJournalIngestion.ts';
+import { createLogFileWriter }                             from '../../adapters/log/LogFileWriter.ts';
+import { createLogRecordCollector }                        from '../../adapters/log/LogRecordCollector.ts';
+import { createProgressFileWriter }                        from '../../adapters/progress/ProgressFileWriter.ts';
+import { createTicketFileWriter }                          from '../../adapters/tickets/TicketFileWriter.ts';
+import type { LogRecord }                                  from '../../lib/tracker-model/@types/LogRecord.ts';
+import { Board }                                           from '../../lib/tracker-model/Board.ts';
+import { refusalIsBoardRefusal }                           from '../../lib/tracker-model/BoardRefusal.ts';
+import { createLogger }                                    from '../../lib/tracker-model/Logger.ts';
+import { OperationRefusal }                                from '../../shared/OperationRefusal.ts';
+import type { RenderState }                                from '../render/RenderState.ts';
+import { renderDashboard, type DashboardRenderOutcome }    from './DashboardRendering.ts';
+import { draftFilePathOf, type MalformedDraftFile }        from './DraftStore.ts';
+import { everyEpicFilePathIn, type MalformedEpicFile }     from './EpicStore.ts';
+import { commitHold }                                      from './HoldJournal.ts';
+import { everyTicketFilePathIn, type MalformedTicketFile } from './TicketStore.ts';
+import { withLock }                                        from './TrackerLock.ts';
+import { requireTracker, type TrackerContents }            from './TrackerReader.ts';
+import type { Workspace }                                  from './Workspace.ts';
 
 export interface TrackerChange {
   board:                          Board;
@@ -39,13 +42,15 @@ export interface TrackerChange {
 }
 
 export interface TrackerWriteRequest<MutationResult> {
-  workspace:   Workspace;
+  workspace:         Workspace;
   /** Already resolved by the caller; the Board stamps and logs with it. */
-  at:          string;
+  at:                string;
   /** The caller's clock: the lock's records and the page's generated stamp. */
-  now:         () => Date;
-  renderState: RenderState;
-  mutate:      (change: TrackerChange) => MutationResult | Promise<MutationResult>;
+  now:               () => Date;
+  renderState:       RenderState;
+  mutate:            (change: TrackerChange) => MutationResult | Promise<MutationResult>;
+  /** Called after each file the hold writes; the step a spec interrupts to cut the hold short. */
+  afterFileWritten?: (filePath: string) => void;
 }
 
 export interface TrackerWritten<MutationResult> {
@@ -73,26 +78,33 @@ function openBoard(contents: TrackerContents): OpenBoard {
   return { contents, logRecordCollector, board };
 }
 
-/** A log line never describes an unstored change, so the log goes last. */
-function writeBoard(workspace: Workspace, openedBoard: OpenBoard, deletionCallbacks: readonly ((deletedTicketCount: number) => void)[]): void {
+interface PlannedHold {
+  files:              JournaledFile[];
+  deletedTicketCount: number;
+}
+
+/** Every file the hold writes, in the order it writes them; a log line never describes an unstored change, so the log goes last. */
+function plannedHoldOf(workspace: Workspace, openedBoard: OpenBoard, deletesEveryTicketFile: boolean): PlannedHold {
   const { contents, logRecordCollector, board } = openedBoard;
-  const logRecordsToWrite = logRecordCollector.recordsToWrite();
+  const written = (filePath: string, fileContents: string): JournaledFile => ({ kind: 'written', filePath, contents: fileContents });
+  const removed = (filePath: string): JournaledFile => ({ kind: 'removed', filePath });
 
-  createProgressFileWriter(workspace.progressFilePath).write(contents.progress);
+  const files: JournaledFile[] = [written(workspace.progressFilePath, createProgressFileWriter(workspace.progressFilePath).contentsOf(contents.progress))];
   const ticketFileWriter = createTicketFileWriter();
-  for (const ticket of board.changedTickets()) ticketFileWriter.write(ticket);
+  for (const ticket of board.changedTickets()) files.push(written(ticket.filePath, ticketFileWriter.contentsOf(ticket)));
   const epicFileWriter = createEpicFileWriter();
-  for (const epic of board.changedEpics()) epicFileWriter.write(epic);
-  for (const epic of board.removedEpics()) epicFileWriter.remove(epic);
+  for (const epic of board.changedEpics()) files.push(written(epic.filePath, epicFileWriter.contentsOf(epic)));
+  for (const epic of board.removedEpics()) files.push(removed(epic.filePath));
   const draftFileWriter = createDraftFileWriter((draftId) => draftFilePathOf(workspace, draftId));
-  for (const draft of board.changedDrafts()) draftFileWriter.write(draft);
-  for (const draft of board.removedDrafts()) draftFileWriter.remove(draft);
-  for (const onDeleted of deletionCallbacks) {
-    onDeleted(deleteAllTickets(workspace));
-    deleteEveryEpicFile(workspace);
-  }
+  for (const draft of board.changedDrafts()) files.push(written(draftFilePathOf(workspace, draft.id), draftFileWriter.contentsOf(draft)));
+  for (const draft of board.removedDrafts()) files.push(removed(draftFilePathOf(workspace, draft.id)));
+  const deletedTicketFilePaths = deletesEveryTicketFile ? everyTicketFilePathIn(workspace) : [];
+  files.push(...deletedTicketFilePaths.map(removed));
+  if (deletesEveryTicketFile) files.push(...everyEpicFilePathIn(workspace).map(removed));
 
-  if (logRecordsToWrite !== null) createLogFileWriter(workspace.logFilePath).write(logRecordsToWrite);
+  const logRecordsToWrite = logRecordCollector.recordsToWrite();
+  if (logRecordsToWrite !== null) files.push(written(workspace.logFilePath, createLogFileWriter(workspace.logFilePath).contentsOf(logRecordsToWrite)));
+  return { files, deletedTicketCount: deletedTicketFilePaths.length };
 }
 
 /** A Board refusal is one the caller can act on, wrapped with its detail for the command line to word; nothing has been written when it is thrown. */
@@ -110,10 +122,10 @@ async function mutateWrappingBoardRefusals<MutationResult>(
 
 export function writeTracker<MutationResult>(request: TrackerWriteRequest<MutationResult>): Promise<TrackerWritten<MutationResult>> {
   const {
-    workspace, at, now, renderState, mutate
+    workspace, at, now, renderState, mutate, afterFileWritten
   } = request;
 
-  return withLock(workspace, async () => {
+  return withLock(workspace, async (hold) => {
     const openedBoard = openBoard(requireTracker(workspace));
 
     const deletionCallbacks: ((deletedTicketCount: number) => void)[] = [];
@@ -129,7 +141,9 @@ export function writeTracker<MutationResult>(request: TrackerWriteRequest<Mutati
       deleteAllTicketFilesAfterwards: (onDeleted) => { deletionCallbacks.push(onDeleted); },
     });
 
-    writeBoard(workspace, openedBoard, deletionCallbacks);
+    const plannedHold = plannedHoldOf(workspace, openedBoard, deletionCallbacks.length > 0);
+    commitHold(workspace, plannedHold.files, hold, afterFileWritten);
+    for (const onDeleted of deletionCallbacks) onDeleted(plannedHold.deletedTicketCount);
     const renderOutcome = await renderDashboard(workspace, now(), renderState);
     return { result, board: openedBoard.board, renderOutcome };
   }, now);

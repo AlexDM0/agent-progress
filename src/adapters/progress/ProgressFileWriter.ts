@@ -11,6 +11,7 @@ function documentTextOf(progress: TrackerProgress): string {
 export function createProgressFileWriter(progressFilePath: string): {
   write(progress: TrackerProgress): void;
   create(progress: TrackerProgress): 'created' | 'already-exists';
+  contentsOf(progress: TrackerProgress): string;
 } {
   /** Through `src/lib/atomic-file/AtomicFile.ts`, because a subagent in another worktree may be reading this exact file right now. */
   function write(progress: TrackerProgress): void {
@@ -22,5 +23,5 @@ export function createProgressFileWriter(progressFilePath: string): {
     return createFileAtomically(progressFilePath, documentTextOf(progress));
   }
 
-  return { write, create };
+  return { write, create, contentsOf: documentTextOf };
 }

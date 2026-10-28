@@ -1,15 +1,16 @@
-import { LogUtil }                           from '../../../src/adapters/utils/LogUtil.ts';
-import { LocalTimeUtil }                     from '../../../src/lib/local-time/LocalTimeUtil.ts';
-import { readingBoardOf }                    from '../../../src/lib/tracker-model/ReadingBoard.ts';
-import { requireTracker }                    from '../../../src/services/tracker/TrackerReader.ts';
-import { requireWorkspace }                  from '../../../src/services/tracker/Workspace.ts';
-import type { WordedLogEntry }               from '../../../src/shared/@types/WordedLogEntry.ts';
-import { PRODUCT_NAMES }                     from '../../../src/shared/constants/ProductNames.ts';
-import type { CommandHandler }               from '../../CommandHandler.ts';
-import { NextLineUtil }                      from '../../utils/NextLineUtil.ts';
-import { OutputUtil }                        from '../../utils/OutputUtil.ts';
-import { fullDocumentOf, workingDocumentOf } from './StatusDocuments.ts';
-import { humanStatusTextOf }                 from './StatusText.ts';
+import { LogUtil }                                from '../../../src/adapters/utils/LogUtil.ts';
+import { LocalTimeUtil }                          from '../../../src/lib/local-time/LocalTimeUtil.ts';
+import { readingBoardOf }                         from '../../../src/lib/tracker-model/ReadingBoard.ts';
+import { holdJournalFilePathOf, readHoldJournal } from '../../../src/services/tracker/HoldJournal.ts';
+import { requireTracker }                         from '../../../src/services/tracker/TrackerReader.ts';
+import { requireWorkspace }                       from '../../../src/services/tracker/Workspace.ts';
+import type { WordedLogEntry }                    from '../../../src/shared/@types/WordedLogEntry.ts';
+import { PRODUCT_NAMES }                          from '../../../src/shared/constants/ProductNames.ts';
+import type { CommandHandler }                    from '../../CommandHandler.ts';
+import { NextLineUtil }                           from '../../utils/NextLineUtil.ts';
+import { OutputUtil }                             from '../../utils/OutputUtil.ts';
+import { fullDocumentOf, workingDocumentOf }      from './StatusDocuments.ts';
+import { humanStatusTextOf }                      from './StatusText.ts';
 
 const USAGE = `${PRODUCT_NAMES.PROGRAM} status [--json] [--full] [--tickets-only]`;
 
@@ -34,6 +35,11 @@ export const statusCommand: CommandHandler = async (commandArguments, context) =
   commandArguments.rejectExtraPositionals(0, USAGE);
 
   const workspace = requireWorkspace(context.currentDirectory);
+  const holdJournalReading = readHoldJournal(workspace);
+  if (holdJournalReading.verdict === 'malformed') {
+    context.standardError(`Hold journal unreadable: ${holdJournalFilePathOf(workspace)}: ${holdJournalReading.reason}. `
+      + 'Every write refuses until it is repaired or removed.');
+  }
   const {
     progress, storedLog, listing, epicListing, draftListing
   } = requireTracker(workspace);

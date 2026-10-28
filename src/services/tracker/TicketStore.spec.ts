@@ -26,7 +26,7 @@ import { emptyProgress }                                  from '../../testing/Pr
 import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
 import {
   createTicket,
-  deleteAllTickets,
+  everyTicketFilePathIn,
   listTickets,
   nextTicketId,
   readTicket,
@@ -277,14 +277,14 @@ describe('a ticket file renamed by hand', () => {
   });
 });
 
-describe('deleteAllTickets', () => {
-  test('deletes every ticket file and answers how many there were', () => {
+describe('everyTicketFilePathIn', () => {
+  test('answers every ticket file, a file that does not parse included, and removes none', () => {
     const workspace = scratchWorkspace();
-    fileTicket(workspace, 'Fix the export dialog', 'bug');
-    fileTicket(workspace, 'Add a keyboard shortcut', 'research');
+    const first     = fileTicket(workspace, 'Fix the export dialog', 'bug');
+    const second    = fileTicket(workspace, 'Add a keyboard shortcut', 'research');
+    writeFileSync(join(workspace.ticketsDirectory, '003-broken-by-hand.md'), 'no frontmatter here\n');
 
-    expect(deleteAllTickets(workspace)).toBe(2);
-    expect(listTickets(workspace).tickets).toEqual([]);
-    expect(nextTicketId(workspace)).toBe('001');
+    expect(everyTicketFilePathIn(workspace).toSorted()).toEqual([first.filePath, second.filePath, join(workspace.ticketsDirectory, '003-broken-by-hand.md')].toSorted());
+    expect(listTickets(workspace).tickets).toHaveLength(2);
   });
 });

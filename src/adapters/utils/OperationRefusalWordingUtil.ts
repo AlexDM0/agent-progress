@@ -270,6 +270,16 @@ function trackerLockHeldText(lockDirectoryPath: string): string {
   return `Another ${PRODUCT_NAMES.PROGRAM} command is holding ${lockDirectoryPath} and did not release it. If nothing else is running, remove that path and try again.`;
 }
 
+function lockTakenOverText(lockDirectoryPath: string): string {
+  return `This ${PRODUCT_NAMES.PROGRAM} command held ${lockDirectoryPath} so long that another command took it over, so it stopped writing. `
+    + 'The next command finishes whatever this one had committed to write; run this one again to make its change.';
+}
+
+function malformedHoldJournalText(journalFilePath: string, reason: string): string {
+  return `${journalFilePath} holds an unfinished write that cannot be read (${reason}), so nothing was done. `
+    + 'Repair that file, or remove it to leave that write unfinished, and try again.';
+}
+
 function templateTokenNotUniqueText(templateFilePath: string, token: string, occurrenceCount: number): string {
   return `the page template ${templateFilePath} holds ${occurrenceCount} occurrences of ${token}, not exactly one`;
 }
@@ -288,6 +298,10 @@ function messageOf(refusal: OperationRefusal): string {
       return noTrackerFoundText(detail.searchedFrom);
     case 'tracker-lock-held':
       return trackerLockHeldText(detail.lockDirectoryPath);
+    case 'lock-taken-over':
+      return lockTakenOverText(detail.lockDirectoryPath);
+    case 'malformed-hold-journal':
+      return malformedHoldJournalText(detail.journalFilePath, detail.reason);
     case 'template-token-not-unique':
       return templateTokenNotUniqueText(detail.templateFilePath, detail.token, detail.occurrenceCount);
     case 'install-version-mismatch':

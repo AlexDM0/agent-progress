@@ -5,23 +5,25 @@ import type { Epic }                       from '../../lib/tracker-model/@types/
 import { EpicDocumentUtil }                from './utils/EpicDocumentUtil.ts';
 
 /** Writes through `src/lib/atomic-file/AtomicFile.ts`; an epic whose frontmatter would read back unchanged keeps the stored frontmatter text. */
-export function createEpicFileWriter(): { write(epic: Readonly<Epic>): void; remove(epic: Readonly<Epic>): void } {
+export function createEpicFileWriter(): { write(epic: Readonly<Epic>): void; remove(epic: Readonly<Epic>): void; contentsOf(epic: Readonly<Epic>): string } {
+  /** Reads the stored file, so it is taken before anything replaces it. */
+  function contentsOf(epic: Readonly<Epic>): string {
+    const storedFrontmatterText = unchangedStoredFrontmatterTextOf(epic);
+    return storedFrontmatterText === null
+      ? EpicDocumentUtil.epicDocumentTextOf(epic.frontmatter, epic.body, epic.lineEnding)
+      : `${storedFrontmatterText}${epic.body}`;
+  }
+
   function write(epic: Readonly<Epic>): void {
     mkdirSync(dirname(epic.filePath), { recursive: true });
-    const storedFrontmatterText = unchangedStoredFrontmatterTextOf(epic);
-    writeFileAtomically(
-      epic.filePath,
-      storedFrontmatterText === null
-        ? EpicDocumentUtil.epicDocumentTextOf(epic.frontmatter, epic.body, epic.lineEnding)
-        : `${storedFrontmatterText}${epic.body}`,
-    );
+    writeFileAtomically(epic.filePath, contentsOf(epic));
   }
 
   function remove(epic: Readonly<Epic>): void {
     rmSync(epic.filePath, { force: true });
   }
 
-  return { write, remove };
+  return { write, remove, contentsOf };
 }
 
 function unchangedStoredFrontmatterTextOf(epic: Readonly<Epic>): string | null {

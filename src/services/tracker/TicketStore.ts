@@ -3,10 +3,10 @@
  * file is a listing entry and a `null`, so one broken file cannot take down `status` or `render`.
  */
 
-import { readdirSync, unlinkSync } from 'node:fs';
-import { join }                    from 'node:path';
-import { ProgressFileIngestion }   from '../../adapters/progress/ProgressFileIngestion.ts';
-import { TicketFileIngestion }     from '../../adapters/tickets/TicketFileIngestion.ts';
+import { readdirSync }           from 'node:fs';
+import { join }                  from 'node:path';
+import { ProgressFileIngestion } from '../../adapters/progress/ProgressFileIngestion.ts';
+import { TicketFileIngestion }   from '../../adapters/tickets/TicketFileIngestion.ts';
 import type {
   Ticket,
   TicketFrontmatter,
@@ -152,14 +152,9 @@ export function createTicket(workspace: Workspace, input: CreateTicketInput): Ti
   return { frontmatter, body: input.bodyFor(identifier), filePath: join(workspace.ticketsDirectory, fileName) };
 }
 
-export function deleteAllTickets(workspace: Workspace): number {
-  let removedTicketCount = 0;
-
-  for (const fileName of ticketFileNamesIn(workspace)) {
-    unlinkSync(join(workspace.ticketsDirectory, fileName));
-    removedTicketCount++;
-  }
-  return removedTicketCount;
+/** Every ticket file `clear --all` removes, whether or not it parses. */
+export function everyTicketFilePathIn(workspace: Workspace): string[] {
+  return ticketFileNamesIn(workspace).map((fileName) => join(workspace.ticketsDirectory, fileName));
 }
 
 interface ParsedTicketFile {
