@@ -9,6 +9,7 @@
 import { isAbsolute }             from 'node:path';
 import { describe, expect, test } from 'bun:test';
 
+import { PRODUCT_NAMES }                                        from '../../shared/constants/ProductNames.ts';
 import { type ProfiledRole, type SandboxFacts, WorkerProfiles } from './WorkerProfiles.ts';
 
 const FACTS: SandboxFacts = {
@@ -134,5 +135,20 @@ describe('the network line', () => {
 
   test('gives the product owner every web domain and Bash none', () => {
     expect(profileOf('product-owner', ['docs.example.org'])).toMatchObject({ webNetworkDomains: 'any', bashNetworkDomains: [] });
+  });
+
+  test.each(['builder', 'reviewer'] as const)('becomes the %s\'s bash-domains guard, the program named as PRODUCT_NAMES says', (role) => {
+    expect(profileOf(role, ['registry.example.com', '*.docs.example.org']).networkDomainGuard).toEqual({
+      allowedDomains: ['registry.example.com', '*.docs.example.org'],
+      commandArgv:    [PRODUCT_NAMES.PROGRAM, 'hook', 'bash-domains', '--allow', 'registry.example.com,*.docs.example.org'],
+    });
+  });
+
+  test('absent, leaves a worker no guard', () => {
+    expect(profileOf('builder').networkDomainGuard).toBeNull();
+  });
+
+  test.each(['product-owner', 'orchestrator'] as const)('gives the %s no guard, since its role has no network line', (role) => {
+    expect(profileOf(role, ['docs.example.org']).networkDomainGuard).toBeNull();
   });
 });

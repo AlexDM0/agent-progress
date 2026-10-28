@@ -63,6 +63,7 @@ function launched(adapter: AgentAdapter): ReturnType<typeof Bun.spawn<'pipe', 'p
       instructionsRoot:       scratch,
       gitHooksDirectory:      scratch,
       commitSigning:          { kind: 'unsigned' },
+      networkDomainGuard:     null,
     },
   });
   for (const file of plan.files) {

@@ -5,11 +5,11 @@
 import { createHash }    from 'node:crypto';
 import { dirname, join } from 'node:path';
 
-import type { AgentAdapter }                             from '../agent-launch/AgentAdapter.ts';
-import type { AgentLaunchPlan, StandingReply }           from '../agent-launch/AgentLaunchPlan.ts';
-import type { AgentLaunchRequest }                       from '../agent-launch/AgentLaunchRequest.ts';
-import type { AgentDefinition, WorkerProfile }           from '../agent-launch/WorkerProfile.ts';
-import { CLAUDE_CODE_CAPABILITIES, CLAUDE_STREAM_LINES } from './ClaudeStreamLines.ts';
+import type { AgentAdapter }                                       from '../agent-launch/AgentAdapter.ts';
+import type { AgentLaunchPlan, StandingReply }                     from '../agent-launch/AgentLaunchPlan.ts';
+import type { AgentLaunchRequest }                                 from '../agent-launch/AgentLaunchRequest.ts';
+import type { AgentDefinition, NetworkDomainGuard, WorkerProfile } from '../agent-launch/WorkerProfile.ts';
+import { CLAUDE_CODE_CAPABILITIES, CLAUDE_STREAM_LINES }           from './ClaudeStreamLines.ts';
 
 export const CLAUDE_CODE_VENDOR = 'claude-code';
 
@@ -36,6 +36,8 @@ const UUID_VARIANT_BITS = 0b1000;
 const UUID_VARIANT_MASK = 0b0011;
 const HEXADECIMAL_RADIX = 16;
 const LOOPBACK_DOMAINS = ['localhost', '127.0.0.1'] as const;
+const NETWORK_GUARDED_TOOLS = ['Bash', 'WebFetch'] as const;
+const SHELL_SAFE_WORD = /^[\w./,:=@%+-]+$/;
 const STANDING_DENIAL_MESSAGE = 'Permission requests are not answered for this session; work within the tools and paths already allowed.';
 
 /** The session id a job keeps across every host instance and resume: a UUID formatted from `sha256(scope + "\n" + jobId)`. */
@@ -107,6 +109,16 @@ function sandboxOf(profile: WorkerProfile): Record<string, unknown> {
   };
 }
 
+/** A word the shell reads as itself stays bare; any other is single-quoted, so a `*.example.com` entry is never globbed. */
+function shellWordOf(word: string): string {
+  return SHELL_SAFE_WORD.test(word) ? word : `'${word.replaceAll('\'', '\'\\\'\'')}'`;
+}
+
+function preToolUseHooksOf(guard: NetworkDomainGuard): Record<string, unknown> {
+  const command = guard.commandArgv.map(shellWordOf).join(' ');
+  return { PreToolUse: NETWORK_GUARDED_TOOLS.map((matcher) => ({ matcher, hooks: [{ type: 'command', command }] })), };
+}
+
 function settingsOf(request: AgentLaunchRequest): Record<string, unknown> {
   const { profile } = request;
   const homeDirectory = Object.hasOwn(request.environment, 'HOME') ? request.environment['HOME'] : undefined;
@@ -117,6 +129,7 @@ function settingsOf(request: AgentLaunchRequest): Record<string, unknown> {
     claudeMdExcludes:    instructionFileExclusionsOf(profile.instructionsRoot, homeDirectory),
     sandbox:             sandboxOf(profile),
     permissions:         { allow: allowRulesOf(profile, request.workingDirectory), deny: denyRulesOf(profile) },
+    ...profile.networkDomainGuard === null ? {} : { hooks: preToolUseHooksOf(profile.networkDomainGuard) },
   };
 }
 
