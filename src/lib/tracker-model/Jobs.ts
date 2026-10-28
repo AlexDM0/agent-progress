@@ -179,6 +179,7 @@ export class Jobs {
   }
 
   recordRunnerStarted(versions: { codeVersion: string; installVersion: number }, at: string): Logged {
+    this.records.progress.overseerFirstStartedAt ??= at;
     return { logged: [this.records.logger.log({ kind: 'runner-started', fields: { codeVersion: versions.codeVersion, installVersion: versions.installVersion } }, at)] };
   }
 
