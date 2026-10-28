@@ -650,6 +650,31 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
     expect(HostFleet.livenessOf(sessionJobFolder(job.id), 1).verdict).toBe('live');
   }, ROW_TIMEOUT_MILLISECONDS);
 
+  test('a resolver merge agent launches bound to the resolver report schema, with the question tool disallowed', async () => {
+    const plans = new Map<string, { reportTitle: unknown; askUser: boolean }>();
+    const adapter: AgentAdapter = {
+      ...fakeAgentAdapter(),
+      planOf(request) {
+        plans.set(basename(request.jobFilesDirectory), { reportTitle: (request.reportSchema as { title?: string } | null)?.title, askUser: request.profile.askUser });
+        return fakeAgentAdapter(WAITING_STEPS).planOf(request);
+      },
+    };
+    let resolverJobId = '';
+    await writeTracker({
+      workspace: sessionWorkspace,
+      at:        CHANGED_AT,
+      now,
+      renderState,
+      mutate:    (change) => {
+        resolverJobId = change.board.launchJob({
+          kind: 'merge-agent', role: 'resolver', ticketIds: ['001'], parentJobId: null, attempt: 1, target: 'main',
+        }, change.at).job.id;
+      },
+    });
+    await passOnce(await startedRunner(adapter));
+    expect(plans.get(resolverJobId)).toEqual({ reportTitle: 'resolver report', askUser: false });
+  }, ROW_TIMEOUT_MILLISECONDS);
+
   test('a finished session is never continued: a move of an ended job is refused job-finished', async () => {
     const failure = await failureOf(() => writeTracker({
       workspace: sessionWorkspace,

@@ -7,31 +7,31 @@ import { createHash }                          from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join }                                from 'node:path';
 
-import { BUILDER_REPORT_SCHEMA, REVIEWER_REPORT_SCHEMA }            from '../../adapters/reports/ReportSchemas.ts';
-import type { JsonSchema }                                          from '../../adapters/reports/ReportValidation.ts';
-import { type UsageMarkerReading, UsageMarkerFile }                 from '../../adapters/usage-marker/UsageMarkerFile.ts';
-import type { EventLogEntry }                                       from '../../lib/agent-host/EventLog.ts';
-import type { AgentAdapter }                                        from '../../lib/agent-launch/AgentAdapter.ts';
-import type { AgentLaunchRequest }                                  from '../../lib/agent-launch/AgentLaunchRequest.ts';
-import { launchEnvironmentOf }                                      from '../../lib/agent-launch/LaunchEnvironment.ts';
-import type { WorkerProfile }                                       from '../../lib/agent-launch/WorkerProfile.ts';
-import { GitProcess }                                               from '../../lib/git/GitProcess.ts';
-import type { InterruptionCause, Job, JobKind }                     from '../../lib/tracker-model/@types/Job.ts';
-import type { DecisionDraft, DecisionWording }                      from '../../lib/tracker-model/@types/LifecycleStep.ts';
-import type { Board }                                               from '../../lib/tracker-model/Board.ts';
-import { JOB_ID_VARIABLE, RELAY_DIRECTORY_VARIABLE }                from '../../shared/Environment.ts';
-import { LIFECYCLE_LIMITS }                                         from '../../shared/constants/LifecycleLimits.ts';
-import { MERGE_SLOT_LIMITS }                                        from '../../shared/constants/MergeSlotLimits.ts';
-import { PRODUCT_NAMES }                                            from '../../shared/constants/ProductNames.ts';
-import { SESSION_STOP_GRACE_MILLISECONDS }                          from '../../shared/constants/RunnerLimits.ts';
-import { createFolderGateResultCache, createMemoryGateResultCache } from '../lifecycle/GateResultCache.ts';
-import { GateRun }                                                  from '../lifecycle/GateRun.ts';
-import { ReviewOutcome }                                            from '../lifecycle/ReviewOutcome.ts';
-import type { RenderState }                                         from '../render/RenderState.ts';
-import { writeTracker, type TrackerChange }                         from '../tracker/TrackerPipeline.ts';
-import { requireProgressFile }                                      from '../tracker/TrackerReader.ts';
-import type { Workspace }                                           from '../tracker/Workspace.ts';
-import { HostFleet, type HostLiveness }                             from './HostFleet.ts';
+import { BUILDER_REPORT_SCHEMA, RESOLVER_REPORT_SCHEMA, REVIEWER_REPORT_SCHEMA } from '../../adapters/reports/ReportSchemas.ts';
+import type { JsonSchema }                                                       from '../../adapters/reports/ReportValidation.ts';
+import { type UsageMarkerReading, UsageMarkerFile }                              from '../../adapters/usage-marker/UsageMarkerFile.ts';
+import type { EventLogEntry }                                                    from '../../lib/agent-host/EventLog.ts';
+import type { AgentAdapter }                                                     from '../../lib/agent-launch/AgentAdapter.ts';
+import type { AgentLaunchRequest }                                               from '../../lib/agent-launch/AgentLaunchRequest.ts';
+import { launchEnvironmentOf }                                                   from '../../lib/agent-launch/LaunchEnvironment.ts';
+import type { WorkerProfile }                                                    from '../../lib/agent-launch/WorkerProfile.ts';
+import { GitProcess }                                                            from '../../lib/git/GitProcess.ts';
+import type { InterruptionCause, Job, JobKind }                                  from '../../lib/tracker-model/@types/Job.ts';
+import type { DecisionDraft, DecisionWording }                                   from '../../lib/tracker-model/@types/LifecycleStep.ts';
+import type { Board }                                                            from '../../lib/tracker-model/Board.ts';
+import { JOB_ID_VARIABLE, RELAY_DIRECTORY_VARIABLE }                             from '../../shared/Environment.ts';
+import { LIFECYCLE_LIMITS }                                                      from '../../shared/constants/LifecycleLimits.ts';
+import { MERGE_SLOT_LIMITS }                                                     from '../../shared/constants/MergeSlotLimits.ts';
+import { PRODUCT_NAMES }                                                         from '../../shared/constants/ProductNames.ts';
+import { SESSION_STOP_GRACE_MILLISECONDS }                                       from '../../shared/constants/RunnerLimits.ts';
+import { createFolderGateResultCache, createMemoryGateResultCache }              from '../lifecycle/GateResultCache.ts';
+import { GateRun }                                                               from '../lifecycle/GateRun.ts';
+import { ReviewOutcome }                                                         from '../lifecycle/ReviewOutcome.ts';
+import type { RenderState }                                                      from '../render/RenderState.ts';
+import { writeTracker, type TrackerChange }                                      from '../tracker/TrackerPipeline.ts';
+import { requireProgressFile }                                                   from '../tracker/TrackerReader.ts';
+import type { Workspace }                                                        from '../tracker/Workspace.ts';
+import { HostFleet, type HostLiveness }                                          from './HostFleet.ts';
 import {
   BUILD_JOB_CAUSES,
   type BuildJobObservation,
@@ -168,7 +168,11 @@ const SESSION_JOB_KINDS: readonly JobKind[] = ['orchestrator', 'product-owner'];
 /** The jobs whose session owes a closing report: one that exits cleanly without it ends `failed`, cause `no-report`. */
 const REPORTING_JOB_KINDS: readonly JobKind[] = ['build', 'review'];
 
-const REPORT_SCHEMA_OF_JOB_KIND: Partial<Record<JobKind, JsonSchema>> = { build: BUILDER_REPORT_SCHEMA, review: REVIEWER_REPORT_SCHEMA };
+const REPORT_SCHEMA_OF_JOB_KIND: Partial<Record<JobKind, JsonSchema>> = {
+  'build':       BUILDER_REPORT_SCHEMA,
+  'review':      REVIEWER_REPORT_SCHEMA,
+  'merge-agent': RESOLVER_REPORT_SCHEMA,
+};
 
 function fileTextOrEmpty(filePath: string): string {
   try {
