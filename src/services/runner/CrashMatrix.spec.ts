@@ -196,8 +196,9 @@ interface RecordedLaunch {
 }
 
 interface SessionScenario {
-  fresh:   readonly FakeAgentStep[];
-  resumed: readonly FakeAgentStep[];
+  fresh:         readonly FakeAgentStep[];
+  resumed:       readonly FakeAgentStep[];
+  orchestrator?: readonly FakeAgentStep[];
 }
 
 const SESSION_STAMP          = '2026-09-18T22:11:03+02:00';
@@ -236,7 +237,7 @@ function recordingAdapter(scenario: SessionScenario): AgentAdapter {
           sessionId:        request.sessionId,
         });
       }
-      const steps = isWorker ? (request.resume ? scenario.resumed : scenario.fresh) : WAITING_STEPS;
+      const steps = isWorker ? (request.resume ? scenario.resumed : scenario.fresh) : scenario.orchestrator ?? WAITING_STEPS;
       return fakeAgentAdapter(steps).planOf(request);
     },
   };
@@ -606,6 +607,29 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
     expect(report.respawnJobIds).toContain(orchestratorJobId);
     await until(() => HostFleet.livenessOf(sessionJobFolder(orchestratorJobId), 1).verdict === 'live', 'the same instance was never claimed');
     expect(storedJobs().find((job) => job.id === orchestratorJobId)?.hostInstance).toBe(1);
+  }, ROW_TIMEOUT_MILLISECONDS);
+
+  test('an orchestrator session finishes only once the runner closed its input: a turn\'s result keeps it running, its host gone while stopping ends it closed', async () => {
+    const orchestratorSteps: readonly FakeAgentStep[] = [STARTED, { kind: 'print', line: fakeResultLine({ outcome: 'built' }) }, { kind: 'await-line' }];
+    const adapter = recordingAdapter({ fresh: WAITING_STEPS, resumed: WAITING_STEPS, orchestrator: orchestratorSteps });
+    const drivePass        = await startedRunner(adapter);
+    const orchestratorJob  = (): Readonly<Job> | undefined => storedJobs().find((job) => job.kind === 'orchestrator');
+    const orchestratorId   = (): string => orchestratorJob()?.id ?? '';
+    await passUntil(drivePass, () => orchestratorJob() !== undefined && eventLogTextOf(orchestratorId(), 1).includes('"result"'), 'the orchestrator never ended a turn');
+    await passOnce(drivePass);
+    expect(orchestratorJob()).toMatchObject({ state: 'running', hostInstance: 1 });
+
+    const jobId = orchestratorId();
+    await writeTracker({
+      workspace: sessionWorkspace, at: CHANGED_AT, now, renderState, mutate: (change) => { change.board.moveJob(jobId, 'stopping', change.at); },
+    });
+    killHost(jobId, 1);
+    killChildGroup(jobId, 1);
+    await until(() => HostFleet.livenessOf(sessionJobFolder(jobId), 1).verdict === 'lost', 'the orchestrator host never read as lost');
+    await passUntil(drivePass, () => storedRecords().some((record) => record.kind === 'job-ended' && record.jobId === jobId), 'the stopped orchestrator never ended');
+
+    expect(storedRecords().find((record) => record.kind === 'job-ended' && record.jobId === jobId)?.fields).toMatchObject({ outcome: 'closed' });
+    expect(storedRecords().filter((record) => record.kind === 'job-interrupted' && record.jobId === jobId)).toEqual([]);
   }, ROW_TIMEOUT_MILLISECONDS);
 
   test('a ticket held while its job runs interrupts nothing', async () => {
