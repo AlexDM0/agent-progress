@@ -839,6 +839,7 @@ describeWhenGitIsPresent('the subcommand groups', () => {
       'link',
       'list',
       'network',
+      'park',
       'priority',
       'ready',
       'release-of',
@@ -848,6 +849,7 @@ describeWhenGitIsPresent('the subcommand groups', () => {
       'size',
       'start',
       'status',
+      'triage',
       'unhold',
     ]);
   });

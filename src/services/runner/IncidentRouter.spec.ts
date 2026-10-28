@@ -5,11 +5,30 @@
  */
 import { describe, expect, test } from 'bun:test';
 
+import type { Job }                    from '../../lib/tracker-model/@types/Job.ts';
 import type { LogRecord }              from '../../lib/tracker-model/@types/LogRecord.ts';
-import { FIXTURE_AT, jobFixture }      from '../../lib/tracker-model/testing/LifecycleFixtures.ts';
 import { QUIET_JOB_SWEEPS }            from '../../shared/constants/RunnerLimits.ts';
 import { boardFixture, ticketFixture } from '../../testing/BoardFixtures.ts';
 import { IncidentRouter }              from './IncidentRouter.ts';
+
+const FIXTURE_AT = '2026-10-28T10:00:00+01:00';
+
+function jobFixture(overrides: Partial<Job> & Pick<Job, 'id'>): Job {
+  return {
+    kind:               'build',
+    role:               'builder',
+    ticketIds:          [],
+    parentJobId:        null,
+    attempt:            1,
+    target:             'main',
+    state:              'running',
+    hostInstance:       1,
+    eventCursor:        { instance: 1, sequence: 0 },
+    answeredRequestIds: [],
+    crashResumes:       0,
+    ...overrides,
+  };
+}
 
 const QUIET_BUILD = jobFixture({ id: 'J1', ticketIds: ['001'] });
 
