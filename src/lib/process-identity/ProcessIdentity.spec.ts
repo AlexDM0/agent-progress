@@ -17,6 +17,7 @@ import {
 
 const PROCESS_GONE_POLLS = 100;
 const POLL_INTERVAL_MILLISECONDS = 50;
+const START_TOLERANCE_SECONDS = 5;
 
 const IDENTITY_MODULE_PATH = new URL('./ProcessIdentity.ts', import.meta.url).pathname;
 
@@ -69,6 +70,19 @@ describe('reading an identity', () => {
     const ownIdentity = identityOrThrow(process.pid);
     expect(identityReadUnderTimezone(process.pid, 'Pacific/Kiritimati')).toEqual(ownIdentity);
     expect(identityReadUnderTimezone(process.pid, 'America/Los_Angeles')).toEqual(ownIdentity);
+  });
+
+  // Without TZ=UTC, ps prints the machine's local time, which read as UTC is off by the zone's offset.
+  test('a process started now reads a start within seconds of the wall clock, whatever the machine\'s own timezone', async () => {
+    const spawnedEpochSeconds = Math.floor(Date.now() / 1000);
+    const sleeper             = Bun.spawn(['/bin/sleep', '30']);
+    try {
+      const { startEpochSeconds } = identityOrThrow(sleeper.pid);
+      expect(Math.abs(startEpochSeconds - spawnedEpochSeconds)).toBeLessThanOrEqual(START_TOLERANCE_SECONDS);
+    } finally {
+      sleeper.kill();
+      await sleeper.exited;
+    }
   });
 
   test('a process that has exited has no identity and reads as gone; a pid that addresses a group never does', async () => {
