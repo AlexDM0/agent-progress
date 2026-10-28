@@ -2,7 +2,8 @@
  * The runner's start, lease and stop, end to end through real child processes, since a runner holds its process until it is stopped.
  * What matters: two starters at once leave exactly one runner serving; a lease naming a dead process is taken over as after a crash; a
  * runner whose generation was overtaken stops at exit 2 touching nothing; `run --detach`, `run status`, `run restart` and `run stop`
- * agree with the lease; and `run pause|resume` write the drain flag with no runner up. Every runner binds `--port 0`.
+ * agree with the lease; `run pause|resume` write the drain flag with no runner up; and a spec-spawned runner resolves the fake agent,
+ * never the vendor's adapter. Every runner binds `--port 0`.
  */
 import {
   existsSync,
@@ -22,7 +23,9 @@ import {
 } from 'bun:test';
 
 import { CodeVersion }                                    from '../../src/services/runner/CodeVersion.ts';
+import { fakeAgentVariableOf }                            from '../../src/shared/Environment.ts';
 import { PRODUCT_NAMES }                                  from '../../src/shared/constants/ProductNames.ts';
+import { FAKE_AGENT_VENDOR }                              from '../../src/testing/FakeAgentAdapter.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
 import { runCommandLine }                                 from '../Main.ts';
 import { createCapturedCommandContext }                   from '../testing/CapturedCommandContext.ts';
@@ -129,6 +132,30 @@ describe('run in the foreground', () => {
     expect(finished.exitCode).toBe(2);
     expect(finished.standardError).toContain('A newer runner took this board over');
     expect(leaseFileNames()).toEqual(['lease-1.json', 'lease-2.json']);
+  }, RUNNER_TEST_TIMEOUT_MILLISECONDS);
+});
+
+/** The vendor a runner announced in its log since `fromOffset`: the adapter its process resolved. */
+function announcedVendorSince(fromOffset: number): string | null {
+  const logText = readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'runner.log'), 'utf8').slice(fromOffset);
+  return /, agents ([\w-]+)\)\./.exec(logText)?.[1] ?? null;
+}
+
+describe('the agent adapter of a spec-spawned runner', () => {
+  test('is the fake agent by default, and the guard reads the vendor\'s once the fake-agent switch is planted off', async () => {
+    const runner = startRunner();
+    expect(await runner.firstOutputLine).toStartWith('http://127.0.0.1:');
+    expect(announcedVendorSince(0)).toBe(FAKE_AGENT_VENDOR);
+    await stopRunner();
+    expect((await runner.finished).exitCode).toBe(0);
+
+    const logLength = readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'runner.log'), 'utf8').length;
+    const switchedOff = { [fakeAgentVariableOf(PRODUCT_NAMES)]: '0' };
+    const planted     = startAgentProgress(['run', '--port', '0'], { currentDirectory: repositoryDirectory, homeDirectory, environment: switchedOff });
+    expect(await planted.firstOutputLine).toStartWith('http://127.0.0.1:');
+    expect(announcedVendorSince(logLength)).toBe('claude-code');
+    await stopRunner();
+    expect((await planted.finished).exitCode).toBe(0);
   }, RUNNER_TEST_TIMEOUT_MILLISECONDS);
 });
 
