@@ -180,6 +180,38 @@ async function handOverSteps(request: HandOverRequest): Promise<HandoverOutcome>
   };
 }
 
+export interface RebindRequest<Bound> {
+  /** The successor that let the board go back, perhaps still dying from its kill and holding the port. */
+  successor:            ProcessIdentity | null;
+  /** Bounds the wait for the successor to be gone and the binds after it together. */
+  tries:                number;
+  intervalMilliseconds: number;
+  bind:                 () => Promise<Bound>;
+}
+
+export type RebindOutcome<Bound> =
+  | { verdict: 'bound'; bound: Bound }
+  | { verdict: 'successor-live' }
+  | { verdict: 'bind-failed'; error: string };
+
+/** The old runner's rebind of its port once a handover came back: it binds only once the successor is gone, and a refused bind is tried again. */
+async function rebindAfterTakeBack<Bound>(request: RebindRequest<Bound>): Promise<RebindOutcome<Bound>> {
+  let last: RebindOutcome<Bound> = { verdict: 'successor-live' };
+  for (let attempt = 0; attempt < request.tries; attempt++) {
+    if (attempt > 0) await Bun.sleep(request.intervalMilliseconds);
+    if (request.successor !== null && processIsLive(request.successor)) {
+      last = { verdict: 'successor-live' };
+      continue;
+    }
+    try {
+      return { verdict: 'bound', bound: await request.bind() };
+    } catch (thrown) {
+      last = { verdict: 'bind-failed', error: errorTextOf(thrown) };
+    }
+  }
+  return last;
+}
+
 function reportFailure(request: Pick<SuccessorRequest, 'handoverFilePath' | 'codeVersion'>, step: HandoverStep, thrown: unknown, afterRelease: boolean): void {
   writeHandover(request.handoverFilePath, {
     state: 'successor-failed', successorCodeVersion: request.codeVersion, step, error: errorTextOf(thrown), afterRelease
@@ -226,6 +258,7 @@ export const RunnerHandover = Object.freeze({
   readHandover,
   writeHandover,
   handOver,
+  rebindAfterTakeBack,
   prepareAndAwaitRelease,
   reportFailure,
   reportServing,
