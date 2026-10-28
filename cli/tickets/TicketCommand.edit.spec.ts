@@ -22,6 +22,7 @@ import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.
 import { runCommandLine }                     from '../Main.ts';
 import { createCapturedCommandContext }       from '../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../testing/InitializedScratchRepository.ts';
+import { fileReadyTicket }                    from '../testing/ReadyTicketFiling.ts';
 import { storedLogTextOf }                    from '../testing/StoredLogText.ts';
 
 const FROZEN_NOW = new Date('2026-09-24T09:25:00Z');
@@ -104,7 +105,7 @@ function withoutClaimedBodyHash(ticketText: string): string {
 
 beforeEach(async () => {
   repositoryDirectory = await createInitializedScratchRepository('ticket-edit', ['--project', 'Example Agency'], () => FROZEN_NOW);
-  await run(['ticket', 'add', '--type', 'ticket', 'Example checkout page']);
+  await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Example checkout page']);
 });
 
 afterEach(() => {
@@ -186,6 +187,16 @@ describeWhenGitIsPresent('editing a ticket body', () => {
 });
 
 describeWhenGitIsPresent('editing a ticket past pending', () => {
+  test('a draft ticket is edited without --force, as a pending one is', async () => {
+    await run(['ticket', 'add', '--type', 'ticket', 'Example cart']);
+
+    await run(['ticket', 'edit', '2', '--append', '--body', 'Appended to the draft.\n']);
+
+    const draftText = readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'tickets', '002-example-cart.md'), 'utf8');
+    expect(draftText).toContain('status: "draft"');
+    expect(draftText.endsWith('Appended to the draft.\n')).toBe(true);
+  });
+
   test('a ticket never claimed carries no claimed body hash, in its file or its JSON', async () => {
     expect(storedTicketText()).not.toContain('claimedBodyHash');
     const shown = await shownTicket();
@@ -228,7 +239,7 @@ describeWhenGitIsPresent('editing a ticket past pending', () => {
     const rounds = 4;
     for (let i = 0; i < rounds; i++) {
       const reference = String(i + 2);
-      await run(['ticket', 'add', '--type', 'ticket', `Example race ${reference}`]);
+      await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', `Example race ${reference}`]);
       const editedText = `Edited in round ${reference}.\n`;
 
       const [claimExit, editExit] = await Promise.all([

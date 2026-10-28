@@ -15,6 +15,7 @@ import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.
 import { runCommandLine }                     from '../Main.ts';
 import { createCapturedCommandContext }       from '../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../testing/InitializedScratchRepository.ts';
+import { fileReadyTicket }                    from '../testing/ReadyTicketFiling.ts';
 
 const FROZEN_NOW = new Date('2026-09-24T12:00:00Z');
 
@@ -54,8 +55,8 @@ async function runCaseWithTheDispatcher(intakeCase: IntakeCase, dispatcherState:
 
 beforeEach(async () => {
   repositoryDirectory = await createInitializedScratchRepository('running-dispatcher-notice', ['--project', 'Example Agency'], () => FROZEN_NOW);
-  await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
-  await run(['ticket', 'add', '--type', 'ticket', 'Show the role history']);
+  await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
+  await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Show the role history']);
 });
 
 afterEach(() => {

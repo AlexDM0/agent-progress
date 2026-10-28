@@ -17,6 +17,7 @@ import { describeWhenGitIsPresent }           from '../../../src/testing/ToolGua
 import { runCommandLine }                     from '../../Main.ts';
 import { createCapturedCommandContext }       from '../../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../../testing/InitializedScratchRepository.ts';
+import { fileReadyTicket }                    from '../../testing/ReadyTicketFiling.ts';
 import { storedLogEntriesOf }                 from '../../testing/StoredLogEntries.ts';
 import { storedLogTextOf }                    from '../../testing/StoredLogText.ts';
 import { storedProgressOf }                   from '../../testing/StoredProgress.ts';
@@ -134,7 +135,7 @@ describeWhenGitIsPresent('changing the line with tickets in flight', () => {
   async function ticketsInProgressAndInReview(): Promise<string[]> {
     const ticketIds: string[] = [];
     for (const title of ['Example checkout page', 'Example cart']) {
-      const added = JSON.parse((await run(['ticket', 'add', '--type', 'ticket', title, '--json'])).outputText()) as { id: string };
+      const added = JSON.parse((await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', title, '--json'])).outputText()) as { id: string };
       await run(['ticket', 'start', added.id]);
       ticketIds.push(added.id);
     }

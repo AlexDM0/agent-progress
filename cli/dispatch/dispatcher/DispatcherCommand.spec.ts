@@ -19,6 +19,7 @@ import { describeWhenGitIsPresent }           from '../../../src/testing/ToolGua
 import { runCommandLine }                     from '../../Main.ts';
 import { createCapturedCommandContext }       from '../../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../../testing/InitializedScratchRepository.ts';
+import { fileReadyTicket }                    from '../../testing/ReadyTicketFiling.ts';
 import { storedLogEntriesOf }                 from '../../testing/StoredLogEntries.ts';
 import { storedLogTextOf }                    from '../../testing/StoredLogText.ts';
 import { storedProgressOf }                   from '../../testing/StoredProgress.ts';
@@ -180,7 +181,7 @@ describeWhenGitIsPresent('the stored run id', () => {
 
 describeWhenGitIsPresent('the advice the Next line gives', () => {
   beforeEach(async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
   });
 
   test('a finished dispatcher with a ticket ready is to be launched', async () => {

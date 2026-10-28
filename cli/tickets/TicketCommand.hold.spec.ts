@@ -19,6 +19,7 @@ import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.
 import { runCommandLine }                     from '../Main.ts';
 import { createCapturedCommandContext }       from '../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../testing/InitializedScratchRepository.ts';
+import { fileReadyTicket }                    from '../testing/ReadyTicketFiling.ts';
 import { storedLogEntriesOf }                 from '../testing/StoredLogEntries.ts';
 import { storedLogTextOf }                    from '../testing/StoredLogText.ts';
 import { storedProgressOf }                   from '../testing/StoredProgress.ts';
@@ -87,7 +88,7 @@ afterEach(() => {
 
 describeWhenGitIsPresent('holding a ticket', () => {
   test('hold with a reason then unhold round-trip the ticket file, with one log line each way', async () => {
-    for (let i = 0; i < 7; i++) await run(['ticket', 'add', '--type', 'ticket', `Example ticket ${i + 1}`]);
+    for (let i = 0; i < 7; i++) await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', `Example ticket ${i + 1}`]);
     const before = storedTicketText('007');
 
     expect((await run(['ticket', 'hold', '7', '--reason', 'x'])).outputText()).toContain('Ticket #007 held: x');
@@ -100,7 +101,7 @@ describeWhenGitIsPresent('holding a ticket', () => {
   });
 
   test('a hold without a reason is stored empty and still holds', async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Show the role history']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Show the role history']);
 
     expect((await run(['ticket', 'hold', '1'])).outputText()).toContain('Ticket #001 held');
     expect(storedTicketText('001')).toContain('\nhold: ""\n');
@@ -109,8 +110,8 @@ describeWhenGitIsPresent('holding a ticket', () => {
 
   // The dispatcher decides on this list, and a ticket in review has no readyTickets entry to carry the flag.
   test('status --json lists a held ticket in review, and marks a held ready ticket\'s entry', async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Show the role history']);
-    await run(['ticket', 'add', '--type', 'ticket', 'Export the roles']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Show the role history']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Export the roles']);
     await run(['ticket', 'claim', '1']);
     await run(['ticket', 'finish', '1']);
     await run(['ticket', 'hold', '1', '--reason', 'the user reads it first']);
@@ -130,7 +131,7 @@ describeWhenGitIsPresent('holding a ticket', () => {
   });
 
   test('ticket claim refuses a held ticket, and claims it once unheld', async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Show the role history']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Show the role history']);
     await run(['ticket', 'hold', '1']);
     const before = trackerBytes();
 
@@ -144,7 +145,7 @@ describeWhenGitIsPresent('holding a ticket', () => {
 
   // `start` is the override beside `claim`, so it moves a held ticket, but says so the way it does for an unsettled dependency.
   test('ticket start moves a held ticket and warns on standard error that it is held', async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Show the role history']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Show the role history']);
     await run(['ticket', 'hold', '1', '--reason', 'the user reads it first']);
 
     const context = await run(['ticket', 'start', '1']);
@@ -154,7 +155,7 @@ describeWhenGitIsPresent('holding a ticket', () => {
   });
 
   test('ticket start warns about no hold on a ticket that is not held', async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Show the role history']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Show the role history']);
 
     expect((await run(['ticket', 'start', '1'])).errorText()).not.toContain('held');
   });
@@ -170,7 +171,7 @@ async function unholdOutput(extraArguments: readonly string[] = []): Promise<str
 // A whole-board run's survey resumes a paused build, so the hint names the single-ticket run only as the lane for when no such run is coming.
 describeWhenGitIsPresent('unholding a ticket whose build a dispatcher run left paused', () => {
   beforeEach(async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Show the role history']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Show the role history']);
   });
 
   test('ends its human output with the whole-board run that resumes the build and the single-ticket fast lane, after the Next line', async () => {
@@ -248,9 +249,9 @@ describeWhenGitIsPresent('unholding a ticket whose build a dispatcher run left p
 describeWhenGitIsPresent('refusals leave the whole tracker byte-identical', () => {
   // Each refusal is checked against the whole tracker's bytes, so a half-applied write cannot pass as a refusal.
   test('a delivered or abandoned ticket, a second hold, an unhold of a ticket not held and a missing id are all refused at exit 1', async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Show the role history']);
-    await run(['ticket', 'add', '--type', 'ticket', 'Export the roles']);
-    await run(['ticket', 'add', '--type', 'ticket', 'Import the roles']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Show the role history']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Export the roles']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Import the roles']);
     await run(['ticket', 'status', '2', 'delivered']);
     await run(['ticket', 'abandon', '3', '--reason', 'superseded by #1']);
     await run(['ticket', 'hold', '1']);

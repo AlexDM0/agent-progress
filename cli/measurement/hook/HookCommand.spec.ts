@@ -33,6 +33,7 @@ import { runCommandLine }                                 from '../../Main.ts';
 import { INSTALL_VERSION }                                from '../../constants/InstallVersion.ts';
 import { createCapturedCommandContext }                   from '../../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository }             from '../../testing/InitializedScratchRepository.ts';
+import { filedTicketFileOf, READY_TICKET_BODY_ARGUMENTS } from '../../testing/ReadyTicketFiling.ts';
 import { storedLogEntriesOf }                             from '../../testing/StoredLogEntries.ts';
 import { storedProgressOf }                               from '../../testing/StoredProgress.ts';
 
@@ -360,8 +361,13 @@ describeWhenGitIsPresent('the row the brief names', () => {
  * claim is resolved when the hook runs, never when the brief was written.
  */
 describeWhenGitIsPresent('the tickets the brief names', () => {
+  /** Readied at normal and lowered, since lowering is what leaves a pending ticket without a row: a readied low ticket keeps one. */
   async function filedLowTicket(title: string): Promise<void> {
-    expect(await runCommandLine(['ticket', 'add', '--type', 'ticket', title, '--priority', 'low'], contextWith(''))).toBe(0);
+    const filing = contextWith('');
+    expect(await runCommandLine(['ticket', 'add', '--type', 'ticket', title, ...READY_TICKET_BODY_ARGUMENTS], filing)).toBe(0);
+    const { id } = filedTicketFileOf(filing.outputText());
+    expect(await runCommandLine(['ticket', 'ready', id], contextWith(''))).toBe(0);
+    expect(await runCommandLine(['ticket', 'priority', id, 'low'], contextWith(''))).toBe(0);
   }
 
   async function startedTicket(reference: string): Promise<void> {
@@ -465,7 +471,8 @@ describeWhenGitIsPresent('a workflow agent\'s brief after the harness\'s relay',
 
   beforeEach(async () => {
     for (let i = 1; i <= BUILT_TICKET_NUMBER; i++) {
-      expect(await runCommandLine(['ticket', 'add', '--type', 'ticket', `Example work ${i}`], contextWith(''))).toBe(0);
+      expect(await runCommandLine(['ticket', 'add', '--type', 'ticket', `Example work ${i}`, ...READY_TICKET_BODY_ARGUMENTS], contextWith(''))).toBe(0);
+      expect(await runCommandLine(['ticket', 'ready', String(i)], contextWith(''))).toBe(0);
     }
     expect(storedTokensOfBuiltTicketRow()).toBeNull();
   });
@@ -534,7 +541,8 @@ describeWhenGitIsPresent('the ticket a reviewer\'s brief names', () => {
 
   beforeEach(async () => {
     for (let i = 1; i <= REVIEWED_TICKET_NUMBER; i++) {
-      expect(await runCommandLine(['ticket', 'add', '--type', 'ticket', `Example work ${i}`], contextWith(''))).toBe(0);
+      expect(await runCommandLine(['ticket', 'add', '--type', 'ticket', `Example work ${i}`, ...READY_TICKET_BODY_ARGUMENTS], contextWith(''))).toBe(0);
+      expect(await runCommandLine(['ticket', 'ready', String(i)], contextWith(''))).toBe(0);
     }
   });
 

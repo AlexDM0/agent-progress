@@ -28,6 +28,7 @@ import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.
 import { runCommandLine }                     from '../Main.ts';
 import { createCapturedCommandContext }       from '../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../testing/InitializedScratchRepository.ts';
+import { fileReadyTicket }                    from '../testing/ReadyTicketFiling.ts';
 import { storedLogEntriesOf }                 from '../testing/StoredLogEntries.ts';
 import { storedProgressOf }                   from '../testing/StoredProgress.ts';
 import { TICKET_CLAIM_SUBCOMMANDS }           from './TicketClaimSubcommands.ts';
@@ -68,19 +69,19 @@ afterEach(() => {
 });
 
 describeWhenGitIsPresent('filing a ticket', () => {
-  test('writes the file, files a pending row and logs the line, and prints the path', async () => {
+  test('writes the file as a draft with no row, logs the line, and prints the path', async () => {
     const context = await run(['ticket', 'add', 'Double-click a role to edit it', '--type', 'ticket', '--group', 'role-editor']);
 
     const ticketText = storedTicketText();
     expect(ticketText).toContain('id: "001"');
-    expect(ticketText).toContain('status: "pending"');
+    expect(ticketText).toContain('status: "draft"');
     expect(ticketText).toContain('group: "role-editor"');
     expect(ticketText).toContain('# 001 — Double-click a role to edit it');
     expect(ticketText).toContain('## Acceptance');
     expect(ticketText).not.toContain('{{');
+    expect(ticketText).toContain('task: null');
 
-    const progress = storedProgressOf(repositoryDirectory);
-    expect(progress.tasks[0]).toMatchObject({ id: 1, status: 'pending', ticket: '001' });
+    expect(storedProgressOf(repositoryDirectory).tasks).toEqual([]);
     expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe('Ticket #001 filed: Double-click a role to edit it');
 
     expect(context.outputText()).toContain('Ticket #001 filed: Double-click a role to edit it');
@@ -132,7 +133,7 @@ describeWhenGitIsPresent('filing a ticket', () => {
     for (const [index, retiredType] of ['change', 'feature'].entries()) {
       const ticketId = `00${index + 1}`;
       const fileName = `${ticketId}-example-${retiredType}.md`;
-      await run(['ticket', 'add', `Example ${retiredType}`, '--type', 'ticket']);
+      await fileReadyTicket(run, ['ticket', 'add', `Example ${retiredType}`, '--type', 'ticket']);
       writeFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'tickets', fileName), storedTicketText(fileName).replace('type: "ticket"', `type: "${retiredType}"`));
       const storedBeforeMoves = storedTicketText(fileName);
 
@@ -154,7 +155,7 @@ describeWhenGitIsPresent('filing a ticket', () => {
   test('each of the three types files a ticket of that type', async () => {
     const fileNameByType = { ticket: '001-example-ticket.md', bug: '002-example-bug.md', research: '003-example-research.md' };
     for (const [writtenType, fileName] of Object.entries(fileNameByType)) {
-      await run(['ticket', 'add', `Example ${writtenType}`, '--type', writtenType]);
+      await fileReadyTicket(run, ['ticket', 'add', `Example ${writtenType}`, '--type', writtenType]);
       expect(storedTicketText(fileName)).toContain(`type: "${writtenType}"`);
     }
   });
@@ -182,7 +183,7 @@ describeWhenGitIsPresent('filing a ticket', () => {
 
   // The progress file is never behind a ticket file, and a first write without `dependsOn` is a ticket a concurrent reader sees as ready.
   test('the new ticket file is written once, after the progress file, with its dependencies on that one write', async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
     // The command writes through the resolved root, and the scratch directory's own path may pass through a symlink such as `/var`.
     const trackerDirectory = join(realpathSync(repositoryDirectory), PRODUCT_NAMES.DATA_FOLDER);
     const progressFilePath = join(trackerDirectory, 'progress.json');
@@ -205,9 +206,73 @@ describeWhenGitIsPresent('filing a ticket', () => {
   });
 });
 
+describeWhenGitIsPresent('readying a draft ticket', () => {
+  const READY_BODY      = '## Acceptance\n\nA1. The role opens for editing.\n\n## Brief\n\nEdit the role in place.\n';
+  const UNBRIEFED_BODY  = '## Acceptance\n\nA1. The role opens for editing.\n';
+  const UNNUMBERED_BODY = '## Acceptance\n\nThe role opens for editing.\n\n## Brief\n\nEdit the role in place.\n';
+
+  test('ready makes every named draft pending with a row at any priority, logging one line each', async () => {
+    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it', '--body', READY_BODY]);
+    await run(['ticket', 'add', '--type', 'ticket', 'Show the role history', '--priority', 'low', '--body', READY_BODY]);
+
+    await run(['ticket', 'ready', '1', '#2']);
+
+    expect(storedTicketText()).toContain('status: "pending"');
+    expect(storedTicketText('002-show-the-role-history.md')).toContain('status: "pending"');
+    expect(storedProgressOf(repositoryDirectory).tasks).toMatchObject([
+      { id: 1, status: 'pending', ticket: '001' },
+      { id: 2, status: 'pending', ticket: '002' },
+    ]);
+    expect(storedLogEntriesOf(repositoryDirectory).slice(-2).map((entry) => entry.text)).toEqual([
+      'Ticket #001 ready to build',
+      'Ticket #002 ready to build',
+    ]);
+  });
+
+  test('a ticket that is not a draft is refused naming its status, and nothing is readied', async () => {
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
+    await run(['ticket', 'add', '--type', 'ticket', 'Show the role history', '--body', READY_BODY]);
+    const progressBefore = readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'), 'utf8');
+
+    const context = contextHere();
+    expect(await runCommandLine(['ticket', 'ready', '2', '1'], context)).toBe(1);
+
+    expect(context.errorText()).toContain('Ticket #001 is pending, not a draft ticket');
+    expect(storedTicketText('002-show-the-role-history.md')).toContain('status: "draft"');
+    expect(readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'), 'utf8')).toBe(progressBefore);
+  });
+
+  test('a draft without a Brief or without a numbered Acceptance is refused naming each, and nothing is readied', async () => {
+    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it', '--body', READY_BODY]);
+    await run(['ticket', 'add', '--type', 'ticket', 'Show the role history', '--body', UNBRIEFED_BODY]);
+    await run(['ticket', 'add', '--type', 'ticket', 'Export the roles', '--body', UNNUMBERED_BODY]);
+
+    const context = contextHere();
+    expect(await runCommandLine(['ticket', 'ready', '1', '2', '3'], context)).toBe(1);
+
+    expect(context.errorText()).toContain('#002');
+    expect(context.errorText()).toContain('brief-missing');
+    expect(context.errorText()).toContain('#003');
+    expect(context.errorText()).toContain('acceptance-unnumbered');
+    expect(context.errorText()).not.toContain('#001');
+    expect(storedTicketText()).toContain('status: "draft"');
+    expect(storedProgressOf(repositoryDirectory).tasks).toEqual([]);
+  });
+
+  test('a low pending ticket with no row still gets its row when it starts', async () => {
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
+    await run(['ticket', 'priority', '1', 'low']);
+    expect(storedProgressOf(repositoryDirectory).tasks.filter((task) => task.ticket === '001' && task.status !== 'abandoned')).toEqual([]);
+
+    await run(['ticket', 'start', '1']);
+
+    expect(storedProgressOf(repositoryDirectory).tasks.at(-1)).toMatchObject({ status: 'in-progress', ticket: '001' });
+  });
+});
+
 describeWhenGitIsPresent('moving a ticket', () => {
   beforeEach(async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
   });
 
   test('every transition moves the row and stamps the frontmatter it belongs to', async () => {
@@ -309,7 +374,7 @@ describeWhenGitIsPresent('moving a ticket', () => {
 
 describeWhenGitIsPresent('a second review pass', () => {
   beforeEach(async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
     await run(['ticket', 'start', '1']);
     await run(['ticket', 'finish', '1']);
   });
@@ -348,7 +413,7 @@ describeWhenGitIsPresent('a second review pass', () => {
   });
 
   test('rereview is refused for a ticket that is not in review, and the reason says what it needs', async () => {
-    await run(['ticket', 'add', 'Fix the axis', '--type', 'bug']);
+    await fileReadyTicket(run, ['ticket', 'add', 'Fix the axis', '--type', 'bug']);
 
     const context  = contextHere();
     const exitCode = await runCommandLine(['ticket', 'rereview', '2'], context);
@@ -361,7 +426,7 @@ describeWhenGitIsPresent('a second review pass', () => {
   });
 
   test('a refused rereview names ticket finish only where that verb would be accepted', async () => {
-    await run(['ticket', 'add', 'Fix the axis', '--type', 'bug']);
+    await fileReadyTicket(run, ['ticket', 'add', 'Fix the axis', '--type', 'bug']);
     await run(['ticket', 'start', '2']);
 
     const context = contextHere();
@@ -381,8 +446,8 @@ describeWhenGitIsPresent('a second review pass', () => {
 
 describeWhenGitIsPresent('reading tickets back', () => {
   beforeEach(async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
-    await run(['ticket', 'add', 'Fix the axis', '--type', 'bug']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
+    await fileReadyTicket(run, ['ticket', 'add', 'Fix the axis', '--type', 'bug']);
     await run(['ticket', 'start', '2']);
     await run(['ticket', 'approve', '2']);
   });
@@ -428,7 +493,7 @@ describeWhenGitIsPresent('reading tickets back', () => {
 
 describeWhenGitIsPresent('linking a ticket to a row', () => {
   test('link points the ticket at another row and clears the row it left', async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
     await run(['task', 'add', 'Role editor rewrite']);
 
     await run(['ticket', 'link', '1', '2']);
@@ -440,8 +505,8 @@ describeWhenGitIsPresent('linking a ticket to a row', () => {
   });
 
   test('link is refused when the row belongs to another ticket, unless --force', async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
-    await run(['ticket', 'add', 'Fix the axis', '--type', 'bug']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
+    await fileReadyTicket(run, ['ticket', 'add', 'Fix the axis', '--type', 'bug']);
 
     const refused = contextHere();
     expect(await runCommandLine(['ticket', 'link', '1', '2'], refused)).toBe(1);
@@ -456,7 +521,7 @@ describeWhenGitIsPresent('linking a ticket to a row', () => {
 
 describeWhenGitIsPresent('the transition matrix', () => {
   beforeEach(async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
   });
 
   test('a verb refuses a ticket that is not in a status it moves from, naming the override', async () => {
@@ -516,7 +581,7 @@ describeWhenGitIsPresent('the transition matrix', () => {
 
     const refused = contextHere();
     expect(await runCommandLine(['ticket', 'abandon', '1', '--reason', 'superseded'], refused)).toBe(1);
-    expect(refused.errorText()).toContain('moves a ticket that is pending');
+    expect(refused.errorText()).toContain('moves a ticket that is draft or pending');
 
     await run(['ticket', 'reopen', '1']);
     await run(['ticket', 'abandon', '1', '--reason', 'superseded by #7']);
@@ -534,7 +599,7 @@ describeWhenGitIsPresent('the transition matrix', () => {
 
 describeWhenGitIsPresent('token counts on a ticket move', () => {
   test('--tokens lands on the row the ticket owns', async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
     await run(['ticket', 'start', '1']);
 
     await run(['ticket', 'finish', '1', '--tokens', '48k']);
@@ -574,7 +639,7 @@ describeWhenGitIsPresent('where --body-file reads from', () => {
     mkdirSync(join(repositoryDirectory, 'notes'));
     writeFileSync(join(repositoryDirectory, 'notes', 'body.md'), '## Report\nWritten by Alex Example.\n');
 
-    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it', '--body-file', 'notes/body.md']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it', '--body-file', 'notes/body.md']);
 
     expect(storedTicketText()).toContain('Written by Alex Example.');
   });
@@ -590,13 +655,13 @@ describeWhenGitIsPresent('what ticket add refuses and what it falls back to', ()
   });
 
   test('an empty --body falls back to the template rather than filing a ticket that says nothing', async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it', '--body', '   ']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it', '--body', '   ']);
 
     expect(storedTicketText()).toContain('## Report');
   });
 
   test('ticket list --json carries no bodies, since a listing is about statuses', async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
 
     const listed = JSON.parse((await run(['ticket', 'list', '--json'])).outputText()) as Array<Record<string, unknown>>;
     expect(listed[0]).not.toHaveProperty('body');
@@ -609,8 +674,8 @@ describeWhenGitIsPresent('what ticket add refuses and what it falls back to', ()
 
 describeWhenGitIsPresent('ticket dependencies', () => {
   beforeEach(async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Split the importer']);
-    await run(['ticket', 'add', '--type', 'ticket', 'Validate the rows']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Split the importer']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Validate the rows']);
   });
 
   async function refusalOf(commandLineArguments: readonly string[]): Promise<string> {
@@ -621,7 +686,7 @@ describeWhenGitIsPresent('ticket dependencies', () => {
   }
 
   test('--depends-on files the ticket already waiting, and list and show say on what', async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Report the import', '--depends-on', '1,#2']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Report the import', '--depends-on', '1,#2']);
 
     expect(storedTicketText('003-report-the-import.md')).toContain('dependsOn: "001, 002"');
     expect((await run(['ticket', 'list'])).outputText()).toContain('Report the import  (waiting on #001, #002)');
@@ -656,7 +721,7 @@ describeWhenGitIsPresent('ticket dependencies', () => {
   });
 
   test('the warning names every dependency still owed, in the plural', async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Report the import', '--depends-on', '1,2']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Report the import', '--depends-on', '1,2']);
 
     expect((await run(['ticket', 'start', '3'])).errorText()).toContain('which are not reviewed yet.');
   });
@@ -679,7 +744,7 @@ describeWhenGitIsPresent('ticket dependencies', () => {
   });
 
   test('--add appends to the list and --remove takes an id out', async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Report the import', '--depends-on', '1']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Report the import', '--depends-on', '1']);
 
     expect((await run(['ticket', 'depends', '3', '--add', '2'])).outputText()).toContain('Ticket #003 waits on #001, #002\n');
     expect(storedTicketText('003-report-the-import.md')).toContain('dependsOn: "001, 002"');
@@ -700,7 +765,7 @@ describeWhenGitIsPresent('ticket dependencies', () => {
 
   // The replace that dropped a dependency without a word is how a ticket got built ahead of the work it waited on.
   test('a replace names what it dropped, warns about a dropped ticket still open, and --json carries added and dropped', async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Report the import', '--depends-on', '1']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Report the import', '--depends-on', '1']);
 
     const replaced = (await run(['ticket', 'depends', '3', '2'])).outputText();
     expect(replaced).toContain('Ticket #003 waits on #002 (dropped #001)\n#001 is still open: #003 may now start before it');
@@ -731,7 +796,7 @@ describeWhenGitIsPresent('ticket dependencies', () => {
 describeWhenGitIsPresent('a ticket file that will not parse', () => {
   /** A broken hand edit is a state the tool will not repair, so it is exit 2; exit 1 would tell a script the id was its own mistake. */
   test('show and claim exit 2 naming the file and why, while an id with no file at all stays exit 1', async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
     writeFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'tickets', FIRST_TICKET_FILE_NAME), 'no frontmatter here\n');
 
     for (const commandLine of [['ticket', 'show', '1'], ['ticket', 'claim', '1', '--owner', 'opus']]) {
@@ -773,6 +838,7 @@ describeWhenGitIsPresent('the subcommand groups', () => {
       'link',
       'list',
       'priority',
+      'ready',
       'release-of',
       'reopen',
       'rereview',

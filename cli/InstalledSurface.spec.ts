@@ -24,6 +24,7 @@ import { helpText }                                                           fr
 import { runCommandLine }                                                     from './Main.ts';
 import { INSTALL_VERSION }                                                    from './constants/InstallVersion.ts';
 import { createCapturedCommandContext }                                       from './testing/CapturedCommandContext.ts';
+import { fileReadyTicketThrough }                                             from './testing/ReadyTicketFiling.ts';
 
 const SURFACE_KINDS = ['commands', 'flags', 'statusJsonFields'] as const;
 
@@ -171,7 +172,7 @@ async function statusDocumentKeysOfAFullBoard(repositoryDirectory: string): Prom
   await run(['init', '--project', 'Example Agency', '--no-claude-md', '--no-hooks', '--no-workflow', '--no-agent-definition']);
   await run(['concurrency', '10']);
   for (const title of ['Example build', 'Example review', 'Example waiting review', 'Example paused build', 'Example held', 'Example ready', 'Example settled']) {
-    await run(['ticket', 'add', '--type', 'ticket', title]);
+    await fileReadyTicketThrough(run, (output) => output, ['ticket', 'add', '--type', 'ticket', title]);
   }
   await run(['ticket', 'claim', '1', '--owner', 'opus', '--note', 'Example note']);
   await run(['ticket', 'claim', '2']);
@@ -182,7 +183,7 @@ async function statusDocumentKeysOfAFullBoard(repositoryDirectory: string): Prom
   const pausedRowId = (JSON.parse(await run(['ticket', 'show', '4', '--json'])) as { task?: string | number }).task ?? '';
   await run(['task', 'pause', String(pausedRowId)]);
   await run(['ticket', 'hold', '5', '--reason', 'Example reason']);
-  await run(['ticket', 'add', '--type', 'ticket', 'Example grouped ready', '--group', 'example-group']);
+  await fileReadyTicketThrough(run, (output) => output, ['ticket', 'add', '--type', 'ticket', 'Example grouped ready', '--group', 'example-group']);
   await run(['ticket', 'claim', '7']);
   await run(['ticket', 'finish', '7']);
   await run(['ticket', 'approve', '7']);

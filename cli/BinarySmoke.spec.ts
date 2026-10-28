@@ -16,6 +16,7 @@ import { CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS }                              
 import { createScratchDirectory, createScratchGitRepository, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }                                                   from '../src/testing/ToolGuard.ts';
 import { runAgentProgress }                                                           from './testing/CliProcess.ts';
+import { READY_TICKET_BODY_ARGUMENTS }                                                from './testing/ReadyTicketFiling.ts';
 
 let scratchDirectory = '';
 
@@ -94,7 +95,8 @@ describeWhenGitIsPresent('a whole session through the binary', () => {
 
       await run(['init', '--project', 'Example Agency']);
       expect(programNamesInstalledIn(repositoryDirectory)).toEqual([PRODUCT_NAMES.PROGRAM]);
-      expect(await run(['ticket', 'add', 'Double-click a role to edit it', '--type', 'ticket'])).toContain('Ticket #001 filed');
+      expect(await run(['ticket', 'add', 'Double-click a role to edit it', '--type', 'ticket', ...READY_TICKET_BODY_ARGUMENTS])).toContain('Ticket #001 filed');
+      expect(await run(['ticket', 'ready', '1'])).toContain('Ticket #001 ready to build');
 
       const [, suggestedCommand = ''] = /`([^`]+)`/.exec(await refused(['ticket', 'show', '9'])) ?? [];
       const [suggestedProgram, ...suggestedArguments] = suggestedCommand.split(' ');
@@ -150,6 +152,7 @@ describeWhenGitIsPresent('a whole session through the binary', () => {
 
       expect(document.log.map((entry) => entry.text)).toEqual([
         'Ticket #001 filed: Double-click a role to edit it',
+        'Ticket #001 ready to build',
         'Ticket #001 started',
         'Halfway through the role editor',
         'Ticket #001 in review',
@@ -180,7 +183,8 @@ describeWhenGitIsPresent('unholding a ticket whose build was left paused, throug
       };
 
       await run(['init', '--project', 'Example Agency']);
-      await run(['ticket', 'add', 'Show the role history', '--type', 'ticket']);
+      await run(['ticket', 'add', 'Show the role history', '--type', 'ticket', ...READY_TICKET_BODY_ARGUMENTS]);
+      await run(['ticket', 'ready', '1']);
       await run(['ticket', 'claim', '1', '--note', 'Built by the whole-board dispatcher run on ticket-001']);
       await run(['ticket', 'hold', '1']);
       expect(await run(['ticket', 'unhold', '1'])).not.toContain(resumeBuildHint);

@@ -18,6 +18,7 @@ import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.
 import { runCommandLine }                     from '../Main.ts';
 import { createCapturedCommandContext }       from '../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../testing/InitializedScratchRepository.ts';
+import { fileReadyTicket }                    from '../testing/ReadyTicketFiling.ts';
 import { storedLogEntriesOf }                 from '../testing/StoredLogEntries.ts';
 import { storedLogTextOf }                    from '../testing/StoredLogText.ts';
 
@@ -61,9 +62,9 @@ function trackerBytes(): string {
 }
 
 async function fileGroupedTickets(): Promise<void> {
-  await run(['ticket', 'add', '--type', 'ticket', 'Example cart', '--group', GROUP]);
-  await run(['ticket', 'add', '--type', 'ticket', 'Example checkout', '--group', GROUP, '--depends-on', '1']);
-  await run(['ticket', 'add', '--type', 'ticket', 'Example search page']);
+  await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Example cart', '--group', GROUP]);
+  await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Example checkout', '--group', GROUP, '--depends-on', '1']);
+  await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Example search page']);
 }
 
 beforeEach(async () => {
@@ -122,7 +123,7 @@ describeWhenGitIsPresent('marking a group\'s release ticket', () => {
 
   test('an ungrouped ticket and a delivered or abandoned one each exit 1 and write nothing', async () => {
     await fileGroupedTickets();
-    await run(['ticket', 'add', '--type', 'ticket', 'Example wish list', '--group', GROUP]);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Example wish list', '--group', GROUP]);
     await run(['ticket', 'abandon', '4', '--reason', 'superseded by #002']);
     await run(['ticket', 'claim', '1']);
     await run(['ticket', 'finish', '1']);

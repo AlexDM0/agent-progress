@@ -18,6 +18,7 @@ import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.
 import { runCommandLine }                     from '../Main.ts';
 import { createCapturedCommandContext }       from '../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../testing/InitializedScratchRepository.ts';
+import { fileReadyTicket }                    from '../testing/ReadyTicketFiling.ts';
 import { storedLogEntriesOf }                 from '../testing/StoredLogEntries.ts';
 import { storedLogTextOf }                    from '../testing/StoredLogText.ts';
 
@@ -76,7 +77,7 @@ afterEach(() => {
 
 describeWhenGitIsPresent('naming a ticket\'s agents', () => {
   test('ticket add --model and --effort store both keys, and show and list print them', async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Show the role history', '--model', 'sonnet', '--effort', 'high']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Show the role history', '--model', 'sonnet', '--effort', 'high']);
 
     expect(storedTicketText('001')).toContain('\nmodel: "sonnet"\neffort: "high"\n');
     const shown = (await run(['ticket', 'show', '1'])).outputText();
@@ -87,7 +88,7 @@ describeWhenGitIsPresent('naming a ticket\'s agents', () => {
   });
 
   test('ticket agent --effort changes the effort alone, with one log line naming both pairs', async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Show the role history', '--model', 'sonnet', '--effort', 'high']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Show the role history', '--model', 'sonnet', '--effort', 'high']);
 
     const printed = (await run(['ticket', 'agent', '1', '--effort', 'low'])).outputText();
 
@@ -97,7 +98,7 @@ describeWhenGitIsPresent('naming a ticket\'s agents', () => {
   });
 
   test('ticket agent on a ticket left to the defaults names the default pair it moves from', async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Show the role history']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Show the role history']);
 
     expect((await run(['ticket', 'agent', '1', '--model', 'fable'])).outputText()).toContain('Ticket #001 agents opus/medium → fable/medium');
     expect(storedTicketText('001')).toContain('\nmodel: "fable"\n');
@@ -108,9 +109,9 @@ describeWhenGitIsPresent('naming a ticket\'s agents', () => {
 describeWhenGitIsPresent('refusals leave both files byte-identical', () => {
   // Each refusal is checked against the whole tracker's bytes, so a half-applied write cannot pass as a refusal.
   test('an unknown model or effort, no option, no change, and a delivered or abandoned ticket are all refused at exit 1', async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Show the role history']);
-    await run(['ticket', 'add', '--type', 'ticket', 'Export the roles']);
-    await run(['ticket', 'add', '--type', 'ticket', 'Import the roles']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Show the role history']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Export the roles']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Import the roles']);
     await run(['ticket', 'status', '2', 'delivered']);
     await run(['ticket', 'abandon', '3', '--reason', 'superseded by #1']);
     const before = trackerBytes();
@@ -139,7 +140,7 @@ describeWhenGitIsPresent('refusals leave both files byte-identical', () => {
 describeWhenGitIsPresent('a ticket filed without the keys', () => {
   // A tracker from before this feature holds only such files; reading them must never add the default pair to them.
   test('reads as opus and medium everywhere, and is left byte-identical by every reader', async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Show the role history']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Show the role history']);
     const before = storedTicketText('001');
     expect(before).not.toContain('model:');
     expect(before).not.toContain('effort:');

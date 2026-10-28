@@ -24,6 +24,7 @@ import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.
 import { runCommandLine }                     from '../Main.ts';
 import { createCapturedCommandContext }       from '../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../testing/InitializedScratchRepository.ts';
+import { fileReadyTicket }                    from '../testing/ReadyTicketFiling.ts';
 
 const FROZEN_NOW = new Date('2026-10-01T09:25:00Z');
 
@@ -61,8 +62,8 @@ const epicsDirectory = (): string => join(repositoryDirectory, PRODUCT_NAMES.DAT
 
 beforeEach(async () => {
   repositoryDirectory = await createInitializedScratchRepository('epic-command', ['--project', 'Example Agency'], () => FROZEN_NOW);
-  await run(['ticket', 'add', '--type', 'ticket', 'Example cart']);
-  await run(['ticket', 'add', '--type', 'ticket', 'Example search']);
+  await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Example cart']);
+  await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Example search']);
 });
 
 afterEach(() => {
@@ -116,7 +117,7 @@ describeWhenGitIsPresent('epic', () => {
     await run(['epic', 'add', 'checkout-redesign', 'Checkout redesign']);
     await run(['epic', 'add', 'loyalty-programme', 'Loyalty programme']);
     await run(['ticket', 'epic', '1', 'loyalty-programme', 'checkout-redesign']);
-    await run(['ticket', 'add', '--type', 'ticket', 'Example loyalty card', '--epic', 'loyalty-programme']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Example loyalty card', '--epic', 'loyalty-programme']);
     // The stamps are written in the zone the test run keeps, so they come back as typed.
     await run(['ticket', 'start', '1', '--at', '2026-10-01T07:00:00+00:00']);
     await run(['ticket', 'finish', '1', '--tokens', '100k', '--at', '2026-10-01T08:00:00+00:00']);
@@ -138,7 +139,7 @@ describeWhenGitIsPresent('epic', () => {
         slot:                1,
         ticketIds:           ['001', '002'],
         ticketCountByStatus: {
-          'pending': 0, 'in-progress': 1, 'in-review': 1, 'reviewed': 0, 'delivered': 0, 'abandoned': 0
+          'draft': 0, 'pending': 0, 'in-progress': 1, 'in-review': 1, 'reviewed': 0, 'delivered': 0, 'abandoned': 0
         },
         tokens: 100_000,
         span:   { start: '2026-10-01T07:00:00+00:00', end: null },
@@ -149,7 +150,7 @@ describeWhenGitIsPresent('epic', () => {
         slot:                2,
         ticketIds:           ['001', '003'],
         ticketCountByStatus: {
-          'pending': 1, 'in-progress': 0, 'in-review': 1, 'reviewed': 0, 'delivered': 0, 'abandoned': 0
+          'draft': 0, 'pending': 1, 'in-progress': 0, 'in-review': 1, 'reviewed': 0, 'delivered': 0, 'abandoned': 0
         },
         tokens: 100_000,
         span:   { start: '2026-10-01T07:00:00+00:00', end: '2026-10-01T08:00:00+00:00' },

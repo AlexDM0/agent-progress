@@ -34,6 +34,7 @@ import { ACCOUNTED_TICKET_BODY_ARGUMENTS }    from '../../testing/AccountedTicke
 import { createCapturedCommandContext }       from '../../testing/CapturedCommandContext.ts';
 import { runAgentProgress }                   from '../../testing/CliProcess.ts';
 import { createInitializedScratchRepository } from '../../testing/InitializedScratchRepository.ts';
+import { fileReadyTicketThrough }             from '../../testing/ReadyTicketFiling.ts';
 import { storedLogTextOf }                    from '../../testing/StoredLogText.ts';
 
 interface CommandOutcome {
@@ -89,6 +90,10 @@ async function agentProgressOrFail(commandLineArguments: readonly string[]): Pro
   return output;
 }
 
+async function readyTicketOrFail(addArguments: readonly string[]): Promise<string> {
+  return await fileReadyTicketThrough(agentProgressOrFail, (output) => output, addArguments);
+}
+
 /**
  * Written straight into progress.json, since `checks` would first try the line in the main checkout, and most lines here fail or change
  * something on purpose. Stored before a ticket starts, so its row is stamped with it.
@@ -100,7 +105,7 @@ function storeCheckCommand(checkCommand: string): void {
 
 /** A ticket in review whose work is one commit on a fresh linked worktree, with its review bar running as a reviewer leaves it. */
 async function reviewedTicketOnAWorktree(worktreeName: string): Promise<ReviewedWork> {
-  const added = JSON.parse(await agentProgressOrFail([
+  const added = JSON.parse(await readyTicketOrFail([
     'ticket', 'add', '--type', 'ticket', 'Show the role history', ...ACCOUNTED_TICKET_BODY_ARGUMENTS, '--json',
   ])) as { id: string };
   await agentProgressOrFail(['ticket', 'start', added.id]);
@@ -220,7 +225,7 @@ describeWhenGitIsPresent('a release with a check command stored', () => {
   test('a ticket that is not releasable is refused before the command runs', async () => {
     storeCheckCommand(MARKER_COMMAND);
     const work = await reviewedTicketOnAWorktree('role-history');
-    const pending = JSON.parse(await agentProgressOrFail(['ticket', 'add', '--type', 'ticket', 'Not started', '--json'])) as { id: string };
+    const pending = JSON.parse(await readyTicketOrFail(['ticket', 'add', '--type', 'ticket', 'Not started', '--json'])) as { id: string };
 
     await expectRefusedChangingNothing(work, 'ticket-not-releasable', ['release', pending.id, '--branch', work.branch, '--worktree', work.worktree, '--json']);
 
@@ -402,7 +407,7 @@ describeWhenGitIsPresent('a ticket stamped with the check command it started und
     storeCheckCommand('true');
     const matching = await reviewedTicketOnAWorktree('role-history');
     storeCheckCommand('bun test');
-    const differing = JSON.parse(await agentProgressOrFail([
+    const differing = JSON.parse(await readyTicketOrFail([
       'ticket', 'add', '--type', 'ticket', 'Show the role audit', ...ACCOUNTED_TICKET_BODY_ARGUMENTS, '--json',
     ])) as { id: string };
     await agentProgressOrFail(['ticket', 'start', differing.id]);

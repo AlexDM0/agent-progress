@@ -24,6 +24,7 @@ import { describeWhenGitIsPresent }           from '../../../src/testing/ToolGua
 import { runCommandLine }                     from '../../Main.ts';
 import { createCapturedCommandContext }       from '../../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../../testing/InitializedScratchRepository.ts';
+import { READY_TICKET_BODY_ARGUMENTS }        from '../../testing/ReadyTicketFiling.ts';
 import { storedLogTextOf }                    from '../../testing/StoredLogText.ts';
 
 const FROZEN_NOW = new Date('2026-10-26T12:00:00Z');
@@ -105,7 +106,12 @@ async function buildTheTicketUnderReview(): Promise<string> {
   writeRepositoryFile('lib/shared.ts', SHARED_BEFORE.replace('\'hello\'', '\'hello from the builder\''));
   writeRepositoryFile('lib/builder.ts', 'export const builderValue = 1;\nexport const builderOther = 2;\n');
   const reviewStart = commitEverything('Builder');
-  for (const commandArguments of [['ticket', 'add', 'Example checkout page', '--type', 'ticket'], ['ticket', 'start', '1'], ['ticket', 'finish', '1', '--start-review']]) {
+  for (const commandArguments of [
+    ['ticket', 'add', 'Example checkout page', '--type', 'ticket', ...READY_TICKET_BODY_ARGUMENTS],
+    ['ticket', 'ready', '1'],
+    ['ticket', 'start', '1'],
+    ['ticket', 'finish', '1', '--start-review'],
+  ]) {
     const { exitCode, error } = await run(commandArguments);
     expect(exitCode, error).toBe(0);
   }
@@ -242,7 +248,8 @@ describeWhenGitIsPresent('recording a review pass', () => {
 
   test('a ticket with no in-progress review bar is refused at exit 1 and leaves log.jsonl byte-identical', async () => {
     const reviewStart = await buildTheTicketUnderReview();
-    expect((await run(['ticket', 'add', 'Example cart', '--type', 'ticket'])).exitCode).toBe(0);
+    expect((await run(['ticket', 'add', 'Example cart', '--type', 'ticket', ...READY_TICKET_BODY_ARGUMENTS])).exitCode).toBe(0);
+    expect((await run(['ticket', 'ready', '2'])).exitCode).toBe(0);
     const logBefore = storedLogTextOf(repositoryDirectory);
     const { exitCode, error } = await run([
       'review', 'record', '2', '--worktree', repositoryDirectory, '--since', reviewStart, '--findings-file', findingsFileWith(VALID_FINDINGS),
@@ -278,12 +285,14 @@ describeWhenGitIsPresent('recording a review pass', () => {
 async function buildABundleUnderReview(): Promise<string> {
   const reviewStart = await buildTheBranchOnly();
   for (const commandArguments of [
-    ['ticket', 'add', 'Example checkout page', '--type', 'ticket'],
-    ['ticket', 'add', 'Example cart', '--type', 'ticket'],
+    ['ticket', 'add', 'Example checkout page', '--type', 'ticket', ...READY_TICKET_BODY_ARGUMENTS],
+    ['ticket', 'add', 'Example cart', '--type', 'ticket', ...READY_TICKET_BODY_ARGUMENTS],
+    ['ticket', 'ready', '1', '2'],
     ['ticket', 'claim', '1', '2'],
     ['ticket', 'finish', '1', '--start-review'],
     ['ticket', 'finish', '2'],
-    ['ticket', 'add', 'Example invoice', '--type', 'ticket'],
+    ['ticket', 'add', 'Example invoice', '--type', 'ticket', ...READY_TICKET_BODY_ARGUMENTS],
+    ['ticket', 'ready', '3'],
     ['ticket', 'start', '3'],
     ['ticket', 'finish', '3', '--start-review'],
   ]) {

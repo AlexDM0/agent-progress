@@ -1,7 +1,7 @@
 /**
  * That `resources/template.html` filled with a fixed fixture stays byte for byte the page main rendered before the spec view's second
- * edition, both with a page script and with the banner-only fallback. The expected digests were retaken on the commit that shows a ticket's size
- * on its Kanban card. To retake them, check out the commit to
+ * edition, both with a page script and with the banner-only fallback. The expected digests were retaken on the commit whose template header
+ * comment names the draft ticket's `data-state`. To retake them, check out the commit to
  * compare against, run this spec, and copy each actual digest its failure prints into `FROZEN_PAGE_DIGESTS`.
  */
 import { createHash } from 'node:crypto';
@@ -15,8 +15,8 @@ import { createMarkdownRenderer } from './MarkdownRenderer.ts';
 import { fillPageTemplate }       from './PageTemplateFill.ts';
 
 const FROZEN_PAGE_DIGESTS = {
-  withPageScript: 'b2344e8dad0061bfd18053c3c81135c32c2b5057b050cd6191d08691402b40ad',
-  bannerOnly:     '64345de865fd91274165c02a7d3936c17382fdd0f4d1b5b0e67aca9dd0e1d9aa',
+  withPageScript: '2f9d7a9a97e77da7be63ae250994388973c576cf1885c8def30e3eb3555cd6e3',
+  bannerOnly:     '567cd72cf12234cca85eb7ed2c72edc8ef53446ee8328a80c7f12f313f4c8a68',
 } as const;
 
 const FROZEN_PROGRESS: TrackerProgress = {

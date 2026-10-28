@@ -16,6 +16,7 @@ import { describeWhenGitIsPresent }           from '../src/testing/ToolGuard.ts'
 import { runCommandLine }                     from './Main.ts';
 import { createCapturedCommandContext }       from './testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from './testing/InitializedScratchRepository.ts';
+import { fileReadyTicket }                    from './testing/ReadyTicketFiling.ts';
 
 const FROZEN_NOW = new Date('2026-09-23T10:00:00Z');
 
@@ -38,7 +39,8 @@ const NEXT_LINE_CASES: NextLineCase[] = [
   {
     command:          ['ticket', 'add', '--type', 'ticket', 'Import the roles'],
     setup:            [],
-    expectedNextLine: 'Next: 2 of 2 slots free; ready: #001, #002, #003, #004',
+    // The new ticket is a draft, which is not ready until `ticket ready` makes it pending.
+    expectedNextLine: 'Next: 2 of 2 slots free; ready: #001, #002, #003',
   },
   {
     command:          ['ticket', 'claim', '1'],
@@ -100,9 +102,9 @@ async function runSetup(setup: readonly string[][]): Promise<void> {
 
 beforeEach(async () => {
   repositoryDirectory = await createInitializedScratchRepository('next-line', ['--project', 'Example Agency'], () => FROZEN_NOW);
-  await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
-  await run(['ticket', 'add', '--type', 'ticket', 'Show the role history']);
-  await run(['ticket', 'add', '--type', 'ticket', 'Export the roles']);
+  await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
+  await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Show the role history']);
+  await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Export the roles']);
   await run(['task', 'add', 'Review pass']);
   // A running dispatcher adds no advice, so these lines pin slots and queue alone; `cli/dispatch/dispatcher/DispatcherCommand.spec.ts` pins the advice.
   await run(['dispatcher', 'running']);

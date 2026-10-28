@@ -32,6 +32,7 @@ import { describeWhenGitIsPresent }                           from '../../../src
 import { runCommandLine }                                     from '../../Main.ts';
 import { createCapturedCommandContext }                       from '../../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository }                 from '../../testing/InitializedScratchRepository.ts';
+import { READY_TICKET_BODY_ARGUMENTS }                        from '../../testing/ReadyTicketFiling.ts';
 
 const FROZEN_NOW = new Date('2026-10-26T12:00:00Z');
 
@@ -52,7 +53,8 @@ async function runJson<Document>(commandArguments: readonly string[]): Promise<D
 }
 
 async function fileTicket(title: string, filingArguments: readonly string[]): Promise<{ id: string; task: number }> {
-  return await runJson<{ id: string; task: number }>(['ticket', 'add', title, ...filingArguments]);
+  const draft = await runJson<{ id: string }>(['ticket', 'add', title, ...filingArguments, ...READY_TICKET_BODY_ARGUMENTS]);
+  return await runJson<{ id: string; task: number }>(['ticket', 'ready', draft.id]);
 }
 
 async function addReviewBar(ticketId: string, tokenArguments: readonly string[]): Promise<number> {

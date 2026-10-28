@@ -18,6 +18,7 @@ import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.
 import { runCommandLine }                     from '../Main.ts';
 import { createCapturedCommandContext }       from '../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../testing/InitializedScratchRepository.ts';
+import { fileReadyTicket }                    from '../testing/ReadyTicketFiling.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -86,10 +87,10 @@ async function expectRefusedWritingNothing(commandLineArguments: readonly string
 
 /** #001 delivered, #002 a pending bug, #003 a pending ticket. */
 async function fileDeliveredCauseAndPendingBug(): Promise<void> {
-  await run(['ticket', 'add', 'Example checkout page', '--type', 'ticket']);
+  await fileReadyTicket(run, ['ticket', 'add', 'Example checkout page', '--type', 'ticket']);
   await run(['ticket', 'status', '001', 'delivered']);
-  await run(['ticket', 'add', 'Example cart total is wrong', '--type', 'bug']);
-  await run(['ticket', 'add', 'Example search page', '--type', 'ticket']);
+  await fileReadyTicket(run, ['ticket', 'add', 'Example cart total is wrong', '--type', 'bug']);
+  await fileReadyTicket(run, ['ticket', 'add', 'Example search page', '--type', 'ticket']);
 }
 
 beforeEach(async () => {
@@ -102,7 +103,7 @@ afterEach(() => {
 
 describeWhenGitIsPresent('filing with a link', () => {
   test('a ticket filed with neither flag is written byte for byte as before the keys existed', async () => {
-    await run(['ticket', 'add', 'Example checkout page', '--type', 'ticket']);
+    await fileReadyTicket(run, ['ticket', 'add', 'Example checkout page', '--type', 'ticket']);
 
     expect(storedTicketText('001').slice(0, FROZEN_FRONTMATTER_FILED_WITHOUT_LINKS.length)).toBe(FROZEN_FRONTMATTER_FILED_WITHOUT_LINKS);
   });
@@ -110,7 +111,7 @@ describeWhenGitIsPresent('filing with a link', () => {
   test('ticket add --type bug --introduced-by stores the cause, and ticket show --json prints it', async () => {
     await fileDeliveredCauseAndPendingBug();
 
-    await run(['ticket', 'add', 'Example coupon is lost', '--type', 'bug', '--introduced-by', '#1']);
+    await fileReadyTicket(run, ['ticket', 'add', 'Example coupon is lost', '--type', 'bug', '--introduced-by', '#1']);
 
     expect(storedTicketText('004')).toContain('\nintroducedBy: "001"\n');
     const shown = JSON.parse((await run(['ticket', 'show', '004', '--json'])).outputText()) as { introducedBy?: string };
@@ -120,7 +121,7 @@ describeWhenGitIsPresent('filing with a link', () => {
   test('ticket add --found-in-review stores the reviewed ticket, and status --json carries it', async () => {
     await fileDeliveredCauseAndPendingBug();
 
-    await run(['ticket', 'add', 'Example sentence wraps late', '--type', 'ticket', '--priority', 'low', '--found-in-review', '3']);
+    await fileReadyTicket(run, ['ticket', 'add', 'Example sentence wraps late', '--type', 'ticket', '--priority', 'low', '--found-in-review', '3']);
 
     expect(storedTicketText('004')).toContain('\nfoundInReview: "003"\n');
     const status = JSON.parse((await run(['status', '--json'])).outputText()) as { tickets: Array<{ id: string; foundInReview?: string }> };
@@ -171,7 +172,7 @@ describeWhenGitIsPresent('ticket introduced-by', () => {
 
   test('ticket priority round-trips a file holding both keys, and one holding neither, apart from its own line', async () => {
     await fileDeliveredCauseAndPendingBug();
-    await run(['ticket', 'add', 'Example coupon is lost', '--type', 'bug', '--introduced-by', '1', '--found-in-review', '3']);
+    await fileReadyTicket(run, ['ticket', 'add', 'Example coupon is lost', '--type', 'bug', '--introduced-by', '1', '--found-in-review', '3']);
 
     for (const identifier of ['004', '002']) {
       const beforeText = storedTicketText(identifier);

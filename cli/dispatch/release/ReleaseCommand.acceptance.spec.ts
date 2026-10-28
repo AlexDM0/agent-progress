@@ -27,6 +27,7 @@ import { runCommandLine }                     from '../../Main.ts';
 import { ACCOUNTED_TICKET_BODY_ARGUMENTS }    from '../../testing/AccountedTicketBody.ts';
 import { createCapturedCommandContext }       from '../../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../../testing/InitializedScratchRepository.ts';
+import { fileReadyTicketThrough }             from '../../testing/ReadyTicketFiling.ts';
 import { storedLogTextOf }                    from '../../testing/StoredLogText.ts';
 
 interface CommandOutcome {
@@ -84,8 +85,14 @@ function editTicketBody(identifier: string, passage: string, replacement: string
   writeFileSync(filePath, readFileSync(filePath, 'utf8').replace(passage, replacement));
 }
 
+/** Readied first and given its body by hand afterwards, since an unnumbered Acceptance is one `ticket ready` refuses but `release` must still meet. */
 async function startedTicket(title: string, body: string): Promise<string> {
-  const added = JSON.parse(await agentProgressOrFail(['ticket', 'add', '--type', 'ticket', title, '--body', body, '--json'])) as { id: string };
+  const filing = await fileReadyTicketThrough(agentProgressOrFail, (output) => output, ['ticket', 'add', '--type', 'ticket', title, '--json']);
+  const added  = JSON.parse(filing) as { id: string };
+  const filePath         = ticketFilePath(added.id);
+  const storedText       = readFileSync(filePath, 'utf8');
+  const frontmatterClose = '\n---\n';
+  writeFileSync(filePath, `${storedText.slice(0, storedText.indexOf(frontmatterClose) + frontmatterClose.length)}${body}`);
   await agentProgressOrFail(['ticket', 'start', added.id]);
   return added.id;
 }

@@ -14,6 +14,7 @@ import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.
 import { runCommandLine }                     from '../Main.ts';
 import { createCapturedCommandContext }       from '../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../testing/InitializedScratchRepository.ts';
+import { fileReadyTicket }                    from '../testing/ReadyTicketFiling.ts';
 import { TICKET_CLAIM_SUBCOMMANDS }           from './TicketClaimSubcommands.ts';
 import { TICKET_FILING_SUBCOMMANDS }          from './TicketFilingSubcommands.ts';
 import { TICKET_MOVE_SUBCOMMANDS }            from './TicketMoveSubcommands.ts';
@@ -41,7 +42,7 @@ async function run(commandLineArguments: readonly string[]): Promise<ReturnType<
 
 beforeEach(async () => {
   repositoryDirectory = await createInitializedScratchRepository('ticket-command-vocabulary', ['--project', 'Example Agency'], () => FROZEN_NOW);
-  await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
+  await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
 });
 
 afterEach(() => {
@@ -65,9 +66,10 @@ describeWhenGitIsPresent('the ticket command with current words only', () => {
     }
   });
 
-  test('every current status is taken by ticket status and stored as written', async () => {
-    // A filed ticket is already pending, and a move to the status it holds is refused, so pending comes last; abandoning needs a reason.
-    for (const status of [...TICKET_STATUSES.slice(1), ...TICKET_STATUSES.slice(0, 1)]) {
+  test('every current status but draft is taken by ticket status and stored as written', async () => {
+    // A readied ticket is already pending, and a move to the status it holds is refused, so pending comes last; no move returns to draft.
+    const reachableStatuses = TICKET_STATUSES.filter((status) => status !== 'draft' && status !== 'pending');
+    for (const status of [...reachableStatuses, 'pending']) {
       await run(['ticket', 'status', '1', status, '--reason', 'Example reason']);
       const shown = await run(['ticket', 'show', '1', '--json']);
       expect((JSON.parse(shown.outputText()) as { status: string }).status, status).toBe(status);

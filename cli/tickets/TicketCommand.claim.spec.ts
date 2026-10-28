@@ -17,6 +17,7 @@ import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.
 import { runCommandLine }                     from '../Main.ts';
 import { createCapturedCommandContext }       from '../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../testing/InitializedScratchRepository.ts';
+import { fileReadyTicket }                    from '../testing/ReadyTicketFiling.ts';
 import { storedLogEntriesOf }                 from '../testing/StoredLogEntries.ts';
 import { storedLogTextOf }                    from '../testing/StoredLogText.ts';
 import { storedProgressOf }                   from '../testing/StoredProgress.ts';
@@ -63,7 +64,7 @@ async function expectRefusedWithNothingWritten(commandLineArguments: readonly st
 
 beforeEach(async () => {
   repositoryDirectory = await createInitializedScratchRepository('ticket-claim', ['--project', 'Example Agency'], () => FROZEN_NOW);
-  await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
+  await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
 });
 
 afterEach(() => {
@@ -108,7 +109,7 @@ describeWhenGitIsPresent('claiming a ticket', () => {
   });
 
   test('a ticket waiting on one that is not reviewed or delivered yet is refused with nothing written', async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Show the role history']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Show the role history']);
     await run(['ticket', 'depends', '1', '2']);
 
     const message = await expectRefusedWithNothingWritten(['ticket', 'claim', '1']);
@@ -126,7 +127,7 @@ describeWhenGitIsPresent('claiming a ticket', () => {
 
   // The whole point of one lock hold: two agents dispatched together must not both get the last slot.
   test('of two claims racing for the one remaining slot, exactly one succeeds', async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Show the role history']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Show the role history']);
     await run(['task', 'add', 'Review pass', '--start']);
 
     const outcomes = await Promise.all([
@@ -165,7 +166,9 @@ async function expectBundleRefusedWithNothingWritten(commandLineArguments: reado
 
 describeWhenGitIsPresent('claiming several tickets as one agent', () => {
   beforeEach(async () => {
-    for (const title of ['Show the role history', 'Export the roles', 'Import the roles', 'Rename a role']) await run(['ticket', 'add', '--type', 'ticket', title]);
+    for (const title of ['Show the role history', 'Export the roles', 'Import the roles', 'Rename a role']) {
+      await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', title]);
+    }
   });
 
   // The case the bundle form exists for: three tickets on a limit of 2 beside another agent, which three single claims could never fit.
@@ -259,9 +262,9 @@ describeWhenGitIsPresent('claiming several tickets as one agent', () => {
 
 describeWhenGitIsPresent('claiming a pipelined successor with --after', () => {
   beforeEach(async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Example checkout step', '--group', 'checkout']);
-    await run(['ticket', 'add', '--type', 'ticket', 'Example checkout follow-up', '--group', 'checkout', '--depends-on', '2']);
-    await run(['ticket', 'add', '--type', 'ticket', 'Example checkout release', '--group', 'checkout', '--depends-on', '3']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Example checkout step', '--group', 'checkout']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Example checkout follow-up', '--group', 'checkout', '--depends-on', '2']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Example checkout release', '--group', 'checkout', '--depends-on', '3']);
     await run(['ticket', 'release-of', '4']);
     await run(['ticket', 'claim', '2']);
     await run(['ticket', 'finish', '2', '--start-review']);

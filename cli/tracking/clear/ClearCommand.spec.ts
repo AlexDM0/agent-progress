@@ -23,6 +23,7 @@ import { describeWhenGitIsPresent }           from '../../../src/testing/ToolGua
 import { runCommandLine }                     from '../../Main.ts';
 import { createCapturedCommandContext }       from '../../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../../testing/InitializedScratchRepository.ts';
+import { fileReadyTicket }                    from '../../testing/ReadyTicketFiling.ts';
 import { storedLogEntriesOf }                 from '../../testing/StoredLogEntries.ts';
 import { storedProgressOf }                   from '../../testing/StoredProgress.ts';
 
@@ -53,7 +54,7 @@ function ticketFileNames(): string[] {
 
 beforeEach(async () => {
   repositoryDirectory = await createInitializedScratchRepository('clear-command', ['--project', 'Example Agency'], () => FROZEN_NOW);
-  await run(['ticket', 'add', 'Double-click a role to edit it', '--type', 'ticket']);
+  await fileReadyTicket(run, ['ticket', 'add', 'Double-click a role to edit it', '--type', 'ticket']);
   await run(['ticket', 'start', '1', '--at', '-2h']);
   await run(['ticket', 'approve', '1', '--at', '-1h']);
   await run(['task', 'add', 'Review pass', '--start']);
@@ -112,7 +113,7 @@ describeWhenGitIsPresent('clearing everything', () => {
     expect(ticketFileNames()).toEqual([]);
     expect(storedProgressOf(repositoryDirectory).tasks).toEqual([]);
 
-    await run(['ticket', 'add', 'Fix the axis', '--type', 'bug']);
+    await fileReadyTicket(run, ['ticket', 'add', 'Fix the axis', '--type', 'bug']);
     expect(ticketFileNames()).toEqual(['001-fix-the-axis.md']);
   });
 

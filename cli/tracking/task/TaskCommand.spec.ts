@@ -23,6 +23,7 @@ import { describeWhenGitIsPresent }           from '../../../src/testing/ToolGua
 import { runCommandLine }                     from '../../Main.ts';
 import { createCapturedCommandContext }       from '../../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../../testing/InitializedScratchRepository.ts';
+import { fileReadyTicket }                    from '../../testing/ReadyTicketFiling.ts';
 import { storedLogTextOf }                    from '../../testing/StoredLogText.ts';
 import { storedProgressOf }                   from '../../testing/StoredProgress.ts';
 
@@ -201,7 +202,7 @@ describeWhenGitIsPresent('the verb that replaced review', () => {
 
 describeWhenGitIsPresent('linking a row to a ticket', () => {
   test('--ticket links both sides when the ticket has no row of its own', async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
     await run(['task', 'remove', '1']);
 
     await run(['task', 'add', 'Role editor rewrite', '--ticket', '001']);
@@ -212,7 +213,7 @@ describeWhenGitIsPresent('linking a row to a ticket', () => {
   });
 
   test('--ticket is refused when the ticket already has a row, and --force moves the link', async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
 
     const refused = contextHere();
     expect(await runCommandLine(['task', 'add', 'A second row', '--ticket', '001'], refused)).toBe(1);
@@ -230,9 +231,9 @@ describeWhenGitIsPresent('linking a row to a ticket', () => {
 
   // The page nests a review above its ticket by this field; it is a second relation, so the ticket's own row and its file stay untouched.
   test('--review-of stores the reviewed ticket on the row, and status --json --full shows it', async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
-    await run(['ticket', 'add', '--type', 'ticket', 'Cache ticket bodies']);
-    await run(['ticket', 'add', '--type', 'ticket', 'Split the exporter']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Cache ticket bodies']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Split the exporter']);
     const ticketTextBefore = storedTicketText('003-split-the-exporter.md');
 
     await run(['task', 'add', 'Review 1 #3 — x', '--review-of', '3', '--start']);
@@ -248,9 +249,9 @@ describeWhenGitIsPresent('linking a row to a ticket', () => {
 
   // The round is counted from the ticket's review sections, as the reviewer counts it; the name is user text and is never read.
   test('--review-of stores the round after the ticket\'s review sections, whatever round the name gives', async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
-    await run(['ticket', 'add', '--type', 'ticket', 'Cache ticket bodies']);
-    await run(['ticket', 'add', '--type', 'ticket', 'Split the exporter']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Cache ticket bodies']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Split the exporter']);
 
     await run(['task', 'add', 'Example first review', '--review-of', '3']);
     expect(storedProgressOf(repositoryDirectory).tasks.find((task) => task.name === 'Example first review')).toMatchObject({ reviewOf: '003', reviewBarRound: 1 });
@@ -261,7 +262,7 @@ describeWhenGitIsPresent('linking a row to a ticket', () => {
   });
 
   test('--review-of naming a ticket that does not exist is refused with exit 1, and nothing is written', async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
     const progressBefore = readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'), 'utf8');
     const logBefore      = storedLogTextOf(repositoryDirectory);
 
@@ -274,7 +275,7 @@ describeWhenGitIsPresent('linking a row to a ticket', () => {
   });
 
   test('remove clears the linked ticket\'s task, so the ticket never names a row that is gone', async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
 
     await run(['task', 'remove', '1']);
 
@@ -337,7 +338,7 @@ describeWhenGitIsPresent('token counts', () => {
 
 describeWhenGitIsPresent('a row a ticket owns', () => {
   beforeEach(async () => {
-    await run(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
   });
 
   test('is refused by the task verbs, naming the ticket verb that moves both', async () => {
