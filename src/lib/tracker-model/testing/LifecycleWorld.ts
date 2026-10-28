@@ -2,7 +2,12 @@
  * A seeded, clock-free world around one Board: each turn advances the lifecycle, checks the invariants against what the pass derived and
  * left, then lets a fake agent or user act at random on a live job or an open decision. It returns every invariant it saw broken.
  */
-import type { JobOutcome, InterruptionCause, Job }          from '../@types/Job.ts';
+import type {
+  InterruptionCause,
+  Job,
+  JobOutcome,
+  JobState
+} from '../@types/Job.ts';
 import type { LifecycleStep, DecisionWording }              from '../@types/LifecycleStep.ts';
 import type { LogRecord }                                   from '../@types/LogRecord.ts';
 import type { Ticket, TicketFrontmatter }                   from '../@types/Ticket.ts';
@@ -20,6 +25,14 @@ const ENDINGS_BY_KIND: Readonly<Record<'build' | 'review' | 'orchestrator', read
   review:       ['reviewed', 'does-not-hold', 'round-granted'],
   orchestrator: ['closed'],
 };
+
+/** The states in which a job's host runs its session, so the world keeps a host instance live for it. */
+const HOST_RUNNING_STATES: readonly JobState[] = ['running', 'waiting-for-answer'];
+
+/** The states in which a worktree job's session or the runner acts on its worktree with git. */
+const GIT_OPERATING_STATES: readonly JobState[] = ['preparing', 'running', 'waiting-for-answer', 'verifying', 'gating', 'merging', 'landing'];
+
+const CRASH_CAUSES: readonly string[] = ['host-lost', 'agent-crashed'];
 
 const WORLD_WORDING: DecisionWording = {
   questions: [{
@@ -93,6 +106,16 @@ export class LifecycleWorld {
 
   private requestCount = 0;
 
+  /** The host instances the world keeps running per job: spawned as a job runs on an instance, killed only by an interruption or an end. */
+  private readonly liveHostInstances = new Map<string, Set<number>>();
+
+  /** How far the log was already checked for resumes, so each record is judged once. */
+  private checkedRecordCount = 0;
+
+  private readonly endedJobIds = new Set<string>();
+
+  private readonly crashResumesByJobId = new Map<string, number>();
+
   constructor(seed: number) {
     this.random = randomSourceOf(seed);
     this.board  = new Board({
@@ -104,6 +127,7 @@ export class LifecycleWorld {
     for (let i = 0; i < turns; i += 1) {
       this.advance(i);
       this.act();
+      this.syncHosts(i);
     }
     return this.violations;
   }
@@ -126,7 +150,43 @@ export class LifecycleWorld {
       const resumed = jobsBefore.find((job) => job.id === step.jobId);
       if (resumed?.state !== 'interrupted' || resumed.kind === 'orchestrator') this.violations.push(`turn ${turn}: resumed ${step.jobId}, which was no interrupted agent job`);
     }
+    this.syncHosts(turn);
     this.checkInvariants(turn);
+    this.checkResumes(turn);
+  }
+
+  /** A job running on an instance the world has not spawned gets that host; a job interrupted, ended or gone has none left. */
+  private syncHosts(turn: number): void {
+    const liveJobs = new Map(this.board.jobs().map((job) => [job.id, job]));
+    for (const [jobId, instances] of this.liveHostInstances) {
+      const job = liveJobs.get(jobId);
+      if (job === undefined || !HOST_RUNNING_STATES.includes(job.state)) instances.clear();
+    }
+    for (const job of liveJobs.values()) {
+      if (!HOST_RUNNING_STATES.includes(job.state)) continue;
+      const instances = this.liveHostInstances.get(job.id) ?? new Set<number>();
+      instances.add(job.hostInstance);
+      this.liveHostInstances.set(job.id, instances);
+      if (instances.size > 1) this.violations.push(`turn ${turn}: job ${job.id} has host instances ${[...instances].join(', ')} live at once`);
+    }
+  }
+
+  private killHost(jobId: string): void {
+    this.liveHostInstances.get(jobId)?.clear();
+  }
+
+  /** Read from the log as written: a resume of a job already ended, or a crash resume past the bound, is a violation. */
+  private checkResumes(turn: number): void {
+    for (const record of this.logRecords.slice(this.checkedRecordCount)) {
+      if (record.kind === 'job-ended') this.endedJobIds.add(record.jobId);
+      if (record.kind !== 'job-resumed') continue;
+      if (this.endedJobIds.has(record.jobId)) this.violations.push(`turn ${turn}: resumed ${record.jobId}, a finished session`);
+      if (!CRASH_CAUSES.includes(record.fields.cause)) continue;
+      const crashResumes = (this.crashResumesByJobId.get(record.jobId) ?? 0) + 1;
+      this.crashResumesByJobId.set(record.jobId, crashResumes);
+      if (crashResumes > FIXTURE_LIMITS.JOB_RESUMES_BEFORE_FRESH) this.violations.push(`turn ${turn}: crash-resumed ${record.jobId} ${crashResumes} times`);
+    }
+    this.checkedRecordCount = this.logRecords.length;
   }
 
   private checkInvariants(turn: number): void {
@@ -134,6 +194,14 @@ export class LifecycleWorld {
     for (const ticket of this.tickets) {
       const liveJobs = jobs.filter((job) => job.ticketIds.includes(ticket.frontmatter.id)).length;
       if (liveJobs > 1) this.violations.push(`turn ${turn}: ticket ${ticket.frontmatter.id} has ${liveJobs} live jobs`);
+    }
+    const gitOperationsByWorktree = new Map<string, number>();
+    for (const job of jobs.filter((candidate) => (candidate.kind === 'build' || candidate.kind === 'review') && GIT_OPERATING_STATES.includes(candidate.state))) {
+      const worktree = `ticket-${job.ticketIds[0] ?? ''}`;
+      gitOperationsByWorktree.set(worktree, (gitOperationsByWorktree.get(worktree) ?? 0) + 1);
+    }
+    for (const [worktree, operations] of gitOperationsByWorktree) {
+      if (operations > 1) this.violations.push(`turn ${turn}: worktree ${worktree} has ${operations} git operations at once`);
     }
     const slotJobs = jobs.filter((job) => job.kind === 'build' || job.kind === 'review').length;
     if (slotJobs > WORLD_CONCURRENCY_LIMIT) this.violations.push(`turn ${turn}: ${slotJobs} build and review jobs past the limit`);
@@ -196,6 +264,7 @@ export class LifecycleWorld {
       return;
     }
     if (roll < 0.35) {
+      this.killHost(job.id);
       this.board.interruptJob(job.id, this.pick(INTERRUPTION_CAUSES) ?? 'host-lost', FIXTURE_AT);
       return;
     }
