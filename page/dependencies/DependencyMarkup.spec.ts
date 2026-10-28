@@ -3,7 +3,7 @@
  * holds only the settled tickets open work was built on; a one-ticket wave is narrow and says so in its head, band and slot meter, whose
  * bar count is the board's slots; the pace path's edges are marked, an edge from a settled ticket is dashed; rows put the pace path first
  * and then follow their parents; nodes carry the ready chip only where the Board lists the ticket ready (a held one shows Held, a low
- * one nothing), "N wait" and a weight bar against the most held ticket; every value is escaped.
+ * one is a node like any other), "N wait" and a weight bar against the most held ticket; every value is escaped.
  */
 
 import { describe, expect, test } from 'bun:test';
@@ -166,12 +166,12 @@ describe('nodes', () => {
     expect(nodeOf(MARKUP, '013')).not.toContain('ap-badge');
   });
 
-  test('a held ticket stays in Now without the Ready chip, marked Held, and a pending low one is no node, though the Board lists it ready', () => {
+  test('a held ticket stays in Now without the Ready chip, marked Held, and a pending low one is a ready node in Now like any other', () => {
     expect([...HELD_AND_LOW_BOARD.readyTicketIds]).toEqual(['023', '022']);
-    expect(HELD_AND_LOW_GRAPH.waves[0]?.nodeIds.toSorted()).toEqual(['021', '023']);
+    expect(HELD_AND_LOW_GRAPH.waves[0]?.nodeIds.toSorted()).toEqual(['021', '022', '023']);
     expect(nodeOf(HELD_AND_LOW_MARKUP, '021')).toContain('<span class="ap-kanban-held" title="Held: not before 2026-10-05">Held</span>');
     expect(nodeOf(HELD_AND_LOW_MARKUP, '021')).not.toContain('data-ready');
-    expect(HELD_AND_LOW_MARKUP).not.toContain('data-open-ticket="022"');
+    expect(nodeOf(HELD_AND_LOW_MARKUP, '022')).toContain('<span class="ap-badge" data-ready>Ready</span>');
     expect(nodeOf(HELD_AND_LOW_MARKUP, '023')).toContain('<span class="ap-badge" data-ready>Ready</span>');
   });
 

@@ -779,7 +779,7 @@ another.
   browser. On a board with dependencies, the menu's "Order To do" switches To do between filed and by wave: the
   lane says how many of its cards are ready and how many wait, then one group per dependency wave,
   headed with how wide the wave is (the first also with how many are ready), a one-ticket wave marked
-  "one at a time", and a pending low-priority ticket, in no wave, closing the lane; the choice is kept
+  "one at a time", a pending low-priority ticket in its wave like any other; the choice is kept
   in the browser. Pointing at a card draws arrows from the cards
   it waits on directly and marks them "needed first"; an open card's `↦ N` counts the tickets that
   wait on it, directly or further down the chain.

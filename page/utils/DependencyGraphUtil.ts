@@ -4,7 +4,6 @@
  */
 
 import { TICKET_STATUSES_THAT_SETTLE_A_DEPENDENCY } from '../../src/lib/tracker-model/constants/Statuses.ts';
-import { TicketDefaultsUtil }                       from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
 import type {
   CrossGroupLink,
   DependencyGraph,
@@ -63,13 +62,9 @@ function wavesMeasured(openNodeIds: readonly string[], openDependenciesOf: (node
 const TICKET_READERS: DependencyGraphReaders<DependencyGraphTicket> = {
   settlesDependents: (ticket) => TICKET_STATUSES_THAT_SETTLE_A_DEPENDENCY.includes(ticket.status),
   primaryGroupKeyOf: (ticket) => ticket.memberOfEpics[0]?.key ?? null,
-  entersWaves:       (ticket) => !(ticket.status === 'pending' && TicketDefaultsUtil.ticketPriorityOf(ticket) === 'low'),
 };
 
-/**
- * Tickets are read by their status, priority and primary epic, abandoned ones leaving the graph and pending low ones the waves; any other
- * item needs its readers.
- */
+/** Tickets are read by their status and primary epic, abandoned ones leaving the graph; any other item needs its readers. */
 function dependencyGraphOf(tickets: readonly DependencyGraphTicket[], concurrencyLimit: number): DependencyGraph;
 function dependencyGraphOf<Item extends DependencyGraphItem>(items: readonly Item[], concurrencyLimit: number, readers: DependencyGraphReaders<Item>): DependencyGraph;
 
@@ -90,13 +85,9 @@ function graphOf<Item extends DependencyGraphItem>(items: readonly Item[], concu
     return node !== undefined && readers.settlesDependents(node);
   };
   const isOpen = (nodeId: string): boolean => nodeById.has(nodeId) && !isSettled(nodeId);
-  const isInWaves = (nodeId: string): boolean => {
-    const node = nodeById.get(nodeId);
-    return node !== undefined && isOpen(nodeId) && (readers.entersWaves?.(node) ?? true);
-  };
 
   const settledNodeIds = nodeIds.filter(isSettled);
-  const openNodeIds    = nodeIds.filter(isInWaves);
+  const openNodeIds    = nodeIds.filter(isOpen);
 
   const knownDependenciesOf = (nodeId: string): string[] => (
     [...new Set(nodeById.get(nodeId)?.dependsOn ?? [])].filter((dependencyId) => nodeById.has(dependencyId)).sort(byLowestId)
@@ -108,14 +99,12 @@ function graphOf<Item extends DependencyGraphItem>(items: readonly Item[], concu
   const dependentsOf       = (nodeId: string): readonly string[] => dependentsById.get(nodeId) ?? [];
   const openDependenciesOf = (nodeId: string): string[] => knownDependenciesOf(nodeId).filter(isOpen);
 
-  const heldOfNode     = new Map(nodeIds.map((nodeId) => [nodeId, new Set([...reachableFrom(nodeId, dependentsOf)].filter(isInWaves))] as const));
+  const heldOfNode     = new Map(nodeIds.map((nodeId) => [nodeId, new Set([...reachableFrom(nodeId, dependentsOf)].filter(isOpen))] as const));
   const upstreamOfNode = new Map(nodeIds.map((nodeId) => [nodeId, reachableFrom(nodeId, knownDependenciesOf)] as const));
   const heldCountOf    = (nodeId: string): number => heldOfNode.get(nodeId)?.size ?? 0;
   const byMostHeld     = (a: string, b: string): number => heldCountOf(b) - heldCountOf(a) || byLowestId(a, b);
 
-  // Measured over every open node, so one left out of the waves still pushes its dependents past "Now".
-  const { waveOfNode: measuredWaveOfNode, measuredDependenciesOfNode } = wavesMeasured(nodeIds.filter(isOpen), openDependenciesOf);
-  const waveOfNode = new Map(openNodeIds.map((nodeId) => [nodeId, measuredWaveOfNode.get(nodeId) ?? 0] as const));
+  const { waveOfNode, measuredDependenciesOfNode } = wavesMeasured(openNodeIds, openDependenciesOf);
   const waveCount = openNodeIds.reduce((count, nodeId) => Math.max(count, (waveOfNode.get(nodeId) ?? 0) + 1), 0);
   const nodeIdsInWave = (waveIndex: number): string[] => openNodeIds.filter((nodeId) => waveOfNode.get(nodeId) === waveIndex);
 
@@ -140,7 +129,7 @@ function graphOf<Item extends DependencyGraphItem>(items: readonly Item[], concu
 
   const unlocksOfNode = new Map(nodeIds.map((nodeId) => {
     const upstream = upstreamOfNode.get(nodeId) ?? new Set<string>();
-    const unlocked = dependentsOf(nodeId).filter((dependentId) => dependentId !== nodeId && isInWaves(dependentId) && openDependenciesOf(dependentId).every((dependencyId) => (
+    const unlocked = dependentsOf(nodeId).filter((dependentId) => dependentId !== nodeId && isOpen(dependentId) && openDependenciesOf(dependentId).every((dependencyId) => (
       dependencyId === nodeId || upstream.has(dependencyId)
     )));
     return [nodeId, unlocked] as const;
