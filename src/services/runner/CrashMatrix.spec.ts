@@ -7,6 +7,9 @@
  * session the fake child: every crash is made by killing the host, the child's group or both, a reboot by also giving the host record a
  * foreign boot, and a runner restart by a fresh DrivePass reattaching. What matters there: an orphaned agent group is killed before the
  * resume, only the crash causes count toward the bound, a resume is by id in the same folder, and a finished session never continues. The
+ * A handover row hands a running session's board to a successor and holds that no host is touched; a host below the supported protocol
+ * window is watched from its files and stopped by its group. The rows "the old runner dies during a handover" and "a handover's successor
+ * fails" are held by `src/services/runner/RunnerHandover.spec.ts`. The
  * usage-limit row is held by `src/services/runner/UsageLimits.spec.ts` and `cli/runner/RunnerDrivePass.spec.ts`, the body-edit row by V6
  * in `src/services/lifecycle/JobVerification.spec.ts`.
  */
@@ -27,6 +30,7 @@ import {
 } from 'bun:test';
 import { hostFilesOf }                                   from '../../lib/agent-host/HostFiles.ts';
 import type { HostRecord }                               from '../../lib/agent-host/HostRecord.ts';
+import { HOST_PROTOCOL_OLDEST_SUPPORTED }                from '../../lib/agent-host/constants/HostProtocol.ts';
 import type { AgentAdapter }                             from '../../lib/agent-launch/AgentAdapter.ts';
 import { identityOf, sameProcess, type ProcessIdentity } from '../../lib/process-identity/ProcessIdentity.ts';
 import type { Job }                                      from '../../lib/tracker-model/@types/Job.ts';
@@ -61,6 +65,7 @@ import { HOST_ENTRY_PATH, HostBundle }                          from './HostBund
 import { HostFleet }                                            from './HostFleet.ts';
 import { Reattachment }                                         from './Reattachment.ts';
 import { runnerFilesIn }                                        from './RunnerFiles.ts';
+import { RunnerHandover }                                       from './RunnerHandover.ts';
 import { RunnerLease }                                          from './RunnerLease.ts';
 
 const CHANGED_AT = '2026-09-18T20:05:00+02:00';
@@ -690,5 +695,69 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
     expect(report.leftoverWorktrees.map((folder) => basename(folder))).toEqual(['ticket-999']);
     const decisions = (requireProgressFile(sessionWorkspace).decisions ?? []).filter((decision) => decision.kind === 'leftover-worktree');
     expect(decisions.map((decision) => basename(decision.context))).toEqual(['ticket-999']);
+  }, ROW_TIMEOUT_MILLISECONDS);
+
+  test('run restart mid-session or mid-gate: the handover sends no host anything, and the successor reattaches it from the stored cursor', async () => {
+    const adapter   = recordingAdapter({ fresh: WAITING_STEPS, resumed: WAITING_STEPS });
+    const oldRunner = await startedRunner(adapter);
+    const job       = await runningBuildSession(oldRunner);
+    const child     = requireRecord(job.id, 1).childProcess;
+    const { runnerDirectory } = runnerFilesIn(sessionWorkspace.trackerDirectory);
+    const handoverFilePath = RunnerHandover.handoverFilePathOf(runnerDirectory, oldRunner.state().generation);
+    RunnerHandover.writeHandover(handoverFilePath, { state: 'requested' });
+    const self = identityOf(process.pid);
+    const successorReports: Awaited<ReturnType<DrivePass['reattach']>>[] = [];
+
+    const [outcome] = await Promise.all([
+      RunnerHandover.handOver({
+        handoverFilePath,
+        successor:            self,
+        successorCodeVersion: 'code-example',
+        release:              () => oldRunner.stop(),
+        recordFailure:        () => Promise.resolve(),
+        schedule:             { readyTries: WAIT_TRIES, releaseTries: WAIT_TRIES, intervalMilliseconds: WAIT_MILLISECONDS },
+      }),
+      (async () => {
+        const schedule = { readyTries: WAIT_TRIES, releaseTries: WAIT_TRIES, intervalMilliseconds: WAIT_MILLISECONDS };
+        const request  = {
+          handoverFilePath, codeVersion: 'code-example', predecessorIsLive: () => true, schedule
+        };
+        const readHostFiles = { step: 'read-host-files' as const, run: () => { if (hostRecordOf(job.id, 1) === null) throw new Error('no host file'); } };
+        expect(await RunnerHandover.prepareAndAwaitRelease(request, [readHostFiles])).toBe('released');
+        const successor = await startedRunner(adapter);
+        successorReports.push(await successor.reattach());
+        RunnerHandover.reportServing(request, successor.state().generation, 'http://127.0.0.1:1/');
+      })(),
+    ]);
+
+    expect(outcome.verdict).toBe('handed-over');
+    expect(child !== null && child !== undefined && processIsAlive(child)).toBe(true);
+    expect(successorReports[0]?.attached.map((host) => [host.jobId, host.instance])).toContainEqual([job.id, 1]);
+    expect(successorReports[0]?.lost).toEqual([]);
+    expect(requireBuildJob()).toMatchObject({ id: job.id, state: 'running', hostInstance: 1 });
+    expect(storedRecords().filter((record) => record.kind === 'job-interrupted')).toEqual([]);
+    expect(launches.filter((launch) => launch.jobId === job.id)).toHaveLength(1);
+  }, ROW_TIMEOUT_MILLISECONDS);
+
+  test('runner updated while hosts run an older protocol: outside the window the host is legacy, watched from its files and stopped by its group', async () => {
+    const adapter = recordingAdapter({ fresh: LINE_THEN_WAITING_STEPS, resumed: WAITING_STEPS });
+    const job     = await runningBuildSession(await startedRunner(adapter));
+    const record  = requireRecord(job.id, 1);
+    // A host spawned by code whose protocol the updated runner no longer speaks.
+    writeFileSync(hostFilesOf(sessionJobFolder(job.id), 1).hostRecordPath, `${JSON.stringify({ ...record, protocolVersion: HOST_PROTOCOL_OLDEST_SUPPORTED - 1 })}\n`);
+
+    const updatedRunner = await startedRunner(adapter);
+    const report        = await updatedRunner.reattach();
+
+    expect(report.attached.map((host) => host.jobId)).not.toContain(job.id);
+    expect(report.legacyHosts).toEqual([{ jobId: job.id, instance: 1, protocolVersion: HOST_PROTOCOL_OLDEST_SUPPORTED - 1 }]);
+    expect(updatedRunner.state().legacyHostJobIds).toEqual([job.id]);
+    expect(HostFleet.eventsAfter(sessionJobFolder(job.id), 1, 0)).not.toBe('malformed');
+    expect(requireBuildJob()).toMatchObject({ id: job.id, state: 'running', hostInstance: 1 });
+
+    expect(await HostFleet.sendFrames(sessionJobFolder(job.id), 1, [{ kind: 'write', line: adapter.chatLineOf('Example line') }])).toBe(false);
+    expect(await HostFleet.sendFrames(sessionJobFolder(job.id), 1, [{ kind: 'stop', graceMilliseconds: 1 }])).toBe(true);
+    const child = record.childProcess;
+    await until(() => child === null || child === undefined || !processIsAlive(child), 'the legacy host\'s agent group was never stopped');
   }, ROW_TIMEOUT_MILLISECONDS);
 });
