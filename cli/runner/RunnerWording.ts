@@ -63,7 +63,6 @@ function decisionWordingOf(draft: DecisionDraft): DecisionWording {
 
 const NO_CHECKS_LINE = '(no checks line is stored)';
 
-/** A builder's first message is the whole build prompt, its ticket and checks line filled in; the other roles get theirs later in the chain. */
 /**
  * The first line runs the product-owner skill on User's request; a fresh session taking over a replaced one also reads the drafts filed so
  * far and the answers its predecessor's questions got, in the same message.
@@ -82,6 +81,7 @@ function productOwnerTextOf(job: Readonly<Job>, intake: NonNullable<JobLaunchFac
   return { firstMessage: [firstLine, ...(takeover.length === 0 ? [] : ['', ...takeover])].join('\n'), roleBrief };
 }
 
+/** A builder's first message is the whole build prompt, its ticket and checks line filled in; the other roles get theirs later in the chain. */
 function launchTextOf(job: Readonly<Job>, facts: JobLaunchFacts): JobLaunchText {
   if (facts.intake !== null) return productOwnerTextOf(job, facts.intake);
   const subject = ticketsPhraseOf(job.ticketIds);
