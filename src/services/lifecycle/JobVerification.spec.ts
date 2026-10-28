@@ -269,6 +269,21 @@ describeWhenGitIsPresent('verification by code', () => {
     expect(refusalOf('V7', subject)).toBe('ai-attribution-in-range');
   });
 
+  test('a resolver of a conflict elsewhere passes V11 beside the target\'s package.json change: the conflicted automatic merge is the base', () => {
+    commitFile(repositoryDirectory, 'target.ts', 'export const target = \'branch\';\n');
+    const branchTip = headCommit();
+    gitOutputIn(repositoryDirectory, ['checkout', '-q', '-b', 'example-target', startCommit]);
+    commitFile(repositoryDirectory, 'package.json', '{ "name": "example-target" }\n');
+    const targetTip = commitFile(repositoryDirectory, 'target.ts', 'export const target = \'target\';\n');
+    gitOutputIn(repositoryDirectory, ['checkout', '-q', '-']);
+    expect(() => gitOutputIn(repositoryDirectory, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'merge', '-q', '--no-ff', '--no-commit', 'example-target'])).toThrow();
+    commitFile(repositoryDirectory, 'target.ts', 'export const target = \'resolved\';\n');
+    const subject = resolverSubject({ branchTip, targetTip }, { checksDefinitionFiles: BUN_DEFINITION_FILES });
+
+    expect(refusalOf('V11', subject)).toBeNull();
+    expect(refusalOf('V10', subject)).toBeNull();
+  });
+
   test('a merge job\'s commits after its merge still count, even beside the target\'s own package.json change', () => {
     const merge = mergedTarget(plantTargetHistory);
     stagePackageJson();
