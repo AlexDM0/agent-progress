@@ -11,6 +11,7 @@ import { DISPATCHER_STATES } from '../../lib/tracker-model/constants/DispatcherS
 import {
   FIRST_HOST_INSTANCE,
   GATE_OUTCOMES,
+  LANDING_KINDS,
   INTERRUPTION_CAUSES,
   JOB_KINDS,
   JOB_OUTCOMES,
@@ -126,6 +127,8 @@ const CHECK_FOR_FIELD_SHAPE: Readonly<Record<LogFieldShape, FieldShapeCheck>> = 
   'incident-move':          (value, path) => vocabularyProblem(value, path, INCIDENT_MOVES),
   'incident-default-cause': (value, path) => vocabularyProblem(value, path, INCIDENT_DEFAULT_CAUSES),
   'gate-outcome':           (value, path) => vocabularyProblem(value, path, GATE_OUTCOMES),
+  'file-paths':             (value, path) => listOfTextProblem(value, path, 'file paths'),
+  'landing-kind':           (value, path) => vocabularyProblem(value, path, LANDING_KINDS),
   'flag':                   (value, path) => (typeof value === 'boolean' ? null : `${path} is not true or false`),
   'optional-flag':          (value, path) => (value === undefined || typeof value === 'boolean' ? null : `${path} is not true or false`),
 };

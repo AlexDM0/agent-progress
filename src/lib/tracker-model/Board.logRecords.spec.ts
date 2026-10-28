@@ -11,14 +11,15 @@ import type { LogRecord }              from './@types/LogRecord.ts';
 
 const LOGGED_AT = '2026-09-26T10:15:00+02:00';
 
-const RECORD_KIND_COUNT = 65;
+const RECORD_KIND_COUNT = 67;
 
 /**
- * Two kinds are logged twice: `draft-claimed`, plainly and as a forced takeover, since the two store different fields, and `draft-opened`,
- * since a closed draft cannot then be abandoned. Two are logged three times, `decision-opened` and `incident-opened`, since a closed one
- * cannot be closed again another way and an escalation opens a decision of its own.
+ * Four kinds are logged twice: `draft-claimed`, plainly and as a forced takeover, since the two store different fields, `draft-opened`,
+ * since a closed draft cannot then be abandoned, and `job-launched` and `job-ended`, since a merge claim launches its own job. Two are
+ * logged three times, `decision-opened` and `incident-opened`, since a closed one cannot be closed again another way and an escalation
+ * opens a decision of its own.
  */
-const RECORD_COUNT = RECORD_KIND_COUNT + 2 + 4;
+const RECORD_COUNT = RECORD_KIND_COUNT + 4 + 4;
 
 const FROZEN_STORED_LINES = [
   '{"at":"2026-09-26T10:15:00+02:00","kind":"note","fields":{"text":"Example note from the orchestrator"}}',
@@ -64,6 +65,14 @@ const FROZEN_STORED_LINES = [
     + '"evidence":"watched-fail","outcome":"fixed","commit":"b2c3d4e"},{"class":"out-of-scope","severity":"nit","file":"docs/example.md",'
     + '"summary":"An example sentence wraps late","evidence":"reading","outcome":"filed","filedTicketId":"004"}]}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"merge-queued","ticketId":"001","fields":{"target":"main"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"job-launched","jobId":"J1","fields":{"kind":"merge","role":null,"ticketIds":["001"],'
+    + '"attempt":1,"target":"main","parentJobId":null}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"merge-started","jobId":"J1","fields":{"target":"main","targetTip":"b2c3d4e5f60718293a4b5c6d7e8f901234567890",'
+    + '"branchTip":"c3d4e5f60718293a4b5c6d7e8f90123456789012","predictedConflictFiles":["src/example/ExampleCheckout.ts"]}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"merge-landed","jobId":"J1","fields":{"target":"main","commit":"d4e5f60718293a4b5c6d7e8f9012345678901234",'
+    + '"kind":"landed"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"job-ended","jobId":"J1","fields":{"outcome":"landed","commit":"d4e5f60718293a4b5c6d7e8f9012345678901234",'
+    + '"deniedPermissions":[]}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-rereviewed","ticketId":"001","fields":{"round":2}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-approved","ticketId":"001","fields":{}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"review-bar-closed","taskId":3,"ticketId":"001","fields":{"name":"Review 1 #001 — Example checkout page"}}',
@@ -77,12 +86,12 @@ const FROZEN_STORED_LINES = [
   '{"at":"2026-09-26T10:15:00+02:00","kind":"agent-stopped","fields":{"agentId":"example-agent","agentType":"agent-progress-worker",'
     + '"apiCallCount":12,"endContextTokens":48000,"totalInputTokens":310000,"cacheReadInputTokens":250000,"outputTokens":9000}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"runner-started","fields":{"codeVersion":"a1b2c3d","installVersion":17}}',
-  '{"at":"2026-09-26T10:15:00+02:00","kind":"job-launched","jobId":"J1","fields":{"kind":"build","role":"builder","ticketIds":["002"],'
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"job-launched","jobId":"J2","fields":{"kind":"build","role":"builder","ticketIds":["002"],'
     + '"attempt":1,"target":"main","parentJobId":null}}',
-  '{"at":"2026-09-26T10:15:00+02:00","kind":"job-interrupted","jobId":"J1","fields":{"cause":"agent-crashed","hostInstance":1}}',
-  '{"at":"2026-09-26T10:15:00+02:00","kind":"usage-limit-hit","jobId":"J1","fields":{"window":"five_hour","resetsAt":"2026-09-26T13:00:34.000Z"}}',
-  '{"at":"2026-09-26T10:15:00+02:00","kind":"job-resumed","jobId":"J1","fields":{"hostInstance":2,"cause":"agent-crashed"}}',
-  '{"at":"2026-09-26T10:15:00+02:00","kind":"job-ended","jobId":"J1","fields":{"outcome":"failed","cause":"no report","deniedPermissions":["WebFetch"]}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"job-interrupted","jobId":"J2","fields":{"cause":"agent-crashed","hostInstance":1}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"usage-limit-hit","jobId":"J2","fields":{"window":"five_hour","resetsAt":"2026-09-26T13:00:34.000Z"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"job-resumed","jobId":"J2","fields":{"hostInstance":2,"cause":"agent-crashed"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"job-ended","jobId":"J2","fields":{"outcome":"failed","cause":"no report","deniedPermissions":["WebFetch"]}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"decision-opened","decisionId":"E1","fields":{"kind":"agent-question","ticketIds":["002"]}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"decision-answered","decisionId":"E1","fields":{"answer":{"Ship the example export as CSV?":"CSV"}}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"decision-opened","decisionId":"E2","fields":{"kind":"outage","ticketIds":[]}}',

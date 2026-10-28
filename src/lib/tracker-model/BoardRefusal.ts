@@ -79,6 +79,9 @@ export type BoardRefusalDetail =
   | { reason: 'job-finished'; jobId: string }
   | { reason: 'job-move-illegal'; jobId: string; state: JobState; targetState: JobMoveTarget }
   | { reason: 'merge-queue-of-a-ticket-not-in-review'; ticketId: string; status: TicketStatus }
+  | { reason: 'merge-slot-held'; target: string; jobId: string }
+  | { reason: 'merge-candidate-not-queued'; ticketId: string; target: string }
+  | { reason: 'higher-priority-queued'; ticketId: string; queuedTicketIds: readonly string[] }
   | { reason: 'unknown-decision'; decisionId: string }
   | { reason: 'decision-already-answered'; decisionId: string }
   | { reason: 'decision-answer-count'; decisionId: string; answerCount: number; questionCount: number }

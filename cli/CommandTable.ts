@@ -25,6 +25,7 @@ export const COMMAND_TABLE = {
   concurrency:    async () => (await import('./dispatch/concurrency/ConcurrencyCommand.ts')).concurrencyCommand,
   dispatcher:     async () => (await import('./dispatch/dispatcher/DispatcherCommand.ts')).dispatcherCommand,
   checks:         async () => (await import('./dispatch/checks/ChecksCommand.ts')).checksCommand,
+  merges:         async () => (await import('./merges/MergesCommand.ts')).mergesCommand,
   range:          async () => (await import('./tracking/range/RangeCommand.ts')).rangeCommand,
   render:         async () => (await import('./tracking/render/RenderCommand.ts')).renderCommand,
   open:           async () => (await import('./tracking/open/OpenCommand.ts')).openCommand,

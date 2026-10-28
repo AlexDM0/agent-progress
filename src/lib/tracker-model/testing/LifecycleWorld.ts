@@ -13,6 +13,7 @@ import type { LogRecord }                                   from '../@types/LogR
 import type { Ticket, TicketFrontmatter }                   from '../@types/Ticket.ts';
 import type { TrackerProgress }                             from '../@types/TrackerProgress.ts';
 import { Board }                                            from '../Board.ts';
+import { BoardRefusal }                                     from '../BoardRefusal.ts';
 import { createLogger }                                     from '../Logger.ts';
 import { FIXTURE_AT, FIXTURE_LIMITS, FIXTURE_OBSERVATIONS } from './LifecycleFixtures.ts';
 
@@ -33,6 +34,12 @@ const HOST_RUNNING_STATES: readonly JobState[] = ['running', 'waiting-for-answer
 const GIT_OPERATING_STATES: readonly JobState[] = ['preparing', 'running', 'waiting-for-answer', 'verifying', 'gating', 'merging', 'landing'];
 
 const CRASH_CAUSES: readonly string[] = ['host-lost', 'agent-crashed'];
+
+const WORLD_TARGETS: readonly string[] = ['main', 'group-example'];
+
+function worldTargetOf(group: string | undefined): string {
+  return group === undefined ? 'main' : `group-${group}`;
+}
 
 const WORLD_WORDING: DecisionWording = {
   questions: [{
@@ -152,6 +159,7 @@ export class LifecycleWorld {
     }
     this.syncHosts(turn);
     this.checkInvariants(turn);
+    this.checkMergeInvariants(turn);
     this.checkResumes(turn);
   }
 
@@ -222,6 +230,10 @@ export class LifecycleWorld {
   }
 
   private act(): void {
+    if (this.random() < 0.3) {
+      this.claimASlot();
+      return;
+    }
     const decision = this.pick(this.board.decisions());
     if (decision !== undefined && this.random() < 0.5) {
       this.answer(decision.id);
@@ -247,7 +259,40 @@ export class LifecycleWorld {
     }
   }
 
+  /** A runner's allocation at a random moment: the claim itself must refuse whatever would break a slot invariant. */
+  private claimASlot(): void {
+    const target = this.pick(WORLD_TARGETS) ?? 'main';
+    const candidate = this.pick(this.board.mergeCandidatesOf(target, worldTargetOf));
+    if (candidate === undefined) return;
+    try {
+      this.board.claimMergeSlot({
+        ticketId: candidate.ticketId, target, targetTip: `tip-${this.logRecords.length}`, branchTip: `branch-${candidate.ticketId}`, predictedConflictFiles: []
+      }, worldTargetOf, FIXTURE_AT);
+    } catch (refusal) {
+      if (!(refusal instanceof BoardRefusal)) throw refusal;
+    }
+  }
+
+  /** Lands only on a tree it gated first, or frees the slot as a moved target does, leaving the ticket queued. */
+  private actOnMerge(job: Readonly<Job>): void {
+    const ticketId = job.ticketIds[0] ?? '';
+    if (this.random() < 0.5) {
+      this.board.endJob(job.id, { outcome: 'stopped', cause: 'target-moved' }, FIXTURE_AT);
+      return;
+    }
+    const tree = `tree-${job.id}`;
+    this.board.recordGateRan({ tree, outcome: 'passed', cached: false }, FIXTURE_AT);
+    this.board.recordMergeLanded(job.id, { target: job.target ?? 'main', commit: tree, kind: 'landed' }, FIXTURE_AT);
+    this.board.endJob(job.id, { outcome: 'landed', commit: tree }, FIXTURE_AT);
+    this.moveTicketWhenBuilt(ticketId, 'in-review', 'delivered');
+    this.board.setTicketMergeQueued(ticketId, false, FIXTURE_AT);
+  }
+
   private actOn(job: Readonly<Job>): void {
+    if (job.kind === 'merge') {
+      this.actOnMerge(job);
+      return;
+    }
     const roll = this.random();
     if (job.state === 'launching') {
       this.board.moveJob(job.id, 'running', FIXTURE_AT);
@@ -278,8 +323,38 @@ export class LifecycleWorld {
     const ticketId = job.ticketIds[0];
     if (ticketId === undefined) return;
     if (outcome === 'built') this.moveTicketWhenBuilt(ticketId, 'in-progress', 'in-review');
-    if (outcome === 'reviewed') this.moveTicketWhenBuilt(ticketId, 'in-review', 'reviewed');
+    if (outcome === 'reviewed' && this.ticketStatusOf(ticketId) === 'in-review') this.board.queueTicketForMerge(ticketId, worldTargetOf(this.groupOf(ticketId)), FIXTURE_AT);
     if (outcome === 'does-not-hold') this.moveTicketWhenBuilt(ticketId, 'in-review', 'in-progress');
+  }
+
+  private ticketStatusOf(ticketId: string): TicketFrontmatter['status'] | undefined {
+    return this.tickets.find((candidate) => candidate.frontmatter.id === ticketId)?.frontmatter.status;
+  }
+
+  private groupOf(ticketId: string): string | undefined {
+    return this.tickets.find((candidate) => candidate.frontmatter.id === ticketId)?.frontmatter.group;
+  }
+
+  /** At most one merge per target; a target moving only to a tree gated first; no ticket slotted again before its last merge job ended. */
+  private checkMergeInvariants(turn: number): void {
+    for (const target of WORLD_TARGETS) {
+      const holders = this.board.jobs().filter((job) => job.kind === 'merge' && job.target === target).length;
+      if (holders > 1) this.violations.push(`turn ${turn}: ${holders} merge jobs hold ${target}`);
+    }
+    const gatedTrees = new Set<string>();
+    const openMergeJobByTicketId = new Map<string, string>();
+    for (const record of this.logRecords) {
+      if (record.kind === 'gate-ran' && record.fields.outcome === 'passed') gatedTrees.add(record.fields.tree);
+      if (record.kind === 'merge-landed' && !gatedTrees.has(record.fields.commit)) {
+        this.violations.push(`turn ${turn}: ${record.fields.target} moved to ungated ${record.fields.commit}`);
+      }
+      if (record.kind === 'job-ended') openMergeJobByTicketId.forEach((jobId, ticketId) => (jobId === record.jobId ? openMergeJobByTicketId.delete(ticketId) : undefined));
+      if (record.kind !== 'job-launched' || record.fields.kind !== 'merge') continue;
+      for (const ticketId of record.fields.ticketIds) {
+        if (openMergeJobByTicketId.has(ticketId)) this.violations.push(`turn ${turn}: ticket ${ticketId} slotted twice with no board change between`);
+        openMergeJobByTicketId.set(ticketId, record.jobId);
+      }
+    }
   }
 
   /** The world moves a ticket's status the way a verified report would, writing the frontmatter the Board reads. */

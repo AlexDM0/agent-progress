@@ -203,6 +203,10 @@ function sentenceOf(record: LogRecordContent): string {
       return `Incident ${record.incidentId} took its default, ${record.fields.move}, ${INCIDENT_DEFAULT_CAUSE_TEXT[record.fields.cause]}`;
     case 'incident-escalated':
       return `Incident ${record.incidentId} escalated to the user as decision ${record.fields.decisionId}`;
+    case 'merge-started':
+      return mergeStartedTextOf(record.jobId, record.fields);
+    case 'merge-landed':
+      return `Job ${record.jobId} ${record.fields.kind === 'landed' ? 'landed' : 'integrated'} ${record.fields.commit} on ${record.fields.target}`;
     case 'relay-applied':
       return `Job ${record.jobId}'s relayed ${record.fields.commandKind} ${record.fields.requestId} answered ${record.fields.outcome}`;
   }
@@ -222,6 +226,11 @@ function ticketsSuffixOf(ticketIds: readonly string[]): string {
 function decisionAnsweredTextOf(decisionId: string, answer: Readonly<Record<string, string>>): string {
   const answers = Object.entries(answer).map(([question, text]) => `${JSON.stringify(question)}: ${JSON.stringify(text)}`);
   return `Decision ${decisionId} answered: ${answers.join('; ')}`;
+}
+
+function mergeStartedTextOf(jobId: string, started: LogRecordFieldsOf<'merge-started'>): string {
+  const conflicts = started.predictedConflictFiles.length === 0 ? 'predicted clean' : `predicted to conflict in ${started.predictedConflictFiles.join(', ')}`;
+  return `Job ${jobId} took the ${started.target} merge slot at ${started.target} ${started.targetTip}, branch ${started.branchTip}, ${conflicts}`;
 }
 
 function jobLaunchedTextOf(jobId: string, launch: LogRecordFieldsOf<'job-launched'>): string {

@@ -561,6 +561,7 @@ comment is code, and a file type it does not know counts every non-blank line.
 | `run pause\|resume [--json]` | Store `dispatcherState` `stopped` or `running` through the write pipeline, logged as the dispatcher state, with the runner up or down: a paused runner starts no new job. `--json` prints `{dispatcherState, previousState}`. |
 | `run status [--json]` | The newest lease, the URL, the runtime state from the runner's `GET /api/state` (`serving`, `held-by-install-change`, `handing-over`; `starting` while the API does not answer yet, or `down`), whether the board is paused, the code version on disk against the live runner's, the runner's notices, and the warning of a failed handover. Read-only, no lock, no install-version check. `--json` prints `{state, paused, url, lease, codeVersionOnDisk, codeVersionInMemory, notices, handoverWarning}`. At each sweep and after each landing (a move of the main line's tip) the runner runs the on-disk binary's `version --json` as a child, and it reads the manifest on every pass: an install version that differs from its own holds launches (`held-by-install-change`, the stored `dispatcherState` untouched) with the notice `install-version-changed`, "run `agent-progress update`", until the versions match; code that differs alone only shows the notice `new-code`, "new code: run `agent-progress update`". A host on a protocol below `HOST_PROTOCOL_OLDEST_SUPPORTED` is a legacy host, listed in the state's `legacyHostJobIds`: sent no frame, its host file and event log read in its own `EVENT_LOG_FORMAT_VERSION`, and stopped by signalling its recorded process group, identity checked. A relayed request of a `relayFormatVersion` the runner does not read stays pending, unanswered, until a runner that reads it. |
 | `version [--json]` | Print `{codeVersion, installVersion}`: a content hash of the program's shipping files on disk, and the install version this program writes. Read-only; it needs no tracker and checks no install version. |
+| `merges [--json]` | The merge queue, read as `status` reads the tracker (no lock, nothing written): each held slot `{target, jobId, ticketIds, phase, targetTip, branchTip}`, then each queued ticket `{ticketId, target, priority, queuedAt}` in landing order, `queuedAt` its `merge-queued` record's place in the log. `--json` prints `{slots, queue}`. |
 | `clear [--all] [--yes]` | Throw away every task row and the log, restart the clock and reset the stored axis to automatic, leaving one `Tracker cleared` log line, and keep the tickets: each surviving ticket is given a fresh row seeded from its own frontmatter, with a new id, except a low ticket with no row. Row ids are not reused, and every epic file is kept untouched. `--all` deletes the tickets and every epic too and restarts the ticket ids at 001; `--json` prints `removedTaskCount`, `removedLogCount`, `deletedTicketCount`, `deletedEpicCount` and `reseededTicketCount`. `--yes` skips the confirmation, and is required when standard input is not a terminal. |
 
 ### A build job
@@ -594,6 +595,31 @@ the ticket `in-review` and ends the job `built`; the policy then launches the re
 
 A ticket an open incident names launches no new job until the incident is settled. Where `sandbox-exec` cannot apply
 a profile, the process hosts run unconfined and gate passes are kept in the runner's memory only.
+
+### The main line's merge slot
+
+After each pass the runner sweeps the main line's one merge slot. A queued ticket (in review, `mergeQueued`, unheld,
+no open `waiver` or `landing-refused` decision) is a candidate; candidates are predicted with `git merge-tree` and
+ordered by priority, clean before conflicting, fewest conflicts caused, readiness, then id. The claim, in its own
+hold, refuses while a merge job holds the slot, when either tip moved since the prediction, and
+`higher-priority-queued` when a candidate of a strictly higher priority waits; it launches a `merge` job whose record
+carries `slot: {target, targetTip, branchTip, phase}` and logs `merge-started`. Each phase is written on the slot in
+its own hold. The merge-in merges the recorded `targetTip`, never the moving name, once, in the ticket's worktree; a
+conflict launches a `merge-agent` job, role `resolver`, which cannot ask and has `RESOLVER_API_CALL_BUDGET` calls. The
+merged tree is gated, then landed by a compare-and-swap fast-forward in the main checkout, logging `merge-landed` and
+delivering the ticket. `git log --first-parent` of the main line therefore runs through ticket branches; the
+`merge-landed` records keep the per-ticket view.
+
+| what happens | what the runner does |
+| --- | --- |
+| the resolver reaches its budget, reports `cannot-resolve`, or V10 fails | the merge aborts, the slot frees, the ticket leaves the queue and the `merge-refused` decision opens with the report's `notes`; a `reportKind` of `malformed-ticket` or `system-blocker` also opens a `malformed-ticket` or `system-question` incident with no job waiting |
+| the resolution changes over `RESOLUTION_REVIEW_THRESHOLD_LINES` (150) lines against git's automatic merge | incident `resolution-over-threshold`; the slot waits for its move |
+| the merged tree fails its gate | incident `merge-gate-failed`; the slot waits for its move |
+| the main line moved to a tip a `merge-landed` names, or to another one | the worktree is reset to `branchTip` and the ticket requeued silently; after `TARGET_MOVED_MERGES_BEFORE_PARKING` (2) unrecorded moves in a row the ticket parks |
+| the main checkout is off the main line, or its changes block the fast-forward | the slot frees and that target's landings wait under the `dirty-main-checkout` notice, rechecked every sweep; builds and reviews launch on |
+| the check stamp differs or the Acceptance is not accounted for | `mergeQueued` cleared, the ticket held, decision `landing-refused` |
+| the main line already holds the merged commit (a crash after the fast-forward) | the board side is finished |
+| a merge-in left `MERGE_HEAD` with no live holder, or the resolver ended with no usable result | `git merge --abort`, a reset to `branchTip`, and a requeue; a live or interrupted resolver keeps the slot |
 
 When a session is first launched the runner writes `<data>/jobs/<jobId>/start.json`: the worktree's HEAD, the ticket
 body's hash, every ref's commit from `git for-each-ref`, each detached worktree's HEAD and a digest of the hooks
@@ -1034,6 +1060,8 @@ record as a sentence; a note's sentence is its text.
 | `job-resumed` | `jobId` | `hostInstance`: the instance spawned, `cause`: the interruption it resumes from |
 | `usage-limit-hit` | `jobId` | `window` (as the vendor names it, such as `five_hour`), `resetsAt` (ISO): the vendor refused the job's requests, and nothing launches or resumes before `resetsAt` |
 | `job-ended` | `jobId` | `outcome`, `cause` and `commit` each only when named, `deniedPermissions` |
+| `merge-started` | `jobId` | `target`, `targetTip`, `branchTip`, `predictedConflictFiles` (empty for a clean prediction): the merge job claimed the target's slot |
+| `merge-landed` | `jobId` | `target`, `commit`, `kind` (`landed` on the main line, `integrated` on a group branch): the runner's list of tips it landed |
 | `ticket-triaged` | `ticketId` | none: a finding put to the user's low-priority triage |
 | `decision-opened` | `decisionId` | `kind`, `ticketIds` |
 | `decision-answered` | `decisionId` | `answer`: one answer per question, keyed by the question's text |

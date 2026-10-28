@@ -5,6 +5,7 @@ import type {
   JobOutcome,
   JobRole,
   JobState,
+  LandingKind,
   RunnerStopReason,
   SlotPhase
 } from '../@types/Job.ts';
@@ -61,6 +62,8 @@ export const CRASH_INTERRUPTION_CAUSES = ['host-lost', 'agent-crashed'] as const
 export const SLOT_PHASES = ['merge-in', 'resolving', 'reviewing-resolution', 'gating', 'fixing', 'landing'] as const satisfies readonly SlotPhase[];
 
 export const RUNNER_STOP_REASONS = ['stopped', 'handed-over'] as const satisfies readonly RunnerStopReason[];
+
+export const LANDING_KINDS = ['landed', 'integrated'] as const satisfies readonly LandingKind[];
 
 export const GATE_OUTCOMES = ['passed', 'failed', 'cannot-run'] as const satisfies readonly GateOutcome[];
 

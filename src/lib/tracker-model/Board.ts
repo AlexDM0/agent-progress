@@ -109,20 +109,26 @@ import type { LifecycleFacts }                              from './LifecyclePol
 import { LifecyclePolicy }                                  from './LifecyclePolicy.ts';
 import type { Logger }                                      from './Logger.ts';
 import { MergeQueueMarks }                                  from './MergeQueueMarks.ts';
-import { ReviewBars }                                       from './ReviewBars.ts';
-import type { ReviewStatisticsReport }                      from './ReviewStatistics.ts';
-import { ReviewStatistics }                                 from './ReviewStatistics.ts';
-import { TaskRows }                                         from './TaskRows.ts';
-import { TicketClaims }                                     from './TicketClaims.ts';
-import { TicketDependencies }                               from './TicketDependencies.ts';
-import type { TicketEdit, TicketEdited }                    from './TicketEdits.ts';
-import { TicketEdits }                                      from './TicketEdits.ts';
-import { TicketLinks }                                      from './TicketLinks.ts';
-import { TicketMoves }                                      from './TicketMoves.ts';
-import { TicketSettings }                                   from './TicketSettings.ts';
-import { TokenCredits }                                     from './TokenCredits.ts';
-import { TrackerChanges }                                   from './TrackerChanges.ts';
-import { PARKED_HOLD_PREFIX }                               from './constants/DecisionAndIncidentVocabulary.ts';
+import {
+  type MergeCandidate,
+  type MergeLanding,
+  MergeSlotClaims,
+  type MergeSlotClaim
+}                                                           from './MergeSlotClaims.ts';
+import { ReviewBars }                    from './ReviewBars.ts';
+import type { ReviewStatisticsReport }   from './ReviewStatistics.ts';
+import { ReviewStatistics }              from './ReviewStatistics.ts';
+import { TaskRows }                      from './TaskRows.ts';
+import { TicketClaims }                  from './TicketClaims.ts';
+import { TicketDependencies }            from './TicketDependencies.ts';
+import type { TicketEdit, TicketEdited } from './TicketEdits.ts';
+import { TicketEdits }                   from './TicketEdits.ts';
+import { TicketLinks }                   from './TicketLinks.ts';
+import { TicketMoves }                   from './TicketMoves.ts';
+import { TicketSettings }                from './TicketSettings.ts';
+import { TokenCredits }                  from './TokenCredits.ts';
+import { TrackerChanges }                from './TrackerChanges.ts';
+import { PARKED_HOLD_PREFIX }            from './constants/DecisionAndIncidentVocabulary.ts';
 
 export interface BoardInput {
   progress:          TrackerProgress;
@@ -176,6 +182,8 @@ export class Board {
 
   private readonly mergeQueueMarks: MergeQueueMarks;
 
+  private readonly mergeSlotClaims: MergeSlotClaims;
+
   private readonly decisionRules: Decisions;
 
   private readonly incidentRules: Incidents;
@@ -201,6 +209,7 @@ export class Board {
     this.draftContents      = new DraftContents(this.records, this.draftRules);
     this.jobRules           = new Jobs(this.records);
     this.mergeQueueMarks    = new MergeQueueMarks(this.records);
+    this.mergeSlotClaims    = new MergeSlotClaims(this.records, this.jobRules);
     this.decisionRules      = new Decisions(this.records);
     this.incidentRules      = new Incidents(this.records, this.decisionRules);
   }
@@ -267,6 +276,26 @@ export class Board {
 
   ticketIsMergeQueued(ticketId: string): boolean {
     return this.mergeQueueMarks.ticketIsMergeQueued(ticketId);
+  }
+
+  mergeSlotHolderOf(target: string): Readonly<Job> | undefined {
+    return this.mergeSlotClaims.slotHolderOf(target);
+  }
+
+  mergeCandidatesOf(target: string, targetOf: (group: string | undefined) => string): MergeCandidate[] {
+    return this.mergeSlotClaims.mergeCandidatesOf(target, targetOf);
+  }
+
+  claimMergeSlot(claim: MergeSlotClaim, targetOf: (group: string | undefined) => string, at: string): JobChanged {
+    return this.mergeSlotClaims.claimMergeSlot(claim, targetOf, at);
+  }
+
+  recordMergeLanded(jobId: string, landing: MergeLanding, at: string): Logged {
+    return this.mergeSlotClaims.recordMergeLanded(jobId, landing, at);
+  }
+
+  recordedLandingsOn(target: string): string[] {
+    return this.mergeSlotClaims.recordedLandingsOn(target);
   }
 
   /** The unsettled jobs, in launch order. */

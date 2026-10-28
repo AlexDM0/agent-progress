@@ -54,6 +54,7 @@ describe('the command table', () => {
       'hook',
       'init',
       'log',
+      'merges',
       'open',
       'range',
       'release',

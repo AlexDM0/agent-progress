@@ -107,5 +107,8 @@ export interface JobEnding {
 
 export type RunnerStopReason = 'stopped' | 'handed-over';
 
+/** How a merge reached its target: `landed` fast-forwarded the main line, `integrated` a group branch. */
+export type LandingKind = 'landed' | 'integrated';
+
 /** `cannot-run` is a gate that never judged the tree (exit 126 or 127, or a signal), never a failed pass. */
 export type GateOutcome = 'passed' | 'failed' | 'cannot-run';

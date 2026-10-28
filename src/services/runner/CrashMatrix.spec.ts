@@ -47,6 +47,7 @@ import {
 } from '../../testing/FakeAgentAdapter.ts';
 import {
   createScratchDirectory,
+  commitFile,
   createScratchGitRepository,
   currentBranchOf,
   gitOutputIn,
@@ -67,6 +68,7 @@ import { Reattachment }                                         from './Reattach
 import { runnerFilesIn }                                        from './RunnerFiles.ts';
 import { RunnerHandover }                                       from './RunnerHandover.ts';
 import { RunnerLease }                                          from './RunnerLease.ts';
+import { createMergeSlotsHarness, HARNESS_AT, resolveAs }       from './testing/MergeSlotsHarness.ts';
 
 const CHANGED_AT = '2026-09-18T20:05:00+02:00';
 
@@ -760,4 +762,64 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
     const child = record.childProcess;
     await until(() => child === null || child === undefined || !processIsAlive(child), 'the legacy host\'s agent group was never stopped');
   }, ROW_TIMEOUT_MILLISECONDS);
+});
+
+describeWhenGitIsPresent('the main-line merge rows', () => {
+  function conflicted(): ReturnType<typeof createMergeSlotsHarness> {
+    const harness = createMergeSlotsHarness([{ id: '001', change: ['base.ts', 'export const base = 2;\n'] }]);
+    commitFile(harness.repository, 'base.ts', 'export const base = 3;\n');
+    return harness;
+  }
+
+  test('crash after the fast-forward, before the board write: the merged commit is an ancestor of main, so the board side finishes', async () => {
+    const harness = createMergeSlotsHarness([{ id: '001', change: ['checkout.ts', 'export const checkout = 1;\n'] }]);
+    harness.settings.beforeGate = () => gitOutputIn(harness.repository, ['merge', '-q', '--ff-only', gitOutputIn(harness.worktreeOf('001'), ['rev-parse', 'HEAD'])]);
+    await harness.slots.sweep();
+    expect(harness.board.tickets()[0]?.frontmatter.status).toBe('delivered');
+    harness.remove();
+  });
+
+  test('mid-merge with no live holder: merge --abort, a reset to branchTip and a requeue', async () => {
+    const harness = conflicted();
+    const branchTip = harness.tipOf('ticket-001');
+    harness.board.claimMergeSlot({
+      ticketId: '001', target: 'main', targetTip: harness.tipOf('main'), branchTip, predictedConflictFiles: ['base.ts']
+    }, () => 'main', HARNESS_AT);
+    Bun.spawnSync(['git', 'merge', '--no-ff', '--no-edit', harness.tipOf('main')], { cwd: harness.worktreeOf('001') });
+    const orphanedJobId = harness.mergeJob()?.id;
+    await harness.slots.sweep();
+    const ended = harness.board.logRecordsSoFar().find((record) => record.kind === 'job-ended' && record.jobId === orphanedJobId);
+    expect(ended?.kind === 'job-ended' ? ended.fields.cause : null).toBe('orphaned');
+    expect(harness.mergeJob()?.slot?.branchTip).toBe(branchTip);
+    harness.remove();
+  });
+
+  test('restart during a live or interrupted resolver: the slot is kept, and the resolution then lands', async () => {
+    const harness = conflicted();
+    await harness.slots.sweep();
+    const agentId = harness.mergeAgent()?.id ?? '';
+    harness.board.moveJob(agentId, 'running', HARNESS_AT);
+    harness.board.interruptJob(agentId, 'reboot', HARNESS_AT);
+    const restarted = harness.slots;
+    await restarted.sweep();
+    expect(harness.mergeJob()?.slot?.phase).toBe('resolving');
+    harness.board.moveJob(agentId, 'running', HARNESS_AT);
+    resolveAs(harness, '001', 'base.ts', 'export const base = 4;\n');
+    await harness.slots.sweep();
+    expect(harness.board.tickets()[0]?.frontmatter.status).toBe('delivered');
+    harness.remove();
+  });
+
+  test('target moved by hand: the compare-and-swap requeues from branchTip and never lands on the moved tip', async () => {
+    const harness = createMergeSlotsHarness([{ id: '001', change: ['checkout.ts', 'export const checkout = 1;\n'] }]);
+    harness.settings.beforeGate = () => {
+      commitFile(harness.repository, 'by-hand.ts', 'export const byHand = true;\n');
+      harness.settings.beforeGate = () => undefined;
+    };
+    await harness.slots.sweep();
+    const landed = harness.board.logRecordsSoFar().filter((record) => record.kind === 'merge-landed');
+    expect(landed).toHaveLength(1);
+    gitOutputIn(harness.repository, ['merge-base', '--is-ancestor', harness.tipOf('main'), landed[0]?.kind === 'merge-landed' ? landed[0].fields.commit : '']);
+    harness.remove();
+  });
 });

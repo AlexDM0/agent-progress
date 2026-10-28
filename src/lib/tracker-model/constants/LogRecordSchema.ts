@@ -42,6 +42,8 @@ export type LogFieldShape =
   | 'incident-move'
   | 'incident-default-cause'
   | 'gate-outcome'
+  | 'file-paths'
+  | 'landing-kind'
   | 'flag'
   | 'optional-flag';
 
@@ -182,10 +184,19 @@ export const LOG_RECORD_SCHEMA = {
   'incident-handled':   { subject: 'incident', fields: { move: 'incident-move' } },
   'incident-defaulted': { subject: 'incident', fields: { move: 'incident-move', cause: 'incident-default-cause' } },
   'incident-escalated': { subject: 'incident', fields: { decisionId: 'text' } },
+  // A merge job claimed its target's slot against these recorded tips; the predicted files are empty for a clean prediction.
+  'merge-started':      {
+    subject: 'job',
+    fields:  {
+      target: 'text', targetTip: 'text', branchTip: 'text', predictedConflictFiles: 'file-paths'
+    },
+  },
+  // The runner moved `target` to `commit`: the list of tips it landed, which a moved target is judged against.
+  'merge-landed':  { subject: 'job', fields: { target: 'text', commit: 'text', kind: 'landing-kind' } },
   // A relayed request the runner answered, so a replay of its request file never applies it twice.
-  'relay-applied':      { subject: 'job', fields: { requestId: 'text', commandKind: 'text', outcome: 'text' } },
+  'relay-applied': { subject: 'job', fields: { requestId: 'text', commandKind: 'text', outcome: 'text' } },
   // `totalInputTokens` is fresh input plus cache read plus cache creation; the run id and label are stored only for an agent a workflow run spawned.
-  'agent-stopped':      {
+  'agent-stopped': {
     subject: 'board',
     fields:  {
       agentId:              'text',

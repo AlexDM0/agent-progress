@@ -21,9 +21,11 @@ import type { DecisionDraft, DecisionWording }                      from '../../
 import type { Board }                                               from '../../lib/tracker-model/Board.ts';
 import { JOB_ID_VARIABLE, RELAY_DIRECTORY_VARIABLE }                from '../../shared/Environment.ts';
 import { LIFECYCLE_LIMITS }                                         from '../../shared/constants/LifecycleLimits.ts';
+import { MERGE_SLOT_LIMITS }                                        from '../../shared/constants/MergeSlotLimits.ts';
 import { PRODUCT_NAMES }                                            from '../../shared/constants/ProductNames.ts';
 import { SESSION_STOP_GRACE_MILLISECONDS }                          from '../../shared/constants/RunnerLimits.ts';
 import { createFolderGateResultCache, createMemoryGateResultCache } from '../lifecycle/GateResultCache.ts';
+import { GateRun }                                                  from '../lifecycle/GateRun.ts';
 import { ReviewOutcome }                                            from '../lifecycle/ReviewOutcome.ts';
 import type { RenderState }                                         from '../render/RenderState.ts';
 import { writeTracker, type TrackerChange }                         from '../tracker/TrackerPipeline.ts';
@@ -38,6 +40,7 @@ import {
 } from './JobLaunch.ts';
 import { JobResumption }                         from './JobResumption.ts';
 import { LegacyHostReader }                      from './LegacyHostReader.ts';
+import { createMergeSlots, type HeldTarget }     from './MergeSlots.ts';
 import { createProcessHostSandbox }              from './ProcessHostSandbox.ts';
 import { Reattachment, type ReattachmentReport } from './Reattachment.ts';
 import { RelayInbox, type PendingRelayRequest }  from './RelayInbox.ts';
@@ -100,7 +103,9 @@ export type RunnerNotice =
   | { kind: 'claude-md-block-committed'; target: string }
   | { kind: 'attribution-found'; ticketId: string }
   // The ticket's newest review reworked past the threshold and was refused another round: User decides whether an invariant ticket is wanted.
-  | { kind: 'rounds-not-converging'; ticketId: string };
+  | { kind: 'rounds-not-converging'; ticketId: string }
+  // A landing found the main checkout off the main line or dirty: that target's landings wait, builds and reviews launch on.
+  | { kind: 'dirty-main-checkout'; target: string; branch: string | null; blockingFiles: readonly string[] };
 
 /** What a pass knows of the runtime state; the runner adds `handing-over` around a handover. */
 export type PassRuntimeState = 'serving' | 'held-by-install-change';
@@ -150,6 +155,9 @@ interface Observation {
 }
 
 const GROUP_TARGET_PREFIX = 'group-';
+
+// T1b-P14's finding: the per-job ref denies hold, so a target moved by someone else requeues silently (owner answer Q38).
+const TARGET_REF_DENIES_HOLD = true;
 const DEFAULT_MODEL = 'opus';
 const DEFAULT_EFFORT = 'medium';
 const ROLES_THAT_MAY_ASK: ReadonlySet<string> = new Set(['builder', 'reviewer', 'product-owner']);
@@ -424,8 +432,17 @@ function legacyHostJobIdsOf(board: Board, trackerDirectory: string): string[] {
     .map((job) => job.id);
 }
 
-function noticesOf(request: DrivePassRequest, observation: Observation, attributionTicketIds: readonly string[], nonConvergingTicketIds: readonly string[]): RunnerNotice[] {
+function noticesOf(
+  request: DrivePassRequest,
+  observation: Observation,
+  attributionTicketIds: readonly string[],
+  nonConvergingTicketIds: readonly string[],
+  heldTargets: readonly HeldTarget[],
+): RunnerNotice[] {
   return [
+    ...heldTargets.map((held) => ({
+      kind: 'dirty-main-checkout', target: held.target, branch: held.branch, blockingFiles: held.blockingFiles
+    }) as const),
     ...(request.installVersionChanged() ? [{ kind: 'install-version-changed' } as const] : []),
     ...(request.newCodeOnDisk?.() === true ? [{ kind: 'new-code' } as const] : []),
     ...observation.targetsHoldingManagedBlock.map((target) => ({ kind: 'claude-md-block-committed', target }) as const),
@@ -464,6 +481,42 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     decisionWordingOf:    request.decisionWordingOf,
     log:                  request.log,
   };
+
+  const mergeSlots = createMergeSlots({
+    repositoryRoot:    request.workspace.rootDirectory,
+    mainLine:          request.mainLine,
+    groupTargetPrefix: GROUP_TARGET_PREFIX,
+    worktreeOf:        (ticketId) => join(request.workspace.rootDirectory, PRODUCT_NAMES.WORKTREES_FOLDER, `ticket-${ticketId}`),
+    limits:            MERGE_SLOT_LIMITS,
+    refDeniesHold:     TARGET_REF_DENIES_HOLD,
+    hold:              async (mutate) => (await writeTracker({
+      workspace:   request.workspace,
+      at:          request.formatStamp(request.now()),
+      now:         request.now,
+      renderState: request.renderState,
+      mutate:      (change) => {
+        RunnerLease.requireNewestGeneration(request.runnerDirectory, request.generation);
+        return mutate({ board: change.board, at: change.at });
+      },
+    })).result,
+    gateMergedTree: async (worktreePath, treeId) => {
+      const progress   = requireProgressFile(request.workspace);
+      const checksLine = progress.checkCommand ?? '';
+      const verdict    = await GateRun.gateTree({
+        argv: GateRun.checksLineArgvOf(checksLine), directory: worktreePath, treeId, checksLine, installLine: progress.installCommand ?? null, cache: jobLaunchContext.gateCache,
+      });
+      return verdict.outcome;
+    },
+    mergeAgentReadingOf: (job) => JobLaunch.sessionReadingOf(jobLaunchContext, job),
+    hostIsLive:          (job) => HostFleet.livenessOf(HostFleet.jobFolderOf(request.workspace.trackerDirectory, job.id), job.hostInstance).verdict === 'live',
+    stopMergeAgent:      async (job) => {
+      await HostFleet.sendFrames(HostFleet.jobFolderOf(request.workspace.trackerDirectory, job.id), job.hostInstance, [
+        { kind: 'stop', graceMilliseconds: SESSION_STOP_GRACE_MILLISECONDS },
+      ]);
+    },
+    decisionWordingOf: request.decisionWordingOf,
+    dispatchIsStopped: () => requireProgressFile(request.workspace).dispatcherState === 'stopped',
+  });
 
   /** The marker first, so another board's runner holds its launches before this one's limited sessions are even stopped. */
   async function stopLimitedJobs(board: Board, trackerId: string, hits: readonly UsageLimitHit[]): Promise<void> {
@@ -545,11 +598,12 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
       launchHost(request, jobLaunchContext, written.board, observation.trackerId, job);
     }
     await JobResumption.deliverResumeMessages(request.workspace.trackerDirectory, written.board, request.agentAdapter, request.resumeMessage);
+    const heldTargets = written.board.checkCommand() === undefined ? [] : await mergeSlots.sweep();
     state = {
       generation:       request.generation,
       passes:           state.passes + 1,
       runtimeState:     installVersionChanged ? 'held-by-install-change' : 'serving',
-      notices:          noticesOf(request, observation, written.result.attributionTicketIds, written.result.nonConvergingTicketIds),
+      notices:          noticesOf(request, observation, written.result.attributionTicketIds, written.result.nonConvergingTicketIds, heldTargets),
       legacyHostJobIds: legacyHostJobIdsOf(written.board, request.workspace.trackerDirectory),
     };
     const settled = observe(request, jobLaunchContext);

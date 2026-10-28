@@ -50,6 +50,19 @@ function launchTextOf(job: Readonly<Job>, facts: JobLaunchFacts): JobLaunchText 
       roleBrief,
     };
   }
+  if (job.role === 'resolver' && ticket !== undefined) {
+    return {
+      firstMessage: filledTemplateOf(readFileSync(resourceFilePathOf('prompts', 'ResolvePrompt.md'), 'utf8'), {
+        ticketId:    ticket.id,
+        ticketTitle: ticket.title,
+        ticketBody:  ticket.body.trim(),
+        jobId:       job.id,
+        checksLine:  facts.checksLine ?? NO_CHECKS_LINE,
+        callBudget:  String(DISPATCH_PROTOCOL.RESOLVER_API_CALL_BUDGET),
+      }),
+      roleBrief,
+    };
+  }
   if (job.kind !== 'build' || ticket === undefined) return { firstMessage: `Job ${job.id}: work as the ${job.role ?? job.kind} on ${subject}, attempt ${job.attempt}.`, roleBrief };
   return {
     firstMessage: filledTemplateOf(readFileSync(resourceFilePathOf('prompts', 'BuildPrompt.md'), 'utf8'), {
@@ -108,6 +121,10 @@ function noticeTextOf(notice: RunnerNotice): string {
       return `ticket #${notice.ticketId} carries an AI attribution`;
     case 'rounds-not-converging':
       return `ticket #${notice.ticketId}'s review rounds are not converging`;
+    case 'dirty-main-checkout':
+      return notice.blockingFiles.length === 0
+        ? `landings on ${notice.target} wait: the main checkout is on ${notice.branch ?? 'no branch'}, not ${notice.target}`
+        : `landings on ${notice.target} wait: the main checkout's changes to ${notice.blockingFiles.join(', ')} block the fast-forward`;
   }
 }
 

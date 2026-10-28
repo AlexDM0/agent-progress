@@ -720,6 +720,10 @@ output never carries either.
   version [--json]            Print the code version on disk and the install version:
                               {codeVersion, installVersion}. Read-only.
 
+  merges [--json]             The merge queue: each held slot {target, jobId, ticketIds, phase,
+                              targetTip, branchTip}, then each queued ticket {ticketId, target,
+                              priority, queuedAt} in landing order. Read-only, no lock.
+
   clear [--all] [--yes]       Throw away every task row and the log and restart the clock, keeping
                               the tickets: each surviving ticket is given a fresh row seeded from
                               its own frontmatter, except a low one with no row. Row ids are not reused. --all deletes the

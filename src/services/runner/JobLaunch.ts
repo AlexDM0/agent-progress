@@ -639,4 +639,5 @@ export const JobLaunch = Object.freeze({
   isWorktreeJob,
   ticketIdsTouchingAgentConfigOf,
   holdAgentConfigHits,
+  sessionReadingOf,
 });

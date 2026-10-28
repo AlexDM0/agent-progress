@@ -44,6 +44,13 @@ describe('the lifecycle under seeded interleavings', () => {
     ],
     ['a resume of a finished session', 'src/lib/tracker-model/Jobs.ts', '    liveJobs.splice(liveJobs.indexOf(job), 1);\n', '', 'a finished session'],
     [
+      'two merges on one target',
+      'src/lib/tracker-model/MergeSlotClaims.ts',
+      '    if (holder !== undefined) throw new BoardRefusal({ reason: \'merge-slot-held\', target: claim.target, jobId: holder.id });\n',
+      '',
+      'merge jobs hold',
+    ],
+    [
       'a crash resume past the bound',
       'src/lib/tracker-model/LifecyclePolicy.ts',
       '    if (isCrash(job.interruption) && job.crashResumes >= limits.JOB_RESUMES_BEFORE_FRESH) return [{ kind: \'replace-job\', jobId: job.id }];\n',
@@ -67,6 +74,7 @@ describe('the lifecycle under seeded interleavings', () => {
   test('the world does work: its passes launch, resume and finish jobs', () => {
     const world = new LifecycleWorld(1);
     world.run(TURNS_PER_SEED);
-    expect(world.loggedKinds()).toEqual(expect.arrayContaining(['job-launched', 'job-ended', 'job-interrupted', 'job-resumed', 'decision-answered']));
+    const workKinds = ['job-launched', 'job-ended', 'job-interrupted', 'job-resumed', 'decision-answered', 'merge-started', 'merge-landed'];
+    expect(world.loggedKinds()).toEqual(expect.arrayContaining(workKinds));
   });
 });

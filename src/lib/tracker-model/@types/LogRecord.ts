@@ -11,6 +11,7 @@ import type {
   JobKind,
   JobOutcome,
   JobRole,
+  LandingKind,
   RunnerStopReason
 }                                                                        from './Job.ts';
 import type { ReviewClaim, ReviewFinding, ReviewVerdict } from './ReviewRecord.ts';
@@ -53,6 +54,8 @@ interface ValueOfFieldShape {
   'incident-move':          IncidentMove;
   'incident-default-cause': IncidentDefaultCause;
   'gate-outcome':           GateOutcome;
+  'file-paths':             readonly string[];
+  'landing-kind':           LandingKind;
   'flag':                   boolean;
   'optional-flag':          boolean;
 }

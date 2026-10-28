@@ -239,6 +239,13 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
     case 'merge-queue-of-a-ticket-not-in-review':
       return `Ticket #${detail.ticketId} is ${StatusWordingUtil.statusTextFor(detail.status)}, `
         + `so it was not queued to merge: only a ticket in review whose review passed is. ${NOTHING_WAS_WRITTEN}`;
+    case 'merge-slot-held':
+      return `Job ${detail.jobId} holds the ${detail.target} merge slot, and a target merges one ticket at a time. ${NOTHING_WAS_WRITTEN}`;
+    case 'merge-candidate-not-queued':
+      return `Ticket #${detail.ticketId} is not queued to merge into ${detail.target}. ${NOTHING_WAS_WRITTEN}`;
+    case 'higher-priority-queued':
+      return `Ticket #${detail.ticketId} waits: ${TicketPhraseUtil.ticketReferencesText(detail.queuedTicketIds)} of a higher priority `
+        + `queued to merge first. ${NOTHING_WAS_WRITTEN}`;
     case 'unknown-decision':
       return `There is no decision ${detail.decisionId}. ${NOTHING_WAS_WRITTEN}`;
     case 'decision-already-answered':

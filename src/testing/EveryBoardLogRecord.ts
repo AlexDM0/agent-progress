@@ -92,6 +92,15 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
     ],
   }, at);
   board.queueTicketForMerge('001', 'main', at);
+  const merge = board.claimMergeSlot({
+    ticketId:               '001',
+    target:                 'main',
+    targetTip:              'b2c3d4e5f60718293a4b5c6d7e8f901234567890',
+    branchTip:              'c3d4e5f60718293a4b5c6d7e8f90123456789012',
+    predictedConflictFiles: ['src/example/ExampleCheckout.ts'],
+  }, (group) => (group === undefined ? 'main' : `group-${group}`), at);
+  board.recordMergeLanded(merge.job.id, { target: 'main', commit: 'd4e5f60718293a4b5c6d7e8f9012345678901234', kind: 'landed' }, at);
+  board.endJob(merge.job.id, { outcome: 'landed', commit: 'd4e5f60718293a4b5c6d7e8f9012345678901234' }, at);
   board.rereviewTicket('001', at);
   board.moveTicket('001', 'reviewed', { checksLegality: true }, at);
   board.moveTicket('001', 'delivered', { checksLegality: true }, at);
