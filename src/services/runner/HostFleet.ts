@@ -10,7 +10,8 @@ import {
   existsSync,
   mkdirSync,
   openSync,
-  readFileSync
+  readFileSync,
+  writeFileSync
 } from 'node:fs';
 import { createConnection } from 'node:net';
 import { dirname, join }    from 'node:path';
@@ -178,6 +179,18 @@ async function sendFrames(jobFolder: string, instance: number, frames: readonly 
   });
 }
 
+/**
+ * Sends the frames to a live Watcher unless its marker is there, writing the marker only once the Watcher took them: a send that failed is
+ * tried again on a later pass while the Watcher is live, and a taken frame is never sent twice, across an Overseer restart too.
+ */
+async function sendFramesOnce(markerPath: string, jobFolder: string, instance: number, frames: readonly ActingFrame[]): Promise<boolean> {
+  if (existsSync(markerPath) || livenessOf(jobFolder, instance).verdict !== 'live') return false;
+  if (!await sendFrames(jobFolder, instance, frames)) return false;
+  mkdirSync(dirname(markerPath), { recursive: true });
+  writeFileSync(markerPath, '');
+  return true;
+}
+
 /** `process.execPath <bundle> <job folder> <instance>`, detached and unreferenced, its output appended to the instance's host log. */
 function spawnHost(request: HostSpawnRequest): number | undefined {
   const logDescriptor = openSync(hostFilesOf(request.jobFolder, request.instance).hostLogPath, 'a');
@@ -194,5 +207,5 @@ function spawnHost(request: HostSpawnRequest): number | undefined {
 }
 
 export const HostFleet = Object.freeze({
-  jobFolderOf, hostRecordOf, livenessOf, eventsAfter, writeLaunchFiles, writeProcessLaunchFile, sendFrames, spawnHost
+  jobFolderOf, hostRecordOf, livenessOf, eventsAfter, writeLaunchFiles, writeProcessLaunchFile, sendFrames, sendFramesOnce, spawnHost
 });

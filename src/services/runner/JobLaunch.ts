@@ -637,13 +637,25 @@ function createWorktree(context: JobLaunchContext, job: Readonly<Job>): void {
   context.log(`Creating the worktree of job ${job.id} failed: ${errorText}`);
 }
 
-/** Once per job folder: a marker file, written before the frames go, keeps a restart from sending them twice. */
-async function sendOnce(context: JobLaunchContext, job: Readonly<Job>, marker: string, frames: Parameters<typeof HostFleet.sendFrames>[2]): Promise<void> {
-  const markerPath = join(jobFolderOf(context.workspace, job), marker);
-  if (existsSync(markerPath)) return;
-  mkdirSync(dirname(markerPath), { recursive: true });
-  writeFileSync(markerPath, '');
-  await HostFleet.sendFrames(jobFolderOf(context.workspace, job), job.hostInstance, frames);
+/** What a build job's frames are worded and filed with. */
+export interface BuildJobFrameRequest {
+  trackerDirectory: string;
+  agentAdapter:     Pick<AgentAdapter, 'chatLineOf'>;
+  windDownMessage:  string;
+}
+
+async function sendOnce(request: BuildJobFrameRequest, job: Readonly<Job>, marker: string, frames: Parameters<typeof HostFleet.sendFrames>[2]): Promise<void> {
+  const jobFolder = HostFleet.jobFolderOf(request.trackerDirectory, job.id);
+  await HostFleet.sendFramesOnce(join(jobFolder, marker), jobFolder, job.hostInstance, frames);
+}
+
+/** What a build job's state asks of its live Watcher, each frame once: the wind-down turn over its call budget, closed input, a stop. */
+async function deliverBuildJobFrames(request: BuildJobFrameRequest, job: Readonly<Job>, calls: number): Promise<void> {
+  if (job.state === 'running' && calls >= callBudgetOf(job)) {
+    await sendOnce(request, job, JOB_FILES.windDownSent, [{ kind: 'write', line: request.agentAdapter.chatLineOf(request.windDownMessage) }]);
+  }
+  if (job.state === 'verifying' || job.state === 'gating') await sendOnce(request, job, JOB_FILES.inputClosed, [{ kind: 'close-input' }]);
+  if (job.state === 'stopping') await sendOnce(request, job, JOB_FILES.stopSent, [{ kind: 'stop', graceMilliseconds: SESSION_STOP_GRACE_MILLISECONDS }]);
 }
 
 /** After the hold and the lease check: what each build job's new state asks of git and the hosts. */
@@ -663,11 +675,7 @@ async function runBuildJobEffects(context: JobLaunchContext, board: Board, track
       }
     }
     const calls = observations.find((observation) => observation.jobId === job.id)?.calls ?? 0;
-    if (job.state === 'running' && calls >= callBudgetOf(job)) {
-      await sendOnce(context, job, JOB_FILES.windDownSent, [{ kind: 'write', line: context.agentAdapter.chatLineOf(context.windDownMessage) }]);
-    }
-    if (job.state === 'verifying' || job.state === 'gating') await sendOnce(context, job, JOB_FILES.inputClosed, [{ kind: 'close-input' }]);
-    if (job.state === 'stopping') await sendOnce(context, job, JOB_FILES.stopSent, [{ kind: 'stop', graceMilliseconds: SESSION_STOP_GRACE_MILLISECONDS }]);
+    await deliverBuildJobFrames({ trackerDirectory: context.workspace.trackerDirectory, agentAdapter: context.agentAdapter, windDownMessage: context.windDownMessage }, job, calls);
     if (job.state === 'gating' && checksLine !== null) {
       // The key command runs in a host of its own under the gate's profile, never in the runner, and the gate waits for its output.
       if (keyCommand !== null) spawnProcessHost(context, trackerId, job, GATE_KEY_HOST_FOLDER, GateRun.keyCommandArgvOf(keyCommand), gateConfinement);
@@ -703,6 +711,7 @@ export const JobLaunch = Object.freeze({
   observeBuildJobs,
   applyBuildJobObservations,
   runBuildJobEffects,
+  deliverBuildJobFrames,
   recordJobStart,
   attributionTicketIdsOf,
   someBuildJobAwaitsAPass,
