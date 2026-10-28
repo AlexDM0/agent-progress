@@ -2,6 +2,13 @@
  * The crash, reboot and update matrix, one row per scenario, each held against the mechanism that settles it; later mechanisms add their
  * rows here. What matters in these rows: a hold cut short after its journal is finished by the next holder before that holder reads, and a
  * holder whose lock was taken over writes nothing further, its committed journal replayed by its successor.
+ *
+ * The session, host, runner and reboot rows that need neither merge slots nor questions run a build job on a scratch repository, its
+ * session the fake child: every crash is made by killing the host, the child's group or both, a reboot by also giving the host record a
+ * foreign boot, and a runner restart by a fresh DrivePass reattaching. What matters there: an orphaned agent group is killed before the
+ * resume, only the crash causes count toward the bound, a resume is by id in the same folder, and a finished session never continues. The
+ * usage-limit row is held by `src/services/runner/UsageLimits.spec.ts` and `cli/runner/RunnerDrivePass.spec.ts`, the body-edit row by V6
+ * in `src/services/lifecycle/JobVerification.spec.ts`.
  */
 import {
   existsSync,
@@ -179,14 +186,6 @@ describe('a stale holder resumes after a lock takeover', () => {
     expect(existsSync(holdJournalFilePathOf(workspace))).toBe(false);
   });
 });
-
-/*
- * The session and host rows, the runner rows and the reboot rows that need neither merge slots nor questions: a build job on a scratch
- * repository, its session the fake child, every crash made by killing the host, the child's group or both, a reboot by also giving the
- * host record a foreign boot, and a runner restart by a fresh DrivePass reattaching. The usage-limit row is held by
- * `src/services/runner/UsageLimits.spec.ts` and `cli/runner/RunnerDrivePass.spec.ts`, the body-edit row by V6 in
- * `src/services/lifecycle/JobVerification.spec.ts`, and a pid's identity by `src/lib/process-identity/ProcessIdentity.spec.ts`.
- */
 
 interface RecordedLaunch {
   jobId:            string;
