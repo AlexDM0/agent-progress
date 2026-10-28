@@ -740,10 +740,9 @@ output never carries either.
   jobs [--json]               The live jobs, one line each (id, kind and role, state, tickets,
                               attempt, host instance, a stop asked), then the runner, paused or not,
                               agents against the limit, open decisions and incidents. Read-only.
-  job show|attach <J> [--json]
-                              show prints the job's record, or what the log holds of a finished
-                              one; attach replays every host instance's event log, then follows the
-                              newest while the job is on the board. Both read-only, no lock.
+  job show <J> [--json]       The job's record, or what the log holds of a finished one.
+  job attach <J> [--json]     Replay every host instance's event log, then follow the newest while
+                              the job is on the board (--json replays only). Both read-only.
   job message <J> -- <text> [--json]
                               A chat turn the runner writes to the session (job-messaged); refused
                               job-finished for a finished job, which is never continued.

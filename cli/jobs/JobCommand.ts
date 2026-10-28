@@ -110,13 +110,22 @@ function entryLinesOf(adapter: AgentAdapter, instance: number, entries: readonly
 
 /** Read-only: every host instance's event log in instance order, then the newest followed while the job is on the board. */
 async function attachJob(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
-  commandArguments.rejectUnknownOptions([], SHOW_USAGE);
+  commandArguments.rejectUnknownOptions(['json'], SHOW_USAGE);
   commandArguments.rejectExtraPositionals(2, SHOW_USAGE);
   const workspace = requireWorkspace(context.currentDirectory);
   const jobId     = jobIdIn(commandArguments, SHOW_USAGE);
   const { live, record } = jobRecordOf(workspace, jobId);
   const jobFolder = HostFleet.jobFolderOf(workspace.trackerDirectory, jobId);
   let newestInstance = live?.hostInstance ?? (typeof record['hostInstance'] === 'number' ? record['hostInstance'] : 1);
+  if (commandArguments.flag('json')) {
+    // A script reads one document, so --json replays without following.
+    const lines = Array.from({ length: newestInstance }, (_unused, i) => i + 1).flatMap((instance) => {
+      const entries = HostFleet.eventsAfter(jobFolder, instance, 0);
+      return entries === 'malformed' ? [] : entryLinesOf(context.agentAdapter, instance, entries);
+    });
+    OutputUtil.printEntity(commandArguments, context, { jobId, lines }, lines.join('\n'));
+    return;
+  }
   let cursor = 0;
   const printNewEntries = (instance: number): void => {
     const entries = HostFleet.eventsAfter(jobFolder, instance, instance === newestInstance ? cursor : 0);
