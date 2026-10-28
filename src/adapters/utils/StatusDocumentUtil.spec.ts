@@ -6,6 +6,7 @@
  */
 import { describe, expect, test } from 'bun:test';
 
+import type { DecisionOpening }                     from '../../lib/tracker-model/@types/Decision.ts';
 import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures.ts';
 import { StatusDocumentUtil }                       from './StatusDocumentUtil.ts';
 
@@ -21,9 +22,17 @@ describe('the decisions and incidents', () => {
   test('are the Board\'s open ones in opening order, a closed one left out', () => {
     const { board } = boardFixture({ tickets: [ticketFixture({ id: '001' })] });
     const at        = '2026-09-18T20:11:03+02:00';
-    const opening   = {
-      kind: 'outage', ticketIds: [], jobId: null, askedBy: 'runner', requestId: null, questions: [], context: '',
-    } as const;
+    const opening: DecisionOpening = {
+      kind:      'outage',
+      ticketIds: [],
+      jobId:     null,
+      askedBy:   'runner',
+      requestId: null,
+      questions: [{
+        question: 'Resume the board?', header: 'Outage', multiSelect: false, options: []
+      }],
+      context: '',
+    };
     board.openDecision(opening, at);
     board.openDecision(opening, at);
     board.withdrawDecision('E1', 'board resumed', at);
