@@ -108,6 +108,13 @@ describeWhenGitIsPresent('the check command', () => {
     expect(readFileSync(progressFilePath(), 'utf8')).toBe(before);
     expect(storedLogTextOf(repositoryDirectory)).toBe(logBefore);
   });
+
+  test('--clear with none stored says so and ends with the usage line, as every other refusal of the command does', async () => {
+    const { exitCode, context } = await runWithExitCode(['checks', '--clear']);
+
+    expect(exitCode).toBe(1);
+    expect(context.errorText()).toContain('No check command is set, so there is none to clear.\n  Usage: ');
+  });
 });
 
 describeWhenGitIsPresent('a line tried in the main checkout before it is stored', () => {

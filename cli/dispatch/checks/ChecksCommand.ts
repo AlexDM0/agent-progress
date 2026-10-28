@@ -1,16 +1,17 @@
-import { refusalIsBoardRefusal }               from '../../../src/lib/tracker-model/BoardRefusal.ts';
-import { readingBoardOf }                      from '../../../src/lib/tracker-model/ReadingBoard.ts';
-import { BoardSettingsUtil }                   from '../../../src/lib/tracker-model/utils/BoardSettingsUtil.ts';
-import { ControlService }                      from '../../../src/services/control/ControlService.ts';
-import { requireProgressFile, requireTracker } from '../../../src/services/tracker/TrackerReader.ts';
-import { requireWorkspace }                    from '../../../src/services/tracker/Workspace.ts';
-import { OperationRefusal }                    from '../../../src/shared/OperationRefusal.ts';
-import { PRODUCT_NAMES }                       from '../../../src/shared/constants/ProductNames.ts';
-import type { CommandContext }                 from '../../CommandContext.ts';
-import type { CommandHandler }                 from '../../CommandHandler.ts';
-import { openTrackerForWriting }               from '../../OpenTrackerForWriting.ts';
-import type { ArgumentParser }                 from '../../arguments/ArgumentParser.ts';
-import { OutputUtil }                          from '../../utils/OutputUtil.ts';
+import { OperationRefusalWordingUtil }                 from '../../../src/adapters/utils/OperationRefusalWordingUtil.ts';
+import { refusalIsBoardRefusal }                       from '../../../src/lib/tracker-model/BoardRefusal.ts';
+import { readingBoardOf }                              from '../../../src/lib/tracker-model/ReadingBoard.ts';
+import { BoardSettingsUtil }                           from '../../../src/lib/tracker-model/utils/BoardSettingsUtil.ts';
+import { ControlService }                              from '../../../src/services/control/ControlService.ts';
+import { requireProgressFile, requireTracker }         from '../../../src/services/tracker/TrackerReader.ts';
+import { requireWorkspace }                            from '../../../src/services/tracker/Workspace.ts';
+import { OperationRefusal, refusalIsOperationRefusal } from '../../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }                               from '../../../src/shared/constants/ProductNames.ts';
+import type { CommandContext }                         from '../../CommandContext.ts';
+import type { CommandHandler }                         from '../../CommandHandler.ts';
+import { openTrackerForWriting }                       from '../../OpenTrackerForWriting.ts';
+import type { ArgumentParser }                         from '../../arguments/ArgumentParser.ts';
+import { OutputUtil }                                  from '../../utils/OutputUtil.ts';
 import {
   CHECK_OUTPUT_TAIL_LINES,
   checkRunOutcomeText,
@@ -91,7 +92,12 @@ export const checksCommand: CommandHandler = async (commandArguments, context) =
     commandArguments,
     context,
     (change) => ControlService.apply({ kind: 'checks-set', command: checkCommand, restamps }, change).result,
-  );
+  ).catch((error: unknown) => {
+    if (refusalIsOperationRefusal(error) && error.detail?.kind === 'no-check-command-to-clear') {
+      throw new OperationRefusal('refused', `${OperationRefusalWordingUtil.messageOf(error)}\n  Usage: ${USAGE}`);
+    }
+    throw error;
+  });
 
   const loggedSentence = OutputUtil.loggedSentencesOf(logged);
   OutputUtil.printEntity(
