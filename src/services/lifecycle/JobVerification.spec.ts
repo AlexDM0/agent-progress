@@ -259,6 +259,9 @@ describeWhenGitIsPresent('verification by code', () => {
     expect(matches('ci/checks.sh', 'ci/checks.sh')).toBe(true);
     expect(matches('ci/checks.sh', 'tools/ci/checks.sh')).toBe(false);
     expect(matches('config/**/*.toml', 'config/a/b/lint.toml')).toBe(true);
+    expect(matches('config/**/*.toml', 'config/lint.toml')).toBe(true);
+    expect(matches('**/pyproject.toml', 'pyproject.toml')).toBe(true);
+    expect(matches('**/pyproject.toml', 'example/pyproject.toml')).toBe(true);
   });
 
   test('verifyJob stops at the first refusing check of the column and names it', () => {

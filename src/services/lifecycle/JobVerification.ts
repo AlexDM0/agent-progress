@@ -236,14 +236,15 @@ function mergeIsResolved(subject: JobVerificationSubject): CheckVerdict {
 }
 
 /**
- * A board's pattern as git reads a pathspec glob: `*` and `?` stay inside one folder, `**` crosses them, a trailing `/` takes a folder's whole
- * content, and a pattern without an inner `/` matches its name at any depth.
+ * A board's pattern as git reads a pathspec glob: `*` and `?` stay inside one folder, `**` crosses any number of them, none included, a trailing
+ * `/` takes a folder's whole content, and a pattern without an inner `/` matches its name at any depth.
  */
 export function definitionFilePatternExpressionOf(pattern: string): RegExp {
   const namesAFolder = pattern.endsWith('/');
   const body         = pattern.replace(/\/+$/, '');
   const anchored     = body.includes('/');
-  const translated   = body.replace(/^\//, '').replace(/\*\*|\*|\?|[.+^${}()|[\]\\]/g, (token) => {
+  const translated   = body.replace(/^\//, '').replace(/\*\*\/|\*\*|\*|\?|[.+^${}()|[\]\\]/g, (token) => {
+    if (token === '**/') return '(?:.*/)?';
     if (token === '**') return '.*';
     if (token === '*') return '[^/]*';
     if (token === '?') return '[^/]';
