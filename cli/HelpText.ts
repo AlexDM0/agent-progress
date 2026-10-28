@@ -179,6 +179,15 @@ output never carries either.
                               never waits on the lock (a held one skips the render), never prints
                               and always exits 0.
 
+  hook bash-domains           Keep a job's network inside its ticket's \`network\` line: the
+      --allow <domains>       PreToolUse guard a runner renders into a job's settings. It denies,
+                              through the hook's JSON on standard output, a Bash call whose
+                              \`allowed_domains\`, or a WebFetch whose URL host, names a domain
+                              outside the comma-separated list (\`*.example.com\` admits its
+                              subdomains). Any other call passes silently and is granted nothing.
+                              It skips the install-version check, runs under a job, and exits 0
+                              whatever happens, answering deny on any failure.
+
   usage [--since <when>]      What this repository's subagents cost, read out of the transcripts the
       [--transcripts <folder>]
       [--json]                harness wrote for them, a workflow's agents under

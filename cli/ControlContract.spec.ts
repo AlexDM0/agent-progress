@@ -74,6 +74,8 @@ function tableVerbsOf(commandNames: readonly string[]): string[] {
     if (command === 'draft') return subcommandVerbsOf(command, DRAFT_SUBCOMMAND_NAMES);
     if (command === 'review') return ['review record'];
     if (command === 'run') return [command, ...subcommandVerbsOf(command, RUN_SUBCOMMAND_NAMES)];
+    // The measurement events retire as `hook`; the network guard a runner renders into a job's settings stays.
+    if (command === 'hook') return [command, 'hook bash-domains'];
     return [command];
   });
 }

@@ -76,16 +76,17 @@ const ARGUMENTS_OF_KIND: { readonly [Kind in ControlCommandKind]: readonly strin
 };
 
 const ARGUMENTS_OF_READ_ONLY_VERB: Readonly<Record<string, readonly string[]>> = {
-  'help':         ['help'],
-  'status':       ['status'],
-  'usage':        ['usage'],
-  'review-stats': ['review-stats'],
-  'ticket show':  ['ticket', 'show', '1'],
-  'ticket list':  ['ticket', 'list'],
-  'epic show':    ['epic', 'show', 'checkout'],
-  'epic list':    ['epic', 'list'],
-  'draft show':   ['draft', 'show', 'D1'],
-  'draft list':   ['draft', 'list'],
+  'help':              ['help'],
+  'status':            ['status'],
+  'usage':             ['usage'],
+  'review-stats':      ['review-stats'],
+  'ticket show':       ['ticket', 'show', '1'],
+  'ticket list':       ['ticket', 'list'],
+  'epic show':         ['epic', 'show', 'checkout'],
+  'epic list':         ['epic', 'list'],
+  'draft show':        ['draft', 'show', 'D1'],
+  'draft list':        ['draft', 'list'],
+  'hook bash-domains': ['hook', 'bash-domains', '--allow', 'registry.example.com'],
 };
 
 let repositoryDirectory = '';
@@ -134,6 +135,7 @@ function everyVerb(): string[] {
     if (command === 'epic') return EPIC_SUBCOMMAND_NAMES.map((subcommand) => `epic ${subcommand}`);
     if (command === 'draft') return DRAFT_SUBCOMMAND_NAMES.map((subcommand) => `draft ${subcommand}`);
     if (command === 'run') return [command, ...RUN_SUBCOMMAND_NAMES.map((subcommand) => `run ${subcommand}`)];
+    if (command === 'hook') return [command, 'hook bash-domains'];
     return [command];
   });
 }

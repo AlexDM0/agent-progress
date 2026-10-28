@@ -15,6 +15,7 @@ export const READ_ONLY_VERBS_UNDER_A_JOB: readonly string[] = [
   'epic list',
   'draft show',
   'draft list',
+  'hook bash-domains',
 ];
 
 /** The verb each control command is typed as; under a job the verb parses its arguments as usual and relays the command it built. */

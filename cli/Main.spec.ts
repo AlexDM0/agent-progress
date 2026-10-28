@@ -255,6 +255,24 @@ describe('a tracker whose installed files are of another install version', () =>
     }
   }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
+  test('hook bash-domains skips the install check: under a job it still answers deny through its JSON at exit 0', async () => {
+    const relayFolder = createScratchDirectory('main-bash-domains');
+    try {
+      const webFetch = { hook_event_name: 'PreToolUse', tool_name: 'WebFetch', tool_input: { url: 'https://example.net/' } };
+      const result = await runAgentProgress(['hook', 'bash-domains', '--allow', 'registry.example.com'], {
+        currentDirectory: trackedDirectory,
+        environment:      { [JOB_ID_VARIABLE]: 'J7', [RELAY_DIRECTORY_VARIABLE]: relayFolder },
+        standardInput:    JSON.stringify(webFetch),
+      });
+      expect(result.exitCode, result.standardError).toBe(0);
+      expect(result.standardError).toBe('');
+      expect(JSON.parse(result.standardOutput)).toMatchObject({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny' } });
+      expect(existsSync(installedFilePathsIn(trackedDirectory).installManifest)).toBe(false);
+    } finally {
+      removeScratchDirectory(relayFolder);
+    }
+  }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
+
   test('init runs and records the install version, after which a refused command runs', async () => {
     expect(await runCommandLine(['init', '--no-claude-md', '--no-hooks'], trackedContext())).toBe(0);
     expect(existsSync(installedFilePathsIn(trackedDirectory).installManifest)).toBe(true);

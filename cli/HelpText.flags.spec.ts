@@ -24,7 +24,7 @@ import { createCapturedCommandContext }                   from './testing/Captur
 const HELP_TEXT      = helpText();
 const REFERENCE_TEXT = readFileSync(join(import.meta.dir, '..', 'docs', 'cli.md'), 'utf8');
 
-const COMMANDS_WITH_SUBCOMMANDS = new Set(['task', 'ticket', 'epic', 'draft', 'run']);
+const COMMANDS_WITH_SUBCOMMANDS = new Set(['task', 'ticket', 'epic', 'draft', 'run', 'hook']);
 
 const JSON_OPTION_NAME = 'json';
 
