@@ -448,11 +448,12 @@ states, and the dispatcher decides that in code. It starts no low ticket unless 
   its reviewer alone reaches the main line: it integrates its own ticket onto the group branch,
   merges the main line into the group branch in the group worktree, runs the full checks and the
   root `CLAUDE.md`'s pre-release step there, and runs one `release` over every open bundle ticket
-  with `--branch group-<name> --worktree <group worktree>`, which delivers them all and removes the group worktree and branch. A
-  `main-moved` it returns takes one more review round on the bar it left running, and the next parks
-  the release ticket, as in a whole-board run; a release reported by any other bundle ticket's
-  reviewer parks that ticket and starts nothing more. The summary names the released tickets under
-  `delivered`, with `integrated` and, behind a parked ticket, `waitingOnPredecessor`. It never
+  with `--branch group-<name> --worktree <group worktree>`, which delivers them all and removes the
+  group worktree and branch. A `main-moved` it returns takes one more review round on the bar it
+  left running, and the next parks the release ticket, as in a whole-board run; a release reported
+  by any other bundle ticket's reviewer parks that ticket and starts nothing more. The summary names
+  the released tickets under `delivered`, with `integrated` and, behind a parked ticket,
+  `waitingOnPredecessor`. It never
   reads or writes the board's dispatcher state or run id, and when it holds nothing it starts one
   builder even with no slot free, since a group builder waits for one by its own background poll
   before it claims. It ends on a board stop like a whole-board run, and a relaunch picks the run up
