@@ -14,6 +14,9 @@ export const WIND_DOWN_GRACE_CALLS = 10;
 /** How long a stopped session's host lets it end before killing its process group. */
 export const SESSION_STOP_GRACE_MILLISECONDS = 5000;
 
+/** How long reattachment waits on a live host's `welcome` and `history` before it reads the host's event log alone. */
+export const REATTACH_HELLO_TIMEOUT_MILLISECONDS = 2000;
+
 /** How many ports above `RUNNER_PORT_FIRST` a board's preferred runner port is spread over, and how far a busy port moves upward. */
 export const RUNNER_PORT_COUNT = 100;
 

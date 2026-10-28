@@ -69,4 +69,18 @@ function windDownMessage(): string {
   return readFileSync(resourceFilePathOf('prompts', 'WindDownMessage.md'), 'utf8').trim().replaceAll('\n', ' ');
 }
 
-export const RunnerWording = Object.freeze({ decisionWordingOf, launchTextOf, windDownMessage });
+function resumeMessage(): string {
+  return readFileSync(resourceFilePathOf('prompts', 'ResumeMessage.md'), 'utf8').trim().replaceAll('\n', ' ');
+}
+
+const EARLIER_SESSION_NOTE = 'An earlier session was interrupted; uncommitted changes are its work.';
+
+/** A fresh job after a `replaced` one inherits its worktree, and is told so before anything else. */
+function launchTextWithEarlierSessionNoteOf(job: Readonly<Job>, facts: JobLaunchFacts): JobLaunchText {
+  const text = launchTextOf(job, facts);
+  return facts.earlierSessionReplaced ? { ...text, firstMessage: `${EARLIER_SESSION_NOTE}\n\n${text.firstMessage}` } : text;
+}
+
+export const RunnerWording = Object.freeze({
+  decisionWordingOf, launchTextOf: launchTextWithEarlierSessionNoteOf, windDownMessage, resumeMessage
+});

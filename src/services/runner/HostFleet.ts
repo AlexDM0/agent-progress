@@ -145,22 +145,24 @@ function writeProcessLaunchFile(request: ProcessLaunchFileRequest): void {
   writeFileAtomically(hostFilesOf(request.hostFolder, request.instance).launchPath, `${JSON.stringify(launch, null, 2)}\n`);
 }
 
-/** Says hello with the instance's secret, sends the frames and hangs up; a host that is gone or never answers is left alone. */
-async function sendFrames(jobFolder: string, instance: number, frames: readonly ActingFrame[]): Promise<void> {
+/** Says hello with the instance's secret, sends the frames and hangs up, answering whether it connected; a host gone or silent is left alone. */
+async function sendFrames(jobFolder: string, instance: number, frames: readonly ActingFrame[]): Promise<boolean> {
   const reading = readHostLaunch(hostFilesOf(jobFolder, instance).launchPath);
-  if (reading.verdict !== 'read') return;
+  if (reading.verdict !== 'read') return false;
   const { socketPath, hostSecret } = reading.launch;
-  await new Promise<void>((resolve) => {
+  return await new Promise<boolean>((resolve) => {
     const socket = createConnection(socketPath);
+    let connected = false;
     const settle = (): void => {
       clearTimeout(timer);
       socket.destroy();
-      resolve();
+      resolve(connected);
     };
     const timer = setTimeout(settle, HOST_FRAME_TIMEOUT_MILLISECONDS);
     socket.once('error', settle);
     socket.once('close', settle);
     socket.once('connect', () => {
+      connected = true;
       const hello = {
         kind: 'hello', protocolVersion: HOST_PROTOCOL_VERSION, sinceSequence: Number.MAX_SAFE_INTEGER, hostSecret
       };
@@ -185,5 +187,5 @@ function spawnHost(request: HostSpawnRequest): number | undefined {
 }
 
 export const HostFleet = Object.freeze({
-  jobFolderOf, livenessOf, eventsAfter, writeLaunchFiles, writeProcessLaunchFile, sendFrames, spawnHost
+  jobFolderOf, hostRecordOf, livenessOf, eventsAfter, writeLaunchFiles, writeProcessLaunchFile, sendFrames, spawnHost
 });

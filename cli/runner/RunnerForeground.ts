@@ -226,12 +226,13 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
     decisionWordingOf:     RunnerWording.decisionWordingOf,
     launchTextOf:          RunnerWording.launchTextOf,
     windDownMessage:       RunnerWording.windDownMessage(),
+    resumeMessage:         RunnerWording.resumeMessage(),
     homeDirectory:         context.homeDirectory,
     log,
     onLeaseTakenOver:      (refusal) => startedLifetime.takenOver(refusal),
   });
   const watcher = BoardWatcher.startWatching({ trackerDirectory: workspace.trackerDirectory, repositoryRoot: workspace.rootDirectory, wake: () => drivePass?.wake() });
-  drivePass.wake(true);
+  await drivePass.reattach();
 
   const end = await lifetime.ended;
   lifetime.stopWatching();

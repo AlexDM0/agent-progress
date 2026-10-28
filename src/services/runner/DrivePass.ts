@@ -16,7 +16,7 @@ import type { AgentLaunchRequest }                                  from '../../
 import { launchEnvironmentOf }                                      from '../../lib/agent-launch/LaunchEnvironment.ts';
 import type { WorkerProfile }                                       from '../../lib/agent-launch/WorkerProfile.ts';
 import { GitProcess }                                               from '../../lib/git/GitProcess.ts';
-import type { Job, JobKind }                                        from '../../lib/tracker-model/@types/Job.ts';
+import type { InterruptionCause, Job, JobKind }                     from '../../lib/tracker-model/@types/Job.ts';
 import type { DecisionDraft, DecisionWording }                      from '../../lib/tracker-model/@types/LifecycleStep.ts';
 import type { Board }                                               from '../../lib/tracker-model/Board.ts';
 import { JOB_ID_VARIABLE, RELAY_DIRECTORY_VARIABLE }                from '../../shared/Environment.ts';
@@ -36,11 +36,13 @@ import {
   JobLaunch,
   type JobLaunchContext
 } from './JobLaunch.ts';
-import { createProcessHostSandbox }             from './ProcessHostSandbox.ts';
-import { RelayInbox, type PendingRelayRequest } from './RelayInbox.ts';
-import { RunnerLease }                          from './RunnerLease.ts';
-import { type UsageLimitHit, UsageLimits }      from './UsageLimits.ts';
-import { WorkerProfiles }                       from './WorkerProfiles.ts';
+import { JobResumption }                         from './JobResumption.ts';
+import { createProcessHostSandbox }              from './ProcessHostSandbox.ts';
+import { Reattachment, type ReattachmentReport } from './Reattachment.ts';
+import { RelayInbox, type PendingRelayRequest }  from './RelayInbox.ts';
+import { RunnerLease }                           from './RunnerLease.ts';
+import { type UsageLimitHit, UsageLimits }       from './UsageLimits.ts';
+import { WorkerProfiles }                        from './WorkerProfiles.ts';
 
 /** What a session is told at launch; worded by the command line, since services hold no words. */
 export interface JobLaunchText {
@@ -50,8 +52,10 @@ export interface JobLaunchText {
 
 /** What the launch text is filled from: the job's tickets as stored, and the checks line its work is gated by. */
 export interface JobLaunchFacts {
-  tickets:    readonly { id: string; title: string; body: string }[];
-  checksLine: string | null;
+  tickets:                readonly { id: string; title: string; body: string }[];
+  checksLine:             string | null;
+  /** The job's work was last held by a session ended `replaced`, whose uncommitted changes are in the worktree it inherits. */
+  earlierSessionReplaced: boolean;
 }
 
 export interface DrivePassRequest {
@@ -76,6 +80,8 @@ export interface DrivePassRequest {
   launchTextOf:          (job: Readonly<Job>, facts: JobLaunchFacts) => JobLaunchText;
   /** Sent to a session that reached its role's call budget. */
   windDownMessage:       string;
+  /** The first line of every resumed session. */
+  resumeMessage:         string;
   homeDirectory:         string;
   log:                   (line: string) => void;
   /** The pass stops acting at once; the caller ends the runner `lease-taken-over`. */
@@ -99,18 +105,24 @@ export interface RunnerStateDocument {
 }
 
 export interface DrivePass {
+  /** Run once at start, before the first pass, which it then runs forced: its one hold applies everything reattachment found. */
+  reattach: () => Promise<ReattachmentReport>;
   /** Coalesced: wakes during a pass add exactly one more pass. `forced` runs it even when nothing observed changed. */
-  wake:  (forced?: boolean) => void;
+  wake:     (forced?: boolean) => void;
   /** Resolves once no pass is running or queued. */
-  idle:  () => Promise<void>;
-  state: () => RunnerStateDocument;
+  idle:     () => Promise<void>;
+  state:    () => RunnerStateDocument;
 }
 
 interface HostObservation {
-  jobId:    string;
-  instance: number;
-  liveness: HostLiveness;
-  events:   readonly EventLogEntry[];
+  jobId:          string;
+  instance:       number;
+  liveness:       HostLiveness;
+  events:         readonly EventLogEntry[];
+  /** Settled for a lost host only, after its surviving child group was killed. */
+  lostCause:      InterruptionCause | null;
+  /** Read for a resumed instance whose host recorded its end; `true` otherwise. */
+  sessionStarted: boolean;
 }
 
 interface Observation {
@@ -129,6 +141,9 @@ const GROUP_TARGET_PREFIX = 'group-';
 const DEFAULT_MODEL = 'opus';
 const DEFAULT_EFFORT = 'medium';
 const ROLES_THAT_MAY_ASK: ReadonlySet<string> = new Set(['builder', 'reviewer', 'product-owner']);
+
+/** Multi-turn sessions: finished only when the runner closed their input, never by a turn's `result`. */
+const SESSION_JOB_KINDS: readonly JobKind[] = ['orchestrator', 'product-owner'];
 
 /** The jobs whose session owes a closing report: one that exits cleanly without it ends `failed`, cause `no-report`. */
 const REPORTING_JOB_KINDS: readonly JobKind[] = ['build', 'review'];
@@ -185,7 +200,13 @@ function observe(request: DrivePassRequest, jobLaunchContext: JobLaunchContext):
     const events        = HostFleet.eventsAfter(jobFolder, job.hostInstance, afterSequence);
     if (events === 'malformed') request.log(`The event log of job ${job.id}, host instance ${job.hostInstance}, is malformed; its events wait.`);
     return {
-      jobId: job.id, instance: job.hostInstance, liveness, events: events === 'malformed' ? [] : events
+      jobId:          job.id,
+      instance:       job.hostInstance,
+      liveness,
+      events:         events === 'malformed' ? [] : events,
+      lostCause:      liveness.verdict === 'lost' && job.role !== null ? Reattachment.settleLostHost(jobFolder, job.hostInstance) : null,
+      sessionStarted: !JobResumption.isResumedInstance(job) || liveness.verdict !== 'ended'
+        || JobResumption.instanceSessionStarted(jobFolder, job.hostInstance, request.agentAdapter),
     };
   });
   const pendingRequests = RelayInbox.pendingRequestsOf(workspace.rootDirectory, jobs);
@@ -233,7 +254,8 @@ function applyHostEvents(change: TrackerChange, adapter: AgentAdapter, hosts: re
         }
         if (event.kind === 'started' && (state === 'launching' || state === 'preparing')) board.moveJob(host.jobId, 'running', at);
         if (event.kind === 'question' && state === 'running') openQuestion(board, host.jobId, event.requestId, event.questions, at);
-        if (event.kind === 'result' && state === 'running') {
+        // A session's turn ends in a `result` too; it finishes only once the runner closed its input.
+        if (event.kind === 'result' && state === 'running' && !SESSION_JOB_KINDS.includes(board.jobById(host.jobId)?.kind ?? 'build')) {
           board.moveJob(host.jobId, 'verifying', at);
           closedWithResult = true;
         }
@@ -244,11 +266,16 @@ function applyHostEvents(change: TrackerChange, adapter: AgentAdapter, hosts: re
     const job = board.jobById(host.jobId);
     const state = job?.state;
     const hostIsGone = host.liveness.verdict === 'ended' || host.liveness.verdict === 'lost';
-    const sessionEndedCleanly = host.liveness.verdict === 'ended' && host.liveness.end.reason === 'exited' && host.liveness.end.exitCode === 0;
-    if (sessionEndedCleanly && !closedWithResult && state === 'running' && job !== undefined && REPORTING_JOB_KINDS.includes(job.kind)) {
+    const sessionExitedByItself = host.liveness.verdict === 'ended' && host.liveness.end.reason === 'exited';
+    const sessionEndedCleanly   = host.liveness.verdict === 'ended' && host.liveness.end.reason === 'exited' && host.liveness.end.exitCode === 0;
+    if (job !== undefined && state === 'running' && JobResumption.resumeFailed(job, sessionExitedByItself, host.sessionStarted)) {
+      JobResumption.applyResumeFailure(board, job, at);
+    } else if (hostIsGone && state === 'stopping' && job !== undefined && SESSION_JOB_KINDS.includes(job.kind)) {
+      board.endJob(host.jobId, { outcome: 'closed' }, at);
+    } else if (sessionEndedCleanly && !closedWithResult && state === 'running' && job !== undefined && REPORTING_JOB_KINDS.includes(job.kind)) {
       board.endJob(host.jobId, { outcome: 'failed', cause: BUILD_JOB_CAUSES.noReport }, at);
     } else if (hostIsGone && !closedWithResult && (state === 'running' || state === 'waiting-for-answer')) {
-      board.interruptJob(host.jobId, host.liveness.verdict === 'lost' ? 'host-lost' : 'agent-crashed', at);
+      board.interruptJob(host.jobId, host.liveness.verdict === 'lost' ? host.lostCause ?? 'host-lost' : 'agent-crashed', at);
     }
   }
   return usageLimitHits;
@@ -267,6 +294,17 @@ function openQuestion(board: Board, jobId: string, requestId: string, questions:
     context:   '',
   }, at);
   board.moveJob(jobId, 'waiting-for-answer', at);
+}
+
+/** One decision per folder, its context the folder itself, so a restart finding the same folder opens no second one. */
+function openLeftoverWorktreeDecisions(change: TrackerChange, decisionWordingOf: DrivePassRequest['decisionWordingOf'], folders: readonly string[]): void {
+  const draft = { kind: 'leftover-worktree', ticketIds: [], jobId: null } as const;
+  for (const folder of folders) {
+    if (change.board.decisions().some((decision) => decision.kind === draft.kind && decision.context === folder)) continue;
+    change.board.openDecision({
+      ...draft, askedBy: 'runner', requestId: null, questions: decisionWordingOf(draft).questions, context: folder
+    }, change.at);
+  }
 }
 
 type DecisionQuestionShape = Parameters<AgentAdapter['answerLineOf']>[1][number];
@@ -315,7 +353,8 @@ function launchFactsOf(board: Board, job: Readonly<Job>): JobLaunchFacts {
     tickets: board.tickets()
       .filter((ticket) => job.ticketIds.includes(ticket.frontmatter.id))
       .map((ticket) => ({ id: ticket.frontmatter.id, title: ticket.frontmatter.title, body: ticket.body })),
-    checksLine: board.checkCommand() ?? null,
+    checksLine:             board.checkCommand() ?? null,
+    earlierSessionReplaced: JobResumption.earlierSessionWasReplaced(board.logRecordsSoFar(), job),
   };
 }
 
@@ -326,12 +365,13 @@ function launchHost(request: DrivePassRequest, jobLaunchContext: JobLaunchContex
   mkdirSync(join(relayDirectory, 'requests'), { recursive: true });
   const workingDirectory = workingDirectoryOf(workspace, job);
   const text             = request.launchTextOf(job, launchFactsOf(board, job));
+  const launchParts      = JobResumption.launchPartsOf(job, text.firstMessage, request.resumeMessage);
   if (JobLaunch.isWorktreeJob(job)) JobLaunch.recordJobStart(jobLaunchContext, board, job);
   const launchRequest: AgentLaunchRequest = {
     sessionId:         agentAdapter.sessionIdOf(trackerId, job.id),
-    resume:            job.state === 'running' && job.hostInstance > 1,
+    resume:            launchParts.resume,
     workingDirectory,
-    firstMessage:      text.firstMessage,
+    firstMessage:      launchParts.firstMessage,
     roleBrief:         text.roleBrief,
     model:             DEFAULT_MODEL,
     effort:            DEFAULT_EFFORT,
@@ -384,6 +424,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
   let state: RunnerStateDocument = { generation: request.generation, passes: 0, notices: [] };
   let stopped = false;
   let resetTimer: ReturnType<typeof setTimeout> | null = null;
+  const leftoverWorktrees: string[] = [];
   const sandbox = createProcessHostSandbox();
   const jobLaunchContext: JobLaunchContext = {
     workspace:            request.workspace,
@@ -439,6 +480,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
       now:         request.now,
       renderState: request.renderState,
       mutate:      (change) => {
+        openLeftoverWorktreeDecisions(change, request.decisionWordingOf, leftoverWorktrees.splice(0));
         const replies = RelayInbox.applyPendingRequests(change, request.workspace.rootDirectory, observation.pendingRequests);
         request.afterHoldPhase?.('relayed-commands', change.board);
         const usageLimitHits = applyHostEvents(change, request.agentAdapter, observation.hosts);
@@ -481,6 +523,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
       spawnedInstances.add(`${job.id}:${job.hostInstance}`);
       launchHost(request, jobLaunchContext, written.board, observation.trackerId, job);
     }
+    await JobResumption.deliverResumeMessages(request.workspace.trackerDirectory, written.board, request.agentAdapter, request.resumeMessage);
     state = {
       generation: request.generation,
       passes:     state.passes + 1,
@@ -518,7 +561,17 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     running = drain();
   }
 
+  async function reattach(): Promise<ReattachmentReport> {
+    const report = await Reattachment.reattach(request.workspace);
+    leftoverWorktrees.push(...report.leftoverWorktrees);
+    for (const lost of report.lost) request.log(`Host instance ${lost.instance} of job ${lost.jobId} is gone (${lost.cause}).`);
+    wake(true);
+    await (running ?? Promise.resolve());
+    return report;
+  }
+
   return {
+    reattach,
     wake,
     idle:  () => running ?? Promise.resolve(),
     state: () => state,

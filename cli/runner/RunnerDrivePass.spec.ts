@@ -104,6 +104,7 @@ async function drivePassWith(
     decisionWordingOf:     () => ({ questions: [], context: '' }),
     launchTextOf:          () => ({ firstMessage: 'Example first message', roleBrief: 'Example role' }),
     windDownMessage:       'Example wind-down message',
+    resumeMessage:         'Example resume message',
     homeDirectory:         monitorFolder,
     log:                   (line) => runnerLog.push(line),
     onLeaseTakenOver:      () => runnerLog.push('taken over'),
