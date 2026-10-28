@@ -3,7 +3,7 @@
  * rows here. What matters in these rows: a hold cut short after its journal is finished by the next holder before that holder reads, and a
  * holder whose lock was taken over writes nothing further, its committed journal replayed by its successor.
  *
- * The session, host, runner and reboot rows that need neither merge slots nor questions run a build job on a scratch repository, its
+ * The session, host, runner, reboot and question rows that need no merge slot run a build job on a scratch repository, its
  * session the fake child: every crash is made by killing the host, the child's group or both, a reboot by also giving the host record a
  * foreign boot, and a runner restart by a fresh DrivePass reattaching. What matters there: an orphaned agent group is killed before the
  * resume, only the crash causes count toward the bound, a resume is by id in the same folder, and a finished session never continues. The
@@ -32,7 +32,9 @@ import { hostFilesOf }                                   from '../../lib/agent-h
 import type { HostRecord }                               from '../../lib/agent-host/HostRecord.ts';
 import { HOST_PROTOCOL_OLDEST_SUPPORTED }                from '../../lib/agent-host/constants/HostProtocol.ts';
 import type { AgentAdapter }                             from '../../lib/agent-launch/AgentAdapter.ts';
+import type { AgentQuestion }                            from '../../lib/agent-launch/AgentSessionEvent.ts';
 import { identityOf, sameProcess, type ProcessIdentity } from '../../lib/process-identity/ProcessIdentity.ts';
+import type { Decision }                                 from '../../lib/tracker-model/@types/Decision.ts';
 import type { Job }                                      from '../../lib/tracker-model/@types/Job.ts';
 import type { Board }                                    from '../../lib/tracker-model/Board.ts';
 import { refusalIsOperationRefusal }                     from '../../shared/OperationRefusal.ts';
@@ -41,6 +43,7 @@ import { PRODUCT_NAMES }                                 from '../../shared/cons
 import {
   fakeAgentAdapter,
   fakeAssistantTurnLine,
+  fakeQuestionLine,
   type FakeAgentStep,
   fakeResultLine,
   fakeStartedLine
@@ -55,6 +58,7 @@ import {
 } from '../../testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }                             from '../../testing/ToolGuard.ts';
 import { EXAMPLE_TICKET_FILE_NAME, writeReadableTracker }       from '../../testing/TrackerFileFixtures.ts';
+import { ControlService }                                       from '../control/ControlService.ts';
 import { createRenderState }                                    from '../render/RenderState.ts';
 import { holdJournalFilePathOf }                                from '../tracker/HoldJournal.ts';
 import { LockGenerationSteps }                                  from '../tracker/TrackerLock.ts';
@@ -223,6 +227,22 @@ const CRASHING_STEPS: readonly FakeAgentStep[] = [STARTED, { kind: 'crash' }];
 const LINE_THEN_WAITING_STEPS: readonly FakeAgentStep[] = [
   STARTED, { kind: 'await-line' }, { kind: 'print', line: fakeAssistantTurnLine('after-the-line') }, { kind: 'await-line' },
 ];
+
+const EXAMPLE_QUESTION: AgentQuestion = {
+  question: 'Ship the example export?', header: 'Export', multiSelect: false, options: [{ label: 'Yes', description: 'Ship it' }, { label: 'No', description: 'Hold it' }],
+};
+
+function askingSteps(question: AgentQuestion): readonly FakeAgentStep[] {
+  return [
+    STARTED,
+    { kind: 'print', line: fakeQuestionLine('request-1', [question]) },
+    { kind: 'await-line' },
+    { kind: 'print', line: fakeAssistantTurnLine('after-the-answer') },
+    { kind: 'await-line' },
+  ];
+}
+
+const ASKING_STEPS = askingSteps(EXAMPLE_QUESTION);
 
 let repository = '';
 let sessionWorkspace: Workspace;
@@ -427,6 +447,21 @@ function endEverySessionHost(): void {
   }
 }
 
+function openDecisions(): readonly Readonly<Decision>[] {
+  return requireProgressFile(sessionWorkspace).decisions ?? [];
+}
+
+/** `decide`'s change, applied as the command line applies it: a hold of its own, with no runner pass in it. */
+async function decideWithTheRunnerDown(decisionId: string, choices: readonly string[]): Promise<void> {
+  await writeTracker({
+    workspace: sessionWorkspace,
+    at:        CHANGED_AT,
+    now,
+    renderState,
+    mutate:    (change) => ControlService.apply({ kind: 'decision-answer', decisionId, answer: { form: 'letters', choices } }, change),
+  });
+}
+
 function resumedRecordsOf(jobId: string): { kind: string; fields: Record<string, unknown> }[] {
   return storedRecords().filter((record) => record.kind === 'job-resumed' && record.jobId === jobId);
 }
@@ -601,6 +636,95 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
     expect(resumedRecordsOf(job.id).map((record) => record.fields['cause'])).toEqual(['reboot', 'reboot', 'reboot']);
     expect(new Set(launches.map((launch) => `${launch.jobId} ${launch.sessionId} ${launch.workingDirectory}`)).size).toBe(1);
     expect(storedRecords().filter((record) => record.kind === 'job-ended')).toEqual([]);
+  }, ROW_TIMEOUT_MILLISECONDS);
+
+  test('a question answered while the runner is down: the restart replays it without a second decision and the live host takes the control_response', async () => {
+    const adapter = recordingAdapter({ fresh: ASKING_STEPS, resumed: WAITING_STEPS });
+    const first   = await startedRunner(adapter);
+    const job     = await runningBuildSession(first);
+    await passUntil(first, () => requireBuildJob().state === 'waiting-for-answer', 'the question never opened its decision');
+    expect(openDecisions()).toMatchObject([{
+      id: 'E1', kind: 'agent-question', jobId: job.id, requestId: 'request-1', questions: [EXAMPLE_QUESTION]
+    }]);
+    await first.stop();
+
+    await decideWithTheRunnerDown('E1', ['b']);
+    expect(requireBuildJob()).toMatchObject({ state: 'running', answeredRequestIds: ['request-1'] });
+
+    const restarted = await startedRunner(adapter);
+    await restarted.reattach();
+    await passUntil(restarted, () => eventLogTextOf(job.id, 1).includes('after-the-answer'), 'the live session never took the answer');
+    // The host logs the line it wrote inside its own frame, so the answer's quotes read escaped.
+    expect(eventLogTextOf(job.id, 1)).toContain('\\"type\\":\\"control_response\\"');
+    expect(eventLogTextOf(job.id, 1)).toContain('\\"answers\\":{\\"Ship the example export?\\":\\"No\\"}');
+    expect(storedRecords().filter((record) => record.kind === 'decision-opened')).toHaveLength(1);
+    expect(requireBuildJob()).toMatchObject({ hostInstance: 1, state: 'running' });
+  }, ROW_TIMEOUT_MILLISECONDS);
+
+  test('a question pending when the machine reboots stays open, nothing resumes until it is answered, and the resume carries the answer', async () => {
+    const adapter = recordingAdapter({ fresh: ASKING_STEPS, resumed: LINE_THEN_WAITING_STEPS });
+    const first   = await startedRunner(adapter);
+    const job     = await runningBuildSession(first);
+    await passUntil(first, () => requireBuildJob().state === 'waiting-for-answer', 'the question never opened its decision');
+    await first.stop();
+    await reboot(job.id, 1);
+
+    const restarted = await startedRunner(adapter);
+    await restarted.reattach();
+    await passOnce(restarted);
+    expect(requireBuildJob()).toMatchObject({ state: 'interrupted', interruption: 'reboot', hostInstance: 1 });
+    expect(openDecisions().map((decision) => decision.id)).toEqual(['E1']);
+
+    await decideWithTheRunnerDown('E1', ['a']);
+    await passUntil(restarted, () => eventLogTextOf(job.id, 2).includes('after-the-line'), 'the resumed session never took the answer');
+    expect(eventLogTextOf(job.id, 2)).toContain(ANSWER_MESSAGE_PREFIX);
+    expect(eventLogTextOf(job.id, 2)).not.toContain(RESUME_MESSAGE);
+    expect(launches.map((launch) => launch.resume)).toEqual([false, true]);
+    expect(requireBuildJob()).toMatchObject({ crashResumes: 0, hostInstance: 2 });
+  }, ROW_TIMEOUT_MILLISECONDS);
+
+  test('without a control_response delivery the runner stops the live host and resumes with the answer, cause answer-delivery, never counted', async () => {
+    const adapter = recordingAdapter({ fresh: ASKING_STEPS, resumed: LINE_THEN_WAITING_STEPS });
+    const drivePass = await startedRunner(adapter, undefined, false);
+    const job       = await runningBuildSession(drivePass);
+    await passUntil(drivePass, () => requireBuildJob().state === 'waiting-for-answer', 'the question never opened its decision');
+
+    await decideWithTheRunnerDown('E1', ['a']);
+    await passUntil(drivePass, () => eventLogTextOf(job.id, 2).includes('after-the-line'), 'the resumed session never took the answer');
+
+    expect(resumedRecordsOf(job.id).map((record) => record.fields)).toEqual([{ hostInstance: 2, cause: 'answer-delivery' }]);
+    expect(eventLogTextOf(job.id, 1)).not.toContain('control_response');
+    expect(eventLogTextOf(job.id, 2)).toContain(ANSWER_MESSAGE_PREFIX);
+    expect(requireBuildJob()).toMatchObject({ crashResumes: 0 });
+  }, ROW_TIMEOUT_MILLISECONDS);
+
+  test('a worker reports a malformed ticket, then the machine reboots: one incident survives, escalates with the agent\'s words, and the answer resumes it', async () => {
+    const adapter = recordingAdapter({ fresh: askingSteps({ ...EXAMPLE_QUESTION, header: 'ticket' }), resumed: LINE_THEN_WAITING_STEPS });
+    const first   = await startedRunner(adapter);
+    const job     = await runningBuildSession(first);
+    await passUntil(first, () => requireBuildJob().state === 'waiting-for-answer', 'the report never opened its incident');
+    expect(openDecisions()).toEqual([]);
+    await first.stop();
+    await reboot(job.id, 1);
+
+    const restarted = await startedRunner(adapter);
+    await restarted.reattach();
+    await passOnce(restarted);
+    const incidents = requireProgressFile(sessionWorkspace).incidents ?? [];
+    expect(incidents).toMatchObject([{
+      id: 'I1', kind: 'malformed-ticket', jobId: job.id, defaultMove: 'incident-escalate'
+    }]);
+    expect(requireBuildJob()).toMatchObject({ state: 'interrupted', hostInstance: 1 });
+
+    await writeTracker({
+      workspace: sessionWorkspace, at: CHANGED_AT, now, renderState, mutate: (change) => change.board.escalateQuestionIncident('I1', change.at),
+    });
+    expect(openDecisions()).toMatchObject([{
+      kind: 'agent-question', jobId: job.id, requestId: 'request-1', questions: [{ ...EXAMPLE_QUESTION, header: 'ticket' }], context: ''
+    }]);
+    await decideWithTheRunnerDown('E1', ['b']);
+    await passUntil(restarted, () => eventLogTextOf(job.id, 2).includes('after-the-line'), 'the resumed session never took the answer');
+    expect(eventLogTextOf(job.id, 2)).toContain(ANSWER_MESSAGE_PREFIX);
   }, ROW_TIMEOUT_MILLISECONDS);
 
   test('runner dies after the hold that launched a job, before the spawn: reattach re-spawns the same instance', async () => {
