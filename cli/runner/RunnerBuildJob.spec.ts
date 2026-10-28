@@ -255,6 +255,24 @@ describe('a build job end to end', () => {
   }, BUILD_TEST_TIMEOUT_MILLISECONDS);
 });
 
+describe('unforced wakes', () => {
+  // Steps a pass makes possible by itself change nothing a later observation sees, so only the pass itself can carry them on.
+  test('with no install line and the orchestrator quiet, unforced wakes carry a readied ticket\'s job from launching to running', async () => {
+    await run(['checks', 'true']);
+    await run(['ticket', 'hold', '001']);
+    const drivePass = await drivePassPlaying([{ kind: 'print', line: fakeStartedLine('fake-session') }, { kind: 'await-line' }]);
+    const orchestratorIsQuiet = (): boolean => storedProgressOf(repositoryDirectory).jobs?.some((job) => job.kind === 'orchestrator' && job.eventCursor.sequence > 0) === true;
+    await passUntil(drivePass, orchestratorIsQuiet, 'the orchestrator session starting');
+    await run(['ticket', 'unhold', '001']);
+    for (let attempt = 0; attempt < PASS_TRIES && !buildStates.includes('running'); attempt += 1) {
+      drivePass.wake();
+      await drivePass.idle();
+      await Bun.sleep(PASS_INTERVAL_MILLISECONDS);
+    }
+    expect(buildStates.slice(0, 3)).toEqual(['launching', 'preparing', 'running']);
+  }, BUILD_TEST_TIMEOUT_MILLISECONDS);
+});
+
 describe('operational failures', () => {
   test('an install line that fails opens setup-failed, and the ticket launches nothing while it is open', async () => {
     await run(['checks', 'true']);

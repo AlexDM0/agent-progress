@@ -349,6 +349,19 @@ function applyBuildJobObservations(change: TrackerChange, context: JobLaunchCont
   return hold.logged;
 }
 
+/**
+ * Whether a build job stands where only another pass moves it: launching, prepared, or its gate judged from the cache. Nothing a later
+ * observation reads changes there, so the fingerprint alone would leave it waiting.
+ */
+function someBuildJobAwaitsAPass(board: Board, observations: readonly BuildJobObservation[]): boolean {
+  return observations.some((observation) => {
+    const state = board.jobById(observation.jobId)?.state;
+    if (state === 'launching') return true;
+    if (state === 'preparing') return observation.setup !== 'creating-worktree' && observation.setup !== 'installing';
+    return state === 'gating' && observation.gate.verdict === 'judged';
+  });
+}
+
 /** The tickets whose newest ended job failed `attribution`: each shows the notice until its next job ends. */
 function attributionTicketIdsOf(records: readonly LogRecord[]): string[] {
   const ticketIdsByJobId = new Map<string, readonly string[]>();
@@ -480,6 +493,7 @@ export const JobLaunch = Object.freeze({
   runBuildJobEffects,
   recordJobStart,
   attributionTicketIdsOf,
+  someBuildJobAwaitsAPass,
   sandboxFactsFor,
   worktreeOf,
 });

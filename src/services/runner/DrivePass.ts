@@ -408,7 +408,12 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
       launchHost(request, jobLaunchContext, written.board, observation.trackerId, job);
     }
     state = { generation: request.generation, passes: state.passes + 1, notices: noticesOf(request, observation, written.result.attributionTicketIds) };
-    lastFingerprint = observe(request, jobLaunchContext).fingerprint;
+    const settled = observe(request, jobLaunchContext);
+    lastFingerprint = settled.fingerprint;
+    if (JobLaunch.someBuildJobAwaitsAPass(written.board, settled.buildJobs)) {
+      forcedNext = true;
+      wokenAgain = true;
+    }
   }
 
   async function drain(): Promise<void> {
