@@ -368,9 +368,13 @@ function profileOf(workspace: Workspace, job: Readonly<Job>, workingDirectory: s
   };
 }
 
-/** A builder runs confined by the per-job profile of design section 4.4; the other roles get theirs with the later tickets that run them. */
+/**
+ * A builder, reviewer or resolver runs confined by the per-job profile of design section 4.4, a resolver in the Airlock's worktree it was
+ * given; the other roles get theirs with the later tickets that run them.
+ */
 function launchProfileOf(jobLaunchContext: JobLaunchContext, board: Board, job: Readonly<Job>, workingDirectory: string, relayDirectory: string): WorkerProfile {
   if (IntakeSessions.isIntakeJob(job)) return IntakeSessions.productOwnerProfileOf(profileOf(jobLaunchContext.workspace, job, workingDirectory, relayDirectory));
+  if (job.kind === 'merge-agent') return WorkerProfiles.profileOf('resolver', JobLaunch.sandboxFactsFor(jobLaunchContext, job, workingDirectory), [], []);
   if (!JobLaunch.isWorktreeJob(job)) return profileOf(jobLaunchContext.workspace, job, workingDirectory, relayDirectory);
   const ticket = board.tickets().find((candidate) => candidate.frontmatter.id === job.ticketIds[0]);
   const role = job.kind === 'review' ? 'reviewer' : 'builder';
