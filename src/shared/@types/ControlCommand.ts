@@ -100,7 +100,8 @@ export type ControlCommand =
   | { kind: 'intake-close'; jobId?: string; proposedDraftSets: string[][] }
   | { kind: 'concurrency-set'; limit: number }
   | { kind: 'checks-set'; command: string | null; restamps: boolean }
-  | { kind: 'install-command-set'; command: string };
+  | { kind: 'install-command-set'; command: string }
+  | { kind: 'checks-definition-files-set'; patterns: string[] | null };
 
 export type ControlCommandKind = ControlCommand['kind'];
 

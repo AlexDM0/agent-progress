@@ -29,10 +29,16 @@ function checkCommandIsWellFormed(value: unknown): value is string {
   return typeof value === 'string' && value.trim() !== '';
 }
 
+/** A non-empty list of patterns, each one word: a pattern holds no whitespace, so the list splits back from one line. */
+function checksDefinitionFilesAreWellFormed(value: unknown): value is string[] {
+  return Array.isArray(value) && value.length > 0 && value.every((pattern) => typeof pattern === 'string' && /^\S+$/.test(pattern));
+}
+
 export const BoardSettingsUtil = {
   viewRangeIsWellFormed,
   concurrencyLimitIsWellFormed,
   dispatcherStateIsKnown,
   dispatcherRunIdIsWellFormed,
   checkCommandIsWellFormed,
+  checksDefinitionFilesAreWellFormed,
 } as const;

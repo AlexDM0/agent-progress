@@ -672,6 +672,17 @@ output never carries either.
                               alone, and a blank one is refused at exit 1 with nothing written.
                               --json prints {installCommand, previousInstallCommand}.
 
+  checks --definition-files ("<pattern> <pattern>…" | --clear) [--json]
+                              Store the files the check line resolves through, as git pathspec-style
+                              globs quoted as one argument: * and ? stay in a folder, ** crosses
+                              folders, a name without an inner / matches at any depth, a trailing /
+                              takes a whole folder. A job whose commits change a matching path its
+                              ticket body does not name is refused (checks-definition-changed).
+                              With none stored nothing is refused. --clear removes the list; it
+                              goes alone, and a blank list is refused at exit 1 with nothing
+                              written. --json prints {checksDefinitionFiles,
+                              previousChecksDefinitionFiles}.
+
   range --from <when>         The stored default axis of the chart; a bound may also be \`start\`, the
                               earliest visible row. A relative bound is stored as
         --to <when>           written, so \`--from -2h\` keeps meaning "the last two hours" on every

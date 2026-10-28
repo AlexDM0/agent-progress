@@ -22,9 +22,10 @@ import {
   runCheckCommand
 } from '../CheckCommandRun.ts';
 
-const USAGE = `${PRODUCT_NAMES.PROGRAM} checks ["<command>" | --clear] [--restamp] [--json]  |  ${PRODUCT_NAMES.PROGRAM} checks --install "<line>" [--json]`;
+const USAGE = `${PRODUCT_NAMES.PROGRAM} checks ["<command>" | --clear] [--restamp] [--json]  |  ${PRODUCT_NAMES.PROGRAM} checks --install "<line>" [--json]`
+  + `  |  ${PRODUCT_NAMES.PROGRAM} checks --definition-files ("<pattern> <pattern>…" | --clear) [--json]`;
 
-const KNOWN_OPTION_NAMES = ['clear', 'restamp', 'install', 'json'];
+const KNOWN_OPTION_NAMES = ['clear', 'restamp', 'install', 'definition-files', 'json'];
 
 const NO_CHECK_COMMAND_TEXT = `No check command is set, so \`${PRODUCT_NAMES.PROGRAM} release\` runs none. `
   + `Set one with \`${PRODUCT_NAMES.PROGRAM} checks "<command>"\`.`;
@@ -93,9 +94,53 @@ async function setInstallCommand(installCommand: string, commandArguments: Argum
   );
 }
 
+/** The parser refuses `--definition-files --clear` as a missing value, which here is the clearing form: no value given. */
+function definitionFilesValueGiven(commandArguments: ArgumentParser): boolean {
+  try {
+    return commandArguments.option('definition-files') !== undefined;
+  } catch (error) {
+    if (refusalIsOperationRefusal(error) && commandArguments.flag('clear')) return false;
+    throw error;
+  }
+}
+
+function definitionFilePatternsFrom(commandArguments: ArgumentParser): string[] | null {
+  if (commandArguments.positional() !== undefined || commandArguments.option('install') !== undefined || commandArguments.flag('restamp')) {
+    throw new OperationRefusal('refused', `--definition-files goes alone, without a check command, --install or --restamp.\n  Usage: ${USAGE}`);
+  }
+  if (commandArguments.flag('clear')) {
+    if (!definitionFilesValueGiven(commandArguments)) return null;
+    throw new OperationRefusal('refused', `Give patterns or --clear, not both.\n  Usage: ${USAGE}`);
+  }
+  const patterns = (commandArguments.option('definition-files') ?? '').split(/\s+/).filter((pattern) => pattern !== '');
+  if (!BoardSettingsUtil.checksDefinitionFilesAreWellFormed(patterns)) {
+    throw new OperationRefusal('refused', `Definition files are git pathspec-style patterns, separated by spaces and quoted as one argument.\n  Usage: ${USAGE}`);
+  }
+  return patterns;
+}
+
+/** Stored untried, like the install line: a pattern is only matched against the paths a job's range changes. */
+async function setChecksDefinitionFiles(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
+  const patterns = definitionFilePatternsFrom(commandArguments);
+  const command: ControlCommandOf<'checks-definition-files-set'> = { kind: 'checks-definition-files-set', patterns };
+  await relayWhenUnderJob(context, command);
+  const { logged, previousChecksDefinitionFiles } = await openTrackerForWriting(commandArguments, context, (change) => ControlService.apply(command, change).result);
+  OutputUtil.printEntity(
+    commandArguments,
+    context,
+    { checksDefinitionFiles: patterns, previousChecksDefinitionFiles },
+    `${OutputUtil.loggedSentencesOf(logged)} (was ${previousChecksDefinitionFiles?.join(' ') ?? 'none'}).`,
+  );
+}
+
 export const checksCommand: CommandHandler = async (commandArguments, context) => {
   commandArguments.rejectUnknownOptions(KNOWN_OPTION_NAMES, USAGE);
   commandArguments.rejectExtraPositionals(1, USAGE);
+
+  if (commandArguments.flag('definition-files') || definitionFilesValueGiven(commandArguments)) {
+    await setChecksDefinitionFiles(commandArguments, context);
+    return;
+  }
 
   const installCommand = commandArguments.option('install');
   if (installCommand !== undefined) {

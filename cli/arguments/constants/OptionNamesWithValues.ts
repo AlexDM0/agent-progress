@@ -5,6 +5,7 @@
 
 export const OPTION_NAMES_WITH_VALUES = new Set<string>([
   'project',
+  'definition-files',
   'root',
   'owner',
   'note',

@@ -281,6 +281,7 @@ function verifyAndRoute(hold: HoldContext, job: Readonly<Job>, observation: Buil
     endJob(hold, job, { outcome: 'failed', cause: 'git-failed' });
     return;
   }
+  const checksDefinitionFiles = board.checksDefinitionFiles();
   const subject: JobVerificationSubject = {
     role:             job.kind === REVIEW_JOB_KIND ? 'reviewer' : 'builder',
     worktreePath:     worktreeOf(hold.context.workspace, job),
@@ -292,6 +293,7 @@ function verifyAndRoute(hold: HoldContext, job: Readonly<Job>, observation: Buil
     logRecords:       board.logRecordsSoFar(),
     launchSnapshot:   start.launchSnapshot,
     refMovesAllowed:  refMovesAllowedFor(board, job),
+    ...(checksDefinitionFiles === undefined ? {} : { checksDefinitionFiles }),
   };
   const reportVerdict = VERIFICATION_CHECKS.V1(subject);
   if (reportVerdict.verdict === 'refused') {

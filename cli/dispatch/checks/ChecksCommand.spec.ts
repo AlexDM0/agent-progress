@@ -104,7 +104,38 @@ describeWhenGitIsPresent('the check command', () => {
     expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe('Install command set to bun install');
   });
 
+  test('--definition-files stores the split patterns only once set, and --clear removes the key, each logging checks-definition-files-set', async () => {
+    const setting = JSON.parse((await run(['checks', '--definition-files', ' pyproject.toml   noxfile.py ', '--json'])).outputText()) as unknown;
+
+    expect(setting).toEqual({ checksDefinitionFiles: ['pyproject.toml', 'noxfile.py'], previousChecksDefinitionFiles: null });
+    expect(storedProgressOf(repositoryDirectory).checksDefinitionFiles).toEqual(['pyproject.toml', 'noxfile.py']);
+    expect(storedLogTextOf(repositoryDirectory)).toContain('"kind":"checks-definition-files-set","fields":{"patterns":["pyproject.toml","noxfile.py"]}');
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe('Checks definition files set to pyproject.toml noxfile.py');
+
+    const clearing = await run(['checks', '--definition-files', '--clear']);
+
+    expect(clearing.outputText()).toBe('Checks definition files cleared (was pyproject.toml noxfile.py).');
+    expect(Object.hasOwn(storedProgressOf(repositoryDirectory), 'checksDefinitionFiles')).toBe(false);
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe('Checks definition files cleared');
+  });
+
+  test('a file that never held the list is written back without the key: one set and cleared again reads byte-identical', async () => {
+    await run(['checks', '--install', 'bun install']);
+    const before = readFileSync(progressFilePath(), 'utf8');
+
+    await run(['checks', '--definition-files', 'pyproject.toml']);
+    await run(['checks', '--definition-files', '--clear']);
+
+    expect(before).not.toContain('checksDefinitionFiles');
+    expect(readFileSync(progressFilePath(), 'utf8')).toBe(before);
+  });
+
   test.each([
+    ['a blank definition-files list', ['checks', '--definition-files', '  ']],
+    ['definition files beside --clear', ['checks', '--definition-files', 'pyproject.toml', '--clear']],
+    ['definition files beside a check command', ['checks', EXAMPLE_CHECK_COMMAND, '--definition-files', 'pyproject.toml']],
+    ['definition files beside --install', ['checks', '--definition-files', 'pyproject.toml', '--install', 'bun install']],
+    ['--definition-files with no value', ['checks', '--definition-files']],
     ['a blank install line', ['checks', '--install', '  ']],
     ['an install line beside a check command', ['checks', EXAMPLE_CHECK_COMMAND, '--install', 'bun install']],
     ['an install line beside --clear', ['checks', '--install', 'bun install', '--clear']],

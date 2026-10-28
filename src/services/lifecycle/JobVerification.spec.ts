@@ -25,6 +25,7 @@ import {
 import { describeWhenGitIsPresent } from '../../testing/ToolGuard.ts';
 import {
   CHECKS_OF_ROLE,
+  definitionFilePatternExpressionOf,
   launchSnapshotOf,
   type LaunchSnapshot,
   VERIFICATION_CHECKS,
@@ -34,6 +35,10 @@ import {
 } from './JobVerification.ts';
 
 const TICKET_BODY = '## Report\nExample report.\n\n## Acceptance\nA1. The example page loads.\n';
+
+const BUN_DEFINITION_FILES = ['package.json', 'bun.lock', 'tsconfig*.json', 'eslint.config.*', 'bunfig.toml', '.githooks/'];
+
+const PYTHON_DEFINITION_FILES = ['pyproject.toml', 'noxfile.py'];
 
 let repositoryDirectory = '';
 
@@ -178,7 +183,7 @@ describeWhenGitIsPresent('verification by code', () => {
     gitOutputIn(repositoryDirectory, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'commit', '-q', '-m', 'Undo the planted changes']);
 
     expect(refusalOf('V5', builderSubject({ report: builderReport() }))).toBe('data-folder-touched');
-    expect(refusalOf('V11', builderSubject({ report: builderReport() }))).toBe('checks-definition-changed');
+    expect(refusalOf('V11', builderSubject({ report: builderReport(), checksDefinitionFiles: BUN_DEFINITION_FILES }))).toBe('checks-definition-changed');
   });
 
   test('V6 refuses a ticket body edited since launch', () => {
@@ -215,8 +220,45 @@ describeWhenGitIsPresent('verification by code', () => {
   test('V11 refuses a change to a file the checks line resolves through, unless the ticket body names it', () => {
     commitFile(repositoryDirectory, 'package.json', '{ "scripts": { "verify": "true" } }\n');
 
-    expect(refusalOf('V11', builderSubject({ report: builderReport() }))).toBe('checks-definition-changed');
-    expect(refusalOf('V11', builderSubject({ report: builderReport(), ticketBody: `${TICKET_BODY}\nScope: package.json\n` }))).toBeNull();
+    expect(refusalOf('V11', builderSubject({ report: builderReport(), checksDefinitionFiles: BUN_DEFINITION_FILES }))).toBe('checks-definition-changed');
+    const namingTheFile = `${TICKET_BODY}\nScope: package.json\n`;
+
+    expect(refusalOf('V11', builderSubject({ report: builderReport(), checksDefinitionFiles: BUN_DEFINITION_FILES, ticketBody: namingTheFile }))).toBeNull();
+  });
+
+  test('V11 reads the board\'s own list: a Python list refuses a pyproject.toml change and passes a package.json one', () => {
+    const startOfThisTest = headCommit();
+    commitFile(repositoryDirectory, 'package.json', '{}\n');
+
+    expect(refusalOf('V11', builderSubject({ report: builderReport(), checksDefinitionFiles: PYTHON_DEFINITION_FILES }))).toBeNull();
+
+    commitFile(repositoryDirectory, 'pyproject.toml', '[project]\nname = "example"\n');
+    const verdict = VERIFICATION_CHECKS.V11(builderSubject({ startCommit: startOfThisTest, report: builderReport(), checksDefinitionFiles: PYTHON_DEFINITION_FILES }));
+
+    expect(verdict).toEqual({ verdict: 'refused', reason: 'checks-definition-changed', facts: ['pyproject.toml'] });
+  });
+
+  test('V11 passes any change when the board stores no list, or an empty one', () => {
+    commitFile(repositoryDirectory, 'package.json', '{}\n');
+    commitFile(repositoryDirectory, 'pyproject.toml', '[project]\n');
+
+    expect(refusalOf('V11', builderSubject({ report: builderReport() }))).toBeNull();
+    expect(refusalOf('V11', builderSubject({ report: builderReport(), checksDefinitionFiles: [] }))).toBeNull();
+  });
+
+  test('a definition-file pattern reads as a git pathspec glob: a bare name at any depth, an inner / anchored, a trailing / a folder', () => {
+    const matches = (pattern: string, path: string): boolean => definitionFilePatternExpressionOf(pattern).test(path);
+
+    expect(matches('package.json', 'packages/example/package.json')).toBe(true);
+    expect(matches('package.json', 'package.json.bak')).toBe(false);
+    expect(matches('tsconfig*.json', 'page/tsconfig.spec.json')).toBe(true);
+    expect(matches('tsconfig*.json', 'tsconfig/base.json')).toBe(false);
+    expect(matches('bun.lock?', 'bun.lockb')).toBe(true);
+    expect(matches('.githooks/', '.githooks/pre-commit')).toBe(true);
+    expect(matches('.githooks/', '.githooks')).toBe(false);
+    expect(matches('ci/checks.sh', 'ci/checks.sh')).toBe(true);
+    expect(matches('ci/checks.sh', 'tools/ci/checks.sh')).toBe(false);
+    expect(matches('config/**/*.toml', 'config/a/b/lint.toml')).toBe(true);
   });
 
   test('verifyJob stops at the first refusing check of the column and names it', () => {

@@ -4,6 +4,7 @@ import type {
   ConcurrencyLimitSet,
   DispatcherStateSet,
   InstallCommandSet,
+  ChecksDefinitionFilesSet,
   Logged,
   TrackerCleared
 } from './@types/BoardChanges.ts';
@@ -75,6 +76,18 @@ export class TrackerChanges {
     const previousInstallCommand = progress.installCommand ?? null;
     progress.installCommand      = command;
     return { logged: [logger.log({ kind: 'install-command-set', fields: { command } }, at)], previousInstallCommand };
+  }
+
+  /** `null` removes the key, so the board holds no definition files again. */
+  setChecksDefinitionFiles(patterns: readonly string[] | null, at: string): ChecksDefinitionFilesSet {
+    const { progress, logger }          = this.records;
+    const previousChecksDefinitionFiles = progress.checksDefinitionFiles ?? null;
+    if (patterns === null) delete progress.checksDefinitionFiles;
+    else progress.checksDefinitionFiles = [...patterns];
+    return {
+      logged: [logger.log({ kind: 'checks-definition-files-set', fields: { patterns: patterns ?? [] } }, at)],
+      previousChecksDefinitionFiles,
+    };
   }
 
   /** The gate ran outside the hold, so only its outcome is recorded here. */

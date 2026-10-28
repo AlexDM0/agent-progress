@@ -11,7 +11,7 @@ import type { LogRecord }              from './@types/LogRecord.ts';
 
 const LOGGED_AT = '2026-09-26T10:15:00+02:00';
 
-const RECORD_KIND_COUNT = 69;
+const RECORD_KIND_COUNT = 70;
 
 /**
  * Five kinds are logged twice: `draft-claimed`, plainly and as a forced takeover, since the two store different fields, `draft-opened`,
@@ -54,6 +54,7 @@ const FROZEN_STORED_LINES = [
   '{"at":"2026-09-26T10:15:00+02:00","kind":"check-command-set","fields":{"command":"bun run example-checks"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-check-command-restamped","ticketId":"001","fields":{"command":"bun run example-checks"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"install-command-set","fields":{"command":"bun install --frozen-lockfile"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"checks-definition-files-set","fields":{"patterns":["pyproject.toml","noxfile.py"]}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"gate-ran","fields":{"tree":"4b825dc642cb6eb9a060e54bf8d69288fbee4904","outcome":"passed","cached":true}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-body-changed-after-claim","ticketId":"001","fields":{}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-finished","ticketId":"001","fields":{}}',

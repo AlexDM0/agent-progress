@@ -20,6 +20,7 @@ import type {
   IncidentEscalated,
   IncidentOpened,
   InstallCommandSet,
+  ChecksDefinitionFilesSet,
   JobChanged,
   LifecycleAdvanced,
   Logged,
@@ -562,6 +563,10 @@ export class Board {
     return this.trackerChanges.setInstallCommand(command, at);
   }
 
+  setChecksDefinitionFiles(patterns: readonly string[] | null, at: string): ChecksDefinitionFilesSet {
+    return this.trackerChanges.setChecksDefinitionFiles(patterns, at);
+  }
+
   recordGateRan(fields: LogRecordFieldsOf<'gate-ran'>, at: string): Logged {
     return this.trackerChanges.recordGateRan(fields, at);
   }
@@ -814,6 +819,10 @@ export class Board {
 
   installCommand(): string | undefined {
     return this.records.progress.installCommand;
+  }
+
+  checksDefinitionFiles(): readonly string[] | undefined {
+    return this.records.progress.checksDefinitionFiles;
   }
 
   readyTickets(): readonly Readonly<Ticket>[] {

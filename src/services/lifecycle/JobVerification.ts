@@ -71,22 +71,24 @@ export interface RefMovesAllowed {
 }
 
 export interface JobVerificationSubject {
-  role:             VerifiedRole;
-  worktreePath:     string;
+  role:                   VerifiedRole;
+  worktreePath:           string;
   /** The worktree's HEAD at launch, the branch tip with `MERGE_HEAD` at the target tip for a resolver, the merged commit after it. */
-  startCommit:      string;
+  startCommit:            string;
   /** The report as parsed from the session's structured output, unvalidated. */
-  report:           unknown;
-  ticketBody:       string;
-  bodyHashAtLaunch: string;
+  report:                 unknown;
+  ticketBody:             string;
+  bodyHashAtLaunch:       string;
   /** V10's merge, for a resolver, merge-fix or resolution-review job. */
-  merge?:           MergeUnderVerification;
+  merge?:                 MergeUnderVerification;
+  /** V11: the board's stored definition-file patterns; absent or empty, V11 passes. */
+  checksDefinitionFiles?: readonly string[];
   /** V12: the job being verified, and the log as stored plus this hold's records. */
-  jobId?:           string;
-  logRecords?:      readonly LogRecord[];
+  jobId?:                 string;
+  logRecords?:            readonly LogRecord[];
   /** V13 and V14: what was snapshotted at launch; without it V14 refuses, since nothing proves no ref moved. */
-  launchSnapshot?:  LaunchSnapshot;
-  refMovesAllowed?: RefMovesAllowed;
+  launchSnapshot?:        LaunchSnapshot;
+  refMovesAllowed?:       RefMovesAllowed;
 }
 
 /** `facts` name what failed: paths, commits or labels, never words. */
@@ -97,16 +99,6 @@ export type JobVerificationVerdict = { verdict: 'verified' } | { verdict: 'refus
 type VerificationCheckRun = (subject: JobVerificationSubject) => CheckVerdict;
 
 const PASSED: CheckVerdict = { verdict: 'passed' };
-
-// The files the checks line resolves through, so a branch changing one changes what its own gate means.
-const CHECKS_DEFINITION_FILE_PATTERNS: readonly RegExp[] = [
-  /(^|\/)package\.json$/,
-  /(^|\/)bun\.lockb?$/,
-  /(^|\/)tsconfig[^/]*\.json$/,
-  /(^|\/)eslint\.config\.[^/]+$/,
-  /(^|\/)bunfig\.toml$/,
-  /^\.githooks\//,
-];
 
 const AI_ATTRIBUTION_PATTERNS: readonly RegExp[] = [/^Co-Authored-By:\s*Claude/im, /Generated with/i];
 
@@ -243,10 +235,30 @@ function mergeIsResolved(subject: JobVerificationSubject): CheckVerdict {
   return JSON.stringify(parents) === JSON.stringify(expected) ? PASSED : refused('merge-unresolved', parents ?? []);
 }
 
+/**
+ * A board's pattern as git reads a pathspec glob: `*` and `?` stay inside one folder, `**` crosses them, a trailing `/` takes a folder's whole
+ * content, and a pattern without an inner `/` matches its name at any depth.
+ */
+export function definitionFilePatternExpressionOf(pattern: string): RegExp {
+  const namesAFolder = pattern.endsWith('/');
+  const body         = pattern.replace(/\/+$/, '');
+  const anchored     = body.includes('/');
+  const translated   = body.replace(/^\//, '').replace(/\*\*|\*|\?|[.+^${}()|[\]\\]/g, (token) => {
+    if (token === '**') return '.*';
+    if (token === '*') return '[^/]*';
+    if (token === '?') return '[^/]';
+    return `\\${token}`;
+  });
+  return new RegExp(`${anchored ? '^' : '(^|/)'}${translated}${namesAFolder ? '/' : '$'}`);
+}
+
+/** With no list stored the board names no definition files, so nothing refuses. */
 function checksDefinitionUnchanged(subject: JobVerificationSubject): CheckVerdict {
+  const patterns = (subject.checksDefinitionFiles ?? []).map(definitionFilePatternExpressionOf);
+  if (patterns.length === 0) return PASSED;
   const paths = pathsChangedInRange(subject);
   if (paths === null) return refused('git-failed', [rangeOf(subject)]);
-  const changed = paths.filter((path) => CHECKS_DEFINITION_FILE_PATTERNS.some((pattern) => pattern.test(path)) && !subject.ticketBody.includes(path));
+  const changed = paths.filter((path) => patterns.some((pattern) => pattern.test(path)) && !subject.ticketBody.includes(path));
   return changed.length === 0 ? PASSED : refused('checks-definition-changed', changed);
 }
 
