@@ -3,7 +3,8 @@
  * inside temp stays denied; a launch-file glob denies reads within one path segment only; the network is off unless asked; the argv is
  * wrapped only where `sandbox-exec` applies; and, where it does, a child really cannot write the data folder or read a launch file. With no
  * cache path stored a gate writes only worktree, admin folder and temp; a stored one is added unless it is, sits in or holds a `bin` or
- * `PATH` folder, and no `bin` beside its ancestors or inside it is ever writable, however the scratch home lies under temp.
+ * `PATH` folder, and no `bin` beside its ancestors is ever writable, however the scratch home lies under temp. A `bin` inside a cache path
+ * is writable, so the documented guarantee claims none: a path deny inside it would not hold against a folder renamed in.
  */
 import {
   existsSync,
@@ -122,7 +123,7 @@ describe('a child under the profile', () => {
     expect(output.filter((line) => line !== '')).toEqual(expected);
   });
 
-  testWhenSandboxExecApplies('writes a stored cache path but no bin folder beside its ancestors or inside it', () => {
+  testWhenSandboxExecApplies('writes a stored cache path, a bin inside it included, but no bin folder beside its ancestors', () => {
     const sandbox = createProcessHostSandbox();
     const home = join(scratch, 'home');
     for (const folder of [join('.bun', 'bin'), join('.bun', 'install', 'bin'), join('.bun', 'install', 'cache')]) mkdirSync(join(home, folder), { recursive: true });
@@ -135,7 +136,7 @@ describe('a child under the profile', () => {
       `mkdir -p "${home}/.bun/install/cache/package/bin" && echo example > "${home}/.bun/install/cache/package/bin/tool" && echo cache-bin-written`,
     ].join('; ');
     const output = Bun.spawnSync({ cmd: sandbox.sandboxedArgvOf(profilePath, ['/bin/sh', '-c', script]), stderr: 'ignore' }).stdout.toString().split('\n');
-    expect(output.filter((line) => line !== '')).toEqual(['cache-written']);
+    expect(output.filter((line) => line !== '')).toEqual(['cache-written', 'cache-bin-written']);
     expect(existsSync(join(home, '.bun', 'bin', 'bun'))).toBe(false);
   });
 });

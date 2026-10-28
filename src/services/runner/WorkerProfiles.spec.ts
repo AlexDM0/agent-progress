@@ -50,6 +50,15 @@ describe('the allowed commands', () => {
     expect(profile.allowedCommandPrefixes).not.toContainEqual(['git']);
   });
 
+  test('ignore a separator inside double or single quotes, so grep "a|b" x allows only grep', () => {
+    expect(profileOf('builder', [], FACTS, ['grep "a|b" x']).allowedCommandPrefixes[0]).toEqual(['grep']);
+    expect(profileOf('builder', [], FACTS, ['grep \'a;b\' x && grep "c\\"|d" y']).allowedCommandPrefixes.slice(0, 2)).toEqual([['grep'], ['git', 'status']]);
+  });
+
+  test('read a subshell\'s parentheses as separators, so (cd x && make) allows cd and make', () => {
+    expect(profileOf('builder', [], FACTS, ['(cd x && make)']).allowedCommandPrefixes.slice(0, 3)).toEqual([['cd'], ['make'], ['git', 'status']]);
+  });
+
   test('are none with no stored lines but the git verbs, and none at all for the orchestrator', () => {
     expect(profileOf('builder', [], FACTS, []).allowedCommandPrefixes[0]).toEqual(['git', 'status']);
     expect(profileOf('orchestrator').allowedCommandPrefixes).toEqual([]);

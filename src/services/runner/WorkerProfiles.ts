@@ -64,12 +64,40 @@ const WORKER_DENIED_GIT_SUBCOMMANDS: readonly (readonly string[])[] = [
   ['-C'],
 ];
 
-const SHELL_COMMAND_SEPARATORS = /&&|\|\||;|\|/;
+/** `||` before `|`, so it is one separator rather than two with an empty command between. */
+const SHELL_COMMAND_SEPARATORS = ['&&', '||', ';', '|', '(', ')'] as const;
+const SHELL_QUOTES = ['\'', '"'] as const;
+const SINGLE_QUOTE = '\'';
+const ESCAPE_CHARACTER = '\\';
 const ENVIRONMENT_ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
 
-/** The first word of each command in a stored shell line, split on `&&`, `||`, `;` and `|`, past any leading `NAME=value` assignment. */
+/** The commands of a shell line, split on the separators and parentheses outside quotes; a backslash outside single quotes escapes one character. */
+function shellCommandsOf(line: string): string[] {
+  const commands: string[] = [];
+  let command = '';
+  let openQuote: string | null = null;
+  for (let i = 0; i < line.length; i++) {
+    const character = line.charAt(i);
+    const separator = openQuote === null ? SHELL_COMMAND_SEPARATORS.find((candidate) => line.startsWith(candidate, i)) : undefined;
+    if (character === ESCAPE_CHARACTER && openQuote !== SINGLE_QUOTE) {
+      command += line.slice(i, i + 2);
+      i++;
+    } else if (separator !== undefined) {
+      commands.push(command);
+      command = '';
+      i += separator.length - 1;
+    } else {
+      if (openQuote === null && SHELL_QUOTES.some((quote) => quote === character)) openQuote = character;
+      else if (character === openQuote) openQuote = null;
+      command += character;
+    }
+  }
+  return [...commands, command];
+}
+
+/** The first word of each command in a stored shell line, split outside quotes on `&&`, `||`, `;`, `|` and parentheses, past any leading `NAME=value`. */
 function executablesOf(line: string): string[] {
-  return line.split(SHELL_COMMAND_SEPARATORS).flatMap((command) => {
+  return shellCommandsOf(line).flatMap((command) => {
     const executable = command.trim().split(/\s+/).find((word) => !ENVIRONMENT_ASSIGNMENT.test(word));
     return executable === undefined || executable === '' ? [] : [executable];
   });

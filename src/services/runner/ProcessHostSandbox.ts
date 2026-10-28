@@ -1,8 +1,8 @@
 /**
  * The Seatbelt profile a process host's child runs under (design section 5.2): gates and install lines run worker-written code, so it
- * writes only the worktree, temp and the board's stored cache paths, never a `bin` folder, `<data>/`, the monitor folder or the shared refs,
- * reads none of the denied paths, and reaches the network only when asked. Where `sandbox-exec` cannot apply a profile the child runs
- * unconfined, and the caller keeps its gate cache in memory.
+ * writes only the worktree, temp and the board's stored cache paths, never the `bin` beside a cache path's ancestors, `<data>/`, the monitor
+ * folder or the shared refs, reads none of the denied paths, and reaches the network only when asked. Where `sandbox-exec` cannot apply a
+ * profile the child runs unconfined, and the caller keeps its gate cache in memory.
  */
 import { existsSync }    from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -60,13 +60,16 @@ function filterOf(path: string): string {
   return `(regex #"^${regexEscaped(fixedFolder)}${pattern}$")`;
 }
 
-/** A `bin` folder at any depth of a cache path, so a gate cannot create one there, and the `bin` beside each of its ancestors, such as `~/.bun/bin`. */
-function binFolderFiltersOf(cachePath: string): string[] {
+/**
+ * The `bin` beside each of a cache path's ancestors, such as `~/.bun/bin`. A `bin` inside the cache path is not denied: Seatbelt checks a
+ * rename only at its destination, so a folder holding `bin` renamed into the cache would pass any such deny.
+ */
+function ancestorBinFolderFiltersOf(cachePath: string): string[] {
   const ancestorBinFolders: string[] = [];
   for (let folder = dirname(cachePath); !ancestorBinFolders.includes(join(folder, 'bin')); folder = dirname(folder)) {
     ancestorBinFolders.push(join(folder, 'bin'));
   }
-  return [`(regex #"^${regexEscaped(cachePath)}(/.*)?/bin(/|$)")`, ...ancestorBinFolders.map((folder) => `(subpath ${quoted(folder)})`)];
+  return ancestorBinFolders.map((folder) => `(subpath ${quoted(folder)})`);
 }
 
 function profileTextOf(request: ProcessSandboxRequest): string {
@@ -84,7 +87,7 @@ function profileTextOf(request: ProcessSandboxRequest): string {
     '(deny file-write*)',
     `(allow file-write* ${writable.map(filterOf).join(' ')} (regex #"^/dev/"))`,
     // Last, so they win over the writable folders a denied one sits inside, such as a data folder under temp.
-    `(deny file-write* ${[...request.deniedWritableRoots.map(filterOf), ...cachePaths.flatMap(binFolderFiltersOf)].join(' ')})`,
+    `(deny file-write* ${[...request.deniedWritableRoots.map(filterOf), ...cachePaths.flatMap(ancestorBinFolderFiltersOf)].join(' ')})`,
     `(deny file-read* ${request.deniedReadableRoots.map(filterOf).join(' ')})`,
     ...request.network ? [] : ['(deny network-outbound (remote ip))'],
     '',

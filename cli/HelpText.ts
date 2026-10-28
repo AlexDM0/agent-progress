@@ -700,11 +700,11 @@ output never carries either.
                               (\`~/.bun/install/cache\`), with one log line; with none stored they
                               write only those. A path that is, sits in or holds a \`bin\` folder or
                               a folder on PATH is refused at exit 1 with nothing written, and one
-                              that became so later is left out of the gate's profile; no \`bin\`
-                              folder inside or beside a cache path's ancestors is ever writable.
+                              that became so later is left out of the gate's profile; the \`bin\`
+                              beside each of a cache path's ancestors is never writable.
                               A worker may run unasked the first word of each command in the
-                              stored checks and install lines (split on &&, ||, ; and |) and the
-                              git verbs it reads and commits with. --clear removes the key; it
+                              stored checks and install lines (split outside quotes on &&, ||, ;,
+                              | and parentheses) and the git verbs it reads and commits with. --clear removes the key; it
                               goes alone.
                               --json prints {gateCachePaths, previousGateCachePaths}.
 
