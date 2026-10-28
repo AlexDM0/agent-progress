@@ -694,7 +694,7 @@ output never carries either.
                               nothing written. --json prints {gateKeyCommand,
                               previousGateKeyCommand}.
 
-  range --from <when>        The stored default axis of the chart; a bound may also be \`start\`, the
+  range --from <when>         The stored default axis of the chart; a bound may also be \`start\`, the
                               earliest visible row. A relative bound is stored as
         --to <when>           written, so \`--from -2h\` keeps meaning "the last two hours" on every
         [--tick <15m|1h|1d>]  refresh. A pair that is not in order is refused at exit 1 when both
