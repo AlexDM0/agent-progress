@@ -90,6 +90,7 @@ const TESTING_FOLDER_IMPORTERS: Readonly<Record<string, readonly string[]>> = {
   'src/lib/tracker-model/testing/': ['src/lib/tracker-model/'],
   'src/adapters/progress/testing/': ['src/adapters/'],
   'src/services/tracker/testing/':  ['src/services/tracker/'],
+  'src/services/runner/testing/':   ['src/services/runner/'],
   'cli/testing/':                   ['cli/'],
   'page/testing/':                  ['page/'],
   'dispatcher/testing/':            ['dispatcher/'],

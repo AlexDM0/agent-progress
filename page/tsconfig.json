@@ -42,6 +42,7 @@
     "../src/lib/tracker-model/Logger.ts",
     "../src/lib/tracker-model/MarkdownBodyEdit.ts",
     "../src/lib/tracker-model/MergeQueueMarks.ts",
+    "../src/lib/tracker-model/MergeSlotClaims.ts",
     "../src/lib/tracker-model/ReadingBoard.ts",
     "../src/lib/tracker-model/ReviewBars.ts",
     "../src/lib/tracker-model/ReviewStatistics.ts",
