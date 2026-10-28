@@ -455,6 +455,14 @@ output never carries either.
                               landed, and --tokens what it cost; --tokens on a ticket with no
                               row (a low one never started) is refused at exit 1.
 
+  ticket deliver <id> --by-hand [--branch <b>] [--commit <sha>] [--at <when>]
+                              Record as delivered a ticket finished and landed outside the
+                              runner, from any status but draft, in one hold: it merges, lands
+                              and spawns nothing, and logs \`ticket-delivered\` with byHand true.
+                              Refused at exit 1 while a runner's lease is live
+                              (runner-owns-the-lifecycle) and while a job of the ticket is live
+                              (ticket-has-live-job).
+
   ticket finish|rereview <id> --start-review [--owner <who>] [--note <text>] [--at <when>]
                               The move to review, or the next round, and the reviewer's in-progress bar
                               (\`Review <N> #<id> — <title>\`, its \`reviewOf\` the ticket, N the

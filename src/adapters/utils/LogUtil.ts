@@ -197,6 +197,8 @@ function sentenceOf(record: LogRecordContent): string {
       return `Incident ${record.incidentId} took its default, ${record.fields.move}, ${INCIDENT_DEFAULT_CAUSE_TEXT[record.fields.cause]}`;
     case 'incident-escalated':
       return `Incident ${record.incidentId} escalated to the user as decision ${record.fields.decisionId}`;
+    case 'relay-applied':
+      return `Job ${record.jobId}'s relayed ${record.fields.commandKind} ${record.fields.requestId} answered ${record.fields.outcome}`;
   }
 }
 

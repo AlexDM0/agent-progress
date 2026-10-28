@@ -14,6 +14,7 @@ import type {
   MergeSlot,
   RunnerStopReason
 }                                   from './@types/Job.ts';
+import type { LogRecord }                                           from './@types/LogRecord.ts';
 import type { BoardRecords }                                        from './BoardRecords.ts';
 import { BoardRefusal }                                             from './BoardRefusal.ts';
 import { LEGAL_SOURCE_STATES_FOR_JOB_MOVE, PROCESSLESS_JOB_STATES } from './constants/JobMoveLegality.ts';
@@ -156,6 +157,17 @@ export class Jobs {
 
   recordRunnerStopped(reason: RunnerStopReason, at: string): Logged {
     return { logged: [this.records.logger.log({ kind: 'runner-stopped', fields: { reason } }, at)] };
+  }
+
+  recordRelayApplied(jobId: string, applied: { requestId: string; commandKind: string; outcome: string }, at: string): Logged {
+    const fields = { requestId: applied.requestId, commandKind: applied.commandKind, outcome: applied.outcome };
+    return { logged: [this.records.logger.log({ kind: 'relay-applied', jobId, fields }, at)] };
+  }
+
+  /** Read from the stored log and this hold's records alike, so a request answered in an earlier pass or earlier in this one is never applied again. */
+  relayRequestIsApplied(requestId: string): boolean {
+    const isTheRequest = (record: LogRecord): boolean => record.kind === 'relay-applied' && record.fields.requestId === requestId;
+    return this.records.storedLogRecords.some(isTheRequest) || this.records.loggedRecords.some(isTheRequest);
   }
 
   private refuseIllegalMove(job: Readonly<Job>, targetState: JobMoveTarget): void {

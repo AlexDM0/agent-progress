@@ -6,9 +6,12 @@
 import { homedir, tmpdir } from 'node:os';
 import { createInterface } from 'node:readline';
 
+import type { AgentAdapter }                                    from '../src/lib/agent-launch/AgentAdapter.ts';
+import { CLAUDE_CODE_ADAPTER }                                  from '../src/lib/claude-code/ClaudeCodeAdapter.ts';
 import { createRenderState, type RenderState }                  from '../src/services/render/RenderState.ts';
-import { relayDirectory, runnerJobId }                          from '../src/shared/Environment.ts';
+import { fakeAgentIsOn, relayDirectory, runnerJobId }           from '../src/shared/Environment.ts';
 import { RELAY_REPLY_INTERVAL_MILLISECONDS, RELAY_REPLY_TRIES } from '../src/shared/constants/RunnerLimits.ts';
+import { fakeAgentAdapter }                                     from '../src/testing/FakeAgentAdapter.ts';
 
 export interface CommandContext {
   currentDirectory:        string;
@@ -35,6 +38,13 @@ export interface CommandContext {
   programCommand:          readonly string[];
   /** Calls `listener` on SIGTERM and SIGINT, which a foreground runner takes as a stop; returns the unsubscribe. */
   onStopSignal:            (listener: () => void) => () => void;
+  /** What the runner launches its sessions through: Claude Code, or the scripted fake agent under the fake-agent switch. */
+  agentAdapter:            AgentAdapter;
+}
+
+/** The one place outside `src/lib/claude-code/` the vendor's adapter is chosen; a spec-spawned binary always gets the fake. */
+export function agentAdapterOfThisProcess(): AgentAdapter {
+  return fakeAgentIsOn() ? fakeAgentAdapter() : CLAUDE_CODE_ADAPTER;
 }
 
 const STOP_SIGNALS: readonly NodeJS.Signals[] = ['SIGTERM', 'SIGINT'];
@@ -96,6 +106,7 @@ export function createProcessContext(): CommandContext {
     renderState:             createRenderState(),
     programCommand:          programCommandOfThisProcess(),
     onStopSignal:            onStopSignalOfThisProcess,
+    agentAdapter:            agentAdapterOfThisProcess(),
   };
 }
 

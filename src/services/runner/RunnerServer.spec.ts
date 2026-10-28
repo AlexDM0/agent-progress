@@ -26,7 +26,7 @@ afterEach(async () => {
   for (const stop of stoppers.splice(0)) await stop();
 });
 
-function startExampleServer(received: RuntimeRunnerCommand[] = []) {
+function startExampleServer(received: RuntimeRunnerCommand[] = [], nudges: string[] = []) {
   const server = RunnerServer.start({
     portChoice: { kind: 'given', port: 0 },
     identity:   {
@@ -34,6 +34,8 @@ function startExampleServer(received: RuntimeRunnerCommand[] = []) {
     },
     token:            () => TOKEN,
     onRuntimeCommand: (command) => received.push(command),
+    onNudge:          () => nudges.push('nudge'),
+    state:            () => ({ notices: [{ kind: 'install-version-changed' }] }),
   });
   stoppers.push(() => server.stop());
   return server;
@@ -89,5 +91,14 @@ describe('RunnerServer', () => {
     expect(received).toEqual([]);
     expect((await post({ authorization: `Bearer ${TOKEN}` })).status).toBe(200);
     expect(received).toEqual([{ kind: 'runner-stop', now: true }]);
+  });
+
+  test('a body-less POST /api/nudge wakes the runner without a token, and /api/state answers the state document', async () => {
+    const nudges: string[] = [];
+    const server = startExampleServer([], nudges);
+    expect((await fetch(new URL('api/nudge', server.url), { method: 'POST' })).status).toBe(200);
+    expect((await fetch(new URL('api/nudge', server.url), { method: 'POST', headers: { origin: 'https://example.com' } })).status).toBe(403);
+    expect(nudges).toEqual(['nudge']);
+    expect(await (await fetch(new URL('api/state', server.url))).json()).toEqual({ notices: [{ kind: 'install-version-changed' }] });
   });
 });

@@ -6,6 +6,8 @@ import { TicketJsonUtil }                                                     fr
 import type { TicketStatus }                                                  from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { VocabularyUtil }                                                     from '../../src/lib/tracker-model/utils/VocabularyUtil.ts';
 import { ControlService }                                                     from '../../src/services/control/ControlService.ts';
+import { runnerFilesIn }                                                      from '../../src/services/runner/RunnerFiles.ts';
+import { RunnerLease }                                                        from '../../src/services/runner/RunnerLease.ts';
 import type { ControlCommandOf }                                              from '../../src/shared/@types/ControlCommand.ts';
 import { OperationRefusal }                                                   from '../../src/shared/OperationRefusal.ts';
 import { PRODUCT_NAMES }                                                      from '../../src/shared/constants/ProductNames.ts';
@@ -35,6 +37,8 @@ const TRANSITION_VERBS: readonly (readonly [string, TicketStatus])[] = [
 const REVIEW_OPTION_NAMES   = [...TRANSITION_OPTION_NAMES, ...REVIEW_BAR_OPTION_NAMES];
 const REREVIEW_OPTION_NAMES = ['at', 'json', ...REVIEW_BAR_OPTION_NAMES];
 const READY_OPTION_NAMES    = ['at', 'json'];
+const BY_HAND_FLAG          = 'by-hand';
+const BY_HAND_OPTION_NAMES  = [BY_HAND_FLAG, 'branch', 'commit', 'at', 'json'];
 
 function requireTicketReference(commandArguments: ArgumentParser, subcommand: string): string {
   commandArguments.rejectExtraPositionals(2, TICKET_USAGE);
@@ -43,10 +47,41 @@ function requireTicketReference(commandArguments: ArgumentParser, subcommand: st
   return reference;
 }
 
+/**
+ * The one record-only lifecycle verb: a ticket User finished and landed outside the runner is recorded delivered in one hold, merging,
+ * landing and spawning nothing. Both refusals are judged inside the hold, so a runner starting meanwhile reads the ticket delivered or not at all.
+ */
+async function deliverByHand(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
+  commandArguments.rejectUnknownOptions(BY_HAND_OPTION_NAMES, TICKET_USAGE);
+  const reference = requireTicketReference(commandArguments, 'deliver');
+  const branch    = commandArguments.option('branch');
+  const commit    = commandArguments.option('commit');
+  const { result: move, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
+    const { runnerDirectory } = runnerFilesIn(change.workspace.trackerDirectory);
+    const newestLease     = RunnerLease.newestLeaseOf(runnerDirectory);
+    if (newestLease.verdict === 'live') {
+      const leaseFilePath = RunnerLease.leaseFilePathFor(runnerDirectory, newestLease.generation);
+      throw new OperationRefusal('refused', { kind: 'runner-owns-the-lifecycle', url: newestLease.record.url, leaseFilePath });
+    }
+    const ticketId = TicketLookupUtil.requireTicket(change, reference).frontmatter.id;
+    const liveJob  = change.board.jobs().find((job) => job.ticketIds.includes(ticketId));
+    if (liveJob !== undefined) throw new OperationRefusal('refused', {
+      kind: 'ticket-has-live-job', ticketId, jobId: liveJob.id, state: liveJob.state
+    });
+    return change.board.moveTicket(ticketId, 'delivered', {
+      checksLegality: false, byHand: true, ...(branch === undefined ? {} : { branch }), ...(commit === undefined ? {} : { commit }),
+    }, change.at);
+  });
+  const humanText = `${OutputUtil.loggedSentencesOf(move.logged.filter(ReviewBarOutputUtil.recordClosesNoBar))}${ReviewBarOutputUtil.closedReviewBarsText(move.closedReviewBars)}`;
+  OutputUtil.printEntityThenNextLine(commandArguments, context, ReviewBarOutputUtil.ticketWithReviewBarAsJson(move.ticket, null, move.closedReviewBars), humanText, nextLine);
+}
+
 function transitionHandlerFor(targetStatus: TicketStatus): TicketSubcommandHandler {
   return async (commandArguments, context, subcommand) => {
+    if (targetStatus === 'delivered' && commandArguments.flag(BY_HAND_FLAG)) return deliverByHand(commandArguments, context);
     const sendsToReview = targetStatus === 'in-review';
-    commandArguments.rejectUnknownOptions(sendsToReview ? REVIEW_OPTION_NAMES : TRANSITION_OPTION_NAMES, TICKET_USAGE);
+    const transitionOptionNames = targetStatus === 'delivered' ? [...TRANSITION_OPTION_NAMES, BY_HAND_FLAG] : TRANSITION_OPTION_NAMES;
+    commandArguments.rejectUnknownOptions(sendsToReview ? REVIEW_OPTION_NAMES : transitionOptionNames, TICKET_USAGE);
     const reference        = requireTicketReference(commandArguments, subcommand);
     const reviewBarRequest = sendsToReview ? reviewBarRequestFrom(commandArguments, subcommand) : null;
     return transitionOneTicket(targetStatus, reference, commandArguments, context, true, reviewBarRequest);

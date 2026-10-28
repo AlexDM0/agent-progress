@@ -23,3 +23,12 @@ export const RUNNER_STOP_INTERVAL_MILLISECONDS = 250;
 
 /** How long one request to a runner's API may take before the caller treats the API as not answering. */
 export const RUNNER_REQUEST_TIMEOUT_MILLISECONDS = 2000;
+
+/** How often the runner re-reads the board as a backstop for watch events the platform dropped; a schedule only, never a decision. */
+export const RUNNER_SWEEP_SECONDS = 30;
+
+/** How long the runner lets a burst of file events settle before it wakes a pass. */
+export const RUNNER_WATCH_DEBOUNCE_MILLISECONDS = 150;
+
+/** How long a verb's best-effort nudge may wait on the runner after its write; the runner's own watch notices the write anyway. */
+export const RUNNER_NUDGE_TIMEOUT_MILLISECONDS = 500;

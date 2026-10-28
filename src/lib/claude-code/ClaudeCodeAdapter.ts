@@ -5,12 +5,11 @@
 import { createHash }    from 'node:crypto';
 import { dirname, join } from 'node:path';
 
-import type { AgentAdapter, AgentCapabilities } from '../agent-launch/AgentAdapter.ts';
-import type { AgentLaunchPlan, StandingReply }  from '../agent-launch/AgentLaunchPlan.ts';
-import type { AgentLaunchRequest }              from '../agent-launch/AgentLaunchRequest.ts';
-import type { AgentQuestion }                   from '../agent-launch/AgentSessionEvent.ts';
-import type { AgentDefinition, WorkerProfile }  from '../agent-launch/WorkerProfile.ts';
-import { claudeStreamEventsOf }                 from './ClaudeStreamMapper.ts';
+import type { AgentAdapter }                             from '../agent-launch/AgentAdapter.ts';
+import type { AgentLaunchPlan, StandingReply }           from '../agent-launch/AgentLaunchPlan.ts';
+import type { AgentLaunchRequest }                       from '../agent-launch/AgentLaunchRequest.ts';
+import type { AgentDefinition, WorkerProfile }           from '../agent-launch/WorkerProfile.ts';
+import { CLAUDE_CODE_CAPABILITIES, CLAUDE_STREAM_LINES } from './ClaudeStreamLines.ts';
 
 export const CLAUDE_CODE_VENDOR = 'claude-code';
 
@@ -37,7 +36,6 @@ const UUID_VARIANT_BITS = 0b1000;
 const UUID_VARIANT_MASK = 0b0011;
 const HEXADECIMAL_RADIX = 16;
 const LOOPBACK_DOMAINS = ['localhost', '127.0.0.1'] as const;
-const INTERRUPT_REQUEST_ID = 'interrupt';
 const STANDING_DENIAL_MESSAGE = 'Permission requests are not answered for this session; work within the tools and paths already allowed.';
 
 /** The session id a job keeps across every host instance and resume: a UUID formatted from `sha256(scope + "\n" + jobId)`. */
@@ -234,32 +232,10 @@ function planOf(request: AgentLaunchRequest): AgentLaunchPlan {
   };
 }
 
-function chatLineOf(text: string): string {
-  return JSON.stringify({ type: 'user', message: { role: 'user', content: text } });
-}
-
-/** The tool's input is echoed whole beside the answers, as the session's own question carried it. */
-function answerLineOf(requestId: string, questions: readonly AgentQuestion[], answers: Readonly<Record<string, string>>): string {
-  return JSON.stringify({
-    type:     'control_response',
-    response: { subtype: 'success', request_id: requestId, response: { behavior: 'allow', updatedInput: { questions, answers } } },
-  });
-}
-
-function interruptLineOf(): string {
-  return JSON.stringify({ type: 'control_request', request_id: INTERRUPT_REQUEST_ID, request: { subtype: 'interrupt' } });
-}
-
-const CLAUDE_CODE_CAPABILITIES: AgentCapabilities = {
-  chatTurns: true, questions: true, resume: true, reportChannel: 'schema', usage: 'tokens'
-};
-
 export const CLAUDE_CODE_ADAPTER: AgentAdapter = Object.freeze({
   vendor:       CLAUDE_CODE_VENDOR,
   capabilities: CLAUDE_CODE_CAPABILITIES,
   planOf,
-  eventsOf:     claudeStreamEventsOf,
-  chatLineOf,
-  answerLineOf,
-  interruptLineOf,
+  sessionIdOf:  claudeSessionIdOf,
+  ...CLAUDE_STREAM_LINES,
 });

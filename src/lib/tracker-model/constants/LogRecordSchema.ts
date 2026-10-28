@@ -42,7 +42,8 @@ export type LogFieldShape =
   | 'incident-move'
   | 'incident-default-cause'
   | 'gate-outcome'
-  | 'flag';
+  | 'flag'
+  | 'optional-flag';
 
 export interface LogRecordKindSchema {
   subject: LogRecordSubject;
@@ -72,7 +73,8 @@ export const LOG_RECORD_SCHEMA = {
   'ticket-started':                  { subject: 'ticket', fields: NO_FIELDS },
   'ticket-finished':                 { subject: 'ticket', fields: NO_FIELDS },
   'ticket-approved':                 { subject: 'ticket', fields: NO_FIELDS },
-  'ticket-delivered':                { subject: 'ticket', fields: NO_FIELDS },
+  // `byHand` is set only by `ticket deliver --by-hand`, which records work the runner never merged or landed.
+  'ticket-delivered':                { subject: 'ticket', fields: { byHand: 'optional-flag' } },
   'ticket-abandoned':                { subject: 'ticket', fields: { reason: 'text' } },
   'ticket-retitled':                 { subject: 'ticket', fields: { from: 'text', to: 'text' } },
   'ticket-body-changed-after-claim': { subject: 'ticket', fields: NO_FIELDS },
@@ -168,6 +170,8 @@ export const LOG_RECORD_SCHEMA = {
   'incident-handled':   { subject: 'incident', fields: { move: 'incident-move' } },
   'incident-defaulted': { subject: 'incident', fields: { move: 'incident-move', cause: 'incident-default-cause' } },
   'incident-escalated': { subject: 'incident', fields: { decisionId: 'text' } },
+  // A relayed request the runner answered, so a replay of its request file never applies it twice.
+  'relay-applied':      { subject: 'job', fields: { requestId: 'text', commandKind: 'text', outcome: 'text' } },
   // `totalInputTokens` is fresh input plus cache read plus cache creation; the run id and label are stored only for an agent a workflow run spawned.
   'agent-stopped':      {
     subject: 'board',

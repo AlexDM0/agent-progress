@@ -54,6 +54,7 @@ interface ValueOfFieldShape {
   'incident-default-cause': IncidentDefaultCause;
   'gate-outcome':           GateOutcome;
   'flag':                   boolean;
+  'optional-flag':          boolean;
 }
 
 type Schema = typeof LOG_RECORD_SCHEMA;
@@ -62,7 +63,9 @@ export type LogRecordKind = keyof Schema;
 
 type FieldShapes = Readonly<Record<string, LogFieldShape>>;
 
-type OptionalFieldNames<Shapes extends FieldShapes> = { [Name in keyof Shapes]: Shapes[Name] extends 'optional-text' | 'optional-size' ? Name : never }[keyof Shapes];
+type OptionalFieldShape = 'optional-text' | 'optional-size' | 'optional-flag';
+
+type OptionalFieldNames<Shapes extends FieldShapes> = { [Name in keyof Shapes]: Shapes[Name] extends OptionalFieldShape ? Name : never }[keyof Shapes];
 
 type Flattened<Value> = { [Key in keyof Value]: Value[Key] };
 

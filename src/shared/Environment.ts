@@ -18,6 +18,20 @@ export function realAgentSpecsVariableOf({ ENVIRONMENT_PREFIX }: Pick<ProductNam
   return `${ENVIRONMENT_PREFIX}REAL_AGENT_SPECS`;
 }
 
+export function fakeAgentVariableOf({ ENVIRONMENT_PREFIX }: Pick<ProductNames, 'ENVIRONMENT_PREFIX'>): string {
+  return `${ENVIRONMENT_PREFIX}FAKE_AGENT`;
+}
+
+export const FAKE_AGENT_VARIABLE = fakeAgentVariableOf(PRODUCT_NAMES);
+
+/**
+ * Launches every session the runner starts as the scripted fake agent rather than a vendor's CLI, so a spec-spawned binary spends no
+ * subscription; `cli/testing/CliProcess.ts` sets it on every child. Read like the every-tool switch.
+ */
+export function fakeAgentIsOn(): boolean {
+  return switchIsOn(FAKE_AGENT_VARIABLE);
+}
+
 export const ROOT_OVERRIDE_VARIABLE = rootOverrideVariableOf(PRODUCT_NAMES);
 
 export const REAL_AGENT_SPECS_VARIABLE = realAgentSpecsVariableOf(PRODUCT_NAMES);

@@ -1,8 +1,11 @@
 /** Runs the tracker service's write pipeline for a command: the workspace, the `--at` stamp and the render report are the command line's. */
 import type { DispatcherState }                                  from '../src/lib/tracker-model/@types/TrackerProgress.ts';
+import { runnerFilesIn }                                         from '../src/services/runner/RunnerFiles.ts';
+import { RunnerLease }                                           from '../src/services/runner/RunnerLease.ts';
 import { writeTracker, type TrackerChange, type TrackerWritten } from '../src/services/tracker/TrackerPipeline.ts';
 import { requireWorkspace }                                      from '../src/services/tracker/Workspace.ts';
 import { OperationRefusal }                                      from '../src/shared/OperationRefusal.ts';
+import { RUNNER_NUDGE_TIMEOUT_MILLISECONDS }                     from '../src/shared/constants/RunnerLimits.ts';
 import type { CommandContext }                                   from './CommandContext.ts';
 import { registerWrittenDashboard }                              from './RegisterWrittenDashboard.ts';
 import type { ArgumentParser }                                   from './arguments/ArgumentParser.ts';
@@ -26,7 +29,22 @@ async function writeTrackerForCommand<MutationResult>(
   });
   OutputUtil.reportRenderProblems(context, written.renderOutcome);
   await registerWrittenDashboard(context, workspace, written.renderOutcome);
+  await nudgeTheRunner(workspace.trackerDirectory);
   return written;
+}
+
+/**
+ * After the lock is released, so the pass it wakes can take it: a body-less `POST /api/nudge` to the live lease's URL. Silent whatever
+ * happens, since the runner's watch of the data folder notices the write anyway; the verb itself only recorded.
+ */
+async function nudgeTheRunner(trackerDirectory: string): Promise<void> {
+  const newest = RunnerLease.newestLeaseOf(runnerFilesIn(trackerDirectory).runnerDirectory);
+  if (newest.verdict !== 'live') return;
+  try {
+    await fetch(new URL('api/nudge', newest.record.url), { method: 'POST', signal: AbortSignal.timeout(RUNNER_NUDGE_TIMEOUT_MILLISECONDS) });
+  } catch {
+    // Best effort: a runner busy, stopping or gone is woken by its watch or its sweep.
+  }
 }
 
 export async function openTrackerForWriting<MutationResult>(

@@ -5,11 +5,11 @@
  */
 import { join } from 'node:path';
 
-import type { AgentAdapter }       from '../lib/agent-launch/AgentAdapter.ts';
-import type { AgentLaunchPlan }    from '../lib/agent-launch/AgentLaunchPlan.ts';
-import type { AgentLaunchRequest } from '../lib/agent-launch/AgentLaunchRequest.ts';
-import type { AgentQuestion }      from '../lib/agent-launch/AgentSessionEvent.ts';
-import { CLAUDE_CODE_ADAPTER }     from '../lib/claude-code/ClaudeCodeAdapter.ts';
+import type { AgentAdapter }                             from '../lib/agent-launch/AgentAdapter.ts';
+import type { AgentLaunchPlan }                          from '../lib/agent-launch/AgentLaunchPlan.ts';
+import type { AgentLaunchRequest }                       from '../lib/agent-launch/AgentLaunchRequest.ts';
+import type { AgentQuestion }                            from '../lib/agent-launch/AgentSessionEvent.ts';
+import { CLAUDE_CODE_CAPABILITIES, CLAUDE_STREAM_LINES } from '../lib/claude-code/ClaudeStreamLines.ts';
 
 export type FakeAgentStep =
   | { readonly kind: 'print'; readonly line: string }
@@ -38,10 +38,18 @@ export function fakeResultLine(structuredReport: unknown): string {
   });
 }
 
-export function fakeAgentAdapter(steps: readonly FakeAgentStep[]): AgentAdapter {
+export const FAKE_AGENT_VENDOR = 'fake-agent';
+
+/** What a session the runner launches under the fake-agent switch plays: it starts, reports nothing and exits. */
+export const DEFAULT_FAKE_AGENT_STEPS: readonly FakeAgentStep[] = Object.freeze([
+  { kind: 'print', line: fakeStartedLine('fake-session') },
+  { kind: 'exit', code: 0 },
+]);
+
+export function fakeAgentAdapter(steps: readonly FakeAgentStep[] = DEFAULT_FAKE_AGENT_STEPS): AgentAdapter {
   return {
-    vendor:       'fake-agent',
-    capabilities: CLAUDE_CODE_ADAPTER.capabilities,
+    vendor:       FAKE_AGENT_VENDOR,
+    capabilities: CLAUDE_CODE_CAPABILITIES,
     planOf(request: AgentLaunchRequest): AgentLaunchPlan {
       const scenarioPath = join(request.jobFilesDirectory, SCENARIO_FILE_NAME);
       return {
@@ -51,9 +59,7 @@ export function fakeAgentAdapter(steps: readonly FakeAgentStep[]): AgentAdapter 
         standingReplies: [],
       };
     },
-    eventsOf:        (line) => CLAUDE_CODE_ADAPTER.eventsOf(line),
-    chatLineOf:      (text) => CLAUDE_CODE_ADAPTER.chatLineOf(text),
-    answerLineOf:    (requestId, questions, answers) => CLAUDE_CODE_ADAPTER.answerLineOf(requestId, questions, answers),
-    interruptLineOf: () => CLAUDE_CODE_ADAPTER.interruptLineOf(),
+    sessionIdOf: (scope, jobId) => `fake-${scope}-${jobId}`,
+    ...CLAUDE_STREAM_LINES,
   };
 }

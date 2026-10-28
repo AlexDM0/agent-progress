@@ -27,7 +27,7 @@ import { FIRST_REPEAT_REVIEW_ROUND }         from './constants/ReviewRounds.ts';
 import { TicketBodyHashUtil }                from './utils/TicketBodyHashUtil.ts';
 import { TicketMoveUtil }                    from './utils/TicketMoveUtil.ts';
 
-type TicketMoveFields = Pick<TicketMoveRequest, 'branch' | 'commit' | 'reason'>;
+type TicketMoveFields = Pick<TicketMoveRequest, 'branch' | 'commit' | 'reason' | 'byHand'>;
 
 export class TicketMoves {
   constructor(
@@ -184,11 +184,11 @@ export class TicketMoves {
     if (task !== null) this.records.transitionTaskInPlace(task, targetStatus, at);
     if (task !== null && targetStatus === 'in-progress') this.records.stampCheckCommand(task);
     this.records.markChanged(ticket);
-    return this.logTicketMove(frontmatter, targetStatus, at);
+    return this.logTicketMove(frontmatter, targetStatus, fields.byHand === true, at);
   }
 
   /** `pending` is logged as a reopen: a ticket's first `pending` is its filing, which `fileTicket` logs. */
-  private logTicketMove(frontmatter: Readonly<TicketFrontmatter>, targetStatus: RowedTicketStatus, at: string): LogRecord {
+  private logTicketMove(frontmatter: Readonly<TicketFrontmatter>, targetStatus: RowedTicketStatus, byHand: boolean, at: string): LogRecord {
     const ticketId = frontmatter.id;
     const { logger } = this.records;
     switch (targetStatus) {
@@ -201,7 +201,7 @@ export class TicketMoves {
       case 'reviewed':
         return logger.log({ kind: 'ticket-approved', ticketId, fields: {} }, at);
       case 'delivered':
-        return logger.log({ kind: 'ticket-delivered', ticketId, fields: {} }, at);
+        return logger.log({ kind: 'ticket-delivered', ticketId, fields: byHand ? { byHand } : {} }, at);
       case 'abandoned':
         return logger.log({ kind: 'ticket-abandoned', ticketId, fields: { reason: frontmatter.reason ?? '' } }, at);
     }

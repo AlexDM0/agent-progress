@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join }   from 'node:path';
 
 import { createRenderState }       from '../../src/services/render/RenderState.ts';
+import { fakeAgentAdapter }        from '../../src/testing/FakeAgentAdapter.ts';
 import { requireTrackerIsolation } from '../../src/testing/TrackerIsolation.ts';
 import type { CommandContext }     from '../CommandContext.ts';
 
@@ -65,6 +66,7 @@ export function createCapturedCommandContext(options: CapturedCommandContextOpti
   const questions:   string[] = [];
 
   return {
+    agentAdapter:            fakeAgentAdapter(),
     currentDirectory:        options.currentDirectory,
     now:                     options.now ?? (() => new Date(DEFAULT_SPEC_CLOCK_READING)),
     standardOutput:          (text: string) => { outputLines.push(text); },

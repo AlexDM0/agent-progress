@@ -1,0 +1,278 @@
+/**
+ * The DrivePass on a scratch tracker with the fake agent, end to end through the pinned host bundle. What matters: a readied ticket gets a
+ * `launching` job and a host running the fake child in one pass; a relay request and the `result` of the turn that wrote it, read in one
+ * pass, are applied request first; a request in another job's folder, or naming a job, is refused and a replay is never applied twice;
+ * a pass with nothing changed does not run, however late; and the notices are derived each pass, never stored.
+ */
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs';
+import { join } from 'node:path';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  test
+} from 'bun:test';
+
+import { relayReplyFilePathOf, writeRelayRequest }                         from '../../src/adapters/relay/RelayFolder.ts';
+import { hostFilesOf }                                                     from '../../src/lib/agent-host/HostFiles.ts';
+import type { HostRecord }                                                 from '../../src/lib/agent-host/HostRecord.ts';
+import type { AgentAdapter }                                               from '../../src/lib/agent-launch/AgentAdapter.ts';
+import type { Board }                                                      from '../../src/lib/tracker-model/Board.ts';
+import { createRenderState }                                               from '../../src/services/render/RenderState.ts';
+import { createDrivePass, type DrivePass }                                 from '../../src/services/runner/DrivePass.ts';
+import { HOST_ENTRY_PATH, HostBundle }                                     from '../../src/services/runner/HostBundle.ts';
+import { HostFleet }                                                       from '../../src/services/runner/HostFleet.ts';
+import { RelayInbox }                                                      from '../../src/services/runner/RelayInbox.ts';
+import { runnerFilesIn }                                                   from '../../src/services/runner/RunnerFiles.ts';
+import { RunnerLease }                                                     from '../../src/services/runner/RunnerLease.ts';
+import { requireWorkspace }                                                from '../../src/services/tracker/Workspace.ts';
+import { fakeAgentAdapter, fakeResultLine, fakeStartedLine }               from '../../src/testing/FakeAgentAdapter.ts';
+import { createScratchDirectory, currentBranchOf, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
+import { runCommandLine }                                                  from '../Main.ts';
+import { createCapturedCommandContext }                                    from '../testing/CapturedCommandContext.ts';
+import { createInitializedScratchRepository }                              from '../testing/InitializedScratchRepository.ts';
+import { fileReadyTicket }                                                 from '../testing/ReadyTicketFiling.ts';
+import { storedLogTextOf }                                                 from '../testing/StoredLogText.ts';
+import { storedProgressOf }                                                from '../testing/StoredProgress.ts';
+
+const SPEC_CLOCK = (): Date => new Date('2026-09-18T20:11:03Z');
+const HOST_WAIT_TRIES = 200;
+const HOST_WAIT_MILLISECONDS = 50;
+const PASS_TEST_TIMEOUT_MILLISECONDS = 30_000;
+
+let repositoryDirectory = '';
+let monitorFolder = '';
+let runnerLog: string[] = [];
+
+async function run(commandLineArguments: readonly string[]) {
+  const context  = createCapturedCommandContext({ currentDirectory: repositoryDirectory, now: SPEC_CLOCK });
+  const exitCode = await runCommandLine(commandLineArguments, context);
+  expect(exitCode, `\`${commandLineArguments.join(' ')}\` failed: ${context.errorText()}`).toBe(0);
+  return context;
+}
+
+async function drivePassWith(adapter: AgentAdapter, afterHoldPhase?: (phase: string, board: Board) => void): Promise<DrivePass> {
+  const workspace = requireWorkspace(repositoryDirectory);
+  const { runnerDirectory } = runnerFilesIn(workspace.trackerDirectory);
+  mkdirSync(runnerDirectory, { recursive: true });
+  const acquisition = RunnerLease.acquire(runnerDirectory, {
+    processId:                process.pid,
+    processStartEpochSeconds: 1,
+    bootIdentity:             'example-boot',
+    port:                     1,
+    url:                      'http://127.0.0.1:1/',
+    tokenFile:                join(runnerDirectory, 'token'),
+    codeVersion:              'code-example',
+    installVersion:           1,
+    hostProtocolVersion:      1,
+  });
+  if (acquisition.verdict !== 'acquired') throw new Error('the scratch lease was not acquired');
+  const hostBundlePath = await HostBundle.pinHostBundle({ runnerDirectory, codeVersion: 'code-example', entryPath: HOST_ENTRY_PATH });
+  return createDrivePass({
+    workspace,
+    renderState:           createRenderState(),
+    now:                   SPEC_CLOCK,
+    formatStamp:           () => '2026-09-18T22:11:03+02:00',
+    runnerDirectory,
+    generation:            acquisition.generation,
+    hostBundlePath,
+    codeVersion:           'code-example',
+    agentAdapter:          adapter,
+    monitorFolder,
+    inheritedEnvironment:  {},
+    mainLine:              currentBranchOf(repositoryDirectory),
+    managedBlockMarker:    '<!-- example-managed-block -->',
+    installVersionChanged: () => false,
+    decisionWordingOf:     () => ({ questions: [], context: '' }),
+    launchTextOf:          () => ({ firstMessage: 'Example first message', roleBrief: 'Example role' }),
+    log:                   (line) => runnerLog.push(line),
+    onLeaseTakenOver:      () => runnerLog.push('taken over'),
+    ...(afterHoldPhase === undefined ? {} : { afterHoldPhase }),
+  });
+}
+
+async function passOnce(drivePass: DrivePass, forced = true): Promise<void> {
+  drivePass.wake(forced);
+  await drivePass.idle();
+}
+
+function jobFolder(jobId: string): string {
+  return HostFleet.jobFolderOf(requireWorkspace(repositoryDirectory).trackerDirectory, jobId);
+}
+
+async function untilHostEnded(jobId: string, instance: number): Promise<void> {
+  for (let attempt = 0; attempt < HOST_WAIT_TRIES; attempt += 1) {
+    if (HostFleet.livenessOf(jobFolder(jobId), instance).verdict === 'ended') return;
+    await Bun.sleep(HOST_WAIT_MILLISECONDS);
+  }
+  throw new Error(`host ${instance} of ${jobId} never ended: ${runnerLog.join('\n')}`);
+}
+
+/** The policy boots the runner's orchestrator beside the build, so the build's job id is looked up rather than assumed. */
+function buildJobId(): string {
+  const buildJob = (storedProgressOf(repositoryDirectory).jobs ?? []).find((job) => job.kind === 'build');
+  if (buildJob === undefined) throw new Error(`no build job was launched: ${runnerLog.join('\n')}`);
+  return buildJob.id;
+}
+
+/** A session that starts and then waits on its stdin, so its host stays live until the spec ends it. */
+const WAITING_SESSION = fakeAgentAdapter([{ kind: 'print', line: fakeStartedLine('fake-session') }, { kind: 'await-line' }]);
+
+/** Every host a spec spawned, and its child's process group, is ended, so no fake session outlives the spec. */
+function endEveryHost(): void {
+  const jobsFolder = join(requireWorkspace(repositoryDirectory).trackerDirectory, 'jobs');
+  if (!existsSync(jobsFolder)) return;
+  for (const jobId of readdirSync(jobsFolder)) {
+    for (const fileName of readdirSync(join(jobsFolder, jobId)).filter((name) => /^host-\d+\.json$/.test(name))) {
+      const record = JSON.parse(readFileSync(join(jobsFolder, jobId, fileName), 'utf8')) as HostRecord;
+      for (const target of [record.childProcessGroupId === undefined ? null : -record.childProcessGroupId, record.host?.processId ?? null]) {
+        try {
+          if (target !== null) process.kill(target, 'SIGKILL');
+        } catch {
+          // Already gone.
+        }
+      }
+    }
+  }
+}
+
+function relayDirectory(jobId: string): string {
+  return RelayInbox.relayDirectoryOf(repositoryDirectory, jobId);
+}
+
+function lowFinding(requestId: string, title: string): Parameters<typeof writeRelayRequest>[1] {
+  return {
+    relayFormatVersion: 1,
+    requestId,
+    command:            {
+      kind:          'ticket-add',
+      title,
+      type:          'bug',
+      priority:      'low',
+      dependsOn:     [],
+      epics:         [],
+      network:       [],
+      introducedBy:  null,
+      foundInReview: null,
+      bodyText:      null,
+    }
+  };
+}
+
+beforeEach(async () => {
+  repositoryDirectory = await createInitializedScratchRepository('drive-pass', ['--project', 'Example Agency'], SPEC_CLOCK);
+  monitorFolder = createScratchDirectory('h');
+  runnerLog = [];
+  await run(['checks', 'true']);
+  await run(['run', 'resume']);
+  await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Export the example roles']);
+});
+
+afterEach(() => {
+  endEveryHost();
+  removeScratchDirectory(monitorFolder);
+  removeScratchDirectory(repositoryDirectory);
+});
+
+describe('one pass', () => {
+  test('a readied ticket gets a launching job and a spawned host running the fake child in one pass', async () => {
+    const drivePass = await drivePassWith(fakeAgentAdapter());
+    await passOnce(drivePass);
+    const buildJob = (storedProgressOf(repositoryDirectory).jobs ?? []).find((job) => job.id === buildJobId());
+    expect(buildJob).toMatchObject({
+      kind: 'build', role: 'builder', ticketIds: ['001'], state: 'launching', hostInstance: 1
+    });
+    await untilHostEnded(buildJobId(), 1);
+    expect(readFileSync(hostFilesOf(jobFolder(buildJobId()), 1).eventLogPath, 'utf8')).toContain(JSON.stringify(fakeStartedLine('fake-session')));
+    expect(existsSync(join(relayDirectory(buildJobId()), 'requests'))).toBe(true);
+  }, PASS_TEST_TIMEOUT_MILLISECONDS);
+
+  test('a relay request and the result of the turn that wrote it, read in one pass, are applied request first', async () => {
+    const phases: { phase: string; jobState: string | undefined; findingFiled: boolean }[] = [];
+    const recordPhase = (phase: string, board: Board): void => {
+      const buildJob = board.jobs().find((job) => job.kind === 'build');
+      const jobId = buildJob?.id;
+      phases.push({ phase, jobState: buildJob?.state, findingFiled: board.tickets().some((ticket) => ticket.frontmatter.filedByJob === jobId) });
+    };
+    const drivePass = await drivePassWith(fakeAgentAdapter([
+      { kind: 'print', line: fakeStartedLine('fake-session') },
+      { kind: 'print', line: fakeResultLine({ outcome: 'built' }) },
+      { kind: 'exit', code: 0 },
+    ]), recordPhase);
+    await passOnce(drivePass);
+    await untilHostEnded(buildJobId(), 1);
+    writeRelayRequest(relayDirectory(buildJobId()), lowFinding('request-1', 'Example finding beside the build'));
+    phases.length = 0;
+    await passOnce(drivePass);
+    expect(phases, runnerLog.join('\n')).toEqual([
+      { phase: 'relayed-commands', jobState: 'launching', findingFiled: true },
+      { phase: 'host-events', jobState: 'verifying', findingFiled: true },
+      { phase: 'lifecycle', jobState: 'verifying', findingFiled: true },
+    ]);
+    expect(JSON.parse(readFileSync(relayReplyFilePathOf(relayDirectory(buildJobId()), 'request-1'), 'utf8'))).toMatchObject({ outcome: 'done' });
+  }, PASS_TEST_TIMEOUT_MILLISECONDS);
+});
+
+describe('the relay inbox', () => {
+  test('a request naming a job of its own is refused, a replay is never applied twice, and an unknown job\'s folder is not read', async () => {
+    const drivePass = await drivePassWith(WAITING_SESSION);
+    await passOnce(drivePass);
+    const jobId = buildJobId();
+    writeRelayRequest(relayDirectory(jobId), { ...lowFinding('request-forged', 'Forged finding'), jobId: 'J7' } as never);
+    writeRelayRequest(relayDirectory(jobId), lowFinding('request-1', 'Example finding'));
+    writeRelayRequest(relayDirectory('J9'), lowFinding('request-9', 'Finding in a folder no job owns'));
+    await passOnce(drivePass);
+    expect(JSON.parse(readFileSync(relayReplyFilePathOf(relayDirectory(jobId), 'request-forged'), 'utf8')))
+      .toMatchObject({ outcome: 'refused', detail: { kind: 'relay-identity-mismatch', requestId: 'request-forged', jobId } });
+    expect(existsSync(relayReplyFilePathOf(relayDirectory('J9'), 'request-9'))).toBe(false);
+
+    rmSync(relayReplyFilePathOf(relayDirectory(jobId), 'request-1'));
+    await passOnce(drivePass);
+    const appliedRecords = storedLogTextOf(repositoryDirectory).split('\n').filter((line) => line !== '')
+      .map((line) => JSON.parse(line) as { kind: string; fields: unknown }).filter((entry) => entry.kind === 'relay-applied');
+    expect(appliedRecords.map((entry) => entry.fields)).toEqual([
+      { requestId: 'request-1', commandKind: 'ticket-add', outcome: 'done' },
+      { requestId: 'request-forged', commandKind: 'unread', outcome: 'refused' },
+    ]);
+    expect(storedProgressOf(repositoryDirectory).tasks.length).toBeGreaterThan(0);
+  }, PASS_TEST_TIMEOUT_MILLISECONDS);
+});
+
+describe('waking', () => {
+  test('an unforced wake with nothing changed runs no pass, however late, and wakes during a pass coalesce into one more', async () => {
+    const drivePass = await drivePassWith(WAITING_SESSION);
+    await passOnce(drivePass);
+    for (let attempt = 0; attempt < HOST_WAIT_TRIES && storedProgressOf(repositoryDirectory).jobs?.some((job) => job.state !== 'running') === true; attempt += 1) {
+      await Bun.sleep(HOST_WAIT_MILLISECONDS);
+      await passOnce(drivePass, false);
+    }
+    const settled = drivePass.state().passes;
+    await passOnce(drivePass, false);
+    expect(drivePass.state().passes).toBe(settled);
+
+    writeRelayRequest(relayDirectory(buildJobId()), lowFinding('request-1', 'Example finding'));
+    drivePass.wake();
+    drivePass.wake();
+    drivePass.wake();
+    await drivePass.idle();
+    expect(drivePass.state().passes).toBe(settled + 1);
+  }, PASS_TEST_TIMEOUT_MILLISECONDS);
+
+  test('the notices are derived each pass from git and the runtime state and never stored', async () => {
+    writeFileSync(join(repositoryDirectory, 'CLAUDE.md'), '<!-- example-managed-block -->\n');
+    await Bun.$`git -C ${repositoryDirectory} add CLAUDE.md`.quiet();
+    await Bun.$`git -C ${repositoryDirectory} -c user.name=Example -c user.email=example@example.com commit -q -m Example`.quiet();
+    const drivePass = await drivePassWith(fakeAgentAdapter());
+    await passOnce(drivePass);
+    expect(drivePass.state().notices).toEqual([{ kind: 'claude-md-block-committed', target: currentBranchOf(repositoryDirectory) }]);
+    expect(readFileSync(join(repositoryDirectory, '.agent-progress-v2', 'progress.json'), 'utf8')).not.toContain('claude-md-block-committed');
+  }, PASS_TEST_TIMEOUT_MILLISECONDS);
+});

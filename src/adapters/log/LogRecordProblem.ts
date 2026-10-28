@@ -127,6 +127,7 @@ const CHECK_FOR_FIELD_SHAPE: Readonly<Record<LogFieldShape, FieldShapeCheck>> = 
   'incident-default-cause': (value, path) => vocabularyProblem(value, path, INCIDENT_DEFAULT_CAUSES),
   'gate-outcome':           (value, path) => vocabularyProblem(value, path, GATE_OUTCOMES),
   'flag':                   (value, path) => (typeof value === 'boolean' ? null : `${path} is not true or false`),
+  'optional-flag':          (value, path) => (value === undefined || typeof value === 'boolean' ? null : `${path} is not true or false`),
 };
 
 function kindIsKnown(kind: unknown): kind is LogRecordKind {

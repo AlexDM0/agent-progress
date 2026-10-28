@@ -73,6 +73,8 @@ export interface TicketMoveRequest {
   commit?:        string;
   reason?:        string;
   tokens?:        number;
+  /** Logged on a delivery recorded by hand, work the runner never merged or landed. */
+  byHand?:        boolean;
 }
 
 export interface TicketRelease {

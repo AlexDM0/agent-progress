@@ -17,6 +17,7 @@ type ImportViolation =
   | 'test-helper-imported-outside-its-allowlist'
   | 'lib-imports-an-undeclared-package'
   | 'tracker-model-reaches-outside-itself'
+  | 'vendor-adapter-imported-outside-its-seam'
   | 'import-cycle'
   | 'barrel';
 
@@ -48,6 +49,12 @@ const BINARY_PATH = 'agent-progress.ts';
 const HOST_BINARY_PATH = 'agent-host.ts';
 const HOST_PACKAGE_FOLDER = 'src/lib/agent-host/';
 const FEATURES = ['cli', 'page', 'dispatcher'] as const satisfies readonly Layer[];
+const VENDOR_ADAPTER_PATH = 'src/lib/claude-code/ClaudeCodeAdapter.ts';
+const VENDOR_ADAPTER_PACKAGE_FOLDER = 'src/lib/claude-code/';
+/** The one shipping module that chooses the adapter; everything else reaches a session through the launcher port it hands over. */
+const VENDOR_ADAPTER_SEAM = 'cli/CommandContext.ts';
+/** The specs that launch the real vendor, opted into by the real-agent switch. */
+const REAL_VENDOR_SPEC_SUFFIX = '.realAgent.spec.ts';
 const SOURCE_LAYERS = [
   'lib', 'shared', 'adapters', 'render-service', 'tracker-service', 'lifecycle-service', 'control-service', 'runner-service',
 ] as const satisfies readonly Layer[];
@@ -74,11 +81,12 @@ const LAYER_REACH: Readonly<Record<Layer, readonly Layer[]>> = {
 };
 
 /**
- * Each test-only folder and the folders whose specs, or whose own test-only folders, may import it; nothing that ships imports any of them.
- * Exact both ways: every `testing/` folder in the tree has an entry, and every importer folder is used by at least one import.
+ * Each test-only folder and the folders whose specs, or whose own test-only folders, may import it. An entry naming a file rather than a
+ * folder lets that one shipping module import it: `cli/CommandContext.ts` chooses the fake agent under the fake-agent switch. Exact both
+ * ways: every `testing/` folder in the tree has an entry, and every importer folder or file is used by at least one import.
  */
 const TESTING_FOLDER_IMPORTERS: Readonly<Record<string, readonly string[]>> = {
-  'src/testing/':                   ['src/', 'cli/', 'page/', 'dispatcher/'],
+  'src/testing/':                   ['src/', 'cli/', 'page/', 'dispatcher/', VENDOR_ADAPTER_SEAM],
   'src/lib/tracker-model/testing/': ['src/lib/tracker-model/'],
   'src/adapters/progress/testing/': ['src/adapters/'],
   'src/services/tracker/testing/':  ['src/services/tracker/'],
@@ -192,8 +200,14 @@ function testingFolderFinding(edge: ImportEdge, targetPath: string, allowlists: 
   const targetTestingFolder = testingFolderOf(targetPath);
   if (targetTestingFolder === null || testingFolderOf(edge.fromPath) === targetTestingFolder) return null;
   const importerFolders = Object.hasOwn(allowlists.testingFolderImporters, targetTestingFolder) ? allowlists.testingFolderImporters[targetTestingFolder] ?? [] : [];
-  if (isTestOnly(edge.fromPath) && importerFolders.some((importerFolder) => isInside(edge.fromPath, importerFolder))) return null;
-  const allowed = importerFolders.length === 0 ? 'nothing, as it has no allowlist entry' : `only the specs of ${importerFolders.join(', ')}`;
+  const importerIsListed = (importerEntry: string): boolean => (importerEntry.endsWith('/')
+    ? isTestOnly(edge.fromPath) && isInside(edge.fromPath, importerEntry)
+    : edge.fromPath === importerEntry);
+  if (importerFolders.some(importerIsListed)) return null;
+  const listedFolders = importerFolders.filter((importerEntry) => importerEntry.endsWith('/'));
+  const listedFiles   = importerFolders.filter((importerEntry) => !importerEntry.endsWith('/'));
+  const filesSuffix   = listedFiles.length === 0 ? '' : ` and ${listedFiles.join(', ')}`;
+  const allowed       = importerFolders.length === 0 ? 'nothing, as it has no allowlist entry' : `only the specs of ${listedFolders.join(', ')}${filesSuffix}`;
   return edgeFinding(edge, 'test-helper-imported-outside-its-allowlist', `${targetTestingFolder} is test-only and may be imported by ${allowed}`);
 }
 
@@ -233,6 +247,12 @@ function libFinding(edge: ImportEdge, declarations: ReadonlyMap<string, readonly
   return edgeFinding(edge, 'lib-imports-an-undeclared-package', `the header of src/lib/${fromPackage}/'s main module does not name src/lib/${targetPackage}`);
 }
 
+function vendorSeamFinding(edge: ImportEdge, targetPath: string): Finding | null {
+  if (targetPath !== VENDOR_ADAPTER_PATH || isInside(edge.fromPath, VENDOR_ADAPTER_PACKAGE_FOLDER)) return null;
+  if (edge.fromPath === VENDOR_ADAPTER_SEAM || edge.fromPath.endsWith(REAL_VENDOR_SPEC_SUFFIX)) return null;
+  return edgeFinding(edge, 'vendor-adapter-imported-outside-its-seam', `only ${VENDOR_ADAPTER_SEAM} and the real-vendor specs choose the vendor's adapter`);
+}
+
 function edgeFindingsOf(edge: ImportEdge, declarations: ReadonlyMap<string, readonly string[]>, allowlists: Allowlists): readonly (Finding | null)[] {
   if (edge.form === 're-export') {
     return [edgeFinding(edge, 'barrel', 'a re-export makes one module stand for others')];
@@ -249,6 +269,7 @@ function edgeFindingsOf(edge: ImportEdge, declarations: ReadonlyMap<string, read
     directionFinding(edge, targetPath),
     commandFinding(edge, targetPath),
     testingFolderFinding(edge, targetPath, allowlists),
+    vendorSeamFinding(edge, targetPath),
     libVerdict,
   ];
 }
@@ -469,6 +490,8 @@ describe('the guard still names each violation, planted in memory', () => {
   test('the host binary importing anything but its package, another lib package and a builtin included, and not its package', () => {
     expect(plantedSentencesOf({ 'agent-host.ts': importing('./src/lib/claude-code/ClaudeCodeAdapter.ts') })).toEqual([
       'host-binary-imports-beyond-its-package — agent-host.ts:1 imports src/lib/claude-code/ClaudeCodeAdapter.ts: agent-host.ts imports only src/lib/agent-host/',
+      'vendor-adapter-imported-outside-its-seam — agent-host.ts:1 imports src/lib/claude-code/ClaudeCodeAdapter.ts: '
+        + 'only cli/CommandContext.ts and the real-vendor specs choose the vendor\'s adapter',
     ]);
     expect(plantedSentencesOf({ 'agent-host.ts': importing('./cli/Main.ts') })).toEqual([
       'host-binary-imports-beyond-its-package — agent-host.ts:1 imports cli/Main.ts: agent-host.ts imports only src/lib/agent-host/',
@@ -482,8 +505,14 @@ describe('the guard still names each violation, planted in memory', () => {
   test('a test-only folder imported by shipped code, by a spec outside its allowlist or with no entry at all, and not by an allowed spec', () => {
     expect(plantedSentencesOf({ 'src/shared/PlantedValue.ts': importing('../testing/ScratchWorkspace.ts') })).toEqual([
       'test-helper-imported-outside-its-allowlist — src/shared/PlantedValue.ts:1 imports src/testing/ScratchWorkspace.ts: '
-        + 'src/testing/ is test-only and may be imported by only the specs of src/, cli/, page/, dispatcher/',
+        + 'src/testing/ is test-only and may be imported by only the specs of src/, cli/, page/, dispatcher/ and cli/CommandContext.ts',
     ]);
+    expect(plantedSentencesOf({ 'cli/PlantedContext.ts': importing('../src/testing/FakeAgentAdapter.ts') })).toEqual([
+      'test-helper-imported-outside-its-allowlist — cli/PlantedContext.ts:1 imports src/testing/FakeAgentAdapter.ts: '
+        + 'src/testing/ is test-only and may be imported by only the specs of src/, cli/, page/, dispatcher/ and cli/CommandContext.ts',
+    ]);
+    expect(plantedSentencesOf({ 'cli/CommandContext.ts': `${GRAPH.sourceTextOf('cli/CommandContext.ts')}${importing('../src/testing/ScratchWorkspace.ts')}` }))
+      .toEqual([]);
     expect(plantedSentencesOf({ 'page/PlantedView.spec.ts': importing('../cli/testing/CliProcess.ts') })).toEqual([
       'test-helper-imported-outside-its-allowlist — page/PlantedView.spec.ts:1 imports cli/testing/CliProcess.ts: '
         + 'cli/testing/ is test-only and may be imported by only the specs of cli/',
@@ -496,6 +525,19 @@ describe('the guard still names each violation, planted in memory', () => {
         + 'src/shared/testing/ is test-only and may be imported by nothing, as it has no allowlist entry',
     ]);
     expect(plantedSentencesOf({ 'src/shared/PlantedValue.spec.ts': importing('../testing/ScratchWorkspace.ts') })).toEqual([]);
+  });
+
+  test('the vendor\'s adapter imported outside its seam, by a service, a test helper or a plain spec, and not by the seam or a real-vendor spec', () => {
+    const vendorSentenceOf = (importerPath: string): string => `vendor-adapter-imported-outside-its-seam — ${importerPath}:1 imports `
+      + 'src/lib/claude-code/ClaudeCodeAdapter.ts: only cli/CommandContext.ts and the real-vendor specs choose the vendor\'s adapter';
+    expect(plantedSentencesOf({ 'src/services/runner/PlantedLaunch.ts': importing('../../lib/claude-code/ClaudeCodeAdapter.ts') }))
+      .toEqual([vendorSentenceOf('src/services/runner/PlantedLaunch.ts')]);
+    expect(plantedSentencesOf({ 'src/testing/PlantedAdapter.ts': importing('../lib/claude-code/ClaudeCodeAdapter.ts') }))
+      .toEqual([vendorSentenceOf('src/testing/PlantedAdapter.ts')]);
+    expect(plantedSentencesOf({ 'cli/runner/PlantedRun.spec.ts': importing('../../src/lib/claude-code/ClaudeCodeAdapter.ts') }))
+      .toEqual([vendorSentenceOf('cli/runner/PlantedRun.spec.ts')]);
+    expect(plantedSentencesOf({ 'cli/runner/PlantedRun.realAgent.spec.ts': importing('../../src/lib/claude-code/ClaudeCodeAdapter.ts') })).toEqual([]);
+    expect(plantedSentencesOf({ 'src/lib/claude-code/PlantedPlan.ts': importing('./ClaudeCodeAdapter.ts') })).toEqual([]);
   });
 
   test('a lib package importing a package its main module\'s header does not name, and not one it names', () => {
@@ -582,6 +624,12 @@ describe('the imports of the tree', () => {
 
   test('nothing that ships imports a testing folder, and each testing folder is imported only by the specs its entry names', () => {
     expect(sentencesAbout(FINDINGS, 'test-helper-imported-outside-its-allowlist')).toEqual([]);
+  });
+
+  test('outside src/lib/claude-code/ only cli/CommandContext.ts and the real-vendor specs import ClaudeCodeAdapter.ts', () => {
+    expect(sentencesAbout(FINDINGS, 'vendor-adapter-imported-outside-its-seam')).toEqual([]);
+    expect(GRAPH.edges.some((edge) => edge.fromPath === VENDOR_ADAPTER_SEAM && edge.target.kind === 'repository-file' && edge.target.path === VENDOR_ADAPTER_PATH))
+      .toBe(true);
   });
 
   test('a lib package imports only the lib packages its main module\'s header names', () => {

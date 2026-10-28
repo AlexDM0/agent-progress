@@ -35,7 +35,12 @@ export type OperationRefusalDetail =
   | { kind: 'runner-identity-unreadable'; processId: number }
   | { kind: 'runner-did-not-start'; exitCode: number | null; logFilePath: string }
   | { kind: 'runner-still-live'; url: string; processId: number }
-  | { kind: 'runner-control-is-runtime-only'; commandKind: string };
+  | { kind: 'runner-control-is-runtime-only'; commandKind: string }
+  | { kind: 'runner-owns-the-lifecycle'; url: string; leaseFilePath: string }
+  | { kind: 'host-bundle-failed'; entryPath: string; reason: string }
+  | { kind: 'ticket-has-live-job'; ticketId: string; jobId: string; state: string }
+  | { kind: 'malformed-relay-request'; requestId: string }
+  | { kind: 'relay-identity-mismatch'; requestId: string; jobId: string };
 
 function reasonCodeOf(detail: OperationRefusalDetail): string {
   if (detail.kind === 'role-command-refused') return detail.reason;

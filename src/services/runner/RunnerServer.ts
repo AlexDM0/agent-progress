@@ -1,7 +1,7 @@
 /**
- * The runner's minimal HTTP server on 127.0.0.1: `GET /api/identity` for anyone on the machine, and `POST /api/commands` for the two
- * runtime-only commands, `runner-stop` and `runner-restart`, behind the bearer token. A foreign Host or any Origin is refused, against
- * DNS rebinding and cross-site requests.
+ * The runner's minimal HTTP server on 127.0.0.1: `GET /api/identity`, `GET /api/state` and the body-less `POST /api/nudge` for anyone on
+ * the machine, and `POST /api/commands` for the two runtime-only commands, `runner-stop` and `runner-restart`, behind the bearer token.
+ * A foreign Host or any Origin is refused, against DNS rebinding and cross-site requests.
  */
 import { timingSafeEqual } from 'node:crypto';
 
@@ -30,6 +30,10 @@ export interface RunnerServerRequest {
   /** Read at each request, so a token written after the lease was won is the one checked. */
   token:            () => string | null;
   onRuntimeCommand: (command: RuntimeRunnerCommand) => void;
+  /** A verb's body-less `POST /api/nudge` after its write: it only asks for a pass, so it needs no token. */
+  onNudge:          () => void;
+  /** The runner's state document, notices included, derived each pass and never stored. */
+  state:            () => unknown;
 }
 
 export interface RunnerServer {
@@ -105,6 +109,11 @@ function start(serverRequest: RunnerServerRequest): RunnerServer {
       const { pathname } = new URL(request.url);
       if (request.method === 'GET' && pathname === '/api/identity') return jsonResponse(identity, HTTP_STATUS.OK);
       if (request.method === 'POST' && pathname === '/api/commands') return answerCommand(request, serverRequest);
+      if (request.method === 'POST' && pathname === '/api/nudge') {
+        serverRequest.onNudge();
+        return jsonResponse({ outcome: 'done' }, HTTP_STATUS.OK);
+      }
+      if (request.method === 'GET' && pathname === '/api/state') return jsonResponse(serverRequest.state(), HTTP_STATUS.OK);
       return jsonResponse({ refusal: 'not-found' }, HTTP_STATUS.NOT_FOUND);
     },
   }));

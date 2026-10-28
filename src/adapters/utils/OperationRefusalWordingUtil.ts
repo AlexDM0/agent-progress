@@ -382,6 +382,18 @@ function messageOf(refusal: OperationRefusal): string {
       return `The runner at ${detail.url} (process ${detail.processId}) is still live after being asked to stop; its lease was left as it is.`;
     case 'runner-control-is-runtime-only':
       return `${detail.commandKind} is sent to the live runner, never applied to the board. ${NOTHING_WAS_WRITTEN}`;
+    case 'runner-owns-the-lifecycle':
+      return `A runner drives this board at ${detail.url} (${detail.leaseFilePath}), so only it delivers tickets. `
+        + `Stop it with \`${PRODUCT_NAMES.PROGRAM} run stop\` before recording work by hand. ${NOTHING_WAS_WRITTEN}`;
+    case 'host-bundle-failed':
+      return `The host entry ${detail.entryPath} did not bundle, so the runner cannot spawn hosts: ${detail.reason}`;
+    case 'ticket-has-live-job':
+      return `Ticket #${detail.ticketId} has job ${detail.jobId} live (${detail.state}), so it cannot be recorded delivered by hand. ${NOTHING_WAS_WRITTEN}`;
+    case 'malformed-relay-request':
+      return `The relayed request ${detail.requestId} is not a request the runner reads. ${NOTHING_WAS_WRITTEN}`;
+    case 'relay-identity-mismatch':
+      return `The relayed request ${detail.requestId} names a job or role of its own; a request takes job ${detail.jobId}'s from its folder. `
+        + NOTHING_WAS_WRITTEN;
   }
 }
 

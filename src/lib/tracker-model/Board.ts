@@ -241,6 +241,14 @@ export class Board {
     return this.jobRules.recordRunnerStopped(reason, at);
   }
 
+  recordRelayApplied(jobId: string, applied: { requestId: string; commandKind: string; outcome: string }, at: string): Logged {
+    return this.jobRules.recordRelayApplied(jobId, applied, at);
+  }
+
+  relayRequestIsApplied(requestId: string): boolean {
+    return this.jobRules.relayRequestIsApplied(requestId);
+  }
+
   setTicketMergeQueued(ticketId: string, queued: boolean, at: string): Readonly<Task> | null {
     return this.mergeQueueMarks.setTicketMergeQueued(ticketId, queued, at);
   }

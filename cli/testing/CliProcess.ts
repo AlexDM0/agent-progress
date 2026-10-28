@@ -8,10 +8,10 @@
 import { existsSync }               from 'node:fs';
 import { delimiter, dirname, join } from 'node:path';
 
-import { environmentCopy, rootOverrideVariableOf }            from '../../src/shared/Environment.ts';
-import { ORIGINAL_PRODUCT_NAMES, SIDE_BY_SIDE_PRODUCT_NAMES } from '../../src/shared/constants/ProductNames.ts';
-import { createScratchDirectory, removeScratchDirectory }     from '../../src/testing/ScratchWorkspace.ts';
-import { requireTrackerIsolation }                            from '../../src/testing/TrackerIsolation.ts';
+import { environmentCopy, fakeAgentVariableOf, rootOverrideVariableOf } from '../../src/shared/Environment.ts';
+import { ORIGINAL_PRODUCT_NAMES, SIDE_BY_SIDE_PRODUCT_NAMES }           from '../../src/shared/constants/ProductNames.ts';
+import { createScratchDirectory, removeScratchDirectory }               from '../../src/testing/ScratchWorkspace.ts';
+import { requireTrackerIsolation }                                      from '../../src/testing/TrackerIsolation.ts';
 
 export interface AgentProgressResult {
   exitCode:       number;
@@ -33,12 +33,17 @@ export interface RunAgentProgressOptions {
 /** Either program's, so a spec handing the child the other program's root still cannot point it outside the scratch root. */
 const ROOT_OVERRIDE_VARIABLES = [ORIGINAL_PRODUCT_NAMES, SIDE_BY_SIDE_PRODUCT_NAMES].map((productNames) => rootOverrideVariableOf(productNames));
 
+/** On by default under either program's names, so no spawned binary launches a vendor's agent; a spec's environment may still turn it off. */
+const FAKE_AGENT_SWITCHES = Object.fromEntries([ORIGINAL_PRODUCT_NAMES, SIDE_BY_SIDE_PRODUCT_NAMES].map((productNames) => [fakeAgentVariableOf(productNames), '1']));
+
 /** Built rather than inherited, because only `src/shared/Environment.ts` reads this process's environment. */
-function childEnvironmentOf(environment: Record<string, string> | undefined, homeDirectory: string): Record<string, string> {
-  if (environment === undefined) return { ...environmentCopy(), HOME: homeDirectory };
+export function childEnvironmentOf(environment: Record<string, string> | undefined, homeDirectory: string): Record<string, string> {
+  if (environment === undefined) return { ...environmentCopy(), ...FAKE_AGENT_SWITCHES, HOME: homeDirectory };
   const gitExecutable = Bun.which('git');
   const searchPath    = [dirname(process.execPath), ...(gitExecutable === null ? [] : [dirname(gitExecutable)])].join(delimiter);
-  return { PATH: searchPath, ...environment, HOME: homeDirectory };
+  return {
+    PATH: searchPath, ...FAKE_AGENT_SWITCHES, ...environment, HOME: homeDirectory
+  };
 }
 
 /** The existence check is the point: a wrong number of `..` segments still resolves, and the spawn would then fail as a Bun entry-point error. */

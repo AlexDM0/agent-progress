@@ -1,0 +1,364 @@
+/**
+ * The runner's one serial pass, design section 2.5: wake-ups coalesce into one queue, and each pass observes outside the lock (host
+ * liveness, events past each job's stored cursor, then relay folders, target tips and ended hosts), applies relayed commands, then host
+ * events with their cursors, then the lifecycle policy in one `writeTracker` hold, and runs its effects after the lease check.
+ */
+import { createHash }                          from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { join }                                from 'node:path';
+
+import type { EventLogEntry }                        from '../../lib/agent-host/EventLog.ts';
+import type { AgentAdapter }                         from '../../lib/agent-launch/AgentAdapter.ts';
+import type { AgentLaunchRequest }                   from '../../lib/agent-launch/AgentLaunchRequest.ts';
+import { launchEnvironmentOf }                       from '../../lib/agent-launch/LaunchEnvironment.ts';
+import type { WorkerProfile }                        from '../../lib/agent-launch/WorkerProfile.ts';
+import { GitProcess }                                from '../../lib/git/GitProcess.ts';
+import type { Job }                                  from '../../lib/tracker-model/@types/Job.ts';
+import type { DecisionDraft, DecisionWording }       from '../../lib/tracker-model/@types/LifecycleStep.ts';
+import type { Board }                                from '../../lib/tracker-model/Board.ts';
+import { JOB_ID_VARIABLE, RELAY_DIRECTORY_VARIABLE } from '../../shared/Environment.ts';
+import { LIFECYCLE_LIMITS }                          from '../../shared/constants/LifecycleLimits.ts';
+import { PRODUCT_NAMES }                             from '../../shared/constants/ProductNames.ts';
+import type { RenderState }                          from '../render/RenderState.ts';
+import { writeTracker, type TrackerChange }          from '../tracker/TrackerPipeline.ts';
+import { requireProgressFile }                       from '../tracker/TrackerReader.ts';
+import type { Workspace }                            from '../tracker/Workspace.ts';
+import { HostFleet, type HostLiveness }              from './HostFleet.ts';
+import { RelayInbox, type PendingRelayRequest }      from './RelayInbox.ts';
+import { RunnerLease }                               from './RunnerLease.ts';
+
+/** What a session is told at launch; worded by the command line, since services hold no words. */
+export interface JobLaunchText {
+  firstMessage: string;
+  roleBrief:    string;
+}
+
+export interface DrivePassRequest {
+  workspace:             Workspace;
+  renderState:           RenderState;
+  now:                   () => Date;
+  formatStamp:           (moment: Date) => string;
+  runnerDirectory:       string;
+  generation:            number;
+  hostBundlePath:        string;
+  codeVersion:           string;
+  agentAdapter:          AgentAdapter;
+  /** The folder the host sockets go under: `<home>/<monitor folder>`. */
+  monitorFolder:         string;
+  /** Narrowed to the launch allowlist before any session sees it. */
+  inheritedEnvironment:  Readonly<Record<string, string | undefined>>;
+  mainLine:              string;
+  /** The start marker of the managed block a committed CLAUDE.md must no longer hold before launches onto its target. */
+  managedBlockMarker:    string;
+  installVersionChanged: () => boolean;
+  decisionWordingOf:     (draft: DecisionDraft) => DecisionWording;
+  launchTextOf:          (job: Readonly<Job>) => JobLaunchText;
+  log:                   (line: string) => void;
+  /** The pass stops acting at once; the caller ends the runner `lease-taken-over`. */
+  onLeaseTakenOver:      (refusal: unknown) => void;
+  /** Called inside the hold after each of its three phases, on the Board being changed; the step a spec reads the order at. */
+  afterHoldPhase?:       (phase: 'relayed-commands' | 'host-events' | 'lifecycle', board: Board) => void;
+}
+
+/** Derived each pass from the board, git and the runner's state, never stored; later tickets add the other kinds of design section 8.2. */
+export type RunnerNotice =
+  | { kind: 'install-version-changed' }
+  | { kind: 'claude-md-block-committed'; target: string };
+
+export interface RunnerStateDocument {
+  generation: number;
+  passes:     number;
+  notices:    RunnerNotice[];
+}
+
+export interface DrivePass {
+  /** Coalesced: wakes during a pass add exactly one more pass. `forced` runs it even when nothing observed changed. */
+  wake:  (forced?: boolean) => void;
+  /** Resolves once no pass is running or queued. */
+  idle:  () => Promise<void>;
+  state: () => RunnerStateDocument;
+}
+
+interface HostObservation {
+  jobId:    string;
+  instance: number;
+  liveness: HostLiveness;
+  events:   readonly EventLogEntry[];
+}
+
+interface Observation {
+  hosts:                      readonly HostObservation[];
+  pendingRequests:            readonly PendingRelayRequest[];
+  targetTips:                 Readonly<Record<string, string | null>>;
+  targetsHoldingManagedBlock: readonly string[];
+  fingerprint:                string;
+  trackerId:                  string;
+}
+
+const GROUP_TARGET_PREFIX = 'group-';
+const DEFAULT_MODEL = 'opus';
+const DEFAULT_EFFORT = 'medium';
+const ROLES_THAT_MAY_ASK: ReadonlySet<string> = new Set(['builder', 'reviewer', 'product-owner']);
+
+function fileTextOrEmpty(filePath: string): string {
+  try {
+    return readFileSync(filePath, 'utf8');
+  } catch {
+    return '';
+  }
+}
+
+function targetTipOf(repositoryRoot: string, target: string): string | null {
+  return GitProcess.resolvedCommitOf(repositoryRoot, target);
+}
+
+function targetHoldsManagedBlock(repositoryRoot: string, target: string, marker: string): boolean {
+  const shown = GitProcess.run(repositoryRoot, ['show', `${target}:CLAUDE.md`]);
+  return GitProcess.succeeded(shown) && shown.standardOutput.includes(marker);
+}
+
+/** Identity, never time: the stored board and log, the pending requests, the unread events, the target tips and each host's verdict. */
+function fingerprintOf(workspace: Workspace, hosts: readonly HostObservation[], pending: readonly PendingRelayRequest[], tips: Readonly<Record<string, string | null>>): string {
+  const digest = createHash('sha256');
+  digest.update(fileTextOrEmpty(workspace.progressFilePath)).update('\0').update(fileTextOrEmpty(workspace.logFilePath)).update('\0');
+  for (const request of pending) digest.update(`request ${request.jobId} ${request.requestId}\n`);
+  for (const host of hosts) digest.update(`host ${host.jobId} ${host.instance} ${host.liveness.verdict} ${host.events.at(-1)?.sequence ?? 0}\n`);
+  for (const [target, tip] of Object.entries(tips)) digest.update(`tip ${target} ${tip ?? '-'}\n`);
+  return digest.digest('hex');
+}
+
+function observe(request: DrivePassRequest): Observation {
+  const { workspace } = request;
+  const progress      = requireProgressFile(workspace);
+  const jobs          = progress.jobs ?? [];
+  // Events before relay folders: a request a session wrote before its turn's `result` is seen in the same pass as that result.
+  const hosts = jobs.map((job): HostObservation => {
+    const jobFolder     = HostFleet.jobFolderOf(workspace.trackerDirectory, job.id);
+    const afterSequence = job.eventCursor.instance === job.hostInstance ? job.eventCursor.sequence : 0;
+    const liveness      = HostFleet.livenessOf(jobFolder, job.hostInstance);
+    const events        = HostFleet.eventsAfter(jobFolder, job.hostInstance, afterSequence);
+    if (events === 'malformed') request.log(`The event log of job ${job.id}, host instance ${job.hostInstance}, is malformed; its events wait.`);
+    return {
+      jobId: job.id, instance: job.hostInstance, liveness, events: events === 'malformed' ? [] : events
+    };
+  });
+  const pendingRequests = RelayInbox.pendingRequestsOf(workspace.rootDirectory, jobs);
+  const targets         = [...new Set([request.mainLine, ...jobs.flatMap((job) => (job.target === null ? [] : [job.target]))])].sort();
+  const targetTips      = Object.fromEntries(targets.map((target) => [target, targetTipOf(workspace.rootDirectory, target)]));
+  const targetsHoldingManagedBlock = targets.filter((target) => targetHoldsManagedBlock(workspace.rootDirectory, target, request.managedBlockMarker));
+  return {
+    hosts,
+    pendingRequests,
+    targetTips,
+    targetsHoldingManagedBlock,
+    fingerprint: fingerprintOf(workspace, hosts, pendingRequests, targetTips),
+    trackerId:   progress.trackerId,
+  };
+}
+
+/** A question opens its decision and a closing result moves the job to verification in the hold that reads them; the cursor moves with them. */
+function applyHostEvents(change: TrackerChange, adapter: AgentAdapter, hosts: readonly HostObservation[]): void {
+  const { board, at } = change;
+  for (const host of hosts) {
+    if (board.jobById(host.jobId)?.hostInstance !== host.instance) continue;
+    let closedWithResult = false;
+    for (const entry of host.events) {
+      if (entry.origin !== 'agent') continue;
+      for (const event of adapter.eventsOf(entry.line)) {
+        const state = board.jobById(host.jobId)?.state;
+        if (event.kind === 'started' && (state === 'launching' || state === 'preparing')) board.moveJob(host.jobId, 'running', at);
+        if (event.kind === 'question' && state === 'running') openQuestion(board, host.jobId, event.requestId, event.questions, at);
+        if (event.kind === 'result' && state === 'running') {
+          board.moveJob(host.jobId, 'verifying', at);
+          closedWithResult = true;
+        }
+      }
+    }
+    const lastEvent = host.events.at(-1);
+    if (lastEvent !== undefined) board.setJobEventCursor(host.jobId, { instance: host.instance, sequence: lastEvent.sequence });
+    const state = board.jobById(host.jobId)?.state;
+    const hostIsGone = host.liveness.verdict === 'ended' || host.liveness.verdict === 'lost';
+    if (hostIsGone && !closedWithResult && (state === 'running' || state === 'waiting-for-answer')) {
+      board.interruptJob(host.jobId, host.liveness.verdict === 'lost' ? 'host-lost' : 'agent-crashed', at);
+    }
+  }
+}
+
+function openQuestion(board: Board, jobId: string, requestId: string, questions: readonly DecisionQuestionShape[], at: string): void {
+  const job = board.jobById(jobId);
+  if (job === undefined || job.answeredRequestIds.includes(requestId) || board.decisions().some((decision) => decision.requestId === requestId)) return;
+  board.openDecision({
+    kind:      'agent-question',
+    ticketIds: job.ticketIds,
+    jobId,
+    askedBy:   job.role ?? 'runner',
+    requestId,
+    questions: questions.map((question) => ({ ...question, options: question.options.map((option) => ({ ...option })) })),
+    context:   '',
+  }, at);
+  board.moveJob(jobId, 'waiting-for-answer', at);
+}
+
+type DecisionQuestionShape = Parameters<AgentAdapter['answerLineOf']>[1][number];
+
+function workingDirectoryOf(workspace: Workspace, job: Readonly<Job>): string {
+  const worktreesRoot = join(workspace.rootDirectory, PRODUCT_NAMES.WORKTREES_FOLDER);
+  const [ticketId] = job.ticketIds;
+  const ticketWorktree = ticketId === undefined ? null : join(worktreesRoot, `ticket-${ticketId}`);
+  if (ticketWorktree !== null && existsSync(ticketWorktree)) return ticketWorktree;
+  // Preparing a ticket's worktree is a later step of the chain; until it exists the session works in a folder of its own.
+  const sessionFolder = join(worktreesRoot, 'sessions', job.id);
+  mkdirSync(sessionFolder, { recursive: true });
+  return sessionFolder;
+}
+
+function profileOf(workspace: Workspace, job: Readonly<Job>, workingDirectory: string, relayDirectory: string): WorkerProfile {
+  return {
+    writableRoots:          [workingDirectory],
+    deniedWritableRoots:    [workspace.trackerDirectory],
+    deniedReadableRoots:    [join(workspace.trackerDirectory, 'runner')],
+    bashNetworkDomains:     [],
+    webNetworkDomains:      'none',
+    relayDirectory,
+    allowedCommandPrefixes: [],
+    deniedCommandPrefixes:  [],
+    askUser:                job.role !== null && ROLES_THAT_MAY_ASK.has(job.role),
+    skills:                 false,
+    subagents:              [],
+    attribution:            'none',
+    instructionsRoot:       workspace.rootDirectory,
+    gitHooksDirectory:      join(workspace.rootDirectory, '.githooks'),
+    commitSigning:          { kind: 'unsigned' },
+  };
+}
+
+function launchHost(request: DrivePassRequest, trackerId: string, job: Readonly<Job>): void {
+  const { workspace, agentAdapter } = request;
+  const jobFolder        = HostFleet.jobFolderOf(workspace.trackerDirectory, job.id);
+  const relayDirectory   = RelayInbox.relayDirectoryOf(workspace.rootDirectory, job.id);
+  mkdirSync(join(relayDirectory, 'requests'), { recursive: true });
+  const workingDirectory = workingDirectoryOf(workspace, job);
+  const text             = request.launchTextOf(job);
+  const launchRequest: AgentLaunchRequest = {
+    sessionId:         agentAdapter.sessionIdOf(trackerId, job.id),
+    resume:            job.state === 'running' && job.hostInstance > 1,
+    workingDirectory,
+    firstMessage:      text.firstMessage,
+    roleBrief:         text.roleBrief,
+    model:             DEFAULT_MODEL,
+    effort:            DEFAULT_EFFORT,
+    environment:       launchEnvironmentOf(request.inheritedEnvironment, { [JOB_ID_VARIABLE]: job.id, [RELAY_DIRECTORY_VARIABLE]: relayDirectory }),
+    profile:           profileOf(workspace, job, workingDirectory, relayDirectory),
+    jobFilesDirectory: jobFolder,
+    reportSchema:      null,
+  };
+  HostFleet.writeLaunchFiles({
+    jobFolder,
+    instance:        job.hostInstance,
+    jobId:           job.id,
+    trackerId,
+    monitorFolder:   request.monitorFolder,
+    hostCodeVersion: request.codeVersion,
+    workingDirectory,
+    plan:            agentAdapter.planOf(launchRequest),
+  });
+  HostFleet.spawnHost({ bundlePath: request.hostBundlePath, jobFolder, instance: job.hostInstance });
+  request.log(`Spawned host instance ${job.hostInstance} of job ${job.id} (${job.kind}${job.ticketIds.length === 0 ? '' : ` #${job.ticketIds.join(', #')}`}).`);
+}
+
+/** A job launching, or resumed into `running`, whose current instance nobody claimed yet; spawning twice is harmless, since the claim is exclusive. */
+function jobsNeedingAHost(board: Board, trackerDirectory: string, spawnedInstances: ReadonlySet<string>): readonly Readonly<Job>[] {
+  return board.jobs().filter((job) => (job.state === 'launching' || job.state === 'running')
+    && job.role !== null
+    && !spawnedInstances.has(`${job.id}:${job.hostInstance}`)
+    && HostFleet.livenessOf(HostFleet.jobFolderOf(trackerDirectory, job.id), job.hostInstance).verdict === 'unclaimed');
+}
+
+function noticesOf(request: DrivePassRequest, observation: Observation): RunnerNotice[] {
+  return [
+    ...(request.installVersionChanged() ? [{ kind: 'install-version-changed' } as const] : []),
+    ...observation.targetsHoldingManagedBlock.map((target) => ({ kind: 'claude-md-block-committed', target }) as const),
+  ];
+}
+
+export function createDrivePass(request: DrivePassRequest): DrivePass {
+  const spawnedInstances = new Set<string>();
+  let lastFingerprint: string | null = null;
+  let running: Promise<void> | null = null;
+  let wokenAgain = false;
+  let forcedNext = false;
+  let state: RunnerStateDocument = { generation: request.generation, passes: 0, notices: [] };
+  let stopped = false;
+
+  async function runOnePass(forced: boolean): Promise<void> {
+    const observation = observe(request);
+    if (!forced && observation.fingerprint === lastFingerprint) return;
+    const at = request.formatStamp(request.now());
+    const limits = { ...LIFECYCLE_LIMITS, now: at, usageResetsAt: null };
+    const observations = {
+      mainLine:                     request.mainLine,
+      groupTargetPrefix:            GROUP_TARGET_PREFIX,
+      installVersionChanged:        request.installVersionChanged(),
+      targetsHoldingManagedBlock:   observation.targetsHoldingManagedBlock,
+      ticketIdsTouchingAgentConfig: [],
+      closedDeliveryTurns:          [],
+    };
+    const written = await writeTracker({
+      workspace:   request.workspace,
+      at,
+      now:         request.now,
+      renderState: request.renderState,
+      mutate:      (change) => {
+        const replies = RelayInbox.applyPendingRequests(change, request.workspace.rootDirectory, observation.pendingRequests);
+        request.afterHoldPhase?.('relayed-commands', change.board);
+        applyHostEvents(change, request.agentAdapter, observation.hosts);
+        request.afterHoldPhase?.('host-events', change.board);
+        change.board.advanceLifecycle(limits, observations, request.decisionWordingOf);
+        request.afterHoldPhase?.('lifecycle', change.board);
+        return replies;
+      },
+    });
+    try {
+      RunnerLease.requireNewestGeneration(request.runnerDirectory, request.generation);
+    } catch (refusal) {
+      stopped = true;
+      request.onLeaseTakenOver(refusal);
+      return;
+    }
+    RelayInbox.writeReplies(written.result);
+    for (const job of jobsNeedingAHost(written.board, request.workspace.trackerDirectory, spawnedInstances)) {
+      spawnedInstances.add(`${job.id}:${job.hostInstance}`);
+      launchHost(request, observation.trackerId, job);
+    }
+    state = { generation: request.generation, passes: state.passes + 1, notices: noticesOf(request, observation) };
+    lastFingerprint = observe(request).fingerprint;
+  }
+
+  async function drain(): Promise<void> {
+    do {
+      wokenAgain = false;
+      const forced = forcedNext;
+      forcedNext = false;
+      try {
+        await runOnePass(forced);
+      } catch (thrown) {
+        request.log(`A drive pass failed and waits for the next wake-up: ${thrown instanceof Error ? thrown.message : String(thrown)}`);
+      }
+    } while (wokenAgain && !stopped);
+    running = null;
+  }
+
+  return {
+    wake: (forced = false) => {
+      if (stopped) return;
+      forcedNext ||= forced;
+      if (running !== null) {
+        wokenAgain = true;
+        return;
+      }
+      running = drain();
+    },
+    idle:  () => running ?? Promise.resolve(),
+    state: () => state,
+  };
+}
