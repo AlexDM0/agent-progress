@@ -406,6 +406,12 @@ describeWhenGitIsPresent('the concurrency block both --json documents carry', ()
         model:    'sonnet',
         effort:   'high',
       },
+      {
+        id:       '005',
+        priority: 'low',
+        model:    'opus',
+        effort:   'medium',
+      },
     ];
     expect(working.readyTickets).toEqual(expected);
     expect(full.readyTickets).toEqual(expected);

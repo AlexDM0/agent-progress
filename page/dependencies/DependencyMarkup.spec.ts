@@ -166,8 +166,8 @@ describe('nodes', () => {
     expect(nodeOf(MARKUP, '013')).not.toContain('ap-badge');
   });
 
-  test('a held ticket stays in Now without the Ready chip, marked Held, and a pending low one is no node, as the Board lists only the normal one', () => {
-    expect([...HELD_AND_LOW_BOARD.readyTicketIds]).toEqual(['023']);
+  test('a held ticket stays in Now without the Ready chip, marked Held, and a pending low one is no node, though the Board lists it ready', () => {
+    expect([...HELD_AND_LOW_BOARD.readyTicketIds]).toEqual(['023', '022']);
     expect(HELD_AND_LOW_GRAPH.waves[0]?.nodeIds.toSorted()).toEqual(['021', '023']);
     expect(nodeOf(HELD_AND_LOW_MARKUP, '021')).toContain('<span class="ap-kanban-held" title="Held: not before 2026-10-05">Held</span>');
     expect(nodeOf(HELD_AND_LOW_MARKUP, '021')).not.toContain('data-ready');

@@ -33,7 +33,7 @@ import { runCommandLine }                                 from '../../Main.ts';
 import { INSTALL_VERSION }                                from '../../constants/InstallVersion.ts';
 import { createCapturedCommandContext }                   from '../../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository }             from '../../testing/InitializedScratchRepository.ts';
-import { filedTicketFileOf, READY_TICKET_BODY_ARGUMENTS } from '../../testing/ReadyTicketFiling.ts';
+import { READY_TICKET_BODY_ARGUMENTS }                    from '../../testing/ReadyTicketFiling.ts';
 import { storedLogEntriesOf }                             from '../../testing/StoredLogEntries.ts';
 import { storedProgressOf }                               from '../../testing/StoredProgress.ts';
 
@@ -356,21 +356,19 @@ describeWhenGitIsPresent('the row the brief names', () => {
 });
 
 /**
- * The ticket form exists because a low ticket has no row until its builder claims it, after the brief
- * is written. So every case files the ticket, writes the brief, and only then creates the row — the
+ * The ticket form exists because a ticket may have no row yet when the brief is written, as a draft
+ * has none until it is readied. So every case files the ticket, writes the brief, and only then creates the row — the
  * claim is resolved when the hook runs, never when the brief was written.
  */
 describeWhenGitIsPresent('the tickets the brief names', () => {
-  /** Readied at normal and lowered, since lowering is what leaves a pending ticket without a row: a readied low ticket keeps one. */
+  /** A draft, since a draft is the ticket that has no row: a readied ticket keeps one at every priority. */
   async function filedLowTicket(title: string): Promise<void> {
-    const filing = contextWith('');
-    expect(await runCommandLine(['ticket', 'add', '--type', 'ticket', title, ...READY_TICKET_BODY_ARGUMENTS], filing)).toBe(0);
-    const { id } = filedTicketFileOf(filing.outputText());
-    expect(await runCommandLine(['ticket', 'ready', id], contextWith(''))).toBe(0);
-    expect(await runCommandLine(['ticket', 'priority', id, 'low'], contextWith(''))).toBe(0);
+    expect(await runCommandLine(['ticket', 'add', '--type', 'ticket', title, '--priority', 'low', ...READY_TICKET_BODY_ARGUMENTS], contextWith(''))).toBe(0);
   }
 
+  /** Readied, which files its row, then started. */
   async function startedTicket(reference: string): Promise<void> {
+    expect(await runCommandLine(['ticket', 'ready', reference], contextWith(''))).toBe(0);
     expect(await runCommandLine(['ticket', 'start', reference], contextWith(''))).toBe(0);
   }
 

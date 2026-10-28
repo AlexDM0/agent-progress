@@ -28,7 +28,8 @@ import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.
 import { runCommandLine }                     from '../Main.ts';
 import { createCapturedCommandContext }       from '../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../testing/InitializedScratchRepository.ts';
-import { fileReadyTicket }                    from '../testing/ReadyTicketFiling.ts';
+import { fileReadyTicket, filedTicketFileOf } from '../testing/ReadyTicketFiling.ts';
+import { dropTicketRow }                      from '../testing/RowlessTicket.ts';
 import { storedLogEntriesOf }                 from '../testing/StoredLogEntries.ts';
 import { storedProgressOf }                   from '../testing/StoredProgress.ts';
 import { TICKET_CLAIM_SUBCOMMANDS }           from './TicketClaimSubcommands.ts';
@@ -260,8 +261,8 @@ describeWhenGitIsPresent('readying a draft ticket', () => {
   });
 
   test('a low pending ticket with no row still gets its row when it starts', async () => {
-    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
-    await run(['ticket', 'priority', '1', 'low']);
+    const filing = await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it', '--priority', 'low']);
+    dropTicketRow(repositoryDirectory, filedTicketFileOf(filing.outputText()));
     expect(storedProgressOf(repositoryDirectory).tasks.filter((task) => task.ticket === '001' && task.status !== 'abandoned')).toEqual([]);
 
     await run(['ticket', 'start', '1']);
@@ -837,6 +838,7 @@ describeWhenGitIsPresent('the subcommand groups', () => {
       'introduced-by',
       'link',
       'list',
+      'network',
       'priority',
       'ready',
       'release-of',

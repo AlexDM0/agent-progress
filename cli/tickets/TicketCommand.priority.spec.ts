@@ -1,7 +1,7 @@
 /**
- * Ticket priority as the command surface sees it. The cases that matter: a low ticket takes no row and no task id until it is started, a
- * priority change moves the row in the same write, the ready list and `claim` hold low work back while normal or high work is owed, and a
- * ticket file without the key reads as normal and is never rewritten for being read.
+ * Ticket priority as the command surface sees it. The cases that matter: a low draft takes no row and no task id, a lowered ticket keeps
+ * its row while raising a rowless one files it in the same write, priority only orders the ready list and never stops a claim, the
+ * readiness order breaks a tie within a priority, and a ticket file without the key reads as normal and is never rewritten for being read.
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { join }                      from 'node:path';
@@ -12,15 +12,16 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import { PRODUCT_NAMES }                      from '../../src/shared/constants/ProductNames.ts';
-import { removeScratchDirectory }             from '../../src/testing/ScratchWorkspace.ts';
-import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.ts';
-import { runCommandLine }                     from '../Main.ts';
-import { createCapturedCommandContext }       from '../testing/CapturedCommandContext.ts';
-import { createInitializedScratchRepository } from '../testing/InitializedScratchRepository.ts';
-import { fileReadyTicket }                    from '../testing/ReadyTicketFiling.ts';
-import { storedLogEntriesOf }                 from '../testing/StoredLogEntries.ts';
-import { storedProgressOf }                   from '../testing/StoredProgress.ts';
+import { PRODUCT_NAMES }                                                   from '../../src/shared/constants/ProductNames.ts';
+import { removeScratchDirectory }                                          from '../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                                        from '../../src/testing/ToolGuard.ts';
+import { runCommandLine }                                                  from '../Main.ts';
+import { createCapturedCommandContext }                                    from '../testing/CapturedCommandContext.ts';
+import { createInitializedScratchRepository }                              from '../testing/InitializedScratchRepository.ts';
+import { READY_TICKET_BODY_ARGUMENTS, fileReadyTicket, filedTicketFileOf } from '../testing/ReadyTicketFiling.ts';
+import { dropTicketRow }                                                   from '../testing/RowlessTicket.ts';
+import { storedLogEntriesOf }                                              from '../testing/StoredLogEntries.ts';
+import { storedProgressOf }                                                from '../testing/StoredProgress.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -70,10 +71,9 @@ function logLinesAbout(identifier: string): string[] {
   return storedLogEntriesOf(repositoryDirectory).map((entry) => entry.text).filter((text) => text.startsWith(`Ticket #${identifier} priority`));
 }
 
-/** A ready ticket keeps its row at every priority, so a pending low ticket with no row is a ready one lowered, which takes its row away. */
 async function fileLowPendingTicketWithoutRow(title: string): Promise<void> {
-  await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', title]);
-  await run(['ticket', 'priority', '1', 'low']);
+  const filing = await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', title, '--priority', 'low']);
+  dropTicketRow(repositoryDirectory, filedTicketFileOf(filing.outputText()));
 }
 
 beforeEach(async () => {
@@ -163,22 +163,32 @@ describeWhenGitIsPresent('filing and moving a low ticket', () => {
 });
 
 describeWhenGitIsPresent('ticket priority', () => {
-  test('lowering a pending normal ticket removes its row, and raising it again files a new one, each with one log line', async () => {
+  // Priority only orders the queue: a lowered ticket is still ready, so it keeps its row.
+  test('lowering a pending normal ticket keeps its row, and raising it again keeps the same row, each with one log line', async () => {
     await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Fix the axis']);
-    expect(storedProgressOf(repositoryDirectory).tasks).toHaveLength(1);
+    const rowsBefore = storedProgressOf(repositoryDirectory).tasks;
+    expect(rowsBefore).toHaveLength(1);
 
     await run(['ticket', 'priority', '1', 'low']);
-    expect(storedProgressOf(repositoryDirectory).tasks).toHaveLength(0);
+    expect(storedProgressOf(repositoryDirectory).tasks).toEqual(rowsBefore);
     expect(storedTicketText('001')).toContain('priority: "low"');
-    expect(storedTicketText('001')).toContain('task: null');
+    expect(storedTicketText('001')).toContain(`task: ${rowsBefore[0]?.id}`);
     expect(logLinesAbout('001')).toEqual(['Ticket #001 priority normal → low']);
 
     await run(['ticket', 'priority', '1', 'normal']);
+    expect(storedProgressOf(repositoryDirectory).tasks).toEqual(rowsBefore);
+    expect(logLinesAbout('001')).toEqual(['Ticket #001 priority normal → low', 'Ticket #001 priority low → normal']);
+  });
+
+  test('raising a pending low ticket with no row files a pending row for it', async () => {
+    await fileLowPendingTicketWithoutRow('Reword the empty-log note');
+
+    await run(['ticket', 'priority', '1', 'normal']);
+
     const { tasks } = storedProgressOf(repositoryDirectory);
     expect(tasks).toHaveLength(1);
     expect(tasks[0]).toMatchObject({ status: 'pending', ticket: '001' });
     expect(storedTicketText('001')).toContain(`task: ${tasks[0]?.id}`);
-    expect(logLinesAbout('001')).toEqual(['Ticket #001 priority normal → low', 'Ticket #001 priority low → normal']);
   });
 
   test('raising an abandoned low ticket gives it an abandoned row, not a pending one', async () => {
@@ -223,24 +233,23 @@ describeWhenGitIsPresent('ticket priority', () => {
 });
 
 describeWhenGitIsPresent('readiness and claiming', () => {
-  // The acceptance pair: low work waits for the normal ticket to be delivered, both in what the dispatcher is told and in what claim allows.
-  test('a low ticket is neither listed nor claimable while a normal ticket is owed, and is both once it is delivered', async () => {
-    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Fix the axis']);
+  // Ready means build: priority only orders, so a pending normal ticket holds no low one back, in the list or in a claim.
+  test('a low ticket is listed after a pending normal one and claimable while it is owed', async () => {
     await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Reword the empty-log note', '--priority', 'low']);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Fix the axis']);
 
-    expect(await readyTicketIds()).toEqual(['001']);
-    const refusal = await runExpectingRefusal(['ticket', 'claim', '2']);
-    expect(refusal.errorText()).toContain('#001');
+    expect(await readyTicketIds()).toEqual(['002', '001']);
+    await run(['ticket', 'claim', '1', '--owner', 'opus']);
+    expect(storedProgressOf(repositoryDirectory).tasks.find((task) => task.ticket === '001')).toMatchObject({ status: 'in-progress', owner: 'opus' });
     expect(storedTicketText('002')).toContain('status: "pending"');
+  });
 
-    await run(['ticket', 'start', '1']);
-    await run(['ticket', 'approve', '1']);
-    await runExpectingRefusal(['ticket', 'claim', '2']);
-    await run(['ticket', 'deliver', '1']);
+  test('within a priority the ticket readied first is listed first, whatever its id', async () => {
+    await run(['ticket', 'add', '--type', 'ticket', 'Fix the axis', ...READY_TICKET_BODY_ARGUMENTS]);
+    await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Reword the empty-log note']);
+    await run(['ticket', 'ready', '1']);
 
-    expect(await readyTicketIds()).toEqual(['002']);
-    await run(['ticket', 'claim', '2', '--owner', 'opus']);
-    expect(storedProgressOf(repositoryDirectory).tasks.find((task) => task.ticket === '002')).toMatchObject({ status: 'in-progress', owner: 'opus' });
+    expect(await readyTicketIds()).toEqual(['002', '001']);
   });
 
   test('a high ticket filed after a normal one is listed first', async () => {
@@ -251,13 +260,13 @@ describeWhenGitIsPresent('readiness and claiming', () => {
     expect((await run(['status'])).outputText()).toContain('ready: #002, #001');
   });
 
-  test('ticket start on a held-back low ticket warns and still moves it', async () => {
+  test('ticket start on a low ticket while normal work is owed moves it without a warning', async () => {
     await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Fix the axis']);
     await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Reword the empty-log note', '--priority', 'low']);
 
     const context = await run(['ticket', 'start', '2']);
 
-    expect(context.errorText()).toContain('Ticket #002 is low priority, and #001 is normal or high and not delivered or abandoned yet');
+    expect(context.errorText()).toBe('');
     expect(storedTicketText('002')).toContain('status: "in-progress"');
   });
 });

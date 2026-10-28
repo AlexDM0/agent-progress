@@ -328,6 +328,7 @@ output never carries either.
                               \`ticket ready\` readies it. The body comes from
       [--depends-on <ids>]    the template, from --body, or from --body-file (\`-\` reads standard
       [--epic <keys>]         input); an empty body falls back to the template, and afterwards the
+      [--network <domains>]
       [--introduced-by <id>]  body is preserved byte for byte, so an agent may edit everything
       [--found-in-review <id>]
       [--body <markdown>]     below the frontmatter freely. --depends-on files it already waiting
@@ -336,9 +337,10 @@ output never carries either.
                               its primary one), as \`ticket epic\` does. --introduced-by names the
                               delivered ticket whose change introduced a bug, as
                               \`ticket introduced-by\` does; --found-in-review names the ticket
-                              whose review found this one, a ticket that must exist. --priority
-                              defaults to normal; a low ticket is filed with no row and takes no
-                              task id until it is started. --model (haiku, sonnet, opus, fable)
+                              whose review found this one, a ticket that must exist. --network
+                              sets its network line, as \`ticket network\` does. --priority
+                              defaults to normal and only orders the ready tickets, low last.
+                              --model (haiku, sonnet, opus, fable)
                               and --effort (low, medium, high, xhigh, max) name what the agents
                               building and reviewing it run on; left off, they are opus and
                               medium. --size, in capitals, is the expected change in code lines
@@ -403,9 +405,10 @@ output never carries either.
 
   ticket priority <id> low|normal|high [--at <when>]
                               Change a ticket's priority, with one log line. Lowering to low is
-                              refused unless the ticket is a draft ticket or pending, and removes
-                              its row; a draft ticket has none at any priority; raising a
-                              low ticket that has no row gives it one at once. A low ticket gets
+                              refused unless the ticket is a draft ticket or pending, and keeps
+                              its row: priority only orders the ready tickets. A draft ticket has
+                              none at any priority; raising a low ticket that has no row gives it
+                              one at once. A low ticket with no row gets
                               its row when \`ticket start\` or \`ticket claim\` starts it, and keeps
                               it; abandoning a low ticket that has none creates none.
 
@@ -413,6 +416,14 @@ output never carries either.
                               Change a ticket's size, in any status, with one log line. Refused at
                               exit 1 on a value outside the list under \`ticket add\` and when
                               nothing would change.
+
+  ticket network <id> <domain>... | --clear [--at <when>] [--json]
+                              Set the public domains a ticket's agents may reach, comma or space
+                              separated and stored lower case as \`network\`; --clear removes the
+                              line. One log line. Refused at exit 1, writing nothing, unless the
+                              ticket is a draft ticket or pending, on a loopback name, a .local
+                              name or a loopback or private IP address (network-domain-not-public),
+                              and when nothing would change.
 
   ticket ready <id> [<id>...] [--at <when>] [--json]
                               Ready draft tickets to build, all or nothing: each becomes pending

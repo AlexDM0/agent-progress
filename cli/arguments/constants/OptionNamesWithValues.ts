@@ -22,6 +22,7 @@ export const OPTION_NAMES_WITH_VALUES = new Set<string>([
   'group',
   'depends-on',
   'epic',
+  'network',
   'introduced-by',
   'found-in-review',
   'title',
