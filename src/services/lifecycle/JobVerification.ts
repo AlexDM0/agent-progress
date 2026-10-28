@@ -255,7 +255,7 @@ function ticketNumberOf(ticketReference: string): number {
 }
 
 /** The ticket a relayed request filed: the nearest `ticket-filed` this job logged before the request's `relay-applied`, in the same application. */
-function ticketIdFiledByRequest(records: readonly LogRecord[], jobId: string, requestId: string): string | null {
+export function ticketIdFiledByRequest(records: readonly LogRecord[], jobId: string, requestId: string): string | null {
   const appliedIndex = records.findIndex((record) => record.kind === 'relay-applied' && record.jobId === jobId && record.fields.requestId === requestId);
   for (let i = appliedIndex - 1; i >= 0; i -= 1) {
     const record = records[i];

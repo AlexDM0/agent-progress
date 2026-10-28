@@ -17,6 +17,7 @@ import type { Board }                          from '../../lib/tracker-model/Boa
 import { RoundVerdictUtil }                    from '../../lib/tracker-model/utils/RoundVerdictUtil.ts';
 import { TICKET_SECTION_PATTERNS }             from '../../shared/constants/TicketSectionPatterns.ts';
 import { ReworkCountUtil }                     from '../../shared/rework/utils/ReworkCountUtil.ts';
+import { ticketIdFiledByRequest }              from './JobVerification.ts';
 
 export interface ReviewPassRequest {
   board:             Board;
@@ -106,11 +107,7 @@ function findingsOf(report: unknown, filedTicketIdOfRequest: (requestId: string)
 }
 
 function filedTicketIdResolver(records: readonly LogRecord[], jobId: string): (requestId: string) => string {
-  return (requestId) => {
-    const appliedIndex = records.findIndex((record) => record.kind === 'relay-applied' && record.jobId === jobId && record.fields.requestId === requestId);
-    const filing = records.slice(0, Math.max(0, appliedIndex)).findLast((record) => record.kind === 'ticket-filed' && record.fields.filedByJob === jobId);
-    return filing?.kind === 'ticket-filed' ? filing.ticketId : requestId;
-  };
+  return (requestId) => ticketIdFiledByRequest(records, jobId, requestId) ?? requestId;
 }
 
 function reviewSectionOf(round: number, report: unknown, claims: readonly ReviewClaim[], findings: readonly ReviewFinding[]): string {
