@@ -2,6 +2,7 @@
 import { OperationRefusalWordingUtil } from '../../../src/adapters/utils/OperationRefusalWordingUtil.ts';
 import type { TokenCreditOutcome }     from '../../../src/lib/tracker-model/@types/BoardChanges.ts';
 import type { AgentUsage, LogRecord }  from '../../../src/lib/tracker-model/@types/LogRecord.ts';
+import { TokenCrediting }              from '../../../src/services/lifecycle/TokenCrediting.ts';
 import { refusalIsOperationRefusal }   from '../../../src/shared/OperationRefusal.ts';
 import type { CommandContext }         from '../../CommandContext.ts';
 import { requireCurrentInstall }       from '../../InstallVersionCheck.ts';
@@ -35,18 +36,10 @@ function unrecordedSentenceOf(outcome: TokenCreditOutcome): string | undefined {
   }
 }
 
-/**
- * A resumed agent's total holds every earlier stop's, so an agent id already logged is credited only what its total grew by since its
- * largest logged one. An agent the input did not name cannot be told apart, so it is
- * credited whole.
- */
+/** An agent the input did not name cannot be told apart from another unnamed one, so it is credited whole. */
 function tokensStillToCreditOf(usage: AgentUsage, storedLogRecords: readonly LogRecord[]): number {
   if (usage.agentId === UNKNOWN_AGENT) return usage.totalInputTokens;
-  const alreadyCreditedTokens = storedLogRecords.reduce(
-    (largest, record) => (record.kind === 'agent-stopped' && record.fields.agentId === usage.agentId ? Math.max(largest, record.fields.totalInputTokens) : largest),
-    0,
-  );
-  return Math.max(0, usage.totalInputTokens - alreadyCreditedTokens);
+  return TokenCrediting.tokensStillToCreditOf(usage, storedLogRecords);
 }
 
 export interface AgentStop {
