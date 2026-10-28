@@ -82,7 +82,7 @@ export class TrackerChanges {
     return { logged: [this.records.logger.log({ kind: 'gate-ran', fields: { tree: fields.tree, outcome: fields.outcome, cached: fields.cached } }, at)] };
   }
 
-  private ticketsInFlightWithTheirRows():{ ticket: Readonly<Ticket>; row: Task }[] {
+  private ticketsInFlightWithTheirRows(): { ticket: Readonly<Ticket>; row: Task }[] {
     return this.records.ticketRecords.flatMap((ticket) => {
       if (ticket.frontmatter.status !== 'in-progress' && ticket.frontmatter.status !== 'in-review') return [];
       const row = this.records.linkedTaskRecordOf(ticket);
