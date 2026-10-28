@@ -701,10 +701,17 @@ output never carries either.
                               does a starter that lost the race (runner-contended); a runner whose
                               lease a newer one overtook stops lease-taken-over at exit 2.
                               --detach starts it in the background and prints the URL once it answers.
-  run stop|restart [--now] [--json]
-                              Stop the live runner, through its API or else SIGTERM to the process
-                              its lease names; agent hosts are never touched. \`restart\` then starts
-                              a detached successor on the same port. --now also stops process hosts.
+  run --successor-of <generation> [--port <n>]
+                              The successor's side of \`run restart\`'s handover, which only the
+                              live runner starts.
+  run stop [--now] [--json]   Stop the live runner, through its API or else SIGTERM to the process
+                              its lease names; agent hosts are never touched. --now also stops
+                              process hosts.
+  run restart [--now] [--json]
+                              Hand the board to the code on disk: a successor proves it, then takes
+                              over and reattaches every host; no agent is touched. A failed
+                              handover leaves the old runner driving with a warning and exits 1
+                              (runner-handover-failed).
   run pause|resume [--json]   Store \`dispatcherState\` \`stopped\` or \`running\`: no new jobs while
                               paused. Works with the runner up or down.
   run status [--json]         The lease, the URL, the runtime state, paused or not, and the code
