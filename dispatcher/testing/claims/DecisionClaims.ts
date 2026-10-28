@@ -25,6 +25,7 @@ const {
   AGENT_PROMPT_UTIL,
   DISPATCH_WORDING_UTIL,
   DISPATCHER_CLAIM_NOTE_UTIL,
+  SLOT_COUNT_UTIL,
 } = DISPATCHER_MODULE_PATHS;
 
 function ticketIdsFrom(first: number, count: number): string[] {
@@ -77,8 +78,8 @@ const SKIP_A_CLAIM_REFUSED_BY_THE_RUN_ITSELF: SourceMutant = {
 const ADD_A_SECOND_BAR: SourceMutant = { modulePath: AGENT_PROMPT_UTIL, find: 'take it as your bar and add none', replace: 'add your own beside it' };
 
 const SUBTRACT_EVERY_OWN_AGENT: SourceMutant = {
-  modulePath: DISPATCH_RUN,
-  find:       '.filter((ownAgent) => this.ownAgentIsConfirmedByStatus(ownAgent.work, status)).length',
+  modulePath: SLOT_COUNT_UTIL,
+  find:       '.filter((work) => ownAgentIsConfirmedByStatus(work, status)).length',
   replace:    '.length',
 };
 
@@ -172,13 +173,13 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     name:        'the agents running at once never exceed a board limit of 2',
     scenarioFor: () => ({ limit: 2, readyTicketIds: ticketIdsFrom(1, 5) }),
     holds:       (run) => run.mostAgentsAtOnce === 2 && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.length === 5,
-    mutant:      { modulePath: DISPATCH_RUN, find: 'Math.min(statedLimit, CONCURRENCY_LIMIT_CEILING_AGENTS)', replace: 'CONCURRENCY_LIMIT_CEILING_AGENTS' },
+    mutant:      { modulePath: SLOT_COUNT_UTIL, find: 'Math.min(statedLimit, CONCURRENCY_LIMIT_CEILING_AGENTS)', replace: 'CONCURRENCY_LIMIT_CEILING_AGENTS' },
   },
   {
     name:        'never more than 10 run at once, even with a board limit of 12 and none in flight elsewhere',
     scenarioFor: () => ({ limit: 12, readyTicketIds: ticketIdsFrom(1, 15) }),
     holds:       (run) => run.mostAgentsAtOnce === 10 && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.length === 15,
-    mutant:      { modulePath: DISPATCH_RUN, find: 'Math.min(statedLimit, CONCURRENCY_LIMIT_CEILING_AGENTS)', replace: 'statedLimit' },
+    mutant:      { modulePath: SLOT_COUNT_UTIL, find: 'Math.min(statedLimit, CONCURRENCY_LIMIT_CEILING_AGENTS)', replace: 'statedLimit' },
   },
   {
     // A named run is one agent's work at a time, so a builder and a reviewer of different tickets never overlap even with the board's room free.
@@ -191,7 +192,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     name:        'agents in flight elsewhere take their share of the board limit',
     scenarioFor: () => ({ limit: 3, otherAgentsInFlight: 1, readyTicketIds: ticketIdsFrom(1, 5) }),
     holds:       (run) => run.mostAgentsAtOnce === 2,
-    mutant:      { modulePath: DISPATCH_RUN, find: 'Math.max(0, status.agentsInFlight - ownAgentsConfirmedByStatus)', replace: '0' },
+    mutant:      { modulePath: SLOT_COUNT_UTIL, find: 'Math.max(0, status.agentsInFlight - ownWork', replace: '0 * (0 - ownWork' },
   },
   {
     // A block may list more own rows than its agentsInFlight counts; reading the difference as negative others would free slots the limit lacks.
@@ -207,9 +208,9 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       && run.mostAgentsAtOnce === 2
       && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.length === 4,
     mutant: {
-      modulePath: DISPATCH_RUN,
-      find:       'Math.max(0, status.agentsInFlight - ownAgentsConfirmedByStatus)',
-      replace:    '(status.agentsInFlight - ownAgentsConfirmedByStatus)',
+      modulePath: SLOT_COUNT_UTIL,
+      find:       'Math.max(0, status.agentsInFlight - ownWork',
+      replace:    '(status.agentsInFlight - ownWork',
     },
   },
   {
@@ -242,7 +243,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     }),
     holds:  (run) => run.mostAgentsInFlightAtOnce === 4 && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.length === 6,
     mutant: {
-      modulePath: DISPATCH_RUN,
+      modulePath: SLOT_COUNT_UTIL,
       find:       'const confirmingTicketIds = work.kind === \'build\' ? status.inProgressTicketIds : status.inProgressReviewOfIds;',
       replace:    'if (work.kind === \'review\') return true; const confirmingTicketIds = status.inProgressTicketIds;',
     },
@@ -258,7 +259,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       statusOmitsInProgressRows: true,
     }),
     holds:  (run) => run.mostAgentsInFlightAtOnce <= 3 && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.length === 6,
-    mutant: { modulePath: DISPATCH_RUN, find: STATUS_WITHOUT_ROWS_CONFIRMS, replace: 'if (confirmingTicketIds === \'unlisted\') return true;' },
+    mutant: { modulePath: SLOT_COUNT_UTIL, find: STATUS_WITHOUT_ROWS_CONFIRMS, replace: 'if (confirmingTicketIds === \'unlisted\') return true;' },
   },
   {
     name:        'a waiting review starts before a ready ticket',
@@ -558,7 +559,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     holds: (run) => RecordedDispatchRunUtil.kindsAndTicketsOf(run).slice(0, 4).join(', ') === 'survey, build 001, build 001, build 002'
       && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.length === 2
       && run.mostAgentsInFlightAtOnce === 2,
-    mutant: { modulePath: DISPATCH_RUN, find: '\n      + this.takeoversConfirmedByStatus(status).length', replace: '' },
+    mutant: { modulePath: DISPATCH_RUN, find: ', ...this.takeoversWaiting.values()];', replace: '];' },
   },
   {
     // The row left running is subtracted from the others, so work started ahead of its takeover would put the board over the limit.
@@ -1039,7 +1040,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       statusOmitsInProgressRows: true,
     }),
     holds:  (run) => run.mostAgentsOnBoardAtOnce <= 3 && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.length === 6,
-    mutant: { modulePath: DISPATCH_RUN, find: STATUS_WITHOUT_ROWS_CONFIRMS, replace: 'if (confirmingTicketIds === \'unlisted\') return false;' },
+    mutant: { modulePath: SLOT_COUNT_UTIL, find: STATUS_WITHOUT_ROWS_CONFIRMS, replace: 'if (confirmingTicketIds === \'unlisted\') return false;' },
   },
   {
     // A reviewer's call for another round is word that its bar runs; without it, a block lacking the rows would hold the next round back a block.

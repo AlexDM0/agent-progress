@@ -15,6 +15,7 @@ const {
   AGENT_PROMPT_UTIL,
   DISPATCH_WORDING_UTIL,
   DISPATCHER_CLAIM_NOTE_UTIL,
+  SLOT_COUNT_UTIL,
 } = DISPATCHER_MODULE_PATHS;
 
 const PAUSED_TICKET_ID = '001';
@@ -169,7 +170,7 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
       && run.mostLiveAgentsAtOnce <= 2
       && run.mostAgentsInFlightAtOnce <= 2
       && run.mostAgentsOnBoardAtOnce <= 2,
-    mutant: { modulePath: DISPATCH_RUN, find: 'Math.min(statedLimit, CONCURRENCY_LIMIT_CEILING_AGENTS)', replace: 'CONCURRENCY_LIMIT_CEILING_AGENTS' },
+    mutant: { modulePath: SLOT_COUNT_UTIL, find: 'Math.min(statedLimit, CONCURRENCY_LIMIT_CEILING_AGENTS)', replace: 'CONCURRENCY_LIMIT_CEILING_AGENTS' },
   },
   {
     // The fail-review claim: `task start` keeps the other run's note unless given one, and the rebuild's claim check then reads the running row as
