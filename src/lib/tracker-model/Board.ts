@@ -241,6 +241,10 @@ export class Board {
     return this.jobRules.recordRunnerStopped(reason, at);
   }
 
+  recordUsageLimitHit(jobId: string, limit: { window: string; resetsAt: string }, at: string): Logged {
+    return this.jobRules.recordUsageLimitHit(jobId, limit, at);
+  }
+
   recordRelayApplied(jobId: string, applied: { requestId: string; commandKind: string; outcome: string }, at: string): Logged {
     return this.jobRules.recordRelayApplied(jobId, applied, at);
   }

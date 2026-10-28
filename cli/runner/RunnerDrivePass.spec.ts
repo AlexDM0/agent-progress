@@ -24,6 +24,7 @@ import {
 } from 'bun:test';
 
 import { relayReplyFilePathOf, writeRelayRequest }                         from '../../src/adapters/relay/RelayFolder.ts';
+import { UsageMarkerFile }                                                 from '../../src/adapters/usage-marker/UsageMarkerFile.ts';
 import { hostFilesOf }                                                     from '../../src/lib/agent-host/HostFiles.ts';
 import type { HostRecord }                                                 from '../../src/lib/agent-host/HostRecord.ts';
 import type { AgentAdapter }                                               from '../../src/lib/agent-launch/AgentAdapter.ts';
@@ -330,6 +331,98 @@ function deliveredRecordsOf(ticketId: string): unknown[] {
     .map((line) => JSON.parse(line) as { kind: string; ticketId?: string; fields: unknown })
     .filter((entry) => entry.kind === 'ticket-delivered' && entry.ticketId === ticketId).map((entry) => entry.fields);
 }
+
+/** A `rate_limit_event` as Claude Code prints it: `status` is the top level, which alone refuses requests. */
+function rateLimitLine(topLevelStatus: string, window: string, windowStatus: string): string {
+  return JSON.stringify({
+    type:            'rate_limit_event',
+    rate_limit_info: {
+      status: topLevelStatus, resetsAt: 1793142034, rateLimitType: window, unifiedWindows: { [window]: { utilization: 1, resetsAt: 1793142034, status: windowStatus } },
+    },
+  });
+}
+
+const USAGE_RESET_STAMP = new Date(1793142034000).toISOString();
+
+async function passUntilBuildJobIs(drivePass: DrivePass, state: string): Promise<void> {
+  for (let attempt = 0; attempt < HOST_WAIT_TRIES; attempt += 1) {
+    await passOnce(drivePass);
+    if ((storedProgressOf(repositoryDirectory).jobs ?? []).some((job) => job.kind === 'build' && job.state === state)) return;
+    await Bun.sleep(HOST_WAIT_MILLISECONDS);
+  }
+  throw new Error(`the build job never became ${state}: ${runnerLog.join('\n')}\n${JSON.stringify(storedProgressOf(repositoryDirectory).jobs)}`);
+}
+
+describe('usage limits', () => {
+  test('a top-level rejected limit interrupts the job uncounted, marks the machine, logs it and stops the host; nothing resumes before the reset', async () => {
+    const drivePass = await drivePassWith(fakeAgentAdapter([
+      { kind: 'print', line: fakeStartedLine('fake-session') },
+      { kind: 'print', line: rateLimitLine('rejected', 'five_hour', 'rejected') },
+      {
+        kind: 'print',
+        line: JSON.stringify({
+          type: 'result', subtype: 'error_during_execution', is_error: true, permission_denials: []
+        })
+      },
+      { kind: 'await-line' },
+    ]));
+    await passUntilBuildSessionSpawned(drivePass);
+    const jobId = buildJobId();
+    await passUntilBuildJobIs(drivePass, 'interrupted');
+    expect((storedProgressOf(repositoryDirectory).jobs ?? []).find((job) => job.id === jobId)).toMatchObject({
+      state: 'interrupted', interruption: 'usage-limit', crashResumes: 0, hostInstance: 1
+    });
+    const usageLimitHit = { kind: 'usage-limit-hit', jobId, fields: { window: 'five_hour', resetsAt: USAGE_RESET_STAMP } };
+    expect(storedLogTextOf(repositoryDirectory)).toContain(JSON.stringify(usageLimitHit).slice(1));
+    expect(storedLogTextOf(repositoryDirectory)).not.toContain(`"kind":"job-ended","jobId":"${jobId}"`);
+    expect(UsageMarkerFile.read(monitorFolder)).toMatchObject({
+      verdict: 'read',
+      marker:  { vendor: 'fake-agent', window: 'five_hour', resetsAt: USAGE_RESET_STAMP }
+    });
+    await untilHostEnded(jobId, 1);
+    await passOnce(drivePass);
+    await passOnce(drivePass);
+    expect((storedProgressOf(repositoryDirectory).jobs ?? []).filter((job) => job.kind === 'build')).toMatchObject([{ id: jobId, state: 'interrupted', hostInstance: 1 }]);
+    expect((storedProgressOf(repositoryDirectory).jobs ?? []).some((job) => job.kind === 'orchestrator')).toBe(false);
+  }, PASS_TEST_TIMEOUT_MILLISECONDS);
+
+  test('once the marker\'s reset has passed the interrupted job resumes by id in a new host instance', async () => {
+    const drivePass = await drivePassWith(fakeAgentAdapter([
+      { kind: 'print', line: fakeStartedLine('fake-session') },
+      { kind: 'print', line: rateLimitLine('rejected', 'five_hour', 'rejected') },
+      { kind: 'await-line' },
+    ]));
+    await passUntilBuildSessionSpawned(drivePass);
+    const jobId = buildJobId();
+    await passUntilBuildJobIs(drivePass, 'interrupted');
+    await untilHostEnded(jobId, 1);
+    UsageMarkerFile.write(monitorFolder, {
+      vendor: 'fake-agent', window: 'five_hour', resetsAt: '2026-09-18T20:00:00.000Z', seenBy: { trackerId: 'example', jobId }
+    });
+    await passOnce(drivePass);
+    expect((storedProgressOf(repositoryDirectory).jobs ?? []).find((job) => job.id === jobId)).toMatchObject({ state: 'running', hostInstance: 2 });
+    expect(storedLogTextOf(repositoryDirectory)).toContain(`"kind":"job-resumed","jobId":"${jobId}","fields":{"hostInstance":2,"cause":"usage-limit"}`);
+    expect(readFileSync(hostFilesOf(jobFolder(jobId), 2).launchPath, 'utf8')).toContain('fake-agent-scenario.json');
+  }, PASS_TEST_TIMEOUT_MILLISECONDS);
+
+  test('a per-window warning, or a window rejected under an allowed top level, interrupts nothing and writes no marker', async () => {
+    const drivePass = await drivePassWith(fakeAgentAdapter([
+      { kind: 'print', line: fakeStartedLine('fake-session') },
+      { kind: 'print', line: rateLimitLine('allowed_warning', 'seven_day', 'allowed_warning') },
+      { kind: 'print', line: rateLimitLine('allowed', 'five_hour', 'rejected') },
+      { kind: 'await-line' },
+    ]));
+    await passUntilBuildSessionSpawned(drivePass);
+    const jobId = buildJobId();
+    for (let attempt = 0; attempt < HOST_WAIT_TRIES && !readFileSync(hostFilesOf(jobFolder(jobId), 1).eventLogPath, 'utf8').includes('"allowed"'); attempt += 1) {
+      await Bun.sleep(HOST_WAIT_MILLISECONDS);
+    }
+    await passOnce(drivePass);
+    expect((storedProgressOf(repositoryDirectory).jobs ?? []).find((job) => job.id === jobId)?.state).toBe('running');
+    expect(UsageMarkerFile.read(monitorFolder)).toEqual({ verdict: 'absent' });
+    expect(storedLogTextOf(repositoryDirectory)).not.toContain('usage-limit-hit');
+  }, PASS_TEST_TIMEOUT_MILLISECONDS);
+});
 
 describe('the verbs beside a runner', () => {
   test('a written verb nudges the live lease\'s URL body-less once its write is stored, and stays silent when nobody answers', async () => {

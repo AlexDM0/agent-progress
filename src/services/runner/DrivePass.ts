@@ -8,6 +8,7 @@ import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join }                                from 'node:path';
 
 import { BUILDER_REPORT_SCHEMA }                                    from '../../adapters/reports/ReportSchemas.ts';
+import { type UsageMarkerReading, UsageMarkerFile }                 from '../../adapters/usage-marker/UsageMarkerFile.ts';
 import type { EventLogEntry }                                       from '../../lib/agent-host/EventLog.ts';
 import type { AgentAdapter }                                        from '../../lib/agent-launch/AgentAdapter.ts';
 import type { AgentLaunchRequest }                                  from '../../lib/agent-launch/AgentLaunchRequest.ts';
@@ -20,6 +21,7 @@ import type { Board }                                               from '../../
 import { JOB_ID_VARIABLE, RELAY_DIRECTORY_VARIABLE }                from '../../shared/Environment.ts';
 import { LIFECYCLE_LIMITS }                                         from '../../shared/constants/LifecycleLimits.ts';
 import { PRODUCT_NAMES }                                            from '../../shared/constants/ProductNames.ts';
+import { SESSION_STOP_GRACE_MILLISECONDS }                          from '../../shared/constants/RunnerLimits.ts';
 import { createFolderGateResultCache, createMemoryGateResultCache } from '../lifecycle/GateResultCache.ts';
 import type { RenderState }                                         from '../render/RenderState.ts';
 import { writeTracker, type TrackerChange }                         from '../tracker/TrackerPipeline.ts';
@@ -35,6 +37,7 @@ import {
 import { createProcessHostSandbox }             from './ProcessHostSandbox.ts';
 import { RelayInbox, type PendingRelayRequest } from './RelayInbox.ts';
 import { RunnerLease }                          from './RunnerLease.ts';
+import { type UsageLimitHit, UsageLimits }      from './UsageLimits.ts';
 import { WorkerProfiles }                       from './WorkerProfiles.ts';
 
 /** What a session is told at launch; worded by the command line, since services hold no words. */
@@ -112,6 +115,7 @@ interface Observation {
   targetTips:                 Readonly<Record<string, string | null>>;
   targetsHoldingManagedBlock: readonly string[];
   buildJobs:                  readonly BuildJobObservation[];
+  usageMarker:                UsageMarkerReading;
   fingerprint:                string;
   trackerId:                  string;
 }
@@ -148,9 +152,11 @@ function fingerprintOf(
   pending: readonly PendingRelayRequest[],
   tips: Readonly<Record<string, string | null>>,
   buildJobs: readonly BuildJobObservation[],
+  usageMarker: UsageMarkerReading,
 ): string {
   const digest = createHash('sha256');
   digest.update(fileTextOrEmpty(workspace.progressFilePath)).update('\0').update(fileTextOrEmpty(workspace.logFilePath)).update('\0');
+  digest.update(`usage ${JSON.stringify(usageMarker)}\n`);
   for (const request of pending) digest.update(`request ${request.jobId} ${request.requestId}\n`);
   for (const buildJob of buildJobs) digest.update(`build ${buildJob.jobId} ${buildJob.setup} ${buildJob.calls} ${buildJob.gate.verdict}\n`);
   for (const host of hosts) digest.update(`host ${host.jobId} ${host.instance} ${host.liveness.verdict} ${host.events.at(-1)?.sequence ?? 0}\n`);
@@ -178,20 +184,29 @@ function observe(request: DrivePassRequest, jobLaunchContext: JobLaunchContext):
   const targetTips      = Object.fromEntries(targets.map((target) => [target, targetTipOf(workspace.rootDirectory, target)]));
   const targetsHoldingManagedBlock = targets.filter((target) => targetHoldsManagedBlock(workspace.rootDirectory, target, request.managedBlockMarker));
   const buildJobs = JobLaunch.observeBuildJobs(jobLaunchContext, jobs, progress.checkCommand ?? null, progress.installCommand ?? null);
+  const usageMarker = UsageMarkerFile.read(request.monitorFolder);
+  if (usageMarker.verdict === 'malformed') {
+    request.log(`The usage marker ${UsageMarkerFile.pathIn(request.monitorFolder)} is malformed (${usageMarker.reason}); no limit is held by it.`);
+  }
   return {
     hosts,
     pendingRequests,
     targetTips,
     targetsHoldingManagedBlock,
     buildJobs,
-    fingerprint: fingerprintOf(workspace, hosts, pendingRequests, targetTips, buildJobs),
+    usageMarker,
+    fingerprint: fingerprintOf(workspace, hosts, pendingRequests, targetTips, buildJobs, usageMarker),
     trackerId:   progress.trackerId,
   };
 }
 
-/** A question opens its decision and a closing result moves the job to verification in the hold that reads them; the cursor moves with them. */
-function applyHostEvents(change: TrackerChange, adapter: AgentAdapter, hosts: readonly HostObservation[]): void {
+/**
+ * A question opens its decision and a closing result moves the job to verification in the hold that reads them; the cursor moves with them.
+ * A top-level usage refusal interrupts the job instead, and the error result after it is no closing result. Returns the usage limits hit.
+ */
+function applyHostEvents(change: TrackerChange, adapter: AgentAdapter, hosts: readonly HostObservation[]): UsageLimitHit[] {
   const { board, at } = change;
+  const usageLimitHits: UsageLimitHit[] = [];
   for (const host of hosts) {
     if (board.jobById(host.jobId)?.hostInstance !== host.instance) continue;
     let closedWithResult = false;
@@ -199,6 +214,12 @@ function applyHostEvents(change: TrackerChange, adapter: AgentAdapter, hosts: re
       if (entry.origin !== 'agent') continue;
       for (const event of adapter.eventsOf(entry.line)) {
         const state = board.jobById(host.jobId)?.state;
+        const refusal = UsageLimits.refusalOf(event);
+        if (refusal !== null && state === 'running') {
+          const hit = { jobId: host.jobId, ...refusal };
+          UsageLimits.interruptLimitedJob(board, hit, at);
+          usageLimitHits.push(hit);
+        }
         if (event.kind === 'started' && (state === 'launching' || state === 'preparing')) board.moveJob(host.jobId, 'running', at);
         if (event.kind === 'question' && state === 'running') openQuestion(board, host.jobId, event.requestId, event.questions, at);
         if (event.kind === 'result' && state === 'running') {
@@ -219,6 +240,7 @@ function applyHostEvents(change: TrackerChange, adapter: AgentAdapter, hosts: re
       board.interruptJob(host.jobId, host.liveness.verdict === 'lost' ? 'host-lost' : 'agent-crashed', at);
     }
   }
+  return usageLimitHits;
 }
 
 function openQuestion(board: Board, jobId: string, requestId: string, questions: readonly DecisionQuestionShape[], at: string): void {
@@ -347,6 +369,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
   let forcedNext = false;
   let state: RunnerStateDocument = { generation: request.generation, passes: 0, notices: [] };
   let stopped = false;
+  let resetTimer: ReturnType<typeof setTimeout> | null = null;
   const sandbox = createProcessHostSandbox();
   const jobLaunchContext: JobLaunchContext = {
     workspace:            request.workspace,
@@ -365,11 +388,35 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     log:                  request.log,
   };
 
+  /** The marker first, so another board's runner holds its launches before this one's limited sessions are even stopped. */
+  async function stopLimitedJobs(board: Board, trackerId: string, hits: readonly UsageLimitHit[]): Promise<void> {
+    UsageLimits.markHits(request.monitorFolder, request.agentAdapter.vendor, trackerId, hits);
+    for (const hit of hits) {
+      const job = board.jobById(hit.jobId);
+      if (job === undefined) continue;
+      await HostFleet.sendFrames(HostFleet.jobFolderOf(request.workspace.trackerDirectory, job.id), job.hostInstance, [
+        { kind: 'stop', graceMilliseconds: SESSION_STOP_GRACE_MILLISECONDS },
+      ]);
+    }
+  }
+
+  /** A clock exception (design section 7.6): the vendor names its reset as a time, so the pass that resumes the limited jobs waits for it. */
+  function scheduleThePassAtTheReset(usageResetsAt: string | null): void {
+    if (resetTimer !== null) clearTimeout(resetTimer);
+    resetTimer = null;
+    const delay = UsageLimits.millisecondsUntilReset(usageResetsAt, request.now());
+    if (delay === null) return;
+    resetTimer = setTimeout(() => {
+      resetTimer = null;
+      wake(true);
+    }, delay);
+    resetTimer.unref();
+  }
+
   async function runOnePass(forced: boolean): Promise<void> {
     const observation = observe(request, jobLaunchContext);
     if (!forced && observation.fingerprint === lastFingerprint) return;
     const at = request.formatStamp(request.now());
-    const limits = { ...LIFECYCLE_LIMITS, now: at, usageResetsAt: null };
     const observations = {
       mainLine:                     request.mainLine,
       groupTargetPrefix:            GROUP_TARGET_PREFIX,
@@ -386,12 +433,15 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
       mutate:      (change) => {
         const replies = RelayInbox.applyPendingRequests(change, request.workspace.rootDirectory, observation.pendingRequests);
         request.afterHoldPhase?.('relayed-commands', change.board);
-        applyHostEvents(change, request.agentAdapter, observation.hosts);
+        const usageLimitHits = applyHostEvents(change, request.agentAdapter, observation.hosts);
         request.afterHoldPhase?.('host-events', change.board);
         const buildJobRecords = JobLaunch.applyBuildJobObservations(change, jobLaunchContext, observation.buildJobs);
-        change.board.advanceLifecycle(limits, observations, request.decisionWordingOf);
+        const usageResetsAt = UsageLimits.usageResetsAtOf(observation.usageMarker, usageLimitHits);
+        change.board.advanceLifecycle({ ...LIFECYCLE_LIMITS, now: at, usageResetsAt }, observations, request.decisionWordingOf);
         request.afterHoldPhase?.('lifecycle', change.board);
-        return { replies, attributionTicketIds: JobLaunch.attributionTicketIdsOf([...change.storedLogRecords, ...buildJobRecords]) };
+        return {
+          replies, usageLimitHits, usageResetsAt, attributionTicketIds: JobLaunch.attributionTicketIdsOf([...change.storedLogRecords, ...buildJobRecords])
+        };
       },
     });
     try {
@@ -402,6 +452,8 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
       return;
     }
     RelayInbox.writeReplies(written.result.replies);
+    await stopLimitedJobs(written.board, observation.trackerId, written.result.usageLimitHits);
+    scheduleThePassAtTheReset(written.result.usageResetsAt);
     await JobLaunch.runBuildJobEffects(jobLaunchContext, written.board, observation.trackerId, observation.buildJobs);
     for (const job of jobsNeedingAHost(written.board, request.workspace.trackerDirectory, spawnedInstances)) {
       spawnedInstances.add(`${job.id}:${job.hostInstance}`);
@@ -430,16 +482,18 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     running = null;
   }
 
+  function wake(forced = false): void {
+    if (stopped) return;
+    forcedNext ||= forced;
+    if (running !== null) {
+      wokenAgain = true;
+      return;
+    }
+    running = drain();
+  }
+
   return {
-    wake: (forced = false) => {
-      if (stopped) return;
-      forcedNext ||= forced;
-      if (running !== null) {
-        wokenAgain = true;
-        return;
-      }
-      running = drain();
-    },
+    wake,
     idle:  () => running ?? Promise.resolve(),
     state: () => state,
   };

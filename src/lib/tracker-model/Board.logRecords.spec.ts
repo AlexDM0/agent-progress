@@ -11,7 +11,7 @@ import type { LogRecord }              from './@types/LogRecord.ts';
 
 const LOGGED_AT = '2026-09-26T10:15:00+02:00';
 
-const RECORD_KIND_COUNT = 62;
+const RECORD_KIND_COUNT = 63;
 
 /**
  * Two kinds are logged twice: `draft-claimed`, plainly and as a forced takeover, since the two store different fields, and `draft-opened`,
@@ -79,6 +79,7 @@ const FROZEN_STORED_LINES = [
   '{"at":"2026-09-26T10:15:00+02:00","kind":"job-launched","jobId":"J1","fields":{"kind":"build","role":"builder","ticketIds":["002"],'
     + '"attempt":1,"target":"main","parentJobId":null}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"job-interrupted","jobId":"J1","fields":{"cause":"agent-crashed","hostInstance":1}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"usage-limit-hit","jobId":"J1","fields":{"window":"five_hour","resetsAt":"2026-09-26T13:00:34.000Z"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"job-resumed","jobId":"J1","fields":{"hostInstance":2,"cause":"agent-crashed"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"job-ended","jobId":"J1","fields":{"outcome":"failed","cause":"no report","deniedPermissions":["WebFetch"]}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"decision-opened","decisionId":"E1","fields":{"kind":"agent-question","ticketIds":["002"]}}',

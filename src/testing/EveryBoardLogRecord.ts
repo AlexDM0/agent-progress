@@ -125,6 +125,7 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
   }, at);
   board.moveJob(job.id, 'running', at);
   board.interruptJob(job.id, 'agent-crashed', at);
+  board.recordUsageLimitHit(job.id, { window: 'five_hour', resetsAt: '2026-09-26T13:00:34.000Z' }, at);
   board.moveJob(job.id, 'running', at);
   board.endJob(job.id, { outcome: 'failed', cause: 'no report', deniedPermissions: ['WebFetch'] }, at);
   const question = {

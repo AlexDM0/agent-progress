@@ -996,6 +996,7 @@ record as a sentence; a note's sentence is its text.
 | `job-launched` | `jobId` | `kind`, `role` (or `null`), `ticketIds`, `attempt`, `target` and `parentJobId` (each or `null`) |
 | `job-interrupted` | `jobId` | `cause`, `hostInstance`: the instance that was lost |
 | `job-resumed` | `jobId` | `hostInstance`: the instance spawned, `cause`: the interruption it resumes from |
+| `usage-limit-hit` | `jobId` | `window` (as the vendor names it, such as `five_hour`), `resetsAt` (ISO): the vendor refused the job's requests, and nothing launches or resumes before `resetsAt` |
 | `job-ended` | `jobId` | `outcome`, `cause` and `commit` each only when named, `deniedPermissions` |
 | `ticket-triaged` | `ticketId` | none: a finding put to the user's low-priority triage |
 | `decision-opened` | `decisionId` | `kind`, `ticketIds` |

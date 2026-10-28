@@ -179,6 +179,8 @@ function sentenceOf(record: LogRecordContent): string {
       return `Job ${record.jobId} interrupted (${record.fields.cause}) in host instance ${record.fields.hostInstance}`;
     case 'job-resumed':
       return `Job ${record.jobId} resumed in host instance ${record.fields.hostInstance} after ${record.fields.cause}`;
+    case 'usage-limit-hit':
+      return `Job ${record.jobId} hit the ${record.fields.window} usage limit; nothing launches or resumes before ${record.fields.resetsAt}`;
     case 'job-ended':
       return jobEndedTextOf(record.jobId, record.fields);
     case 'ticket-triaged':

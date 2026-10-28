@@ -159,6 +159,10 @@ export class Jobs {
     return { logged: [this.records.logger.log({ kind: 'runner-stopped', fields: { reason } }, at)] };
   }
 
+  recordUsageLimitHit(jobId: string, limit: { window: string; resetsAt: string }, at: string): Logged {
+    return { logged: [this.records.logger.log({ kind: 'usage-limit-hit', jobId, fields: { window: limit.window, resetsAt: limit.resetsAt } }, at)] };
+  }
+
   recordRelayApplied(jobId: string, applied: { requestId: string; commandKind: string; outcome: string }, at: string): Logged {
     const fields = { requestId: applied.requestId, commandKind: applied.commandKind, outcome: applied.outcome };
     return { logged: [this.records.logger.log({ kind: 'relay-applied', jobId, fields }, at)] };

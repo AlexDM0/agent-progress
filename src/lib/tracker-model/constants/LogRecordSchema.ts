@@ -153,6 +153,8 @@ export const LOG_RECORD_SCHEMA = {
   },
   'job-interrupted': { subject: 'job', fields: { cause: 'interruption-cause', hostInstance: 'host-instance' } },
   'job-resumed':     { subject: 'job', fields: { hostInstance: 'host-instance', cause: 'interruption-cause' } },
+  // The vendor refused the job's requests: `window` as the vendor names it, `resetsAt` the ISO stamp no launch or resume precedes.
+  'usage-limit-hit': { subject: 'job', fields: { window: 'text', resetsAt: 'text' } },
   // `cause` and `commit` are set only when the runner names them.
   'job-ended':       {
     subject: 'job',
