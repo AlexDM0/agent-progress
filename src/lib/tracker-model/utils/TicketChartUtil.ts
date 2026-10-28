@@ -1,17 +1,17 @@
 /** Where a ticket stands on the chart: whether it has a row to be given at all, the names its rows are stored under, and the row it is seeded as. */
-import type { TicketFrontmatter, TicketStatus } from '../@types/Ticket.ts';
-import type { TaskFiling }                      from './TaskRecordUtil.ts';
-import { TicketDefaultsUtil }                   from './TicketDefaultsUtil.ts';
+import type { TicketFrontmatter } from '../@types/Ticket.ts';
+import type { TaskFiling }        from './TaskRecordUtil.ts';
+import { TicketDefaultsUtil }     from './TicketDefaultsUtil.ts';
 
-/** A low ticket that was never started lives off the chart; once started it keeps the row it was given. */
-const TICKET_STATUSES_A_LOW_TICKET_WAITS_OFF_THE_CHART_IN: readonly TicketStatus[] = ['pending', 'abandoned'];
-
-/** A draft at any priority lives off the chart too: `ticket ready` files its row. */
+/**
+ * A draft at any priority lives off the chart: `ticket ready` files its row. A low ticket never started waits off it while pending, and a
+ * ticket abandoned before it was ever started, a draft above all, stays off at any priority. Callers ask only about a rowless ticket, so a
+ * row it was given is kept.
+ */
 function ticketStaysOffTheChart(frontmatter: Pick<TicketFrontmatter, 'priority' | 'started' | 'status'>): boolean {
   if (frontmatter.status === 'draft') return true;
-  return TicketDefaultsUtil.ticketPriorityOf(frontmatter) === 'low'
-    && frontmatter.started === null
-    && TICKET_STATUSES_A_LOW_TICKET_WAITS_OFF_THE_CHART_IN.includes(frontmatter.status);
+  if (frontmatter.started !== null) return false;
+  return frontmatter.status === 'abandoned' || (frontmatter.status === 'pending' && TicketDefaultsUtil.ticketPriorityOf(frontmatter) === 'low');
 }
 
 function rowNameOf(frontmatter: Pick<TicketFrontmatter, 'id' | 'title'>): string {
