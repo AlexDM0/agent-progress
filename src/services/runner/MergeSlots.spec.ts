@@ -87,6 +87,7 @@ describeWhenGitIsPresent('a conflicting candidate', () => {
     resolveAs(harness, '001', 'base.ts', 'export const base = 4;\n');
     await harness.slots.sweep();
 
+    expect(harness.stopped).toEqual([agent?.id ?? '']);
     expect(harness.phases).toEqual(['merge-in', 'resolving', 'gating', 'landing']);
     expect(harness.board.tickets()[0]?.frontmatter.status).toBe('delivered');
     expect(harness.board.decisions()).toEqual([]);
@@ -121,6 +122,7 @@ describeWhenGitIsPresent('a conflicting candidate', () => {
       expect(harness.board.decisions().map((decision) => [decision.kind, decision.context])).toEqual([['merge-refused', `Example ${String(reportKind)} reason`]]);
       expect(harness.board.incidents().map((incident) => [incident.kind, incident.jobId])).toEqual(incidentKinds.map((kind) => [kind, null]));
       expect(harness.mergeJob()).toBeUndefined();
+      expect(harness.stopped).toHaveLength(1);
       expect(gitOutputIn(harness.worktreeOf('001'), ['status', '--porcelain'])).toBe('');
     }
   });

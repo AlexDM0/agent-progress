@@ -200,7 +200,9 @@ export function createMergeSlots(context: MergeSlotsContext): MergeSlots {
       return true;
     }
     if (agent.state !== 'verifying') return false;
-    const notes      = String(reportFieldOf(reading.report, 'notes') ?? '');
+    // Its report is in: nothing else closes a merge agent's session, so the runner stops it before settling the slot.
+    await context.stopMergeAgent(agent);
+    const notes     = String(reportFieldOf(reading.report, 'notes') ?? '');
     const outcome    = reportFieldOf(reading.report, 'outcome');
     const worktree   = context.worktreeOf(ticketIdOf(job));
     if (outcome === 'cannot-resolve') {
