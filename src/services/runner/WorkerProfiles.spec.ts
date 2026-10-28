@@ -51,7 +51,7 @@ describe('the allowed commands', () => {
   });
 
   test('ignore a separator inside double or single quotes, so grep "a|b" x allows only grep', () => {
-    expect(profileOf('builder', [], FACTS, ['grep "a|b" x']).allowedCommandPrefixes[0]).toEqual(['grep']);
+    expect(profileOf('builder', [], FACTS, ['grep "a|b" x']).allowedCommandPrefixes.slice(0, 2)).toEqual([['grep'], ['git', 'status']]);
     expect(profileOf('builder', [], FACTS, ['grep \'a;b\' x && grep "c\\"|d" y']).allowedCommandPrefixes.slice(0, 2)).toEqual([['grep'], ['git', 'status']]);
   });
 
