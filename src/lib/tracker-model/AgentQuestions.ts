@@ -165,5 +165,3 @@ export class AgentQuestions {
     return { ticketIds: leftovers.map(({ frontmatter }) => frontmatter.id), logged };
   }
 }
-
-export const AgentQuestionFacts = Object.freeze({ questionsOfIncident, awaitingAnswerHoldOf });
