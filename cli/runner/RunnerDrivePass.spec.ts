@@ -63,7 +63,13 @@ async function run(commandLineArguments: readonly string[]) {
   return context;
 }
 
-async function drivePassWith(adapter: AgentAdapter, afterHoldPhase?: (phase: string, board: Board) => void): Promise<DrivePass> {
+const SPEC_STAMP = '2026-09-18T22:11:03+02:00';
+
+async function drivePassWith(
+  adapter: AgentAdapter,
+  afterHoldPhase?: (phase: string, board: Board) => void,
+  clock: { stamp: string } = { stamp: SPEC_STAMP },
+): Promise<DrivePass> {
   const workspace = requireWorkspace(repositoryDirectory);
   const { runnerDirectory } = runnerFilesIn(workspace.trackerDirectory);
   mkdirSync(runnerDirectory, { recursive: true });
@@ -83,8 +89,8 @@ async function drivePassWith(adapter: AgentAdapter, afterHoldPhase?: (phase: str
   return createDrivePass({
     workspace,
     renderState:           createRenderState(),
-    now:                   SPEC_CLOCK,
-    formatStamp:           () => '2026-09-18T22:11:03+02:00',
+    now:                   () => new Date(Date.parse(clock.stamp)),
+    formatStamp:           () => clock.stamp,
     runnerDirectory,
     generation:            acquisition.generation,
     hostBundlePath,
@@ -403,6 +409,31 @@ describe('usage limits', () => {
     expect((storedProgressOf(repositoryDirectory).jobs ?? []).find((job) => job.id === jobId)).toMatchObject({ state: 'running', hostInstance: 2 });
     expect(storedLogTextOf(repositoryDirectory)).toContain(`"kind":"job-resumed","jobId":"${jobId}","fields":{"hostInstance":2,"cause":"usage-limit"}`);
     expect(readFileSync(hostFilesOf(jobFolder(jobId), 2).launchPath, 'utf8')).toContain('fake-agent-scenario.json');
+  }, PASS_TEST_TIMEOUT_MILLISECONDS);
+
+  test('the runner wakes a pass of its own at the marker\'s reset, which resumes the interrupted job with no other wake', async () => {
+    const clock = { stamp: SPEC_STAMP };
+    const drivePass = await drivePassWith(fakeAgentAdapter([
+      { kind: 'print', line: fakeStartedLine('fake-session') },
+      { kind: 'print', line: rateLimitLine('rejected', 'five_hour', 'rejected') },
+      { kind: 'await-line' },
+    ]), undefined, clock);
+    await passUntilBuildSessionSpawned(drivePass);
+    const jobId = buildJobId();
+    await passUntilBuildJobIs(drivePass, 'interrupted');
+    await untilHostEnded(jobId, 1);
+    UsageMarkerFile.write(monitorFolder, {
+      vendor: 'fake-agent', window: 'five_hour', resetsAt: '2026-09-18T20:11:03.300Z', seenBy: { trackerId: 'example', jobId }
+    });
+    await passOnce(drivePass);
+    expect((storedProgressOf(repositoryDirectory).jobs ?? []).find((job) => job.id === jobId)).toMatchObject({ state: 'interrupted', hostInstance: 1 });
+    clock.stamp = '2026-09-18T22:11:04+02:00';
+    for (let attempt = 0; attempt < HOST_WAIT_TRIES; attempt += 1) {
+      await drivePass.idle();
+      if ((storedProgressOf(repositoryDirectory).jobs ?? []).some((job) => job.id === jobId && job.hostInstance === 2)) break;
+      await Bun.sleep(HOST_WAIT_MILLISECONDS);
+    }
+    expect((storedProgressOf(repositoryDirectory).jobs ?? []).find((job) => job.id === jobId)).toMatchObject({ hostInstance: 2 });
   }, PASS_TEST_TIMEOUT_MILLISECONDS);
 
   test('a per-window warning, or a window rejected under an allowed top level, interrupts nothing and writes no marker', async () => {
