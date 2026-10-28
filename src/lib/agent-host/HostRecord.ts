@@ -2,7 +2,7 @@ import type { ProcessIdentity } from '../process-identity/ProcessIdentity.ts';
 
 export type HostState = 'claimed' | 'running' | 'ended';
 
-/** `exited` and `signalled` are the child's own end; the other two mean no child ever ran. */
+/** `exited` and `signalled` are the child's own end; the other three mean no child ever ran. */
 export type HostEndReason = 'exited' | 'signalled' | 'launch-unreadable' | 'socket-unbindable' | 'spawn-failed';
 
 export interface HostEnd {
