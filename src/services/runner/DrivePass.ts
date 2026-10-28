@@ -43,16 +43,16 @@ import {
   JobLaunch,
   type JobLaunchContext
 } from './JobLaunch.ts';
-import { JobResumption }                         from './JobResumption.ts';
-import { LegacyHostReader }                      from './LegacyHostReader.ts';
-import { createMergeSlots, type HeldTarget }     from './MergeSlots.ts';
-import { createProcessHostSandbox }              from './ProcessHostSandbox.ts';
-import { QuestionRouting }                       from './QuestionRouting.ts';
-import { Reattachment, type ReattachmentReport } from './Reattachment.ts';
-import { RelayInbox, type PendingRelayRequest }  from './RelayInbox.ts';
-import { RunnerLease }                           from './RunnerLease.ts';
-import { type UsageLimitHit, UsageLimits }       from './UsageLimits.ts';
-import { WorkerProfiles }                        from './WorkerProfiles.ts';
+import { JobResumption }                                           from './JobResumption.ts';
+import { LegacyHostReader }                                        from './LegacyHostReader.ts';
+import { createMergeSlots, type DeclinedCleanup, type HeldTarget } from './MergeSlots.ts';
+import { createProcessHostSandbox }                                from './ProcessHostSandbox.ts';
+import { QuestionRouting }                                         from './QuestionRouting.ts';
+import { Reattachment, type ReattachmentReport }                   from './Reattachment.ts';
+import { RelayInbox, type PendingRelayRequest }                    from './RelayInbox.ts';
+import { RunnerLease }                                             from './RunnerLease.ts';
+import { type UsageLimitHit, UsageLimits }                         from './UsageLimits.ts';
+import { WorkerProfiles }                                          from './WorkerProfiles.ts';
 
 /** What a session is told at launch; worded by the command line, since services hold no words. */
 export interface JobLaunchText {
@@ -117,7 +117,9 @@ export type RunnerNotice =
   // The ticket's newest review reworked past the threshold and was refused another round: User decides whether an invariant ticket is wanted.
   | { kind: 'rounds-not-converging'; ticketId: string }
   // A landing found the main checkout off the main line or dirty: that target's landings wait, builds and reviews launch on.
-  | { kind: 'dirty-main-checkout'; target: string; branch: string | null; blockingFiles: readonly string[] };
+  | { kind: 'dirty-main-checkout'; target: string; branch: string | null; blockingFiles: readonly string[] }
+  // Git declined a removal after a refresh or a release; shown while what it would have removed stands.
+  | { kind: 'cleanup-declined'; cleanup: DeclinedCleanup['cleanup']; groupBranch: string; reason: string };
 
 /** What a pass knows of the runtime state; the runner adds `handing-over` around a handover. */
 export type PassRuntimeState = 'serving' | 'held-by-install-change';
@@ -454,11 +456,13 @@ function noticesOf(
   attributionTicketIds: readonly string[],
   nonConvergingTicketIds: readonly string[],
   heldTargets: readonly HeldTarget[],
+  declinedCleanups: readonly DeclinedCleanup[],
 ): RunnerNotice[] {
   return [
     ...heldTargets.map((held) => ({
       kind: 'dirty-main-checkout', target: held.target, branch: held.branch, blockingFiles: held.blockingFiles
     }) as const),
+    ...declinedCleanups.map((declined) => ({ kind: 'cleanup-declined', ...declined }) as const),
     ...(request.installVersionChanged() ? [{ kind: 'install-version-changed' } as const] : []),
     ...(request.newCodeOnDisk?.() === true ? [{ kind: 'new-code' } as const] : []),
     ...observation.targetsHoldingManagedBlock.map((target) => ({ kind: 'claude-md-block-committed', target }) as const),
@@ -479,6 +483,8 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
   let stopped = false;
   let resetTimer: ReturnType<typeof setTimeout> | null = null;
   const leftoverWorktrees: string[] = [];
+  let declinedCleanups: DeclinedCleanup[] = [];
+  const worktreesRoot = join(request.workspace.rootDirectory, PRODUCT_NAMES.WORKTREES_FOLDER);
   const sandbox = createProcessHostSandbox();
   const jobLaunchContext: JobLaunchContext = {
     workspace:            request.workspace,
@@ -502,7 +508,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     repositoryRoot:    request.workspace.rootDirectory,
     mainLine:          request.mainLine,
     groupTargetPrefix: GROUP_TARGET_PREFIX,
-    worktreesRoot:     join(request.workspace.rootDirectory, PRODUCT_NAMES.WORKTREES_FOLDER),
+    worktreesRoot,
     worktreeOf:        (ticketId) => join(request.workspace.rootDirectory, PRODUCT_NAMES.WORKTREES_FOLDER, `ticket-${ticketId}`),
     limits:            MERGE_SLOT_LIMITS,
     refDeniesHold:     TARGET_REF_DENIES_HOLD,
@@ -537,9 +543,21 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
         { kind: 'stop', graceMilliseconds: SESSION_STOP_GRACE_MILLISECONDS },
       ]);
     },
-    decisionWordingOf: request.decisionWordingOf,
-    dispatchIsStopped: () => requireProgressFile(request.workspace).dispatcherState === 'stopped',
+    decisionWordingOf:     request.decisionWordingOf,
+    dispatchIsStopped:     () => requireProgressFile(request.workspace).dispatcherState === 'stopped',
+    reportDeclinedCleanup: (declined) => {
+      request.log(`Git declined the ${declined.cleanup} cleanup of ${declined.groupBranch}: ${declined.reason}`);
+      declinedCleanups = [...declinedCleanups.filter((earlier) => earlier.cleanup !== declined.cleanup || earlier.groupBranch !== declined.groupBranch), declined];
+    },
   });
+
+  /** Rechecked every pass: a notice goes once what git declined to remove is gone. */
+  function stillDeclinedCleanups(): DeclinedCleanup[] {
+    declinedCleanups = declinedCleanups.filter((declined) => (
+      GroupWorktrees.cleanupIsStillDeclined(request.workspace.rootDirectory, worktreesRoot, declined.groupBranch, declined.cleanup)
+    ));
+    return declinedCleanups;
+  }
 
   /** The marker first, so another board's runner holds its launches before this one's limited sessions are even stopped. */
   async function stopLimitedJobs(board: Board, trackerId: string, hits: readonly UsageLimitHit[]): Promise<void> {
@@ -642,7 +660,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
       generation:       request.generation,
       passes:           state.passes + 1,
       runtimeState:     installVersionChanged ? 'held-by-install-change' : 'serving',
-      notices:          noticesOf(request, observation, written.result.attributionTicketIds, written.result.nonConvergingTicketIds, heldTargets),
+      notices:          noticesOf(request, observation, written.result.attributionTicketIds, written.result.nonConvergingTicketIds, heldTargets, stillDeclinedCleanups()),
       legacyHostJobIds: legacyHostJobIdsOf(written.board, request.workspace.trackerDirectory),
     };
     const settled = observe(request, jobLaunchContext);
