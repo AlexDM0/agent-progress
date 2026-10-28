@@ -7,7 +7,8 @@ import { createHash }                          from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join }                                from 'node:path';
 
-import { BUILDER_REPORT_SCHEMA }                                    from '../../adapters/reports/ReportSchemas.ts';
+import { BUILDER_REPORT_SCHEMA, REVIEWER_REPORT_SCHEMA }            from '../../adapters/reports/ReportSchemas.ts';
+import type { JsonSchema }                                          from '../../adapters/reports/ReportValidation.ts';
 import { type UsageMarkerReading, UsageMarkerFile }                 from '../../adapters/usage-marker/UsageMarkerFile.ts';
 import type { EventLogEntry }                                       from '../../lib/agent-host/EventLog.ts';
 import type { AgentAdapter }                                        from '../../lib/agent-launch/AgentAdapter.ts';
@@ -23,6 +24,7 @@ import { LIFECYCLE_LIMITS }                                         from '../../
 import { PRODUCT_NAMES }                                            from '../../shared/constants/ProductNames.ts';
 import { SESSION_STOP_GRACE_MILLISECONDS }                          from '../../shared/constants/RunnerLimits.ts';
 import { createFolderGateResultCache, createMemoryGateResultCache } from '../lifecycle/GateResultCache.ts';
+import { ReviewOutcome }                                            from '../lifecycle/ReviewOutcome.ts';
 import type { RenderState }                                         from '../render/RenderState.ts';
 import { writeTracker, type TrackerChange }                         from '../tracker/TrackerPipeline.ts';
 import { requireProgressFile }                                      from '../tracker/TrackerReader.ts';
@@ -86,7 +88,9 @@ export interface DrivePassRequest {
 export type RunnerNotice =
   | { kind: 'install-version-changed' }
   | { kind: 'claude-md-block-committed'; target: string }
-  | { kind: 'attribution-found'; ticketId: string };
+  | { kind: 'attribution-found'; ticketId: string }
+  // The ticket's newest review reworked past the threshold and was refused another round: User decides whether an invariant ticket is wanted.
+  | { kind: 'rounds-not-converging'; ticketId: string };
 
 export interface RunnerStateDocument {
   generation: number;
@@ -110,14 +114,15 @@ interface HostObservation {
 }
 
 interface Observation {
-  hosts:                      readonly HostObservation[];
-  pendingRequests:            readonly PendingRelayRequest[];
-  targetTips:                 Readonly<Record<string, string | null>>;
-  targetsHoldingManagedBlock: readonly string[];
-  buildJobs:                  readonly BuildJobObservation[];
-  usageMarker:                UsageMarkerReading;
-  fingerprint:                string;
-  trackerId:                  string;
+  hosts:                        readonly HostObservation[];
+  pendingRequests:              readonly PendingRelayRequest[];
+  targetTips:                   Readonly<Record<string, string | null>>;
+  targetsHoldingManagedBlock:   readonly string[];
+  buildJobs:                    readonly BuildJobObservation[];
+  ticketIdsTouchingAgentConfig: readonly string[];
+  usageMarker:                  UsageMarkerReading;
+  fingerprint:                  string;
+  trackerId:                    string;
 }
 
 const GROUP_TARGET_PREFIX = 'group-';
@@ -127,6 +132,8 @@ const ROLES_THAT_MAY_ASK: ReadonlySet<string> = new Set(['builder', 'reviewer', 
 
 /** The jobs whose session owes a closing report: one that exits cleanly without it ends `failed`, cause `no-report`. */
 const REPORTING_JOB_KINDS: readonly JobKind[] = ['build', 'review'];
+
+const REPORT_SCHEMA_OF_JOB_KIND: Partial<Record<JobKind, JsonSchema>> = { build: BUILDER_REPORT_SCHEMA, review: REVIEWER_REPORT_SCHEMA };
 
 function fileTextOrEmpty(filePath: string): string {
   try {
@@ -153,8 +160,10 @@ function fingerprintOf(
   tips: Readonly<Record<string, string | null>>,
   buildJobs: readonly BuildJobObservation[],
   usageMarker: UsageMarkerReading,
+  ticketIdsTouchingAgentConfig: readonly string[],
 ): string {
   const digest = createHash('sha256');
+  digest.update(`agent-config ${ticketIdsTouchingAgentConfig.join(',')}\n`);
   digest.update(fileTextOrEmpty(workspace.progressFilePath)).update('\0').update(fileTextOrEmpty(workspace.logFilePath)).update('\0');
   digest.update(`usage ${JSON.stringify(usageMarker)}\n`);
   for (const request of pending) digest.update(`request ${request.jobId} ${request.requestId}\n`);
@@ -184,6 +193,7 @@ function observe(request: DrivePassRequest, jobLaunchContext: JobLaunchContext):
   const targetTips      = Object.fromEntries(targets.map((target) => [target, targetTipOf(workspace.rootDirectory, target)]));
   const targetsHoldingManagedBlock = targets.filter((target) => targetHoldsManagedBlock(workspace.rootDirectory, target, request.managedBlockMarker));
   const buildJobs = JobLaunch.observeBuildJobs(jobLaunchContext, jobs, progress.checkCommand ?? null, progress.installCommand ?? null);
+  const ticketIdsTouchingAgentConfig = JobLaunch.ticketIdsTouchingAgentConfigOf(jobLaunchContext, jobs);
   const usageMarker = UsageMarkerFile.read(request.monitorFolder);
   if (usageMarker.verdict === 'malformed') {
     request.log(`The usage marker ${UsageMarkerFile.pathIn(request.monitorFolder)} is malformed (${usageMarker.reason}); no limit is held by it.`);
@@ -194,8 +204,9 @@ function observe(request: DrivePassRequest, jobLaunchContext: JobLaunchContext):
     targetTips,
     targetsHoldingManagedBlock,
     buildJobs,
+    ticketIdsTouchingAgentConfig,
     usageMarker,
-    fingerprint: fingerprintOf(workspace, hosts, pendingRequests, targetTips, buildJobs, usageMarker),
+    fingerprint: fingerprintOf(workspace, hosts, pendingRequests, targetTips, buildJobs, usageMarker, ticketIdsTouchingAgentConfig),
     trackerId:   progress.trackerId,
   };
 }
@@ -293,9 +304,10 @@ function profileOf(workspace: Workspace, job: Readonly<Job>, workingDirectory: s
 
 /** A builder runs confined by the per-job profile of design section 4.4; the other roles get theirs with the later tickets that run them. */
 function launchProfileOf(jobLaunchContext: JobLaunchContext, board: Board, job: Readonly<Job>, workingDirectory: string, relayDirectory: string): WorkerProfile {
-  if (job.kind !== 'build') return profileOf(jobLaunchContext.workspace, job, workingDirectory, relayDirectory);
+  if (!JobLaunch.isWorktreeJob(job)) return profileOf(jobLaunchContext.workspace, job, workingDirectory, relayDirectory);
   const ticket = board.tickets().find((candidate) => candidate.frontmatter.id === job.ticketIds[0]);
-  return WorkerProfiles.profileOf('builder', JobLaunch.sandboxFactsFor(jobLaunchContext, job), ticket?.frontmatter.network ?? []);
+  const role = job.kind === 'review' ? 'reviewer' : 'builder';
+  return WorkerProfiles.profileOf(role, JobLaunch.sandboxFactsFor(jobLaunchContext, job), ticket?.frontmatter.network ?? []);
 }
 
 function launchFactsOf(board: Board, job: Readonly<Job>): JobLaunchFacts {
@@ -314,7 +326,7 @@ function launchHost(request: DrivePassRequest, jobLaunchContext: JobLaunchContex
   mkdirSync(join(relayDirectory, 'requests'), { recursive: true });
   const workingDirectory = workingDirectoryOf(workspace, job);
   const text             = request.launchTextOf(job, launchFactsOf(board, job));
-  if (job.kind === 'build') JobLaunch.recordJobStart(jobLaunchContext, board, job);
+  if (JobLaunch.isWorktreeJob(job)) JobLaunch.recordJobStart(jobLaunchContext, board, job);
   const launchRequest: AgentLaunchRequest = {
     sessionId:         agentAdapter.sessionIdOf(trackerId, job.id),
     resume:            job.state === 'running' && job.hostInstance > 1,
@@ -326,7 +338,7 @@ function launchHost(request: DrivePassRequest, jobLaunchContext: JobLaunchContex
     environment:       launchEnvironmentOf(request.inheritedEnvironment, { [JOB_ID_VARIABLE]: job.id, [RELAY_DIRECTORY_VARIABLE]: relayDirectory }),
     profile:           launchProfileOf(jobLaunchContext, board, job, workingDirectory, relayDirectory),
     jobFilesDirectory: jobFolder,
-    reportSchema:      job.kind === 'build' ? BUILDER_REPORT_SCHEMA : null,
+    reportSchema:      REPORT_SCHEMA_OF_JOB_KIND[job.kind] ?? null,
   };
   HostFleet.writeLaunchFiles({
     jobFolder,
@@ -346,18 +358,20 @@ function launchHost(request: DrivePassRequest, jobLaunchContext: JobLaunchContex
  * A job launching, or resumed into `running`, whose current instance nobody claimed yet; spawning twice is harmless, since the claim is
  * exclusive. A build job launches its session only once its worktree is prepared, as it moves into `running`.
  */
-function jobsNeedingAHost(board: Board, trackerDirectory: string, spawnedInstances: ReadonlySet<string>): readonly Readonly<Job>[] {
-  return board.jobs().filter((job) => ((job.state === 'launching' && job.kind !== 'build') || job.state === 'running')
+function jobsNeedingAHost(board: Board, trackerDirectory: string, spawnedInstances: ReadonlySet<string>, heldTicketIds: readonly string[]): readonly Readonly<Job>[] {
+  return board.jobs().filter((job) => ((job.state === 'launching' && !JobLaunch.isWorktreeJob(job)) || job.state === 'running')
     && job.role !== null
+    && !job.ticketIds.some((ticketId) => heldTicketIds.includes(ticketId))
     && !spawnedInstances.has(`${job.id}:${job.hostInstance}`)
     && HostFleet.livenessOf(HostFleet.jobFolderOf(trackerDirectory, job.id), job.hostInstance).verdict === 'unclaimed');
 }
 
-function noticesOf(request: DrivePassRequest, observation: Observation, attributionTicketIds: readonly string[]): RunnerNotice[] {
+function noticesOf(request: DrivePassRequest, observation: Observation, attributionTicketIds: readonly string[], nonConvergingTicketIds: readonly string[]): RunnerNotice[] {
   return [
     ...(request.installVersionChanged() ? [{ kind: 'install-version-changed' } as const] : []),
     ...observation.targetsHoldingManagedBlock.map((target) => ({ kind: 'claude-md-block-committed', target }) as const),
     ...attributionTicketIds.map((ticketId) => ({ kind: 'attribution-found', ticketId }) as const),
+    ...nonConvergingTicketIds.map((ticketId) => ({ kind: 'rounds-not-converging', ticketId }) as const),
   ];
 }
 
@@ -385,6 +399,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     // Trusted on disk only while no gate can write the data folder; unsandboxed gates keep their passes in memory, lost on a restart.
     gateCache:            sandbox.isUsable() ? createFolderGateResultCache(join(request.workspace.trackerDirectory, 'gates')) : createMemoryGateResultCache(),
     windDownMessage:      request.windDownMessage,
+    decisionWordingOf:    request.decisionWordingOf,
     log:                  request.log,
   };
 
@@ -417,14 +432,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     const observation = observe(request, jobLaunchContext);
     if (!forced && observation.fingerprint === lastFingerprint) return;
     const at = request.formatStamp(request.now());
-    const observations = {
-      mainLine:                     request.mainLine,
-      groupTargetPrefix:            GROUP_TARGET_PREFIX,
-      installVersionChanged:        request.installVersionChanged(),
-      targetsHoldingManagedBlock:   observation.targetsHoldingManagedBlock,
-      ticketIdsTouchingAgentConfig: [],
-      closedDeliveryTurns:          [],
-    };
+    const installVersionChanged = request.installVersionChanged();
     const written = await writeTracker({
       workspace:   request.workspace,
       at,
@@ -437,10 +445,24 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
         request.afterHoldPhase?.('host-events', change.board);
         const buildJobRecords = JobLaunch.applyBuildJobObservations(change, jobLaunchContext, observation.buildJobs);
         const usageResetsAt = UsageLimits.usageResetsAtOf(observation.usageMarker, usageLimitHits);
+        const agentConfigHold = JobLaunch.holdAgentConfigHits(change, jobLaunchContext, observation.ticketIdsTouchingAgentConfig);
+        const observations = {
+          mainLine:                     request.mainLine,
+          groupTargetPrefix:            GROUP_TARGET_PREFIX,
+          installVersionChanged,
+          targetsHoldingManagedBlock:   observation.targetsHoldingManagedBlock,
+          ticketIdsTouchingAgentConfig: agentConfigHold.held,
+          closedDeliveryTurns:          [],
+        };
         change.board.advanceLifecycle({ ...LIFECYCLE_LIMITS, now: at, usageResetsAt }, observations, request.decisionWordingOf);
         request.afterHoldPhase?.('lifecycle', change.board);
         return {
-          replies, usageLimitHits, usageResetsAt, attributionTicketIds: JobLaunch.attributionTicketIdsOf([...change.storedLogRecords, ...buildJobRecords])
+          replies,
+          usageLimitHits,
+          usageResetsAt,
+          attributionTicketIds:     JobLaunch.attributionTicketIdsOf([...change.storedLogRecords, ...buildJobRecords]),
+          agentConfigHeldTicketIds: agentConfigHold.held,
+          nonConvergingTicketIds:   ReviewOutcome.nonConvergingTicketIdsOf(change.board.logRecordsSoFar(), LIFECYCLE_LIMITS),
         };
       },
     });
@@ -455,11 +477,15 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     await stopLimitedJobs(written.board, observation.trackerId, written.result.usageLimitHits);
     scheduleThePassAtTheReset(written.result.usageResetsAt);
     await JobLaunch.runBuildJobEffects(jobLaunchContext, written.board, observation.trackerId, observation.buildJobs);
-    for (const job of jobsNeedingAHost(written.board, request.workspace.trackerDirectory, spawnedInstances)) {
+    for (const job of jobsNeedingAHost(written.board, request.workspace.trackerDirectory, spawnedInstances, written.result.agentConfigHeldTicketIds)) {
       spawnedInstances.add(`${job.id}:${job.hostInstance}`);
       launchHost(request, jobLaunchContext, written.board, observation.trackerId, job);
     }
-    state = { generation: request.generation, passes: state.passes + 1, notices: noticesOf(request, observation, written.result.attributionTicketIds) };
+    state = {
+      generation: request.generation,
+      passes:     state.passes + 1,
+      notices:    noticesOf(request, observation, written.result.attributionTicketIds, written.result.nonConvergingTicketIds),
+    };
     const settled = observe(request, jobLaunchContext);
     lastFingerprint = settled.fingerprint;
     if (JobLaunch.someBuildJobAwaitsAPass(written.board, settled.buildJobs)) {

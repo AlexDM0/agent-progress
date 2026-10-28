@@ -10,7 +10,8 @@ export const LEGAL_SOURCE_STATES_FOR_JOB_MOVE: Readonly<Record<JobMoveTarget, re
   'running':            ['launching', 'preparing', 'waiting-for-answer', 'interrupted', 'awaiting-answer'],
   'waiting-for-answer': ['running'],
   'interrupted':        ['preparing', 'running', 'waiting-for-answer', 'stopping'],
-  'awaiting-answer':    ['interrupted'],
+  // From `gating`: a review whose gate passed waits there, with no process, for User's answer to its waiver proposals.
+  'awaiting-answer':    ['interrupted', 'gating'],
   'verifying':          ['running'],
   'gating':             ['verifying', 'merging'],
   'merging':            ['launching'],

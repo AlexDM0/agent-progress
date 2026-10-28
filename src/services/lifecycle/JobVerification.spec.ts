@@ -17,6 +17,7 @@ import { PRODUCT_NAMES }              from '../../shared/constants/ProductNames.
 import {
   commitFile,
   createScratchGitRepository,
+  currentBranchOf,
   gitOutputIn,
   removeScratchDirectory,
   SCRATCH_COMMIT_IDENTITY_ARGUMENTS
@@ -24,6 +25,8 @@ import {
 import { describeWhenGitIsPresent } from '../../testing/ToolGuard.ts';
 import {
   CHECKS_OF_ROLE,
+  launchSnapshotOf,
+  type LaunchSnapshot,
   VERIFICATION_CHECKS,
   verifyJob,
   type JobVerificationSubject,
@@ -35,6 +38,8 @@ const TICKET_BODY = '## Report\nExample report.\n\n## Acceptance\nA1. The exampl
 let repositoryDirectory = '';
 
 let startCommit = '';
+
+let launchSnapshot: LaunchSnapshot = { refs: {}, hooksFolderDigest: null };
 
 function headCommit(): string {
   return gitOutputIn(repositoryDirectory, ['rev-parse', 'HEAD']);
@@ -82,6 +87,8 @@ function builderSubject(overrides: Partial<JobVerificationSubject> = {}): JobVer
     report:           builderReport(),
     ticketBody:       TICKET_BODY,
     bodyHashAtLaunch: TicketBodyHashUtil.bodyHashOf(TICKET_BODY),
+    launchSnapshot,
+    refMovesAllowed:  { ownBranch: currentBranchOf(repositoryDirectory), otherJobBranches: [], recordedLandings: [] },
     ...overrides,
   };
 }
@@ -108,7 +115,9 @@ function resolverSubject(merge: { branchTip: string; targetTip: string }): JobVe
     report:      {
       role: 'resolver', outcome: 'resolved', headCommit: headCommit(), resolvedFiles: [], semanticChanges: [], notes: '', reportKind: null,
     },
-    merge: { ...merge, conflictedFiles: [] },
+    merge:          { ...merge, conflictedFiles: [] },
+    // The target branch is the runner's merge-in, made before the resolver's launch.
+    launchSnapshot: launchSnapshotOf(repositoryDirectory) ?? launchSnapshot,
   });
 }
 
@@ -116,6 +125,7 @@ beforeEach(() => {
   repositoryDirectory = createScratchGitRepository('job-verification');
   startCommit         = commitFile(repositoryDirectory, 'base.ts', 'export const base = true;\n');
   commitFile(repositoryDirectory, 'feature.ts', 'export const feature = true;\n');
+  launchSnapshot = launchSnapshotOf(repositoryDirectory) ?? { refs: {}, hooksFolderDigest: null };
 });
 
 afterEach(() => {

@@ -34,6 +34,21 @@ function launchTextOf(job: Readonly<Job>, facts: JobLaunchFacts): JobLaunchText 
   const subject = ticketsPhraseOf(job.ticketIds);
   const roleBrief = `You are the ${job.role ?? job.kind} of job ${job.id}.`;
   const [ticket] = facts.tickets;
+  if (job.kind === 'review' && ticket !== undefined) {
+    return {
+      firstMessage: filledTemplateOf(readFileSync(resourceFilePathOf('prompts', 'ReviewPrompt.md'), 'utf8'), {
+        ticketId:    ticket.id,
+        ticketTitle: ticket.title,
+        ticketBody:  ticket.body.trim(),
+        jobId:       job.id,
+        round:       String(job.attempt),
+        checksLine:  facts.checksLine ?? NO_CHECKS_LINE,
+        callBudget:  String(DISPATCH_PROTOCOL.REVIEWER_API_CALL_BUDGET),
+        program:     PRODUCT_NAMES.PROGRAM,
+      }),
+      roleBrief,
+    };
+  }
   if (job.kind !== 'build' || ticket === undefined) return { firstMessage: `Job ${job.id}: work as the ${job.role ?? job.kind} on ${subject}, attempt ${job.attempt}.`, roleBrief };
   return {
     firstMessage: filledTemplateOf(readFileSync(resourceFilePathOf('prompts', 'BuildPrompt.md'), 'utf8'), {

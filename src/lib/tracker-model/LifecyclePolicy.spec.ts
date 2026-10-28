@@ -137,7 +137,27 @@ const CLAIMS: PolicyClaim[] = [
     name:   'a held pending ticket is not ready',
     facts:  factsWith({ tickets: [ticketOf('001', 'pending', { hold: 'by User' })] }),
     holds:  launchesExactly([]),
-    mutant: policyLine('  if (ticket.hold !== undefined) return true;\n', ''),
+    mutant: policyLine('  if (ticket.hold !== undefined || ticket.mergeQueued === true) return true;\n', '  if (ticket.mergeQueued === true) return true;\n'),
+  },
+  {
+    name:   'a ticket its passed review queued to merge gets no second review',
+    facts:  factsWith({ tickets: [ticketOf('001', 'in-review', { mergeQueued: true })] }),
+    holds:  launchesExactly([]),
+    mutant: policyLine('  if (ticket.hold !== undefined || ticket.mergeQueued === true) return true;\n', '  if (ticket.hold !== undefined) return true;\n'),
+  },
+  {
+    name:  'an open waiver or agent-config decision naming a ticket holds every launch on it',
+    facts: factsWith({
+      tickets:   [ticketOf('001', 'in-review')],
+      decisions: [{
+        id: 'E1', kind: 'waiver', ticketIds: ['001'], jobId: null, askedBy: 'reviewer', requestId: null, questions: [], context: '', openedAt: FIXTURE_AT
+      }],
+    }),
+    holds:  launchesExactly([]),
+    mutant: policyLine(
+      '  if (facts.decisions.some((decision) => TICKET_HOLDING_DECISION_KINDS.includes(decision.kind) && decision.ticketIds.includes(ticket.id))) return true;\n',
+      '',
+    ),
   },
   {
     name:   'a pending ticket waits for its dependencies to be reviewed or delivered',

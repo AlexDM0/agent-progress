@@ -11,9 +11,9 @@ import {
   readWorktreeHead
 } from '../../src/lib/git/BranchDiffs.ts';
 import { OperationRefusal }                  from '../../src/shared/OperationRefusal.ts';
+import { ReworkCountUtil }                   from '../../src/shared/rework/utils/ReworkCountUtil.ts';
+import type { FileChangedLines, FileRework } from '../../src/shared/rework/utils/ReworkCountUtil.ts';
 import { OutputUtil }                        from '../utils/OutputUtil.ts';
-import { ReworkCountUtil }                   from './utils/ReworkCountUtil.ts';
-import type { FileChangedLines, FileRework } from './utils/ReworkCountUtil.ts';
 
 export interface CommitsPart {
   sinceCommit: string;

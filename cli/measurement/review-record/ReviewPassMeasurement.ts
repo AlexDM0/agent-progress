@@ -3,6 +3,7 @@
  * first rebase, so they equal the `rework --since` the reviewer ran before rebasing, and each rebase up to the tip the next rebase started
  * from, or HEAD for the last, as the `rework --rebased-from` run after it counted. The builder's change is measured at the review's start.
  */
+import { ReworkCountUtil } from '../../../src/shared/rework/utils/ReworkCountUtil.ts';
 import {
   changeSizeOf,
   countCommits,
@@ -11,7 +12,6 @@ import {
   worktreeHeadCommit
 }                          from '../ReworkReading.ts';
 import type { ChangeSize } from '../ReworkReading.ts';
-import { ReworkCountUtil } from '../utils/ReworkCountUtil.ts';
 
 export interface RebaseRequest {
   oldTip:   string;

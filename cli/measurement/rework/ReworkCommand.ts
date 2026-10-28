@@ -6,6 +6,7 @@ import { resolve } from 'node:path';
 
 import { OperationRefusal }    from '../../../src/shared/OperationRefusal.ts';
 import { PRODUCT_NAMES }       from '../../../src/shared/constants/ProductNames.ts';
+import { ReworkCountUtil }     from '../../../src/shared/rework/utils/ReworkCountUtil.ts';
 import type { CommandHandler } from '../../CommandHandler.ts';
 import { DEFAULT_MAIN_LINE }   from '../../constants/GitDefaults.ts';
 import { OutputUtil }          from '../../utils/OutputUtil.ts';
@@ -15,7 +16,6 @@ import {
   countRebase,
   worktreeHeadCommit
 } from '../ReworkReading.ts';
-import { ReworkCountUtil }                 from '../utils/ReworkCountUtil.ts';
 import { fileBreakdownLines, summaryLine } from './ReworkText.ts';
 
 const { partReworkOf } = ReworkCountUtil;

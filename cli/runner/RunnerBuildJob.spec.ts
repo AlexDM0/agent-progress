@@ -174,11 +174,15 @@ function builderReport(fields: Record<string, unknown> = {}): string {
   });
 }
 
-/** Commits a file, reports, then waits for its input to close, as a builder whose session the runner ends after the report. */
+/**
+ * Commits a file, reports, then waits for its input to close, as a builder whose session the runner ends after the report. Only in a
+ * ticket's worktree: the orchestrator session plays the same steps in the main checkout, where a commit would move the target, which V14
+ * fails as a foreign ref.
+ */
 function buildingSession(commitMessage = 'Build the example', report = builderReport()): FakeAgentStep[] {
   return [
     { kind: 'print', line: fakeStartedLine('fake-session') },
-    { kind: 'shell', command: `echo built > built.txt && git add built.txt && ${COMMIT} -m '${commitMessage}'` },
+    { kind: 'shell', command: `case "$PWD" in */ticket-*) echo built > built.txt && git add built.txt && ${COMMIT} -m '${commitMessage}';; esac` },
     { kind: 'print', line: report },
     { kind: 'await-line' },
   ];
@@ -232,7 +236,7 @@ describe('a build job end to end', () => {
 
     expect(buildStates).toEqual(['launching', 'preparing', 'running', 'verifying', 'gating', 'ended']);
     expect(buildJobEnding()).toMatchObject({ outcome: 'built' });
-    expect(storedProgressOf(repositoryDirectory).jobs?.find((job) => job.kind === 'review')).toMatchObject({ state: 'launching', ticketIds: ['001'] });
+    expect(storedProgressOf(repositoryDirectory).jobs?.find((job) => job.kind === 'review')).toMatchObject({ role: 'reviewer', attempt: 1, ticketIds: ['001'] });
     expect(ticketText()).toMatch(/^status: "in-review"$/m);
     expect(ticketText()).toContain('## Handoff\n\nExample handoff by Alex Example: the example holds.\n\n- A1 — Example spec proves it\n- A2 — Example probe\n\n## Brief\n');
     expect(ticketText().match(/^## Handoff$/gm)).toHaveLength(1);

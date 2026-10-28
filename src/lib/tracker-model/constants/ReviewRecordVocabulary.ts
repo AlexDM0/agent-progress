@@ -6,7 +6,8 @@
 
 export const REVIEW_VERDICTS = ['released', 'round-requested', 'does-not-hold', 'not-released', 'integrated'] as const;
 
-export const REVIEW_CLAIM_RESULTS = ['holds', 'does-not-hold', 'waived'] as const;
+/** `waiver-proposed`: the reviewer finds the item no longer required and only User can waive it. */
+export const REVIEW_CLAIM_RESULTS = ['holds', 'does-not-hold', 'waived', 'waiver-proposed'] as const;
 
 export const REVIEW_FINDING_CLASSES = [
   'correctness',

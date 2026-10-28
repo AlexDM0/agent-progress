@@ -130,7 +130,7 @@ describe('the legality table', () => {
       'interrupted':        ['running', 'awaiting-answer', 'stopping', 'ended'],
       'awaiting-answer':    ['running', 'stopping', 'ended'],
       'verifying':          ['gating', 'stopping', 'ended'],
-      'gating':             ['landing', 'stopping', 'ended'],
+      'gating':             ['awaiting-answer', 'landing', 'stopping', 'ended'],
       'merging':            ['gating', 'stopping', 'ended'],
       'landing':            ['stopping', 'ended'],
       'stopping':           ['interrupted', 'ended'],

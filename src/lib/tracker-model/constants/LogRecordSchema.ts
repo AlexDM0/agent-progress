@@ -65,8 +65,16 @@ export const LOG_RECORD_SUBJECT_IDS = {
 } as const satisfies Readonly<Record<LogRecordSubject, Readonly<Record<string, LogFieldShape>>>>;
 
 export const LOG_RECORD_SCHEMA = {
-  'note':                            { subject: 'board', fields: { text: 'text' } },
-  'ticket-filed':                    { subject: 'ticket', fields: { title: 'text' } },
+  'note':         { subject: 'board', fields: { text: 'text' } },
+  // A job's filing also records what the ticket was filed as, so verification reads the filing, never what triage made of it since.
+  'ticket-filed': {
+    subject: 'ticket',
+    fields:  {
+      title: 'text', status: 'optional-text', priority: 'optional-text', filedByJob: 'optional-text', findingRoute: 'optional-text'
+    },
+  },
+  // A passing review queued the ticket to land on `target`.
+  'merge-queued':                    { subject: 'ticket', fields: { target: 'text' } },
   'ticket-readied':                  { subject: 'ticket', fields: NO_FIELDS },
   'ticket-triaged':                  { subject: 'ticket', fields: NO_FIELDS },
   'ticket-reopened':                 { subject: 'ticket', fields: NO_FIELDS },

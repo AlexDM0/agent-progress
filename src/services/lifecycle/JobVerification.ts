@@ -2,17 +2,32 @@
  * Verification by code of what a session left (design section 5.1, V1 to V11): nothing it says is taken as true, so each check reads git,
  * the ticket body and the report itself, and answers a wordless verdict. A role runs only the checks its column of the table names.
  */
+import { createHash } from 'node:crypto';
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  statSync
+} from 'node:fs';
+import {
+  isAbsolute,
+  join,
+  relative,
+  resolve
+} from 'node:path';
+
 import { BUILDER_REPORT_SCHEMA, RESOLVER_REPORT_SCHEMA, REVIEWER_REPORT_SCHEMA } from '../../adapters/reports/ReportSchemas.ts';
 import { reportVerdictOf, type JsonSchema }                                      from '../../adapters/reports/ReportValidation.ts';
 import { TicketAcceptanceUtil }                                                  from '../../adapters/tickets/utils/TicketAcceptanceUtil.ts';
 import { GitProcess }                                                            from '../../lib/git/GitProcess.ts';
+import type { LogRecord }                                                        from '../../lib/tracker-model/@types/LogRecord.ts';
 import { TicketBodyHashUtil }                                                    from '../../lib/tracker-model/utils/TicketBodyHashUtil.ts';
 import { PRODUCT_NAMES }                                                         from '../../shared/constants/ProductNames.ts';
 
 /** A fixer is a builder one attempt on, and is verified as one. */
 export type VerifiedRole = 'builder' | 'reviewer' | 'resolver' | 'merge-fix' | 'resolution-review';
 
-export type VerificationCheck = 'V1' | 'V2' | 'V3' | 'V4' | 'V5' | 'V6' | 'V7' | 'V8' | 'V9' | 'V10' | 'V11';
+export type VerificationCheck = 'V1' | 'V2' | 'V3' | 'V4' | 'V5' | 'V6' | 'V7' | 'V8' | 'V9' | 'V10' | 'V11' | 'V12' | 'V13' | 'V14';
 
 export type VerificationRefusalReason =
   | 'report-invalid'
@@ -27,12 +42,32 @@ export type VerificationRefusalReason =
   | 'fixed-finding-outside-range'
   | 'merge-unresolved'
   | 'checks-definition-changed'
+  | 'finding-not-filed-by-job'
+  | 'branch-touches-agent-config'
+  | 'foreign-ref-moved'
   | 'git-failed';
 
 export interface MergeUnderVerification {
   branchTip:       string;
   targetTip:       string;
   conflictedFiles: readonly string[];
+}
+
+/** What V13 and V14 compare the job's end with, taken as its session is first launched. */
+export interface LaunchSnapshot {
+  /** Every ref's commit, and each detached worktree's HEAD keyed `HEAD:<path>`. */
+  refs:              Readonly<Record<string, string>>;
+  /** The hooks folder's names and contents as one digest; `null` when the folder is missing. */
+  hooksFolderDigest: string | null;
+}
+
+/** V14's exemptions: refs only the runner or another job moves. */
+export interface RefMovesAllowed {
+  ownBranch:        string;
+  /** The branches of the other jobs on the board, each moved by its own session. */
+  otherJobBranches: readonly string[];
+  /** Each landing the runner recorded, as the ref it moved and the commit it moved it to. */
+  recordedLandings: readonly { ref: string; commit: string }[];
 }
 
 export interface JobVerificationSubject {
@@ -46,6 +81,12 @@ export interface JobVerificationSubject {
   bodyHashAtLaunch: string;
   /** V10's merge, for a resolver, merge-fix or resolution-review job. */
   merge?:           MergeUnderVerification;
+  /** V12: the job being verified, and the log as stored plus this hold's records. */
+  jobId?:           string;
+  logRecords?:      readonly LogRecord[];
+  /** V13 and V14: what was snapshotted at launch; without it V14 refuses, since nothing proves no ref moved. */
+  launchSnapshot?:  LaunchSnapshot;
+  refMovesAllowed?: RefMovesAllowed;
 }
 
 /** `facts` name what failed: paths, commits or labels, never words. */
@@ -92,8 +133,8 @@ function rangeOf({ startCommit }: JobVerificationSubject): string {
 }
 
 /** Each commit's own paths, so a change a later commit undoes still counts, and the range's net diff, which holds a merge's resolution. */
-function pathsChangedInRange(subject: JobVerificationSubject): string[] | null {
-  const pathsOfEachCommit = gitLines(subject.worktreePath, ['log', '--name-only', '--no-renames', '--format=', rangeOf(subject), '--']);
+function pathsChangedInRange(subject: Pick<JobVerificationSubject, 'worktreePath' | 'startCommit'>): string[] | null {
+  const pathsOfEachCommit = gitLines(subject.worktreePath, ['log', '--name-only', '--no-renames', '--format=', `${subject.startCommit}..HEAD`, '--']);
   const pathsOfTheRange   = gitLines(subject.worktreePath, ['diff', '--name-only', '--no-renames', subject.startCommit, 'HEAD', '--']);
   if (pathsOfEachCommit === null || pathsOfTheRange === null) return null;
   return [...new Set([...pathsOfEachCommit, ...pathsOfTheRange])];
@@ -209,6 +250,138 @@ function checksDefinitionUnchanged(subject: JobVerificationSubject): CheckVerdic
   return changed.length === 0 ? PASSED : refused('checks-definition-changed', changed);
 }
 
+function ticketNumberOf(ticketReference: string): number {
+  return Number(ticketReference.replace(/^#/, ''));
+}
+
+/** The ticket a relayed request filed: the nearest `ticket-filed` this job logged before the request's `relay-applied`, in the same application. */
+function ticketIdFiledByRequest(records: readonly LogRecord[], jobId: string, requestId: string): string | null {
+  const appliedIndex = records.findIndex((record) => record.kind === 'relay-applied' && record.jobId === jobId && record.fields.requestId === requestId);
+  for (let i = appliedIndex - 1; i >= 0; i -= 1) {
+    const record = records[i];
+    if (record === undefined || record.kind === 'relay-applied') return null;
+    if (record.kind === 'ticket-filed' && record.fields.filedByJob === jobId) return record.ticketId;
+  }
+  return null;
+}
+
+/** V12 reads the filing record, never the ticket now: the orchestrator or User may have readied or triaged it since. */
+function filingIsThisJobsLowFinding(records: readonly LogRecord[], jobId: string, ticketId: string): boolean {
+  return records.some((record) => record.kind === 'ticket-filed'
+    && ticketNumberOf(record.ticketId) === ticketNumberOf(ticketId)
+    && record.fields.filedByJob === jobId
+    && record.fields.status === 'draft'
+    && record.fields.priority === 'low'
+    && (record.fields.findingRoute === 'orchestrator' || record.fields.findingRoute === 'user'));
+}
+
+function filedFindingsWereFiledByThisJob(subject: JobVerificationSubject): CheckVerdict {
+  const records = subject.logRecords ?? [];
+  const jobId = subject.jobId ?? '';
+  const unproven = reportListOf(subject.report, 'findings').filter((finding) => finding['outcome'] === 'filed').flatMap((finding) => {
+    const namedTicketId = typeof finding['filedTicketId'] === 'string' ? finding['filedTicketId'] : null;
+    const requestId = typeof finding['relayRequestId'] === 'string' ? finding['relayRequestId'] : null;
+    const ticketId = namedTicketId ?? (requestId === null ? null : ticketIdFiledByRequest(records, jobId, requestId));
+    if (ticketId !== null && filingIsThisJobsLowFinding(records, jobId, ticketId)) return [];
+    return [namedTicketId ?? requestId ?? 'unnamed'];
+  });
+  return unproven.length === 0 ? PASSED : refused('finding-not-filed-by-job', unproven);
+}
+
+const AGENT_CONFIG_PATTERNS: readonly RegExp[] = [/^\.claude\//, /^\.mcp\.json$/];
+
+const DEFAULT_HOOKS_FOLDER = 'hooks';
+
+/** `core.hooksPath` read from git, relative paths against the worktree's root; `.git/hooks` of the common folder otherwise. */
+function hooksFolderOf(worktreePath: string): string | null {
+  // Read with the repository's own setting in force: the hooks-off override would answer `/dev/null`, and reading config runs no hook.
+  const configured = GitProcess.run(worktreePath, ['config', '--get', 'core.hooksPath'], 'repository-hooks');
+  if (GitProcess.succeeded(configured) && configured.standardOutput.trim() !== '') return resolve(worktreePath, configured.standardOutput.trim());
+  const commonFolder = GitProcess.run(worktreePath, ['rev-parse', '--path-format=absolute', '--git-common-dir']);
+  return GitProcess.succeeded(commonFolder) ? join(commonFolder.standardOutput.trim(), DEFAULT_HOOKS_FOLDER) : null;
+}
+
+/** The hooks folder as seen from inside the worktree, `null` when it lies outside it, where only the launch digest can tell a change. */
+function hooksFolderInsideWorktree(worktreePath: string): string | null {
+  const hooksFolder = hooksFolderOf(worktreePath);
+  if (hooksFolder === null) return null;
+  const relativePath = relative(worktreePath, hooksFolder);
+  return relativePath === '' || relativePath.startsWith('..') || isAbsolute(relativePath) ? null : relativePath;
+}
+
+function hooksFolderDigestOf(worktreePath: string): string | null {
+  const hooksFolder = hooksFolderOf(worktreePath);
+  // `core.hooksPath=/dev/null` turns hooks off: a path that is no folder holds no hook.
+  if (hooksFolder === null || !existsSync(hooksFolder) || !statSync(hooksFolder).isDirectory()) return null;
+  const digest = createHash('sha256');
+  for (const entry of readdirSync(hooksFolder, { recursive: true, withFileTypes: true }).filter((each) => each.isFile())) {
+    const filePath = join(entry.parentPath, entry.name);
+    digest.update(`${relative(hooksFolder, filePath)}\0`).update(readFileSync(filePath)).update('\0');
+  }
+  return digest.digest('hex');
+}
+
+function isAgentConfigPath(path: string, hooksFolderPath: string | null): boolean {
+  if (AGENT_CONFIG_PATTERNS.some((pattern) => pattern.test(path))) return true;
+  return hooksFolderPath !== null && (path === hooksFolderPath || path.startsWith(`${hooksFolderPath}/`));
+}
+
+/** Every path a commit since `sinceCommit` or the worktree itself changes under `.claude/`, `.mcp.json` or an in-tree hooks folder. */
+function agentConfigPathsTouched(worktreePath: string, sinceCommit: string): string[] | null {
+  const paths = pathsChangedInRange({ worktreePath, startCommit: sinceCommit });
+  const status = GitProcess.run(worktreePath, ['status', '--porcelain=v1', '--untracked-files=all', '--no-renames']);
+  if (paths === null || !GitProcess.succeeded(status)) return null;
+  const worktreePaths = status.standardOutput.split('\n').filter((line) => line !== '').map((line) => line.slice('XY '.length));
+  const hooksFolderPath = hooksFolderInsideWorktree(worktreePath);
+  return [...new Set([...paths, ...worktreePaths])].filter((path) => isAgentConfigPath(path, hooksFolderPath)).sort();
+}
+
+function agentConfigUntouched(subject: JobVerificationSubject): CheckVerdict {
+  const touched = agentConfigPathsTouched(subject.worktreePath, subject.startCommit);
+  if (touched === null) return refused('git-failed', [rangeOf(subject)]);
+  const hooksFolderChanged = subject.launchSnapshot !== undefined
+    && hooksFolderInsideWorktree(subject.worktreePath) === null
+    && hooksFolderDigestOf(subject.worktreePath) !== subject.launchSnapshot.hooksFolderDigest;
+  const facts = [...touched, ...(hooksFolderChanged ? [hooksFolderOf(subject.worktreePath) ?? DEFAULT_HOOKS_FOLDER] : [])];
+  return facts.length === 0 ? PASSED : refused('branch-touches-agent-config', facts);
+}
+
+/** Each ref's commit and each detached worktree's HEAD, read from the repository the worktree belongs to. */
+export function launchSnapshotOf(worktreePath: string): LaunchSnapshot | null {
+  const refLines = gitLines(worktreePath, ['for-each-ref', '--format=%(refname) %(objectname)']);
+  const worktreeLines = gitLines(worktreePath, ['worktree', 'list', '--porcelain']);
+  if (refLines === null || worktreeLines === null) return null;
+  const refs: Record<string, string> = {};
+  for (const line of refLines) {
+    const [refName, commit] = line.split(' ');
+    if (refName !== undefined && commit !== undefined) refs[refName] = commit;
+  }
+  let worktree = '';
+  let head = '';
+  for (const line of worktreeLines) {
+    if (line.startsWith('worktree ')) worktree = line.slice('worktree '.length);
+    if (line.startsWith('HEAD ')) head = line.slice('HEAD '.length);
+    if (line === 'detached') refs[`HEAD:${worktree}`] = head;
+  }
+  return { refs, hooksFolderDigest: hooksFolderDigestOf(worktreePath) };
+}
+
+function onlyOwnRefsMoved(subject: JobVerificationSubject): CheckVerdict {
+  const { launchSnapshot, refMovesAllowed } = subject;
+  if (launchSnapshot === undefined || refMovesAllowed === undefined) return refused('foreign-ref-moved', ['no launch snapshot']);
+  const now = launchSnapshotOf(subject.worktreePath);
+  if (now === null) return refused('git-failed', ['for-each-ref']);
+  const exempt = new Set([refMovesAllowed.ownBranch, ...refMovesAllowed.otherJobBranches].map((branch) => `refs/heads/${branch}`));
+  exempt.add(`HEAD:${subject.worktreePath}`);
+  const moved = [...new Set([...Object.keys(launchSnapshot.refs), ...Object.keys(now.refs)])].filter((ref) => {
+    if (exempt.has(ref)) return false;
+    const after = now.refs[ref];
+    if (launchSnapshot.refs[ref] === after) return false;
+    return !refMovesAllowed.recordedLandings.some((landing) => landing.ref === ref && landing.commit === after);
+  });
+  return moved.length === 0 ? PASSED : refused('foreign-ref-moved', moved.sort());
+}
+
 export const VERIFICATION_CHECKS: Readonly<Record<VerificationCheck, VerificationCheckRun>> = {
   V1:  reportIsValidWithItsHead,
   V2:  headDescendsFromTheStart,
@@ -221,16 +394,28 @@ export const VERIFICATION_CHECKS: Readonly<Record<VerificationCheck, Verificatio
   V9:  fixedFindingsNameCommitsInRange,
   V10: mergeIsResolved,
   V11: checksDefinitionUnchanged,
+  V12: filedFindingsWereFiledByThisJob,
+  V13: agentConfigUntouched,
+  V14: onlyOwnRefsMoved,
 };
 
 /** The design's table, column by column, in check order. */
 export const CHECKS_OF_ROLE: Readonly<Record<VerifiedRole, readonly VerificationCheck[]>> = {
-  'builder':           ['V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V8', 'V11'],
-  'reviewer':          ['V1', 'V2', 'V4', 'V5', 'V6', 'V7', 'V8', 'V9', 'V11'],
-  'resolver':          ['V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V10', 'V11'],
-  'merge-fix':         ['V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V10', 'V11'],
-  'resolution-review': ['V1', 'V2', 'V4', 'V5', 'V6', 'V7', 'V10', 'V11'],
+  'builder':           ['V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V8', 'V11', 'V13', 'V14'],
+  'reviewer':          ['V1', 'V2', 'V4', 'V5', 'V6', 'V7', 'V8', 'V9', 'V11', 'V12', 'V13', 'V14'],
+  'resolver':          ['V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V10', 'V11', 'V13', 'V14'],
+  'merge-fix':         ['V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V10', 'V11', 'V13', 'V14'],
+  'resolution-review': ['V1', 'V2', 'V4', 'V5', 'V6', 'V7', 'V10', 'V11', 'V13', 'V14'],
 };
+
+/** V13 before a launch on the branch, resumes included: the branch's own commits past its target, and the worktree as it stands. */
+export function agentConfigTouchedBeforeLaunch(worktreePath: string, target: string): CheckVerdict {
+  const base = GitProcess.run(worktreePath, ['merge-base', target, 'HEAD']);
+  if (!GitProcess.succeeded(base)) return refused('git-failed', [target]);
+  const touched = agentConfigPathsTouched(worktreePath, base.standardOutput.trim());
+  if (touched === null) return refused('git-failed', [target]);
+  return touched.length === 0 ? PASSED : refused('branch-touches-agent-config', touched);
+}
 
 /** The first check of the role's column that refuses, so the runner acts on one reason. */
 export function verifyJob(subject: JobVerificationSubject): JobVerificationVerdict {

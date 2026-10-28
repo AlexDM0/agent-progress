@@ -12,26 +12,42 @@ import {
 } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-import type { HostEnd }                                           from '../../lib/agent-host/HostRecord.ts';
-import type { AgentAdapter }                                      from '../../lib/agent-launch/AgentAdapter.ts';
-import { launchEnvironmentOf }                                    from '../../lib/agent-launch/LaunchEnvironment.ts';
-import { GitProcess }                                             from '../../lib/git/GitProcess.ts';
-import type { GateOutcome, Job }                                  from '../../lib/tracker-model/@types/Job.ts';
+import type { HostEnd }        from '../../lib/agent-host/HostRecord.ts';
+import type { AgentAdapter }   from '../../lib/agent-launch/AgentAdapter.ts';
+import { launchEnvironmentOf } from '../../lib/agent-launch/LaunchEnvironment.ts';
+import { GitProcess }          from '../../lib/git/GitProcess.ts';
+import type {
+  GateOutcome,
+  Job,
+  JobKind,
+  JobOutcome
+} from '../../lib/tracker-model/@types/Job.ts';
+import type { DecisionDraft, DecisionWording }                    from '../../lib/tracker-model/@types/LifecycleStep.ts';
 import type { LogRecord }                                         from '../../lib/tracker-model/@types/LogRecord.ts';
 import type { Board }                                             from '../../lib/tracker-model/Board.ts';
 import { TicketBodyHashUtil }                                     from '../../lib/tracker-model/utils/TicketBodyHashUtil.ts';
 import { DISPATCH_PROTOCOL }                                      from '../../shared/constants/DispatchProtocol.ts';
+import { LIFECYCLE_LIMITS }                                       from '../../shared/constants/LifecycleLimits.ts';
 import { PRODUCT_NAMES }                                          from '../../shared/constants/ProductNames.ts';
 import { SESSION_STOP_GRACE_MILLISECONDS, WIND_DOWN_GRACE_CALLS } from '../../shared/constants/RunnerLimits.ts';
 import { gateCacheKeyOf, type GateResultCache }                   from '../lifecycle/GateResultCache.ts';
 import { GateRun }                                                from '../lifecycle/GateRun.ts';
-import { VERIFICATION_CHECKS, verifyJob }                         from '../lifecycle/JobVerification.ts';
-import type { TrackerChange }                                     from '../tracker/TrackerPipeline.ts';
-import type { Workspace }                                         from '../tracker/Workspace.ts';
-import { HostFleet }                                              from './HostFleet.ts';
-import type { ProcessHostSandbox }                                from './ProcessHostSandbox.ts';
-import { RelayInbox }                                             from './RelayInbox.ts';
-import { WorkerProfiles, type SandboxFacts }                      from './WorkerProfiles.ts';
+import {
+  agentConfigTouchedBeforeLaunch,
+  type JobVerificationSubject,
+  launchSnapshotOf,
+  type LaunchSnapshot,
+  type RefMovesAllowed,
+  VERIFICATION_CHECKS,
+  verifyJob
+} from '../lifecycle/JobVerification.ts';
+import { ReviewOutcome }                     from '../lifecycle/ReviewOutcome.ts';
+import type { TrackerChange }                from '../tracker/TrackerPipeline.ts';
+import type { Workspace }                    from '../tracker/Workspace.ts';
+import { HostFleet }                         from './HostFleet.ts';
+import type { ProcessHostSandbox }           from './ProcessHostSandbox.ts';
+import { RelayInbox }                        from './RelayInbox.ts';
+import { WorkerProfiles, type SandboxFacts } from './WorkerProfiles.ts';
 
 export interface JobLaunchContext {
   workspace:            Workspace;
@@ -46,6 +62,7 @@ export interface JobLaunchContext {
   sandbox:              ProcessHostSandbox;
   gateCache:            GateResultCache;
   windDownMessage:      string;
+  decisionWordingOf:    (draft: DecisionDraft) => DecisionWording;
   log:                  (line: string) => void;
 }
 
@@ -79,7 +96,23 @@ const JOB_FILES = {
 const INSTALL_HOST_FOLDER = 'install';
 const GATE_HOST_FOLDER = 'gate';
 const PROCESS_HOST_INSTANCE = 1;
-const BUILD_JOB_KIND = 'build';
+const REVIEW_JOB_KIND = 'review';
+
+/** The jobs whose session works a ticket's worktree: each is prepared, verified and gated the same way, and only its outcome differs. */
+const WORKTREE_JOB_KINDS: readonly JobKind[] = ['build', REVIEW_JOB_KIND];
+
+function isWorktreeJob(job: Readonly<Job>): boolean {
+  return WORKTREE_JOB_KINDS.includes(job.kind);
+}
+
+const AGENT_CONFIG_DECISION = 'branch-touches-agent-config';
+
+/** The job endings that move a target's ref: the landings V14 lets pass. */
+const LANDING_OUTCOMES: readonly JobOutcome[] = ['landed', 'integrated', 'refreshed'];
+
+function callBudgetOf(job: Readonly<Job>): number {
+  return job.kind === REVIEW_JOB_KIND ? DISPATCH_PROTOCOL.REVIEWER_API_CALL_BUDGET : DISPATCH_PROTOCOL.BUILDER_API_CALL_BUDGET;
+}
 const HANDOFF_HEADING = /^## Handoff[ \t]*$/;
 const SECTION_HEADING = /^## /;
 
@@ -97,6 +130,7 @@ export const BUILD_JOB_CAUSES = {
 interface JobStart {
   startCommit:      string;
   bodyHashAtLaunch: string;
+  launchSnapshot:   LaunchSnapshot;
 }
 
 function ticketIdOf(job: Readonly<Job>): string {
@@ -172,7 +206,7 @@ function gateProgressOf(context: JobLaunchContext, job: Readonly<Job>, checksLin
 
 /** Read outside the lock, for every live build job. */
 function observeBuildJobs(context: JobLaunchContext, jobs: readonly Readonly<Job>[], checksLine: string | null, installLine: string | null): BuildJobObservation[] {
-  return jobs.filter((job) => job.kind === BUILD_JOB_KIND).map((job) => {
+  return jobs.filter(isWorktreeJob).map((job) => {
     const liveness = HostFleet.livenessOf(jobFolderOf(context.workspace, job), job.hostInstance);
     return {
       jobId:    job.id,
@@ -245,9 +279,18 @@ function verifyAndRoute(hold: HoldContext, job: Readonly<Job>, observation: Buil
     endJob(hold, job, { outcome: 'failed', cause: 'git-failed' });
     return;
   }
-  const subject = {
-    role: 'builder', worktreePath: worktreeOf(hold.context.workspace, job), ...start, report: observation.report, ticketBody: ticket.body
-  } as const;
+  const subject: JobVerificationSubject = {
+    role:             job.kind === REVIEW_JOB_KIND ? 'reviewer' : 'builder',
+    worktreePath:     worktreeOf(hold.context.workspace, job),
+    startCommit:      start.startCommit,
+    bodyHashAtLaunch: start.bodyHashAtLaunch,
+    report:           observation.report,
+    ticketBody:       ticket.body,
+    jobId:            job.id,
+    logRecords:       board.logRecordsSoFar(),
+    launchSnapshot:   start.launchSnapshot,
+    refMovesAllowed:  refMovesAllowedFor(board, job),
+  };
   const reportVerdict = VERIFICATION_CHECKS.V1(subject);
   if (reportVerdict.verdict === 'refused') {
     endJob(hold, job, { outcome: 'failed', cause: reportVerdict.reason === 'report-invalid' ? BUILD_JOB_CAUSES.noReport : reportVerdict.reason });
@@ -270,10 +313,83 @@ function verifyAndRoute(hold: HoldContext, job: Readonly<Job>, observation: Buil
   }
   const verdict = verifyJob(subject);
   if (verdict.verdict === 'refused') {
+    if (verdict.check === 'V13') openAgentConfigDecision(hold, job);
     endJob(hold, job, { outcome: 'failed', cause: verdict.check === 'V7' ? BUILD_JOB_CAUSES.attribution : verdict.reason });
     return;
   }
   hold.logged.push(...board.moveJob(job.id, 'gating', at).logged);
+}
+
+/** The other jobs' branches, which their own sessions move, and every landing the runner recorded: on its job's target, at its commit. */
+function refMovesAllowedFor(board: Board, job: Readonly<Job>): RefMovesAllowed {
+  const targetByJobId = new Map<string, string | null>();
+  const recordedLandings: { ref: string; commit: string }[] = [];
+  for (const record of board.logRecordsSoFar()) {
+    if (record.kind === 'job-launched') targetByJobId.set(record.jobId, record.fields.target);
+    if (record.kind !== 'job-ended' || !LANDING_OUTCOMES.includes(record.fields.outcome) || record.fields.commit === undefined) continue;
+    const target = targetByJobId.get(record.jobId);
+    if (target !== undefined && target !== null) recordedLandings.push({ ref: `refs/heads/${target}`, commit: record.fields.commit });
+  }
+  return {
+    ownBranch:        branchOf(job),
+    otherJobBranches: board.jobs().filter((other) => other.id !== job.id && isWorktreeJob(other)).map(branchOf),
+    recordedLandings,
+  };
+}
+
+/** Once per hit: none while one is open, and none again for a hit User already answered, until another job on the ticket ends. */
+function openAgentConfigDecision(hold: HoldContext, job: Readonly<Job>): void {
+  const { board, at } = hold.change;
+  const ticketId = ticketIdOf(job);
+  if (agentConfigHitIsSettled(board, ticketId)) return;
+  const draft: DecisionDraft = { kind: AGENT_CONFIG_DECISION, ticketIds: [ticketId], jobId: job.id };
+  hold.logged.push(...board.openDecision({
+    ...draft, askedBy: 'runner', requestId: null, ...hold.context.decisionWordingOf(draft)
+  }, at).logged);
+}
+
+function agentConfigHitIsSettled(board: Board, ticketId: string): boolean {
+  if (board.decisions().some((decision) => decision.kind === AGENT_CONFIG_DECISION && decision.ticketIds.includes(ticketId))) return true;
+  const ticketIdsByJobId = new Map<string, readonly string[]>();
+  const kindByDecisionId = new Map<string, { kind: string; ticketIds: readonly string[] }>();
+  let answeredSinceTheLastJobEnded = false;
+  for (const record of board.logRecordsSoFar()) {
+    if (record.kind === 'job-launched') ticketIdsByJobId.set(record.jobId, record.fields.ticketIds);
+    if (record.kind === 'decision-opened') kindByDecisionId.set(record.decisionId, record.fields);
+    if (record.kind === 'job-ended' && (ticketIdsByJobId.get(record.jobId) ?? []).includes(ticketId)) answeredSinceTheLastJobEnded = false;
+    const opened = record.kind === 'decision-answered' ? kindByDecisionId.get(record.decisionId) : undefined;
+    if (opened?.kind === AGENT_CONFIG_DECISION && opened.ticketIds.includes(ticketId)) answeredSinceTheLastJobEnded = true;
+  }
+  return answeredSinceTheLastJobEnded;
+}
+
+/**
+ * V13 before every launch on a branch, resumes included: the tickets of live worktree jobs whose branch past its target, or whose worktree,
+ * changes agent configuration, and those with the decision still open. Read outside the lock.
+ */
+function ticketIdsTouchingAgentConfigOf(context: JobLaunchContext, jobs: readonly Readonly<Job>[]): string[] {
+  return jobs.filter(isWorktreeJob).filter((job) => {
+    const worktree = worktreeOf(context.workspace, job);
+    if (!existsSync(worktree)) return false;
+    return agentConfigTouchedBeforeLaunch(worktree, job.target ?? context.mainLine).verdict === 'refused';
+  }).map(ticketIdOf);
+}
+
+/** In the hold: each observed hit opens its decision once, and holds the ticket until User answered it. */
+function holdAgentConfigHits(change: TrackerChange, context: JobLaunchContext, touchingTicketIds: readonly string[]): { held: string[]; logged: LogRecord[] } {
+  const hold: HoldContext = {
+    change, context, checksLine: null, installLine: null, logged: []
+  };
+  const held = new Set<string>();
+  for (const ticketId of touchingTicketIds) {
+    const job = change.board.jobs().find((candidate) => candidate.ticketIds.includes(ticketId));
+    if (agentConfigHitIsSettled(change.board, ticketId)) continue;
+    if (job !== undefined) openAgentConfigDecision(hold, job);
+  }
+  for (const decision of change.board.decisions()) {
+    if (decision.kind === AGENT_CONFIG_DECISION) decision.ticketIds.forEach((ticketId) => held.add(ticketId));
+  }
+  return { held: [...held].sort(), logged: hold.logged };
 }
 
 function settleGate(hold: HoldContext, job: Readonly<Job>, observation: BuildJobObservation): void {
@@ -294,6 +410,21 @@ function settleGate(hold: HoldContext, job: Readonly<Job>, observation: BuildJob
   const pass = { treeId: gate.treeId, checksLine: hold.checksLine, installLine: hold.installLine };
   if (!gate.cached) hold.context.gateCache.recordPass(gateCacheKeyOf(pass), pass);
   const headCommit = String(reportFieldOf(observation.report, 'headCommit'));
+  if (job.kind === REVIEW_JOB_KIND) {
+    const start = readJobStart(jobFolderOf(hold.context.workspace, job));
+    hold.logged.push(...ReviewOutcome.settleReviewPass({
+      board,
+      at,
+      job,
+      report:            observation.report,
+      worktreePath:      worktreeOf(hold.context.workspace, job),
+      reviewStartCommit: start?.startCommit ?? headCommit,
+      jobFolder:         jobFolderOf(hold.context.workspace, job),
+      limits:            LIFECYCLE_LIMITS,
+      decisionWordingOf: hold.context.decisionWordingOf,
+    }).logged);
+    return;
+  }
   const ticketBody = board.tickets().find((candidate) => candidate.frontmatter.id === ticketIdOf(job))?.body ?? '';
   const body = { text: bodyWithHandoffOf(ticketBody, handoffSectionOf(observation.report)), appends: false };
   hold.logged.push(...board.editTicket(ticketIdOf(job), { body, allowsPastPending: true }, at).logged);
@@ -308,6 +439,10 @@ function applyObservation(hold: HoldContext, observation: BuildJobObservation): 
   switch (job.state) {
     case 'launching': {
       hold.logged.push(...board.moveJob(job.id, 'preparing', at).logged);
+      if (job.kind === REVIEW_JOB_KIND) {
+        hold.logged.push(...board.startReviewBar(ticketIdOf(job), { round: job.attempt, owner: job.id }, at).logged);
+        return;
+      }
       const ticket = board.tickets().find((candidate) => candidate.frontmatter.id === ticketIdOf(job));
       if (ticket?.frontmatter.status !== 'pending') return;
       hold.logged.push(...board.moveTicket(ticketIdOf(job), 'in-progress', { checksLegality: true, branch: branchOf(job) }, at).logged);
@@ -322,7 +457,7 @@ function applyObservation(hold: HoldContext, observation: BuildJobObservation): 
       }
       return;
     case 'running':
-      if (observation.calls >= DISPATCH_PROTOCOL.BUILDER_API_CALL_BUDGET + WIND_DOWN_GRACE_CALLS) {
+      if (observation.calls >= callBudgetOf(job) + WIND_DOWN_GRACE_CALLS) {
         openIncidentFor(hold, job, 'out-of-calls', { calls: String(observation.calls) });
         hold.logged.push(...board.moveJob(job.id, 'stopping', at).logged);
       }
@@ -453,7 +588,7 @@ async function sendOnce(context: JobLaunchContext, job: Readonly<Job>, marker: s
 async function runBuildJobEffects(context: JobLaunchContext, board: Board, trackerId: string, observations: readonly BuildJobObservation[]): Promise<void> {
   const checksLine = board.checkCommand() ?? null;
   const installLine = board.installCommand() ?? null;
-  for (const job of board.jobs().filter((candidate) => candidate.kind === BUILD_JOB_KIND)) {
+  for (const job of board.jobs().filter(isWorktreeJob)) {
     const ticket = board.tickets().find((candidate) => candidate.frontmatter.id === ticketIdOf(job));
     const network = (ticket?.frontmatter.network ?? []).length > 0;
     if (job.state === 'preparing') {
@@ -462,7 +597,7 @@ async function runBuildJobEffects(context: JobLaunchContext, board: Board, track
       if (existsSync(worktreeOf(context.workspace, job)) && installLine !== null) spawnProcessHost(context, trackerId, job, INSTALL_HOST_FOLDER, installLine, true);
     }
     const calls = observations.find((observation) => observation.jobId === job.id)?.calls ?? 0;
-    if (job.state === 'running' && calls >= DISPATCH_PROTOCOL.BUILDER_API_CALL_BUDGET) {
+    if (job.state === 'running' && calls >= callBudgetOf(job)) {
       await sendOnce(context, job, JOB_FILES.windDownSent, [{ kind: 'write', line: context.agentAdapter.chatLineOf(context.windDownMessage) }]);
     }
     if (job.state === 'verifying' || job.state === 'gating') await sendOnce(context, job, JOB_FILES.inputClosed, [{ kind: 'close-input' }]);
@@ -475,14 +610,19 @@ async function runBuildJobEffects(context: JobLaunchContext, board: Board, track
   }
 }
 
-/** Written as the builder's host is first spawned: the commit verification measures from and the body hash V6 compares with. */
+/**
+ * Written as the session's host is first spawned: the commit verification measures from, the body hash V6 compares with, and the refs,
+ * worktree HEADs and hooks folder V13 and V14 compare with.
+ */
 function recordJobStart(context: JobLaunchContext, board: Board, job: Readonly<Job>): void {
   const startPath = join(jobFolderOf(context.workspace, job), JOB_FILES.start);
   if (existsSync(startPath)) return;
   const ticket = board.tickets().find((candidate) => candidate.frontmatter.id === ticketIdOf(job));
-  const startCommit = GitProcess.resolvedCommitOf(worktreeOf(context.workspace, job), 'HEAD');
-  if (ticket === undefined || startCommit === null) return;
-  const start: JobStart = { startCommit, bodyHashAtLaunch: TicketBodyHashUtil.bodyHashOf(ticket.body) };
+  const worktree = worktreeOf(context.workspace, job);
+  const startCommit = GitProcess.resolvedCommitOf(worktree, 'HEAD');
+  const launchSnapshot = launchSnapshotOf(worktree);
+  if (ticket === undefined || startCommit === null || launchSnapshot === null) return;
+  const start: JobStart = { startCommit, bodyHashAtLaunch: TicketBodyHashUtil.bodyHashOf(ticket.body), launchSnapshot };
   mkdirSync(dirname(startPath), { recursive: true });
   writeFileSync(startPath, `${JSON.stringify(start, null, 2)}\n`);
 }
@@ -496,4 +636,7 @@ export const JobLaunch = Object.freeze({
   someBuildJobAwaitsAPass,
   sandboxFactsFor,
   worktreeOf,
+  isWorktreeJob,
+  ticketIdsTouchingAgentConfigOf,
+  holdAgentConfigHits,
 });

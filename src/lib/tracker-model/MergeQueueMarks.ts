@@ -1,4 +1,5 @@
 /** The merge-queue mark on a ticket's row: set once its review passed, while it waits in review to land. Leaving in-review clears it. */
+import type { Logged }       from './@types/BoardChanges.ts';
 import type { Task }         from './@types/Task.ts';
 import type { BoardRecords } from './BoardRecords.ts';
 import { BoardRefusal }      from './BoardRefusal.ts';
@@ -19,6 +20,12 @@ export class MergeQueueMarks {
     const row       = this.records.ensureTaskForTicket(ticket, at);
     row.mergeQueued = true;
     return row;
+  }
+
+  /** A passing review's queuing: the mark, and the `merge-queued` record whose place in the log is the ticket's readiness to land. */
+  queueTicketForMerge(ticketId: string, target: string, at: string): Logged {
+    this.setTicketMergeQueued(ticketId, true, at);
+    return { logged: [this.records.logger.log({ kind: 'merge-queued', ticketId, fields: { target } }, at)] };
   }
 
   ticketIsMergeQueued(ticketId: string): boolean {

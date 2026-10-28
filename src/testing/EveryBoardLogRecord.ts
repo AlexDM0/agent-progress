@@ -91,6 +91,7 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
       },
     ],
   }, at);
+  board.queueTicketForMerge('001', 'main', at);
   board.rereviewTicket('001', at);
   board.moveTicket('001', 'reviewed', { checksLegality: true }, at);
   board.moveTicket('001', 'delivered', { checksLegality: true }, at);

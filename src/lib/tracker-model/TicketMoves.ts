@@ -44,7 +44,13 @@ export class TicketMoves {
     this.records.ticketRecords.push(ticket);
     this.records.ensureTaskForTicketOnTheChart(ticket, at);
     this.records.markChanged(ticket);
-    return { logged: [this.records.logger.log({ kind: 'ticket-filed', ticketId: frontmatter.id, fields: { title: frontmatter.title } }, at)], ticket };
+    const jobFiling = frontmatter.filedByJob === undefined ? {} : {
+      status:     frontmatter.status,
+      priority:   frontmatter.priority ?? '',
+      filedByJob: frontmatter.filedByJob,
+      ...(frontmatter.findingRoute === undefined ? {} : { findingRoute: frontmatter.findingRoute }),
+    };
+    return { logged: [this.records.logger.log({ kind: 'ticket-filed', ticketId: frontmatter.id, fields: { title: frontmatter.title, ...jobFiling } }, at)], ticket };
   }
 
   /**

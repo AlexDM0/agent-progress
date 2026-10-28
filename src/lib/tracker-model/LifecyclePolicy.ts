@@ -22,13 +22,18 @@ import { TicketDefaultsUtil }                        from './utils/TicketDefault
 import { TicketDependencyUtil }                      from './utils/TicketDependencyUtil.ts';
 
 export interface LifecycleTicket {
-  id:         string;
-  status:     TicketStatus;
-  priority?:  TicketPriority;
-  dependsOn?: readonly string[];
-  hold?:      string;
-  group?:     string;
+  id:           string;
+  status:       TicketStatus;
+  priority?:    TicketPriority;
+  dependsOn?:   readonly string[];
+  hold?:        string;
+  group?:       string;
+  /** A passed review queued it to land: it waits for its merge slot, never for another review. */
+  mergeQueued?: boolean;
 }
+
+/** The decisions naming a ticket that hold every launch on it until User answers. */
+const TICKET_HOLDING_DECISION_KINDS: readonly Decision['kind'][] = ['waiver', 'branch-touches-agent-config'];
 
 export interface LifecycleFacts {
   tickets:                     readonly LifecycleTicket[];
@@ -169,8 +174,9 @@ function ticketHasAnOpenJobLostIncident(ticketId: string, facts: LifecycleFacts)
  * build that ended on `setup-failed`, `blocked`, `out-of-calls` or `gate-cannot-run`), so no fresh job races the incident's move.
  */
 function ticketIsHeld(ticket: LifecycleTicket, facts: LifecycleFacts): boolean {
-  if (ticket.hold !== undefined) return true;
+  if (ticket.hold !== undefined || ticket.mergeQueued === true) return true;
   if (facts.observations.ticketIdsTouchingAgentConfig.includes(ticket.id)) return true;
+  if (facts.decisions.some((decision) => TICKET_HOLDING_DECISION_KINDS.includes(decision.kind) && decision.ticketIds.includes(ticket.id))) return true;
   if (facts.incidents.some((incident) => incident.ticketIds.includes(ticket.id))) return true;
   return facts.observations.targetsHoldingManagedBlock.includes(targetOf(ticket, facts.observations));
 }

@@ -257,6 +257,10 @@ export class Board {
     return this.mergeQueueMarks.setTicketMergeQueued(ticketId, queued, at);
   }
 
+  queueTicketForMerge(ticketId: string, target: string, at: string): Logged {
+    return this.mergeQueueMarks.queueTicketForMerge(ticketId, target, at);
+  }
+
   ticketIsMergeQueued(ticketId: string): boolean {
     return this.mergeQueueMarks.ticketIsMergeQueued(ticketId);
   }
@@ -332,7 +336,7 @@ export class Board {
 
   private lifecycleFactsOf(observations: LifecycleObservations): LifecycleFacts {
     return {
-      tickets:                     this.records.ticketRecords.map((ticket) => ticket.frontmatter),
+      tickets:                     this.records.ticketRecords.map((ticket) => ({ ...ticket.frontmatter, mergeQueued: this.ticketIsMergeQueued(ticket.frontmatter.id) })),
       jobs:                        this.jobs(),
       decisions:                   this.decisions(),
       incidents:                   this.incidents(),
@@ -712,6 +716,11 @@ export class Board {
 
   reviewRowsOf(ticketId: string): readonly Readonly<Task>[] {
     return this.displayQueries.reviewRowsOf(ticketId);
+  }
+
+  /** The log the Board was opened with, then every record logged since, as the lifecycle policy reads it. */
+  logRecordsSoFar(): readonly LogRecord[] {
+    return [...this.records.storedLogRecords, ...this.records.loggedRecords];
   }
 
   /** The log is the caller's to hand in, since the Board holds no log records. */

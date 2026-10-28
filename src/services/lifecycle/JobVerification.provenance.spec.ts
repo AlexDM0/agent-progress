@@ -1,0 +1,215 @@
+/**
+ * V12 to V14 on a scratch repository: what a reviewer filed must be this job's own low draft finding, read from its filing record
+ * whatever triage did since; no commit or worktree file may touch agent configuration, before a launch or after a job; and no ref but
+ * the job's own branch may move outside a recorded landing. Each planted case refuses with its reason, its clean twin passes.
+ */
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join }                     from 'node:path';
+
+import {
+  afterEach,
+  beforeEach,
+  expect,
+  test
+} from 'bun:test';
+import type { LogRecord }     from '../../lib/tracker-model/@types/LogRecord.ts';
+import { TicketBodyHashUtil } from '../../lib/tracker-model/utils/TicketBodyHashUtil.ts';
+import {
+  addWorktree,
+  commitFile,
+  createScratchGitRepository,
+  currentBranchOf,
+  gitOutputIn,
+  removeScratchDirectory
+} from '../../testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent } from '../../testing/ToolGuard.ts';
+import {
+  agentConfigTouchedBeforeLaunch,
+  launchSnapshotOf,
+  VERIFICATION_CHECKS,
+  type JobVerificationSubject,
+  type LaunchSnapshot,
+  type VerificationCheck
+} from './JobVerification.ts';
+
+const TICKET_BODY = '## Acceptance\nA1. The example holds.\n';
+const AT = '2026-10-28T10:00:00+01:00';
+const JOB_ID = 'J7';
+
+let repositoryDirectory = '';
+let startCommit = '';
+let launchSnapshot: LaunchSnapshot = { refs: {}, hooksFolderDigest: null };
+
+function headCommit(): string {
+  return gitOutputIn(repositoryDirectory, ['rev-parse', 'HEAD']);
+}
+
+function filedFinding(naming: { filedTicketId?: string; relayRequestId?: string }): Record<string, unknown> {
+  return {
+    class:          'out-of-scope',
+    severity:       'quality',
+    file:           'example.ts',
+    summary:        'Example finding',
+    evidence:       'reading',
+    outcome:        'filed',
+    filedTicketId:  naming.filedTicketId ?? null,
+    relayRequestId: naming.relayRequestId ?? null,
+  };
+}
+
+function reviewerSubject(findings: readonly Record<string, unknown>[], logRecords: readonly LogRecord[] = []): JobVerificationSubject {
+  return {
+    role:         'reviewer',
+    worktreePath: repositoryDirectory,
+    startCommit,
+    report:       {
+      role: 'reviewer', headCommit: headCommit(), claims: [], findings, reviewText: 'Example review.'
+    },
+    ticketBody:       TICKET_BODY,
+    bodyHashAtLaunch: TicketBodyHashUtil.bodyHashOf(TICKET_BODY),
+    jobId:            JOB_ID,
+    logRecords,
+    launchSnapshot,
+    refMovesAllowed:  { ownBranch: currentBranchOf(repositoryDirectory), otherJobBranches: [], recordedLandings: [] },
+  };
+}
+
+function filingRecord(ticketId: string, fields: Partial<{ status: string; priority: string; filedByJob: string; findingRoute: string }> = {}): LogRecord {
+  return {
+    at:     AT,
+    kind:   'ticket-filed',
+    ticketId,
+    fields: {
+      title: 'Example finding', status: 'draft', priority: 'low', filedByJob: JOB_ID, findingRoute: 'orchestrator', ...fields
+    },
+  };
+}
+
+function relayAppliedRecord(requestId: string): LogRecord {
+  return {
+    at: AT, kind: 'relay-applied', jobId: JOB_ID, fields: { requestId, commandKind: 'ticket-add', outcome: 'applied' }
+  };
+}
+
+function refusal(check: VerificationCheck, subject: JobVerificationSubject): { reason: string; facts: readonly string[] } | null {
+  const verdict = VERIFICATION_CHECKS[check](subject);
+  return verdict.verdict === 'refused' ? { reason: verdict.reason, facts: verdict.facts } : null;
+}
+
+beforeEach(() => {
+  repositoryDirectory = createScratchGitRepository('job-provenance');
+  startCommit = commitFile(repositoryDirectory, 'base.ts', 'export const base = true;\n');
+  launchSnapshot = launchSnapshotOf(repositoryDirectory) ?? launchSnapshot;
+});
+
+afterEach(() => {
+  removeScratchDirectory(repositoryDirectory);
+});
+
+describeWhenGitIsPresent('V12: every filed finding is this job\'s own low draft', () => {
+  test('a finding naming its ticket, filed on the orchestrator route, passes', () => {
+    expect(refusal('V12', reviewerSubject([filedFinding({ filedTicketId: '012' })], [filingRecord('012')]))).toBeNull();
+  });
+
+  test('a finding naming its request id resolves through the relay-applied record that carries it, on the user route', () => {
+    const records = [filingRecord('013', { findingRoute: 'user' }), relayAppliedRecord('R1')];
+    expect(refusal('V12', reviewerSubject([filedFinding({ relayRequestId: 'R1' })], records))).toBeNull();
+  });
+
+  test('the filing record is read, never the ticket now: a ticket readied or triaged since still passes', () => {
+    const triagedSince: LogRecord = {
+      at: AT, kind: 'ticket-triaged', ticketId: '012', fields: {}
+    };
+    expect(refusal('V12', reviewerSubject([filedFinding({ filedTicketId: '#12' })], [filingRecord('012'), triagedSince]))).toBeNull();
+  });
+
+  test('another job\'s ticket, a ticket filed above low, one filed ready, one with no route and an unresolvable request each refuse', () => {
+    const cases: [Record<string, unknown>, LogRecord[]][] = [
+      [filedFinding({ filedTicketId: '012' }), [filingRecord('012', { filedByJob: 'J3' })]],
+      [filedFinding({ filedTicketId: '012' }), [filingRecord('012', { priority: 'normal' })]],
+      [filedFinding({ filedTicketId: '012' }), [filingRecord('012', { status: 'pending' })]],
+      [filedFinding({ filedTicketId: '012' }), [filingRecord('012', { findingRoute: '' })]],
+      [filedFinding({ relayRequestId: 'R9' }), [filingRecord('012'), relayAppliedRecord('R1')]],
+    ];
+    for (const [finding, records] of cases) {
+      expect(refusal('V12', reviewerSubject([finding], records))?.reason).toBe('finding-not-filed-by-job');
+    }
+  });
+});
+
+describeWhenGitIsPresent('V13: no change to agent configuration', () => {
+  test('a commit under .claude/ refuses, even when a later commit undoes it', () => {
+    mkdirSync(join(repositoryDirectory, '.claude'), { recursive: true });
+    commitFile(repositoryDirectory, '.claude/settings.json', '{"hooks":{}}\n');
+    gitOutputIn(repositoryDirectory, ['rm', '-q', '.claude/settings.json']);
+    gitOutputIn(repositoryDirectory, ['-c', 'user.name=Alex Example', '-c', 'user.email=alex@example.com', 'commit', '-q', '-m', 'Undo']);
+    expect(refusal('V13', reviewerSubject([]))).toEqual({ reason: 'branch-touches-agent-config', facts: ['.claude/settings.json'] });
+  });
+
+  test('an untracked .mcp.json in the worktree refuses', () => {
+    writeFileSync(join(repositoryDirectory, '.mcp.json'), '{}\n');
+    expect(refusal('V13', reviewerSubject([]))?.facts).toEqual(['.mcp.json']);
+  });
+
+  test('the hooks folder is core.hooksPath read from git: a change under it refuses, the same file elsewhere passes', () => {
+    gitOutputIn(repositoryDirectory, ['config', 'core.hooksPath', 'example-hooks']);
+    mkdirSync(join(repositoryDirectory, 'other-hooks'));
+    mkdirSync(join(repositoryDirectory, 'example-hooks'));
+    launchSnapshot = launchSnapshotOf(repositoryDirectory) ?? launchSnapshot;
+    commitFile(repositoryDirectory, 'other-hooks/pre-commit', 'exit 0\n');
+    expect(refusal('V13', reviewerSubject([]))).toBeNull();
+    commitFile(repositoryDirectory, 'example-hooks/pre-commit', 'exit 0\n');
+    expect(refusal('V13', reviewerSubject([]))?.facts).toEqual(['example-hooks/pre-commit']);
+  });
+
+  test('without core.hooksPath, a hook written into .git/hooks after launch refuses by the launch digest', () => {
+    const hooksFolder = join(gitOutputIn(repositoryDirectory, ['rev-parse', '--path-format=absolute', '--git-common-dir']), 'hooks');
+    mkdirSync(hooksFolder, { recursive: true });
+    launchSnapshot = launchSnapshotOf(repositoryDirectory) ?? launchSnapshot;
+    expect(refusal('V13', reviewerSubject([]))).toBeNull();
+    writeFileSync(join(hooksFolder, 'post-checkout'), 'exit 0\n');
+    expect(refusal('V13', reviewerSubject([]))?.reason).toBe('branch-touches-agent-config');
+  });
+
+  test('before a launch, the branch\'s own commits past its target are read: a target holding .claude/ passes, the branch adding it refuses', () => {
+    const target = currentBranchOf(repositoryDirectory);
+    gitOutputIn(repositoryDirectory, ['checkout', '-q', '-b', 'ticket-007']);
+    expect(agentConfigTouchedBeforeLaunch(repositoryDirectory, target).verdict).toBe('passed');
+    mkdirSync(join(repositoryDirectory, '.claude'), { recursive: true });
+    commitFile(repositoryDirectory, '.claude/settings.json', '{}\n');
+    expect(agentConfigTouchedBeforeLaunch(repositoryDirectory, target)).toEqual({ verdict: 'refused', reason: 'branch-touches-agent-config', facts: ['.claude/settings.json'] });
+  });
+});
+
+describeWhenGitIsPresent('V14: no foreign ref moved', () => {
+  test('the job\'s own branch moving passes; another branch moving or appearing refuses', () => {
+    commitFile(repositoryDirectory, 'feature.ts', 'export const feature = true;\n');
+    expect(refusal('V14', reviewerSubject([]))).toBeNull();
+    gitOutputIn(repositoryDirectory, ['branch', 'example-foreign', startCommit]);
+    expect(refusal('V14', reviewerSubject([]))).toEqual({ reason: 'foreign-ref-moved', facts: ['refs/heads/example-foreign'] });
+  });
+
+  test('a landing the runner recorded at the commit the ref now names passes, and another job\'s branch passes', () => {
+    gitOutputIn(repositoryDirectory, ['branch', 'example-target', startCommit]);
+    gitOutputIn(repositoryDirectory, ['branch', 'ticket-009', startCommit]);
+    const subject = reviewerSubject([]);
+    expect(refusal('V14', {
+      ...subject,
+      refMovesAllowed: {
+        ownBranch:        currentBranchOf(repositoryDirectory),
+        otherJobBranches: ['ticket-009'],
+        recordedLandings: [{ ref: 'refs/heads/example-target', commit: startCommit }],
+      },
+    })).toBeNull();
+  });
+
+  test('another worktree\'s detached HEAD moving refuses, and a job with no launch snapshot refuses', () => {
+    const otherWorktree = addWorktree(repositoryDirectory, 'example-detached');
+    gitOutputIn(otherWorktree, ['checkout', '-q', '--detach', startCommit]);
+    launchSnapshot = launchSnapshotOf(repositoryDirectory) ?? launchSnapshot;
+    commitFile(otherWorktree, 'moved.ts', 'export const moved = true;\n');
+    expect(refusal('V14', reviewerSubject([]))?.facts.some((fact) => fact.startsWith('HEAD:'))).toBe(true);
+    const { launchSnapshot: _dropped, ...withoutSnapshot } = reviewerSubject([]);
+    expect(refusal('V14', withoutSnapshot)?.reason).toBe('foreign-ref-moved');
+  });
+});
