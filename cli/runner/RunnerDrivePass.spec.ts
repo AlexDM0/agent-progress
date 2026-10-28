@@ -199,11 +199,11 @@ async function passUntilBuildSessionSpawned(drivePass: DrivePass): Promise<void>
 }
 
 describe('one pass', () => {
-  test('a readied ticket gets a launching job in one pass, and its session a host running the fake child once its worktree is prepared', async () => {
+  test('one wake carries a readied ticket\'s job from launching through its prepared worktree to running, and its session a host running the fake child', async () => {
     const drivePass = await drivePassWith(fakeAgentAdapter());
     await passOnce(drivePass);
     expect((storedProgressOf(repositoryDirectory).jobs ?? []).find((job) => job.id === buildJobId())).toMatchObject({
-      kind: 'build', role: 'builder', ticketIds: ['001'], state: 'launching', hostInstance: 1
+      kind: 'build', role: 'builder', ticketIds: ['001'], state: 'running', hostInstance: 1
     });
     await passUntilBuildSessionSpawned(drivePass);
     await untilHostEnded(buildJobId(), 1);
@@ -229,8 +229,9 @@ describe('one pass', () => {
     writeRelayRequest(relayDirectory(firstBuildJobId), lowFinding('request-1', 'Example finding beside the build'));
     phases.length = 0;
     await passOnce(drivePass);
-    // The report names no head, so verification in the same hold fails the pass and the policy launches attempt 2, which filed nothing.
-    expect(phases, runnerLog.join('\n')).toEqual([
+    // The report names no head, so verification in the same hold fails the pass and the policy launches attempt 2, which filed nothing;
+    // the passes that carry attempt 2 on follow in the same wake.
+    expect(phases.slice(0, 3), runnerLog.join('\n')).toEqual([
       { phase: 'relayed-commands', jobState: 'running', findingFiled: true },
       { phase: 'host-events', jobState: 'verifying', findingFiled: true },
       { phase: 'lifecycle', jobState: 'launching', findingFiled: false },
@@ -370,7 +371,7 @@ describe('the verbs beside a runner', () => {
   test('ticket deliver --by-hand is refused ticket-has-live-job while a job of the ticket is on the board', async () => {
     const drivePass = await drivePassWith(WAITING_SESSION);
     await passOnce(drivePass);
-    expect(await runRefused(['ticket', 'deliver', '001', '--by-hand'])).toContain(`Ticket #001 has job ${buildJobId()} live (launching)`);
+    expect(await runRefused(['ticket', 'deliver', '001', '--by-hand'])).toContain(`Ticket #001 has job ${buildJobId()} live (running)`);
     expect(deliveredRecordsOf('001')).toEqual([]);
   }, PASS_TEST_TIMEOUT_MILLISECONDS);
 });
