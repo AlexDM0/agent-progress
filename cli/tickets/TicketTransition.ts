@@ -62,4 +62,5 @@ export async function transitionOneTicket(
   }
   if (move.ticket.frontmatter.hold !== undefined) {
     context.standardError(`Ticket #${id} is held; it was started anyway, and \`${PRODUCT_NAMES.PROGRAM} ticket unhold ${id}\` lifts the hold.`);
-  } }
+  }
+}
