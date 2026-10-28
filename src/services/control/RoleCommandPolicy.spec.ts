@@ -65,9 +65,11 @@ describe('builder, reviewer and merge-fix', () => {
     ['dependencies', { dependsOn: ['004'] }],
     ['epics', { epics: ['checkout'] }],
     ['network', { network: ['example.com'] }],
-  ] as const)('a filing with %s is refused worker-filing-flag', (_case, overrides) => {
+  ] as const)('a filing with %s is refused worker-filing-flag', (caseName, overrides) => {
+    // Every case but the priority ones keeps `--priority low`, so the flag alone is what refuses it.
     const { priority: _lowPriority, ...withoutPriority } = lowFinding();
-    const command = { ...withoutPriority, ...overrides } as ControlCommand;
+    const base    = caseName === 'no priority' ? withoutPriority : lowFinding();
+    const command = { ...base, ...overrides } as ControlCommand;
     expect(RoleCommandPolicy.verdictOf(jobOf('builder'), command)).toEqual({ verdict: 'refused', reason: 'worker-filing-flag' });
   });
 
