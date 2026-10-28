@@ -1,14 +1,12 @@
 /** `draft note`, `ask`, `answer` and `drop`: what a draft holds besides its request, each one write, refused at exit 1 with nothing written. */
-import { DraftDocumentUtil }            from '../../src/adapters/drafts/utils/DraftDocumentUtil.ts';
-import type { DraftChanged }            from '../../src/lib/tracker-model/@types/BoardChanges.ts';
-import type { Board }                   from '../../src/lib/tracker-model/Board.ts';
-import { PRODUCT_NAMES }                from '../../src/shared/constants/ProductNames.ts';
-import type { CommandContext }          from '../CommandContext.ts';
-import { openTrackerForWriting }        from '../OpenTrackerForWriting.ts';
-import type { ArgumentParser }          from '../arguments/ArgumentParser.ts';
-import { OutputUtil }                   from '../utils/OutputUtil.ts';
-import { draftIdArgumentOf, refusalOf } from './DraftChangeSubcommands.ts';
-import { DRAFT_USAGE }                  from './constants/DraftUsage.ts';
+import { DraftDocumentUtil }                                 from '../../src/adapters/drafts/utils/DraftDocumentUtil.ts';
+import type { ControlCommandOf }                             from '../../src/shared/@types/ControlCommand.ts';
+import { PRODUCT_NAMES }                                     from '../../src/shared/constants/ProductNames.ts';
+import type { CommandContext }                               from '../CommandContext.ts';
+import type { ArgumentParser }                               from '../arguments/ArgumentParser.ts';
+import { OutputUtil }                                        from '../utils/OutputUtil.ts';
+import { appliedDraftControl, draftIdArgumentOf, refusalOf } from './DraftChangeSubcommands.ts';
+import { DRAFT_USAGE }                                       from './constants/DraftUsage.ts';
 
 const NOTE_OPTION_NAMES   = ['assumption', 'json'];
 const ASK_OPTION_NAMES    = ['context', 'option', 'recommended', 'multiple', 'under', 'json'];
@@ -27,8 +25,12 @@ function requiredTextAt(commandArguments: ArgumentParser, index: number, missing
   return text;
 }
 
-async function changeDraftContent(commandArguments: ArgumentParser, context: CommandContext, change: (board: Board, at: string) => DraftChanged): Promise<void> {
-  const changed = await openTrackerForWriting(commandArguments, context, (tracker) => change(tracker.board, tracker.at));
+async function changeDraftContent(
+  commandArguments: ArgumentParser,
+  context: CommandContext,
+  command: ControlCommandOf<'draft-note' | 'draft-ask' | 'draft-answer' | 'draft-drop'>,
+): Promise<void> {
+  const changed = await appliedDraftControl(commandArguments, context, command);
   OutputUtil.printEntity(commandArguments, context, DraftDocumentUtil.draftDocumentOf(changed.draft), OutputUtil.loggedSentencesOf(changed.logged));
 }
 
@@ -37,8 +39,10 @@ async function noteDraft(commandArguments: ArgumentParser, context: CommandConte
   commandArguments.rejectExtraPositionals(ITEM_POSITION + 1, DRAFT_USAGE);
   const draftId = draftIdArgumentOf(commandArguments, 'note');
   const text    = requiredTextAt(commandArguments, ITEM_POSITION, `${PRODUCT_NAMES.PROGRAM} draft note needs the text of the fact or assumption.`);
-  const kind    = commandArguments.flag('assumption') ? 'assumption' : 'fact';
-  await changeDraftContent(commandArguments, context, (board, at) => board.addDraftNote(draftId, { text, kind }, at));
+  const noteKind = commandArguments.flag('assumption') ? 'assumption' : 'fact';
+  await changeDraftContent(commandArguments, context, {
+    kind: 'draft-note', draftId, text, noteKind
+  });
 }
 
 async function askDraft(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
@@ -54,14 +58,18 @@ async function askDraft(commandArguments: ArgumentParser, context: CommandContex
   if (recommended === undefined) throw refusalOf(`${PRODUCT_NAMES.PROGRAM} draft ask needs --recommended <letters>, the option or options Claude recommends.`);
   const recommendedLetters = recommended.split(LETTER_LIST_SEPARATOR).map((letter) => letter.trim()).filter((letter) => letter !== '');
 
-  await changeDraftContent(commandArguments, context, (board, at) => board.askDraftQuestion(draftId, {
-    question,
-    context:         questionContext,
-    optionTexts:     commandArguments.optionValues('option'),
-    multiple:        commandArguments.flag('multiple'),
-    recommendedLetters,
-    underQuestionId: commandArguments.option('under') ?? null,
-  }, at));
+  await changeDraftContent(commandArguments, context, {
+    kind:   'draft-ask',
+    draftId,
+    asking: {
+      question,
+      context:         questionContext,
+      optionTexts:     commandArguments.optionValues('option'),
+      multiple:        commandArguments.flag('multiple'),
+      recommendedLetters,
+      underQuestionId: commandArguments.option('under') ?? null,
+    },
+  });
 }
 
 async function answerDraft(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
@@ -70,7 +78,9 @@ async function answerDraft(commandArguments: ArgumentParser, context: CommandCon
   const draftId    = draftIdArgumentOf(commandArguments, 'answer');
   const questionId = requiredTextAt(commandArguments, ITEM_POSITION, `${PRODUCT_NAMES.PROGRAM} draft answer needs the question number, such as Q1.`);
   const answer     = requiredTextAt(commandArguments, ANSWER_POSITION, `${PRODUCT_NAMES.PROGRAM} draft answer needs the answer: option letters such as a or a,c, or free text.`);
-  await changeDraftContent(commandArguments, context, (board, at) => board.answerDraftQuestion(draftId, questionId, answer, at));
+  await changeDraftContent(commandArguments, context, {
+    kind: 'draft-answer', draftId, questionId, answer
+  });
 }
 
 async function dropDraftItem(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
@@ -78,7 +88,7 @@ async function dropDraftItem(commandArguments: ArgumentParser, context: CommandC
   commandArguments.rejectExtraPositionals(ITEM_POSITION + 1, DRAFT_USAGE);
   const draftId = draftIdArgumentOf(commandArguments, 'drop');
   const itemId  = requiredTextAt(commandArguments, ITEM_POSITION, `${PRODUCT_NAMES.PROGRAM} draft drop needs the note or question number, such as N1 or Q1.`);
-  await changeDraftContent(commandArguments, context, (board, at) => board.dropDraftItem(draftId, itemId, at));
+  await changeDraftContent(commandArguments, context, { kind: 'draft-drop', draftId, itemId });
 }
 
 export const DRAFT_CONTENT_SUBCOMMANDS = {

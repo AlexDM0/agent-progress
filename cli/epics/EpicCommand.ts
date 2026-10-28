@@ -56,6 +56,8 @@ const EPIC_SUBCOMMANDS: Readonly<Record<string, (commandArguments: ArgumentParse
   show: showEpic,
 });
 
+export const EPIC_SUBCOMMAND_NAMES: readonly string[] = Object.freeze(Object.keys(EPIC_SUBCOMMANDS));
+
 export const epicCommand: CommandHandler = async (commandArguments, context) => {
   const subcommand = commandArguments.positionals()[0];
 

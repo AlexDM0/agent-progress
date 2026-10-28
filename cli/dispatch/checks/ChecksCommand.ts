@@ -1,6 +1,7 @@
 import { refusalIsBoardRefusal }               from '../../../src/lib/tracker-model/BoardRefusal.ts';
 import { readingBoardOf }                      from '../../../src/lib/tracker-model/ReadingBoard.ts';
 import { BoardSettingsUtil }                   from '../../../src/lib/tracker-model/utils/BoardSettingsUtil.ts';
+import { ControlService }                      from '../../../src/services/control/ControlService.ts';
 import { requireProgressFile, requireTracker } from '../../../src/services/tracker/TrackerReader.ts';
 import { requireWorkspace }                    from '../../../src/services/tracker/Workspace.ts';
 import { OperationRefusal }                    from '../../../src/shared/OperationRefusal.ts';
@@ -86,12 +87,11 @@ export const checksCommand: CommandHandler = async (commandArguments, context) =
     await requireTheCommandPassesInTheMainCheckout(checkCommand, commandArguments, context);
   }
 
-  const { logged, previousCheckCommand, restampedTicketIds } = await openTrackerForWriting(commandArguments, context, (change) => {
-    if (checkCommand === null && change.board.checkCommand() === undefined && !restamps) {
-      throw new OperationRefusal('refused', `No check command is set, so there is none to clear.\n  Usage: ${USAGE}`);
-    }
-    return change.board.setCheckCommand(checkCommand, restamps, change.at);
-  });
+  const { logged, previousCheckCommand, restampedTicketIds } = await openTrackerForWriting(
+    commandArguments,
+    context,
+    (change) => ControlService.apply({ kind: 'checks-set', command: checkCommand, restamps }, change).result,
+  );
 
   const loggedSentence = OutputUtil.loggedSentencesOf(logged);
   OutputUtil.printEntity(

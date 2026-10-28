@@ -1,6 +1,7 @@
 /** `ticket hold` and `ticket unhold`, and the hint an unhold prints about a build it left paused. */
 import { TicketJsonUtil }                        from '../../src/adapters/utils/TicketJsonUtil.ts';
 import type { Task }                             from '../../src/lib/tracker-model/@types/Task.ts';
+import { ControlService }                        from '../../src/services/control/ControlService.ts';
 import { OperationRefusal }                      from '../../src/shared/OperationRefusal.ts';
 import { PRODUCT_NAMES }                         from '../../src/shared/constants/ProductNames.ts';
 import { DispatcherClaimNoteUtil }               from '../../src/shared/utils/DispatcherClaimNoteUtil.ts';
@@ -10,7 +11,6 @@ import type { ArgumentParser }                   from '../arguments/ArgumentPars
 import { NextLineUtil }                          from '../utils/NextLineUtil.ts';
 import { OutputUtil }                            from '../utils/OutputUtil.ts';
 import { TICKET_USAGE }                          from './constants/TicketUsage.ts';
-import { TicketLookupUtil }                      from './utils/TicketLookupUtil.ts';
 
 const HOLD_OPTION_NAMES   = ['reason', 'at', 'json'];
 const UNHOLD_OPTION_NAMES = ['at', 'json'];
@@ -39,9 +39,11 @@ export async function holdOrUnholdTicket(holds: boolean, commandArguments: Argum
 
   const { result: changed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
     const { board } = change;
-    const ticketId  = TicketLookupUtil.requireTicket(change, reference).frontmatter.id;
-    if (holds) return { holdChange: board.holdTicket(ticketId, reason, change.at), resumeBuildHint: null };
-    const holdChange = board.unholdTicket(ticketId, change.at);
+    if (holds) {
+      return { holdChange: ControlService.apply({ kind: 'ticket-hold', ticketReference: reference, reason }, change).result, resumeBuildHint: null };
+    }
+    const holdChange = ControlService.apply({ kind: 'ticket-unhold', ticketReference: reference }, change).result;
+    const ticketId   = holdChange.ticket.frontmatter.id;
     const pausedRow  = board.pausedBuildRowOf(ticketId);
     return { holdChange, resumeBuildHint: pausedRow === null ? null : resumeBuildHintFor(ticketId, pausedRow) };
   });

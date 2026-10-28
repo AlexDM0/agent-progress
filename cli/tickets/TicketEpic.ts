@@ -1,18 +1,19 @@
 /** `ticket epic`: replaces, adds to or removes from the epics a ticket belongs to, mirroring `ticket depends`; the first key is its primary epic. */
-import { TicketJsonUtil }        from '../../src/adapters/utils/TicketJsonUtil.ts';
-import { OperationRefusal }      from '../../src/shared/OperationRefusal.ts';
-import { PRODUCT_NAMES }         from '../../src/shared/constants/ProductNames.ts';
-import type { CommandContext }   from '../CommandContext.ts';
-import { openTrackerForWriting } from '../OpenTrackerForWriting.ts';
-import type { ArgumentParser }   from '../arguments/ArgumentParser.ts';
-import { OutputUtil }            from '../utils/OutputUtil.ts';
-import { TICKET_USAGE }          from './constants/TicketUsage.ts';
-import { TicketArgumentUtil }    from './utils/TicketArgumentUtil.ts';
-import { TicketLookupUtil }      from './utils/TicketLookupUtil.ts';
+import { TicketJsonUtil }                  from '../../src/adapters/utils/TicketJsonUtil.ts';
+import { ControlService }                  from '../../src/services/control/ControlService.ts';
+import type { ControlCommandOf, ListEdit } from '../../src/shared/@types/ControlCommand.ts';
+import { OperationRefusal }                from '../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }                   from '../../src/shared/constants/ProductNames.ts';
+import type { CommandContext }             from '../CommandContext.ts';
+import { openTrackerForWriting }           from '../OpenTrackerForWriting.ts';
+import type { ArgumentParser }             from '../arguments/ArgumentParser.ts';
+import { OutputUtil }                      from '../utils/OutputUtil.ts';
+import { TICKET_USAGE }                    from './constants/TicketUsage.ts';
+import { TicketArgumentUtil }              from './utils/TicketArgumentUtil.ts';
 
 const EPIC_OPTION_NAMES = ['add', 'remove', 'at', 'json'];
 
-type EpicListEdit = { kind: 'replace' | 'add' | 'remove'; epicKeys: string[] };
+type EpicListEdit = { kind: ListEdit; epicKeys: string[] };
 
 /** Bare keys beside `--add` or `--remove` could mean either list, so both are refused rather than guessed, as `ticket depends` does. */
 function epicListEditFrom(commandArguments: ArgumentParser, epicKeyTexts: readonly string[]): EpicListEdit {
@@ -43,12 +44,10 @@ export async function setTicketEpics(commandArguments: ArgumentParser, context: 
   }
   const edit = epicListEditFrom(commandArguments, epicKeyTexts);
 
-  const changed = await openTrackerForWriting(commandArguments, context, (change) => {
-    const ticketId = TicketLookupUtil.requireTicket(change, reference).frontmatter.id;
-    if (edit.kind === 'add') return change.board.addTicketEpics(ticketId, edit.epicKeys, change.at);
-    if (edit.kind === 'remove') return change.board.removeTicketEpics(ticketId, edit.epicKeys, change.at);
-    return change.board.setTicketEpics(ticketId, edit.epicKeys, change.at);
-  });
+  const command: ControlCommandOf<'ticket-epic'> = {
+    kind: 'ticket-epic', ticketReference: reference, edit: edit.kind, epicKeys: edit.epicKeys
+  };
+  const changed = await openTrackerForWriting(commandArguments, context, (change) => ControlService.apply(command, change).result);
 
   const droppedSuffix = changed.droppedEpicKeys.length === 0 ? '' : ` (dropped ${changed.droppedEpicKeys.join(', ')})`;
   const entity        = { ...TicketJsonUtil.ticketAsJson(changed.ticket), added: changed.addedEpicKeys, dropped: changed.droppedEpicKeys };

@@ -1,0 +1,171 @@
+/**
+ * Design section 9.1's rule over the control contract: every kind names a verb `cli/CommandTable.ts` has, every mutating verb is either a
+ * kind's or on the exact list of verbs User runs by hand, and every verb of the table is placed once. What matters: a kind without a verb
+ * and a relayable verb without a kind are both named, and each list is exact both ways, so a stale entry fails as loudly as a missing one.
+ */
+import { describe, expect, test } from 'bun:test';
+
+import { CONTROL_COMMAND_KINDS }   from '../src/services/control/ControlService.ts';
+import type { ControlCommandKind } from '../src/shared/@types/ControlCommand.ts';
+import { COMMAND_NAMES }           from './CommandTable.ts';
+import { DRAFT_SUBCOMMAND_NAMES }  from './drafts/DraftCommand.ts';
+import { EPIC_SUBCOMMAND_NAMES }   from './epics/EpicCommand.ts';
+import { TICKET_SUBCOMMAND_NAMES } from './tickets/TicketCommand.ts';
+
+const VERB_OF_KIND: { readonly [Kind in ControlCommandKind]: string } = {
+  'ticket-add':      'ticket add',
+  'ticket-edit':     'ticket edit',
+  'ticket-depends':  'ticket depends',
+  'ticket-priority': 'ticket priority',
+  'ticket-epic':     'ticket epic',
+  'ticket-abandon':  'ticket abandon',
+  'ticket-ready':    'ticket ready',
+  'ticket-network':  'ticket network',
+  'ticket-hold':     'ticket hold',
+  'ticket-unhold':   'ticket unhold',
+  'epic-add':        'epic add',
+  'draft-open':      'draft open',
+  'draft-claim':     'draft claim',
+  'draft-release':   'draft release',
+  'draft-note':      'draft note',
+  'draft-ask':       'draft ask',
+  'draft-answer':    'draft answer',
+  'draft-drop':      'draft drop',
+  'draft-close':     'draft close',
+  'draft-abandon':   'draft abandon',
+  'concurrency-set': 'concurrency',
+  'checks-set':      'checks',
+};
+
+/** Mutating verbs User runs by hand: never relayed, never offered in the UI (design section 9.1). */
+const NOT_RELAYABLE_MUTATING_VERBS = [
+  'task',
+  'log',
+  'range',
+  'clear',
+  'ticket agent',
+  'ticket size',
+  'ticket status',
+  'ticket link',
+  'ticket introduced-by',
+  'ticket release-of',
+  'ticket rereview',
+  'ticket reopen',
+  'epic edit',
+  'epic remove',
+  'release',
+  'ticket start',
+  'ticket finish',
+  'ticket approve',
+  'ticket deliver',
+  'review record',
+  'rework',
+  'init',
+  'update',
+  'dispatcher',
+];
+
+const READ_ONLY_VERBS = [
+  'status', 'usage', 'review-stats', 'open', 'help', 'ticket list', 'ticket show', 'epic list', 'epic show', 'draft list', 'draft show',
+];
+
+/** Verbs design section 9.2 retires, which no command replaces; they leave the table with T26. */
+const RETIRING_VERBS = ['hook', 'render', 'ticket claim'];
+
+interface ControlContract {
+  readonly verbOfKind:                Readonly<Record<string, string>>;
+  readonly notRelayableMutatingVerbs: readonly string[];
+  readonly readOnlyVerbs:             readonly string[];
+  readonly retiringVerbs:             readonly string[];
+  readonly tableVerbs:                readonly string[];
+}
+
+function subcommandVerbsOf(command: string, subcommandNames: readonly string[]): string[] {
+  return subcommandNames.map((subcommand) => `${command} ${subcommand}`);
+}
+
+/** Every verb `agent-progress` answers: a command, or a command and its subcommand where the command has several. */
+function tableVerbsOf(commandNames: readonly string[]): string[] {
+  return commandNames.flatMap((command) => {
+    if (command === 'ticket') return subcommandVerbsOf(command, TICKET_SUBCOMMAND_NAMES);
+    if (command === 'epic') return subcommandVerbsOf(command, EPIC_SUBCOMMAND_NAMES);
+    if (command === 'draft') return subcommandVerbsOf(command, DRAFT_SUBCOMMAND_NAMES);
+    if (command === 'review') return ['review record'];
+    return [command];
+  });
+}
+
+function contractViolationsOf(contract: ControlContract): string[] {
+  const tableVerbs = new Set(contract.tableVerbs);
+  const placements = [
+    ...Object.values(contract.verbOfKind).map((verb) => ({ verb, place: 'a control kind' })),
+    ...contract.notRelayableMutatingVerbs.map((verb) => ({ verb, place: 'the not-relayable list' })),
+    ...contract.readOnlyVerbs.map((verb) => ({ verb, place: 'the read-only list' })),
+    ...contract.retiringVerbs.map((verb) => ({ verb, place: 'the retiring list' })),
+  ];
+  const kindsWithoutAVerb = Object.entries(contract.verbOfKind)
+    .filter(([, verb]) => !tableVerbs.has(verb))
+    .map(([kind, verb]) => `kind ${kind} names ${verb}, which cli/CommandTable.ts does not answer`);
+  const staleListEntries = placements
+    .filter(({ verb, place }) => place !== 'a control kind' && !tableVerbs.has(verb))
+    .map(({ verb, place }) => `${verb} is on ${place} but cli/CommandTable.ts does not answer it`);
+  const placedVerbs = new Set(placements.map(({ verb }) => verb));
+  const verbsWithoutAKind = contract.tableVerbs
+    .filter((verb) => !placedVerbs.has(verb))
+    .map((verb) => `${verb} is relayable but no control kind applies it`);
+  const placesOfVerb = Map.groupBy(placements.filter(({ place }) => place !== 'a control kind'), ({ verb }) => verb);
+  const kindVerbs = new Set(Object.values(contract.verbOfKind));
+  const verbsPlacedTwice = [...placesOfVerb.entries()]
+    .filter(([verb, places]) => places.length + (kindVerbs.has(verb) ? 1 : 0) > 1)
+    .map(([verb]) => `${verb} is placed more than once`);
+  return [...kindsWithoutAVerb, ...staleListEntries, ...verbsWithoutAKind, ...verbsPlacedTwice];
+}
+
+const CONTRACT: ControlContract = {
+  verbOfKind:                VERB_OF_KIND,
+  notRelayableMutatingVerbs: NOT_RELAYABLE_MUTATING_VERBS,
+  readOnlyVerbs:             READ_ONLY_VERBS,
+  retiringVerbs:             RETIRING_VERBS,
+  tableVerbs:                tableVerbsOf(COMMAND_NAMES),
+};
+
+describe('the control contract', () => {
+  test('the scan saw the table: ticket, epic and draft verbs and the top-level commands are all there', () => {
+    expect(CONTRACT.tableVerbs).toContain('ticket add');
+    expect(CONTRACT.tableVerbs).toContain('epic add');
+    expect(CONTRACT.tableVerbs).toContain('draft open');
+    expect(CONTRACT.tableVerbs).toContain('concurrency');
+    expect(CONTRACT.tableVerbs.length).toBeGreaterThan(Object.keys(VERB_OF_KIND).length);
+  });
+
+  test('every kind the service applies has a verb here, and every verb here a kind the service applies', () => {
+    expect([...CONTROL_COMMAND_KINDS].sort() as string[]).toEqual(Object.keys(VERB_OF_KIND).sort());
+  });
+
+  test('no kind without a verb, no relayable verb without a kind, and every list exact both ways', () => {
+    expect(contractViolationsOf(CONTRACT)).toEqual([]);
+  });
+
+  test('a kind whose verb the table does not answer is named', () => {
+    expect(contractViolationsOf({ ...CONTRACT, verbOfKind: { ...VERB_OF_KIND, 'ticket-park': 'ticket park' } })).toEqual([
+      'kind ticket-park names ticket park, which cli/CommandTable.ts does not answer',
+    ]);
+  });
+
+  test('a mutating verb the table answers with no kind and on no list is named as relayable without a kind', () => {
+    expect(contractViolationsOf({ ...CONTRACT, tableVerbs: [...CONTRACT.tableVerbs, 'ticket triage'] })).toEqual([
+      'ticket triage is relayable but no control kind applies it',
+    ]);
+    const withoutTheHoldKind = Object.fromEntries(Object.entries(VERB_OF_KIND).filter(([kind]) => kind !== 'ticket-hold'));
+    expect(contractViolationsOf({ ...CONTRACT, verbOfKind: withoutTheHoldKind })).toEqual(['ticket hold is relayable but no control kind applies it']);
+  });
+
+  test('a stale not-relayable entry and a verb placed twice are named', () => {
+    expect(contractViolationsOf({ ...CONTRACT, notRelayableMutatingVerbs: [...NOT_RELAYABLE_MUTATING_VERBS, 'ticket waive'] })).toEqual([
+      'ticket waive is on the not-relayable list but cli/CommandTable.ts does not answer it',
+    ]);
+    expect(contractViolationsOf({ ...CONTRACT, notRelayableMutatingVerbs: [...NOT_RELAYABLE_MUTATING_VERBS, 'ticket hold'] })).toEqual([
+      'ticket hold is placed more than once',
+    ]);
+  });
+});

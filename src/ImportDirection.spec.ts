@@ -26,6 +26,7 @@ type Layer =
   | 'adapters'
   | 'render-service'
   | 'tracker-service'
+  | 'control-service'
   | 'runner-service'
   | 'test-support'
   | 'repository-guard'
@@ -42,7 +43,9 @@ interface Finding {
 
 const BINARY_PATH = 'agent-progress.ts';
 const FEATURES = ['cli', 'page', 'dispatcher'] as const satisfies readonly Layer[];
-const SOURCE_LAYERS = ['lib', 'shared', 'adapters', 'render-service', 'tracker-service', 'runner-service'] as const satisfies readonly Layer[];
+const SOURCE_LAYERS = [
+  'lib', 'shared', 'adapters', 'render-service', 'tracker-service', 'control-service', 'runner-service',
+] as const satisfies readonly Layer[];
 
 /** What each layer may import, a folder in a testing folder aside: those are judged by `TESTING_FOLDER_IMPORTERS` alone. */
 const LAYER_REACH: Readonly<Record<Layer, readonly Layer[]>> = {
@@ -52,7 +55,8 @@ const LAYER_REACH: Readonly<Record<Layer, readonly Layer[]>> = {
   'adapters':         ['lib', 'shared', 'adapters'],
   'render-service':   ['lib', 'shared', 'adapters', 'render-service'],
   'tracker-service':  ['lib', 'shared', 'adapters', 'render-service', 'tracker-service'],
-  'runner-service':   ['lib', 'shared', 'adapters', 'render-service', 'tracker-service', 'runner-service'],
+  'control-service':  ['lib', 'shared', 'adapters', 'render-service', 'tracker-service', 'control-service'],
+  'runner-service':   ['lib', 'shared', 'adapters', 'render-service', 'tracker-service', 'control-service', 'runner-service'],
   'test-support':     [...SOURCE_LAYERS],
   'repository-guard': [],
   'cli':              [...SOURCE_LAYERS, 'cli'],
@@ -114,6 +118,7 @@ function layerOf(path: string): Layer {
     case 'services':
       if (unitFolder === 'render') return 'render-service';
       if (unitFolder === 'tracker') return 'tracker-service';
+      if (unitFolder === 'control') return 'control-service';
       return unitFolder === 'runner' ? 'runner-service' : 'unplaced';
     case 'testing':
       return 'test-support';
@@ -402,6 +407,16 @@ describe('the guard still names each violation, planted in memory', () => {
         + 'tracker-service reaches only lib, shared, adapters, render-service, tracker-service, not runner-service',
     ]);
     expect(plantedSentencesOf({ 'src/services/runner/PlantedPass.ts': importing('../tracker/TrackerLock.ts') })).toEqual([]);
+    expect(plantedSentencesOf({ 'src/services/control/PlantedControl.ts': importing('../tracker/TrackerLock.ts') })).toEqual([]);
+    expect(plantedSentencesOf({ 'src/services/runner/PlantedPass.ts': importing('../control/ControlService.ts') })).toEqual([]);
+    expect(plantedSentencesOf({ 'src/services/tracker/PlantedStep.ts': importing('../control/ControlService.ts') })).toEqual([
+      'layer-imports-upward — src/services/tracker/PlantedStep.ts:1 imports src/services/control/ControlService.ts: '
+        + 'tracker-service reaches only lib, shared, adapters, render-service, tracker-service, not control-service',
+    ]);
+    expect(plantedSentencesOf({ 'src/services/control/PlantedControl.ts': importing('../runner/PlantedPass.ts') })).toEqual([
+      'layer-imports-upward — src/services/control/PlantedControl.ts:1 imports src/services/runner/PlantedPass.ts: '
+        + 'control-service reaches only lib, shared, adapters, render-service, tracker-service, control-service, not runner-service',
+    ]);
   });
 
   test('a feature importing another feature', () => {

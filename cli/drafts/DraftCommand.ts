@@ -61,6 +61,8 @@ const DRAFT_SUBCOMMANDS: Readonly<Record<string, (commandArguments: ArgumentPars
   show: showDraft,
 });
 
+export const DRAFT_SUBCOMMAND_NAMES: readonly string[] = Object.freeze(Object.keys(DRAFT_SUBCOMMANDS));
+
 export const draftCommand: CommandHandler = async (commandArguments, context) => {
   const subcommand = commandArguments.positionals()[0];
 

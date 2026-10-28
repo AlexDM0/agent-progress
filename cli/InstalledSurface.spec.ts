@@ -16,10 +16,10 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
+import { filledTemplateOf, productNameTemplateValuesOf }                      from '../src/shared/FilledTemplate.ts';
 import { ORIGINAL_PRODUCT_NAMES, PRODUCT_NAMES }                              from '../src/shared/constants/ProductNames.ts';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }                                           from '../src/testing/ToolGuard.ts';
-import { filledTemplateOf, productNameTemplateValuesOf }                      from './FilledTemplate.ts';
 import { helpText }                                                           from './HelpText.ts';
 import { runCommandLine }                                                     from './Main.ts';
 import { INSTALL_VERSION }                                                    from './constants/InstallVersion.ts';

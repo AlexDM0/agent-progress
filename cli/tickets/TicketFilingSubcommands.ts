@@ -1,14 +1,11 @@
-import { readFileSync } from 'node:fs';
-
 import { TicketJsonUtil }                        from '../../src/adapters/utils/TicketJsonUtil.ts';
 import { TICKET_TYPES }                          from '../../src/lib/tracker-model/constants/TicketFields.ts';
-import { createTicket }                          from '../../src/services/tracker/TicketStore.ts';
+import { ControlService }                        from '../../src/services/control/ControlService.ts';
 import { requireWorkspace }                      from '../../src/services/tracker/Workspace.ts';
+import type { ControlCommandOf }                 from '../../src/shared/@types/ControlCommand.ts';
 import { OperationRefusal }                      from '../../src/shared/OperationRefusal.ts';
-import { resourceFilePathOf }                    from '../../src/shared/ResourceFilePath.ts';
 import { PRODUCT_NAMES }                         from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                   from '../CommandContext.ts';
-import { filledTemplateOf }                      from '../FilledTemplate.ts';
 import { openTrackerForWritingThenReadNextLine } from '../OpenTrackerForWriting.ts';
 import { suppliedMarkdownBodyOf }                from '../SuppliedMarkdownBody.ts';
 import type { ArgumentParser }                   from '../arguments/ArgumentParser.ts';
@@ -21,14 +18,6 @@ import { TicketArgumentUtil }                    from './utils/TicketArgumentUti
 const ADD_OPTION_NAMES = [
   'type', 'priority', 'size', 'model', 'effort', 'group', 'depends-on', 'epic', 'network', 'introduced-by', 'found-in-review', 'body', 'body-file', 'at', 'json',
 ];
-
-const TICKET_BODY_TEMPLATE_PATH = ['templates', 'TicketBody.md'];
-
-function bodyForNewTicket(suppliedBody: string | undefined, ticketId: string, title: string): string {
-  if (suppliedBody !== undefined && suppliedBody.trim() !== '') return suppliedBody;
-
-  return filledTemplateOf(readFileSync(resourceFilePathOf(...TICKET_BODY_TEMPLATE_PATH), 'utf8'), { id: ticketId, title });
-}
 
 function draftFilingNoteOf(ticketId: string): string {
   return `\nIt is a draft ticket, with no row: \`${PRODUCT_NAMES.PROGRAM} ticket ready ${ticketId}\` readies it to build.`;
@@ -64,27 +53,27 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
   requireWorkspace(context.currentDirectory);
   const suppliedBody = await suppliedMarkdownBodyOf(commandArguments, context);
 
-  const { result: filed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
-    const ticket = createTicket(change.workspace, {
-      title,
-      type,
-      ...(priority === undefined ? {} : { priority }),
-      ...(group === undefined ? {} : { group }),
-      bodyFor: (ticketId) => bodyForNewTicket(suppliedBody, ticketId, title),
-      at:      change.at,
-    });
-    if (dependsOn.length > 0) ticket.frontmatter.dependsOn = dependsOn;
-    if (epics.length > 0) ticket.frontmatter.epics = epics;
-    if (introducedBy !== null) ticket.frontmatter.introducedBy = introducedBy;
-    if (foundInReview !== null) ticket.frontmatter.foundInReview = foundInReview;
-    if (size !== undefined) ticket.frontmatter.size = size;
-    if (model !== undefined) ticket.frontmatter.model = model;
-    if (effort !== undefined) ticket.frontmatter.effort = effort;
-    const filing = change.board.fileTicket(ticket, change.at);
-    if (network.length === 0) return filing;
-    const networkSet = change.board.setTicketNetwork(ticket.frontmatter.id, network, change.at);
-    return { ...filing, logged: [...filing.logged, ...networkSet.logged] };
-  });
+  const command: ControlCommandOf<'ticket-add'> = {
+    kind:     'ticket-add',
+    title,
+    type,
+    ...(priority === undefined ? {} : { priority }),
+    ...(size === undefined ? {} : { size }),
+    ...(model === undefined ? {} : { model }),
+    ...(effort === undefined ? {} : { effort }),
+    ...(group === undefined ? {} : { group }),
+    dependsOn,
+    epics,
+    network,
+    introducedBy,
+    foundInReview,
+    bodyText: suppliedBody ?? null,
+  };
+  const { result: filed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(
+    commandArguments,
+    context,
+    (change) => ControlService.apply(command, change).result,
+  );
 
   OutputUtil.printEntityThenNextLine(
     commandArguments,

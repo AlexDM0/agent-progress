@@ -9,11 +9,11 @@ import { bundleWorkflowScript, type WorkflowScriptBundle }           from '../..
 import type { AgentModel }                                           from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL }                 from '../../src/lib/tracker-model/constants/AgentSettings.ts';
 import { dispatcherDirectoryPath, dispatcherScriptBuildRequestWith } from '../../src/shared/DispatcherScriptBuildRequest.ts';
+import { filledTemplateOf, productNameTemplateValuesOf }             from '../../src/shared/FilledTemplate.ts';
 import { OperationRefusal }                                          from '../../src/shared/OperationRefusal.ts';
 import { resourceFilePathOf }                                        from '../../src/shared/ResourceFilePath.ts';
 import { DISPATCH_PROTOCOL }                                         from '../../src/shared/constants/DispatchProtocol.ts';
 import { PRODUCT_NAMES }                                             from '../../src/shared/constants/ProductNames.ts';
-import { filledTemplateOf, productNameTemplateValuesOf }             from '../FilledTemplate.ts';
 import {
   CLAUDE_CODE_INSTALL,
   type InstalledFile,

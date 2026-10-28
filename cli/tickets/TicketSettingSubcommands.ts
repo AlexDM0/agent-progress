@@ -1,4 +1,6 @@
 import { TicketJsonUtil }                                               from '../../src/adapters/utils/TicketJsonUtil.ts';
+import { ControlService }                                               from '../../src/services/control/ControlService.ts';
+import type { ControlCommandOf }                                        from '../../src/shared/@types/ControlCommand.ts';
 import { OperationRefusal }                                             from '../../src/shared/OperationRefusal.ts';
 import { PRODUCT_NAMES }                                                from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                                          from '../CommandContext.ts';
@@ -57,10 +59,11 @@ async function setTicketPriority(commandArguments: ArgumentParser, context: Comm
   }
   const priority = TicketArgumentUtil.requirePriority(writtenPriority);
 
+  const command: ControlCommandOf<'ticket-priority'> = { kind: 'ticket-priority', ticketReference: reference, priority };
   const { result: changed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(
     commandArguments,
     context,
-    (change) => change.board.setTicketPriority(TicketLookupUtil.requireTicket(change, reference).frontmatter.id, priority, change.at),
+    (change) => ControlService.apply(command, change).result,
   );
 
   const closingLines = NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState);
@@ -123,11 +126,8 @@ async function setTicketNetwork(commandArguments: ArgumentParser, context: Comma
   }
   const domains = TicketArgumentUtil.networkDomainListFrom(domainTexts);
 
-  const changed = await openTrackerForWriting(
-    commandArguments,
-    context,
-    (change) => change.board.setTicketNetwork(TicketLookupUtil.requireTicket(change, reference).frontmatter.id, domains, change.at),
-  );
+  const command: ControlCommandOf<'ticket-network'> = { kind: 'ticket-network', ticketReference: reference, domains };
+  const changed = await openTrackerForWriting(commandArguments, context, (change) => ControlService.apply(command, change).result);
 
   OutputUtil.printEntity(commandArguments, context, TicketJsonUtil.ticketAsJson(changed.ticket), OutputUtil.loggedSentencesOf(changed.logged));
 }

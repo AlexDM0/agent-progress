@@ -1,6 +1,7 @@
 /** `epic add`, `epic edit` and `epic remove`: each one write through the pipeline, refused at exit 1 with nothing written. */
-import { epicFilePathOf }                                 from '../../src/services/tracker/EpicStore.ts';
+import { ControlService }                                 from '../../src/services/control/ControlService.ts';
 import { requireWorkspace }                               from '../../src/services/tracker/Workspace.ts';
+import type { ControlCommandOf }                          from '../../src/shared/@types/ControlCommand.ts';
 import { OperationRefusal }                               from '../../src/shared/OperationRefusal.ts';
 import { PRODUCT_NAMES }                                  from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                            from '../CommandContext.ts';
@@ -35,16 +36,10 @@ async function addEpic(commandArguments: ArgumentParser, context: CommandContext
   requireWorkspace(context.currentDirectory);
   const body = await suppliedMarkdownBodyOf(commandArguments, context) ?? '';
 
-  const added = await openTrackerForWriting(commandArguments, context, (change) => {
-    const filePath = epicFilePathOf(change.workspace, key);
-    // A malformed file is no epic to the Board, so without this the new epic would overwrite whatever hand edit broke it.
-    if (change.malformedEpics.some((malformed) => malformed.filePath === filePath)) {
-      throw new OperationRefusal('refused', `${filePath} already exists but cannot be read as an epic, so it is not overwritten. Nothing was written; repair or delete it first.`);
-    }
-    return change.board.addEpic({
-      key, title, body, filePath
-    }, change.at);
-  });
+  const command: ControlCommandOf<'epic-add'> = {
+    kind: 'epic-add', key, title, bodyText: body
+  };
+  const added = await openTrackerForWriting(commandArguments, context, (change) => ControlService.apply(command, change).result);
   const { frontmatter } = added.epic;
   OutputUtil.printEntity(
     commandArguments,

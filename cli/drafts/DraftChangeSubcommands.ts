@@ -2,17 +2,18 @@
 import { readFileSync } from 'node:fs';
 import { resolve }      from 'node:path';
 
-import { DraftDocumentUtil }     from '../../src/adapters/drafts/utils/DraftDocumentUtil.ts';
-import { DraftIdUtil }           from '../../src/lib/tracker-model/utils/DraftIdUtil.ts';
-import { draftFilePathOf }       from '../../src/services/tracker/DraftStore.ts';
-import { requireWorkspace }      from '../../src/services/tracker/Workspace.ts';
-import { OperationRefusal }      from '../../src/shared/OperationRefusal.ts';
-import { PRODUCT_NAMES }         from '../../src/shared/constants/ProductNames.ts';
-import type { CommandContext }   from '../CommandContext.ts';
-import { openTrackerForWriting } from '../OpenTrackerForWriting.ts';
-import type { ArgumentParser }   from '../arguments/ArgumentParser.ts';
-import { OutputUtil }            from '../utils/OutputUtil.ts';
-import { DRAFT_USAGE }           from './constants/DraftUsage.ts';
+import { DraftDocumentUtil }                    from '../../src/adapters/drafts/utils/DraftDocumentUtil.ts';
+import { DraftIdUtil }                          from '../../src/lib/tracker-model/utils/DraftIdUtil.ts';
+import { ControlService, type ControlResultOf } from '../../src/services/control/ControlService.ts';
+import { requireWorkspace }                     from '../../src/services/tracker/Workspace.ts';
+import type { ControlCommand }                  from '../../src/shared/@types/ControlCommand.ts';
+import { OperationRefusal }                     from '../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }                        from '../../src/shared/constants/ProductNames.ts';
+import type { CommandContext }                  from '../CommandContext.ts';
+import { openTrackerForWriting }                from '../OpenTrackerForWriting.ts';
+import type { ArgumentParser }                  from '../arguments/ArgumentParser.ts';
+import { OutputUtil }                           from '../utils/OutputUtil.ts';
+import { DRAFT_USAGE }                          from './constants/DraftUsage.ts';
 
 const OPEN_OPTION_NAMES    = ['owner', 'request', 'request-file', 'json'];
 const CLAIM_OPTION_NAMES   = ['owner', 'force', 'json'];
@@ -23,6 +24,15 @@ const ABANDON_OPTION_NAMES = ['reason', 'json'];
 const STANDARD_INPUT_MARKER = '-';
 
 const TICKET_LIST_SEPARATOR_PATTERN = /[\s,]+/;
+
+/** Applies a draft command through the control service in one hold, returning what the Board reported. */
+export async function appliedDraftControl<Command extends ControlCommand>(
+  commandArguments: ArgumentParser,
+  context: CommandContext,
+  command: Command,
+): Promise<ControlResultOf<Command['kind']>> {
+  return openTrackerForWriting(commandArguments, context, (change) => ControlService.apply(command, change).result);
+}
 
 export function refusalOf(text: string): OperationRefusal {
   return new OperationRefusal('refused', `${text}\n  Usage: ${DRAFT_USAGE}`);
@@ -67,14 +77,8 @@ async function openDraft(commandArguments: ArgumentParser, context: CommandConte
   requireWorkspace(context.currentDirectory);
   const request = await suppliedRequestOf(commandArguments, context);
 
-  const opened = await openTrackerForWriting(commandArguments, context, (change) => {
-    const result   = change.board.openDraft({ title, request, owner }, change.at);
-    const filePath = draftFilePathOf(change.workspace, result.draft.id);
-    // A malformed file is no draft to the Board, so without this the new draft would overwrite whatever hand edit broke it.
-    if (change.malformedDrafts.some((malformed) => malformed.filePath === filePath)) {
-      throw new OperationRefusal('refused', `${filePath} already exists but cannot be read as a draft, so it is not overwritten. Nothing was written; repair or delete it first.`);
-    }
-    return result;
+  const opened = await appliedDraftControl(commandArguments, context, {
+    kind: 'draft-open', title, request, owner
   });
   OutputUtil.printEntity(commandArguments, context, DraftDocumentUtil.draftDocumentOf(opened.draft), opened.draft.id);
 }
@@ -86,7 +90,9 @@ async function claimDraft(commandArguments: ArgumentParser, context: CommandCont
   const owner   = requiredOwnerOf(commandArguments, 'claim');
   const forces  = commandArguments.flag('force');
 
-  const claimed  = await openTrackerForWriting(commandArguments, context, (change) => change.board.claimDraft(draftId, { owner, forces }, change.at));
+  const claimed  = await appliedDraftControl(commandArguments, context, {
+    kind: 'draft-claim', draftId, owner, forces
+  });
   const sentence = claimed.changed ? OutputUtil.loggedSentencesOf(claimed.logged) : `Draft ${draftId} already claimed by ${owner}: nothing to write`;
   OutputUtil.printEntity(commandArguments, context, DraftDocumentUtil.draftDocumentOf(claimed.draft), sentence);
 }
@@ -96,7 +102,7 @@ async function releaseDraft(commandArguments: ArgumentParser, context: CommandCo
   commandArguments.rejectExtraPositionals(2, DRAFT_USAGE);
   const draftId = draftIdArgumentOf(commandArguments, 'release');
 
-  const released = await openTrackerForWriting(commandArguments, context, (change) => change.board.releaseDraft(draftId, change.at));
+  const released = await appliedDraftControl(commandArguments, context, { kind: 'draft-release', draftId });
   const sentence = released.changed ? OutputUtil.loggedSentencesOf(released.logged) : `Draft ${draftId} is not claimed: nothing to write`;
   OutputUtil.printEntity(commandArguments, context, DraftDocumentUtil.draftDocumentOf(released.draft), sentence);
 }
@@ -108,7 +114,7 @@ async function closeDraft(commandArguments: ArgumentParser, context: CommandCont
   const ticketReferences = (commandArguments.option('tickets') ?? '').split(TICKET_LIST_SEPARATOR_PATTERN).filter((reference) => reference !== '');
   if (ticketReferences.length === 0) throw refusalOf(`${PRODUCT_NAMES.PROGRAM} draft close needs --tickets <ids>, the tickets filed from the draft.`);
 
-  const closed    = await openTrackerForWriting(commandArguments, context, (change) => change.board.closeDraft(draftId, ticketReferences, change.at));
+  const closed    = await appliedDraftControl(commandArguments, context, { kind: 'draft-close', draftId, ticketReferences });
   const ticketIds = closed.logged.flatMap((record) => (record.kind === 'draft-closed' ? record.fields.ticketIds : []));
   OutputUtil.printEntity(commandArguments, context, { id: draftId, closed: true, ticketIds }, OutputUtil.loggedSentencesOf(closed.logged));
 }
@@ -120,7 +126,7 @@ async function abandonDraft(commandArguments: ArgumentParser, context: CommandCo
   const reason  = commandArguments.option('reason');
   if (reason === undefined || reason.trim() === '') throw refusalOf(`${PRODUCT_NAMES.PROGRAM} draft abandon needs --reason <text>, which the log keeps.`);
 
-  const abandoned = await openTrackerForWriting(commandArguments, context, (change) => change.board.abandonDraft(draftId, reason, change.at));
+  const abandoned = await appliedDraftControl(commandArguments, context, { kind: 'draft-abandon', draftId, reason });
   OutputUtil.printEntity(commandArguments, context, { id: draftId, abandoned: true, reason }, OutputUtil.loggedSentencesOf(abandoned.logged));
 }
 

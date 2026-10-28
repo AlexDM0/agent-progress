@@ -345,6 +345,16 @@ function messageOf(refusal: OperationRefusal): string {
       return installVersionMismatchMessageOf(detail);
     case 'older-program-present':
       return olderProgramPresentText(detail);
+    case 'no-readable-ticket':
+      return `There is no readable ticket ${detail.reference}. Run \`${PRODUCT_NAMES.PROGRAM} ticket list\` to see what this tracker holds; `
+        + 'a file that will not parse is reported there as malformed.';
+    case 'malformed-ticket-file':
+      return `Ticket file ignored: ${detail.filePath}${detail.line > 0 ? ` (line ${detail.line})` : ''}: ${detail.reason}`;
+    case 'unreadable-file-in-the-way':
+      return `${detail.filePath} already exists but cannot be read as ${detail.record === 'epic' ? 'an epic' : 'a draft'}, so it is not overwritten. `
+        + 'Nothing was written; repair or delete it first.';
+    case 'no-check-command-to-clear':
+      return 'No check command is set, so there is none to clear.';
   }
 }
 

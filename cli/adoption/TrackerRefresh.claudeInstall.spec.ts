@@ -10,10 +10,10 @@ import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { join }                                   from 'node:path';
 
 import { afterAll, expect, test }                             from 'bun:test';
+import { filledTemplateOf }                                   from '../../src/shared/FilledTemplate.ts';
 import { PRODUCT_NAMES }                                      from '../../src/shared/constants/ProductNames.ts';
 import { createScratchGitRepository, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }                           from '../../src/testing/ToolGuard.ts';
-import { filledTemplateOf }                                   from '../FilledTemplate.ts';
 import { runCommandLine }                                     from '../Main.ts';
 import { createCapturedCommandContext }                       from '../testing/CapturedCommandContext.ts';
 import { repositoryFileContentsOf }                           from '../testing/RepositoryFileContents.ts';

@@ -19,6 +19,8 @@ const TICKET_SUBCOMMANDS: Readonly<Record<string, TicketSubcommandHandler>> = Ob
   edit: editTicket,
 });
 
+export const TICKET_SUBCOMMAND_NAMES: readonly string[] = Object.freeze(Object.keys(TICKET_SUBCOMMANDS));
+
 export const ticketCommand: CommandHandler = async (commandArguments, context) => {
   const subcommand = commandArguments.positionals()[0];
 

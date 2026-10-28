@@ -1,4 +1,4 @@
-import type { ProductNames } from '../src/shared/constants/ProductNames.ts';
+import type { ProductNames } from './constants/ProductNames.ts';
 
 const PLACEHOLDER_PATTERN = /\{\{(\w+)\}\}/g;
 

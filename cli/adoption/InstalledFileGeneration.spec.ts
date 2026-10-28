@@ -11,11 +11,11 @@ import { join, relative, sep } from 'node:path';
 
 import { describe, expect, test } from 'bun:test';
 
+import { filledTemplateOf, productNameTemplateValuesOf } from '../../src/shared/FilledTemplate.ts';
 import { OperationRefusal }                              from '../../src/shared/OperationRefusal.ts';
 import { resourceFilePathOf }                            from '../../src/shared/ResourceFilePath.ts';
 import { DISPATCH_PROTOCOL }                             from '../../src/shared/constants/DispatchProtocol.ts';
 import { PRODUCT_NAMES }                                 from '../../src/shared/constants/ProductNames.ts';
-import { filledTemplateOf, productNameTemplateValuesOf } from '../FilledTemplate.ts';
 import { installedFilePathsIn }                          from '../InstalledFiles.ts';
 import { dispatcherScriptTextOf, installedFileTextsFor } from './InstalledFileGeneration.ts';
 import { CLAUDE_CODE_INSTALL }                           from './constants/ClaudeCodeInstall.ts';

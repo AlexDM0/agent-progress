@@ -1,5 +1,7 @@
 import { TicketJsonUtil }         from '../../src/adapters/utils/TicketJsonUtil.ts';
+import { ControlService }         from '../../src/services/control/ControlService.ts';
 import { requireWorkspace }       from '../../src/services/tracker/Workspace.ts';
+import type { ControlCommandOf }  from '../../src/shared/@types/ControlCommand.ts';
 import { OperationRefusal }       from '../../src/shared/OperationRefusal.ts';
 import { PRODUCT_NAMES }          from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }    from '../CommandContext.ts';
@@ -8,7 +10,6 @@ import { suppliedMarkdownBodyOf } from '../SuppliedMarkdownBody.ts';
 import type { ArgumentParser }    from '../arguments/ArgumentParser.ts';
 import { OutputUtil }             from '../utils/OutputUtil.ts';
 import { TICKET_USAGE }           from './constants/TicketUsage.ts';
-import { TicketLookupUtil }       from './utils/TicketLookupUtil.ts';
 
 const EDIT_OPTION_NAMES = ['title', 'append', 'body', 'body-file', 'force', 'at', 'json'];
 
@@ -38,15 +39,15 @@ export async function editTicket(commandArguments: ArgumentParser, context: Comm
     throw new OperationRefusal('refused', 'An empty body would erase the ticket\'s prose, so it is refused; to add to the body, pass --append.');
   }
 
-  const edited = await openTrackerForWriting(
-    commandArguments,
-    context,
-    (change) => change.board.editTicket(TicketLookupUtil.requireTicket(change, reference).frontmatter.id, {
-      ...(title === undefined ? {} : { title }),
-      ...(text === undefined ? {} : { body: { text, appends } }),
-      allowsPastPending: forced,
-    }, change.at),
-  );
+  const command: ControlCommandOf<'ticket-edit'> = {
+    kind:              'ticket-edit',
+    ticketReference:   reference,
+    ...(title === undefined ? {} : { title }),
+    bodyText:          text ?? null,
+    appendsBody:       appends,
+    allowsPastPending: forced,
+  };
+  const edited = await openTrackerForWriting(commandArguments, context, (change) => ControlService.apply(command, change).result);
 
   const ticketId = edited.ticket.frontmatter.id;
   const sentences = edited.changed

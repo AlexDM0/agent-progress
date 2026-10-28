@@ -2,6 +2,7 @@
 import { TicketPhraseUtil }                      from '../../src/adapters/utils/TicketPhraseUtil.ts';
 import type { AgentAssignment }                  from '../../src/lib/tracker-model/@types/BoardChanges.ts';
 import type { TicketStatus }                     from '../../src/lib/tracker-model/@types/Ticket.ts';
+import { ControlService }                        from '../../src/services/control/ControlService.ts';
 import { PRODUCT_NAMES }                         from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                   from '../CommandContext.ts';
 import { openTrackerForWritingThenReadNextLine } from '../OpenTrackerForWriting.ts';
@@ -29,19 +30,21 @@ export async function transitionOneTicket(
   const tokens = OptionValueUtil.tokenCountFrom(commandArguments);
 
   const { result: moved, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
-    const { board }  = change;
-    const ticketId   = TicketLookupUtil.requireTicket(change, reference).frontmatter.id;
-    const move       = board.moveTicket(ticketId, targetStatus, {
-      checksLegality,
+    const { board }   = change;
+    const moveDetails = {
       ...(branch === undefined ? {} : { branch }),
       ...(commit === undefined ? {} : { commit }),
       ...(reason === undefined ? {} : { reason }),
       ...(tokens === undefined ? {} : { tokens }),
-    }, change.at);
+    };
+    // `ticket abandon` is a control command; `ticket status <id> abandoned` is the by-hand override that skips the legality matrix.
+    const move = targetStatus === 'abandoned' && checksLegality
+      ? ControlService.apply({ kind: 'ticket-abandon', ticketReference: reference, ...moveDetails }, change).result
+      : board.moveTicket(TicketLookupUtil.requireTicket(change, reference).frontmatter.id, targetStatus, { checksLegality, ...moveDetails }, change.at);
     return {
       move,
       startedReviewBar: reviewBarStartedFor(change, move.ticket, reviewBarRequest),
-      unsettled:        board.unsettledDependenciesOf(ticketId),
+      unsettled:        board.unsettledDependenciesOf(move.ticket.frontmatter.id),
     };
   });
 

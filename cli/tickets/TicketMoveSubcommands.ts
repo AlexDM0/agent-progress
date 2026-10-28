@@ -2,10 +2,11 @@
  * The named verbs enforce the legality matrix of `src/lib/tracker-model/constants/TicketMoveLegality.ts`; `ticket status` is the
  * documented override that skips it.
  */
-import { TicketAcceptanceUtil }                                               from '../../src/adapters/tickets/utils/TicketAcceptanceUtil.ts';
 import { TicketJsonUtil }                                                     from '../../src/adapters/utils/TicketJsonUtil.ts';
 import type { TicketStatus }                                                  from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { VocabularyUtil }                                                     from '../../src/lib/tracker-model/utils/VocabularyUtil.ts';
+import { ControlService }                                                     from '../../src/services/control/ControlService.ts';
+import type { ControlCommandOf }                                              from '../../src/shared/@types/ControlCommand.ts';
 import { OperationRefusal }                                                   from '../../src/shared/OperationRefusal.ts';
 import { PRODUCT_NAMES }                                                      from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                                                from '../CommandContext.ts';
@@ -88,10 +89,12 @@ async function readyTheNamedTickets(commandArguments: ArgumentParser, context: C
   const references = commandArguments.positionals().slice(1);
   if (references.length === 0) throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} ticket ready needs a ticket id.\n  Usage: ${TICKET_USAGE}`);
 
-  const { result: readied, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
-    const ticketIds = references.map((reference) => TicketLookupUtil.requireTicket(change, reference).frontmatter.id);
-    return change.board.readyDraftTickets(ticketIds, TicketAcceptanceUtil.readinessGapsOf, change.at);
-  });
+  const command: ControlCommandOf<'ticket-ready'> = { kind: 'ticket-ready', ticketReferences: references };
+  const { result: readied, nextLine } = await openTrackerForWritingThenReadNextLine(
+    commandArguments,
+    context,
+    (change) => ControlService.apply(command, change).result,
+  );
 
   const [onlyTicket] = readied.tickets;
   const document     = readied.tickets.length === 1 && onlyTicket !== undefined

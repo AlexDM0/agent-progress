@@ -1,6 +1,7 @@
 import { readingBoardOf }                   from '../../../src/lib/tracker-model/ReadingBoard.ts';
 import { CONCURRENCY_LIMIT_CEILING_AGENTS } from '../../../src/lib/tracker-model/constants/ConcurrencyLimits.ts';
 import { BoardSettingsUtil }                from '../../../src/lib/tracker-model/utils/BoardSettingsUtil.ts';
+import { ControlService }                   from '../../../src/services/control/ControlService.ts';
 import { requireProgressFile }              from '../../../src/services/tracker/TrackerReader.ts';
 import { requireWorkspace }                 from '../../../src/services/tracker/Workspace.ts';
 import { OperationRefusal }                 from '../../../src/shared/OperationRefusal.ts';
@@ -45,7 +46,11 @@ export const concurrencyCommand: CommandHandler = async (commandArguments, conte
   }
   const limit = limitFrom(written);
 
-  const { logged, previousLimit, concurrency } = await openTrackerForWriting(commandArguments, context, (change) => change.board.setConcurrencyLimit(limit, change.at));
+  const { logged, previousLimit, concurrency } = await openTrackerForWriting(
+    commandArguments,
+    context,
+    (change) => ControlService.apply({ kind: 'concurrency-set', limit }, change).result,
+  );
 
   const loggedSentence = OutputUtil.loggedSentencesOf(logged);
   OutputUtil.printEntity(

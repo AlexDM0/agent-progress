@@ -2,6 +2,8 @@
 import { TicketJsonUtil }                        from '../../src/adapters/utils/TicketJsonUtil.ts';
 import { TicketPhraseUtil }                      from '../../src/adapters/utils/TicketPhraseUtil.ts';
 import type { TicketDependenciesChanged }        from '../../src/lib/tracker-model/@types/BoardChanges.ts';
+import { ControlService }                        from '../../src/services/control/ControlService.ts';
+import type { ControlCommandOf, ListEdit }       from '../../src/shared/@types/ControlCommand.ts';
 import { OperationRefusal }                      from '../../src/shared/OperationRefusal.ts';
 import { PRODUCT_NAMES }                         from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                   from '../CommandContext.ts';
@@ -11,11 +13,10 @@ import { NextLineUtil }                          from '../utils/NextLineUtil.ts'
 import { OutputUtil }                            from '../utils/OutputUtil.ts';
 import { TICKET_USAGE }                          from './constants/TicketUsage.ts';
 import { TicketArgumentUtil }                    from './utils/TicketArgumentUtil.ts';
-import { TicketLookupUtil }                      from './utils/TicketLookupUtil.ts';
 
 const DEPENDS_OPTION_NAMES = ['add', 'remove', 'json'];
 
-type DependencyEdit = { kind: 'replace' | 'add' | 'remove'; ticketIds: string[] };
+type DependencyEdit = { kind: ListEdit; ticketIds: string[] };
 
 /** Bare ids beside `--add` or `--remove` could mean either list, and `--add 3 4` reads the 4 as bare, so both are refused rather than guessed. */
 function dependencyEditFrom(commandArguments: ArgumentParser, dependencyTexts: readonly string[]): DependencyEdit {
@@ -50,12 +51,14 @@ export async function setTicketDependencies(commandArguments: ArgumentParser, co
   }
   const edit = dependencyEditFrom(commandArguments, dependencyTexts);
 
-  const { result: changed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
-    const ticketId = TicketLookupUtil.requireTicket(change, reference).frontmatter.id;
-    if (edit.kind === 'add') return change.board.addTicketDependencies(ticketId, edit.ticketIds, change.at);
-    if (edit.kind === 'remove') return change.board.removeTicketDependencies(ticketId, edit.ticketIds, change.at);
-    return change.board.setTicketDependencies(ticketId, edit.ticketIds, change.at);
-  });
+  const command: ControlCommandOf<'ticket-depends'> = {
+    kind: 'ticket-depends', ticketReference: reference, edit: edit.kind, ticketIds: edit.ticketIds
+  };
+  const { result: changed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(
+    commandArguments,
+    context,
+    (change) => ControlService.apply(command, change).result,
+  );
 
   const ticketId      = changed.ticket.frontmatter.id;
   const droppedSuffix = changed.droppedTicketIds.length === 0 ? '' : ` (dropped ${TicketPhraseUtil.ticketReferencesText(changed.droppedTicketIds)})`;

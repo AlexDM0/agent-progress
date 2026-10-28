@@ -16,10 +16,10 @@ import { join } from 'node:path';
 
 import { afterEach, expect, test }                                                from 'bun:test';
 import { workspacePathsFor }                                                      from '../../src/services/tracker/Workspace.ts';
+import { filledTemplateOf, productNameTemplateValuesOf }                          from '../../src/shared/FilledTemplate.ts';
 import { PRODUCT_NAMES }                                                          from '../../src/shared/constants/ProductNames.ts';
 import { createScratchGitRepository, removeScratchDirectory }                     from '../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }                                               from '../../src/testing/ToolGuard.ts';
-import { filledTemplateOf, productNameTemplateValuesOf }                          from '../FilledTemplate.ts';
 import { runCommandLine }                                                         from '../Main.ts';
 import { createCapturedCommandContext }                                           from '../testing/CapturedCommandContext.ts';
 import { repositoryFileContentsOf }                                               from '../testing/RepositoryFileContents.ts';

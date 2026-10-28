@@ -19,7 +19,11 @@ export type OperationRefusalDetail =
   | { kind: 'malformed-hold-journal'; journalFilePath: string; reason: string }
   | { kind: 'template-token-not-unique'; templateFilePath: string; token: string; occurrenceCount: number }
   | { kind: 'install-version-mismatch'; rootDirectory: string; manifestFilePath: string; installVersion: number; mismatch: InstallVersionMismatch }
-  | { kind: 'older-program-present'; rootDirectory: string; olderDataFolderPath: string; program: string; olderProgram: string };
+  | { kind: 'older-program-present'; rootDirectory: string; olderDataFolderPath: string; program: string; olderProgram: string }
+  | { kind: 'no-readable-ticket'; reference: string }
+  | { kind: 'malformed-ticket-file'; filePath: string; line: number; reason: string }
+  | { kind: 'unreadable-file-in-the-way'; filePath: string; record: 'epic' | 'draft' }
+  | { kind: 'no-check-command-to-clear' };
 
 function reasonCodeOf(detail: OperationRefusalDetail): string {
   return detail.kind === 'board-refusal' ? detail.boardRefusal.reason : detail.kind;
