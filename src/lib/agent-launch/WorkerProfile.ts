@@ -19,6 +19,14 @@ export interface WorkerProfile {
   /** The `core.hooksPath` the session's git runs with, whose `commit-msg` refuses an attribution trailer. */
   readonly gitHooksDirectory:      string;
   readonly commitSigning:          CommitSigning;
+  /** The guard run before every Bash and WebFetch call of a role with network domains; `null` renders none. */
+  readonly networkDomainGuard:     NetworkDomainGuard | null;
+}
+
+/** A command that denies a call naming a domain outside `allowedDomains`; its argv already carries the list, and it is run as given. */
+export interface NetworkDomainGuard {
+  readonly allowedDomains: readonly string[];
+  readonly commandArgv:    readonly string[];
 }
 
 export interface AgentDefinition {

@@ -10,8 +10,9 @@ import {
   resolve
 } from 'node:path';
 
-import type { CommitSigning, WorkerProfile } from '../../lib/agent-launch/WorkerProfile.ts';
-import { GitProcess }                        from '../../lib/git/GitProcess.ts';
+import type { CommitSigning, NetworkDomainGuard, WorkerProfile } from '../../lib/agent-launch/WorkerProfile.ts';
+import { GitProcess }                                            from '../../lib/git/GitProcess.ts';
+import { PRODUCT_NAMES }                                         from '../../shared/constants/ProductNames.ts';
 
 /** Everything a job's confinement names, read once at launch; every path absolute. */
 export interface SandboxFacts {
@@ -169,6 +170,16 @@ function profileOf(role: ProfiledRole, facts: SandboxFacts, networkDomains: read
     instructionsRoot:       facts.repositoryRoot,
     gitHooksDirectory:      facts.gitHooksDirectory,
     commitSigning:          facts.commitSigning,
+    networkDomainGuard:     isWorker ? networkDomainGuardOf(networkDomains) : null,
+  };
+}
+
+/** The `hook bash-domains` guard of design section 4.4, for a worker whose ticket has a `network` line; none without one. */
+function networkDomainGuardOf(networkDomains: readonly string[]): NetworkDomainGuard | null {
+  if (networkDomains.length === 0) return null;
+  return {
+    allowedDomains: [...networkDomains],
+    commandArgv:    [PRODUCT_NAMES.PROGRAM, 'hook', 'bash-domains', '--allow', networkDomains.join(',')],
   };
 }
 

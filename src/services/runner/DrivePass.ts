@@ -364,6 +364,7 @@ function profileOf(workspace: Workspace, job: Readonly<Job>, workingDirectory: s
     instructionsRoot:       workspace.rootDirectory,
     gitHooksDirectory:      join(workspace.rootDirectory, '.githooks'),
     commitSigning:          { kind: 'unsigned' },
+    networkDomainGuard:     null,
   };
 }
 

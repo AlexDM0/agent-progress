@@ -46,11 +46,23 @@ function profileOf(role: Role): WorkerProfile {
     }, {
       name: 'explorer', model: 'haiku', effort: 'low', readOnly: true
     }],
-    attribution:       'none',
-    instructionsRoot:  REPOSITORY,
-    gitHooksDirectory: `${REPOSITORY}/.example-worktrees/git-hooks/J1`,
-    commitSigning:     { kind: 'agent-sockets', sockets: ['/Users/example/.gnupg/S.gpg-agent', '/Users/example/.gnupg/S.keyboxd'] },
+    attribution:        'none',
+    instructionsRoot:   REPOSITORY,
+    gitHooksDirectory:  `${REPOSITORY}/.example-worktrees/git-hooks/J1`,
+    commitSigning:      { kind: 'agent-sockets', sockets: ['/Users/example/.gnupg/S.gpg-agent', '/Users/example/.gnupg/S.keyboxd'] },
+    networkDomainGuard: null,
   };
+}
+
+const GUARD_ARGV = ['example-program', 'guard', '--allow', 'registry.example.com,*.docs.example.org'];
+const GUARD_COMMAND = 'example-program guard --allow \'registry.example.com,*.docs.example.org\'';
+
+function guardedRequestOf(role: Role): AgentLaunchRequest {
+  const profile: WorkerProfile = {
+    ...profileOf(role),
+    networkDomainGuard: { allowedDomains: ['registry.example.com', '*.docs.example.org'], commandArgv: GUARD_ARGV },
+  };
+  return requestOf(role, { profile });
 }
 
 function requestOf(role: Role, overrides: Partial<AgentLaunchRequest> = {}): AgentLaunchRequest {
@@ -257,6 +269,24 @@ describe('the rendered settings', () => {
   test('a session whose WebFetch reaches any domain is still denied the loopback names', () => {
     const { permissions } = settingsOf(CLAUDE_CODE_ADAPTER.planOf(requestOf('product-owner')));
     expect(permissions.deny).toEqual(expect.arrayContaining(['WebFetch(domain:localhost)', 'WebFetch(domain:127.0.0.1)']));
+  });
+
+  test('a profile with a network domain guard runs it, shell-quoted, before every Bash and every WebFetch call, once each', () => {
+    const settings = JSON.parse(fileText(CLAUDE_CODE_ADAPTER.planOf(guardedRequestOf('builder')), 'settings.json')) as { hooks: unknown };
+    expect(settings.hooks).toEqual({
+      PreToolUse: [
+        { matcher: 'Bash', hooks: [{ type: 'command', command: GUARD_COMMAND }] },
+        { matcher: 'WebFetch', hooks: [{ type: 'command', command: GUARD_COMMAND }] },
+      ],
+    });
+  });
+
+  test('a profile without a guard renders no hooks key, the settings text unchanged but for it', () => {
+    const unguarded = fileText(CLAUDE_CODE_ADAPTER.planOf(requestOf('builder')), 'settings.json');
+    const guarded = JSON.parse(fileText(CLAUDE_CODE_ADAPTER.planOf(guardedRequestOf('builder')), 'settings.json')) as Record<string, unknown>;
+    expect(Object.hasOwn(JSON.parse(unguarded) as object, 'hooks')).toBe(false);
+    const { hooks: _hooks, ...guardedWithoutHooks } = guarded;
+    expect(unguarded).toBe(`${JSON.stringify(guardedWithoutHooks, null, 2)}\n`);
   });
 
   test('the agents are the coder, with edit tools, and the explorer, with Read and the rg, grep and find allow rules, each naming its model', () => {
