@@ -101,6 +101,8 @@ describe('claudeSessionIdOf', () => {
   test('formats sha256(scope, job) as a stable version-8 UUID that differs per job and per scope', () => {
     const sessionId = claudeSessionIdOf('tracker-example', 'J1');
     expect(sessionId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-8[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    // `printf 'tracker-example\nJ1' | shasum -a 256` is bca52fe829c10cec534d7b95…, its version and variant digits replaced.
+    expect(sessionId).toBe('bca52fe8-29c1-8cec-934d-7b95d410277d');
     expect(claudeSessionIdOf('tracker-example', 'J1')).toBe(sessionId);
     expect(claudeSessionIdOf('tracker-example', 'J2')).not.toBe(sessionId);
     expect(claudeSessionIdOf('tracker-other', 'J1')).not.toBe(sessionId);
