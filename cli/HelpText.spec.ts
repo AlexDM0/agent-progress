@@ -95,7 +95,7 @@ describe('the command reference', () => {
   test('refreshing an adopted repository is offered as its own command, and the init entry points at it', () => {
     expect(HELP_TEXT).toContain('  update ');
     expect(HELP_TEXT).toContain('`update` is the command to reach for there');
-    expect(HELP_TEXT, 'the one line that says what is refreshed').toContain('managed CLAUDE.md block, `agent-brief.md`');
+    expect(HELP_TEXT, 'the one line that says what is refreshed').toContain('three files beside the tracker, guidance shipped with the tool');
     expect(HELP_TEXT.replaceAll(/\s+/g, ' '), 'a tracker in an older format is sent to an earlier release\'s update')
       .toContain('saying to run `update` with a release that still reads it');
   });

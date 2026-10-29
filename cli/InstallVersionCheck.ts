@@ -8,19 +8,25 @@ import { OperationRefusal }            from '../src/shared/OperationRefusal.ts';
 import type { InstallVersionVerdict }  from './InstallVersionVerdict.ts';
 import { installVersionVerdictOf }     from './InstallVersionVerdict.ts';
 import { installedFilePathsIn }        from './InstalledFiles.ts';
+import { retiredInstalledFilePathsIn } from './adoption/constants/RetiredClaudeInstall.ts';
 import { INSTALL_VERSION }             from './constants/InstallVersion.ts';
 
-/**
- * The brief has no opt-out, every `init` and `update` writes it and a fresh `init` writes it first, so it stands for the installed set.
- * Fails closed: only ENOENT is absence.
- */
-function installedFilesArePresentIn(rootDirectory: string): boolean {
+/** Fails closed: only ENOENT is absence. */
+function fileIsPresent(filePath: string): boolean {
   try {
-    lstatSync(installedFilePathsIn(rootDirectory).agentBrief);
+    lstatSync(filePath);
     return true;
   } catch (error) {
     return !(error instanceof Error && 'code' in error && error.code === 'ENOENT');
   }
+}
+
+/**
+ * The session instructions have no opt-out, every `init` and `update` writes them and a fresh `init` writes them first, so they stand
+ * for the installed set; a board installed before version 17 has `agent-brief.md` instead.
+ */
+function installedFilesArePresentIn(rootDirectory: string): boolean {
+  return fileIsPresent(installedFilePathsIn(rootDirectory).sessionInstructions) || fileIsPresent(retiredInstalledFilePathsIn(rootDirectory).agentBrief);
 }
 
 function installVersionVerdictIn(rootDirectory: string): InstallVersionVerdict {

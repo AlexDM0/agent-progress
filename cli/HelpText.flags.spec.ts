@@ -42,7 +42,8 @@ const REFERENCE_COMMAND_TABLE_HEADER = '| command | what it does |';
 const ENTRIES_DOCUMENTED_AS_ANOTHER = new Map([['ticket status', 'ticket start']]);
 
 /** The one command whose handler never checks its options: it prints the reference whatever follows it. */
-const COMMAND_IGNORING_ITS_OPTIONS = 'help';
+/** `hook session-start` exits 0 whatever it is given, since a failing SessionStart hook would reach every session. */
+const ENTRIES_IGNORING_THEIR_OPTIONS = ['help', 'hook session-start'];
 
 type OptionNamesByEntry = Map<string, Set<string>>;
 
@@ -210,8 +211,8 @@ describe('the scans', () => {
     expect(signatureLinePartsOf(planted).filter((part) => !SIGNATURE_ENDING.test(part))).not.toEqual([]);
   });
 
-  test('every handler but help checks its options before it does anything', () => {
-    expect(entriesNeverCheckingOptions).toEqual([COMMAND_IGNORING_ITS_OPTIONS]);
+  test('every handler but help and hook session-start checks its options before it does anything', () => {
+    expect([...entriesNeverCheckingOptions].sort()).toEqual(ENTRIES_IGNORING_THEIR_OPTIONS);
   });
 });
 

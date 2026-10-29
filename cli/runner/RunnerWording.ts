@@ -161,7 +161,7 @@ function assistantTextOf(job: Readonly<Job>, assistant: AssistantFacts): JobLaun
     ...(jobLines.length === 0 ? ['No job is live.'] : ['Live jobs:', ...jobLines]),
   ].join('\n');
   const fills = { jobId: job.id, program: PRODUCT_NAMES.PROGRAM, callBudget: String(ASSISTANT_TURN_CALL_BUDGET) };
-  const roleBrief = filledTemplateOf(readFileSync(resourceFilePathOf('templates', 'AssistantBrief.md'), 'utf8'), fills);
+  const roleBrief = filledTemplateOf(readFileSync(assistant.briefFilePath, 'utf8'), fills);
   return { firstMessage, roleBrief };
 }
 

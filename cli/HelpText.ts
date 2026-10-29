@@ -36,54 +36,46 @@ picks the change up at its next agent's return and is never stopped or relaunche
 output never carries either.
 
   init                        Create the tracker here: \`${PRODUCT_NAMES.DATA_FOLDER}/\` with an empty progress
-      [--project <name>]      file and log, a \`tickets/\` folder and \`agent-brief.md\` — the brief to fill in
-      [--root <path>]         before spawning an implementing agent — a \`.gitignore\` entry for it,
-      [--no-claude-md]        a managed block in the repository's CLAUDE.md telling an agent to track
-      [--no-hooks]            its work through this tool, the three hooks below, and the
-      [--no-workflow]         dispatcher workflow at \`${PRODUCT_NAMES.DATA_FOLDER}/agent-progress-dispatch.js\`,
-      [--no-agent-definition] generated from this tool's dispatcher, and the Claude Code agent
-                              definition \`.claude/agents/agent-progress-worker.md\`, whose
-                              frontmatter sets the default model and effort for builders and
-                              reviewers (opus, medium). Beside the brief go the builder and review
-                              briefs and \`reference.md\` (the ticket format, the moves and the exit
-                              codes, which the briefs cite), and two skills go into
-                              \`.claude/skills/\`: ${PRODUCT_NAMES.PRODUCT_OWNER_SKILL}, which a session asked to file a ticket
-                              loads, and ${PRODUCT_NAMES.ORCHESTRATE_SKILL}, for the session running the
-                              board, which loads ${PRODUCT_NAMES.PRODUCT_OWNER_SKILL} for intake. Refused when an ancestor
-                              already holds a tracker, when --root is not an existing directory,
-                              and inside a bare repository, which has no working tree to track.
-                              Re-running only refreshes what \`update\` refreshes, and
-                              \`update\` is the command to reach for there. --project names the
-                              project shown on the page, --root tracks that directory instead of the
-                              discovered repository root, --no-claude-md leaves CLAUDE.md alone,
-                              --no-hooks writes no hook, --no-workflow no workflow and
-                              --no-agent-definition no agent definition; it is refused with exit
-                              1, writing nothing, unless --no-workflow is given too, since the
-                              dispatcher starts every builder and reviewer as that agent; and
-                              both together are refused the same way while a dispatcher is
-                              installed without its definition, which --no-workflow would keep.
+      [--project <name>]      file and log and a \`tickets/\` folder, and \`.gitignore\` entries for it
+      [--root <path>]         and for \`${PRODUCT_NAMES.WORKTREES_FOLDER}/\`, before any worktree can exist. Beside the
+      [--no-hooks]            tracker go \`session-instructions.md\` (written first, its presence marking
+                              the install), \`reference.md\` (the ticket format, the moves and the exit
+                              codes) and \`assistant-brief.md\`, the role prompt the runner fills for
+                              its Assistant; the SessionStart hook \`hook session-start\` goes into
+                              \`.claude/settings.local.json\`, and two skills into \`.claude/skills/\`:
+                              ${PRODUCT_NAMES.PRODUCT_OWNER_SKILL}, which a session asked to file a ticket loads, and
+                              ${PRODUCT_NAMES.ORCHESTRATE_SKILL}, for the session running the board, which loads
+                              ${PRODUCT_NAMES.PRODUCT_OWNER_SKILL} for intake. It never writes CLAUDE.md. Refused when an
+                              ancestor already holds a tracker, when --root is not an existing
+                              directory, and inside a bare repository, which has no working tree to
+                              track. Re-running only refreshes what \`update\` refreshes, and
+                              \`update\` is the command to reach for there. --project names the project shown
+                              on the page, --root tracks that directory instead of the discovered
+                              repository root, and --no-hooks touches no settings file.
 
-  update                      Refresh what the tool wrote into a repository it already tracks: the
-      [--no-claude-md]        managed CLAUDE.md block, \`agent-brief.md\` — guidance shipped with the
-      [--no-hooks]            tool rather than a file a project edits — the three hooks and the
-      [--no-workflow]         dispatcher workflow, generated anew, and the agent definition, a hand
-      [--no-agent-definition] edit to either of which is undone, the other briefs, \`reference.md\` and
-                              the two skills, removing what an earlier version installed in a
-                              skill folder this one retired. The tracker itself is left alone:
-                              a tracker an earlier ${PRODUCT_NAMES.PROGRAM} wrote in a format this one no
-                              longer reads is refused at exit 2 by every command that reads it,
-                              saying to run \`update\` with a release that still reads it. It creates no tracker, so it takes no
+  update [--no-hooks]         Refresh what the tool wrote into a repository it already tracks: the
+                              three files beside the tracker, guidance shipped with the tool rather
+                              than files a project edits, the SessionStart hook, the two skills and
+                              the worktrees folder's \`.gitignore\` entry, removing what an earlier
+                              version installed in a skill folder this one retired. It removes,
+                              once, what install version 16 wrote: the managed CLAUDE.md block,
+                              reported "removed; commit CLAUDE.md" since the runner launches
+                              nothing onto a branch whose committed CLAUDE.md still holds it, the
+                              SubagentStop, PreToolUse and PostToolUse hook entries (unless
+                              --no-hooks), the worker agent definition, the dispatcher script and the
+                              three briefs. The tracker itself is left alone: a tracker an earlier
+                              ${PRODUCT_NAMES.PROGRAM} wrote in a format this one no longer reads is refused at
+                              exit 2 by every command that reads it, saying to run \`update\` with a
+                              release that still reads it. It creates no tracker, so it takes no
                               --project and no --root, and it is refused with exit 1 where there
                               is none — \`${PRODUCT_NAMES.PROGRAM} init\` makes one.
                               Each line says whether that file changed, so a session that read the
-                              brief at its start learns that its copy is now stale. It takes the same
-                              --no-claude-md, --no-hooks, --no-workflow and --no-agent-definition
-                              as \`init\`, and refuses --no-agent-definition without --no-workflow,
-                              or with it over a dispatcher lacking its definition, the same way.
+                              instructions at its start learns that its copy is now stale.
                               Every command but init, update, help and status refuses, with exit
                               1, while the files installed here are of another install version
                               than this ${PRODUCT_NAMES.PROGRAM} (the SubagentStop hook reports it and exits
-                              0); update rewrites them, and it and \`init\` refuse files a newer
+                              0, and the SessionStart hook prints its instructions regardless);
+                              update rewrites them, and it and \`init\` refuse files a newer
                               ${PRODUCT_NAMES.PROGRAM} installed.
 
   status [--json] [--full]    The project, the counts, the rows that are not delivered or
@@ -141,6 +133,12 @@ output never carries either.
                               deleted. The id is never given to another row.
 
   log "<text>" [--at <when>]  Append one line to the log. --at backfills it.
+
+  hook session-start          Print \`session-instructions.md\` for the session Claude Code is
+                              starting: \`init\` and \`update\` wire it as the SessionStart hook in
+                              \`.claude/settings.local.json\`, which a job's sessions never load. It
+                              prints nothing under a job, skips the install version check, and
+                              exits 0 whatever happens, printing nothing on failure.
 
   hook subagent-stop          Record what a finished subagent cost, as one log line: the hook JSON
                               arrives on standard input, and the agent's transcript is summed per

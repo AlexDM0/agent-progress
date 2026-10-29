@@ -104,25 +104,26 @@ const ARGUMENTS_OF_KIND: { readonly [Kind in ControlCommandKind]: readonly strin
 };
 
 const ARGUMENTS_OF_READ_ONLY_VERB: Readonly<Record<string, readonly string[]>> = {
-  'help':              ['help'],
-  'status':            ['status'],
-  'usage':             ['usage'],
-  'review-stats':      ['review-stats'],
-  'ticket show':       ['ticket', 'show', '1'],
-  'ticket list':       ['ticket', 'list'],
-  'epic show':         ['epic', 'show', 'checkout'],
-  'epic list':         ['epic', 'list'],
-  'draft show':        ['draft', 'show', 'D1'],
-  'draft list':        ['draft', 'list'],
-  'hook bash-domains': ['hook', 'bash-domains', '--allow', 'registry.example.com'],
-  'version':           ['version'],
-  'run status':        ['run', 'status'],
-  'decisions':         ['decisions'],
-  'incidents':         ['incidents'],
-  'merges':            ['merges'],
-  'jobs':              ['jobs'],
-  'job show':          ['job', 'show', 'J7'],
-  'job attach':        ['job', 'attach', 'J7', '--json'],
+  'help':               ['help'],
+  'status':             ['status'],
+  'usage':              ['usage'],
+  'review-stats':       ['review-stats'],
+  'ticket show':        ['ticket', 'show', '1'],
+  'ticket list':        ['ticket', 'list'],
+  'epic show':          ['epic', 'show', 'checkout'],
+  'epic list':          ['epic', 'list'],
+  'draft show':         ['draft', 'show', 'D1'],
+  'draft list':         ['draft', 'list'],
+  'hook bash-domains':  ['hook', 'bash-domains', '--allow', 'registry.example.com'],
+  'hook session-start': ['hook', 'session-start'],
+  'version':            ['version'],
+  'run status':         ['run', 'status'],
+  'decisions':          ['decisions'],
+  'incidents':          ['incidents'],
+  'merges':             ['merges'],
+  'jobs':               ['jobs'],
+  'job show':           ['job', 'show', 'J7'],
+  'job attach':         ['job', 'attach', 'J7', '--json'],
 };
 
 let repositoryDirectory = '';
@@ -147,7 +148,7 @@ function sessionJob(): Job {
 }
 
 beforeAll(async () => {
-  repositoryDirectory = await createInitializedScratchRepository('relay-under-job', ['--project', 'Example Agency', '--no-claude-md', '--no-hooks'], SPEC_CLOCK);
+  repositoryDirectory = await createInitializedScratchRepository('relay-under-job', ['--project', 'Example Agency', '--no-hooks'], SPEC_CLOCK);
   for (const setupArguments of [
     ['ticket', 'add', 'Export dialog', '--type', 'ticket'],
     ['epic', 'add', 'checkout', 'Checkout'],
@@ -192,7 +193,7 @@ function everyVerb(): string[] {
     if (command === 'epic') return EPIC_SUBCOMMAND_NAMES.map((subcommand) => `epic ${subcommand}`);
     if (command === 'draft') return DRAFT_SUBCOMMAND_NAMES.map((subcommand) => `draft ${subcommand}`);
     if (command === 'run') return [command, ...RUN_SUBCOMMAND_NAMES.map((subcommand) => `run ${subcommand}`)];
-    if (command === 'hook') return [command, 'hook bash-domains'];
+    if (command === 'hook') return [command, 'hook bash-domains', 'hook session-start'];
     if (command === 'job') return JOB_SUBCOMMAND_NAMES.map((subcommand) => `job ${subcommand}`);
     if (command === 'incident') return INCIDENT_SUBCOMMAND_NAMES.map((subcommand) => `incident ${subcommand}`);
     if (command === 'merge') return MERGE_SUBCOMMAND_NAMES.map((subcommand) => `merge ${subcommand}`);

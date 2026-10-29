@@ -107,7 +107,7 @@ describeWhenGitIsPresent('two programs side by side, each run as a binary', () =
   test('the preloaded binary is the other program, so every case below runs both branches', async () => {
     for (const side of BOTH_PROGRAMS) {
       const repositoryDirectory = scratchRepository();
-      const initialised         = await binaryRunAs(side, repositoryDirectory)(['init', '--project', 'Example Agency', '--no-workflow']);
+      const initialised         = await binaryRunAs(side, repositoryDirectory)(['init', '--project', 'Example Agency']);
       expect(initialised.exitCode, initialised.standardError).toBe(0);
       expect(existsSync(join(repositoryDirectory, side.names.DATA_FOLDER, 'progress.json')), side.names.PROGRAM).toBe(true);
       expect(existsSync(join(repositoryDirectory, side.otherNames.DATA_FOLDER)), side.names.PROGRAM).toBe(false);
@@ -118,10 +118,10 @@ describeWhenGitIsPresent('two programs side by side, each run as a binary', () =
     for (const side of BOTH_PROGRAMS) {
       const repositoryDirectory = scratchRepository();
       const run                 = binaryRunAs(side, repositoryDirectory);
-      expect((await run(['init', '--project', 'Example Agency', '--no-workflow'])).exitCode).toBe(0);
+      expect((await run(['init', '--project', 'Example Agency'])).exitCode).toBe(0);
       mkdirSync(join(repositoryDirectory, ORIGINAL_PRODUCT_NAMES.DATA_FOLDER), { recursive: true });
 
-      for (const outcome of [await run(['init', '--no-workflow']), await run(['update', '--no-workflow'])]) {
+      for (const outcome of [await run(['init']), await run(['update'])]) {
         if (side.names.PROGRAM === ORIGINAL_PRODUCT_NAMES.PROGRAM) {
           expect(outcome.exitCode, outcome.standardError).toBe(0);
         } else {
@@ -159,7 +159,7 @@ describeWhenGitIsPresent('two programs side by side, each run as a binary', () =
         [`.claude/skills/${side.otherNames.PRODUCT_OWNER_SKILL}/SKILL.md`]: '---\nname: the other program\'s skill\n---\n',
         [`.claude/skills/${side.otherNames.ORCHESTRATE_SKILL}/SKILL.md`]:   '---\nname: the other program\'s skill\n---\n',
       };
-      expect((await run(['init', '--project', 'Example Agency', '--no-workflow'])).exitCode).toBe(0);
+      expect((await run(['init', '--project', 'Example Agency'])).exitCode).toBe(0);
       for (const [relativePath, text] of Object.entries(otherFiles)) {
         mkdirSync(join(repositoryDirectory, relativePath, '..'), { recursive: true });
         const existingText = existsSync(join(repositoryDirectory, relativePath)) ? readFileSync(join(repositoryDirectory, relativePath), 'utf8') : '';
@@ -167,7 +167,7 @@ describeWhenGitIsPresent('two programs side by side, each run as a binary', () =
       }
       const before = Object.fromEntries(Object.keys(otherFiles).map((relativePath) => [relativePath, readFileSync(join(repositoryDirectory, relativePath), 'utf8')]));
 
-      const updated = await run(['update', '--no-workflow']);
+      const updated = await run(['update']);
       expect(updated.exitCode, updated.standardError).toBe(0);
 
       const settingsText = readFileSync(join(repositoryDirectory, '.claude/settings.local.json'), 'utf8');

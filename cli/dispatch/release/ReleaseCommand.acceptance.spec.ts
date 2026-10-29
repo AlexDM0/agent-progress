@@ -129,7 +129,7 @@ async function expectRefusedChangingNothing(releaseArguments: readonly string[],
 
 beforeEach(async () => {
   if (!gitIsAvailable()) return;
-  repositoryDirectory = await createInitializedScratchRepository('release-acceptance', ['--project', 'Example Agency', '--no-claude-md', '--no-hooks'], () => FROZEN_NOW);
+  repositoryDirectory = await createInitializedScratchRepository('release-acceptance', ['--project', 'Example Agency', '--no-hooks'], () => FROZEN_NOW);
   gitOutputIn(repositoryDirectory, ['checkout', '-q', '-B', 'main']);
   gitOutputIn(repositoryDirectory, ['add', '--all']);
   gitOutputIn(repositoryDirectory, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'commit', '-q', '-m', 'Ignore the tracker']);
