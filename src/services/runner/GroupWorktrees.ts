@@ -34,10 +34,32 @@ function prepareGroupWorktree(repositoryRoot: string, worktreesRoot: string, gro
   return addWorktree(repositoryRoot, path, branchExists ? [path, groupBranch] : ['-b', groupBranch, path, mainLine]);
 }
 
+/** A leftover refresh worktree away from the tip is detached there, unless it holds a merge in progress or uncommitted changes. */
+function detachLeftoverAt(path: string, groupTip: string): GroupWorktreeVerdict {
+  if (GitProcess.resolvedCommitOf(path, 'HEAD') === groupTip) return { verdict: 'ready', path };
+  if (GitProcess.resolvedCommitOf(path, 'MERGE_HEAD') !== null) {
+    return { verdict: 'git-failed', reason: `The leftover refresh worktree ${path} holds a merge in progress.` };
+  }
+  const status = GitProcess.run(path, ['status', '--porcelain=v1', '--untracked-files=no']);
+  if (!GitProcess.succeeded(status) || status.standardOutput.trim() !== '') {
+    return { verdict: 'git-failed', reason: `The leftover refresh worktree ${path} holds uncommitted changes.` };
+  }
+  const gitArguments = ['checkout', '--quiet', '--detach', groupTip];
+  const run          = GitProcess.run(path, gitArguments);
+  return GitProcess.succeeded(run) ? { verdict: 'ready', path } : { verdict: 'git-failed', reason: `${path}: ${GitProcess.failureReasonOf(run, gitArguments)}` };
+}
+
 /** Detached at the group's recorded tip, so nothing but the landing's `merge --ff-only` ever moves the group branch. */
 function prepareRefreshWorktree(repositoryRoot: string, worktreesRoot: string, groupBranch: string, groupTip: string): GroupWorktreeVerdict {
   const path = refreshWorktreeOf(worktreesRoot, groupBranch);
+  if (existsSync(path)) return detachLeftoverAt(path, groupTip);
   return addWorktree(repositoryRoot, path, ['--detach', path, groupTip]);
+}
+
+/** Whether what a declined cleanup was to remove is still on disk: a refresh's worktree, or a released group's worktree or branch. */
+function cleanupIsStillDeclined(repositoryRoot: string, worktreesRoot: string, groupBranch: string, cleanup: 'refresh' | 'release'): boolean {
+  if (cleanup === 'refresh') return existsSync(refreshWorktreeOf(worktreesRoot, groupBranch));
+  return existsSync(groupWorktreeOf(worktreesRoot, groupBranch)) || GitProcess.resolvedCommitOf(repositoryRoot, `refs/heads/${groupBranch}`) !== null;
 }
 
 /** Never forced: a worktree git declines to remove stays, and the reason is handed back. */
@@ -58,6 +80,7 @@ function removeGroup(repositoryRoot: string, worktreesRoot: string, groupBranch:
 }
 
 export const GroupWorktrees = Object.freeze({
+  cleanupIsStillDeclined,
   groupWorktreeOf,
   prepareGroupWorktree,
   prepareRefreshWorktree,

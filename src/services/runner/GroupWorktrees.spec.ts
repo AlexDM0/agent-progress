@@ -3,8 +3,8 @@
  * one reuses the branch as it stands rather than resetting it to main, a refresh worktree is detached so it never moves the group branch,
  * and the release's removal deletes the branch only through `branch -d`, never forced.
  */
-import { existsSync } from 'node:fs';
-import { join }       from 'node:path';
+import { existsSync, writeFileSync } from 'node:fs';
+import { join }                      from 'node:path';
 
 import { afterEach, expect, test } from 'bun:test';
 import {
@@ -62,6 +62,45 @@ describeWhenGitIsPresent('a group worktree', () => {
     expect(GroupWorktrees.removeGroup(root, worktreesRoot, 'group-example')).toBeNull();
     expect(existsSync(join(worktreesRoot, 'group-example'))).toBe(false);
     expect(Bun.spawnSync(['git', 'rev-parse', '--verify', '--quiet', 'refs/heads/group-example'], { cwd: root }).exitCode).not.toBe(0);
+  });
+
+  test('a leftover refresh worktree at an older group tip is detached at the new tip before the merge', () => {
+    const { root, worktreesRoot } = scratchRepository();
+    GroupWorktrees.prepareGroupWorktree(root, worktreesRoot, 'group-example', 'main');
+    const olderTip = gitOutputIn(root, ['rev-parse', 'refs/heads/group-example']);
+    GroupWorktrees.prepareRefreshWorktree(root, worktreesRoot, 'group-example', olderTip);
+    commitFile(join(worktreesRoot, 'group-example'), 'cart.ts', 'export const cart = 1;\n');
+    const newTip = gitOutputIn(root, ['rev-parse', 'refs/heads/group-example']);
+    const refreshWorktree = join(worktreesRoot, 'refresh-group-example');
+    expect(gitOutputIn(refreshWorktree, ['rev-parse', 'HEAD'])).toBe(olderTip);
+
+    expect(GroupWorktrees.prepareRefreshWorktree(root, worktreesRoot, 'group-example', newTip)).toEqual({ verdict: 'ready', path: refreshWorktree });
+    expect(gitOutputIn(refreshWorktree, ['rev-parse', 'HEAD'])).toBe(newTip);
+    expect(gitOutputIn(refreshWorktree, ['rev-parse', '--abbrev-ref', 'HEAD'])).toBe('HEAD');
+  });
+
+  test('a leftover refresh worktree away from the tip with uncommitted changes or a merge in progress is refused git-failed, naming it', () => {
+    const { root, worktreesRoot } = scratchRepository();
+    GroupWorktrees.prepareGroupWorktree(root, worktreesRoot, 'group-example', 'main');
+    const olderTip = gitOutputIn(root, ['rev-parse', 'refs/heads/group-example']);
+    const refreshWorktree = join(worktreesRoot, 'refresh-group-example');
+    GroupWorktrees.prepareRefreshWorktree(root, worktreesRoot, 'group-example', olderTip);
+    commitFile(join(worktreesRoot, 'group-example'), 'cart.ts', 'export const cart = 1;\n');
+    const newTip = gitOutputIn(root, ['rev-parse', 'refs/heads/group-example']);
+
+    writeFileSync(join(refreshWorktree, 'base.ts'), 'export const base = 2;\n');
+    const dirty = GroupWorktrees.prepareRefreshWorktree(root, worktreesRoot, 'group-example', newTip);
+    expect(dirty).toEqual({ verdict: 'git-failed', reason: expect.stringContaining(refreshWorktree) });
+    expect(gitOutputIn(refreshWorktree, ['rev-parse', 'HEAD'])).toBe(olderTip);
+
+    gitOutputIn(refreshWorktree, ['checkout', '-q', '--', 'base.ts']);
+    commitFile(refreshWorktree, 'base.ts', 'export const base = 3;\n');
+    commitFile(root, 'base.ts', 'export const base = 4;\n');
+    Bun.spawnSync(['git', '-c', 'user.name=Alex Example', '-c', 'user.email=alex@example.com', 'merge', '-q', 'main'], { cwd: refreshWorktree });
+    expect(gitOutputIn(refreshWorktree, ['rev-parse', '--verify', 'MERGE_HEAD'])).not.toBe('');
+    const merging = GroupWorktrees.prepareRefreshWorktree(root, worktreesRoot, 'group-example', newTip);
+    expect(merging).toEqual({ verdict: 'git-failed', reason: expect.stringContaining('merge in progress') });
+    expect(merging.verdict === 'git-failed' ? merging.reason : '').toContain(refreshWorktree);
   });
 
   test('a group branch holding work main lacks is kept: branch -d refuses it and the reason comes back', () => {
