@@ -17,6 +17,8 @@ import type { CommandClient }                                                   
 import type { ConnectionState, EventStreamHandlers }                                     from '../api/EventStreamClient.ts';
 import { boardPreferenceStoreOf, sharedPreferenceStoreOf }                               from '../preferences/PreferenceStore.ts';
 import { AgentsView, BROWSER_AGENTS_CLOCK, type AgentsClock }                            from '../views/agents/AgentsView.tsx';
+import { KanbanModel }                                                                   from '../views/kanban/KanbanModel.ts';
+import { KanbanView }                                                                    from '../views/kanban/KanbanView.tsx';
 import { BoardStateUpdate }                                                              from './BoardStateUpdate.ts';
 import { BridgeHeader }                                                                  from './BridgeHeader.tsx';
 import { ConnectionBanners }                                                             from './ConnectionBanners.tsx';
@@ -118,6 +120,7 @@ export function BridgeApp({ services }: BridgeAppProps) {
   }), [streamIsDown, installIsHeld, services]);
 
   const agentsClock = useMemo((): AgentsClock => ({ now: services.now, everySecond: BROWSER_AGENTS_CLOCK.everySecond }), [services]);
+  const kanbanBoardState = useMemo(() => KanbanModel.kanbanBoardStateOf(boardState), [boardState]);
 
   const chooseTheme = (choice: ThemeChoice): void => {
     ThemeBootstrap.chooseTheme(sharedStore, choice);
@@ -146,7 +149,10 @@ export function BridgeApp({ services }: BridgeAppProps) {
           {boardState !== null && route.tab === 'agents'
             ? <AgentsView jobs={boardState.jobs} decisions={boardState.decisions} selectedJobId={route.item} clock={agentsClock} />
             : null}
-          {boardState !== null && route.tab !== 'agents'
+          {kanbanBoardState !== null && route.tab === 'kanban'
+            ? <KanbanView boardState={kanbanBoardState} boardStore={boardStore} />
+            : null}
+          {boardState !== null && route.tab !== 'agents' && (kanbanBoardState === null || route.tab !== 'kanban')
             ? <p className="bridge-empty">{`${boardState.jobs.length} jobs, ${boardState.decisions.length} decisions, ${boardState.incidents.length} incidents.`}</p>
             : null}
         </main>

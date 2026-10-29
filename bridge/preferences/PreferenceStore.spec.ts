@@ -31,6 +31,25 @@ describe('the preference store', () => {
     expect(boardPreferenceStoreOf('example-tracker', () => storage).readChoice('tab')).toBe('agents');
   });
 
+  test('a text list is stored as the static page stored the Kanban\'s epic filter, a JSON list under its own key, and an empty one removes it', () => {
+    const { storage, entries } = memoryStorage();
+    const store = boardPreferenceStoreOf('example-tracker', () => storage);
+    store.writeTextList('kanban-epics', ['checkout', 'no epic']);
+    expect([...entries]).toEqual([[`${PRODUCT_NAMES.STORAGE_PREFIX}:example-tracker:kanban-epics`, '["checkout","no epic"]']]);
+    expect(store.readTextList('kanban-epics')).toEqual(['checkout', 'no epic']);
+    store.writeTextList('kanban-epics', []);
+    expect(entries.size).toBe(0);
+  });
+
+  test('a stored text list that is not a JSON list of texts reads as the empty list, and a mixed one keeps only its texts', () => {
+    const { storage, entries } = memoryStorage();
+    const store = boardPreferenceStoreOf('example-tracker', () => storage);
+    entries.set(`${PRODUCT_NAMES.STORAGE_PREFIX}:example-tracker:kanban-epics`, '{not json');
+    expect(store.readTextList('kanban-epics')).toEqual([]);
+    entries.set(`${PRODUCT_NAMES.STORAGE_PREFIX}:example-tracker:kanban-epics`, '["checkout",4]');
+    expect(store.readTextList('kanban-epics')).toEqual(['checkout']);
+  });
+
   test('blocked storage reads nothing and drops a write without throwing', () => {
     const blocked = (): PreferenceStorage => {
       throw new Error('storage is blocked');
