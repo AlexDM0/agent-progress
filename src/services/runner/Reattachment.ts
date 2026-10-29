@@ -67,8 +67,8 @@ function storedLostCauseOf(jobFolder: string, instance: number): InterruptionCau
 
 /**
  * A lost host's cause, settled once and stored beside its record, so a runner dying after the kill reads the same cause again. A foreign
- * boot is a reboot; a child still alive is killed by its group, never by its pid alone, and the host is the one lost; otherwise the agent
- * crashed with it.
+ * boot is a reboot; a recorded child group still alive, its leader living or not, is killed as a group, never by its pid alone, and the
+ * host is the one lost; otherwise the agent crashed with it.
  */
 function settleLostHost(jobFolder: string, instance: number): InterruptionCause {
   const stored = storedLostCauseOf(jobFolder, instance);
