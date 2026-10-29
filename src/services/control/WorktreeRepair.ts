@@ -29,6 +29,8 @@ export type WorktreeRepairVerdict =
 
 const RECREATE_PATCH = /^recreate-(\d+)\.patch$/;
 
+const NO_INDEX_DIFF_DIFFERS_EXIT_CODE = 1;
+
 function failed(directory: string, gitArguments: readonly string[]): WorktreeRepairVerdict | null {
   const run = GitProcess.run(directory, gitArguments);
   return GitProcess.succeeded(run) ? null : { verdict: 'git-failed', reason: GitProcess.failureReasonOf(run, gitArguments) };
@@ -39,10 +41,11 @@ function changesOf(worktreePath: string): string | null {
   const tracked   = GitProcess.run(worktreePath, ['diff', '--binary', 'HEAD']);
   const untracked = GitProcess.run(worktreePath, ['ls-files', '--others', '--exclude-standard', '-z']);
   if (!GitProcess.succeeded(tracked) || !GitProcess.succeeded(untracked)) return null;
-  const additions = untracked.standardOutput.split('\0').filter((path) => path !== '').map((path) => (
-    // `--no-index` exits 1 when the sides differ, which they always do here.
-    GitProcess.run(worktreePath, ['diff', '--binary', '--no-index', '--', '/dev/null', path])?.standardOutput ?? null
-  ));
+  const additions = untracked.standardOutput.split('\0').filter((path) => path !== '').map((path) => {
+    const addition = GitProcess.run(worktreePath, ['diff', '--binary', '--no-index', '--', '/dev/null', path]);
+    // `--no-index` exits 1 when the sides differ, which they always do here; anything else means the file was not read.
+    return addition?.exitCode === NO_INDEX_DIFF_DIFFERS_EXIT_CODE ? addition.standardOutput : null;
+  });
   if (additions.includes(null)) return null;
   return [tracked.standardOutput, ...additions].join('');
 }

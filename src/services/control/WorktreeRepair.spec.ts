@@ -4,6 +4,7 @@
  * `unlock` removes a stale `index.lock` and nothing else; `prune` drops the record of a worktree folder that is gone.
  */
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -76,6 +77,20 @@ describeWhenGitIsPresent('recreate', () => {
       repositoryRoot: root, worktreePath: worktree, step: 'recreate', jobFolder: null
     })).toEqual({ verdict: 'uncommitted-work-not-saved' });
     expect(readFileSync(join(worktree, 'basket.ts'), 'utf8')).toBe('export const total = 2;\n');
+  });
+
+  test('an untracked file git cannot diff keeps the worktree: uncommitted-work-not-saved', () => {
+    const { root, worktree, jobFolder } = repositoryWithWorktree();
+    writeFileSync(join(worktree, 'coupon.ts'), 'export const coupon = 3;\n');
+    chmodSync(join(worktree, 'coupon.ts'), 0o000);
+
+    const repaired = WorktreeRepair.repair({
+      repositoryRoot: root, worktreePath: worktree, step: 'recreate', jobFolder
+    });
+    chmodSync(join(worktree, 'coupon.ts'), 0o644);
+
+    expect(repaired).toEqual({ verdict: 'uncommitted-work-not-saved' });
+    expect(readFileSync(join(worktree, 'coupon.ts'), 'utf8')).toBe('export const coupon = 3;\n');
   });
 });
 
