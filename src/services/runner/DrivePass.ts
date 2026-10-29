@@ -159,16 +159,18 @@ export interface RunnerStateDocument {
 
 export interface DrivePass {
   /** Run once at start, before the first pass, which it then runs forced: its one hold applies everything reattachment found. */
-  reattach: () => Promise<ReattachmentReport>;
+  reattach:       () => Promise<ReattachmentReport>;
   /** Coalesced: wakes during a pass add exactly one more pass. `forced` runs it even when nothing observed changed. */
-  wake:     (forced?: boolean) => void;
+  wake:           (forced?: boolean) => void;
   /** The backstop sweep: counts each running job's quiet sweeps and wakes a forced pass to open `quiet-job` for one that reached the count. */
-  sweep:    () => void;
+  sweep:          () => void;
+  /** The sweeps a running build or review has been quiet for, which the Bridge tints; 0 for any other job. */
+  silentSweepsOf: (jobId: string) => number;
   /** Resolves once no pass is running or queued. */
-  idle:     () => Promise<void>;
-  state:    () => RunnerStateDocument;
+  idle:           () => Promise<void>;
+  state:          () => RunnerStateDocument;
   /** No pass starts after it; resolves once the one running, a landing in it included, has finished. */
-  stop:     () => Promise<void>;
+  stop:           () => Promise<void>;
 }
 
 interface HostObservation {
@@ -836,8 +838,9 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     reattach,
     wake,
     sweep,
-    idle:  () => running ?? Promise.resolve(),
-    state: () => state,
+    silentSweepsOf: (jobId) => quietJobWatch.silentSweepsOf(jobId),
+    idle:           () => running ?? Promise.resolve(),
+    state:          () => state,
     stop,
   };
 }

@@ -16,6 +16,7 @@ import type { PreferenceStorage }                                               
 import type { CommandClient }                                                            from '../api/CommandClient.ts';
 import type { ConnectionState, EventStreamHandlers }                                     from '../api/EventStreamClient.ts';
 import { boardPreferenceStoreOf, sharedPreferenceStoreOf }                               from '../preferences/PreferenceStore.ts';
+import { AgentsView, BROWSER_AGENTS_CLOCK, type AgentsClock }                            from '../views/agents/AgentsView.tsx';
 import { EpicsModel }                                                                    from '../views/epics/EpicsModel.ts';
 import { EpicsView }                                                                     from '../views/epics/EpicsView.tsx';
 import { FinishedWorkModel }                                                             from '../views/finished-work/FinishedWorkModel.ts';
@@ -128,6 +129,8 @@ export function BridgeApp({ services }: BridgeAppProps) {
     onInstallHeld: setInstallRefusal,
   }), [streamIsDown, installIsHeld, services]);
 
+  const agentsClock = useMemo((): AgentsClock => ({ now: services.now, everySecond: BROWSER_AGENTS_CLOCK.everySecond }), [services]);
+
   const chooseTheme = (choice: ThemeChoice): void => {
     ThemeBootstrap.chooseTheme(sharedStore, choice);
     setThemeChoice(choice);
@@ -151,7 +154,13 @@ export function BridgeApp({ services }: BridgeAppProps) {
         <main className="bridge-panel" data-tab={route.tab}>
           {boardState === null
             ? <p className="bridge-empty">Waiting for the Overseer&apos;s first board.</p>
-            : <BoardViews boardState={boardState} route={route} finishedWorkChoice={finishedWorkChoice} onFinishedWorkChoice={chooseFinishedWork} now={services.now()} />}
+            : null}
+          {boardState !== null && route.tab === 'agents'
+            ? <AgentsView jobs={boardState.jobs} decisions={boardState.decisions} selectedJobId={route.item} clock={agentsClock} />
+            : null}
+          {boardState !== null && route.tab !== 'agents'
+            ? <BoardViews boardState={boardState} route={route} finishedWorkChoice={finishedWorkChoice} onFinishedWorkChoice={chooseFinishedWork} now={services.now()} />
+            : null}
         </main>
       </div>
     </ControlSurroundingsContext.Provider>

@@ -21,13 +21,15 @@ import type { CommandContext } from '../../CommandContext.ts';
 import { fullDocumentOf }      from '../../StatusDocuments.ts';
 
 export interface BoardStateSource {
-  context:   CommandContext;
-  workspace: Workspace;
-  notices:   () => readonly unknown[];
+  context:         CommandContext;
+  workspace:       Workspace;
+  notices:         () => readonly unknown[];
   /** Everything but `paused`, which the board's stored drain flag says. */
-  overseer:  () => Omit<OverseerFacts, 'paused'>;
+  overseer:        () => Omit<OverseerFacts, 'paused'>;
+  /** The running DrivePass's count; absent while none runs, when every job reads 0. */
+  silentSweepsOf?: (jobId: string) => number;
   /** The branch the main checkout lands on; without it the merge queue's targets go unpredicted and empty. */
-  mainLine?: string;
+  mainLine?:       string;
 }
 
 /** The merge slots' own target rule and git's predictions, read in the main checkout as the slots read them. */
@@ -64,16 +66,19 @@ export function readBoardState(source: BoardStateSource): { state: BoardState; p
   } = requireTracker(workspace);
   const board = readingBoardOf(progress, listing.tickets, epicListing.epics, draftListing.drafts, storedLog.records);
   const state = BoardStateAssembly.boardStateOf({
-    statusDocument:   fullDocumentOf(progress, storedLog.records.map(LogUtil.wordedEntryOf), board, false),
+    statusDocument: fullDocumentOf(progress, storedLog.records.map(LogUtil.wordedEntryOf), board, false),
     board,
     progress,
-    tickets:          listing.tickets,
-    epics:            epicListing.epics,
-    drafts:           draftListing.drafts,
-    logRecords:       storedLog.records,
-    generatedAt:      context.now(),
-    renderMarkdown:   context.renderState.markdownRenderer.renderMarkdown,
-    liveFactsOf:      (job) => JobLiveFactsReader.liveFactsOf(workspace.trackerDirectory, job, (line) => context.agentAdapter.eventsOf(line)),
+    tickets:        listing.tickets,
+    epics:          epicListing.epics,
+    drafts:         draftListing.drafts,
+    logRecords:     storedLog.records,
+    generatedAt:    context.now(),
+    renderMarkdown: context.renderState.markdownRenderer.renderMarkdown,
+    liveFactsOf:    (job) => ({
+      ...JobLiveFactsReader.liveFactsOf(workspace.trackerDirectory, job, (line) => context.agentAdapter.eventsOf(line)),
+      silentSweeps: source.silentSweepsOf?.(job.id) ?? 0,
+    }),
     notices:          source.notices(),
     overseer:         { ...source.overseer(), paused: board.dispatcherState() === 'stopped' },
     usage:            usageOf(context),

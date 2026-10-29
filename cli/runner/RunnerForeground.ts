@@ -326,6 +326,7 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
         notices:          () => runnerState()?.notices ?? [],
         overseer:         overseerFactsNow,
         mainLine,
+        silentSweepsOf:   (jobId: string) => current?.drivePass.silentSweepsOf(jobId) ?? 0,
         onRuntimeCommand: (command: RuntimeRunnerCommand) => {
           log(`${command.kind} received${command.now ? ' (now)' : ''}.`);
           if (current === null || handingOver) return;
@@ -364,7 +365,12 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
     const publishState = () => {
       try {
         ownBroker.publishState(readBoardState({
-          context, workspace, notices: () => runnerState()?.notices ?? [], overseer: overseerFactsNow, mainLine
+          context,
+          workspace,
+          notices:        () => runnerState()?.notices ?? [],
+          overseer:       overseerFactsNow,
+          silentSweepsOf: (jobId) => current?.drivePass.silentSweepsOf(jobId) ?? 0,
+          mainLine,
         }).state);
       } catch (thrown) {
         log(`The board state could not be read for the event stream: ${thrown instanceof Error ? thrown.message : String(thrown)}`);
@@ -423,6 +429,8 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
         onSweep:          () => {
           installWatch.noteSweep();
           startedPass.sweep();
+          // A sweep changes the silent-sweep counts without a pass; the broker sends only the jobs whose count moved.
+          publishState();
         },
       });
       const serving: Serving = {
