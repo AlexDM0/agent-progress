@@ -7,6 +7,12 @@
  *   .bridge-shell           the banners, the header and the selected view's panel
  *   .bridge-header          project, Overseer state, Pause or Resume, tabs and theme; hidden when [data-embedded="dashboard"]
  *   .bridge-panel[data-tab] the selected view
+ *   .bridge-view            a view's sections (.bridge-section, titled .bridge-section-title), each a .bridge-list of cards
+ *   .bridge-card[data-state] a decision, incident, intake session or triage entry: open | answered | handled | escalated | warning
+ *                           (an applied default) | notice | closed; with .bridge-card-title, -meta, -actions and .bridge-note lines
+ *   .bridge-question        one question of a decision (.bridge-question-header, its .bridge-option choices)
+ *   .bridge-form            a chat box, the New request box or an edit form: .bridge-textarea, .bridge-input and its controls
+ *   .bridge-transcript      a session's transcript, one .bridge-transcript-entry[data-role] per line, its role a .bridge-mark
  * Marks
  *   .bridge-banner          a full-width alert: -unreachable (event stream down), -install (launches held), -error (a render failed)
  *   .bridge-control         a command button and, beside it, the Overseer's refusal verbatim (.bridge-refusal)
@@ -145,4 +151,142 @@ body {
 
 .bridge-empty {
   color: var(--ink-muted);
+}
+
+.bridge-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.bridge-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.bridge-section-title {
+  margin: 0;
+  font-size: var(--fs-title);
+  font-weight: 600;
+}
+
+.bridge-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bridge-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+}
+
+.bridge-card[data-state="answered"],
+.bridge-card[data-state="handled"],
+.bridge-card[data-state="escalated"],
+.bridge-card[data-state="closed"] {
+  color: var(--ink-muted);
+}
+
+.bridge-card[data-state="warning"],
+.bridge-card[data-state="notice"] {
+  border-color: var(--warn-edge);
+  background: var(--warn-tint);
+  color: var(--warn-ink);
+}
+
+.bridge-card-title {
+  margin: 0;
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+
+.bridge-card-meta,
+.bridge-note {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: var(--fs-small);
+}
+
+.bridge-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.bridge-question {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+}
+
+.bridge-question-header {
+  font-size: var(--fs-small);
+  font-weight: 600;
+}
+
+.bridge-option {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.bridge-form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.bridge-textarea,
+.bridge-input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+}
+
+.bridge-transcript {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 60vh;
+  margin: 0;
+  padding: var(--space-2);
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  white-space: pre-wrap;
+}
+
+.bridge-transcript-entry[data-role="tool-call"],
+.bridge-transcript-entry[data-role="tool-result"],
+.bridge-transcript-entry[data-role="watcher"] {
+  color: var(--ink-muted);
+}
+
+.bridge-mark {
+  margin-right: var(--space-2);
+  color: var(--ink-muted);
+  font-size: var(--fs-micro);
+  text-transform: uppercase;
 }

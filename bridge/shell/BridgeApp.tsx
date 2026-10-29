@@ -12,17 +12,28 @@ import {
 } from 'react';
 
 import type { BoardStateDocument, OverseerIdentity }                                     from '../@types/BoardStateDocument.ts';
+import type { ConversationBoardDocument }                                                from '../@types/ConversationDocuments.ts';
 import type { PreferenceStorage }                                                        from '../@types/PreferenceStorage.ts';
 import type { CommandClient }                                                            from '../api/CommandClient.ts';
 import type { ConnectionState, EventStreamHandlers }                                     from '../api/EventStreamClient.ts';
 import { boardPreferenceStoreOf, sharedPreferenceStoreOf }                               from '../preferences/PreferenceStore.ts';
+import { AssistantView }                                                                 from '../views/assistant/AssistantView.tsx';
+import type { TranscriptFollower }                                                       from '../views/assistant/TranscriptLog.tsx';
+import { IntakeView }                                                                    from '../views/intake/IntakeView.tsx';
+import { QuestionAlerts, type QuestionNotifier }                                         from '../views/questions/QuestionAlerts.ts';
+import { QuestionsView }                                                                 from '../views/questions/QuestionsView.tsx';
 import { BoardStateUpdate }                                                              from './BoardStateUpdate.ts';
 import { BridgeHeader }                                                                  from './BridgeHeader.tsx';
 import { ConnectionBanners }                                                             from './ConnectionBanners.tsx';
 import { ControlAvailabilityUtil, ControlSurroundingsContext, type ControlSurroundings } from './ControlAvailability.ts';
 import { EmbeddedChannel, type EmbeddedSurroundings }                                    from './EmbeddedChannel.ts';
-import { DEFAULT_TAB, HashRouter, TAB_CHOICE_NAME }                                      from './HashRouter.ts';
-import { ThemeBootstrap, type ThemeChoice }                                              from './ThemeBootstrap.ts';
+import {
+  DEFAULT_TAB,
+  HashRouter,
+  TAB_CHOICE_NAME,
+  type BridgeTab
+} from './HashRouter.ts';
+import { ThemeBootstrap, type ThemeChoice } from './ThemeBootstrap.ts';
 
 export interface BridgeServices {
   readonly commandClient:        CommandClient;
@@ -33,6 +44,22 @@ export interface BridgeServices {
   readonly embedded:             boolean;
   readonly embeddedSurroundings: () => EmbeddedSurroundings;
   readonly now:                  () => Date;
+  readonly followTranscript:     TranscriptFollower;
+  readonly questionNotifier:     QuestionNotifier;
+}
+
+function SelectedView({ tab, boardState, services }: { readonly tab: BridgeTab; readonly boardState: BoardStateDocument; readonly services: BridgeServices }) {
+  const conversationBoard = boardState as unknown as ConversationBoardDocument;
+  switch (tab) {
+    case 'questions':
+      return <QuestionsView board={conversationBoard} notifier={services.questionNotifier} />;
+    case 'assistant':
+      return <AssistantView board={conversationBoard} followTranscript={services.followTranscript} />;
+    case 'intake':
+      return <IntakeView board={conversationBoard} followTranscript={services.followTranscript} />;
+    default:
+      return <p className="bridge-empty">{`${boardState.jobs.length} jobs, ${boardState.decisions.length} decisions, ${boardState.incidents.length} incidents.`}</p>;
+  }
 }
 
 export interface BridgeAppProps {
@@ -55,6 +82,8 @@ export function BridgeApp({ services }: BridgeAppProps) {
   const boardStore = useMemo(() => (identity === null ? null : boardPreferenceStoreOf(identity.trackerId, services.storage)), [identity, services]);
   const storedTab = useCallback(() => boardStore?.readChoice(TAB_CHOICE_NAME) ?? null, [boardStore]);
   const route = HashRouter.useHashRoute(storedTab);
+  const openDecisions = (boardState as ConversationBoardDocument | null)?.decisions ?? null;
+  QuestionAlerts.useOpenQuestionAlerts(openDecisions, services.questionNotifier);
 
   useEffect(() => {
     let current = true;
@@ -139,7 +168,7 @@ export function BridgeApp({ services }: BridgeAppProps) {
         <main className="bridge-panel" data-tab={route.tab}>
           {boardState === null
             ? <p className="bridge-empty">Waiting for the Overseer&apos;s first board.</p>
-            : <p className="bridge-empty">{`${boardState.jobs.length} jobs, ${boardState.decisions.length} decisions, ${boardState.incidents.length} incidents.`}</p>}
+            : <SelectedView tab={route.tab} boardState={boardState} services={services} />}
         </main>
       </div>
     </ControlSurroundingsContext.Provider>

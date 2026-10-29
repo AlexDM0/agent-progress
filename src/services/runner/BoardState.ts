@@ -69,6 +69,8 @@ export interface BoardState {
   mergeQueue:            MergeQueueFacts;
   overseer:              OverseerFacts;
   usage:                 UsageFacts;
+  /** What an open decision or incident leaves behind once it is settled, and the sessions the Bridge shows after they end: see `questionHistoryOf`. */
+  questionHistory:       LogRecord[];
 }
 
 export interface BoardSummary {
@@ -90,6 +92,20 @@ function mergeQueueOf(board: Board): MergeQueueFacts {
   };
 }
 
+const SESSION_JOB_KINDS: ReadonlySet<string> = new Set(['orchestrator', 'product-owner']);
+
+/**
+ * The log records the Bridge's Questions, Assistant and Intake views read: every decision and incident record, every `ticket-triaged`, and
+ * every record of an orchestrator or product-owner job, since an answered decision, a handled incident and a closed intake leave the board.
+ */
+function questionHistoryOf(logRecords: readonly LogRecord[]): LogRecord[] {
+  const sessionJobIds = new Set(logRecords.flatMap((record) => (record.kind === 'job-launched' && SESSION_JOB_KINDS.has(record.fields.kind) ? [record.jobId] : [])));
+  return logRecords.filter((record) => {
+    if ('decisionId' in record || 'incidentId' in record || record.kind === 'ticket-triaged') return true;
+    return 'jobId' in record && sessionJobIds.has(record.jobId);
+  });
+}
+
 function boardStateOf(reading: BoardStateReading): BoardState {
   const { board } = reading;
   const page = assemblePagePayload({
@@ -107,13 +123,14 @@ function boardStateOf(reading: BoardStateReading): BoardState {
   return {
     ...reading.statusDocument,
     page,
-    jobs:       board.jobs().map((job) => ({ ...job, live: reading.liveFactsOf(job) })),
-    decisions:  [...board.decisions()],
-    incidents:  [...board.incidents()],
-    notices:    [...reading.notices],
-    mergeQueue: mergeQueueOf(board),
-    overseer:   reading.overseer,
-    usage:      reading.usage,
+    jobs:            board.jobs().map((job) => ({ ...job, live: reading.liveFactsOf(job) })),
+    decisions:       [...board.decisions()],
+    incidents:       [...board.incidents()],
+    notices:         [...reading.notices],
+    mergeQueue:      mergeQueueOf(board),
+    overseer:        reading.overseer,
+    usage:           reading.usage,
+    questionHistory: questionHistoryOf(reading.logRecords),
   };
 }
 
@@ -133,4 +150,4 @@ function summaryOf(state: BoardState, project: string, readyTicketIds: readonly 
   };
 }
 
-export const BoardStateAssembly = Object.freeze({ boardStateOf, summaryOf });
+export const BoardStateAssembly = Object.freeze({ boardStateOf, summaryOf, questionHistoryOf });

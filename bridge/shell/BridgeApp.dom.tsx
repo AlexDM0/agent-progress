@@ -74,6 +74,14 @@ function fakeBridge(): FakeBridge {
       embedded:             false,
       embeddedSurroundings: () => ({ window, parent: null, parentOrigin: null }),
       now:                  () => new Date('2026-10-29T20:00:00Z'),
+      followTranscript:     () => ({ close: () => undefined }),
+      questionNotifier:     {
+        allowance:         () => 'denied',
+        askAllowance:      () => Promise.resolve('denied'),
+        notify:            () => undefined,
+        setDocumentTitle:  () => undefined,
+        baseDocumentTitle: 'agent-progress',
+      },
     },
     stream: () => {
       if (handlers === null) throw new Error('the shell opened no event stream');
