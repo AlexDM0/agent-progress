@@ -969,6 +969,43 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
     });
   }, ROW_TIMEOUT_MILLISECONDS);
 
+  test('a group refresh\'s resolver takes its profile from the refresh worktree: its own admin folder writable, the group branch and every ticket branch denied', async () => {
+    const groupBranch   = 'group-example';
+    const ticketBranches = ['ticket-001', 'ticket-002'];
+    for (const branch of [groupBranch, ...ticketBranches]) gitOutputIn(repository, ['branch', branch]);
+    const worktreesRoot   = join(repository, PRODUCT_NAMES.WORKTREES_FOLDER);
+    const refreshWorktree = GroupWorktrees.refreshWorktreeOf(worktreesRoot, groupBranch);
+    GroupWorktrees.prepareRefreshWorktree(repository, worktreesRoot, groupBranch, gitOutputIn(repository, ['rev-parse', groupBranch]).trim());
+    const refreshAdminFolder = gitOutputIn(refreshWorktree, ['rev-parse', '--absolute-git-dir']).trim();
+    const profiles = new Map<string, WorkerProfile>();
+    const adapter: AgentAdapter = {
+      ...fakeAgentAdapter(),
+      planOf(request) {
+        profiles.set(basename(request.jobFilesDirectory), request.profile);
+        return fakeAgentAdapter(WAITING_STEPS).planOf(request);
+      },
+    };
+    let resolverJobId = '';
+    await writeTracker({
+      workspace: sessionWorkspace,
+      at:        CHANGED_AT,
+      now,
+      renderState,
+      mutate:    (change) => {
+        resolverJobId = change.board.launchJob({
+          kind: 'merge-agent', role: 'resolver', ticketIds: [], parentJobId: null, attempt: 1, target: groupBranch,
+        }, change.at).job.id;
+      },
+    });
+    await passOnce(await startedRunner(adapter));
+    const deniedWritableRoots = profiles.get(resolverJobId)?.deniedWritableRoots ?? [];
+    const deniesRef = (branch: string): boolean => deniedWritableRoots.some((path) => path.endsWith(join('refs', 'heads', branch)));
+    expect(deniedWritableRoots).not.toBeEmpty();
+    expect(deniedWritableRoots.map((path) => basename(path))).not.toContain(basename(refreshAdminFolder));
+    expect(deniesRef(groupBranch)).toBe(true);
+    expect(ticketBranches.filter((branch) => !deniesRef(branch))).toEqual([]);
+  }, ROW_TIMEOUT_MILLISECONDS);
+
   test('a finished session is never continued: a move of an ended job is refused job-finished', async () => {
     const failure = await failureOf(() => writeTracker({
       workspace: sessionWorkspace,
