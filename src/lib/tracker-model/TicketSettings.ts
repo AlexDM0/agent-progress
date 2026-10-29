@@ -10,6 +10,7 @@ import type { BoardRecords }       from './BoardRecords.ts';
 import { BoardRefusal }            from './BoardRefusal.ts';
 import { SETTLED_TICKET_STATUSES } from './constants/Statuses.ts';
 import { NetworkDomainUtil }       from './utils/NetworkDomainUtil.ts';
+import { TicketChartUtil }         from './utils/TicketChartUtil.ts';
 import { TicketDefaultsUtil }      from './utils/TicketDefaultsUtil.ts';
 
 export class TicketSettings {
@@ -37,8 +38,8 @@ export class TicketSettings {
 
     frontmatter.priority = priority;
     const linkedTask     = this.records.linkedTaskRecordOf(ticket);
-    // A draft has no row at any priority, since `ticket ready` files it.
-    const raisingFilesARow = status !== 'draft' && priority !== 'low' && linkedTask === undefined;
+    // A draft, or a ticket abandoned before it was ever started, has no row at any priority.
+    const raisingFilesARow = priority !== 'low' && linkedTask === undefined && !TicketChartUtil.ticketStaysOffTheChart(frontmatter);
     if (raisingFilesARow && status === 'pending') this.records.ensureTaskForTicket(ticket, at);
     else if (raisingFilesARow) this.records.seedTaskFromTicket(ticket);
     this.records.markChanged(ticket);

@@ -34,6 +34,7 @@ import type { HostRecord }                               from '../../lib/agent-h
 import { HOST_PROTOCOL_OLDEST_SUPPORTED }                from '../../lib/agent-host/constants/HostProtocol.ts';
 import type { AgentAdapter }                             from '../../lib/agent-launch/AgentAdapter.ts';
 import type { AgentQuestion }                            from '../../lib/agent-launch/AgentSessionEvent.ts';
+import type { WorkerProfile }                            from '../../lib/agent-launch/WorkerProfile.ts';
 import { identityOf, sameProcess, type ProcessIdentity } from '../../lib/process-identity/ProcessIdentity.ts';
 import type { Decision }                                 from '../../lib/tracker-model/@types/Decision.ts';
 import type { Job }                                      from '../../lib/tracker-model/@types/Job.ts';
@@ -893,6 +894,37 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
     });
     await passOnce(await startedRunner(adapter));
     expect(plans.get(resolverJobId)).toEqual({ reportTitle: 'resolver report', askUser: false });
+  }, ROW_TIMEOUT_MILLISECONDS);
+
+  test('a resolver merge agent launches under the resolver profile: the target ref denied, the git verbs allowed, no network', async () => {
+    const profiles = new Map<string, WorkerProfile>();
+    const adapter: AgentAdapter = {
+      ...fakeAgentAdapter(),
+      planOf(request) {
+        profiles.set(basename(request.jobFilesDirectory), request.profile);
+        return fakeAgentAdapter(WAITING_STEPS).planOf(request);
+      },
+    };
+    let resolverJobId = '';
+    await writeTracker({
+      workspace: sessionWorkspace,
+      at:        CHANGED_AT,
+      now,
+      renderState,
+      mutate:    (change) => {
+        resolverJobId = change.board.launchJob({
+          kind: 'merge-agent', role: 'resolver', ticketIds: ['001'], parentJobId: null, attempt: 1, target: 'main',
+        }, change.at).job.id;
+      },
+    });
+    await passOnce(await startedRunner(adapter));
+    const profile = profiles.get(resolverJobId);
+    expect(profile?.deniedWritableRoots.some((path) => path.endsWith(join('refs', 'heads', currentBranchOf(repository))))).toBe(true);
+    expect(profile?.deniedWritableRoots.some((path) => path.endsWith('packed-refs'))).toBe(true);
+    expect(profile?.allowedCommandPrefixes).toEqual(expect.arrayContaining([['git', 'add'], ['git', 'commit']]));
+    expect(profile).toMatchObject({
+      bashNetworkDomains: [], webNetworkDomains: 'none', askUser: false, networkDomainGuard: null
+    });
   }, ROW_TIMEOUT_MILLISECONDS);
 
   test('a finished session is never continued: a move of an ended job is refused job-finished', async () => {

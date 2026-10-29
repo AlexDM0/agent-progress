@@ -87,6 +87,24 @@ describe('opening a decision', () => {
     expect(progress.nextDecisionId).toBeUndefined();
     expect(records).toEqual([]);
   });
+
+  test('one asking two questions of the same text is refused decision-questions-repeat, since its answer keyed by text would lose one', () => {
+    const { board, progress, records } = boardWithAJob();
+    const sameQuestions = [{ ...FORMAT_QUESTION, question: 'Same?' }, { ...COLUMNS_QUESTION, question: 'Same?' }];
+    expect(refusalDetailOf(() => board.openDecision({ ...AGENT_QUESTION, questions: sameQuestions }, AT)))
+      .toEqual({ reason: 'decision-questions-repeat', question: 'Same?' });
+    expect(progress.decisions).toBeUndefined();
+    expect(progress.nextDecisionId).toBeUndefined();
+    expect(records).toEqual([]);
+  });
+
+  test('one asking questions of distinct texts opens and answers each under its own text', () => {
+    const { board } = boardWithAJob();
+    const distinctQuestions = [{ ...FORMAT_QUESTION, question: 'Same?' }, { ...COLUMNS_QUESTION, question: 'Same, really?' }];
+    const opened = board.openDecision({ ...AGENT_QUESTION, questions: distinctQuestions }, AT);
+    expect(opened.decision?.id).toBe('E1');
+    expect(board.answerDecision('E1', ['a', 'b'], AT).answer).toEqual({ 'Same?': 'a', 'Same, really?': 'b' });
+  });
 });
 
 describe('a replayed question request', () => {

@@ -559,14 +559,15 @@ function attributionTicketIdsOf(records: readonly LogRecord[]): string[] {
   return [...attributed].sort();
 }
 
-function sandboxFactsFor(context: JobLaunchContext, job: Readonly<Job>): SandboxFacts {
+/** `worktree` is the ticket's own unless named, as a refresh's resolver names the refresh worktree it resolves in. */
+function sandboxFactsFor(context: JobLaunchContext, job: Readonly<Job>, worktree: string = worktreeOf(context.workspace, job)): SandboxFacts {
   const { workspace } = context;
   return WorkerProfiles.sandboxFactsOf({
     repositoryRoot: workspace.rootDirectory,
     dataFolder:     workspace.trackerDirectory,
     monitorFolder:  context.monitorFolder,
     homeDirectory:  context.homeDirectory,
-    worktree:       worktreeOf(workspace, job),
+    worktree,
     ownBranch:      branchOf(job),
     mainLine:       context.mainLine,
     groupPrefix:    context.groupTargetPrefix,

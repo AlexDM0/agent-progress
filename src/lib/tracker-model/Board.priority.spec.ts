@@ -88,6 +88,18 @@ describe('raising', () => {
     expect(tickets[0]?.frontmatter.task).toBe(progress.tasks[0]?.id ?? 0);
   });
 
+  test('raising a ticket abandoned before it was ever started, an abandoned draft, seeds no row', () => {
+    const { board, progress, tickets } = boardFixture({
+      tickets: [ticketFixture({
+        id: '001', priority: 'normal', status: 'abandoned', abandonedAt: FINISHED_AT, reason: 'superseded by #002'
+      })],
+    });
+    board.setTicketPriority('001', 'high', CHANGED_AT);
+
+    expect(progress.tasks).toEqual([]);
+    expect(tickets[0]?.frontmatter).toMatchObject({ priority: 'high', task: null });
+  });
+
   test('raising a rowless reviewed ticket seeds a reviewed row carrying its review stamp', () => {
     const { board, progress } = boardFixture({
       tickets: [ticketFixture({
