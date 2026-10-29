@@ -24,6 +24,7 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
   board.setTicketAgents('001', { model: 'sonnet', effort: 'high' }, at);
   board.holdTicket('001', 'waiting on Example Agency', at);
   board.unholdTicket('001', at);
+  board.recordWorktreeRepaired('001', { step: 'prune', patchPath: null }, at);
   board.markReleaseTicket('002', at);
   board.clearReleaseTicket('002', at);
   board.addEpic({

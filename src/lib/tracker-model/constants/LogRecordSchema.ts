@@ -80,6 +80,8 @@ export const LOG_RECORD_SCHEMA = {
   'merge-queued':                    { subject: 'ticket', fields: { target: 'text' } },
   'ticket-readied':                  { subject: 'ticket', fields: NO_FIELDS },
   'ticket-triaged':                  { subject: 'ticket', fields: NO_FIELDS },
+  // A code-implemented repair of the ticket's worktree ran; `patchPath` is where `recreate` saved its changes, when there were any.
+  'worktree-repaired':               { subject: 'ticket', fields: { step: 'text', patchPath: 'nullable-text' } },
   'ticket-reopened':                 { subject: 'ticket', fields: NO_FIELDS },
   'ticket-started':                  { subject: 'ticket', fields: NO_FIELDS },
   'ticket-finished':                 { subject: 'ticket', fields: NO_FIELDS },

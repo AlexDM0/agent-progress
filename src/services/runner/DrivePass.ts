@@ -15,6 +15,7 @@ import type { AgentAdapter }                                                    
 import type { AgentLaunchRequest }                                               from '../../lib/agent-launch/AgentLaunchRequest.ts';
 import { launchEnvironmentOf }                                                   from '../../lib/agent-launch/LaunchEnvironment.ts';
 import type { WorkerProfile }                                                    from '../../lib/agent-launch/WorkerProfile.ts';
+import { writeFileAtomically }                                                   from '../../lib/atomic-file/AtomicFile.ts';
 import { GitProcess }                                                            from '../../lib/git/GitProcess.ts';
 import type { DecisionAnswer }                                                   from '../../lib/tracker-model/@types/Decision.ts';
 import type { IncidentDefaultCause, IncidentMove }                               from '../../lib/tracker-model/@types/Incident.ts';
@@ -70,6 +71,17 @@ export interface JobLaunchFacts {
   earlierSessionReplaced: boolean;
   /** A product owner's request, and what a fresh one takes over from the session it replaces; `null` for every other job. */
   intake:                 IntakeFacts | null;
+  /** What a merge-gate fixer or a resolution reviewer is told of its Airlock; `null` for every other job. */
+  airlock:                AirlockFacts | null;
+}
+
+/** The Airlock worktree, the slot's recorded tips, and the incident's facts: the failed gate's tail, or the merge commit under review. */
+export interface AirlockFacts {
+  worktree:    string;
+  branchTip:   string;
+  targetTip:   string;
+  mergeCommit: string;
+  gateTail:    string;
 }
 
 export interface DrivePassRequest {
@@ -390,8 +402,41 @@ function launchProfileOf(jobLaunchContext: JobLaunchContext, board: Board, job: 
   return WorkerProfiles.profileOf(role, JobLaunch.sandboxFactsFor(jobLaunchContext, job), ticket?.frontmatter.network ?? [], toolchainLines);
 }
 
-function launchFactsOf(board: Board, job: Readonly<Job>): JobLaunchFacts {
+/** Kept in the merge job's folder when the Airlock opens its incident, which is closed by the time its agent launches. */
+const AIRLOCK_FACTS_FILE = 'airlock-facts.json';
+
+function keepAirlockFacts(trackerDirectory: string, mergeJob: Readonly<Job>, facts: Readonly<Record<string, string>>): void {
+  const jobFolder = HostFleet.jobFolderOf(trackerDirectory, mergeJob.id);
+  mkdirSync(jobFolder, { recursive: true });
+  writeFileAtomically(join(jobFolder, AIRLOCK_FACTS_FILE), `${JSON.stringify(facts)}\n`);
+}
+
+function keptAirlockFactsOf(trackerDirectory: string, mergeJobId: string): Readonly<Record<string, unknown>> {
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(join(HostFleet.jobFolderOf(trackerDirectory, mergeJobId), AIRLOCK_FACTS_FILE), 'utf8'));
+    return typeof parsed === 'object' && parsed !== null ? parsed as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
+function airlockFactsOf(board: Board, trackerDirectory: string, job: Readonly<Job>, workingDirectory: string): AirlockFacts | null {
+  if (job.kind !== 'merge-agent' || job.role === 'resolver' || job.parentJobId === null) return null;
+  const mergeJob = board.jobs().find((candidate) => candidate.id === job.parentJobId);
+  const facts    = keptAirlockFactsOf(trackerDirectory, job.parentJobId);
+  const factOf   = (name: string): string => (Object.hasOwn(facts, name) && typeof facts[name] === 'string' ? facts[name] : '');
   return {
+    worktree:    workingDirectory,
+    branchTip:   mergeJob?.slot?.branchTip ?? '',
+    targetTip:   mergeJob?.slot?.targetTip ?? '',
+    mergeCommit: factOf('mergeCommit'),
+    gateTail:    factOf('gateTail'),
+  };
+}
+
+function launchFactsOf(board: Board, trackerDirectory: string, job: Readonly<Job>, workingDirectory: string): JobLaunchFacts {
+  return {
+    airlock: airlockFactsOf(board, trackerDirectory, job, workingDirectory),
     tickets: board.tickets()
       .filter((ticket) => job.ticketIds.includes(ticket.frontmatter.id))
       .map((ticket) => ({ id: ticket.frontmatter.id, title: ticket.frontmatter.title, body: ticket.body })),
@@ -407,7 +452,7 @@ function launchHost(request: DrivePassRequest, jobLaunchContext: JobLaunchContex
   const relayDirectory   = RelayInbox.relayDirectoryOf(workspace.rootDirectory, job.id);
   mkdirSync(join(relayDirectory, 'requests'), { recursive: true });
   const workingDirectory = workingDirectoryOf(workspace, job);
-  const text             = request.launchTextOf(job, launchFactsOf(board, job));
+  const text             = request.launchTextOf(job, launchFactsOf(board, workspace.trackerDirectory, job, workingDirectory));
   const launchParts      = JobResumption.launchPartsOf(job, text.firstMessage, request.resumeMessage);
   if (JobLaunch.isWorktreeJob(job)) JobLaunch.recordJobStart(jobLaunchContext, board, job);
   if (!launchParts.resume) JobResumption.storeFirstMessage(jobFolder, job.hostInstance, launchParts.firstMessage);
@@ -547,7 +592,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
         keyArgv:     progress.gateKeyCommand === undefined ? null : GateRun.keyCommandArgvOf(progress.gateKeyCommand),
         cache:       jobLaunchContext.gateCache,
       });
-      return verdict.outcome;
+      return { outcome: verdict.outcome, output: verdict.run?.output ?? '' };
     },
     mergeAgentReadingOf: (job) => JobLaunch.sessionReadingOf(jobLaunchContext, job),
     hostIsLive:          (job) => HostFleet.livenessOf(HostFleet.jobFolderOf(request.workspace.trackerDirectory, job.id), job.hostInstance).verdict === 'live',
@@ -557,6 +602,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
       ]);
     },
     decisionWordingOf:     request.decisionWordingOf,
+    keepAirlockFacts:      (mergeJob, facts) => keepAirlockFacts(request.workspace.trackerDirectory, mergeJob, facts),
     dispatchIsStopped:     () => requireProgressFile(request.workspace).dispatcherState === 'stopped',
     reportDeclinedCleanup: (declined) => {
       request.log(`Git declined the ${declined.cleanup} cleanup of ${declined.groupBranch}: ${declined.reason}`);
