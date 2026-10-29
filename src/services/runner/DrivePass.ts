@@ -462,8 +462,8 @@ function noticesOf(
   attributionTicketIds: readonly string[],
   nonConvergingTicketIds: readonly string[],
   heldTargets: readonly HeldTarget[],
-  defaultedIncidents: readonly DefaultedIncident[],
   declinedCleanups: readonly DeclinedCleanup[],
+  defaultedIncidents: readonly DefaultedIncident[],
 ): RunnerNotice[] {
   return [
     ...heldTargets.map((held) => ({
@@ -681,8 +681,8 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
         written.result.attributionTicketIds,
         written.result.nonConvergingTicketIds,
         heldTargets,
-        IncidentRouter.defaultedIncidentsOf(written.board.logRecordsSoFar()),
         stillDeclinedCleanups(),
+        IncidentRouter.defaultedIncidentsOf(written.board.logRecordsSoFar()),
       ),
       legacyHostJobIds: legacyHostJobIdsOf(written.board, request.workspace.trackerDirectory),
     };
