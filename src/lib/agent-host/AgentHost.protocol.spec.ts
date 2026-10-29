@@ -185,6 +185,29 @@ describe('acting frames', () => {
     expect(await host.exited).toBe(0);
   }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
+  test('stop SIGKILLs what is left of the group after the leader ended on SIGTERM, even when the end is acknowledged at once', async () => {
+    const childScript = [
+      'const grandchild = Bun.spawn(["/bin/sh", "-c", "trap \'\' TERM; exec /bin/sleep 30"]);',
+      'console.log(JSON.stringify({ grandchild: grandchild.pid }));',
+      'setInterval(() => undefined, 1000);',
+    ].join('\n');
+    hostJob().writeLaunch(1, 'agent', childScript);
+    const host = hostJob().spawnHost(1);
+    const client = await hostJob().attach(1);
+    const firstLine = await client.nextFrame((frame) => frame.kind === 'message' && frame.entry.origin === 'agent') as MessageFrame;
+    const { grandchild } = JSON.parse(firstLine.entry.line) as { grandchild: number };
+    client.send({ kind: 'stop', graceMilliseconds: STOP_GRACE_MILLISECONDS });
+    expect(await client.nextFrame(isEnded)).toEqual({ kind: 'state', state: 'ended', end: { reason: 'signalled', exitCode: null, signal: 'SIGTERM' } });
+    expect(processIsGone(grandchild)).toBe(false);
+    client.send({ kind: 'close-input' });
+    expect(await host.exited).toBe(0);
+    try {
+      expect(await waitUntilGone(grandchild)).toBe(true);
+    } finally {
+      if (!processIsGone(grandchild)) process.kill(grandchild, 'SIGKILL');
+    }
+  }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
+
   test('a process host refuses write and close-input, and takes stop, which is also its acknowledgement', async () => {
     hostJob().writeLaunch(1, 'process', 'await Bun.sleep(30_000);');
     const host = hostJob().spawnHost(1);

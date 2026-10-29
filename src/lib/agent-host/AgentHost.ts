@@ -87,13 +87,15 @@ function readDurableEntries(eventLogPath: string): readonly EventLogEntry[] {
 
 /** What the child's supervision and the socket share while the child runs and after it ended. */
 interface HostSession {
-  activity:     HostActivity;
-  childStdin:   ChildStdin | null;
-  childLeader:  ProcessIdentity | null;
-  end:          HostEnd | null;
-  lingerFrames: number;
-  logClosed:    boolean;
-  finishLinger: () => void;
+  activity:        HostActivity;
+  childStdin:      ChildStdin | null;
+  childLeader:     ProcessIdentity | null;
+  end:             HostEnd | null;
+  lingerFrames:    number;
+  logClosed:       boolean;
+  finishLinger:    () => void;
+  /** Settles once a stop sent its last signal; `null` while no stop was asked for. */
+  stopSignalsSent: Promise<void> | null;
 }
 
 function createHostSession(): { session: HostSession; lingered: Promise<void> } {
@@ -103,7 +105,7 @@ function createHostSession(): { session: HostSession; lingered: Promise<void> } 
   });
   return {
     session: {
-      activity: 'idle', childStdin: null, childLeader: null, end: null, lingerFrames: 0, logClosed: false, finishLinger,
+      activity: 'idle', childStdin: null, childLeader: null, end: null, lingerFrames: 0, logClosed: false, finishLinger, stopSignalsSent: null,
     },
     lingered,
   };
@@ -129,21 +131,29 @@ function changeActivity(parts: HostParts, activity: HostActivity): void {
 }
 
 function signalChildGroup(session: HostSession, signal: NodeJS.Signals): void {
-  if (session.end !== null || session.childLeader === null) return;
+  if (session.childLeader === null) return;
   signalProcessGroup(session.childLeader, signal);
 }
 
-/** Closes stdin at once, then SIGTERM and SIGKILL to the child's group each after the grace, unless the child ended first. */
+/**
+ * Closes stdin at once, then SIGTERM and SIGKILL to the child's group each after the grace, also once the child itself ended, so a
+ * member that outlives it is killed; the host exits only after both.
+ */
 function stopChild(parts: HostParts, graceMilliseconds: number): void {
   const { session } = parts;
   if (session.activity === 'stopping') return;
   changeActivity(parts, 'stopping');
   closeChildInput(session.childStdin);
-  // The graces only schedule the signals; whether to send one is the child's recorded end and its leader's checked identity.
-  setTimeout(() => {
-    signalChildGroup(session, 'SIGTERM');
-    setTimeout(() => signalChildGroup(session, 'SIGKILL'), graceMilliseconds);
-  }, graceMilliseconds);
+  // The graces only schedule the signals; whether to send one is the group's checked identity.
+  session.stopSignalsSent = new Promise((resolve) => {
+    setTimeout(() => {
+      signalChildGroup(session, 'SIGTERM');
+      setTimeout(() => {
+        signalChildGroup(session, 'SIGKILL');
+        resolve();
+      }, graceMilliseconds);
+    }, graceMilliseconds);
+  });
 }
 
 /** An ended host acts on nothing; the acknowledgement is `close-input` for an agent host and `stop` for a process host. */
@@ -311,5 +321,6 @@ export async function runHost(hostArguments: readonly string[]): Promise<number>
   changeActivity(parts, 'ended');
   await lingered;
   server.close();
+  await session.stopSignalsSent;
   return HOST_DONE_EXIT_CODE;
 }
