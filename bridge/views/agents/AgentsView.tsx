@@ -85,10 +85,10 @@ export function AgentsView({
       {selectedJob === null
         ? null
         : (
-          <section className="agents-job-panel" aria-label={`Job ${selectedJob.id}`}>
+          <section key={selectedJob.id} className="agents-job-panel" aria-label={`Job ${selectedJob.id}`}>
             <h2 className="agents-job-heading">{`Job ${selectedJob.id}`}</h2>
-            <JobControls key={selectedJob.id} job={selectedJob} openDecision={openDecisionOf(decisions, selectedJob.id)} />
-            <TranscriptPanel key={selectedJob.id} jobId={selectedJob.id} memory={transcriptMemory} followTranscript={followTranscript} />
+            <JobControls job={selectedJob} openDecision={openDecisionOf(decisions, selectedJob.id)} />
+            <TranscriptPanel jobId={selectedJob.id} memory={transcriptMemory} followTranscript={followTranscript} />
           </section>
         )}
     </section>
