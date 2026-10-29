@@ -772,6 +772,28 @@ output never carries either.
                               targetTip, branchTip}, then each queued ticket {ticketId, target,
                               priority, queuedAt} by priority, then queue order. Read-only,
                               no lock.
+  merge fixer|abort|review|land <J> [--incident <I>] [--json]
+                              An Airlock move on merge job J's merge-gate-failed or
+                              resolution-over-threshold incident, carried out on the next sweep:
+                              fixer launches one merge-gate fixer, review a resolution reviewer,
+                              abort parks the ticket parked:<kind> and frees the slot, and land
+                              lands a merged tree with a passing gate (merge-gate-not-passed
+                              otherwise). Without --incident it takes J's one open incident that
+                              allows it, refused no-open-incident when there is none.
+
+  worktree repair <id> --step <step> [--incident <I>] [--json]
+                              Repair the ticket's worktree in the hold (worktree-repaired), the
+                              step one of prune, reinstall, recreate, unlock: git worktree prune;
+                              reinstall on the next launch; recreate from the branch
+                              after saving its changes to <data>/jobs/<J>/recreate-<n>.patch
+                              (worktree-has-uncommitted-work when they cannot be saved); remove a
+                              stale index.lock. recreate and unlock are refused worktree-in-use
+                              while a job is on the ticket.
+  gate retry <J> [--incident <I>] [--json]
+                              Settle J's gate-cannot-run incident, so the merged tree is gated again
+                              or the ticket's next attempt launches; nothing to do without one.
+                              Without --incident, worktree repair and gate retry take the one open
+                              incident that allows them, or apply as a plain control.
 
   decisions [--json]          The open decisions for User, in opening order: each {id, kind,
                               ticketIds, jobId, askedBy, requestId, questions, context, openedAt},
