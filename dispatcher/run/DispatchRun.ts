@@ -5,7 +5,6 @@
 import type { ReviewedRound }                        from '../../src/lib/tracker-model/@types/ReviewRound.ts';
 import type { TicketPriority }                       from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../src/lib/tracker-model/constants/AgentSettings.ts';
-import { CONCURRENCY_LIMIT_CEILING_AGENTS }          from '../../src/lib/tracker-model/constants/ConcurrencyLimits.ts';
 import { ReleaseBundleUtil }                         from '../../src/lib/tracker-model/utils/ReleaseBundleUtil.ts';
 import { RoundVerdictUtil }                          from '../../src/lib/tracker-model/utils/RoundVerdictUtil.ts';
 import { LIFECYCLE_LIMITS }                          from '../../src/shared/constants/LifecycleLimits.ts';
@@ -37,6 +36,7 @@ import type {
   RowRelease
 } from '../@types/DispatchWork.ts';
 import { DISPATCH_POLICY } from '../constants/DispatchPolicy.ts';
+import { SlotCountUtil }   from './utils/SlotCountUtil.ts';
 
 export interface DispatchRunCollaborators {
   logger:     DispatchLogger;
@@ -339,15 +339,6 @@ export class DispatchRun {
     return [...new Set(reviewsLeft.map((review) => review.ticketId))];
   }
 
-  // A status block without the rows confirms nothing, except a bar handed on (a builder's `in-review` or a reviewer's call for another round),
-  // which only a block listing the rows can contradict.
-  private ownAgentIsConfirmedByStatus(work: DispatchWork, status: StatusReading): boolean {
-    if (work.kind === 'park') return false; // Never on the board: the row it pauses counts as another's until it returns, the safe side.
-    const confirmingTicketIds = work.kind === 'build' ? status.inProgressTicketIds : status.inProgressReviewOfIds;
-    if (confirmingTicketIds === 'unlisted') return work.kind === 'review' && work.barIsHandedOn === true;
-    return confirmingTicketIds.includes(work.ticketId);
-  }
-
   private takeoverKeyOf(work: AgentWork): string {
     return `${work.kind} ${work.ticketId}`;
   }
@@ -357,12 +348,7 @@ export class DispatchRun {
     this.takeoversWaiting.set(this.takeoverKeyOf(work), work);
   }
 
-  private takeoversConfirmedByStatus(status: StatusReading): AgentWork[] {
-    return [...this.takeoversWaiting.values()].filter((takeover) => this.ownAgentIsConfirmedByStatus(takeover, status));
-  }
-
-  // Only an own agent whose row the board shows is subtracted: one that has not run its first command yet is not in `agentsInFlight`, and
-  // subtracting it too would read a real other agent's slot as free. A row left running for a takeover is the dispatcher's own, not another's.
+  // A row left running for a takeover is the dispatcher's own, not another's.
   private adoptStatusReading(status: StatusReading | 'unreadable'): void {
     if (status === 'unreadable') return;
     this.latestStatusReading       = status;
@@ -370,9 +356,8 @@ export class DispatchRun {
     // A block without the list keeps the last held set read: a lifted hold is acted on only once a block shows it lifted.
     if (status.heldTicketIds !== 'unlisted') this.heldTicketIds = new Set(status.heldTicketIds);
     this.resumeUnheldWork();
-    const ownAgentsConfirmedByStatus = [...this.inFlight.values()].filter((ownAgent) => this.ownAgentIsConfirmedByStatus(ownAgent.work, status)).length
-      + this.takeoversConfirmedByStatus(status).length;
-    this.othersInFlightAtStatusReading = Math.max(0, status.agentsInFlight - ownAgentsConfirmedByStatus);
+    const ownWork = [...[...this.inFlight.values()].map((ownAgent) => ownAgent.work), ...this.takeoversWaiting.values()];
+    this.othersInFlightAtStatusReading = SlotCountUtil.othersInFlightOf(status, ownWork);
     // A stop is final for this run: the agents in flight finish and are settled, and nothing new starts until the user's go launches a new run.
     if (status.dispatcherIsStopped && !this.runWasStoppedByBoard) {
       this.runWasStoppedByBoard = true;
@@ -380,12 +365,10 @@ export class DispatchRun {
     }
   }
 
-  // Every own agent counts against the slots, on the board yet or not; the ceiling holds whatever limit the board states. A single-ticket run is
-  // one agent's work, and its builder's claim is what the board's limit refuses.
+  // A single-ticket run is one agent's work, and its builder's claim is what the board's limit refuses.
   private ownSlotLimit(): number {
     if (this.settings.ticketIds !== null) return DISPATCH_POLICY.SINGLE_TICKET_RUN_AGENTS;
-    const statedLimit = this.latestStatusReading?.limit ?? 0;
-    return Math.max(0, Math.min(statedLimit, CONCURRENCY_LIMIT_CEILING_AGENTS) - this.othersInFlightAtStatusReading);
+    return SlotCountUtil.ownSlotLimitOf(this.latestStatusReading?.limit ?? 0, this.othersInFlightAtStatusReading);
   }
 
   private untakenTicketIds(): string[] {
