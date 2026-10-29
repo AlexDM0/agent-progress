@@ -17,6 +17,8 @@ import type {
 
 export type ListEdit = 'replace' | 'add' | 'remove';
 
+export type WorktreeRepairStep = 'prune' | 'reinstall' | 'recreate' | 'unlock';
+
 /** What the runner stamps on a ticket its relay filed: the filing job, from the relay folder's job record, and a worker finding's route. */
 export interface FilingAdmission {
   filedByJob:    string;
@@ -102,6 +104,17 @@ export type ControlCommand =
   /** `incidentId` names the incident the move handles, in the same hold; the orchestrator must name one. */
   | { kind: 'job-fresh'; jobId: string; incidentId?: string }
   | { kind: 'job-stop-all'; mode: Exclude<JobStopMode, 'fresh'> }
+  /**
+   * Code-implemented repairs of a ticket's worktree (design section 8.3): `git worktree prune`, the install line rerun by the next launch,
+   * the worktree recreated from its branch after its changes are saved, a stale `index.lock` removed. `incidentId` as on `job-fresh`.
+   */
+  | { kind: 'worktree-repair'; ticketReference: string; step: WorktreeRepairStep; incidentId?: string }
+  | { kind: 'gate-retry'; jobId: string; incidentId?: string }
+  /** The Airlock moves on a merge job's `merge-gate-failed` or `resolution-over-threshold` incident; each needs one. */
+  | { kind: 'merge-fixer'; jobId: string; incidentId?: string }
+  | { kind: 'merge-abort'; jobId: string; incidentId?: string }
+  | { kind: 'merge-review'; jobId: string; incidentId?: string }
+  | { kind: 'merge-land'; jobId: string; incidentId?: string }
   | { kind: 'job-message'; jobId: string; text: string; incidentId?: string }
   | { kind: 'intake-start'; text: string }
   /** Relayed by a product owner without `jobId`: the role policy stamps its own job, from the relay folder. */

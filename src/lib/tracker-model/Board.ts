@@ -258,6 +258,11 @@ export class Board {
     return this.incidentMoves.answerIncident(incidentId, text, at);
   }
 
+  /** `merge abort`: the incident handled and its tickets parked under its kind, so the Airlock aborts their merge. */
+  abortMerge(incidentId: string, at: string): Logged {
+    return this.incidentMoves.abortMerge(incidentId, at);
+  }
+
   /** Holds `parked:<kind>`, stops the incident's waiting job and opens a `parked` decision to User, carrying the agent's questions. */
   parkTicket(ticketId: string, reason: string, incidentId: string | null, at: string): Logged {
     return this.incidentMoves.parkTicket(ticketId, reason, incidentId, at);
@@ -605,6 +610,10 @@ export class Board {
 
   setGateCachePaths(paths: readonly string[] | null, at: string): GateCachePathsSet {
     return this.trackerChanges.setGateCachePaths(paths, at);
+  }
+
+  recordWorktreeRepaired(ticketId: string, fields: LogRecordFieldsOf<'worktree-repaired'>, at: string): Logged {
+    return this.trackerChanges.recordWorktreeRepaired(ticketId, fields, at);
   }
 
   recordGateRan(fields: LogRecordFieldsOf<'gate-ran'>, at: string): Logged {

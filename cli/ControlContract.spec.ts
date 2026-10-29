@@ -11,11 +11,14 @@ import { COMMAND_NAMES }                                                        
 import { OTHER_VERBS_OF_CONTROL_KIND, READ_ONLY_VERBS_UNDER_A_JOB, RELAYED_VERB_OF_CONTROL_KIND } from './constants/JobVerbs.ts';
 import { DRAFT_SUBCOMMAND_NAMES }                                                                 from './drafts/DraftCommand.ts';
 import { EPIC_SUBCOMMAND_NAMES }                                                                  from './epics/EpicCommand.ts';
+import { GATE_SUBCOMMAND_NAMES }                                                                  from './gates/GateCommand.ts';
 import { INCIDENT_SUBCOMMAND_NAMES }                                                              from './incidents/IncidentCommand.ts';
 import { INTAKE_SUBCOMMAND_NAMES }                                                                from './intake/IntakeCommand.ts';
 import { JOB_SUBCOMMAND_NAMES }                                                                   from './jobs/JobCommand.ts';
+import { MERGE_SUBCOMMAND_NAMES }                                                                 from './merges/MergeCommand.ts';
 import { RUN_SUBCOMMAND_NAMES }                                                                   from './runner/RunCommand.ts';
 import { TICKET_SUBCOMMAND_NAMES }                                                                from './tickets/TicketCommand.ts';
+import { WORKTREE_SUBCOMMAND_NAMES }                                                              from './worktrees/WorktreeCommand.ts';
 
 const VERB_OF_KIND: { readonly [Kind in ControlCommandKind]: string } = RELAYED_VERB_OF_CONTROL_KIND;
 
@@ -79,6 +82,9 @@ function tableVerbsOf(commandNames: readonly string[]): string[] {
     if (command === 'run') return [command, ...subcommandVerbsOf(command, RUN_SUBCOMMAND_NAMES)];
     if (command === 'job') return subcommandVerbsOf(command, JOB_SUBCOMMAND_NAMES);
     if (command === 'incident') return subcommandVerbsOf(command, INCIDENT_SUBCOMMAND_NAMES);
+    if (command === 'merge') return subcommandVerbsOf(command, MERGE_SUBCOMMAND_NAMES);
+    if (command === 'worktree') return subcommandVerbsOf(command, WORKTREE_SUBCOMMAND_NAMES);
+    if (command === 'gate') return subcommandVerbsOf(command, GATE_SUBCOMMAND_NAMES);
     if (command === 'intake') return [command, ...subcommandVerbsOf(command, INTAKE_SUBCOMMAND_NAMES)];
     // The measurement events retire as `hook`; the network guard a runner renders into a job's settings stays.
     if (command === 'hook') return [command, 'hook bash-domains'];

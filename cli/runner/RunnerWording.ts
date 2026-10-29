@@ -10,12 +10,17 @@ import type {
   ReadyDraftFact,
   ReadyDraftsFacts
 } from '../../src/lib/tracker-model/@types/LifecycleStep.ts';
-import type { JobLaunchFacts, JobLaunchText, RunnerNotice } from '../../src/services/runner/DrivePass.ts';
-import type { HandoverFailure }                             from '../../src/services/runner/RunnerHandover.ts';
-import { filledTemplateOf }                                 from '../../src/shared/FilledTemplate.ts';
-import { resourceFilePathOf }                               from '../../src/shared/ResourceFilePath.ts';
-import { DISPATCH_PROTOCOL }                                from '../../src/shared/constants/DispatchProtocol.ts';
-import { PRODUCT_NAMES }                                    from '../../src/shared/constants/ProductNames.ts';
+import type {
+  AirlockFacts,
+  JobLaunchFacts,
+  JobLaunchText,
+  RunnerNotice
+} from '../../src/services/runner/DrivePass.ts';
+import type { HandoverFailure } from '../../src/services/runner/RunnerHandover.ts';
+import { filledTemplateOf }     from '../../src/shared/FilledTemplate.ts';
+import { resourceFilePathOf }   from '../../src/shared/ResourceFilePath.ts';
+import { DISPATCH_PROTOCOL }    from '../../src/shared/constants/DispatchProtocol.ts';
+import { PRODUCT_NAMES }        from '../../src/shared/constants/ProductNames.ts';
 
 function ticketsPhraseOf(ticketIds: readonly string[]): string {
   return ticketIds.length === 0 ? 'the board' : ticketIds.map((ticketId) => `#${ticketId}`).join(', ');
@@ -81,6 +86,37 @@ function productOwnerTextOf(job: Readonly<Job>, intake: NonNullable<JobLaunchFac
   return { firstMessage: [firstLine, ...(takeover.length === 0 ? [] : ['', ...takeover])].join('\n'), roleBrief };
 }
 
+const AIRLOCK_PROMPT_OF_ROLE = { 'merge-fix': 'MergeFixPrompt.md', 'resolution-review': 'ResolutionReviewPrompt.md' } as const;
+
+const AIRLOCK_CALL_BUDGET_OF_ROLE = {
+  'merge-fix':         DISPATCH_PROTOCOL.MERGE_FIXER_API_CALL_BUDGET,
+  'resolution-review': DISPATCH_PROTOCOL.RESOLUTION_REVIEWER_API_CALL_BUDGET,
+} as const;
+
+/** A merge-gate fixer or a resolution reviewer is told its Airlock: the worktree, the recorded tips, and the failed gate or the merge. */
+function airlockAgentMessageOf(
+  role: keyof typeof AIRLOCK_PROMPT_OF_ROLE,
+  job: Readonly<Job>,
+  ticket: JobLaunchFacts['tickets'][number],
+  facts: JobLaunchFacts,
+  airlock: AirlockFacts,
+): string {
+  return filledTemplateOf(readFileSync(resourceFilePathOf('prompts', AIRLOCK_PROMPT_OF_ROLE[role]), 'utf8'), {
+    ticketId:        ticket.id,
+    ticketTitle:     ticket.title,
+    ticketBody:      ticket.body.trim(),
+    jobId:           job.id,
+    checksLine:      facts.checksLine ?? NO_CHECKS_LINE,
+    callBudget:      String(AIRLOCK_CALL_BUDGET_OF_ROLE[role]),
+    program:         PRODUCT_NAMES.PROGRAM,
+    airlockWorktree: airlock.worktree,
+    branchTip:       airlock.branchTip,
+    targetTip:       airlock.targetTip,
+    mergeCommit:     airlock.mergeCommit,
+    gateTail:        airlock.gateTail,
+  });
+}
+
 /** A builder's first message is the whole build prompt, its ticket and checks line filled in; the other roles get theirs later in the chain. */
 function launchTextOf(job: Readonly<Job>, facts: JobLaunchFacts): JobLaunchText {
   if (facts.intake !== null) return productOwnerTextOf(job, facts.intake);
@@ -114,6 +150,9 @@ function launchTextOf(job: Readonly<Job>, facts: JobLaunchFacts): JobLaunchText 
       }),
       roleBrief,
     };
+  }
+  if ((job.role === 'merge-fix' || job.role === 'resolution-review') && ticket !== undefined && facts.airlock !== null) {
+    return { firstMessage: airlockAgentMessageOf(job.role, job, ticket, facts, facts.airlock), roleBrief };
   }
   if (job.kind !== 'build' || ticket === undefined) return { firstMessage: `Job ${job.id}: work as the ${job.role ?? job.kind} on ${subject}, attempt ${job.attempt}.`, roleBrief };
   return {

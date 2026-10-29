@@ -38,13 +38,16 @@ import { runCommandLine }                                            from './Mai
 import { READ_ONLY_VERBS_UNDER_A_JOB, RELAYED_VERB_OF_CONTROL_KIND } from './constants/JobVerbs.ts';
 import { DRAFT_SUBCOMMAND_NAMES }                                    from './drafts/DraftCommand.ts';
 import { EPIC_SUBCOMMAND_NAMES }                                     from './epics/EpicCommand.ts';
+import { GATE_SUBCOMMAND_NAMES }                                     from './gates/GateCommand.ts';
 import { INCIDENT_SUBCOMMAND_NAMES }                                 from './incidents/IncidentCommand.ts';
 import { INTAKE_SUBCOMMAND_NAMES }                                   from './intake/IntakeCommand.ts';
 import { JOB_SUBCOMMAND_NAMES }                                      from './jobs/JobCommand.ts';
+import { MERGE_SUBCOMMAND_NAMES }                                    from './merges/MergeCommand.ts';
 import { RUN_SUBCOMMAND_NAMES }                                      from './runner/RunCommand.ts';
 import { createCapturedCommandContext, type CapturedCommandContext } from './testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository }                        from './testing/InitializedScratchRepository.ts';
 import { TICKET_SUBCOMMAND_NAMES }                                   from './tickets/TicketCommand.ts';
+import { WORKTREE_SUBCOMMAND_NAMES }                                 from './worktrees/WorktreeCommand.ts';
 
 const SPEC_CLOCK = (): Date => new Date('2026-09-18T20:11:03Z');
 
@@ -76,9 +79,15 @@ const ARGUMENTS_OF_KIND: { readonly [Kind in ControlCommandKind]: readonly strin
   'draft-abandon':               ['draft', 'abandon', 'D1', '--reason', 'dropped'],
   'decision-answer':             ['decide', 'E1', 'a'],
   'job-stop':                    ['job', 'stop', 'J1'],
-  'job-fresh':                   ['job', 'fresh', 'J1'],
+  'job-fresh':                   ['job', 'fresh', 'J1', '--incident', 'I1'],
   'job-stop-all':                ['job', 'stop', '--all'],
   'job-message':                 ['job', 'message', 'J1', '--', 'Keep the basket page.'],
+  'worktree-repair':             ['worktree', 'repair', '1', '--step', 'prune', '--incident', 'I1'],
+  'gate-retry':                  ['gate', 'retry', 'J1', '--incident', 'I1'],
+  'merge-fixer':                 ['merge', 'fixer', 'J1', '--incident', 'I1'],
+  'merge-abort':                 ['merge', 'abort', 'J1', '--incident', 'I1'],
+  'merge-review':                ['merge', 'review', 'J1', '--incident', 'I1'],
+  'merge-land':                  ['merge', 'land', 'J1', '--incident', 'I1'],
   'intake-start':                ['intake', '--', 'Alex Example asks for a basket.'],
   'intake-close':                ['intake', 'close', '--set', '1'],
   'runner-pause':                ['run', 'pause'],
@@ -156,6 +165,9 @@ function everyVerb(): string[] {
     if (command === 'hook') return [command, 'hook bash-domains'];
     if (command === 'job') return JOB_SUBCOMMAND_NAMES.map((subcommand) => `job ${subcommand}`);
     if (command === 'incident') return INCIDENT_SUBCOMMAND_NAMES.map((subcommand) => `incident ${subcommand}`);
+    if (command === 'merge') return MERGE_SUBCOMMAND_NAMES.map((subcommand) => `merge ${subcommand}`);
+    if (command === 'worktree') return WORKTREE_SUBCOMMAND_NAMES.map((subcommand) => `worktree ${subcommand}`);
+    if (command === 'gate') return GATE_SUBCOMMAND_NAMES.map((subcommand) => `gate ${subcommand}`);
     if (command === 'intake') return [command, ...INTAKE_SUBCOMMAND_NAMES.map((subcommand) => `intake ${subcommand}`)];
     return [command];
   });
