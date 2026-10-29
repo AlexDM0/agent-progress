@@ -1,7 +1,8 @@
 /**
  * Every command text the CLI prints (a refusal, a usage line, a suggested command, the help, a hook command) names the program through
  * `PRODUCT_NAMES.PROGRAM`, so a build named beside the released program never tells an agent to run the other one. The scan reads the
- * string and template literals of every non-spec source under `src/`, `cli/` and `page/` from the syntax tree, so a comment is never
+ * string and template literals of every non-spec source under `src/`, `cli/`, `page/` and `bridge/` (`.tsx` included) from the syntax
+ * tree, so a comment is never
  * command text; a brief's `agent-progress row:`, `ticket:` or `review:` line is a marker the dispatcher writes and the hook reads, not a
  * command. What remains must be in the allowlist, exact both ways. The scan first proves it read the sources, and each form is planted.
  */
@@ -16,7 +17,7 @@ interface LiteralFinding {
   readonly literal: string;
 }
 
-const SCANNED_FOLDERS = ['src/', 'cli/', 'page/'];
+const SCANNED_FOLDERS = ['src/', 'cli/', 'page/', 'bridge/'];
 
 const PRODUCT_NAMES_PATH = 'src/shared/constants/ProductNames.ts';
 
@@ -47,7 +48,8 @@ const SMALLEST_SCANNED_FILE_COUNT = 300;
 const SMALLEST_SCANNED_LITERAL_COUNT = 5_000;
 
 function isScannedPath(path: string): boolean {
-  return SCANNED_FOLDERS.some((folder) => path.startsWith(folder)) && !path.endsWith('.spec.ts') && !path.split('/').includes('testing');
+  return SCANNED_FOLDERS.some((folder) => path.startsWith(folder)) && !path.endsWith('.spec.ts') && !path.endsWith('.dom.tsx')
+    && !path.split('/').includes('testing');
 }
 
 /** The cooked text of every string and template literal part, in source order. */
@@ -84,10 +86,11 @@ describe('the scan itself', () => {
     expect(PROGRAM_NAMES).toEqual(['agent-progress', 'agent-progress-v2']);
   });
 
-  test('it reads the non-spec sources of src/, cli/ and page/ and the literals in them', () => {
+  test('it reads the non-spec sources of src/, cli/, page/ and bridge/, a component among them, and the literals in them', () => {
+    expect(SCANNED_SOURCES.map(({ path }) => path)).toContain('bridge/shell/ConnectionBanners.tsx');
     expect(SCANNED_SOURCES.length).toBeGreaterThan(SMALLEST_SCANNED_FILE_COUNT);
     for (const folder of SCANNED_FOLDERS) expect(SCANNED_SOURCES.some(({ path }) => path.startsWith(folder)), folder).toBe(true);
-    expect(SCANNED_SOURCES.some(({ path }) => path.endsWith('.spec.ts') || path.includes('/testing/'))).toBe(false);
+    expect(SCANNED_SOURCES.some(({ path }) => path.endsWith('.spec.ts') || path.endsWith('.dom.tsx') || path.includes('/testing/'))).toBe(false);
     const literalCount = SCANNED_SOURCES.reduce((count, { path, text }) => count + literalTextsOf(path, text).length, 0);
     expect(literalCount).toBeGreaterThan(SMALLEST_SCANNED_LITERAL_COUNT);
   });

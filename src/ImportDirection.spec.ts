@@ -1,5 +1,5 @@
 /**
- * The Imports rules of the root `CLAUDE.md`, held over every file the root, page and dispatcher programs compile. Every violation list is
+ * The Imports rules of the root `CLAUDE.md`, held over every file the root, page, dispatcher and Bridge programs compile. Every violation list is
  * empty in a tree that obeys them, so the scan first proves it saw the tree (all three programs, every file placed in a layer, every
  * allowlist entry still used), and each kind of violation is planted once in memory to prove the guard still names the edge.
  */
@@ -37,6 +37,7 @@ type Layer =
   | 'cli'
   | 'page'
   | 'dispatcher'
+  | 'bridge'
   | 'unplaced';
 
 interface Finding {
@@ -48,7 +49,7 @@ interface Finding {
 const BINARY_PATH = 'agent-progress.ts';
 const HOST_BINARY_PATH = 'agent-host.ts';
 const HOST_PACKAGE_FOLDER = 'src/lib/agent-host/';
-const FEATURES = ['cli', 'page', 'dispatcher'] as const satisfies readonly Layer[];
+const FEATURES = ['cli', 'page', 'dispatcher', 'bridge'] as const satisfies readonly Layer[];
 const VENDOR_ADAPTER_PATH = 'src/lib/claude-code/ClaudeCodeAdapter.ts';
 const VENDOR_ADAPTER_PACKAGE_FOLDER = 'src/lib/claude-code/';
 /** The one shipping module that chooses the adapter; everything else reaches a session through the launcher port it hands over. */
@@ -75,6 +76,7 @@ const LAYER_REACH: Readonly<Record<Layer, readonly Layer[]>> = {
   'cli':               [...SOURCE_LAYERS, 'cli'],
   'page':              [...SOURCE_LAYERS, 'page'],
   'dispatcher':        [...SOURCE_LAYERS, 'dispatcher'],
+  'bridge':            [...SOURCE_LAYERS, 'bridge'],
   'unplaced':          [],
 };
 
@@ -84,21 +86,31 @@ const LAYER_REACH: Readonly<Record<Layer, readonly Layer[]>> = {
  * ways: every `testing/` folder in the tree has an entry, and every importer folder or file is used by at least one import.
  */
 const TESTING_FOLDER_IMPORTERS: Readonly<Record<string, readonly string[]>> = {
-  'src/testing/':                   ['src/', 'cli/', 'page/', 'dispatcher/', VENDOR_ADAPTER_SEAM],
+  'src/testing/':                   ['src/', 'cli/', 'page/', 'dispatcher/', 'bridge/', VENDOR_ADAPTER_SEAM],
   'src/lib/tracker-model/testing/': ['src/lib/tracker-model/'],
   'src/adapters/progress/testing/': ['src/adapters/'],
   'src/services/tracker/testing/':  ['src/services/tracker/'],
   'src/services/runner/testing/':   ['src/services/runner/'],
-  'cli/testing/':                   ['cli/'],
+  'cli/testing/':                   ['cli/', 'bridge/'],
   'page/testing/':                  ['page/'],
   'dispatcher/testing/':            ['dispatcher/'],
+  'bridge/testing/':                ['bridge/'],
 };
+
+/** A feature reaching another by path, for Bun to bundle, as an exact importer and target: the Overseer's routes import the Bridge's HTML. */
+interface FeatureReachByPath {
+  readonly importer: string;
+  readonly target:   string;
+}
+
+const FEATURE_REACHES_BY_PATH: readonly FeatureReachByPath[] = [{ importer: 'cli/runner/routes/OverseerRoutes.ts', target: 'bridge/index.html' }];
 
 interface Allowlists {
   readonly testingFolderImporters: Readonly<Record<string, readonly string[]>>;
+  readonly featureReachesByPath:   readonly FeatureReachByPath[];
 }
 
-const ALLOWLISTS: Allowlists = { testingFolderImporters: TESTING_FOLDER_IMPORTERS };
+const ALLOWLISTS: Allowlists = { testingFolderImporters: TESTING_FOLDER_IMPORTERS, featureReachesByPath: FEATURE_REACHES_BY_PATH };
 
 /** Folders inside a `cli/` set that hold what the set's commands share rather than one command. */
 const CLI_SET_SHARED_FOLDERS = ['@types', 'constants', 'utils'];
@@ -107,10 +119,11 @@ const LIB_FOLDER = 'src/lib/';
 const LIB_DEPENDENCY_SENTENCE = /depends on ([^.]+)/i;
 const LIB_PACKAGE_REFERENCE = /`src\/lib\/([a-z-]+)`/g;
 const HEADER_COMMENT = /^\/\*\*([\s\S]*?)\*\//;
-const SPEC_SUFFIX = '.spec.ts';
+const SPEC_SUFFIXES = ['.spec.ts', '.dom.tsx'];
 
+/** A `.spec.ts` suite, or a Bridge component's `.dom.tsx` suite, which only `bridge/testing/RunDomSpecs.ts` runs. */
 function isSpec(path: string): boolean {
-  return path.endsWith(SPEC_SUFFIX);
+  return SPEC_SUFFIXES.some((suffix) => path.endsWith(suffix));
 }
 
 function isInside(path: string, folder: string): boolean {
@@ -121,7 +134,7 @@ function layerOf(path: string): Layer {
   if (path === BINARY_PATH) return 'binary';
   if (path === HOST_BINARY_PATH) return 'host-binary';
   const [topFolder, layerFolder, unitFolder] = path.split('/');
-  if (topFolder === 'cli' || topFolder === 'page' || topFolder === 'dispatcher') return topFolder;
+  if (topFolder === 'cli' || topFolder === 'page' || topFolder === 'dispatcher' || topFolder === 'bridge') return topFolder;
   if (topFolder !== 'src' || layerFolder === undefined) return 'unplaced';
   if (unitFolder === undefined) return isSpec(path) ? 'repository-guard' : 'unplaced';
   switch (layerFolder) {
@@ -210,7 +223,8 @@ function testingFolderFinding(edge: ImportEdge, targetPath: string, allowlists: 
   return edgeFinding(edge, 'test-helper-imported-outside-its-allowlist', `${targetTestingFolder} is test-only and may be imported by ${allowed}`);
 }
 
-function directionFinding(edge: ImportEdge, targetPath: string): Finding | null {
+function directionFinding(edge: ImportEdge, targetPath: string, allowlists: Allowlists): Finding | null {
+  if (allowlists.featureReachesByPath.some((reach) => reach.importer === edge.fromPath && reach.target === targetPath)) return null;
   const fromLayer = layerOf(edge.fromPath);
   const targetLayer = layerOf(targetPath);
   if (fromLayer === 'host-binary' && !isInside(targetPath, HOST_PACKAGE_FOLDER)) {
@@ -265,7 +279,7 @@ function edgeFindingsOf(edge: ImportEdge, declarations: ReadonlyMap<string, read
   }
   const targetPath = edge.target.path;
   return [
-    directionFinding(edge, targetPath),
+    directionFinding(edge, targetPath, allowlists),
     commandFinding(edge, targetPath),
     testingFolderFinding(edge, targetPath, allowlists),
     vendorSeamFinding(edge, targetPath),
@@ -359,8 +373,12 @@ function unusedAllowancesOf(graph: ImportGraph, allowlists: Allowlists): readonl
   const unusedDeclarations = [...declaredLibDependenciesOf(graph)].flatMap(([libPackage, dependencies]) => dependencies
     .filter((dependency) => !importedLibPackages.has(`${libPackage} → ${dependency}`))
     .map((dependency) => `the header of src/lib/${libPackage}/ names src/lib/${dependency}, which the package does not import`));
+  const unusedFeatureReaches = allowlists.featureReachesByPath
+    .filter((reach) => !fileEdges.some(({ fromPath, targetPath }) => fromPath === reach.importer && targetPath === reach.target))
+    .map((reach) => `FEATURE_REACHES_BY_PATH lets ${reach.importer} import ${reach.target}, and it does not`);
   return [
     ...[...testingFoldersInTree].filter((folder) => !listedTestingFolders.includes(folder)).map((folder) => `${folder} has no TESTING_FOLDER_IMPORTERS entry`),
+    ...unusedFeatureReaches,
     ...listedTestingFolders.filter((folder) => !testingFoldersInTree.has(folder)).map((folder) => `TESTING_FOLDER_IMPORTERS lists ${folder}, which holds no file`),
     ...unusedImporters,
     ...unusedDeclarations,
@@ -393,11 +411,11 @@ function importing(specifier: string): string {
 
 describe('the scan itself', () => {
   /** The floors are round numbers well under today's counts, to fail a scan that read the wrong tree or only one program. */
-  test('it read the root, page and dispatcher programs and found the imports inside the repository in each', () => {
+  test('it read the root, page, dispatcher and Bridge programs and found the imports inside the repository in each', () => {
     const repositoryEdges = GRAPH.edges.filter((edge) => edge.target.kind === 'repository-file');
     expect(GRAPH.scannedPaths).toContain(BINARY_PATH);
     expect(GRAPH.scannedPaths).toContain(HOST_BINARY_PATH);
-    for (const topFolder of ['cli/', 'page/', 'dispatcher/', 'src/lib/', 'src/shared/', 'src/adapters/', 'src/services/', 'src/testing/']) {
+    for (const topFolder of ['cli/', 'page/', 'dispatcher/', 'bridge/', 'src/lib/', 'src/shared/', 'src/adapters/', 'src/services/', 'src/testing/']) {
       expect(GRAPH.scannedPaths.filter((path) => isInside(path, topFolder)).length, `files under ${topFolder}`).toBeGreaterThanOrEqual(5);
       expect(repositoryEdges.filter((edge) => isInside(edge.fromPath, topFolder)).length, `imports made under ${topFolder}`).toBeGreaterThanOrEqual(5);
     }
@@ -471,6 +489,24 @@ describe('the guard still names each violation, planted in memory', () => {
     ]);
   });
 
+  test('a feature reaching the Bridge by path from any importer but the listed one, and the listed importer reaching another Bridge file', () => {
+    expect(plantedSentencesOf({ 'cli/runner/routes/PlantedRoute.ts': importing('../../../bridge/index.html') })).toEqual([
+      'feature-imports-another-feature — cli/runner/routes/PlantedRoute.ts:1 imports bridge/index.html: the cli feature imports another feature, bridge',
+    ]);
+    const routesSource = `${importing('../../../bridge/Main.tsx')}${GRAPH.sourceTextOf('cli/runner/routes/OverseerRoutes.ts')}`;
+    expect(plantedSentencesOf({ 'cli/runner/routes/OverseerRoutes.ts': routesSource })).toEqual([
+      'feature-imports-another-feature — cli/runner/routes/OverseerRoutes.ts:1 imports bridge/Main.tsx: the cli feature imports another feature, bridge',
+    ]);
+  });
+
+  test('a DOM spec is test-only, so it may import a testing folder its entry allows', () => {
+    expect(plantedSentencesOf({ 'bridge/shell/Planted.dom.tsx': importing('../testing/HappyDom.ts') })).toEqual([]);
+    expect(plantedSentencesOf({ 'bridge/shell/Planted.tsx': importing('../testing/HappyDom.ts') })).toEqual([
+      'test-helper-imported-outside-its-allowlist — bridge/shell/Planted.tsx:1 imports bridge/testing/HappyDom.ts: '
+        + 'bridge/testing/ is test-only and may be imported by only the specs of bridge/',
+    ]);
+  });
+
   test('a command folder importing a sibling command\'s folder, and not the set\'s shared files or cli/utils/', () => {
     expect(plantedSentencesOf({ 'cli/tracking/log/PlantedStep.ts': importing('../status/StatusCommand.ts') })).toEqual([
       'command-imports-a-sibling-command — cli/tracking/log/PlantedStep.ts:1 imports cli/tracking/status/StatusCommand.ts: '
@@ -504,17 +540,17 @@ describe('the guard still names each violation, planted in memory', () => {
   test('a test-only folder imported by shipped code, by a spec outside its allowlist or with no entry at all, and not by an allowed spec', () => {
     expect(plantedSentencesOf({ 'src/shared/PlantedValue.ts': importing('../testing/ScratchWorkspace.ts') })).toEqual([
       'test-helper-imported-outside-its-allowlist — src/shared/PlantedValue.ts:1 imports src/testing/ScratchWorkspace.ts: '
-        + 'src/testing/ is test-only and may be imported by only the specs of src/, cli/, page/, dispatcher/ and cli/CommandContext.ts',
+        + 'src/testing/ is test-only and may be imported by only the specs of src/, cli/, page/, dispatcher/, bridge/ and cli/CommandContext.ts',
     ]);
     expect(plantedSentencesOf({ 'cli/PlantedContext.ts': importing('../src/testing/FakeAgentAdapter.ts') })).toEqual([
       'test-helper-imported-outside-its-allowlist — cli/PlantedContext.ts:1 imports src/testing/FakeAgentAdapter.ts: '
-        + 'src/testing/ is test-only and may be imported by only the specs of src/, cli/, page/, dispatcher/ and cli/CommandContext.ts',
+        + 'src/testing/ is test-only and may be imported by only the specs of src/, cli/, page/, dispatcher/, bridge/ and cli/CommandContext.ts',
     ]);
     expect(plantedSentencesOf({ 'cli/CommandContext.ts': `${GRAPH.sourceTextOf('cli/CommandContext.ts')}${importing('../src/testing/ScratchWorkspace.ts')}` }))
       .toEqual([]);
     expect(plantedSentencesOf({ 'page/PlantedView.spec.ts': importing('../cli/testing/CliProcess.ts') })).toEqual([
       'test-helper-imported-outside-its-allowlist — page/PlantedView.spec.ts:1 imports cli/testing/CliProcess.ts: '
-        + 'cli/testing/ is test-only and may be imported by only the specs of cli/',
+        + 'cli/testing/ is test-only and may be imported by only the specs of cli/, bridge/',
     ]);
     expect(plantedSentencesOf({
       'src/shared/PlantedValue.spec.ts':      importing('./testing/PlantedFixture.ts'),
@@ -587,11 +623,15 @@ describe('the guard still names each violation, planted in memory', () => {
   });
 
   test('an allowlist entry or a declared lib dependency nothing uses any more, and a testing folder without an entry', () => {
-    const plantedAllowlists: Allowlists = { testingFolderImporters: { ...TESTING_FOLDER_IMPORTERS, 'cli/testing/': ['cli/', 'dispatcher/'], 'src/retired/testing/': ['src/'] }, };
+    const plantedAllowlists: Allowlists = {
+      testingFolderImporters: { ...TESTING_FOLDER_IMPORTERS, 'cli/testing/': ['cli/', 'bridge/', 'dispatcher/'], 'src/retired/testing/': ['src/'] },
+      featureReachesByPath:   [...FEATURE_REACHES_BY_PATH, { importer: 'cli/runner/routes/OverseerRoutes.ts', target: 'bridge/retired.html' }],
+    };
     const mainModulePath = 'src/lib/claude-code/ClaudeTranscripts.ts';
     const plantedHeader = GRAPH.sourceTextOf(mainModulePath).replace('depends on `src/lib/agent-launch`', 'depends on `src/lib/git`, `src/lib/agent-launch`');
     const plantedGraph = SCANNER.graphWithPlantedFiles({ [mainModulePath]: plantedHeader, 'src/shared/testing/PlantedFixture.ts': 'export const planted = 1;\n' });
     expect(unusedAllowancesOf(plantedGraph, plantedAllowlists)).toEqual([
+      'FEATURE_REACHES_BY_PATH lets cli/runner/routes/OverseerRoutes.ts import bridge/retired.html, and it does not',
       'TESTING_FOLDER_IMPORTERS lets dispatcher/ import cli/testing/, and nothing there does',
       'TESTING_FOLDER_IMPORTERS lets src/ import src/retired/testing/, and nothing there does',
       'TESTING_FOLDER_IMPORTERS lists src/retired/testing/, which holds no file',

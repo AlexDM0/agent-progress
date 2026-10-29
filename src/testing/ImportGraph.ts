@@ -1,5 +1,5 @@
 /**
- * Every import edge of the repository's TypeScript, over the files the root, page and dispatcher programs compile, read syntactically with
+ * Every import edge of the repository's TypeScript, over the files the root, page, dispatcher and Bridge programs compile, read syntactically with
  * the compiler API so no type checking is paid for. Planted sources add or replace files in memory, so a guard can prove it still fires.
  */
 import { readFileSync } from 'node:fs';
@@ -34,8 +34,8 @@ export interface ImportGraph {
   readonly sourceTextOf:   (path: string) => string;
 }
 
-/** Each spec project holds its shipping project plus the specs, so these four together name every file the type check compiles. */
-const PROGRAM_CONFIGURATION_PATHS = ['tsconfig.json', 'page/tsconfig.spec.json', 'dispatcher/tsconfig.json', 'dispatcher/tsconfig.spec.json'];
+/** Each spec project holds its shipping project plus the specs, so these together name every file the type check compiles. */
+const PROGRAM_CONFIGURATION_PATHS = ['tsconfig.json', 'page/tsconfig.spec.json', 'dispatcher/tsconfig.json', 'dispatcher/tsconfig.spec.json', 'bridge/tsconfig.spec.json'];
 
 function repositoryPathOf(repositoryRoot: string, absolutePath: string): string {
   return relative(repositoryRoot, absolutePath).split('\\').join('/');
@@ -63,7 +63,7 @@ function targetOf(fromPath: string, specifier: string): ImportTarget {
 }
 
 function edgesOf(fromPath: string, sourceText: string): readonly ImportEdge[] {
-  const sourceFile = ts.createSourceFile(fromPath, sourceText, ts.ScriptTarget.ESNext, true, ts.ScriptKind.TS);
+  const sourceFile = ts.createSourceFile(fromPath, sourceText, ts.ScriptTarget.ESNext, true, fromPath.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
   const edges: ImportEdge[] = [];
   const record = (node: ts.Node, form: ImportForm, specifier: string | null): void => {
     if (specifier === null) {

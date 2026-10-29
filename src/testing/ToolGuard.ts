@@ -16,9 +16,26 @@ import {
 
 export type RequiredTool = 'git' | 'bash';
 
-export type SpecRequirement = RequiredTool | 'git-merge-tree-stdin' | 'sandbox-exec' | 'scratch-root-outside-tmp';
+export type SpecRequirement = RequiredTool | 'git-merge-tree-stdin' | 'sandbox-exec' | 'scratch-root-outside-tmp' | 'chrome';
 
 const SANDBOX_EXEC_PATH = '/usr/bin/sandbox-exec';
+
+const CHROME_APPLICATION_PATHS = [
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  '/Applications/Chromium.app/Contents/MacOS/Chromium',
+];
+const CHROME_COMMAND_NAMES = ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser'];
+
+/** The Chrome or Chromium a headless check drives, the macOS application first, then one on the PATH; `null` when there is none. */
+export function chromeExecutablePath(): string | null {
+  const application = CHROME_APPLICATION_PATHS.find((path) => Bun.file(path).size > 0);
+  if (application !== undefined) return application;
+  for (const commandName of CHROME_COMMAND_NAMES) {
+    const found = Bun.which(commandName);
+    if (found !== null) return found;
+  }
+  return null;
+}
 
 export interface SkippedSpec {
   readonly title:            string;
@@ -70,6 +87,7 @@ const REQUIREMENT_IS_MET: Readonly<Record<SpecRequirement, () => boolean>> = {
   'git-merge-tree-stdin':     gitMergeTreeStandardInputWorks,
   'sandbox-exec':             sandboxExecApplies,
   'scratch-root-outside-tmp': scratchRootLiesOutsideTheFixedTemporaryFolders,
+  'chrome':                   () => chromeExecutablePath() !== null,
 };
 
 const UNMET_REQUIREMENT_WORDING: Readonly<Record<SpecRequirement, string>> = {
@@ -78,6 +96,7 @@ const UNMET_REQUIREMENT_WORDING: Readonly<Record<SpecRequirement, string>> = {
   'git-merge-tree-stdin':     'git merge-tree --stdin is missing',
   'sandbox-exec':             'sandbox-exec cannot apply a profile here',
   'scratch-root-outside-tmp': 'the scratch root lies under /tmp or /var/tmp',
+  'chrome':                   'Chrome is missing',
 };
 
 type SpecBody = () => void | Promise<unknown>;
@@ -149,6 +168,11 @@ export function testWhenGitIsPresentAndTheScratchRootIsOutsideTmp(claim: string,
     return;
   }
   testWhenRequirementIsMet('scratch-root-outside-tmp', claim, body, timeoutMilliseconds);
+}
+
+/** For a check that loads a page in headless Chrome. */
+export function testWhenChromeIsPresent(claim: string, body: SpecBody, timeoutMilliseconds?: number): void {
+  testWhenRequirementIsMet('chrome', claim, body, timeoutMilliseconds);
 }
 
 export function skippedSpecsSoFar(): readonly SkippedSpec[] {

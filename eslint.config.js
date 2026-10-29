@@ -1,6 +1,12 @@
-import base from '@reliquary/eslint-config';
+import base       from '@reliquary/eslint-config';
+import reactHooks from 'eslint-plugin-react-hooks';
 
-const STORAGE_MESSAGE = 'Browser storage is reached only in page/preferences/PreferenceStore.ts.';
+const STORAGE_MESSAGE = 'Browser storage is reached only in page/preferences/PreferenceStore.ts and bridge/preferences/PreferenceStore.ts.';
+const STORAGE_SITES = ['page/preferences/PreferenceStore.ts', 'bridge/preferences/PreferenceStore.ts'];
+
+const TYPESCRIPT_FILES = ['**/*.{ts,tsx}'];
+
+const RAW_MARKUP_MESSAGE = 'React escapes every value; agent-written HTML reaches the DOM only as a sandboxed iframe\'s srcdoc.';
 
 /** Each process or browser reach CLAUDE.md confines, with the exact files allowed to make it. */
 const CONFINED_REACHES = [
@@ -24,8 +30,8 @@ const CONFINED_REACHES = [
     importName: { name: 'node:os', importNames: ['homedir'], message: 'Take the home directory from the CommandContext.' },
   },
   ...['localStorage', 'sessionStorage'].flatMap((storageName) => [
-    { allowedIn: ['page/preferences/PreferenceStore.ts'], property: { object: 'window', property: storageName, message: STORAGE_MESSAGE } },
-    { allowedIn: ['page/preferences/PreferenceStore.ts'], global: { name: storageName, message: STORAGE_MESSAGE } },
+    { allowedIn: STORAGE_SITES, property: { object: 'window', property: storageName, message: STORAGE_MESSAGE } },
+    { allowedIn: STORAGE_SITES, global: { name: storageName, message: STORAGE_MESSAGE } },
   ]),
 ];
 
@@ -42,7 +48,7 @@ const CONFINED_REACH_SITES = [...new Set(CONFINED_REACHES.flatMap((reach) => rea
 
 const CLOCK_MESSAGE = 'Take the clock from the CommandContext.';
 
-const SPECS_AND_TESTING_FOLDERS = ['**/*.spec.ts', '**/testing/**/*.ts'];
+const SPECS_AND_TESTING_FOLDERS = ['**/*.spec.ts', '**/*.dom.tsx', '**/testing/**/*.ts'];
 
 export default [
   ...base,
@@ -57,19 +63,21 @@ export default [
       'src/services/tracker/testing/**/*.ts',
       'dispatcher/testing/**/*.ts',
       'page/testing/**/*.ts',
+      'bridge/testing/**/*.ts',
+      'bridge/**/*.dom.tsx',
     ],
     rules: { 'import/no-extraneous-dependencies': ['error', { devDependencies: true }] },
   },
-  { files: ['**/*.ts'], rules: { 'import/enforce-node-protocol-usage': ['error', 'always'] } },
+  { files: TYPESCRIPT_FILES, rules: { 'import/enforce-node-protocol-usage': ['error', 'always'] } },
   // The shared config's object-curly-newline fix leaves a trailing space where it breaks a line of properties, which then want one per line.
-  { files: ['**/*.ts'], rules: { '@stylistic/no-trailing-spaces': 'error' } },
+  { files: TYPESCRIPT_FILES, rules: { '@stylistic/no-trailing-spaces': 'error' } },
   {
-    // One style for local specifiers, the `.ts` file name; the resolver knows `.ts`, so an extensionless specifier is found and reported.
-    files:    ['**/*.ts'],
-    settings: { 'import/resolver': { node: { extensions: ['.ts'] } } },
+    // One style for local specifiers, the full file name; the resolver knows both, so an extensionless specifier is found and reported.
+    files:    TYPESCRIPT_FILES,
+    settings: { 'import/resolver': { node: { extensions: ['.ts', '.tsx'] } } },
     rules:    { 'import/extensions': ['error', 'always', { ignorePackages: true }] },
   },
-  { files: ['**/*.ts'], rules: confinedReachRules(null) },
+  { files: TYPESCRIPT_FILES, rules: confinedReachRules(null) },
   ...CONFINED_REACH_SITES.map((site) => ({ files: [site], rules: confinedReachRules(site) })),
   {
     files:   ['src/**/*.ts', 'cli/**/*.ts', 'agent-progress.ts', 'agent-host.ts'],
@@ -83,7 +91,20 @@ export default [
     },
   },
   {
-    files: ['**/*.ts'],
+    files:   ['bridge/**/*.{ts,tsx}'],
+    plugins: { 'react-hooks': reactHooks },
+    rules:   {
+      ...reactHooks.configs.flat.recommended.rules,
+      'react-hooks/exhaustive-deps': 'error',
+      'no-restricted-syntax':        [
+        'error',
+        { selector: "JSXAttribute[name.name='dangerouslySetInnerHTML']", message: RAW_MARKUP_MESSAGE },
+        { selector: "AssignmentExpression > MemberExpression.left[property.name=/^(innerHTML|outerHTML)$/]", message: RAW_MARKUP_MESSAGE },
+      ],
+    },
+  },
+  {
+    files: TYPESCRIPT_FILES,
     rules: {
       '@typescript-eslint/no-non-null-assertion':  'error',
       '@typescript-eslint/consistent-type-imports': ['error', { fixStyle: 'inline-type-imports' }],
@@ -92,7 +113,7 @@ export default [
     },
   },
   {
-    files:   ['**/*.ts'],
+    files:   TYPESCRIPT_FILES,
     ignores: [...SPECS_AND_TESTING_FOLDERS, '**/constants/**/*.ts'],
     rules:   {
       '@typescript-eslint/no-magic-numbers': ['error', {

@@ -37,7 +37,7 @@ guard spec holds is one line naming the guard: the spec is the full statement.
 ### Imports
 
 ```
-src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → tracker → lifecycle → control → runner)  →  features (cli/, page/, dispatcher/)
+src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → tracker → lifecycle → control → runner)  →  features (cli/, page/, dispatcher/, bridge/)
 ```
 
 - `src/ImportDirection.spec.ts` holds the direction, cycles, barrels, feature and sibling-command isolation, the bin
@@ -138,7 +138,9 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - The page is its own DOM-only project (`page/tsconfig.json`, specs under `page/tsconfig.spec.json`); `dispatcher/`
   is the Workflow-runtime project (`dispatcher/tsconfig.json`, specs under `dispatcher/tsconfig.spec.json`), and only
   `dispatcher/DispatchFromWorkflowGlobals.ts` names the Workflow globals. Their `include` lists are held both ways by
-  `src/ProjectIncludeLists.spec.ts`; everything the page reaches stays DOM-safe.
+  `src/ProjectIncludeLists.spec.ts`; everything the page reaches stays DOM-safe. `bridge/` is its own DOM-only React
+  project (`bridge/tsconfig.json` with `jsx: react-jsx` and `types: []`, specs under `bridge/tsconfig.spec.json`),
+  held the same way.
 - `init`, `update` and the specs build the dispatcher from the one shared build request, never importing
   `dispatcher/`.
 - ESLint 9 through `@reliquary/eslint-config`, extended in `eslint.config.js`; `bun run lint` is its statement. The
@@ -158,8 +160,10 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   the binary is spawned only through `cli/testing/CliProcess.ts`.
 - No spec starts a real agent session: the preload `src/testing/ClaudeLaunchGuard.ts` puts a recording `claude` first on
   the run's and every spawned binary's `PATH` and fails the run naming the spec that reached it.
-- `src/TestFileConventions.spec.ts` holds that no `.test.ts` file exists and no spec or test helper creates the real
-  process context.
+- `src/TestFileConventions.spec.ts` holds that no `.test.ts` or `.spec.tsx` file exists, a component spec is a
+  `<Component>.dom.tsx` under `bridge/` alone, and no spec or test helper creates the real process context.
+- `bun test` never runs a DOM spec: `bridge/testing/RunDomSpecs.ts` runs each `.dom.tsx` with the skip report and the
+  happy-dom preload, `bun run verify` runs it after `bun test`, and it fails when it finds none.
 - Each dispatcher decision in the `dispatcher/Dispatcher.*.spec.ts` suites must hold on the built bundle and fail on
   a SourceMutant of its module; a mutant whose text is not in its module exactly once fails the build.
 
@@ -179,7 +183,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 | Rule | Done instead | Why |
 | --- | --- | --- |
 | Ingestion reads, validates and maps in separate steps. | The ticket parse is one line-oriented pass. | A second walk would risk the unowned lines kept byte for byte. |
-| No work at module load. | `agent-progress.ts` runs the command on import, `agent-host.ts` runs its host, `page/PageStart.ts` starts the page, the preload `src/testing/TestRunReport.ts` registers its report, the preload `src/testing/ClaudeLaunchGuard.ts` installs its `claude` trap, the preload `cli/testing/OtherProductNamesPreload.ts` registers its name swap, the fake agent `src/testing/fake-agent/FakeAgentChild.ts` plays its scenario. | They are entry points. |
+| No work at module load. | `agent-progress.ts` runs the command on import, `agent-host.ts` runs its host, `page/PageStart.ts` starts the page, the preload `src/testing/TestRunReport.ts` registers its report, the preload `src/testing/ClaudeLaunchGuard.ts` installs its `claude` trap, the preload `cli/testing/OtherProductNamesPreload.ts` registers its name swap, the fake agent `src/testing/fake-agent/FakeAgentChild.ts` plays its scenario, `bridge/Main.tsx` mounts the Bridge, `bridge/testing/RunDomSpecs.ts` runs the DOM specs, the preload `bridge/testing/HappyDom.ts` registers the DOM. | They are entry points. |
 | Specs never set the environment in-process. | `src/shared/Environment.spec.ts` does, once; the preload `src/testing/ClaudeLaunchGuard.ts` prepends its trap to `PATH`. | It tests the getters themselves; the trap must lead every spawn's `PATH`. |
 | A frozen table comes from the previous implementation. | `dispatcher/testing/FrozenDispatchTraces.json` is retaken from the bundle, only in a commit meant to change what agents are told, its diff showing prompt text or wire names and no decision; `cli/FrozenInstalledSurface.json` is taken from the installed files. | No previous implementation holds them. |
 | Only the current stored format is read. | A ticket stored with `type` `change` or `feature` reads as `ticket` everywhere, and every write keeps its stored `type` line. | Stored tickets are never rewritten; both are older names for `ticket`. |
@@ -189,7 +193,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 | Every write of a file a reader may hold open goes through the atomic-file package. | A host appends its `events-<instance>.ndjson` in place, fsynced before its `end` is written. | An append-only log is never replaced; a reader ignores an unterminated last line. |
 | Every write of a file a reader may hold open goes through the atomic-file package. | The runner appends `runner.log` in place, one line per write. | A log someone tails is never replaced; an atomic rewrite would break the tail. |
 | A `src/lib/` package leaves a refusal as a verdict. | The tracker model's `Board` throws `BoardRefusal`. | A domain class throws a typed domain error. |
-| A feature never reaches another. | `cli/` reaches `dispatcher/`, the render service `page/`, by path, to bundle them. | Bundled, never imported. |
+| A feature never reaches another. | `cli/` reaches `dispatcher/`, the render service `page/`, by path, to bundle them; `cli/runner/routes/OverseerRoutes.ts` imports `bridge/index.html`, the one entry of `FEATURE_REACHES_BY_PATH` in `src/ImportDirection.spec.ts`. | Bundled, never imported: Bun bundles the HTML import. |
 | One reference per fact. | `resources/templates/Reference.md`, installed as `.agent-progress/reference.md`, copies three `docs/cli.md` sections verbatim (ticket format, ticket moves, exit codes); a change to either changes both, held by `cli/ReferenceCopies.spec.ts`. | Agents elsewhere cannot read `docs/cli.md`. |
 | A failure exits non-zero. | Exit 0 for: `hook subagent-stop` after its arguments are read; a store write whose render failed (reported on stderr); `release` when git declined the worktree removal or `branch -d` after the merge (reported). | The agent finished; the store holds the change; the release happened. |
 | A failure exits non-zero. | `hook post-tool-use` exits 0 silently whatever goes wrong: no tracker, another install version, an unreadable store, a held lock. | It runs after every tool call, and a failing hook would reach the agent's call; `render` reports what is wrong. |
@@ -262,6 +266,25 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - A visual change leaves the README screenshots stale: once it lands, run `.readme-graphics/regenerate.sh` in the
   main checkout.
 
+### The Bridge
+
+- The Bridge is the React live UI the Overseer serves at `GET /` from `bridge/index.html`, an HTML import in
+  `cli/runner/routes/OverseerRoutes.ts` that Bun bundles with `development: false`. It reads the Overseer's API and
+  nothing else, and keeps no copy of the rules: what it shows arrives as facts.
+- `bridge/styles/tokens.css` holds every colour, state token and theme value; `bridge/styles/board.css` holds every
+  class. Both are designer-owned. `bridge/StyleContract.spec.ts` holds both ways that every class a component emits is
+  styled and every styled class is emitted; a `className` is a literal the scan can read.
+- React's escaping is the one escape for a value. `eslint.config.js` bans `dangerouslySetInnerHTML` and assigning
+  `innerHTML` or `outerHTML` in `bridge/`; agent-written HTML reaches the DOM only as a sandboxed iframe's `srcdoc`.
+- `bridge/shell/` holds what the entry starts with: the hash router, the theme bootstrap, the embedded channel (theme in
+  and Esc out by `postMessage`, only with the framing parent's origin), the banners and the error boundary.
+  `bridge/api/` holds the clients of the Overseer's API. Every control is a `CommandButton` posting a
+  `ControlCommand`, disabled while the event stream is down or launches are held, its refusal shown verbatim.
+- `eslint.config.js` holds the Bridge's browser storage to `bridge/preferences/PreferenceStore.ts`, keys under
+  `<STORAGE_PREFIX>:<trackerId>` and the theme under `<STORAGE_PREFIX>:theme`.
+- `bridge/HeadlessBridge.spec.ts` loads the Bridge from a real runner in headless Chrome and fails on a console error,
+  an exception or a failed request; it skips through `src/testing/ToolGuard.ts` without Chrome.
+
 ### Skills
 
 - Two skills, split by audience. `skills/agent-po/` loads in any session asked to file a ticket and holds the whole
@@ -290,6 +313,8 @@ cli/                 feature: the command surface, its commands grouped into set
 page/                feature: the browser page, one DOM-only project: its entry and views, the shell it starts
                      with under page/shell/, and the chip parts under page/chips/
 dispatcher/          feature: the dispatcher policy, which init and update bundle into a Workflow script
+bridge/              feature: the Bridge, the React live UI the Overseer serves, one DOM-only project: its entry,
+                     the shell under bridge/shell/, the API clients under bridge/api/ and the stylesheets
 resources/           files read at runtime: the page template, template.html, and the markdown init, update and
                      ticket add fill
 src/lib/             package-grade building blocks, one folder each
