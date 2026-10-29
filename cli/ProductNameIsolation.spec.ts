@@ -172,7 +172,7 @@ describeWhenGitIsPresent('two programs side by side, each run as a binary', () =
 
       const settingsText = readFileSync(join(repositoryDirectory, '.claude/settings.local.json'), 'utf8');
       expect(settingsText).toContain(`"${side.otherNames.PROGRAM} hook subagent-stop"`);
-      expect(settingsText).toContain(`"${side.names.PROGRAM} hook subagent-stop"`);
+      expect(settingsText).toContain(`"${side.names.PROGRAM} hook session-start"`);
       for (const relativePath of Object.keys(otherFiles).filter((path) => path !== '.claude/settings.local.json')) {
         expect(readFileSync(join(repositoryDirectory, relativePath), 'utf8'), `${side.names.PROGRAM}: ${relativePath}`).toBe(before[relativePath] ?? '');
       }
