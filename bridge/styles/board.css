@@ -11,6 +11,7 @@
  *   .bridge-banner          a full-width alert: -unreachable (event stream down), -install (launches held), -error (a render failed)
  *   .bridge-control         a command button and, beside it, the Overseer's refusal verbatim (.bridge-refusal)
  *   .bridge-overseer-state[data-state]  serving | held-by-install-change | handing-over | down | connecting
+ *   .agents-elapsed-silent  the time since a job's last tool call while its silent sweeps are above zero
  */
 
 html:not([data-theme]) body {
@@ -145,4 +146,135 @@ body {
 
 .bridge-empty {
   color: var(--ink-muted);
+}
+
+/* The Agents view: the job table with its subagent rows, then the selected job's panel. */
+
+.agents-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.agents-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-small);
+}
+
+.agents-table th,
+.agents-table td {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.agents-job-row[aria-selected="true"] {
+  background: var(--surface-selected);
+}
+
+.agents-job-link {
+  color: var(--link);
+  font-family: var(--font-mono);
+}
+
+.agents-subagent-row {
+  color: var(--ink-muted);
+}
+
+.agents-subagent-row td:first-child {
+  padding-left: var(--space-5);
+}
+
+.agents-muted {
+  color: var(--ink-muted);
+}
+
+.agents-watch-only {
+  color: var(--warn-ink);
+}
+
+.agents-last-tool {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+.agents-running {
+  color: var(--status-live);
+}
+
+.agents-elapsed {
+  font-family: var(--font-mono);
+}
+
+.agents-elapsed-silent {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-control);
+  background: var(--warn-tint);
+  color: var(--warn-ink);
+}
+
+.agents-job-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+}
+
+.agents-job-heading {
+  margin: 0;
+  font-size: var(--fs-title);
+}
+
+.agents-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.agents-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.agents-input {
+  min-width: 16rem;
+  padding: var(--space-1);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+}
+
+.agents-transcript {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+}
+
+.agents-transcript-entry {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.agents-transcript-role {
+  flex: none;
+  min-width: 8rem;
+  color: var(--ink-muted);
+}
+
+.agents-transcript-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
