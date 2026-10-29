@@ -93,7 +93,9 @@ function builderSubject(overrides: Partial<JobVerificationSubject> = {}): JobVer
     ticketBody:       TICKET_BODY,
     bodyHashAtLaunch: TicketBodyHashUtil.bodyHashOf(TICKET_BODY),
     launchSnapshot,
-    refMovesAllowed:  { ownBranch: currentBranchOf(repositoryDirectory), otherJobBranches: [], recordedLandings: [] },
+    refMovesAllowed:  {
+      ownBranch: currentBranchOf(repositoryDirectory), otherJobBranches: [], recordedLandings: [], removedAfterLandings: [], refreshWorktreeHeads: []
+    },
     ...overrides,
   };
 }

@@ -26,6 +26,7 @@ import { describeWhenGitIsPresent } from '../../testing/ToolGuard.ts';
 import {
   agentConfigTouchedBeforeLaunch,
   launchSnapshotOf,
+  refMovesAllowedOf,
   VERIFICATION_CHECKS,
   type JobVerificationSubject,
   type LaunchSnapshot,
@@ -70,7 +71,41 @@ function reviewerSubject(findings: readonly Record<string, unknown>[], logRecord
     jobId:            JOB_ID,
     logRecords,
     launchSnapshot,
-    refMovesAllowed:  { ownBranch: currentBranchOf(repositoryDirectory), otherJobBranches: [], recordedLandings: [] },
+    refMovesAllowed:  {
+      ownBranch: currentBranchOf(repositoryDirectory), otherJobBranches: [], recordedLandings: [], removedAfterLandings: [], refreshWorktreeHeads: []
+    },
+  };
+}
+
+function jobLaunchedRecord(jobId: string, launch: { kind: 'merge' | 'refresh'; ticketIds: string[]; target: string }): LogRecord {
+  return {
+    at:     AT,
+    kind:   'job-launched',
+    jobId,
+    fields: {
+      ...launch, role: null, attempt: 1, parentJobId: null
+    }
+  };
+}
+
+function jobEndedRecord(jobId: string, outcome: 'landed' | 'refreshed', commit: string): LogRecord {
+  return {
+    at: AT, kind: 'job-ended', jobId, fields: { outcome, commit, deniedPermissions: [] }
+  };
+}
+
+/** A live build job whose exemptions are read from the Overseer's records: ticket 378 releases `group-example`. */
+function buildJobAcross(logRecords: readonly LogRecord[], refreshWorktree = ''): JobVerificationSubject {
+  return {
+    ...reviewerSubject([]),
+    role:            'builder',
+    refMovesAllowed: refMovesAllowedOf(logRecords, {
+      ownBranch:             currentBranchOf(repositoryDirectory),
+      otherJobBranches:      [],
+      ticketBranchOf:        (ticketId) => `ticket-${ticketId}`,
+      releasedGroupBranchOf: (ticketId) => (ticketId === '378' ? 'group-example' : null),
+      refreshWorktreeOf:     (groupBranch) => (groupBranch === 'group-example' ? refreshWorktree : ''),
+    }),
   };
 }
 
@@ -196,9 +231,11 @@ describeWhenGitIsPresent('V14: no foreign ref moved', () => {
     expect(refusal('V14', {
       ...subject,
       refMovesAllowed: {
-        ownBranch:        currentBranchOf(repositoryDirectory),
-        otherJobBranches: ['ticket-009'],
-        recordedLandings: [{ ref: 'refs/heads/example-target', commit: startCommit }],
+        ownBranch:            currentBranchOf(repositoryDirectory),
+        otherJobBranches:     ['ticket-009'],
+        recordedLandings:     [{ ref: 'refs/heads/example-target', commit: startCommit }],
+        removedAfterLandings: [],
+        refreshWorktreeHeads: [],
       },
     })).toBeNull();
   });
@@ -211,5 +248,45 @@ describeWhenGitIsPresent('V14: no foreign ref moved', () => {
     expect(refusal('V14', reviewerSubject([]))?.facts.some((fact) => fact.startsWith('HEAD:'))).toBe(true);
     const { launchSnapshot: _dropped, ...withoutSnapshot } = reviewerSubject([]);
     expect(refusal('V14', withoutSnapshot)?.reason).toBe('foreign-ref-moved');
+  });
+
+  test('a group release landing on the main line while a build job is live, its cleanup deleting the group and ticket branches, passes', () => {
+    const mainLine = gitOutputIn(repositoryDirectory, ['rev-parse', '--abbrev-ref', 'HEAD']);
+    gitOutputIn(repositoryDirectory, ['branch', 'group-example', startCommit]);
+    gitOutputIn(repositoryDirectory, ['branch', 'ticket-378', startCommit]);
+    gitOutputIn(repositoryDirectory, ['checkout', '-q', '-b', 'ticket-020']);
+    launchSnapshot = launchSnapshotOf(repositoryDirectory) ?? launchSnapshot;
+    commitFile(repositoryDirectory, 'built.ts', 'export const built = true;\n');
+    const landedCommit = commitFile(repositoryDirectory, 'released.ts', 'export const released = true;\n');
+    gitOutputIn(repositoryDirectory, ['branch', '-f', mainLine, landedCommit]);
+    gitOutputIn(repositoryDirectory, ['branch', '-D', 'group-example', 'ticket-378']);
+    const release = [jobLaunchedRecord('M1', { kind: 'merge', ticketIds: ['378'], target: mainLine }), jobEndedRecord('M1', 'landed', landedCommit)];
+    expect(refusal('V14', buildJobAcross(release))).toBeNull();
+    expect(refusal('V14', buildJobAcross([]))?.facts).toEqual(['refs/heads/group-example', `refs/heads/${mainLine}`, 'refs/heads/ticket-378']);
+  });
+
+  test('a refresh worktree added, merged into and removed while a build job is live passes at every step', () => {
+    gitOutputIn(repositoryDirectory, ['checkout', '-q', '-b', 'ticket-020']);
+    const refreshRecords = [jobLaunchedRecord('R1', { kind: 'refresh', ticketIds: [], target: 'group-example' })];
+    const refreshWorktree = addWorktree(repositoryDirectory, 'refresh-group-example');
+    gitOutputIn(refreshWorktree, ['checkout', '-q', '--detach', startCommit]);
+    gitOutputIn(repositoryDirectory, ['branch', '-D', 'worktree/refresh-group-example']);
+    const refreshHead = Object.keys(launchSnapshotOf(repositoryDirectory)?.refs ?? {}).find((ref) => ref.startsWith('HEAD:')) ?? '';
+    const listedRefreshWorktree = refreshHead.slice('HEAD:'.length);
+    expect(refusal('V14', buildJobAcross(refreshRecords, listedRefreshWorktree))).toBeNull();
+    commitFile(refreshWorktree, 'refreshed.ts', 'export const refreshed = true;\n');
+    expect(refusal('V14', buildJobAcross(refreshRecords, listedRefreshWorktree))).toBeNull();
+    expect(refusal('V14', buildJobAcross([], listedRefreshWorktree))?.facts).toEqual([refreshHead]);
+    gitOutputIn(repositoryDirectory, ['worktree', 'remove', '--force', refreshWorktree]);
+    expect(refusal('V14', buildJobAcross(refreshRecords, listedRefreshWorktree))).toBeNull();
+  });
+
+  test('a job deleting another ticket\'s branch still refuses, even beside a recorded group release', () => {
+    gitOutputIn(repositoryDirectory, ['branch', 'ticket-021', startCommit]);
+    gitOutputIn(repositoryDirectory, ['branch', 'group-example', startCommit]);
+    launchSnapshot = launchSnapshotOf(repositoryDirectory) ?? launchSnapshot;
+    gitOutputIn(repositoryDirectory, ['branch', '-D', 'ticket-021', 'group-example']);
+    const release = [jobLaunchedRecord('M1', { kind: 'merge', ticketIds: ['378'], target: 'example-main' }), jobEndedRecord('M1', 'landed', startCommit)];
+    expect(refusal('V14', buildJobAcross(release))).toEqual({ reason: 'foreign-ref-moved', facts: ['refs/heads/ticket-021'] });
   });
 });
