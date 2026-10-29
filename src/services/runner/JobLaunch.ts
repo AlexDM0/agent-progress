@@ -12,16 +12,11 @@ import {
 } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-import type { HostEnd }        from '../../lib/agent-host/HostRecord.ts';
-import type { AgentAdapter }   from '../../lib/agent-launch/AgentAdapter.ts';
-import { launchEnvironmentOf } from '../../lib/agent-launch/LaunchEnvironment.ts';
-import { GitProcess }          from '../../lib/git/GitProcess.ts';
-import type {
-  GateOutcome,
-  Job,
-  JobKind,
-  JobOutcome
-} from '../../lib/tracker-model/@types/Job.ts';
+import type { HostEnd }                                           from '../../lib/agent-host/HostRecord.ts';
+import type { AgentAdapter }                                      from '../../lib/agent-launch/AgentAdapter.ts';
+import { launchEnvironmentOf }                                    from '../../lib/agent-launch/LaunchEnvironment.ts';
+import { GitProcess }                                             from '../../lib/git/GitProcess.ts';
+import type { GateOutcome, Job, JobKind }                         from '../../lib/tracker-model/@types/Job.ts';
 import type { DecisionDraft, DecisionWording }                    from '../../lib/tracker-model/@types/LifecycleStep.ts';
 import type { LogRecord }                                         from '../../lib/tracker-model/@types/LogRecord.ts';
 import type { Board }                                             from '../../lib/tracker-model/Board.ts';
@@ -39,6 +34,7 @@ import {
   launchSnapshotOf,
   type LaunchSnapshot,
   type RefMovesAllowed,
+  refMovesAllowedOf,
   VERIFICATION_CHECKS,
   verifyJob
 } from '../lifecycle/JobVerification.ts';
@@ -120,9 +116,6 @@ function isWorktreeJob(job: Readonly<Job>): boolean {
 }
 
 const AGENT_CONFIG_DECISION = 'branch-touches-agent-config';
-
-/** The job endings that move a target's ref: the landings V14 lets pass. */
-const LANDING_OUTCOMES: readonly JobOutcome[] = ['landed', 'integrated', 'refreshed'];
 
 function callBudgetOf(job: Readonly<Job>): number {
   return job.kind === REVIEW_JOB_KIND ? DISPATCH_PROTOCOL.REVIEWER_API_CALL_BUDGET : DISPATCH_PROTOCOL.BUILDER_API_CALL_BUDGET;
@@ -327,7 +320,7 @@ function verifyAndRoute(hold: HoldContext, job: Readonly<Job>, observation: Buil
     jobId:            job.id,
     logRecords:       board.logRecordsSoFar(),
     launchSnapshot:   start.launchSnapshot,
-    refMovesAllowed:  refMovesAllowedFor(board, job),
+    refMovesAllowed:  refMovesAllowedFor(hold.context, board, job),
     ...(checksDefinitionFiles === undefined ? {} : { checksDefinitionFiles }),
   };
   const reportVerdict = VERIFICATION_CHECKS.V1(subject);
@@ -359,21 +352,20 @@ function verifyAndRoute(hold: HoldContext, job: Readonly<Job>, observation: Buil
   hold.logged.push(...board.moveJob(job.id, 'gating', at).logged);
 }
 
-/** The other jobs' branches, which their own sessions move, and every landing the runner recorded: on its job's target, at its commit. */
-function refMovesAllowedFor(board: Board, job: Readonly<Job>): RefMovesAllowed {
-  const targetByJobId = new Map<string, string | null>();
-  const recordedLandings: { ref: string; commit: string }[] = [];
-  for (const record of board.logRecordsSoFar()) {
-    if (record.kind === 'job-launched') targetByJobId.set(record.jobId, record.fields.target);
-    if (record.kind !== 'job-ended' || !LANDING_OUTCOMES.includes(record.fields.outcome) || record.fields.commit === undefined) continue;
-    const target = targetByJobId.get(record.jobId);
-    if (target !== undefined && target !== null) recordedLandings.push({ ref: `refs/heads/${target}`, commit: record.fields.commit });
-  }
-  return {
-    ownBranch:        branchOf(job),
-    otherJobBranches: board.jobs().filter((other) => other.id !== job.id && isWorktreeJob(other)).map(branchOf),
-    recordedLandings,
-  };
+/** The other jobs' branches, which their own sessions move, and the refs the Overseer's own landings and refreshes move or remove. */
+function refMovesAllowedFor(context: JobLaunchContext, board: Board, job: Readonly<Job>): RefMovesAllowed {
+  const worktreesRoot = join(context.workspace.rootDirectory, PRODUCT_NAMES.WORKTREES_FOLDER);
+  const tickets       = board.tickets();
+  return refMovesAllowedOf(board.logRecordsSoFar(), {
+    ownBranch:             branchOf(job),
+    otherJobBranches:      board.jobs().filter((other) => other.id !== job.id && isWorktreeJob(other)).map(branchOf),
+    ticketBranchOf:        (ticketId) => `ticket-${ticketId}`,
+    releasedGroupBranchOf: (ticketId) => {
+      const frontmatter = tickets.find((candidate) => candidate.frontmatter.id === ticketId)?.frontmatter;
+      return frontmatter?.releasesGroup === true && frontmatter.group !== undefined ? `${context.groupTargetPrefix}${frontmatter.group}` : null;
+    },
+    refreshWorktreeOf: (groupBranch) => GroupWorktrees.refreshWorktreeOf(worktreesRoot, groupBranch),
+  });
 }
 
 /** Once per hit: none while one is open, and none again for a hit User already answered, until another job on the ticket ends. */
