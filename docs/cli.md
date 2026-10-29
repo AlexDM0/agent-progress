@@ -703,7 +703,8 @@ and gated, the runner counts the rework from the review's start to its HEAD in c
 
 A session the runner launched cannot write the data folder. With both `AGENT_PROGRESS_JOB_ID` and
 `AGENT_PROGRESS_RELAY_DIRECTORY` set (named from the build's environment prefix), the read-only verbs (`help`,
-`status`, `usage`, `review-stats`, `ticket show|list`, `epic show|list`, `draft show|list`) run directly. A verb of
+`status`, `usage`, `review-stats`, `ticket show|list`, `epic show|list`, `draft show|list`, `hook bash-domains`,
+`version`, `run status`, `decisions`, `incidents`, `merges`, `jobs`, `job show|attach`) run directly. A verb of
 a control command parses its arguments as usual, then, before any install-version check, writes
 `<relay>/requests/<requestId>.json` atomically, `{relayFormatVersion: 1, requestId, command, bodyText?}`, the body it
 read travelling beside the command. It waits for `<relay>/replies/<requestId>.json`, `RELAY_REPLY_TRIES` times
