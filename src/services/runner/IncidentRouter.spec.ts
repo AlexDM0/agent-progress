@@ -48,6 +48,16 @@ describe('the quiet-job watch', () => {
     expect(dueAt).toEqual([QUIET_JOB_SWEEPS, 2 * QUIET_JOB_SWEEPS]);
   });
 
+  test('a job\'s silent sweeps count each still sweep, fall to 0 when its cursor moves or it comes due, and are 0 for an unwatched job', () => {
+    const watch = IncidentRouter.createQuietJobWatch(QUIET_JOB_SWEEPS);
+    watch.sweep([QUIET_BUILD]);
+    watch.sweep([QUIET_BUILD]);
+    expect(watch.silentSweepsOf(QUIET_BUILD.id)).toBe(1);
+    watch.sweep([{ ...QUIET_BUILD, eventCursor: { instance: 1, sequence: 99 } }]);
+    expect(watch.silentSweepsOf(QUIET_BUILD.id)).toBe(0);
+    expect(watch.silentSweepsOf('J404')).toBe(0);
+  });
+
   test('a cursor that moves, or a job waiting for an answer, is never due', () => {
     const moving = Array.from({ length: 10 }, (_unused, i) => [jobFixture({ id: 'J1', eventCursor: { instance: 1, sequence: i } })]);
     expect(sweepsUntilDue(moving, 2)).toBeNull();
