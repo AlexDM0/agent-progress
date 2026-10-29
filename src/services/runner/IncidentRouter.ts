@@ -20,7 +20,9 @@ const WATCHED_JOB_KINDS: readonly JobKind[] = ['build', 'review'];
 
 export interface QuietJobWatch {
   /** One sweep over the jobs as the last pass left them: the ids whose cursor has now stood still for `quietSweeps` sweeps. */
-  sweep: (jobs: readonly Readonly<Job>[]) => string[];
+  sweep:          (jobs: readonly Readonly<Job>[]) => string[];
+  /** The sweeps a watched job's cursor has stood still for since it last moved or came due; 0 for a job the watch does not hold. */
+  silentSweepsOf: (jobId: string) => number;
 }
 
 /**
@@ -45,6 +47,7 @@ function createQuietJobWatch(quietSweeps: number): QuietJobWatch {
       }
       return due;
     },
+    silentSweepsOf: (jobId) => standingByJobId.get(jobId)?.sweeps ?? 0,
   };
 }
 

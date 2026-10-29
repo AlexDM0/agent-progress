@@ -3,7 +3,7 @@
  * `parentToolUseId`) keeps its own count and last call, `toolCallsWithSubagents` adds them up, `lastToolCall` is the newest call stamped
  * with its log entry's `at` and `running` until its result arrives, and `calls` stays the top-level API turns the budget is held against.
  */
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import {
   afterEach,
   describe,
@@ -11,14 +11,15 @@ import {
   test
 } from 'bun:test';
 
-import { createEventLogWriter }                           from '../../lib/agent-host/EventLog.ts';
-import { hostFilesOf }                                    from '../../lib/agent-host/HostFiles.ts';
-import type { AgentSessionEvent }                         from '../../lib/agent-launch/AgentSessionEvent.ts';
-import type { Job }                                       from '../../lib/tracker-model/@types/Job.ts';
-import { DISPATCH_PROTOCOL }                              from '../../shared/constants/DispatchProtocol.ts';
-import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
-import { HostFleet }                                      from './HostFleet.ts';
-import { JobLiveFactsReader }                             from './JobLiveFactsReader.ts';
+import { createEventLogWriter }                                  from '../../lib/agent-host/EventLog.ts';
+import { hostFilesOf }                                           from '../../lib/agent-host/HostFiles.ts';
+import { HOST_PROTOCOL_OLDEST_SUPPORTED, HOST_PROTOCOL_VERSION } from '../../lib/agent-host/constants/HostProtocol.ts';
+import type { AgentSessionEvent }                                from '../../lib/agent-launch/AgentSessionEvent.ts';
+import type { Job }                                              from '../../lib/tracker-model/@types/Job.ts';
+import { DISPATCH_PROTOCOL }                                     from '../../shared/constants/DispatchProtocol.ts';
+import { createScratchDirectory, removeScratchDirectory }        from '../../testing/ScratchWorkspace.ts';
+import { HostFleet }                                             from './HostFleet.ts';
+import { JobLiveFactsReader }                                    from './JobLiveFactsReader.ts';
 
 const scratchDirectories: string[] = [];
 
@@ -54,11 +55,12 @@ function assistantTurn(messageId: string, parentToolUseId: string | null): Agent
 }
 
 /** A scratch tracker whose job J1 logged each event as one agent line, stamped in order; the mapper reads a line as the event itself. */
-function liveFactsOfLoggedEvents(events: readonly AgentSessionEvent[]) {
+function liveFactsOfLoggedEvents(events: readonly AgentSessionEvent[], watcherProtocol: number | null = null) {
   const trackerDirectory = createScratchDirectory('live-facts');
   scratchDirectories.push(trackerDirectory);
   const jobFolder = HostFleet.jobFolderOf(trackerDirectory, EXAMPLE_JOB.id);
   mkdirSync(jobFolder, { recursive: true });
+  if (watcherProtocol !== null) writeFileSync(hostFilesOf(jobFolder, 1).hostRecordPath, JSON.stringify({ protocolVersion: watcherProtocol }));
   let second = 0;
   const writer = createEventLogWriter(hostFilesOf(jobFolder, 1).eventLogPath, () => {
     second += 1;
@@ -84,7 +86,9 @@ describe('JobLiveFactsReader', () => {
       toolCall('sub-3', 'Bash', 'call-2'),
     ]);
     expect(facts.toolCalls).toBe(2);
-    expect(facts.subagents).toEqual([{ parentToolUseId: 'call-2', toolCalls: 3, lastToolCall: { toolName: 'Bash', startedAt: '2026-10-29T12:00:10Z', running: true } }]);
+    expect(facts.subagents).toEqual([{
+      parentToolUseId: 'call-2', toolCalls: 3, lastToolCall: { toolName: 'Bash', startedAt: '2026-10-29T12:00:10Z', running: true }, tokens: 15
+    }]);
     expect(facts.toolCallsWithSubagents).toBe(5);
     expect(facts.lastToolCall).toEqual({ toolName: 'Agent', startedAt: '2026-10-29T12:00:04Z', running: true });
     expect(facts.calls).toBe(1);
@@ -100,5 +104,17 @@ describe('JobLiveFactsReader', () => {
     expect(quiet.toolCalls).toBe(0);
     expect(quiet.subagents).toEqual([]);
     expect(quiet.toolCallsWithSubagents).toBe(0);
+  });
+
+  test('a subagent that only spoke still gets its row and tokens', () => {
+    expect(liveFactsOfLoggedEvents([assistantTurn('message-1', 'call-9')]).subagents).toEqual([{
+      parentToolUseId: 'call-9', toolCalls: 0, lastToolCall: null, tokens: 15
+    }]);
+  });
+
+  test('the Watcher protocol comes from the newest instance\'s record, a protocol below the window reads watch-only, and no record reads null', () => {
+    expect(liveFactsOfLoggedEvents([], HOST_PROTOCOL_VERSION)).toMatchObject({ watcherProtocol: HOST_PROTOCOL_VERSION, watchOnly: false });
+    expect(liveFactsOfLoggedEvents([], HOST_PROTOCOL_OLDEST_SUPPORTED - 1)).toMatchObject({ watcherProtocol: HOST_PROTOCOL_OLDEST_SUPPORTED - 1, watchOnly: true });
+    expect(liveFactsOfLoggedEvents([])).toMatchObject({ watcherProtocol: null, watchOnly: false });
   });
 });
