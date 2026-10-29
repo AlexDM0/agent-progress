@@ -11,6 +11,15 @@
  *   .bridge-banner          a full-width alert: -unreachable (event stream down), -install (launches held), -error (a render failed)
  *   .bridge-control         a command button and, beside it, the Overseer's refusal verbatim (.bridge-refusal)
  *   .bridge-overseer-state[data-state]  serving | held-by-install-change | handing-over | down | connecting
+ *   .agents-elapsed-silent  the time since a job's last tool call while its silent sweeps are above zero
+ * Kanban (bridge/views/kanban/)
+ *   .bridge-kanban          the epic chips over .bridge-kanban-lanes
+ *   .bridge-lane[data-lane] drafts | ready | building | in-review | merge-queue | done | abandoned; its head dot by [data-state]
+ *   .bridge-kanban-card[data-state]  a ticket or filing draft; [data-changed] once its state moved since the previous board
+ *   .bridge-kanban-size[data-size], .bridge-kanban-priority[data-priority], .bridge-kanban-type[data-type]  the head's marks
+ * Filter chips (bridge/chips/)
+ *   .bridge-chips           one row of .bridge-chip[aria-pressed], [data-empty] at a count of zero, leading with a
+ *                           .bridge-lane-dot[data-state] or a .bridge-chip-swatch[data-epic-slot]
  */
 
 html:not([data-theme]) body {
@@ -145,4 +154,351 @@ body {
 
 .bridge-empty {
   color: var(--ink-muted);
+}
+
+.bridge-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+}
+
+.bridge-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-small);
+  cursor: pointer;
+}
+
+.bridge-chip[aria-pressed="true"] {
+  background: var(--link-tint);
+  border-color: var(--link);
+}
+
+.bridge-chip[data-empty] {
+  color: var(--ink-muted);
+}
+
+.bridge-chip-count {
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.bridge-chip-swatch,
+.bridge-lane-dot {
+  width: 0.6em;
+  height: 0.6em;
+  border-radius: 50%;
+  background: var(--line-strong);
+}
+
+.bridge-lane-dot[data-state="draft"] { background: var(--state-draft-ink); }
+.bridge-lane-dot[data-state="pending"] { background: var(--state-pending-ink); }
+.bridge-lane-dot[data-state="in-progress"] { background: var(--state-in-progress-ink); }
+.bridge-lane-dot[data-state="in-review"] { background: var(--state-in-review-ink); }
+.bridge-lane-dot[data-state="reviewed"] { background: var(--state-reviewed-ink); }
+.bridge-lane-dot[data-state="delivered"] { background: var(--state-delivered-ink); }
+.bridge-lane-dot[data-state="abandoned"] { background: var(--state-abandoned-ink); }
+
+.bridge-kanban-lanes {
+  display: grid;
+  grid-auto-columns: minmax(16rem, 1fr);
+  grid-auto-flow: column;
+  gap: var(--space-3);
+  overflow-x: auto;
+}
+
+.bridge-lane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+}
+
+.bridge-lane-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-left: var(--space-2);
+  border-left: 3px solid var(--line-strong);
+}
+
+.bridge-lane-head[data-state="draft"] { border-left-color: var(--state-draft-edge); }
+.bridge-lane-head[data-state="pending"] { border-left-color: var(--state-pending-edge); }
+.bridge-lane-head[data-state="in-progress"] { border-left-color: var(--state-in-progress-edge); }
+.bridge-lane-head[data-state="in-review"] { border-left-color: var(--state-in-review-edge); }
+.bridge-lane-head[data-state="reviewed"] { border-left-color: var(--state-reviewed-edge); }
+.bridge-lane-head[data-state="delivered"] { border-left-color: var(--state-delivered-edge); }
+.bridge-lane-head[data-state="abandoned"] { border-left-color: var(--state-abandoned-edge); }
+
+.bridge-lane-title {
+  margin: 0;
+  font-size: var(--fs-title);
+  font-weight: 600;
+}
+
+.bridge-lane-count {
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.bridge-lane-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.bridge-lane-empty {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: var(--fs-small);
+}
+
+.bridge-kanban-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--bg);
+}
+
+.bridge-kanban-card[data-state="draft"] {
+  border-style: dashed;
+  border-color: var(--state-draft-edge);
+  background: var(--state-draft-tint);
+}
+
+.bridge-kanban-card[data-changed] {
+  animation: bridge-changed 1200ms var(--ease-out) 1;
+}
+
+@keyframes bridge-changed {
+  from { box-shadow: 0 0 0 2px var(--link); }
+  to { box-shadow: 0 0 0 0 transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bridge-kanban-card[data-changed] {
+    animation: none;
+    outline: 2px solid var(--link);
+  }
+}
+
+.bridge-kanban-card-head,
+.bridge-kanban-marks,
+.bridge-kanban-actions,
+.bridge-epic-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.bridge-kanban-select {
+  margin: 0;
+}
+
+.bridge-kanban-id {
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  color: var(--ink-muted);
+}
+
+.bridge-kanban-size,
+.bridge-kanban-type,
+.bridge-kanban-priority,
+.bridge-epic-chip {
+  padding: 0 var(--space-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  font-size: var(--fs-micro);
+  color: var(--ink-muted);
+}
+
+.bridge-kanban-priority[data-priority="high"] {
+  border-color: var(--warn-edge);
+  background: var(--warn-tint);
+  color: var(--warn-ink);
+}
+
+.bridge-kanban-type[data-type="bug"] {
+  border-color: var(--err-edge);
+  color: var(--err-ink);
+}
+
+.bridge-kanban-tokens {
+  margin-left: auto;
+  font-size: var(--fs-micro);
+  color: var(--ink-muted);
+}
+
+.bridge-kanban-title {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.bridge-kanban-label,
+.bridge-kanban-note {
+  margin: 0;
+  font-size: var(--fs-small);
+  color: var(--state-draft-ink);
+}
+
+.bridge-kanban-waiting,
+.bridge-kanban-held {
+  font-size: var(--fs-micro);
+  color: var(--ink-muted);
+}
+
+.bridge-kanban-held {
+  color: var(--warn-ink);
+}
+
+.bridge-kanban {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The Agents view: the job table with its subagent rows, then the selected job's panel. */
+
+.agents-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.agents-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-small);
+}
+
+.agents-table th,
+.agents-table td {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.agents-job-row[aria-selected="true"] {
+  background: var(--surface-selected);
+}
+
+.agents-job-link {
+  color: var(--link);
+  font-family: var(--font-mono);
+}
+
+.agents-subagent-row {
+  color: var(--ink-muted);
+}
+
+.agents-subagent-row td:first-child {
+  padding-left: var(--space-5);
+}
+
+.agents-muted {
+  color: var(--ink-muted);
+}
+
+.agents-watch-only {
+  color: var(--warn-ink);
+}
+
+.agents-last-tool {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+.agents-running {
+  color: var(--status-live);
+}
+
+.agents-elapsed {
+  font-family: var(--font-mono);
+}
+
+.agents-elapsed-silent {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-control);
+  background: var(--warn-tint);
+  color: var(--warn-ink);
+}
+
+.agents-job-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+}
+
+.agents-job-heading {
+  margin: 0;
+  font-size: var(--fs-title);
+}
+
+.agents-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.agents-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.agents-input {
+  min-width: 16rem;
+  padding: var(--space-1);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+}
+
+.agents-transcript {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+}
+
+.agents-transcript-entry {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.agents-transcript-role {
+  flex: none;
+  min-width: 8rem;
+  color: var(--ink-muted);
+}
+
+.agents-transcript-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }

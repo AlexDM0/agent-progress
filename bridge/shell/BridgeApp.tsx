@@ -16,6 +16,9 @@ import type { PreferenceStorage }                                               
 import type { CommandClient }                                                            from '../api/CommandClient.ts';
 import type { ConnectionState, EventStreamHandlers }                                     from '../api/EventStreamClient.ts';
 import { boardPreferenceStoreOf, sharedPreferenceStoreOf }                               from '../preferences/PreferenceStore.ts';
+import { AgentsView, BROWSER_AGENTS_CLOCK, type AgentsClock }                            from '../views/agents/AgentsView.tsx';
+import { KanbanModel }                                                                   from '../views/kanban/KanbanModel.ts';
+import { KanbanView }                                                                    from '../views/kanban/KanbanView.tsx';
 import { BoardStateUpdate }                                                              from './BoardStateUpdate.ts';
 import { BridgeHeader }                                                                  from './BridgeHeader.tsx';
 import { ConnectionBanners }                                                             from './ConnectionBanners.tsx';
@@ -116,6 +119,9 @@ export function BridgeApp({ services }: BridgeAppProps) {
     onInstallHeld: setInstallRefusal,
   }), [streamIsDown, installIsHeld, services]);
 
+  const agentsClock = useMemo((): AgentsClock => ({ now: services.now, everySecond: BROWSER_AGENTS_CLOCK.everySecond }), [services]);
+  const kanbanBoardState = useMemo(() => KanbanModel.kanbanBoardStateOf(boardState), [boardState]);
+
   const chooseTheme = (choice: ThemeChoice): void => {
     ThemeBootstrap.chooseTheme(sharedStore, choice);
     setThemeChoice(choice);
@@ -139,7 +145,16 @@ export function BridgeApp({ services }: BridgeAppProps) {
         <main className="bridge-panel" data-tab={route.tab}>
           {boardState === null
             ? <p className="bridge-empty">Waiting for the Overseer&apos;s first board.</p>
-            : <p className="bridge-empty">{`${boardState.jobs.length} jobs, ${boardState.decisions.length} decisions, ${boardState.incidents.length} incidents.`}</p>}
+            : null}
+          {boardState !== null && route.tab === 'agents'
+            ? <AgentsView jobs={boardState.jobs} decisions={boardState.decisions} selectedJobId={route.item} clock={agentsClock} />
+            : null}
+          {kanbanBoardState !== null && route.tab === 'kanban'
+            ? <KanbanView boardState={kanbanBoardState} boardStore={boardStore} />
+            : null}
+          {boardState !== null && route.tab !== 'agents' && (kanbanBoardState === null || route.tab !== 'kanban')
+            ? <p className="bridge-empty">{`${boardState.jobs.length} jobs, ${boardState.decisions.length} decisions, ${boardState.incidents.length} incidents.`}</p>
+            : null}
         </main>
       </div>
     </ControlSurroundingsContext.Provider>
