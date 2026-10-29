@@ -108,8 +108,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 
 ### Generated and installed files
 
-- Generated files stay out of the repository: `init` and `update` build the dispatcher from `dispatcher/` into
-  `.agent-progress/agent-progress-dispatch.js`.
+- Generated files stay out of the repository; `init` and `update` install no generated file, only filled templates
+  and the skills.
 - One manifest, `.agent-progress/version.json` holding `INSTALL_VERSION`, versions everything installed; no file
   carries a stamp. It is written last, so a cut-short run leaves the old version; a fresh `init` writes
   `session-instructions.md` first, so a cut-short one reads as unversioned.
@@ -145,8 +145,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   `src/ProjectIncludeLists.spec.ts`; everything the page reaches stays DOM-safe. `bridge/` is its own DOM-only React
   project (`bridge/tsconfig.json` with `jsx: react-jsx` and `types: []`, specs under `bridge/tsconfig.spec.json`),
   held the same way.
-- `init`, `update` and the specs build the dispatcher from the one shared build request, never importing
-  `dispatcher/`.
+- The specs build the dispatcher from the one shared build request, never importing `dispatcher/`.
 - ESLint 9 through `@reliquary/eslint-config`, extended in `eslint.config.js`; `bun run lint` is its statement. The
   testing folders may import devDependencies.
 
@@ -305,7 +304,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   a tracked repository, or files beside them; naming a skill the host may offer, such as `grill-me`, is no citation.
 - `skills/agent-progress-orchestrate/` repeats nothing from `skills/agent-po/`, writes rules as instructions,
   and never restates what the dispatcher decides. Call budgets and the rework threshold are `DISPATCH_PROTOCOL`
-  (`src/shared/constants/DispatchProtocol.ts`), filled into the brief and block by `init` and `update`.
+  (`src/shared/constants/DispatchProtocol.ts`), stated by the dispatcher's prompts and never by an installed file.
 - `init` and `update` copy both into the tracked repository's git-ignored `.claude/skills/`, never globally, and
   remove the files a retired skill folder installed there with its `.gitignore` entry; `setup.sh` only removes the
   `~/.claude/skills/` symlinks into this checkout that earlier versions made.
