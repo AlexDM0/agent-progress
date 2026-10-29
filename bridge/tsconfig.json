@@ -10,7 +10,11 @@
   "include": [
     "./**/*.ts",
     "./**/*.tsx",
-    "../src/shared/constants/ProductNames.ts"
+    "../src/shared/constants/ProductNames.ts",
+    "../src/lib/token-count/TokenCountUtil.ts",
+    "../src/lib/tracker-model/@types/Draft.ts",
+    "../src/lib/tracker-model/@types/Task.ts",
+    "../src/lib/tracker-model/@types/Ticket.ts"
   ],
   // The specs, the DOM specs and the test-only helpers stay out, so this program's surface is the Bridge that ships.
   "exclude": ["./**/*.spec.ts", "./**/*.dom.tsx", "./testing/**"]
