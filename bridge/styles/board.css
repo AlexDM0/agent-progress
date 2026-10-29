@@ -17,6 +17,15 @@
  *   .bridge-lane[data-lane] drafts | ready | building | in-review | merge-queue | done | abandoned; its head dot by [data-state]
  *   .bridge-kanban-card[data-state]  a ticket or filing draft; [data-changed] once its state moved since the previous board
  *   .bridge-kanban-size[data-size], .bridge-kanban-priority[data-priority], .bridge-kanban-type[data-type]  the head's marks
+ * Tickets (bridge/views/tickets/)
+ *   .bridge-tickets         the count and Group by epic over .bridge-tickets-toolbar (search, chips) and .bridge-tickets-table
+ *   .bridge-ticket-row[data-state]  one ticket; .bridge-ticket-epic-head[data-epic-slot] heads an epic's rows when grouped;
+ *                           .bridge-ticket-empty the one row of a table nothing matches; .bridge-match a search match
+ *   .bridge-state-badge[data-state], .bridge-ticket-priority[data-priority], .bridge-ticket-type[data-type]  the marks
+ * Detail panel (bridge/views/detail-panel/)
+ *   .bridge-detail          the head, .bridge-detail-controls, .bridge-detail-facts and its .bridge-detail-section blocks:
+ *                           Timeline (.bridge-detail-phases), Description (iframe.bridge-ticket-body, sandboxed), Log
+ *                           (.bridge-detail-log)
  * Filter chips (bridge/chips/)
  *   .bridge-chips           one row of .bridge-chip[aria-pressed], [data-empty] at a count of zero, leading with a
  *                           .bridge-lane-dot[data-state] or a .bridge-chip-swatch[data-epic-slot]
@@ -501,4 +510,193 @@ body {
 .agents-transcript-text {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.bridge-tickets,
+.bridge-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+}
+
+.bridge-detail {
+  margin-bottom: var(--space-3);
+}
+
+.bridge-tickets-head,
+.bridge-tickets-toolbar,
+.bridge-detail-head,
+.bridge-detail-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.bridge-tickets-count {
+  color: var(--ink-muted);
+  font-size: var(--fs-small);
+}
+
+.bridge-search,
+.bridge-text-input {
+  min-width: 14rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+}
+
+.bridge-tickets-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-small);
+}
+
+.bridge-tickets-table th,
+.bridge-tickets-table td {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.bridge-sort {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.bridge-ticket-row[data-state="draft"] {
+  background: var(--state-draft-tint);
+}
+
+.bridge-ticket-id,
+.bridge-ticket-branch,
+.bridge-ticket-task,
+.bridge-detail-id {
+  font-family: var(--font-mono);
+  color: var(--ink-muted);
+}
+
+.bridge-link {
+  color: var(--link);
+}
+
+.bridge-match {
+  background: var(--link-tint);
+  color: inherit;
+}
+
+.bridge-ticket-priority,
+.bridge-ticket-type,
+.bridge-ticket-group,
+.bridge-state-badge {
+  margin-left: var(--space-1);
+  padding: 0 var(--space-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  font-size: var(--fs-micro);
+  color: var(--ink-muted);
+}
+
+.bridge-ticket-priority[data-priority="high"] {
+  border-color: var(--warn-edge);
+  background: var(--warn-tint);
+  color: var(--warn-ink);
+}
+
+.bridge-ticket-type[data-type="bug"] {
+  border-color: var(--err-edge);
+  color: var(--err-ink);
+}
+
+.bridge-state-badge[data-state="draft"] { border-color: var(--state-draft-edge); color: var(--state-draft-ink); }
+.bridge-state-badge[data-state="pending"] { border-color: var(--state-pending-edge); color: var(--state-pending-ink); }
+.bridge-state-badge[data-state="in-progress"] { border-color: var(--state-in-progress-edge); color: var(--state-in-progress-ink); }
+.bridge-state-badge[data-state="in-review"] { border-color: var(--state-in-review-edge); color: var(--state-in-review-ink); }
+.bridge-state-badge[data-state="reviewed"] { border-color: var(--state-reviewed-edge); color: var(--state-reviewed-ink); }
+.bridge-state-badge[data-state="delivered"] { border-color: var(--state-delivered-edge); color: var(--state-delivered-ink); }
+.bridge-state-badge[data-state="abandoned"] { border-color: var(--state-abandoned-edge); color: var(--state-abandoned-ink); }
+
+.bridge-ticket-waiting {
+  margin-left: var(--space-1);
+  font-size: var(--fs-micro);
+  color: var(--warn-ink);
+}
+
+.bridge-ticket-epic-head th {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.bridge-ticket-empty {
+  color: var(--ink-muted);
+}
+
+.bridge-detail-title {
+  margin: 0;
+  font-size: var(--fs-title);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.bridge-detail-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  font-size: var(--fs-small);
+}
+
+.bridge-detail-fact {
+  display: contents;
+}
+
+.bridge-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.bridge-detail-section-title {
+  margin: 0;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+
+.bridge-detail-phases,
+.bridge-detail-log {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-small);
+}
+
+.bridge-detail-log time,
+.bridge-detail-phases time {
+  margin-right: var(--space-2);
+  font-family: var(--font-mono);
+  color: var(--ink-muted);
+}
+
+.bridge-ticket-body {
+  width: 100%;
+  min-height: 4rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--bg);
 }

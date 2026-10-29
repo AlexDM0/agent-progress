@@ -16,9 +16,13 @@ import type { PreferenceStorage }                                               
 import type { CommandClient }                                                            from '../api/CommandClient.ts';
 import type { ConnectionState, EventStreamHandlers }                                     from '../api/EventStreamClient.ts';
 import { boardPreferenceStoreOf, sharedPreferenceStoreOf }                               from '../preferences/PreferenceStore.ts';
+import { TimeUtil }                                                                      from '../utils/TimeUtil.ts';
 import { AgentsView, BROWSER_AGENTS_CLOCK, type AgentsClock }                            from '../views/agents/AgentsView.tsx';
+import { DetailPanel }                                                                   from '../views/detail-panel/DetailPanel.tsx';
 import { KanbanModel }                                                                   from '../views/kanban/KanbanModel.ts';
 import { KanbanView }                                                                    from '../views/kanban/KanbanView.tsx';
+import { TicketsModel }                                                                  from '../views/tickets/TicketsModel.ts';
+import { TicketsView }                                                                   from '../views/tickets/TicketsView.tsx';
 import { BoardStateUpdate }                                                              from './BoardStateUpdate.ts';
 import { BridgeHeader }                                                                  from './BridgeHeader.tsx';
 import { ConnectionBanners }                                                             from './ConnectionBanners.tsx';
@@ -121,6 +125,7 @@ export function BridgeApp({ services }: BridgeAppProps) {
 
   const agentsClock = useMemo((): AgentsClock => ({ now: services.now, everySecond: BROWSER_AGENTS_CLOCK.everySecond }), [services]);
   const kanbanBoardState = useMemo(() => KanbanModel.kanbanBoardStateOf(boardState), [boardState]);
+  const ticketsBoardState = useMemo(() => TicketsModel.ticketsBoardStateOf(boardState), [boardState]);
 
   const chooseTheme = (choice: ThemeChoice): void => {
     ThemeBootstrap.chooseTheme(sharedStore, choice);
@@ -152,7 +157,13 @@ export function BridgeApp({ services }: BridgeAppProps) {
           {kanbanBoardState !== null && route.tab === 'kanban'
             ? <KanbanView boardState={kanbanBoardState} boardStore={boardStore} />
             : null}
-          {boardState !== null && route.tab !== 'agents' && (kanbanBoardState === null || route.tab !== 'kanban')
+          {ticketsBoardState !== null && route.tab === 'tickets' && route.item !== null
+            ? <DetailPanel boardState={ticketsBoardState} ticketId={route.item} todayCalendarDate={TimeUtil.calendarDateOf(services.now().getTime())} tab={route.tab} />
+            : null}
+          {ticketsBoardState !== null && route.tab === 'tickets'
+            ? <TicketsView boardState={ticketsBoardState} boardStore={boardStore} />
+            : null}
+          {boardState !== null && route.tab !== 'agents' && (kanbanBoardState === null || route.tab !== 'kanban') && (ticketsBoardState === null || route.tab !== 'tickets')
             ? <p className="bridge-empty">{`${boardState.jobs.length} jobs, ${boardState.decisions.length} decisions, ${boardState.incidents.length} incidents.`}</p>
             : null}
         </main>
