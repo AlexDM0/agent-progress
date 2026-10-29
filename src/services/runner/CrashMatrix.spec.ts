@@ -30,6 +30,7 @@ import {
   expect,
   test,
 } from 'bun:test';
+import { writeRelayRequest }                             from '../../adapters/relay/RelayFolder.ts';
 import type { EventLogEntry }                            from '../../lib/agent-host/EventLog.ts';
 import { hostFilesOf }                                   from '../../lib/agent-host/HostFiles.ts';
 import type { HostRecord }                               from '../../lib/agent-host/HostRecord.ts';
@@ -81,6 +82,7 @@ import { HostFleet }                                            from './HostFlee
 import { IntakeSessions }                                       from './IntakeSessions.ts';
 import { JobResumption }                                        from './JobResumption.ts';
 import { Reattachment }                                         from './Reattachment.ts';
+import { RelayInbox }                                           from './RelayInbox.ts';
 import { runnerFilesIn }                                        from './RunnerFiles.ts';
 import { RunnerHandover }                                       from './RunnerHandover.ts';
 import { RunnerLease }                                          from './RunnerLease.ts';
@@ -296,6 +298,7 @@ async function startedRunner(
   adapter: AgentAdapter,
   afterHoldPhase?: (phase: string, board: Board) => void,
   deliversByControlResponse?: boolean,
+  onUsageMarkerRead?: () => void,
 ): Promise<DrivePass> {
   const { runnerDirectory } = runnerFilesIn(sessionWorkspace.trackerDirectory);
   mkdirSync(runnerDirectory, { recursive: true });
@@ -313,16 +316,20 @@ async function startedRunner(
   if (acquisition.verdict !== 'acquired') throw new Error('the scratch lease was not acquired');
   const hostBundlePath = await HostBundle.pinHostBundle({ runnerDirectory, codeVersion: 'code-example', entryPath: HOST_ENTRY_PATH });
   return createDrivePass({
-    workspace:             sessionWorkspace,
+    workspace:    sessionWorkspace,
     renderState,
-    now:                   () => new Date(Date.parse(SESSION_STAMP)),
-    formatStamp:           () => SESSION_STAMP,
+    now:          () => new Date(Date.parse(SESSION_STAMP)),
+    formatStamp:  () => SESSION_STAMP,
     runnerDirectory,
-    generation:            acquisition.generation,
+    generation:   acquisition.generation,
     hostBundlePath,
-    codeVersion:           'code-example',
-    agentAdapter:          adapter,
-    monitorFolder,
+    codeVersion:  'code-example',
+    agentAdapter: adapter,
+    // A pass reads the usage marker after the relay folders: the hook acts there, between the observation's reads.
+    get monitorFolder() {
+      onUsageMarkerRead?.();
+      return monitorFolder;
+    },
     inheritedEnvironment:  {},
     mainLine:              currentBranchOf(repository),
     managedBlockMarker:    '<!-- example-managed-block -->',
@@ -888,6 +895,43 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
     expect(requireAssistant()).toMatchObject({ id: assistantId, state: 'running', hostInstance: 1 });
     expect(storedRecords().find((record) => record.kind === 'incident-defaulted')?.fields).toMatchObject({ cause: 'turn-closed' });
     expect(storedRecords().filter((record) => record.jobId === assistantId && ['job-interrupted', 'job-ended'].includes(record.kind))).toEqual([]);
+  }, ROW_TIMEOUT_MILLISECONDS);
+
+  test('Assistant move queued just before its turn\'s result: the move is applied before the turn\'s default, which never comes', async () => {
+    const releaseFile = join(monitorFolder, 'release-the-result');
+    const assistantSteps: readonly FakeAgentStep[] = [
+      STARTED,
+      FIRST_TURN_RESULT,
+      { kind: 'await-line' },
+      { kind: 'shell', command: `while [ ! -f '${releaseFile}' ]; do sleep 0.02; done` },
+      FIRST_TURN_RESULT,
+      { kind: 'await-line' },
+    ];
+    let moveIsDue = false;
+    const queueTheMoveThenAnswer = (): void => {
+      if (!moveIsDue) return;
+      moveIsDue = false;
+      const assistant = requireAssistant();
+      writeRelayRequest(RelayInbox.relayDirectoryOf(repository, assistant.id), {
+        relayFormatVersion: 1,
+        requestId:          'request-park',
+        command:            {
+          kind: 'ticket-park', ticketReference: '001', reason: 'Example park reason', incidentId: openIncidents()[0]?.id ?? ''
+        },
+      });
+      writeFileSync(releaseFile, '');
+      for (let attempt = 0; attempt < WAIT_TRIES && !assistantAnswered(2); attempt += 1) Bun.sleepSync(WAIT_MILLISECONDS);
+    };
+    const adapter   = recordingAdapter({ fresh: WAITING_STEPS, resumed: WAITING_STEPS, orchestrator: assistantSteps });
+    const drivePass = await startedRunner(adapter, undefined, undefined, queueTheMoveThenAnswer);
+    await passUntil(drivePass, () => assistantAnswered(1), 'the Assistant never answered its first message');
+    await openBlockedIncident();
+    await passUntil(drivePass, () => openIncidents()[0]?.deliveredInTurn?.chatSequence === 2, 'the incident was never delivered as chat 2');
+    moveIsDue = true;
+    await passUntil(drivePass, () => openIncidents().length === 0, 'the incident never closed');
+
+    expect(assistantAnswered(2)).toBe(true);
+    expect(storedRecords().filter((record) => ['incident-handled', 'incident-defaulted'].includes(record.kind)).map((record) => record.kind)).toEqual(['incident-handled']);
   }, ROW_TIMEOUT_MILLISECONDS);
 
   test('Assistant down during a delivery turn: ended replaced, cause assistant-down, never resumed, and a fresh one\'s first message carries the incident', async () => {
