@@ -110,12 +110,12 @@ export class TrackerChanges {
     return { logged: [logger.log({ kind: 'gate-cache-paths-set', fields: { paths: paths ?? [] } }, at)], previousGateCachePaths };
   }
 
-  /** The gate ran outside the hold, so only its outcome is recorded here. */
   recordWorktreeRepaired(ticketId: string, fields: LogRecordFieldsOf<'worktree-repaired'>, at: string): Logged {
     this.records.requireTicket(ticketId);
     return { logged: [this.records.logger.log({ kind: 'worktree-repaired', ticketId, fields: { step: fields.step, patchPath: fields.patchPath } }, at)] };
   }
 
+  /** The gate ran outside the hold, so only its outcome is recorded here. */
   recordGateRan(fields: LogRecordFieldsOf<'gate-ran'>, at: string): Logged {
     return { logged: [this.records.logger.log({ kind: 'gate-ran', fields: { tree: fields.tree, outcome: fields.outcome, cached: fields.cached } }, at)] };
   }
