@@ -21,12 +21,13 @@ const GROUP_SETTINGS: DispatchSettings = {
   groupName:             'example-group',
 };
 
-function placementOf(predecessorId: string | null): GroupPlacement {
+function placementOf(pipelinedBehindId: string | null): GroupPlacement {
   return {
     groupName:        'example-group',
     orderedTicketIds: ['101', '102', '103'],
     releaseTicketId:  '103',
-    predecessorId,
+    dependencyIds:    pipelinedBehindId === null ? [] : [pipelinedBehindId],
+    pipelinedBehindId,
   };
 }
 
@@ -93,8 +94,23 @@ describe('the group reviewer prompt', () => {
     expect(prompt).not.toContain('agent-progress release');
   });
 
-  test('refuses to integrate before the ticket before it is settled, a delivered or abandoned one passing as a reviewed one does', () => {
-    expect(prompt).toContain('`agent-progress ticket show 101` must say `reviewed`, `delivered` or `abandoned`');
+  test('refuses to integrate before every dependency is settled, a delivered or abandoned one passing as a reviewed one does', () => {
+    expect(prompt).toContain('`agent-progress ticket show 101` must each say `reviewed`, `delivered` or `abandoned`');
+    const placementWithTwoDependencies = { ...placementOf(null), dependencyIds: ['100', '101'] };
+    expect(GroupAgentPromptUtil.groupReviewerPrompt(GROUP_SETTINGS, placementWithTwoDependencies, REVIEW_REQUEST))
+      .toContain('`agent-progress ticket show 100`, `agent-progress ticket show 101` must each say');
+  });
+
+  // Reviewers run side by side, so another may integrate first; merging its tip keeps the reviewed commits, and the checks run again on the merge.
+  test('on a refused fast-forward merges the group branch\'s new tip, reruns the checks and tries again before returning group-moved', () => {
+    const worktree = '/scratch/example-repository/.claude/worktrees/ticket-102';
+    expect(prompt).toContain(`another ticket reached group-example-group first: then \`git -C ${worktree} merge --no-edit group-example-group\``);
+    expect(prompt).toContain(`run \`example-check 2>&1 | tail -20\` in ${worktree} until green, committing what is uncommitted, and run I2 again.`);
+    expect(prompt).toContain('After 3 refused attempts in all, return `not-released` with releaseReason `group-moved`.');
+  });
+
+  test('says the group\'s tickets are built and reviewed side by side and integrated one at a time', () => {
+    expect(prompt).toContain('built and reviewed side by side wherever their dependencies allow and integrated onto group-example-group one at a time');
   });
 
   test('replaces the review brief\'s step-5 rebase by P\'s three-way rule against the group branch, counting a merge with rework --merge', () => {

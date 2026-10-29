@@ -196,6 +196,12 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   const groupTicketStatuses = new Map<string, string>(groupTicketIds.map((groupTicketId) => [groupTicketId, 'pending']));
   const ticketIdsOutsideTheBundle = scenario.group?.ticketIdsOutsideTheBundle ?? [];
   const ticketIsOfTheGroup = (ticketId: string): boolean => groupTicketIds.includes(ticketId) || ticketIdsOutsideTheBundle.includes(ticketId);
+  const groupDependenciesOf = (ticketId: string): string[] => {
+    const statedDependencies = scenario.group?.dependsOnByTicketId?.[ticketId];
+    if (statedDependencies !== undefined) return statedDependencies;
+    const position = groupTicketIds.indexOf(ticketId);
+    return position <= 0 ? [] : groupTicketIds.slice(position - 1, position);
+  };
   const journal: JournalEntry[] = [];
   let generation = 1;
   let announceKill: () => void = () => {};
@@ -317,11 +323,12 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       };
     }
     if (runningRowOf(`review:${ticketId}`) !== undefined) return { ...reply, outcome: 'claim-refused', detail: `#${ticketId} is under review` };
-    // As `ticket claim` answers a bundle ticket: its predecessor must be reviewed, or in review with `--after` naming it.
-    const predecessorId = groupTicketIds[groupTicketIds.indexOf(ticketId) - 1];
-    const predecessorStatus = predecessorId === undefined ? 'reviewed' : groupTicketStatuses.get(predecessorId);
-    const predecessorIsPipelined = predecessorStatus === 'in-review' && prompt.includes(`--after ${predecessorId ?? ''}`);
-    if (predecessorStatus !== 'reviewed' && !predecessorIsPipelined) return { ...reply, outcome: 'claim-refused', detail: `#${ticketId} waits on #${predecessorId ?? ''}` };
+    // As `ticket claim` answers a bundle ticket: every dependency must be reviewed but one at most, in review with `--after` naming it.
+    const unsettledDependencyIds = groupDependenciesOf(ticketId).filter((dependencyId) => groupTicketStatuses.get(dependencyId) !== 'reviewed');
+    const [onlyUnsettledId] = unsettledDependencyIds;
+    const isPipelined = unsettledDependencyIds.length === 1 && groupTicketStatuses.get(onlyUnsettledId ?? '') === 'in-review'
+      && prompt.includes(`--after ${onlyUnsettledId ?? ''}`);
+    if (unsettledDependencyIds.length > 0 && !isPipelined) return { ...reply, outcome: 'claim-refused', detail: `#${ticketId} waits on #${unsettledDependencyIds.join(', #')}` };
     if (deliveredTicketIds.has(ticketId)) return { ...reply, outcome: 'claim-refused', detail: `#${ticketId} is delivered` };
     if (board.heldTicketIds.includes(ticketId)) return { ...reply, outcome: 'claim-refused', detail: `#${ticketId} is held` };
     if (agentsOnBoard() >= board.limit) return { ...reply, outcome: 'claim-refused', detail: `no slot free: ${agentsOnBoard()} of ${board.limit} agents in flight` };
@@ -397,9 +404,10 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     ...groupTicketIds.map((groupTicketId, position) => ({
       id:            groupTicketId,
       status:        groupTicketStatuses.get(groupTicketId) ?? 'pending',
-      dependsOn:     position === 0 ? [...scenario.group?.firstTicketDependsOn ?? []] : [groupTicketIds[position - 1]],
+      dependsOn:     position === 0 ? [...scenario.group?.firstTicketDependsOn ?? []] : groupDependenciesOf(groupTicketId),
       releasesGroup: position === groupTicketIds.length - 1,
       group:         scenario.group?.name,
+      priority:      priorityOf(groupTicketId),
     })),
     ...ticketIdsOutsideTheBundle.map((looseTicketId) => ({
       id: looseTicketId, status: 'pending', dependsOn: [], releasesGroup: false, group: scenario.group?.name

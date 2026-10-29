@@ -41,7 +41,7 @@ async function runGroupDispatcher(
 
   runtime.phase('Build');
   for (;;) {
-    run.startWorkWithinThePipeline();
+    run.startWorkWithinSlots();
     if (run.finishingOfAgentsInFlight().length === 0) break;
     await settleNextFinished(run);
   }

@@ -305,7 +305,7 @@ describe('the group survey', () => {
     expect(groupSurveyReadingOf({ status: STATUS_BLOCK, tickets: 'none' }, GROUP_NAME)).toMatchObject({ tickets: 'unlisted' });
   });
 
-  // A field the survey left out reads as its safe side: no release mark, no claim of this run's, no worktree, no bar, not integrated.
+  // A field the survey left out reads as its safe side: no release mark, no claim of this run's, no worktree, no bar, not integrated, started last.
   test('ticket entries without a string id are dropped, and every missing field reads as its safe side', () => {
     const tickets = [null, { id: 5, group: GROUP_NAME }, { id: '001', dependsOn: ['000', 3], group: GROUP_NAME }];
     expect(groupSurveyReadingOf({ status: STATUS_BLOCK, tickets }, GROUP_NAME)?.tickets).toEqual([{
@@ -313,6 +313,7 @@ describe('the group survey', () => {
       status:              '',
       dependsOn:           ['000'],
       releasesGroup:       false,
+      priority:            'low',
       agentModelAndEffort: DEFAULT_AGENT_MODEL_AND_EFFORT,
       rowNote:             '',
       worktreeExists:      false,
