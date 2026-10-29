@@ -96,7 +96,7 @@ beforeEach(async () => {
   await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Show the role history']);
   await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Export the roles']);
   await run(['task', 'add', 'Review pass']);
-  // A running dispatcher adds no advice, so these lines pin slots and queue alone; `cli/dispatch/dispatcher/DispatcherCommand.spec.ts` pins the advice.
+  // A running dispatcher adds no advice, so these lines pin slots and queue alone.
   await run(['dispatcher', 'running']);
 });
 
