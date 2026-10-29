@@ -55,6 +55,8 @@ describe('the command table', () => {
       'epic',
       'help',
       'hook',
+      'incident',
+      'incidents',
       'init',
       'intake',
       'job',

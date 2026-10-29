@@ -11,6 +11,9 @@ export const WORKER_FILINGS_PER_JOB = 10;
 /** The calls a session may make past its role's call budget after the wind-down message, before the runner stops it `out-of-calls`. */
 export const WIND_DOWN_GRACE_CALLS = 10;
 
+/** Consecutive runner sweeps a running build or review job's event log may stand still before it opens `quiet-job`: a count, never a clock. */
+export const QUIET_JOB_SWEEPS = 6;
+
 /** How long a stopped session's host lets it end before killing its process group. */
 export const SESSION_STOP_GRACE_MILLISECONDS = 5000;
 

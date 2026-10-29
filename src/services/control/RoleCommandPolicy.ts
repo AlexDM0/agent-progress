@@ -16,7 +16,19 @@ export interface RelayingJob {
   id:                 string;
   role:               JobRole | null;
   filedTickets:       ReadonlyArray<{ id: string; status: TicketStatus }>;
-  deliveredIncidents: ReadonlyArray<Pick<Incident, 'id' | 'kind' | 'ticketIds'>>;
+  deliveredIncidents: ReadonlyArray<Pick<Incident, 'id' | 'kind' | 'ticketIds' | 'jobId'>>;
+}
+
+/** Whether the incident's kind allows the move, and a finding move names only tickets it lists; a `job fresh` needs a waiting job. */
+function incidentMoveVerdictOf(incident: Pick<Incident, 'kind' | 'ticketIds' | 'jobId'>, command: ControlCommand): RoleCommandRefusalReason | null {
+  const move = ALLOWED_MOVES_BY_INCIDENT_KIND[incident.kind].find((allowed) => allowed === command.kind);
+  if (move === undefined || (move === 'job-fresh' && incident.jobId === null)) return 'incident-move-not-allowed';
+  if (!FINDING_MOVES.includes(move)) return null;
+  const everyTicketIsListed = referencedTicketTextsOf(command).every((reference) => {
+    const ticketId = typeof reference === 'string' ? TicketIdUtil.parseTicketReference(reference) : null;
+    return ticketId !== null && incident.ticketIds.includes(ticketId);
+  });
+  return everyTicketIsListed ? null : 'finding-not-listed';
 }
 
 export type RoleCommandVerdict =
@@ -44,6 +56,9 @@ const PRODUCT_OWNER_KINDS: ReadonlySet<string> = new Set([
 const PRODUCT_OWNER_OWN_DRAFT_KINDS: ReadonlySet<string> = new Set(['ticket-edit', 'ticket-priority', 'ticket-network', 'ticket-epic', 'ticket-abandon']);
 
 const FIELDS_ONLY_THE_RUNNER_DECIDES = ['jobId', 'role', 'admission'] as const;
+
+/** Their `jobId` is the job the move acts on, not the sender's identity. */
+const JOB_TARGETING_KINDS: ReadonlySet<string> = new Set(['job-fresh', 'job-message']);
 
 function refused(reason: RoleCommandRefusalReason): RoleCommandVerdict {
   return { verdict: 'refused', reason };
@@ -96,19 +111,14 @@ function orchestratorVerdictOf(job: RelayingJob, command: ControlCommand): RoleC
   const incidentId = fieldOf(command, 'incidentId');
   const incident   = job.deliveredIncidents.find((delivered) => delivered.id === incidentId);
   if (incident === undefined) return refused('incident-move-not-allowed');
-  const move = ALLOWED_MOVES_BY_INCIDENT_KIND[incident.kind].find((allowed) => allowed === command.kind);
-  if (move === undefined) return refused('incident-move-not-allowed');
-  if (!FINDING_MOVES.includes(move)) return { verdict: 'admitted', command };
-  const everyTicketIsListed = referencedTicketTextsOf(command).every((reference) => {
-    const ticketId = typeof reference === 'string' ? TicketIdUtil.parseTicketReference(reference) : null;
-    return ticketId !== null && incident.ticketIds.includes(ticketId);
-  });
-  return everyTicketIsListed ? { verdict: 'admitted', command } : refused('finding-not-listed');
+  const reason = incidentMoveVerdictOf(incident, command);
+  return reason === null ? { verdict: 'admitted', command } : refused(reason);
 }
 
 /** Resolver and resolution-review relay nothing; a job with no role runs no agent, so it relays nothing either. */
 function verdictOf(job: RelayingJob, command: ControlCommand): RoleCommandVerdict {
-  if (FIELDS_ONLY_THE_RUNNER_DECIDES.some((field) => Object.hasOwn(command, field))) return refused('relay-identity-mismatch');
+  const forgedField = FIELDS_ONLY_THE_RUNNER_DECIDES.some((field) => Object.hasOwn(command, field) && !(field === 'jobId' && JOB_TARGETING_KINDS.has(command.kind)));
+  if (forgedField) return refused('relay-identity-mismatch');
   if (job.role === null) return refused('command-not-allowed-for-role');
   if (WORKER_ROLES.has(job.role)) return workerVerdictOf(job, command);
   if (job.role === 'product-owner') return productOwnerVerdictOf(job, command);
@@ -116,4 +126,4 @@ function verdictOf(job: RelayingJob, command: ControlCommand): RoleCommandVerdic
   return refused('command-not-allowed-for-role');
 }
 
-export const RoleCommandPolicy = Object.freeze({ verdictOf });
+export const RoleCommandPolicy = Object.freeze({ verdictOf, incidentMoveVerdictOf });

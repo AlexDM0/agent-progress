@@ -203,3 +203,72 @@ describe('intake', () => {
     expect(board.tickets()[0]?.frontmatter.status).toBe('draft');
   });
 });
+
+describe('moves naming an incident', () => {
+  function quietJobBoard(): Board {
+    const board = runningBuildBoard();
+    board.openIncident({
+      kind: 'quiet-job', ticketIds: ['001'], jobId: 'J1', facts: {}, defaultMove: 'open-quiet-job-decision'
+    }, AT);
+    return board;
+  }
+
+  test('job message under an incident its kind allows is logged and marks it handled in the same hold', () => {
+    const board  = quietJobBoard();
+    const result = apply(board, {
+      kind: 'job-message', jobId: 'J1', text: 'Commit what you have.', incidentId: 'I1'
+    });
+    expect(loggedKindsOf(result)).toEqual(['job-messaged', 'incident-handled']);
+    expect(board.incidents()).toEqual([]);
+  });
+
+  test('a move the incident\'s kind does not allow is refused incident-move-not-allowed, whoever names it', () => {
+    const board = quietJobBoard();
+    const refusedDetail = { kind: 'role-command-refused', reason: 'incident-move-not-allowed', commandKind: 'incident-answer' };
+    expect(() => apply(board, { kind: 'incident-answer', incidentId: 'I1', text: 'bun' })).toThrow(expect.objectContaining({ detail: refusedDetail }) as Error);
+  });
+
+  test('job message under an incident is refused to a job waiting on User, to one whose ticket has an open agent-question, and to a product owner', () => {
+    const waiting = quietJobBoard();
+    waiting.moveJob('J1', 'waiting-for-answer', AT);
+    expect(refusalDetailOf(() => apply(waiting, {
+      kind: 'job-message', jobId: 'J1', text: 'Go on.', incidentId: 'I1'
+    })))
+      .toEqual({ reason: 'job-awaits-user-answer', jobId: 'J1' });
+
+    const asked = quietJobBoard();
+    asked.openDecision({
+      kind:      'agent-question',
+      ticketIds: ['001'],
+      jobId:     null,
+      askedBy:   'builder',
+      requestId: 'request-1',
+      questions: [{
+        question: 'Which?', header: 'h', multiSelect: false, options: []
+      }],
+      context: '',
+    }, AT);
+    expect(refusalDetailOf(() => apply(asked, {
+      kind: 'job-message', jobId: 'J1', text: 'Go on.', incidentId: 'I1'
+    })))
+      .toEqual({ reason: 'job-awaits-user-answer', jobId: 'J1' });
+
+    const intake = runningBuildBoard();
+    intake.startIntake('Alex Example asks for a basket.', AT);
+    intake.openIncident({
+      kind: 'quiet-job', ticketIds: [], jobId: 'J2', facts: {}, defaultMove: 'open-quiet-job-decision'
+    }, AT);
+    expect(refusalDetailOf(() => apply(intake, {
+      kind: 'job-message', jobId: 'J2', text: 'Go on.', incidentId: 'I1'
+    })))
+      .toEqual({ reason: 'job-is-product-owner', jobId: 'J2' });
+  });
+
+  test('job fresh under a system-question marks it handled and asks for the fresh agent', () => {
+    const board = runningBuildBoard();
+    board.openIncident({
+      kind: 'system-question', ticketIds: ['001'], jobId: 'J1', facts: { requestId: 'request-1' }, defaultMove: 'incident-escalate'
+    }, AT);
+    expect(loggedKindsOf(apply(board, { kind: 'job-fresh', jobId: 'J1', incidentId: 'I1' }))).toEqual(['job-stop-requested', 'incident-handled']);
+  });
+});

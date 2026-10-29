@@ -377,7 +377,13 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
       });
       const startedPass = drivePass;
       watcher = BoardWatcher.startWatching({
-        trackerDirectory: workspace.trackerDirectory, repositoryRoot: workspace.rootDirectory, wake: () => startedPass.wake(), onSweep: installWatch.noteSweep,
+        trackerDirectory: workspace.trackerDirectory,
+        repositoryRoot:   workspace.rootDirectory,
+        wake:             () => startedPass.wake(),
+        onSweep:          () => {
+          installWatch.noteSweep();
+          startedPass.sweep();
+        },
       });
       const serving: Serving = {
         generation, server, drivePass, watcher, lifetime

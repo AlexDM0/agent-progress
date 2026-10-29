@@ -17,10 +17,15 @@ export type IncidentKind =
   | 'quiet-job'
   | 'findings-delivered';
 
-/** A move that closes an incident, named as its control command kind; `open-quiet-job-decision` is the `quiet-job` default alone. */
+/**
+ * A move under an incident, named as its control command kind. `incident-note` records and never closes; `open-quiet-job-decision` is the
+ * `quiet-job` default alone; `ticket-abandon` is User's abandon of the last finding a `findings-delivered` incident listed, never allowed.
+ */
 export type IncidentMove =
   | 'incident-answer'
   | 'incident-escalate'
+  | 'incident-note'
+  | 'ticket-abandon'
   | 'job-fresh'
   | 'job-message'
   | 'worktree-repair'

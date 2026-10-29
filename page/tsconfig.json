@@ -37,6 +37,7 @@
     "../src/lib/tracker-model/EmptyProgress.ts",
     "../src/lib/tracker-model/Epics.ts",
     "../src/lib/tracker-model/GroupReleases.ts",
+    "../src/lib/tracker-model/IncidentMoves.ts",
     "../src/lib/tracker-model/Incidents.ts",
     "../src/lib/tracker-model/JobControls.ts",
     "../src/lib/tracker-model/Jobs.ts",

@@ -11,7 +11,7 @@ import type { LogRecord }              from './@types/LogRecord.ts';
 
 const LOGGED_AT = '2026-09-26T10:15:00+02:00';
 
-const RECORD_KIND_COUNT = 72;
+const RECORD_KIND_COUNT = 74;
 
 /**
  * Five kinds are logged twice: `draft-claimed`, plainly and as a forced takeover, since the two store different fields, `draft-opened`,
@@ -104,7 +104,9 @@ const FROZEN_STORED_LINES = [
   '{"at":"2026-09-26T10:15:00+02:00","kind":"decision-withdrawn","decisionId":"E2","fields":{"reason":"job stopped"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"incident-opened","incidentId":"I1","fields":{"kind":"system-question","ticketIds":["002"]}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"incident-handled","incidentId":"I1","fields":{"move":"incident-answer"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"incident-answered","incidentId":"I1","fields":{"answer":{"Incident I1":"Use the example setup script"},"requestId":"request-2"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"incident-opened","incidentId":"I2","fields":{"kind":"system-question","ticketIds":["002"]}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"incident-noted","incidentId":"I2","fields":{"text":"Example note"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"incident-defaulted","incidentId":"I2","fields":{"move":"incident-escalate","cause":"turn-closed"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"incident-opened","incidentId":"I3","fields":{"kind":"system-question","ticketIds":["002"]}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"decision-opened","decisionId":"E3","fields":{"kind":"agent-question","ticketIds":["002"]}}',

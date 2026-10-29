@@ -401,6 +401,22 @@ const CLAIMS: PolicyClaim[] = [
     mutant: policyLine('>= limits.FAILED_ORCHESTRATOR_BOOTS_BEFORE_DEFAULTING', '> limits.FAILED_ORCHESTRATOR_BOOTS_BEFORE_DEFAULTING'),
   },
   {
+    name:  'during a reboot a merge-gate-failed takes its default in that pass while a blocked one waits for the fresh session',
+    facts: factsWith({
+      jobs:      [{ ...LIVE_ORCHESTRATOR, state: 'interrupted', interruption: 'reboot' }],
+      incidents: [incidentOf({ id: 'I1', kind: 'merge-gate-failed', defaultMove: 'merge-abort' }), incidentOf({ id: 'I2', kind: 'blocked' })],
+    }),
+    holds: (steps) => steps.filter((step) => step.kind === 'default-incident')
+      .map((step) => (step.kind === 'default-incident' ? `${step.incidentId} ${step.cause}` : '')).join(',') === 'I1 no-orchestrator',
+    mutant: policyLine('!orchestratorIsRunning && AIRLOCK_HOLDING_INCIDENT_KINDS', 'false && AIRLOCK_HOLDING_INCIDENT_KINDS'),
+  },
+  {
+    name:   'a resolution over the threshold waits for nobody while no orchestrator is running',
+    facts:  factsWith({ jobs: [], incidents: [incidentOf({ kind: 'resolution-over-threshold', defaultMove: 'merge-review' })] }),
+    holds:  (steps) => steps.some((step) => step.kind === 'default-incident' && step.cause === 'no-orchestrator'),
+    mutant: policyLine('[\'merge-gate-failed\', \'resolution-over-threshold\']', '[\'merge-gate-failed\']'),
+  },
+  {
     name:  'an incident delivered in a closed turn takes its default',
     facts: factsWith({
       incidents:    [incidentOf({ deliveredInTurn: { jobId: 'J900', chatSequence: 3 } })],

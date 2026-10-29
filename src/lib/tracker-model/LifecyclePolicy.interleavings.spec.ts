@@ -44,6 +44,13 @@ describe('the lifecycle under seeded interleavings', () => {
     ],
     ['a resume of a finished session', 'src/lib/tracker-model/Jobs.ts', '    liveJobs.splice(liveJobs.indexOf(job), 1);\n', '', 'a finished session'],
     [
+      'a job waiting on a question nobody was asked',
+      'src/lib/tracker-model/Decisions.ts',
+      '    this.records.progress.decisions.push(decision);\n',
+      '',
+      'waits for an answer nobody was asked',
+    ],
+    [
       'two merges on one target',
       'src/lib/tracker-model/MergeSlotClaims.ts',
       '    if (holder !== undefined) throw new BoardRefusal({ reason: \'merge-slot-held\', target, jobId: holder.id });\n',

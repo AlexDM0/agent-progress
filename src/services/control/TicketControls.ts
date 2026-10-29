@@ -1,7 +1,6 @@
 /** The ticket kinds of the control contract, each applied to the Board a `writeTracker` hold carries. */
 import { readFileSync } from 'node:fs';
 
-import { TicketAcceptanceUtil }               from '../../adapters/tickets/utils/TicketAcceptanceUtil.ts';
 import type { ControlCommandOf as CommandOf } from '../../shared/@types/ControlCommand.ts';
 import { filledTemplateOf }                   from '../../shared/FilledTemplate.ts';
 import { OperationRefusal }                   from '../../shared/OperationRefusal.ts';
@@ -9,6 +8,7 @@ import { resourceFilePathOf }                 from '../../shared/ResourceFilePat
 import { createTicket }                       from '../tracker/TicketStore.ts';
 import type { TrackerChange }                 from '../tracker/TrackerPipeline.ts';
 import { ticketIdOfReference }                from './ControlTicketLookup.ts';
+import { readyTickets }                       from './IncidentControls.ts';
 
 const TICKET_BODY_TEMPLATE_PATH = ['templates', 'TicketBody.md'];
 
@@ -74,11 +74,6 @@ function abandonTicket(command: CommandOf<'ticket-abandon'>, change: TrackerChan
     ...(command.reason === undefined ? {} : { reason: command.reason }),
     ...(command.tokens === undefined ? {} : { tokens: command.tokens }),
   }, change.at);
-}
-
-function readyTickets(command: CommandOf<'ticket-ready'>, change: TrackerChange) {
-  const ticketIds = command.ticketReferences.map((reference) => ticketIdOfReference(change, reference));
-  return change.board.readyDraftTickets(ticketIds, TicketAcceptanceUtil.readinessGapsOf, change.at);
 }
 
 export const TICKET_CONTROLS = {

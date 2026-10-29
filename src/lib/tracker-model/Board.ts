@@ -107,6 +107,7 @@ import { DraftContents }                                    from './DraftContent
 import { Drafts }                                           from './Drafts.ts';
 import { Epics }                                            from './Epics.ts';
 import { GroupReleases }                                    from './GroupReleases.ts';
+import { IncidentMoves }                                    from './IncidentMoves.ts';
 import type { IncidentEscalation }                          from './Incidents.ts';
 import { Incidents }                                        from './Incidents.ts';
 import { JobControls }                                      from './JobControls.ts';
@@ -201,6 +202,8 @@ export class Board {
 
   private readonly jobControls: JobControls;
 
+  private readonly incidentMoves: IncidentMoves;
+
   constructor(input: BoardInput) {
     this.records            = new BoardRecords(input.progress, input.tickets, input.epics, input.drafts ?? [], input.logger, input.storedLogRecords ?? []);
     this.reviewBars         = new ReviewBars(this.records);
@@ -227,6 +230,42 @@ export class Board {
     this.incidentRules      = new Incidents(this.records, this.decisionRules);
     this.agentQuestions     = new AgentQuestions(this.records, this.jobRules, this.decisionRules, this.ticketSettings, this.ticketEdits);
     this.jobControls        = new JobControls(this.records, this.jobRules, this.decisionRules, this.ticketSettings, this.agentQuestions);
+    this.incidentMoves      = new IncidentMoves({
+      records:        this.records,
+      incidentRules:  this.incidentRules,
+      decisionRules:  this.decisionRules,
+      agentQuestions: this.agentQuestions,
+      ticketSettings: this.ticketSettings,
+      ticketMoves:    this.ticketMoves,
+      jobRules:       this.jobRules,
+      endJob:         (jobId, ending, at) => this.endJob(jobId, ending, at),
+      requestFresh:   (jobId, at) => this.jobControls.requestJobStop(jobId, 'fresh', at),
+    });
+  }
+
+  /** Refuses `unknown-incident` or `incident-closed`. */
+  requireOpenIncident(incidentId: string): Readonly<Incident> {
+    return this.incidentRules.requireOpenIncident(incidentId);
+  }
+
+  /** Records a finding under an open incident, which stays open. */
+  noteIncident(incidentId: string, text: string, at: string): Logged {
+    return this.incidentMoves.noteIncident(incidentId, text, at);
+  }
+
+  /** Answers a `system-question` or `malformed-ticket`: its waiting job takes the answer, and a malformed ticket's goes under `## Questions`. */
+  answerIncident(incidentId: string, text: string, at: string): Logged {
+    return this.incidentMoves.answerIncident(incidentId, text, at);
+  }
+
+  /** Holds `parked:<kind>`, stops the incident's waiting job and opens a `parked` decision to User, carrying the agent's questions. */
+  parkTicket(ticketId: string, reason: string, incidentId: string | null, at: string): Logged {
+    return this.incidentMoves.parkTicket(ticketId, reason, incidentId, at);
+  }
+
+  /** Readies listed findings: a draft through the completeness check, a v16 leftover by lifting its `first-run review` hold. */
+  readyFindings(ticketIds: readonly string[], readinessGapsOf: (body: string) => readonly ReadinessGap[], at: string): TicketsReadied {
+    return this.incidentMoves.readyFindings(ticketIds, readinessGapsOf, at);
   }
 
   /** User's stop, wind-down or fresh agent; `stop` and `wind-down` hold the job's ticket in this hold. */
@@ -521,7 +560,7 @@ export class Board {
       case 'open-incident':
         return this.openIncident(step.incident, at).logged;
       case 'default-incident':
-        return this.defaultOrEscalateIncident(step.incidentId, step.cause, at);
+        return this.incidentMoves.defaultIncident(step.incidentId, step.cause, decisionWordingOf, at);
       case 'stop-dispatching':
         return this.setDispatcherState('stopped', null, at).logged;
     }
@@ -531,18 +570,9 @@ export class Board {
     return this.incidentRules.incidentById(incidentId);
   }
 
-  /** A question incident whose default is to escalate puts the agent's questions to User; every other default only closes the incident. */
-  private defaultOrEscalateIncident(incidentId: string, cause: IncidentDefaultCause, at: string): readonly LogRecord[] {
-    const incident = this.incidentRules.incidentById(incidentId);
-    const escalation = incident?.defaultMove === 'incident-escalate' ? this.agentQuestions.escalationOf(incident) : null;
-    if (escalation === null) return this.defaultIncident(incidentId, cause, at).logged;
-    return this.incidentRules.escalateIncident(incidentId, escalation, at).logged;
-  }
-
-  /** Puts a finding before the user's low-priority triage; the ticket is one the caller resolved. */
-  triageTicket(ticketId: string, at: string): Logged {
-    this.records.requireTicket(ticketId);
-    return { logged: [this.records.logger.log({ kind: 'ticket-triaged', ticketId, fields: {} }, at)] };
+  /** Puts findings before the user's low-priority triage (`findingRoute: user`), striking them off any incident listing them. */
+  triageTickets(ticketIds: readonly string[], at: string): Logged {
+    return this.incidentMoves.triageFindings(ticketIds, at);
   }
 
   setChartRange(view: ViewRange, at: string): Logged {
@@ -680,17 +710,24 @@ export class Board {
     return this.draftContents.dropDraftItem(draftId, itemId, at);
   }
 
+  /** Delivering or abandoning a ticket opens the `findings-delivered` incident over its jobs' findings in the same hold. */
   moveTicket(ticketId: string, targetStatus: TicketStatus, request: TicketMoveRequest, at: string): TicketMoved {
-    return this.ticketMoves.moveTicket(ticketId, targetStatus, request, at);
+    const moved = this.ticketMoves.moveTicket(ticketId, targetStatus, request, at);
+    if (targetStatus !== 'delivered' && targetStatus !== 'abandoned') return moved;
+    return { ...moved, logged: [...moved.logged, ...this.incidentMoves.afterTicketSettled(ticketId, targetStatus === 'abandoned', at)] };
   }
 
   rereviewTicket(ticketId: string, at: string): TicketChanged {
     return this.ticketMoves.rereviewTicket(ticketId, at);
   }
 
-  /** The caller reads each body for its gaps, since what a complete ticket holds is its document's format, not a Board rule. */
+  /**
+   * The caller reads each body for its gaps, since what a complete ticket holds is its document's format, not a Board rule. A readied
+   * draft a `findings-delivered` incident lists is struck off it, whoever readied it.
+   */
   readyDraftTickets(ticketIds: readonly string[], readinessGapsOf: (body: string) => readonly ReadinessGap[], at: string): TicketsReadied {
-    return this.ticketMoves.readyDraftTickets(ticketIds, readinessGapsOf, at);
+    const readied = this.ticketMoves.readyDraftTickets(ticketIds, readinessGapsOf, at);
+    return { ...readied, logged: [...readied.logged, ...this.incidentRules.settleListedFindings(ticketIds, 'ticket-ready', at)] };
   }
 
   startReviewBar(ticketId: string, request: ReviewBarRequest, at: string): ReviewBarStarted {

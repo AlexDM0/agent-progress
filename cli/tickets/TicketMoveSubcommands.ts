@@ -19,7 +19,9 @@ import { SUBCOMMAND_WITH_TWO_ARGUMENTS_POSITIONAL_COUNT }                     fr
 import { OutputUtil }                                                         from '../utils/OutputUtil.ts';
 import type { TicketSubcommandHandler }                                       from './@types/TicketSubcommandHandler.ts';
 import { REVIEW_BAR_OPTION_NAMES, reviewBarRequestFrom, reviewBarStartedFor } from './ReviewBarRequest.ts';
+import { parkTicket }                                                         from './TicketPark.ts';
 import { TRANSITION_OPTION_NAMES, transitionOneTicket }                       from './TicketTransition.ts';
+import { triageTickets }                                                      from './TicketTriage.ts';
 import { TICKET_USAGE }                                                       from './constants/TicketUsage.ts';
 import { ReviewBarOutputUtil }                                                from './utils/ReviewBarOutputUtil.ts';
 import { TicketArgumentUtil }                                                 from './utils/TicketArgumentUtil.ts';
@@ -36,7 +38,7 @@ const TRANSITION_VERBS: readonly (readonly [string, TicketStatus])[] = [
 
 const REVIEW_OPTION_NAMES   = [...TRANSITION_OPTION_NAMES, ...REVIEW_BAR_OPTION_NAMES];
 const REREVIEW_OPTION_NAMES = ['at', 'json', ...REVIEW_BAR_OPTION_NAMES];
-const READY_OPTION_NAMES    = ['at', 'json'];
+const READY_OPTION_NAMES    = ['at', 'json', 'incident'];
 const BY_HAND_FLAG          = 'by-hand';
 const BY_HAND_OPTION_NAMES  = [BY_HAND_FLAG, 'branch', 'commit', 'at', 'json'];
 
@@ -125,7 +127,8 @@ async function readyTheNamedTickets(commandArguments: ArgumentParser, context: C
   const references = commandArguments.positionals().slice(1);
   if (references.length === 0) throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} ticket ready needs a ticket id.\n  Usage: ${TICKET_USAGE}`);
 
-  const command: ControlCommandOf<'ticket-ready'> = { kind: 'ticket-ready', ticketReferences: references };
+  const incidentId = commandArguments.option('incident')?.toUpperCase();
+  const command: ControlCommandOf<'ticket-ready'> = { kind: 'ticket-ready', ticketReferences: references, ...(incidentId === undefined ? {} : { incidentId }) };
   await relayWhenUnderJob(context, command);
   const { result: readied, nextLine } = await openTrackerForWritingThenReadNextLine(
     commandArguments,
@@ -145,4 +148,6 @@ export const TICKET_MOVE_SUBCOMMANDS: Readonly<Record<string, TicketSubcommandHa
   status:   setTicketStatus,
   rereview: rereviewOneTicket,
   ready:    readyTheNamedTickets,
+  triage:   triageTickets,
+  park:     parkTicket,
 };
