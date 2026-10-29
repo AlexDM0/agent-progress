@@ -138,6 +138,7 @@ async function drivePassPlaying(steps: readonly FakeAgentStep[]): Promise<DriveP
     installVersionChanged: () => false,
     decisionWordingOf:     RunnerWording.decisionWordingOf,
     launchTextOf:          () => ({ firstMessage: 'Example first message', roleBrief: 'Example role' }),
+    assistantChatTextOf:   (facts) => `Example chat ${facts.sequence}`,
     windDownMessage:       'Example wind-down message',
     resumeMessage:         'Example resume message',
     answerMessageOf:       (answer) => `Example answers ${JSON.stringify(answer)}`,

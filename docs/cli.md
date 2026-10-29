@@ -579,7 +579,7 @@ comment is code, and a file type it does not know counts every non-blank line.
 | `jobs [--json]` | The live jobs, one line each (id, kind and role, state, tickets, attempt, host instance, a stop asked), then the runner (`live` with its URL, or `down`), paused or not, agents against the limit, the open decisions and incidents, and a warning line per incident that took its default since the runner last started. Read-only, no lock. `--json` prints `{jobs, runner, paused, agentsInFlight, limit, openDecisions, openIncidents, defaultedIncidents}`, each defaulted one `{incidentId, move, cause, at}`. |
 | `job show <J> [--json]` | The job's record from `progress.json`, or for a finished job what its `job-launched` and `job-ended` records hold, and its job folder; an unknown job is refused. Read-only, no lock. `--json` prints `{job, jobFolder}`. |
 | `job attach <J> [--json]` | Every host instance's event log in instance order through the adapter's mapper, then the newest followed while the job is on the board; it never connects to a host. Read-only, no lock. `--json` prints `{jobId, lines}` of the replay and follows nothing. |
-| `job message <J> [--incident <I>] -- <text> [--json]` | Record a chat turn in a hold, logged `job-messaged`, with the runner up or down; the runner writes it to the live session in log order, once. A product-owner job that ended `closed` (its own `intake-close` or `job stop`) is reopened instead, logged `job-reopened`: back on the board `running` in its next host instance, which resumes its session by id in the same folder with the text as its first line, and its next `ready-drafts` lists only drafts filed since. Any other finished job, or a session whose input is closing, is refused `job-finished`. Under an incident it is refused `job-awaits-user-answer` for a job in `waiting-for-answer` or whose ticket has an open `agent-question`, and `job-is-product-owner` for User's product-owner session. |
+| `job message <J> [--incident <I>] -- <text> [--json]` | Record a chat turn in a hold, logged `job-messaged`, with the runner up or down; the runner writes it to the live session in log order, once; to the Assistant only at its next idle point (see The Assistant). A product-owner job that ended `closed` (its own `intake-close` or `job stop`) is reopened instead, logged `job-reopened`: back on the board `running` in its next host instance, which resumes its session by id in the same folder with the text as its first line, and its next `ready-drafts` lists only drafts filed since. Any other finished job, or a session whose input is closing, is refused `job-finished`. Under an incident it is refused `job-awaits-user-answer` for a job in `waiting-for-answer` or whose ticket has an open `agent-question`, and `job-is-product-owner` for User's product-owner session. |
 | `job fresh <J> [--incident <I>] [--json]` | See `job wind-down\|stop`; `--incident` names the incident it handles. |
 | `job wind-down\|stop <J> [--json]` | Logged `job-stop-requested` with its mode and kept as the job's `stopRequest`, with the runner up or down. `stop` and `wind-down` hold the job's ticket `stopped by User (J<n>)` or `wound down by User (J<n>)` in the same hold (an already held ticket keeps its hold), which the policy never undoes; `ticket unhold` lets a fresh agent take it. `wind-down` sends the wind-down turn; `stop` moves the job to `stopping` and the runner stops its host, the job ending `stopped`; a job with no session yet (launching, preparing, interrupted, awaiting an answer) ends `stopped` in the same hold. A stopped product owner is finished: its open decisions are withdrawn (`decision-withdrawn`), its drafts stay drafts, and it resumes only when User sends it a `job message`. `fresh` holds nothing and ends the job `replaced`, so the next attempt starts on its worktree with the earlier-session note; a job with no ticket is refused `job-has-no-ticket`. |
 | `job stop --all [--wind-down] [--json]` | `run pause`, then a stop (or wind-down) of every build, review and product-owner job, in one hold. |
@@ -698,6 +698,30 @@ and gated, the runner counts the rework from the review's start to its HEAD in c
 | reworked over the threshold and was refused another round | it passes on; the ticket shows the `rounds-not-converging` notice until it is delivered or reviewed again |
 | claims an item `waiver-proposed` | the `waiver` decision opens and the job waits `awaiting-answer`, the ticket out of the merge queue and held; granting it writes `A<n>. Waived: <reason>` (the reviewer's note) in the answering hold and queues the ticket; any answer starting `refuse` is a failed pass back to a fixer |
 | otherwise | the job ends `reviewed`, the ticket is marked `mergeQueued` and `merge-queued` is logged with its target; a queued ticket gets no further review |
+
+### The Assistant
+
+The runner always has one `orchestrator` job, the Assistant: no ticket, no build slot, working in
+`<worktrees>/sessions/<J>/`, never resumed, with no off switch. The policy boots one at runner start and whenever none
+is live, `--model sonnet --effort medium` (`ASSISTANT_MODEL`, `ASSISTANT_EFFORT` in
+`src/shared/constants/RunnerLimits.ts`; every other role runs `opus` at `medium`), its brief
+`resources/templates/AssistantBrief.md`, AskUserQuestion, WebFetch and WebSearch disallowed and no network. Its first
+message is chat 1: every open incident, the newest `ASSISTANT_HISTORY_RECORDS` (20) `incident-*` records and a board
+summary.
+
+| what happens | what the runner does |
+| --- | --- |
+| the Assistant is idle: as many `result`s as chats, and an incident is undelivered | marks every undelivered incident delivered in the next chat number (`deliveredInTurn`) and writes them as one chat turn |
+| the n-th `result` of its session | closes chat n's turn: in that hold, after the turn's relayed moves (a `queued` one included), every incident delivered in it and still open takes its default, cause `turn-closed` |
+| the open turn reaches `ASSISTANT_TURN_CALL_BUDGET` (40) tool calls | writes the interrupt line once; the turn's open incidents default, cause `turn-budget` |
+| an idle Assistant's newest `result` reports `ASSISTANT_CONTEXT_TOKENS_BEFORE_FRESH` (200 000) context tokens | moves it `stopping` and closes its input; it ends `closed` and a fresh one boots |
+| User's `job message <J>` to it | written as the next numbered chat at its next idle point, never mid-turn |
+| it is interrupted (its host lost, its session crashed, a reboot, a usage limit) or its event log stands still for `QUIET_JOB_SWEEPS` sweeps mid-turn | stops what is left of it, ends it `replaced` (`failed` before its first `result`), cause `assistant-down`, and boots a fresh one whose first message carries every open incident, those it was delivered included |
+| `FAILED_ORCHESTRATOR_BOOTS_BEFORE_DEFAULTING` (2) boots in a row failed, or a usage limit holds launches | every open incident defaults in that pass, cause `no-orchestrator`, until a fresh session reaches its first `result`; past the failed boots it boots again once per sweep, never in the pass a boot failed |
+
+Through its relay it may make only the moves its delivered incidents allow, each naming `--incident <I>`, and ready or
+triage only the findings a delivered `findings-delivered` incident lists: filing, priorities, waivers, settings and
+answers to User's decisions are refused.
 
 ### Under a job: the relay
 

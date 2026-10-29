@@ -8,7 +8,9 @@
  * foreign boot, and a runner restart by a fresh DrivePass reattaching. What matters there: an orphaned agent group is killed before the
  * resume, only the crash causes count toward the bound, a resume is by id in the same folder, and a finished session never continues,
  * save a closed product owner User messages, which resumes by id. A handover row hands a running session's board to a successor and
- * holds that no host is touched; a host below the supported protocol window is watched from its files and stopped by its group. The rows
+ * holds that no host is touched; a host below the supported protocol window is watched from its files and stopped by its group. The
+ * Assistant rows hold that it continues across a runner restart, is replaced and never resumed when down, and boots past two failed boots
+ * only on a sweep while every incident defaults. The rows
  * "the old runner dies during a handover" and "a handover's successor fails" are held by `src/services/runner/RunnerHandover.spec.ts`. The
  * usage-limit row is held by `src/services/runner/UsageLimits.spec.ts` and `cli/runner/RunnerDrivePass.spec.ts`, the body-edit row by V6
  * in `src/services/lifecycle/JobVerification.spec.ts`.
@@ -33,10 +35,12 @@ import { hostFilesOf }                                   from '../../lib/agent-h
 import type { HostRecord }                               from '../../lib/agent-host/HostRecord.ts';
 import { HOST_PROTOCOL_OLDEST_SUPPORTED }                from '../../lib/agent-host/constants/HostProtocol.ts';
 import type { AgentAdapter }                             from '../../lib/agent-launch/AgentAdapter.ts';
+import type { AgentLaunchRequest }                       from '../../lib/agent-launch/AgentLaunchRequest.ts';
 import type { AgentQuestion }                            from '../../lib/agent-launch/AgentSessionEvent.ts';
 import type { WorkerProfile }                            from '../../lib/agent-launch/WorkerProfile.ts';
 import { identityOf, sameProcess, type ProcessIdentity } from '../../lib/process-identity/ProcessIdentity.ts';
 import type { Decision }                                 from '../../lib/tracker-model/@types/Decision.ts';
+import type { Incident }                                 from '../../lib/tracker-model/@types/Incident.ts';
 import type { Job }                                      from '../../lib/tracker-model/@types/Job.ts';
 import type { Board }                                    from '../../lib/tracker-model/Board.ts';
 import type { ControlCommand }                           from '../../shared/@types/ControlCommand.ts';
@@ -224,6 +228,7 @@ interface SessionScenario {
 
 const SESSION_STAMP          = '2026-09-18T22:11:03+02:00';
 const RESUME_MESSAGE         = 'Example resume message';
+const ASSISTANT_CHAT_PREFIX  = 'Example chat';
 const EARLIER_SESSION_NOTE   = 'Example earlier-session note.';
 const ANSWER_MESSAGE_PREFIX  = 'Example answers';
 const FOREIGN_BOOT           = 'example-foreign-boot';
@@ -259,6 +264,7 @@ let sessionWorkspace: Workspace;
 let monitorFolder = '';
 let launches: RecordedLaunch[] = [];
 let launchFacts: { jobId: string; facts: JobLaunchFacts }[] = [];
+let assistantLaunches: AgentLaunchRequest[] = [];
 let runnerLog: string[] = [];
 
 /** The fake session, recording each worker launch; the orchestrator the policy boots beside the build only waits. */
@@ -277,6 +283,7 @@ function recordingAdapter(scenario: SessionScenario): AgentAdapter {
         });
       }
       const productOwnerSteps = request.resume ? scenario.productOwner?.resumed : scenario.productOwner?.fresh;
+      if (!isWorker && !request.profile.skills) assistantLaunches.push(request);
       const sessionSteps = request.profile.skills ? productOwnerSteps ?? WAITING_STEPS : scenario.orchestrator ?? WAITING_STEPS;
       const steps = isWorker ? (request.resume ? scenario.resumed : scenario.fresh) : sessionSteps;
       return fakeAgentAdapter(steps).planOf(request);
@@ -330,13 +337,14 @@ async function startedRunner(
       launchFacts.push({ jobId: job.id, facts });
       return { firstMessage: `${facts.earlierSessionReplaced ? `${EARLIER_SESSION_NOTE} ` : ''}Example first message of ${job.id}`, roleBrief: 'Example role' };
     },
-    windDownMessage:  'Example wind-down message',
-    resumeMessage:    RESUME_MESSAGE,
-    answerMessageOf:  (answer) => `${ANSWER_MESSAGE_PREFIX} ${JSON.stringify(answer)}`,
+    assistantChatTextOf: (facts) => `${ASSISTANT_CHAT_PREFIX} ${facts.sequence}: ${facts.incidents.map((incident) => incident.id).join(', ')}`,
+    windDownMessage:     'Example wind-down message',
+    resumeMessage:       RESUME_MESSAGE,
+    answerMessageOf:     (answer) => `${ANSWER_MESSAGE_PREFIX} ${JSON.stringify(answer)}`,
     ...(deliversByControlResponse === undefined ? {} : { deliversAnswersByControlResponse: deliversByControlResponse }),
-    homeDirectory:    monitorFolder,
-    log:              (line) => runnerLog.push(line),
-    onLeaseTakenOver: () => runnerLog.push('taken over'),
+    homeDirectory:       monitorFolder,
+    log:                 (line) => runnerLog.push(line),
+    onLeaseTakenOver:    () => runnerLog.push('taken over'),
     ...(afterHoldPhase === undefined ? {} : { afterHoldPhase }),
   });
 }
@@ -481,6 +489,42 @@ async function applyControl(command: ControlCommand): Promise<void> {
   });
 }
 
+const FIRST_TURN_RESULT: FakeAgentStep = { kind: 'print', line: fakeResultLine(null) };
+
+function requireAssistant(): Readonly<Job> {
+  const assistant = storedJobs().find((job) => job.kind === 'orchestrator');
+  if (assistant === undefined) throw new Error(`no Assistant is live: ${runnerLog.join('\n')}`);
+  return assistant;
+}
+
+function assistantAnswered(results: number): boolean {
+  const assistant = storedJobs().find((job) => job.kind === 'orchestrator');
+  return assistant !== undefined && eventLogTextOf(assistant.id, 1).split('"type":"result"').length - 1 >= results;
+}
+
+function openIncidents(): readonly Readonly<Incident>[] {
+  return requireProgressFile(sessionWorkspace).incidents ?? [];
+}
+
+function failedAssistantBoots(): number {
+  const assistantIds = new Set(storedRecords().filter((record) => record.kind === 'job-launched' && record.fields['kind'] === 'orchestrator').map((record) => record.jobId));
+  return storedRecords().filter((record) => record.kind === 'job-ended' && assistantIds.has(record.jobId) && record.fields['outcome'] === 'failed').length;
+}
+
+async function openBlockedIncident(): Promise<void> {
+  await writeTracker({
+    workspace: sessionWorkspace,
+    at:        CHANGED_AT,
+    now,
+    renderState,
+    mutate:    (change) => {
+      change.board.openIncident({
+        kind: 'blocked', ticketIds: ['001'], jobId: null, facts: {}, defaultMove: 'ticket-park'
+      }, change.at);
+    },
+  });
+}
+
 function productOwnerJob(): Readonly<Job> | undefined {
   return storedJobs().find((job) => job.kind === 'product-owner');
 }
@@ -496,6 +540,7 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
     monitorFolder    = createScratchDirectory('h');
     launches         = [];
     launchFacts      = [];
+    assistantLaunches = [];
     runnerLog        = [];
     mkdirSync(sessionWorkspace.ticketsDirectory, { recursive: true });
     writeReadableTracker(sessionWorkspace);
@@ -822,6 +867,65 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
 
     expect(storedRecords().find((record) => record.kind === 'job-ended' && record.jobId === jobId)?.fields).toMatchObject({ outcome: 'closed' });
     expect(storedRecords().filter((record) => record.kind === 'job-interrupted' && record.jobId === jobId)).toEqual([]);
+  }, ROW_TIMEOUT_MILLISECONDS);
+
+  test('Assistant mid-turn, runner restarted: the session continues, its turn\'s result is read from history and closes the delivery turn', async () => {
+    const assistantSteps: readonly FakeAgentStep[] = [STARTED, FIRST_TURN_RESULT, { kind: 'await-line' }, FIRST_TURN_RESULT, { kind: 'await-line' }];
+    const adapter   = recordingAdapter({ fresh: WAITING_STEPS, resumed: WAITING_STEPS, orchestrator: assistantSteps });
+    const drivePass = await startedRunner(adapter);
+    await passUntil(drivePass, () => assistantAnswered(1), 'the Assistant never answered its first message');
+    const assistantId = requireAssistant().id;
+    await openBlockedIncident();
+    await passUntil(drivePass, () => openIncidents()[0]?.deliveredInTurn?.chatSequence === 2, 'the incident was never delivered as chat 2');
+    await drivePass.stop();
+    // The runner is down from here: the Assistant answers chat 2, a result nobody applies.
+    await until(() => assistantAnswered(2), 'the Assistant never answered chat 2');
+
+    const successor = await startedRunner(adapter);
+    await successor.reattach();
+    await passUntil(successor, () => openIncidents().length === 0, 'the closed turn never defaulted its incident');
+
+    expect(requireAssistant()).toMatchObject({ id: assistantId, state: 'running', hostInstance: 1 });
+    expect(storedRecords().find((record) => record.kind === 'incident-defaulted')?.fields).toMatchObject({ cause: 'turn-closed' });
+    expect(storedRecords().filter((record) => record.jobId === assistantId && ['job-interrupted', 'job-ended'].includes(record.kind))).toEqual([]);
+  }, ROW_TIMEOUT_MILLISECONDS);
+
+  test('Assistant down during a delivery turn: ended replaced, cause assistant-down, never resumed, and a fresh one\'s first message carries the incident', async () => {
+    const assistantSteps: readonly FakeAgentStep[] = [STARTED, FIRST_TURN_RESULT, { kind: 'await-line' }, { kind: 'crash' }];
+    const drivePass = await startedRunner(recordingAdapter({ fresh: WAITING_STEPS, resumed: WAITING_STEPS, orchestrator: assistantSteps }));
+    await passUntil(drivePass, () => assistantAnswered(1), 'the Assistant never answered its first message');
+    const downId = requireAssistant().id;
+    await openBlockedIncident();
+    await passUntil(drivePass, () => (requireAssistant().id !== downId), 'no fresh Assistant was booted');
+
+    expect(storedRecords().find((record) => record.kind === 'job-ended' && record.jobId === downId)?.fields).toMatchObject({ outcome: 'replaced', cause: 'assistant-down' });
+    expect(resumedRecordsOf(downId)).toEqual([]);
+    const fresh = requireAssistant();
+    expect(openIncidents().map((incident) => incident.deliveredInTurn)).toEqual([{ jobId: fresh.id, chatSequence: 1 }]);
+    expect(launchFacts.find((launched) => launched.jobId === fresh.id)?.facts.assistant?.incidents.map((incident) => incident.kind)).toEqual(['blocked']);
+    const freshLaunch = assistantLaunches.find((request) => basename(request.jobFilesDirectory) === fresh.id);
+    expect(freshLaunch).toMatchObject({
+      resume: false, model: 'sonnet', effort: 'medium', reportSchema: null
+    });
+    expect(freshLaunch?.workingDirectory).toBe(join(repository, PRODUCT_NAMES.WORKTREES_FOLDER, 'sessions', fresh.id));
+    // No question tool and no network: the adapter disallows AskUserQuestion, WebFetch and WebSearch from these.
+    expect(freshLaunch?.profile).toMatchObject({ askUser: false, webNetworkDomains: 'none', bashNetworkDomains: [] });
+  }, ROW_TIMEOUT_MILLISECONDS);
+
+  test('no Assistant can come up: two boots failing before a result default every incident, and the next boot waits for a sweep', async () => {
+    const drivePass = await startedRunner(recordingAdapter({ fresh: WAITING_STEPS, resumed: WAITING_STEPS, orchestrator: CRASHING_STEPS }));
+    await openBlockedIncident();
+    await passUntil(drivePass, () => failedAssistantBoots() === 2, 'two Assistant boots never failed');
+    await passUntil(drivePass, () => openIncidents().length === 0, 'the open incident never took its default');
+    await passOnce(drivePass);
+    await passOnce(drivePass);
+
+    expect(storedRecords().find((record) => record.kind === 'incident-defaulted')?.fields).toMatchObject({ cause: 'no-orchestrator' });
+    expect(storedJobs().filter((job) => job.kind === 'orchestrator')).toEqual([]);
+
+    drivePass.sweep();
+    await drivePass.idle();
+    expect(storedRecords().filter((record) => record.kind === 'job-launched' && record.fields['kind'] === 'orchestrator')).toHaveLength(3);
   }, ROW_TIMEOUT_MILLISECONDS);
 
   test('a product owner stopped by User with its question open is finished: the decision withdrawn in that hold, and it ends closed, never resumed by itself', async () => {
@@ -1200,7 +1304,15 @@ describeWhenGitIsPresent('the group merge rows', () => {
 describe('the product-owner bound row', () => {
   const at = '2026-09-18T22:11:03+02:00';
   const observations = {
-    mainLine: 'main', groupTargetPrefix: 'group-', installVersionChanged: false, targetsHoldingManagedBlock: [], ticketIdsTouchingAgentConfig: [], closedDeliveryTurns: [],
+    mainLine:                     'main',
+    groupTargetPrefix:            'group-',
+    installVersionChanged:        false,
+    targetsHoldingManagedBlock:   [],
+    ticketIdsTouchingAgentConfig: [],
+    closedDeliveryTurns:          [],
+    budgetSpentDeliveryTurns:     [],
+    orchestratorHasAnswered:      false,
+    orchestratorBootRetryDue:     false,
   } as const;
   const wordingOf = (): { questions: { question: string; header: string; multiSelect: boolean; options: { label: string; description: string }[] }[]; context: string } => ({
     questions: [{

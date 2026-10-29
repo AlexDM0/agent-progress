@@ -125,7 +125,15 @@ describe('each kind\'s default', () => {
         now:                                         AT,
         usageResetsAt:                               null,
       }, {
-        mainLine: 'main', groupTargetPrefix: 'group-', installVersionChanged: false, targetsHoldingManagedBlock: [], ticketIdsTouchingAgentConfig: [], closedDeliveryTurns: [],
+        mainLine:                     'main',
+        groupTargetPrefix:            'group-',
+        installVersionChanged:        false,
+        targetsHoldingManagedBlock:   [],
+        ticketIdsTouchingAgentConfig: [],
+        closedDeliveryTurns:          [],
+        budgetSpentDeliveryTurns:     [],
+        orchestratorHasAnswered:      false,
+        orchestratorBootRetryDue:     false,
       }, wordingOf);
       expect(board.incidentById(incident?.id ?? '')).toBeUndefined();
       if (i < priorDefaults && board.ticketByReference('001')?.frontmatter.hold !== undefined) board.unholdTicket('001', AT);
@@ -235,7 +243,15 @@ describe('findings-delivered', () => {
       now:                                         AT,
       usageResetsAt:                               null,
     }, {
-      mainLine: 'main', groupTargetPrefix: 'group-', installVersionChanged: false, targetsHoldingManagedBlock: [], ticketIdsTouchingAgentConfig: [], closedDeliveryTurns: [],
+      mainLine:                     'main',
+      groupTargetPrefix:            'group-',
+      installVersionChanged:        false,
+      targetsHoldingManagedBlock:   [],
+      ticketIdsTouchingAgentConfig: [],
+      closedDeliveryTurns:          [],
+      budgetSpentDeliveryTurns:     [],
+      orchestratorHasAnswered:      false,
+      orchestratorBootRetryDue:     false,
     }, wordingOf);
     expect(['002', '003'].map((ticketId) => board.ticketByReference(ticketId)?.frontmatter.findingRoute)).toEqual(['user', 'user']);
   });

@@ -488,6 +488,10 @@ export class Board {
     return this.incidentRules.markIncidentDelivered(incidentId, turn);
   }
 
+  withdrawIncidentDelivery(incidentId: string): Readonly<Incident> {
+    return this.incidentRules.withdrawIncidentDelivery(incidentId);
+  }
+
   handleIncident(incidentId: string, move: IncidentMove, at: string): IncidentClosed {
     return this.incidentRules.handleIncident(incidentId, move, at);
   }

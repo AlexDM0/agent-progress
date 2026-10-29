@@ -221,7 +221,15 @@ describeWhenGitIsPresent('a review pass settled by code', () => {
     expect(outcome).toMatchObject({ move: 'fresh-reviewer', reworkedLines: OVER_THRESHOLD_LINES });
     expect(recordsOfKind('job-ended').map((record) => record.fields.outcome)).toEqual(['round-granted']);
     const advanced = board.advanceLifecycle({ ...LIFECYCLE_LIMITS, now: AT, usageResetsAt: null }, {
-      mainLine: target, groupTargetPrefix: 'group-', installVersionChanged: false, targetsHoldingManagedBlock: [], ticketIdsTouchingAgentConfig: [], closedDeliveryTurns: []
+      mainLine:                     target,
+      groupTargetPrefix:            'group-',
+      installVersionChanged:        false,
+      targetsHoldingManagedBlock:   [],
+      ticketIdsTouchingAgentConfig: [],
+      closedDeliveryTurns:          [],
+      budgetSpentDeliveryTurns:     [],
+      orchestratorHasAnswered:      false,
+      orchestratorBootRetryDue:     false,
     }, () => WORDING);
     expect(advanced.steps.filter((step) => step.kind === 'launch-review')).toEqual([{
       kind: 'launch-review', ticketId: '001', round: 2, target
@@ -262,7 +270,15 @@ describeWhenGitIsPresent('a review pass settled by code', () => {
     expect(board.jobById(jobId)?.state).toBe('awaiting-answer');
     board.endJob(jobId, { outcome: 'stopped' }, AT);
     const advanced = board.advanceLifecycle({ ...LIFECYCLE_LIMITS, now: AT, usageResetsAt: null }, {
-      mainLine: target, groupTargetPrefix: 'group-', installVersionChanged: false, targetsHoldingManagedBlock: [], ticketIdsTouchingAgentConfig: [], closedDeliveryTurns: []
+      mainLine:                     target,
+      groupTargetPrefix:            'group-',
+      installVersionChanged:        false,
+      targetsHoldingManagedBlock:   [],
+      ticketIdsTouchingAgentConfig: [],
+      closedDeliveryTurns:          [],
+      budgetSpentDeliveryTurns:     [],
+      orchestratorHasAnswered:      false,
+      orchestratorBootRetryDue:     false,
     }, () => WORDING);
     expect(advanced.steps.filter((step) => step.kind === 'launch-review')).toEqual([]);
   });

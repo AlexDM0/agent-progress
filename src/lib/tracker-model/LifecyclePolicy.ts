@@ -310,6 +310,11 @@ function turnIsClosed(incident: Readonly<Incident>, facts: LifecycleFacts): bool
   return facts.observations.closedDeliveryTurns.some((closed) => closed.jobId === turn.jobId && closed.chatSequence === turn.chatSequence);
 }
 
+function turnSpentItsBudget(incident: Readonly<Incident>, facts: LifecycleFacts): boolean {
+  const turn = incident.deliveredInTurn;
+  return turn !== null && facts.observations.budgetSpentDeliveryTurns.some((spent) => spent.jobId === turn.jobId && spent.chatSequence === turn.chatSequence);
+}
+
 /**
  * A delivered incident defaults when its turn closes. While no orchestrator is running, one holding an Airlock defaults at once and the
  * others wait for a fresh session; while none can come up, every one defaults.
@@ -318,6 +323,7 @@ function incidentDefaultStepsOf(facts: LifecycleFacts, noOrchestratorCanComeUp: 
   return facts.incidents.flatMap((incident): LifecycleStep[] => {
     if (noOrchestratorCanComeUp) return [{ kind: 'default-incident', incidentId: incident.id, cause: 'no-orchestrator' }];
     if (turnIsClosed(incident, facts)) return [{ kind: 'default-incident', incidentId: incident.id, cause: 'turn-closed' }];
+    if (turnSpentItsBudget(incident, facts)) return [{ kind: 'default-incident', incidentId: incident.id, cause: 'turn-budget' }];
     if (!orchestratorIsRunning && AIRLOCK_HOLDING_INCIDENT_KINDS.includes(incident.kind)) return [{ kind: 'default-incident', incidentId: incident.id, cause: 'no-orchestrator' }];
     return [];
   });
@@ -338,7 +344,9 @@ function nextStepsOf(facts: LifecycleFacts, limits: LifecycleLimits): LifecycleS
   const versionOrUsageHolds     = usageLimitHolds(limits) || facts.observations.installVersionChanged;
   const resumesAreHeld          = versionOrUsageHolds || !facts.checkCommandIsSet || outageNow || openDecisionOfKind(facts, 'outage');
   const newWorkIsHeld           = resumesAreHeld || facts.dispatcherState === 'stopped';
-  const noOrchestratorCanComeUp = usageLimitHolds(limits) || failedOrchestratorBootsOf(facts) >= limits.FAILED_ORCHESTRATOR_BOOTS_BEFORE_DEFAULTING;
+  const bootsKeepFailing        = failedOrchestratorBootsOf(facts) >= limits.FAILED_ORCHESTRATOR_BOOTS_BEFORE_DEFAULTING;
+  const noOrchestratorCanComeUp = usageLimitHolds(limits) || (bootsKeepFailing && !facts.observations.orchestratorHasAnswered);
+  const orchestratorMayBoot     = !usageLimitHolds(limits) && (!bootsKeepFailing || facts.observations.orchestratorBootRetryDue);
   const orchestratorIsLive      = facts.jobs.some((job) => job.kind === 'orchestrator');
   const orchestratorIsRunning   = facts.jobs.some((job) => job.kind === 'orchestrator' && job.state === 'running');
 
@@ -346,7 +354,7 @@ function nextStepsOf(facts: LifecycleFacts, limits: LifecycleLimits): LifecycleS
   if (outageNow) steps.push({ kind: 'stop-dispatching', cause: 'outage' }, boardDecisionStepOf('outage'));
   if (!facts.checkCommandIsSet && !openDecisionOfKind(facts, 'checks-not-set')) steps.push(boardDecisionStepOf('checks-not-set'));
   steps.push(...crashBoundStepsOf(facts, limits, resumesAreHeld));
-  if (!orchestratorIsLive && !noOrchestratorCanComeUp && !facts.observations.installVersionChanged) steps.push({ kind: 'boot-orchestrator' });
+  if (!orchestratorIsLive && orchestratorMayBoot && !facts.observations.installVersionChanged) steps.push({ kind: 'boot-orchestrator' });
   const parkSteps    = parkStepsOf(facts, limits);
   const jobLostSteps = jobLostStepsOf(facts, limits);
   steps.push(...parkSteps, ...jobLostSteps);

@@ -65,4 +65,10 @@ export interface LifecycleObservations {
   ticketIdsTouchingAgentConfig: readonly string[];
   /** The orchestrator turns that closed, an incident delivered in one of them taking its default. */
   closedDeliveryTurns:          readonly IncidentDeliveryTurn[];
+  /** The orchestrator turns still open that reached their call budget: an incident delivered in one takes its default, cause `turn-budget`. */
+  budgetSpentDeliveryTurns:     readonly IncidentDeliveryTurn[];
+  /** The live orchestrator's session has reached a `result`, which ends a run of failed boots. */
+  orchestratorHasAnswered:      boolean;
+  /** A sweep asks for one more boot past the failed-boot bound; never set in the pass a boot failed. */
+  orchestratorBootRetryDue:     boolean;
 }

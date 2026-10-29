@@ -20,6 +20,9 @@ export const FIXTURE_OBSERVATIONS: LifecycleObservations = {
   targetsHoldingManagedBlock:   [],
   ticketIdsTouchingAgentConfig: [],
   closedDeliveryTurns:          [],
+  budgetSpentDeliveryTurns:     [],
+  orchestratorHasAnswered:      false,
+  orchestratorBootRetryDue:     false,
 };
 
 /** The values `src/shared/constants/LifecycleLimits.ts` passes in, which the tracker model may not import. */

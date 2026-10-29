@@ -2,25 +2,30 @@
  * The words the runner's DrivePass needs and services may not hold: a code-opened decision's question, and what a launched session is told.
  * The role prompts that replace the launch text come with the prompt templates later in the chain.
  */
-import { readFileSync } from 'node:fs';
-import type { Job }     from '../../src/lib/tracker-model/@types/Job.ts';
+import { readFileSync }  from 'node:fs';
+import type { Incident } from '../../src/lib/tracker-model/@types/Incident.ts';
+import type { Job }      from '../../src/lib/tracker-model/@types/Job.ts';
 import type {
   DecisionDraft,
   DecisionWording,
   ReadyDraftFact,
   ReadyDraftsFacts
 } from '../../src/lib/tracker-model/@types/LifecycleStep.ts';
+import { ALLOWED_MOVES_BY_INCIDENT_KIND } from '../../src/services/control/constants/AllowedMovesByIncidentKind.ts';
+import type { AssistantFacts }            from '../../src/services/runner/AssistantBoot.ts';
+import type { AssistantChatFacts }        from '../../src/services/runner/AssistantSession.ts';
 import type {
   AirlockFacts,
   JobLaunchFacts,
   JobLaunchText,
   RunnerNotice
 } from '../../src/services/runner/DrivePass.ts';
-import type { HandoverFailure } from '../../src/services/runner/RunnerHandover.ts';
-import { filledTemplateOf }     from '../../src/shared/FilledTemplate.ts';
-import { resourceFilePathOf }   from '../../src/shared/ResourceFilePath.ts';
-import { DISPATCH_PROTOCOL }    from '../../src/shared/constants/DispatchProtocol.ts';
-import { PRODUCT_NAMES }        from '../../src/shared/constants/ProductNames.ts';
+import type { HandoverFailure }       from '../../src/services/runner/RunnerHandover.ts';
+import { filledTemplateOf }           from '../../src/shared/FilledTemplate.ts';
+import { resourceFilePathOf }         from '../../src/shared/ResourceFilePath.ts';
+import { DISPATCH_PROTOCOL }          from '../../src/shared/constants/DispatchProtocol.ts';
+import { PRODUCT_NAMES }              from '../../src/shared/constants/ProductNames.ts';
+import { ASSISTANT_TURN_CALL_BUDGET } from '../../src/shared/constants/RunnerLimits.ts';
 
 function ticketsPhraseOf(ticketIds: readonly string[]): string {
   return ticketIds.length === 0 ? 'the board' : ticketIds.map((ticketId) => `#${ticketId}`).join(', ');
@@ -117,9 +122,53 @@ function airlockAgentMessageOf(
   });
 }
 
+function incidentTextOf(incident: Readonly<Incident>): string {
+  const tickets = incident.ticketIds.length === 0 ? '' : ` on #${incident.ticketIds.join(', #')}`;
+  const job     = incident.jobId === null ? '' : `, job ${incident.jobId}`;
+  return [
+    `${incident.id} ${incident.kind}${tickets}${job}`,
+    ...Object.entries(incident.facts).map(([fact, value]) => `  ${fact}: ${value}`),
+    `  moves: ${ALLOWED_MOVES_BY_INCIDENT_KIND[incident.kind].join(', ')}; default ${incident.defaultMove}`,
+  ].join('\n');
+}
+
+function incidentsTextOf(incidents: readonly Readonly<Incident>[]): string {
+  return incidents.length === 0 ? 'No incident is open.' : incidents.map(incidentTextOf).join('\n\n');
+}
+
+/** One numbered chat delivering incidents; the turn it opens ends with its `result`, and what is still open then takes its default. */
+function assistantChatTextOf(facts: AssistantChatFacts): string {
+  return `Chat ${facts.sequence}: settle these incidents in this turn, each with one of its moves and \`--incident <I>\`.\n\n${incidentsTextOf(facts.incidents)}`;
+}
+
+/** The Assistant's brief and its first message, chat 1: its open incidents, the newest incident records and a board summary. */
+function assistantTextOf(job: Readonly<Job>, assistant: AssistantFacts): JobLaunchText {
+  const { summary } = assistant;
+  const statusCounts = Object.entries(summary.ticketCountByStatus).map(([status, count]) => `${status} ${count}`).join(', ');
+  const jobLines = summary.liveJobs.map((live) => `- ${live.id} ${live.kind} ${live.state}${live.ticketIds.length === 0 ? '' : ` #${live.ticketIds.join(', #')}`}`);
+  const historyLines = assistant.history.map((record) => `- ${record.at} ${record.kind} ${record.incidentId} ${record.fields}`);
+  const firstMessage = [
+    `Chat 1: you are job ${job.id}, the Assistant of this board, booted fresh. Settle the open incidents below in this turn.`,
+    '',
+    '## Open incidents',
+    incidentsTextOf(assistant.incidents),
+    '',
+    '## Newest incident records',
+    ...(historyLines.length === 0 ? ['None.'] : historyLines),
+    '',
+    '## Board',
+    `Tickets: ${statusCounts === '' ? 'none' : statusCounts}. Open decisions for User: ${summary.openDecisionCount}.`,
+    ...(jobLines.length === 0 ? ['No job is live.'] : ['Live jobs:', ...jobLines]),
+  ].join('\n');
+  const fills = { jobId: job.id, program: PRODUCT_NAMES.PROGRAM, callBudget: String(ASSISTANT_TURN_CALL_BUDGET) };
+  const roleBrief = filledTemplateOf(readFileSync(resourceFilePathOf('templates', 'AssistantBrief.md'), 'utf8'), fills);
+  return { firstMessage, roleBrief };
+}
+
 /** A builder's first message is the whole build prompt, its ticket and checks line filled in; the other roles get theirs later in the chain. */
 function launchTextOf(job: Readonly<Job>, facts: JobLaunchFacts): JobLaunchText {
   if (facts.intake !== null) return productOwnerTextOf(job, facts.intake);
+  if (facts.assistant !== null) return assistantTextOf(job, facts.assistant);
   const subject = ticketsPhraseOf(job.ticketIds);
   const roleBrief = `You are the ${job.role ?? job.kind} of job ${job.id}.`;
   const [ticket] = facts.tickets;
@@ -236,6 +285,7 @@ function handoverWarningTextOf(failure: HandoverFailure): string {
 export const RunnerWording = Object.freeze({
   decisionWordingOf,
   launchTextOf: launchTextWithEarlierSessionNoteOf,
+  assistantChatTextOf,
   windDownMessage,
   resumeMessage,
   answerMessageOf,

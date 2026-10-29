@@ -28,6 +28,7 @@ const FACTS: JobLaunchFacts = {
   earlierSessionReplaced: false,
   intake:                 null,
   airlock:                AIRLOCK,
+  assistant:              null,
 };
 
 function messageOf(role: 'merge-fix' | 'resolution-review'): string {

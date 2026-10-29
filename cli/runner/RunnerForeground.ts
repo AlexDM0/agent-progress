@@ -368,6 +368,7 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
         newCodeOnDisk:         installWatch.newCodeOnDisk,
         decisionWordingOf:     RunnerWording.decisionWordingOf,
         launchTextOf:          RunnerWording.launchTextOf,
+        assistantChatTextOf:   RunnerWording.assistantChatTextOf,
         windDownMessage:       RunnerWording.windDownMessage(),
         resumeMessage:         RunnerWording.resumeMessage(),
         answerMessageOf:       RunnerWording.answerMessageOf,

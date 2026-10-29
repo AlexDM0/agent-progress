@@ -48,7 +48,9 @@ async function deliverJobControls(request: JobControlDeliveryRequest): Promise<v
   });
   for (const job of board.jobs()) {
     const jobFolder = HostFleet.jobFolderOf(request.trackerDirectory, job.id);
-    const sends = messages.filter((candidate) => candidate.jobId === job.id).map((message) => async () => await sendOnce(
+    // The Assistant takes User's messages only when idle, numbered among its chats by `src/services/runner/AssistantSession.ts`.
+    const messagesOfJob = job.kind === 'orchestrator' ? [] : messages.filter((candidate) => candidate.jobId === job.id);
+    const sends = messagesOfJob.map((message) => async () => await sendOnce(
       jobFolder, job, `message-${message.number}`, [{ kind: 'write', line: adapter.chatLineOf(message.text) }]
     ));
     if (job.stopRequest === 'wind-down' && job.state === 'running') {

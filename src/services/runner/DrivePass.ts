@@ -35,6 +35,8 @@ import { writeTracker, type TrackerChange }                                     
 import { requireProgressFile }                                                   from '../tracker/TrackerReader.ts';
 import type { Workspace }                                                        from '../tracker/Workspace.ts';
 import { AnswerDelivery }                                                        from './AnswerDelivery.ts';
+import { AssistantBoot, type AssistantFacts }                                    from './AssistantBoot.ts';
+import { type AssistantChatFacts, type AssistantReading, AssistantSession }      from './AssistantSession.ts';
 import { GroupWorktrees }                                                        from './GroupWorktrees.ts';
 import { HostFleet, type HostLiveness }                                          from './HostFleet.ts';
 import { type DefaultedIncident, IncidentRouter }                                from './IncidentRouter.ts';
@@ -73,6 +75,8 @@ export interface JobLaunchFacts {
   intake:                 IntakeFacts | null;
   /** What a merge-gate fixer or a resolution reviewer is told of its Airlock; `null` for every other job. */
   airlock:                AirlockFacts | null;
+  /** What a fresh Assistant boots with: the incidents of its first message, the newest incident records and the board; `null` otherwise. */
+  assistant:              AssistantFacts | null;
 }
 
 /** The Airlock worktree, the slot's recorded tips, and the incident's facts: the failed gate's tail, or the merge commit under review. */
@@ -106,6 +110,8 @@ export interface DrivePassRequest {
   newCodeOnDisk?:                    () => boolean;
   decisionWordingOf:                 (draft: DecisionDraft) => DecisionWording;
   launchTextOf:                      (job: Readonly<Job>, facts: JobLaunchFacts) => JobLaunchText;
+  /** One numbered chat to the Assistant listing the incidents it delivers, their facts and allowed moves. */
+  assistantChatTextOf:               (facts: AssistantChatFacts) => string;
   /** Sent to a session that reached its role's call budget. */
   windDownMessage:                   string;
   /** The first line of every resumed session. */
@@ -182,6 +188,7 @@ interface Observation {
   buildJobs:                    readonly BuildJobObservation[];
   ticketIdsTouchingAgentConfig: readonly string[];
   usageMarker:                  UsageMarkerReading;
+  assistantReadings:            readonly AssistantReading[];
   fingerprint:                  string;
   trackerId:                    string;
 }
@@ -192,8 +199,6 @@ const GROUP_TARGET_PREFIX = 'group-';
 const TARGET_REF_DENIES_HOLD = true;
 // T1-P1's finding: a live session takes the answer as the `control_response` allow with `updatedInput.answers`.
 const CONTROL_RESPONSE_DELIVERS_ANSWERS = true;
-const DEFAULT_MODEL = 'opus';
-const DEFAULT_EFFORT = 'medium';
 const ROLES_THAT_MAY_ASK: ReadonlySet<string> = new Set(['builder', 'reviewer', 'product-owner']);
 
 /** Multi-turn sessions: finished only when the runner closed their input, never by a turn's `result`. */
@@ -286,8 +291,9 @@ function observe(request: DrivePassRequest, jobLaunchContext: JobLaunchContext):
     buildJobs,
     ticketIdsTouchingAgentConfig,
     usageMarker,
-    fingerprint: fingerprintOf(workspace, hosts, pendingRequests, targetTips, buildJobs, usageMarker, ticketIdsTouchingAgentConfig),
-    trackerId:   progress.trackerId,
+    assistantReadings: AssistantSession.readingsOf(workspace.trackerDirectory, request.agentAdapter, { jobs: () => jobs }),
+    fingerprint:       fingerprintOf(workspace, hosts, pendingRequests, targetTips, buildJobs, usageMarker, ticketIdsTouchingAgentConfig),
+    trackerId:         progress.trackerId,
   };
 }
 
@@ -443,6 +449,7 @@ function launchFactsOf(board: Board, trackerDirectory: string, job: Readonly<Job
     checksLine:             board.checkCommand() ?? null,
     earlierSessionReplaced: JobResumption.earlierSessionWasReplaced(board.logRecordsSoFar(), job),
     intake:                 IntakeSessions.intakeFactsOf(board, job),
+    assistant:              AssistantBoot.assistantFactsOf(board, job),
   };
 }
 
@@ -462,8 +469,7 @@ function launchHost(request: DrivePassRequest, jobLaunchContext: JobLaunchContex
     workingDirectory,
     firstMessage:      launchParts.firstMessage,
     roleBrief:         text.roleBrief,
-    model:             DEFAULT_MODEL,
-    effort:            DEFAULT_EFFORT,
+    ...AssistantBoot.launchSettingsOf(job),
     environment:       launchEnvironmentOf(request.inheritedEnvironment, { [JOB_ID_VARIABLE]: job.id, [RELAY_DIRECTORY_VARIABLE]: relayDirectory }),
     profile:           launchProfileOf(jobLaunchContext, board, job, workingDirectory, relayDirectory),
     jobFilesDirectory: jobFolder,
@@ -535,6 +541,10 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
   const quietJobWatch = IncidentRouter.createQuietJobWatch(QUIET_JOB_SWEEPS);
   const quietJobIdsDue: string[] = [];
   let jobsAtTheLastPass: readonly Readonly<Job>[] = [];
+  const assistantQuietWatch = AssistantSession.createAssistantQuietWatch(QUIET_JOB_SWEEPS);
+  const quietAssistantIdsDue: string[] = [];
+  let assistantsMidTurnAtTheLastPass: readonly string[] = [];
+  let assistantBootRetryRequested = false;
   let state: RunnerStateDocument = {
     generation: request.generation, passes: 0, runtimeState: 'serving', notices: [], legacyHostJobIds: []
   };
@@ -663,6 +673,10 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
         IntakeSessions.endClosedIntakes(change.board, livenessOf, request.decisionWordingOf, change.at);
         request.afterHoldPhase?.('host-events', change.board);
         IncidentRouter.openQuietJobIncidents(change.board, quietJobIdsDue.splice(0), QUIET_JOB_SWEEPS, change.at);
+        const { assistantReadings } = observation;
+        const downAssistants = AssistantSession.endDownAssistants(change.board, assistantReadings, quietAssistantIdsDue.splice(0), change.at);
+        const orchestratorBootRetryDue = assistantBootRetryRequested && !downAssistants.bootFailed;
+        assistantBootRetryRequested = false;
         const buildJobRecords = JobLaunch.applyBuildJobObservations(change, jobLaunchContext, observation.buildJobs);
         const usageResetsAt = UsageLimits.usageResetsAtOf(observation.usageMarker, usageLimitHits);
         const agentConfigHold = JobLaunch.holdAgentConfigHits(change, jobLaunchContext, observation.ticketIdsTouchingAgentConfig);
@@ -672,12 +686,19 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
           installVersionChanged,
           targetsHoldingManagedBlock:   observation.targetsHoldingManagedBlock,
           ticketIdsTouchingAgentConfig: agentConfigHold.held,
-          closedDeliveryTurns:          [],
+          ...AssistantSession.turnObservationsOf(change.board, assistantReadings),
+          orchestratorBootRetryDue,
         };
+        const jobIdsBeforeTheLifecycle = new Set(change.board.jobs().map((job) => job.id));
         change.board.advanceLifecycle({ ...LIFECYCLE_LIMITS, now: at, usageResetsAt }, observations, request.decisionWordingOf);
+        AssistantBoot.deliverOpenIncidentsAtBoot(change.board, jobIdsBeforeTheLifecycle);
+        if (usageResetsAt === null) {
+          AssistantSession.deliverIncidentsWhenIdle(change.board, assistantReadings, request.workspace.trackerDirectory, change.at);
+        }
         request.afterHoldPhase?.('lifecycle', change.board);
         return {
           replies,
+          endedAssistantJobs:       downAssistants.endedJobs,
           usageLimitHits,
           usageResetsAt,
           attributionTicketIds:     JobLaunch.attributionTicketIdsOf([...change.storedLogRecords, ...buildJobRecords]),
@@ -697,7 +718,19 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     await stopLimitedJobs(written.board, observation.trackerId, written.result.usageLimitHits);
     scheduleThePassAtTheReset(written.result.usageResetsAt);
     await JobLaunch.runBuildJobEffects(jobLaunchContext, written.board, observation.trackerId, observation.buildJobs);
+    for (const ended of written.result.endedAssistantJobs) {
+      await HostFleet.sendFrames(HostFleet.jobFolderOf(request.workspace.trackerDirectory, ended.id), ended.hostInstance, [
+        { kind: 'stop', graceMilliseconds: SESSION_STOP_GRACE_MILLISECONDS },
+      ]);
+    }
     await JobResumption.deliverFirstMessages(request.workspace.trackerDirectory, written.board, request.agentAdapter);
+    await AssistantSession.deliverChats({
+      trackerDirectory: request.workspace.trackerDirectory,
+      board:            written.board,
+      adapter:          request.agentAdapter,
+      readings:         observation.assistantReadings,
+      chatTextOf:       request.assistantChatTextOf,
+    });
     await JobControlDelivery.deliverJobControls({
       trackerDirectory: request.workspace.trackerDirectory, board: written.board, adapter: request.agentAdapter, windDownMessage: request.windDownMessage,
     });
@@ -717,6 +750,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     });
     const heldTargets = written.board.checkCommand() === undefined ? [] : await mergeSlots.sweep();
     jobsAtTheLastPass = written.board.jobs();
+    assistantsMidTurnAtTheLastPass = AssistantSession.midTurnJobIdsOf(request.workspace.trackerDirectory, written.board, observation.assistantReadings);
     state = {
       generation:   request.generation,
       passes:       state.passes + 1,
@@ -781,10 +815,15 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     await (running ?? Promise.resolve());
   }
 
+  /** Also the once-per-sweep boot of an Assistant past the failed-boot bound: a pass with no Assistant live may boot one. */
   function sweep(): void {
     const due = quietJobWatch.sweep(jobsAtTheLastPass);
-    if (due.length === 0) return;
+    const quietAssistants = assistantQuietWatch.sweep(jobsAtTheLastPass, assistantsMidTurnAtTheLastPass);
+    const noAssistantIsLive = !jobsAtTheLastPass.some((job) => AssistantBoot.isAssistantJob(job));
+    if (due.length === 0 && quietAssistants.length === 0 && !noAssistantIsLive) return;
     quietJobIdsDue.push(...due);
+    quietAssistantIdsDue.push(...quietAssistants);
+    assistantBootRetryRequested ||= noAssistantIsLive;
     wake(true);
   }
 

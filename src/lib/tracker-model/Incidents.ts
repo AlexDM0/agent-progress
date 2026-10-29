@@ -65,6 +65,13 @@ export class Incidents {
     return incident;
   }
 
+  /** An orchestrator that went down never closes its turn: what it was delivered goes out again to the fresh one. */
+  withdrawIncidentDelivery(incidentId: string): Readonly<Incident> {
+    const incident           = this.requireOpenIncident(incidentId);
+    incident.deliveredInTurn = null;
+    return incident;
+  }
+
   handleIncident(incidentId: string, move: IncidentMove, at: string): IncidentClosed {
     const incident = this.closeIncident(incidentId);
     return { incident, logged: [this.records.logger.log({ kind: 'incident-handled', incidentId, fields: { move } }, at)] };

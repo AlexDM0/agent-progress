@@ -14,6 +14,25 @@ export const WIND_DOWN_GRACE_CALLS = 10;
 /** Consecutive runner sweeps a running build or review job's event log may stand still before it opens `quiet-job`: a count, never a clock. */
 export const QUIET_JOB_SWEEPS = 6;
 
+/** The Assistant's model alias, which tracks the latest Sonnet, and its effort: a per-role setting User can raise. */
+export const ASSISTANT_MODEL = 'sonnet';
+
+export const ASSISTANT_EFFORT = 'medium' as const;
+
+/** Every other role the Overseer launches: builders, reviewers, the Airlock roles and the product owner. */
+export const WORKER_MODEL = 'opus';
+
+export const WORKER_EFFORT = 'medium' as const;
+
+/** The newest `incident-*` log records an Assistant's first message carries, so the board is its memory. */
+export const ASSISTANT_HISTORY_RECORDS = 20;
+
+/** Tool calls one Assistant turn may make before the Overseer interrupts it and the turn's open incidents default: a count. */
+export const ASSISTANT_TURN_CALL_BUDGET = 40;
+
+/** Context tokens of an Assistant's latest turn past which the Overseer closes its input after the turn, for a fresh one. */
+export const ASSISTANT_CONTEXT_TOKENS_BEFORE_FRESH = 200_000;
+
 /** How long a stopped session's host lets it end before killing its process group. */
 export const SESSION_STOP_GRACE_MILLISECONDS = 5000;
 
