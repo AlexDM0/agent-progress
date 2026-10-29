@@ -5,10 +5,13 @@
  */
 import { describe, expect, test } from 'bun:test';
 
+import type { IncidentKind, IncidentMove }       from '../../lib/tracker-model/@types/Incident.ts';
 import type { JobRole }                          from '../../lib/tracker-model/@types/Job.ts';
+import { INCIDENT_KINDS }                        from '../../lib/tracker-model/constants/DecisionAndIncidentVocabulary.ts';
 import type { ControlCommand, ControlCommandOf } from '../../shared/@types/ControlCommand.ts';
 import { WORKER_FILINGS_PER_JOB }                from '../../shared/constants/RunnerLimits.ts';
 import { RoleCommandPolicy, type RelayingJob }   from './RoleCommandPolicy.ts';
+import { ALLOWED_MOVES_BY_INCIDENT_KIND }        from './constants/AllowedMovesByIncidentKind.ts';
 
 function jobOf(role: JobRole | null, overrides: Partial<RelayingJob> = {}): RelayingJob {
   return {
@@ -129,8 +132,72 @@ describe('product-owner', () => {
   });
 });
 
+/** Design section 8.3's table, written out again so a drift on either side fails. */
+const DESIGN_TABLE: Readonly<Record<IncidentKind, readonly IncidentMove[]>> = {
+  'system-question':           ['incident-answer', 'incident-escalate', 'job-fresh', 'ticket-park', 'incident-note'],
+  'malformed-ticket':          ['incident-answer', 'incident-escalate', 'ticket-park', 'incident-note'],
+  'setup-failed':              ['worktree-repair', 'ticket-park', 'incident-note'],
+  'out-of-calls':              ['job-fresh', 'ticket-park', 'incident-note'],
+  'blocked':                   ['job-fresh', 'worktree-repair', 'ticket-park', 'incident-note'],
+  'job-lost':                  ['job-fresh', 'ticket-park', 'incident-note'],
+  'resume-failed':             ['job-fresh', 'ticket-park'],
+  'gate-cannot-run':           ['gate-retry', 'worktree-repair', 'ticket-park'],
+  'merge-gate-failed':         ['merge-fixer', 'merge-abort', 'ticket-park'],
+  'resolution-over-threshold': ['merge-review', 'merge-land', 'merge-abort'],
+  'quiet-job':                 ['job-message', 'job-fresh', 'incident-note'],
+  'findings-delivered':        ['ticket-ready', 'ticket-triage', 'incident-note'],
+};
+
+/** A command of each move kind the contract has so far; the repair and merge moves arrive with their commands. */
+const COMMAND_OF_MOVE: Partial<Record<IncidentMove, ControlCommand>> = {
+  'incident-answer':   { kind: 'incident-answer', incidentId: 'I9', text: 'Use the example setup script' },
+  'incident-escalate': { kind: 'incident-escalate', incidentId: 'I9' },
+  'incident-note':     { kind: 'incident-note', incidentId: 'I9', text: 'Seen twice' },
+  'job-fresh':         { kind: 'job-fresh', jobId: 'J2', incidentId: 'I9' },
+  'job-message':       {
+    kind: 'job-message', jobId: 'J2', text: 'Commit what you have.', incidentId: 'I9'
+  },
+  'ticket-park': {
+    kind: 'ticket-park', ticketReference: '11', reason: 'Needs Alex Example', incidentId: 'I9'
+  },
+  'ticket-ready':  { kind: 'ticket-ready', ticketReferences: ['11'], incidentId: 'I9' },
+  'ticket-triage': { kind: 'ticket-triage', ticketReferences: ['11'], incidentId: 'I9' },
+};
+
+describe('ALLOWED_MOVES_BY_INCIDENT_KIND, the Bouncer\'s table', () => {
+  test('is design section 8.3\'s table for all twelve kinds, both ways', () => {
+    expect(ALLOWED_MOVES_BY_INCIDENT_KIND).toEqual(DESIGN_TABLE);
+    expect(Object.keys(ALLOWED_MOVES_BY_INCIDENT_KIND).sort()).toEqual([...INCIDENT_KINDS].sort());
+  });
+
+  test('never lets a failed merge gate land, and lets merge land only a resolution over the threshold', () => {
+    const kindsAllowingLand = INCIDENT_KINDS.filter((kind) => ALLOWED_MOVES_BY_INCIDENT_KIND[kind].includes('merge-land'));
+    expect(kindsAllowingLand).toEqual(['resolution-over-threshold']);
+  });
+
+  test.each([...INCIDENT_KINDS])('a %s incident admits exactly the moves its row lists', (kind) => {
+    for (const [move, command] of Object.entries(COMMAND_OF_MOVE)) {
+      const incident = {
+        id: 'I9', kind, ticketIds: ['011'], jobId: 'J2'
+      };
+      const verdict  = RoleCommandPolicy.verdictOf(jobOf('orchestrator', { deliveredIncidents: [incident] }), command);
+      expect(verdict.verdict, `${kind} ${move}`).toBe(DESIGN_TABLE[kind].includes(move as IncidentMove) ? 'admitted' : 'refused');
+    }
+  });
+
+  test('job fresh under a question with no job waiting, as an Airlock report opens it, is refused', () => {
+    const incident = {
+      id: 'I9', kind: 'system-question' as const, ticketIds: ['011'], jobId: null
+    };
+    expect(RoleCommandPolicy.verdictOf(jobOf('orchestrator', { deliveredIncidents: [incident] }), COMMAND_OF_MOVE['job-fresh'] ?? lowFinding()))
+      .toEqual({ verdict: 'refused', reason: 'incident-move-not-allowed' });
+  });
+});
+
 describe('orchestrator', () => {
-  const FINDINGS_DELIVERED = { id: 'I4', kind: 'findings-delivered' as const, ticketIds: ['011', '012'] };
+  const FINDINGS_DELIVERED = {
+    id: 'I4', kind: 'findings-delivered' as const, ticketIds: ['011', '012'], jobId: null
+  };
 
   test('readies a finding the named findings-delivered incident lists', () => {
     const command: ControlCommand = { kind: 'ticket-ready', ticketReferences: ['#11'], incidentId: 'I4' };
@@ -144,7 +211,11 @@ describe('orchestrator', () => {
   });
 
   test('a move naming no delivered incident, or one its kind does not allow, is refused incident-move-not-allowed', () => {
-    const delivered = { deliveredIncidents: [FINDINGS_DELIVERED, { id: 'I5', kind: 'blocked' as const, ticketIds: ['011'] }] };
+    const delivered = {
+      deliveredIncidents: [FINDINGS_DELIVERED, {
+        id: 'I5', kind: 'blocked' as const, ticketIds: ['011'], jobId: null
+      }]
+    };
     expect(RoleCommandPolicy.verdictOf(jobOf('orchestrator', delivered), { kind: 'ticket-ready', ticketReferences: ['11'] }))
       .toEqual({ verdict: 'refused', reason: 'incident-move-not-allowed' });
     expect(RoleCommandPolicy.verdictOf(jobOf('orchestrator', delivered), { kind: 'ticket-ready', ticketReferences: ['11'], incidentId: 'I5' }))

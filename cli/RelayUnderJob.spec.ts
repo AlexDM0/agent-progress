@@ -38,6 +38,7 @@ import { runCommandLine }                                            from './Mai
 import { READ_ONLY_VERBS_UNDER_A_JOB, RELAYED_VERB_OF_CONTROL_KIND } from './constants/JobVerbs.ts';
 import { DRAFT_SUBCOMMAND_NAMES }                                    from './drafts/DraftCommand.ts';
 import { EPIC_SUBCOMMAND_NAMES }                                     from './epics/EpicCommand.ts';
+import { INCIDENT_SUBCOMMAND_NAMES }                                 from './incidents/IncidentCommand.ts';
 import { INTAKE_SUBCOMMAND_NAMES }                                   from './intake/IntakeCommand.ts';
 import { JOB_SUBCOMMAND_NAMES }                                      from './jobs/JobCommand.ts';
 import { RUN_SUBCOMMAND_NAMES }                                      from './runner/RunCommand.ts';
@@ -55,6 +56,11 @@ const ARGUMENTS_OF_KIND: { readonly [Kind in ControlCommandKind]: readonly strin
   'ticket-epic':                 ['ticket', 'epic', '1', '--add', 'checkout'],
   'ticket-abandon':              ['ticket', 'abandon', '1', '--reason', 'superseded by #2'],
   'ticket-ready':                ['ticket', 'ready', '1'],
+  'ticket-triage':               ['ticket', 'triage', '1'],
+  'ticket-park':                 ['ticket', 'park', '1', '--', 'The install line needs Alex Example'],
+  'incident-answer':             ['incident', 'answer', 'I1', '--', 'Use the example setup script'],
+  'incident-note':               ['incident', 'note', 'I1', '--', 'Seen twice'],
+  'incident-escalate':           ['incident', 'escalate', 'I1'],
   'ticket-network':              ['ticket', 'network', '1', 'api.example.com'],
   'ticket-hold':                 ['ticket', 'hold', '1', '--reason', 'waiting on Alex Example'],
   'ticket-unhold':               ['ticket', 'unhold', '1'],
@@ -149,6 +155,7 @@ function everyVerb(): string[] {
     if (command === 'run') return [command, ...RUN_SUBCOMMAND_NAMES.map((subcommand) => `run ${subcommand}`)];
     if (command === 'hook') return [command, 'hook bash-domains'];
     if (command === 'job') return JOB_SUBCOMMAND_NAMES.map((subcommand) => `job ${subcommand}`);
+    if (command === 'incident') return INCIDENT_SUBCOMMAND_NAMES.map((subcommand) => `incident ${subcommand}`);
     if (command === 'intake') return [command, ...INTAKE_SUBCOMMAND_NAMES.map((subcommand) => `intake ${subcommand}`)];
     return [command];
   });

@@ -100,6 +100,8 @@ const MERGE_REFUSED_CAUSES = {
 /** The causes a merge job ends with when it frees its slot and its ticket waits in the queue again. */
 const REQUEUE_CAUSES = { orphaned: 'orphaned', targetMoved: 'target-moved', targetHeld: 'target-held' } as const;
 
+const MERGE_ABORTED_CAUSE = 'merge-aborted';
+
 const LANDING_REFUSED_DECISION: DecisionKind = 'landing-refused';
 
 /** A refused refresh names no ticket: its `merge-refused` context starts with the group's target, which keeps the next refresh waiting. */
@@ -483,12 +485,23 @@ export function createMergeSlots(context: MergeSlotsContext): MergeSlots {
     }
   }
 
+  /** A parked candidate, by its incident's `merge abort` default or a `ticket park`, gives up the slot: the merge aborts and it leaves the queue. */
+  async function abortParkedMerge(job: Readonly<Job>): Promise<boolean> {
+    await freeSlot(job, { outcome: 'stopped', cause: MERGE_ABORTED_CAUSE }, (hold) => {
+      job.ticketIds.forEach((ticketId) => hold.board.setTicketMergeQueued(ticketId, false, hold.at));
+    });
+    return true;
+  }
+
   async function advanceTheSlot(target: string): Promise<boolean> {
     const holding = await context.hold((hold) => {
       const job = hold.board.mergeSlotHolderOf(target);
-      return job === undefined ? null : { job, hasOpenIncident: hold.board.incidents().some((incident) => incident.jobId === job.id) };
+      if (job === undefined) return null;
+      const parked = job.ticketIds.some((ticketId) => hold.board.ticketByReference(ticketId)?.frontmatter.hold?.startsWith(PARKED_HOLD_PREFIX) === true);
+      return { job, parked, hasOpenIncident: hold.board.incidents().some((incident) => incident.jobId === job.id) };
     });
     if (holding === null || holding.job.slot === undefined) return false;
+    if (holding.parked && !holding.hasOpenIncident) return abortParkedMerge(holding.job);
     return advance(holding.job, holding.hasOpenIncident);
   }
 

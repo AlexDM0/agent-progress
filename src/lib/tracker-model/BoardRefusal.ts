@@ -94,7 +94,10 @@ export type BoardRefusalDetail =
   | { reason: 'decision-option-unknown'; decisionId: string; questionNumber: number; choice: string; optionCount: number }
   | { reason: 'decision-single-choice'; decisionId: string; questionNumber: number; choice: string }
   | { reason: 'unknown-incident'; incidentId: string }
-  | { reason: 'incident-closed'; incidentId: string };
+  | { reason: 'incident-closed'; incidentId: string }
+  | { reason: 'incident-not-a-question'; incidentId: string; kind: string }
+  | { reason: 'job-awaits-user-answer'; jobId: string }
+  | { reason: 'job-is-product-owner'; jobId: string };
 
 export class BoardRefusal extends Error {
   readonly detail: BoardRefusalDetail;

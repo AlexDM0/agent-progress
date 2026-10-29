@@ -231,6 +231,8 @@ export class LifecycleWorld {
     }
     for (const job of jobs) {
       if (new Set(job.answeredRequestIds).size !== job.answeredRequestIds.length) this.violations.push(`turn ${turn}: job ${job.id} delivered an answer twice`);
+      const stillAsked = this.board.decisions().some((decision) => decision.jobId === job.id) || this.board.incidents().some((incident) => incident.jobId === job.id);
+      if (job.state === 'waiting-for-answer' && !stillAsked) this.violations.push(`turn ${turn}: job ${job.id} waits for an answer nobody was asked`);
     }
   }
 

@@ -195,6 +195,10 @@ export const LOG_RECORD_SCHEMA = {
   'incident-handled':   { subject: 'incident', fields: { move: 'incident-move' } },
   'incident-defaulted': { subject: 'incident', fields: { move: 'incident-move', cause: 'incident-default-cause' } },
   'incident-escalated': { subject: 'incident', fields: { decisionId: 'text' } },
+  // A finding the orchestrator records under an open incident, which stays open.
+  'incident-noted':     { subject: 'incident', fields: { text: 'text' } },
+  // The board's answer to a question incident, keyed by the question's request so the runner delivers it as it delivers a decision's.
+  'incident-answered':  { subject: 'incident', fields: { answer: 'decision-answer', requestId: 'optional-text' } },
   // A merge job claimed its target's slot against these recorded tips; the predicted files are empty for a clean prediction.
   'merge-started':      {
     subject: 'job',

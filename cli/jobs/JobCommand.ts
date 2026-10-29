@@ -24,8 +24,14 @@ import { OutputUtil }                          from '../utils/OutputUtil.ts';
 const { PROGRAM } = PRODUCT_NAMES;
 
 const SHOW_USAGE    = `${PROGRAM} job show|attach <J> [--json]`;
-const MESSAGE_USAGE = `${PROGRAM} job message <J> -- <text> [--json]`;
-const STOP_USAGE    = `${PROGRAM} job wind-down|stop|fresh <J> [--json] · ${PROGRAM} job stop --all [--wind-down] [--json]`;
+const MESSAGE_USAGE = `${PROGRAM} job message <J> [--incident <I>] -- <text> [--json]`;
+const STOP_USAGE    = `${PROGRAM} job wind-down|stop <J> [--json] · ${PROGRAM} job fresh <J> [--incident <I>] [--json] · ${PROGRAM} job stop --all [--wind-down] [--json]`;
+
+const OPTION_NAMES_OF_STOP_MODE: Readonly<Record<'stop' | 'wind-down' | 'fresh', readonly string[]>> = {
+  'stop':      ['json', 'all', 'wind-down'],
+  'wind-down': ['json'],
+  'fresh':     ['json', 'incident'],
+};
 
 /** How often `job attach` looks for new entries while the job is on the board: a schedule, never a decision. */
 const ATTACH_POLL_MILLISECONDS = 1000;
@@ -152,18 +158,26 @@ async function attachJob(commandArguments: ArgumentParser, context: CommandConte
   }
 }
 
+/** `--incident <I>` names the incident the move handles; the runner's orchestrator must name one. */
+function incidentOf(commandArguments: ArgumentParser): { incidentId?: string } {
+  const incidentId = commandArguments.option('incident')?.toUpperCase();
+  return incidentId === undefined ? {} : { incidentId };
+}
+
 async function messageJob(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
-  commandArguments.rejectUnknownOptions(['json'], MESSAGE_USAGE);
+  commandArguments.rejectUnknownOptions(['json', 'incident'], MESSAGE_USAGE);
   const jobId = jobIdIn(commandArguments, MESSAGE_USAGE);
   if (commandArguments.positionalsBeforeSeparator().length > 2) refuseUsage('Write the message after --.', MESSAGE_USAGE);
   const text = commandArguments.positionals().slice(2).join(' ').trim();
   if (text === '') refuseUsage('Write the message after --.', MESSAGE_USAGE);
-  await recordControl(commandArguments, context, { kind: 'job-message', jobId, text });
+  await recordControl(commandArguments, context, {
+    kind: 'job-message', jobId, text, ...incidentOf(commandArguments)
+  });
 }
 
 function stopSubcommand(mode: 'stop' | 'wind-down' | 'fresh'): JobSubcommand {
   return async (commandArguments, context) => {
-    commandArguments.rejectUnknownOptions(mode === 'stop' ? ['json', 'all', 'wind-down'] : ['json'], STOP_USAGE);
+    commandArguments.rejectUnknownOptions(OPTION_NAMES_OF_STOP_MODE[mode], STOP_USAGE);
     if (mode === 'stop' && commandArguments.flag('all')) {
       commandArguments.rejectExtraPositionals(1, STOP_USAGE);
       await recordControl(commandArguments, context, { kind: 'job-stop-all', mode: commandArguments.flag('wind-down') ? 'wind-down' : 'stop' });
@@ -172,7 +186,7 @@ function stopSubcommand(mode: 'stop' | 'wind-down' | 'fresh'): JobSubcommand {
     if (commandArguments.flag('wind-down')) refuseUsage('--wind-down goes with --all; write job wind-down <J> for one job.', STOP_USAGE);
     commandArguments.rejectExtraPositionals(2, STOP_USAGE);
     const jobId = jobIdIn(commandArguments, STOP_USAGE);
-    await recordControl(commandArguments, context, mode === 'fresh' ? { kind: 'job-fresh', jobId } : { kind: 'job-stop', jobId, mode });
+    await recordControl(commandArguments, context, mode === 'fresh' ? { kind: 'job-fresh', jobId, ...incidentOf(commandArguments) } : { kind: 'job-stop', jobId, mode });
   };
 }
 

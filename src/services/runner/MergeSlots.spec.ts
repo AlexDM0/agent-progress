@@ -171,6 +171,28 @@ describeWhenGitIsPresent('the merged tree\'s gate', () => {
     expect(harness.tipOf('main')).toBe(mainTip);
     expect(harness.gatedTrees).toHaveLength(1);
   });
+
+  test('its merge-abort default parks the ticket, and the next sweep aborts the merge and frees the slot', async () => {
+    harness = createMergeSlotsHarness([{ id: '001', change: ['checkout.ts', 'export const checkout = 1;\n'] }]);
+    harness.settings.gateOutcome = 'failed';
+    const mainTip = harness.tipOf('main');
+    await harness.slots.sweep();
+    const wording = {
+      questions: [{
+        question: 'Parked', header: 'parked', multiSelect: false, options: []
+      }],
+      context: ''
+    };
+    harness.board.parkTicket('001', wording.questions[0]?.question ?? '', harness.board.incidents()[0]?.id ?? null, '2026-10-28T10:00:00+01:00');
+
+    await harness.slots.sweep();
+
+    expect(harness.board.tickets()[0]?.frontmatter.hold).toBe('parked:merge-gate-failed');
+    expect(harness.board.mergeSlotHolderOf('main')).toBeUndefined();
+    expect(kindsLogged(harness, 'job-ended').map((record) => (record['fields'] as { cause?: string }).cause)).toContain('merge-aborted');
+    expect(harness.tipOf('main')).toBe(mainTip);
+    expect(harness.gatedTrees).toHaveLength(1);
+  });
 });
 
 describeWhenGitIsPresent('a target that moved under the slot', () => {

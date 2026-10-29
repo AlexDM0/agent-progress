@@ -436,7 +436,7 @@ output never carries either.
                               name or a loopback or private IP address (network-domain-not-public),
                               and when nothing would change.
 
-  ticket ready <id> [<id>...] [--at <when>] [--json]
+  ticket ready <id> [<id>...] [--incident <I>] [--at <when>] [--json]
                               Ready draft tickets to build, all or nothing: each becomes pending
                               with a pending row at any priority, one log line each. Refused at
                               exit 1 with nothing written when a ticket named is not a draft
@@ -444,6 +444,18 @@ output never carries either.
                               Acceptance item, \`brief-missing\` with no \`## Brief\` holding a
                               non-blank line, each ticket named. \`ticket add\` files every ticket
                               as a draft ticket, with no row; no move returns a ticket there.
+                              With --incident, only findings the findings-delivered incident lists
+                              (finding-not-listed otherwise); a first-run leftover has its
+                              \`first-run review\` hold lifted.
+  ticket triage <id> [<id>...] [--incident <I>] [--at <when>] [--json]
+                              Put findings to User's low-priority triage (findingRoute: user,
+                              ticket-triaged); a \`first-run review\` hold stays. A findings-delivered
+                              incident closes once every finding it lists is readied, triaged or
+                              abandoned, and its default triages the rest.
+  ticket park <id> [--incident <I>] -- <reason> [--at <when>] [--json]
+                              Hold the ticket parked:<incident kind> (parked:user with none) and
+                              open a parked decision to User; under a question incident it stops
+                              the waiting job (outcome stopped) and carries the agent's questions.
 
   ticket start|finish|approve|deliver|abandon|reopen <id> [--branch <b>] [--commit <sha>]
       [--reason <text>] [--tokens <n>] [--at <when>]
@@ -773,16 +785,37 @@ output never carries either.
                               stored as {question: answer}, logged decision-answered, and the
                               runner delivers it to the asking session.
 
+  incidents [--json]          The open incidents for the runner's orchestrator, in opening order,
+                              each with its facts, the moves its kind allows and its default.
+                              Read-only, no lock.
+  incident answer <I> -- <text> [--json]
+                              Answer a system-question or malformed-ticket: its waiting session
+                              takes the answer, and a malformed ticket's also goes under the
+                              ticket's ## Questions (incident-handled, incident-answered).
+  incident note <I> -- <text> [--json]
+                              Record a finding (incident-noted); the incident stays open.
+  incident escalate <I> [--json]
+                              Put the agent's own questions to User unchanged, as an
+                              agent-question decision (incident-escalated).
+                              Every move naming an incident, here or with --incident, is refused
+                              unless the incident is open and its kind allows the move; it marks
+                              the incident handled in the same hold (incident-handled).
+
   jobs [--json]               The live jobs, one line each (id, kind and role, state, tickets,
                               attempt, host instance, a stop asked), then the runner, paused or not,
-                              agents against the limit, open decisions and incidents. Read-only.
+                              agents against the limit, open decisions and incidents, and each
+                              incident that took its default since the runner started, a warning.
+                              Read-only.
   job show <J> [--json]       The job's record, or what the log holds of a finished one.
   job attach <J> [--json]     Replay every host instance's event log, then follow the newest while
                               the job is on the board (--json replays only). Both read-only.
-  job message <J> -- <text> [--json]
+  job message <J> [--incident <I>] -- <text> [--json]
                               A chat turn the runner writes to the session (job-messaged); refused
-                              job-finished for a finished job, which is never continued.
-  job wind-down|stop|fresh <J> [--json]
+                              job-finished for a finished job, which is never continued. Under an
+                              incident, refused job-awaits-user-answer for a job waiting on User or
+                              whose ticket has an open agent-question, and job-is-product-owner.
+  job fresh <J> [--incident <I>] [--json]
+  job wind-down|stop <J> [--json]
                               Logged job-stop-requested with the mode. stop and wind-down hold the
                               ticket "stopped by User (J<n>)" or "wound down by User (J<n>)" in the
                               same hold, with the runner up or down; a stopped product owner is

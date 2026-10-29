@@ -42,11 +42,18 @@ const EXAMPLE_OF_KIND: { readonly [Kind in ControlCommandKind]: ControlCommandOf
   'ticket-abandon': {
     kind: 'ticket-abandon', ticketReference: '3', reason: 'Example Agency dropped it', tokens: 1200
   },
-  'ticket-ready':   { kind: 'ticket-ready', ticketReferences: ['3', '#4'] },
-  'ticket-network': { kind: 'ticket-network', ticketReference: '3', domains: [] },
-  'ticket-hold':    { kind: 'ticket-hold', ticketReference: '3', reason: '' },
-  'ticket-unhold':  { kind: 'ticket-unhold', ticketReference: '3' },
-  'epic-add':       {
+  'ticket-ready':  { kind: 'ticket-ready', ticketReferences: ['3', '#4'] },
+  'ticket-triage': { kind: 'ticket-triage', ticketReferences: ['3'], incidentId: 'I1' },
+  'ticket-park':   {
+    kind: 'ticket-park', ticketReference: '3', reason: 'Needs Alex Example', incidentId: 'I1'
+  },
+  'incident-answer':   { kind: 'incident-answer', incidentId: 'I1', text: 'Use the example setup script' },
+  'incident-note':     { kind: 'incident-note', incidentId: 'I1', text: 'Seen twice' },
+  'incident-escalate': { kind: 'incident-escalate', incidentId: 'I1' },
+  'ticket-network':    { kind: 'ticket-network', ticketReference: '3', domains: [] },
+  'ticket-hold':       { kind: 'ticket-hold', ticketReference: '3', reason: '' },
+  'ticket-unhold':     { kind: 'ticket-unhold', ticketReference: '3' },
+  'epic-add':          {
     kind: 'epic-add', key: 'checkout-redesign', title: 'Checkout redesign', bodyText: ''
   },
   'draft-open': {

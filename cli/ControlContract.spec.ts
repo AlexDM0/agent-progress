@@ -11,6 +11,7 @@ import { COMMAND_NAMES }                                                        
 import { OTHER_VERBS_OF_CONTROL_KIND, READ_ONLY_VERBS_UNDER_A_JOB, RELAYED_VERB_OF_CONTROL_KIND } from './constants/JobVerbs.ts';
 import { DRAFT_SUBCOMMAND_NAMES }                                                                 from './drafts/DraftCommand.ts';
 import { EPIC_SUBCOMMAND_NAMES }                                                                  from './epics/EpicCommand.ts';
+import { INCIDENT_SUBCOMMAND_NAMES }                                                              from './incidents/IncidentCommand.ts';
 import { INTAKE_SUBCOMMAND_NAMES }                                                                from './intake/IntakeCommand.ts';
 import { JOB_SUBCOMMAND_NAMES }                                                                   from './jobs/JobCommand.ts';
 import { RUN_SUBCOMMAND_NAMES }                                                                   from './runner/RunCommand.ts';
@@ -51,7 +52,7 @@ const NOT_RELAYABLE_MUTATING_VERBS = [
  * `open` writes no tracker file but launches a browser and registers the dashboard, so a session under a job may not run it; `run
  * status` and `version` are read-only verbs design section 9.1 names, not yet offered under a job.
  */
-const READ_ONLY_VERBS = [...READ_ONLY_VERBS_UNDER_A_JOB, 'open', 'run status', 'version', 'merges', 'decisions', 'await', 'jobs', 'job show', 'job attach'];
+const READ_ONLY_VERBS = [...READ_ONLY_VERBS_UNDER_A_JOB, 'open', 'run status', 'version', 'merges', 'decisions', 'incidents', 'await', 'jobs', 'job show', 'job attach'];
 
 /** Verbs design section 9.2 retires, which no command replaces; they leave the table with T26. */
 const RETIRING_VERBS = ['hook', 'render', 'ticket claim'];
@@ -77,6 +78,7 @@ function tableVerbsOf(commandNames: readonly string[]): string[] {
     if (command === 'review') return ['review record'];
     if (command === 'run') return [command, ...subcommandVerbsOf(command, RUN_SUBCOMMAND_NAMES)];
     if (command === 'job') return subcommandVerbsOf(command, JOB_SUBCOMMAND_NAMES);
+    if (command === 'incident') return subcommandVerbsOf(command, INCIDENT_SUBCOMMAND_NAMES);
     if (command === 'intake') return [command, ...subcommandVerbsOf(command, INTAKE_SUBCOMMAND_NAMES)];
     // The measurement events retire as `hook`; the network guard a runner renders into a job's settings stays.
     if (command === 'hook') return [command, 'hook bash-domains'];
@@ -137,14 +139,14 @@ describe('the control contract', () => {
   });
 
   test('a kind whose verb the table does not answer is named', () => {
-    expect(contractViolationsOf({ ...CONTRACT, verbOfKind: { ...VERB_OF_KIND, 'ticket-park': 'ticket park' } })).toEqual([
-      'kind ticket-park names ticket park, which cli/CommandTable.ts does not answer',
+    expect(contractViolationsOf({ ...CONTRACT, verbOfKind: { ...VERB_OF_KIND, 'ticket-shelve': 'ticket shelve' } })).toEqual([
+      'kind ticket-shelve names ticket shelve, which cli/CommandTable.ts does not answer',
     ]);
   });
 
   test('a mutating verb the table answers with no kind and on no list is named as relayable without a kind', () => {
-    expect(contractViolationsOf({ ...CONTRACT, tableVerbs: [...CONTRACT.tableVerbs, 'ticket triage'] })).toEqual([
-      'ticket triage is relayable but no control kind applies it',
+    expect(contractViolationsOf({ ...CONTRACT, tableVerbs: [...CONTRACT.tableVerbs, 'ticket shelve'] })).toEqual([
+      'ticket shelve is relayable but no control kind applies it',
     ]);
     const withoutTheHoldKind = Object.fromEntries(Object.entries(VERB_OF_KIND).filter(([kind]) => kind !== 'ticket-hold'));
     expect(contractViolationsOf({ ...CONTRACT, verbOfKind: withoutTheHoldKind })).toEqual(['ticket hold is relayable but no control kind applies it']);
