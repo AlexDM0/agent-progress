@@ -17,6 +17,7 @@ import type { PreferenceStorage }                                               
 import type { CommandClient }                                                            from '../api/CommandClient.ts';
 import type { ConnectionState, EventStreamHandlers }                                     from '../api/EventStreamClient.ts';
 import { boardPreferenceStoreOf, sharedPreferenceStoreOf }                               from '../preferences/PreferenceStore.ts';
+import { AgentsView, BROWSER_AGENTS_CLOCK, type AgentsClock }                            from '../views/agents/AgentsView.tsx';
 import { AssistantView }                                                                 from '../views/assistant/AssistantView.tsx';
 import type { TranscriptFollower }                                                       from '../views/assistant/TranscriptLog.tsx';
 import { IntakeView }                                                                    from '../views/intake/IntakeView.tsx';
@@ -48,9 +49,21 @@ export interface BridgeServices {
   readonly questionNotifier:     QuestionNotifier;
 }
 
-function SelectedView({ tab, boardState, services }: { readonly tab: BridgeTab; readonly boardState: BoardStateDocument; readonly services: BridgeServices }) {
+interface SelectedViewProps {
+  readonly tab:           BridgeTab;
+  readonly selectedJobId: string | null;
+  readonly boardState:    BoardStateDocument;
+  readonly services:      BridgeServices;
+  readonly agentsClock:   AgentsClock;
+}
+
+function SelectedView({
+  tab, selectedJobId, boardState, services, agentsClock
+}: SelectedViewProps) {
   const conversationBoard = boardState as unknown as ConversationBoardDocument;
   switch (tab) {
+    case 'agents':
+      return <AgentsView jobs={boardState.jobs} decisions={boardState.decisions} selectedJobId={selectedJobId} clock={agentsClock} />;
     case 'questions':
       return <QuestionsView board={conversationBoard} notifier={services.questionNotifier} />;
     case 'assistant':
@@ -145,6 +158,8 @@ export function BridgeApp({ services }: BridgeAppProps) {
     onInstallHeld: setInstallRefusal,
   }), [streamIsDown, installIsHeld, services]);
 
+  const agentsClock = useMemo((): AgentsClock => ({ now: services.now, everySecond: BROWSER_AGENTS_CLOCK.everySecond }), [services]);
+
   const chooseTheme = (choice: ThemeChoice): void => {
     ThemeBootstrap.chooseTheme(sharedStore, choice);
     setThemeChoice(choice);
@@ -168,7 +183,7 @@ export function BridgeApp({ services }: BridgeAppProps) {
         <main className="bridge-panel" data-tab={route.tab}>
           {boardState === null
             ? <p className="bridge-empty">Waiting for the Overseer&apos;s first board.</p>
-            : <SelectedView tab={route.tab} boardState={boardState} services={services} />}
+            : <SelectedView tab={route.tab} selectedJobId={route.item} boardState={boardState} services={services} agentsClock={agentsClock} />}
         </main>
       </div>
     </ControlSurroundingsContext.Provider>

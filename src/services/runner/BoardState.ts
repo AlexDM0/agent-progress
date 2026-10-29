@@ -40,7 +40,10 @@ export interface MergeQueueFacts {
   slots:           { jobId: string; target: string; phase: string }[];
 }
 
-export type JobWithLiveFacts = Readonly<Job> & { live: JobLiveFacts };
+/** The live facts plus the DrivePass's in-memory count of quiet sweeps, which no event log holds. */
+export type JobLiveFactsWithSilence = JobLiveFacts & { silentSweeps: number };
+
+export type JobWithLiveFacts = Readonly<Job> & { live: JobLiveFactsWithSilence };
 
 export interface BoardStateReading {
   /** The `status --json --full` document, built by the command surface from the same Board. */
@@ -53,7 +56,7 @@ export interface BoardStateReading {
   logRecords:     readonly LogRecord[];
   generatedAt:    Date;
   renderMarkdown: (markdown: string) => string;
-  liveFactsOf:    (job: Readonly<Job>) => JobLiveFacts;
+  liveFactsOf:    (job: Readonly<Job>) => JobLiveFactsWithSilence;
   notices:        readonly unknown[];
   overseer:       OverseerFacts;
   usage:          UsageFacts;

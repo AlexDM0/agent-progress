@@ -18,11 +18,13 @@ import type { CommandContext } from '../../CommandContext.ts';
 import { fullDocumentOf }      from '../../StatusDocuments.ts';
 
 export interface BoardStateSource {
-  context:   CommandContext;
-  workspace: Workspace;
-  notices:   () => readonly unknown[];
+  context:         CommandContext;
+  workspace:       Workspace;
+  notices:         () => readonly unknown[];
   /** Everything but `paused`, which the board's stored drain flag says. */
-  overseer:  () => Omit<OverseerFacts, 'paused'>;
+  overseer:        () => Omit<OverseerFacts, 'paused'>;
+  /** The running DrivePass's count; absent while none runs, when every job reads 0. */
+  silentSweepsOf?: (jobId: string) => number;
 }
 
 function usageOf(context: CommandContext): UsageFacts {
@@ -46,10 +48,13 @@ export function readBoardState(source: BoardStateSource): { state: BoardState; p
     logRecords:     storedLog.records,
     generatedAt:    context.now(),
     renderMarkdown: context.renderState.markdownRenderer.renderMarkdown,
-    liveFactsOf:    (job) => JobLiveFactsReader.liveFactsOf(workspace.trackerDirectory, job, (line) => context.agentAdapter.eventsOf(line)),
-    notices:        source.notices(),
-    overseer:       { ...source.overseer(), paused: board.dispatcherState() === 'stopped' },
-    usage:          usageOf(context),
+    liveFactsOf:    (job) => ({
+      ...JobLiveFactsReader.liveFactsOf(workspace.trackerDirectory, job, (line) => context.agentAdapter.eventsOf(line)),
+      silentSweeps: source.silentSweepsOf?.(job.id) ?? 0,
+    }),
+    notices:  source.notices(),
+    overseer: { ...source.overseer(), paused: board.dispatcherState() === 'stopped' },
+    usage:    usageOf(context),
   });
   return { state, project: progress.project, readyTicketIds: board.readyTicketEntries().map((ready) => ready.id) };
 }
