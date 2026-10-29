@@ -118,6 +118,8 @@ export interface GroupScenario {
   ticketIds:                          string[];
   /** Tickets outside the group the first one depends on, which a group survey naming its group never lists. */
   firstTicketDependsOn?:              string[];
+  /** Each listed ticket's dependencies inside the group, in place of the one before it; the last ticket still releases the group. */
+  dependsOnByTicketId?:               Record<string, string[]>;
   /** Pending tickets of the group, depending on nothing, that no bundle ticket depends on: outside the release bundle. */
   ticketIdsOutsideTheBundle?:         string[];
   /** The settings lookup answers with an empty `boardTickets` list, as an agent that skipped `status --json` would. */

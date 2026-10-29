@@ -21,6 +21,25 @@ const WHOLE_BOARD_TICKET_IDS = ['201', '202'];
 
 const TWO_RUN_LIMIT = 8;
 
+const SHARED_LIMIT = 3;
+
+const STRAIGHT_CHAIN_EVENTS_WITH_A_SLOW_FIRST_REVIEW = [
+  'main start build 101',
+  'main end build 101 in-review',
+  'main start review 101',
+  'main start build 102',
+  'main end build 102 in-review',
+  'main start build 103',
+  'main end build 103 in-review',
+  'main end review 101 integrated',
+  'main start review 102',
+  'main end review 102 integrated',
+  'main start review 103',
+  'main end review 103 released',
+];
+
+const TURNS_UNTIL_THE_WHOLE_BOARD_BUILDERS_CLAIM = 4;
+
 const GROUP_TICKET_ID_PATTERN = /\b10[123]\b/;
 
 const WHOLE_BOARD_TICKET_ID_PATTERN = /\b20[12]\b/;
@@ -83,8 +102,49 @@ function bundleIsReleasedOnce(run: RecordedDispatchRun, summary: unknown): boole
     && JSON.stringify(summaryField(summary, 'delivered')) === JSON.stringify(EXAMPLE_GROUP.ticketIds);
 }
 
-function oneBuilderAndOneReviewerAtOnce(run: RecordedDispatchRun): boolean {
-  return (['main', 'relaunch'] as const).every((runName) => mostInFlightOf(run, runName, 'build') <= 1 && mostInFlightOf(run, runName, 'review') <= 1);
+// 101 and 102 depend on nothing, and the release ticket 103 on both.
+const GROUP_OF_TWO_INDEPENDENT_TICKETS: GroupScenario = { ...EXAMPLE_GROUP, dependsOnByTicketId: { '102': [], [RELEASE_TICKET_ID]: TICKETS_BEFORE_THE_RELEASE } };
+
+const ONE_BUILD_AT_A_TIME = {
+  find:    'this.recordOf(ticketId).stage === \'to-build\' && this.buildStartOf(ticketId).startable',
+  replace: 'this.recordOf(ticketId).stage === \'to-build\' && this.buildStartOf(ticketId).startable && ![...this.records.values()].some((record) => record.stage === \'building\')',
+};
+
+const REVIEWABLE_TICKET_TEST = 'stage === \'built\' && this.unintegratedDependencyIdsOf(ticketId).length === 0)';
+
+function firstIntegrationIndexOf(run: RecordedDispatchRun, ticketIds: readonly string[]): number {
+  return Math.min(...ticketIds.map((ticketId) => eventIndexOf(run, `main end review ${ticketId} integrated`)).filter((index) => index !== -1));
+}
+
+// Both independent tickets built before the release ticket starts, which waits for one of them to be integrated, is never refused its claim, and
+// the one release delivers all three.
+function releaseTicketWaitsForAllButOneDependencyIntegrated(run: RecordedDispatchRun): boolean {
+  const releaseBuildIndex = eventIndexOf(run, `main start build ${RELEASE_TICKET_ID}`);
+  return releaseBuildIndex !== -1
+    && releaseBuildIndex > firstIntegrationIndexOf(run, TICKETS_BEFORE_THE_RELEASE)
+    && run.agentEvents.every((event) => !event.endsWith('claim-refused'))
+    && [...run.groupBranchMoves].sort().join(',') === TICKETS_BEFORE_THE_RELEASE.join(',')
+    && mainLineMovesOnlyAtTheRelease(run)
+    && JSON.stringify(summaryField(run.summary, 'delivered')) === JSON.stringify(EXAMPLE_GROUP.ticketIds);
+}
+
+function buildPromptOf(run: RecordedDispatchRun, ticketId: string): string {
+  return run.calls.find((call) => call.kind === 'build' && call.ticketId === ticketId)?.prompt ?? '';
+}
+
+const GROUP_BRANCH_MERGE_COMMAND = 'merge --no-edit group-example-group`, never a rebase';
+
+// The diamond: 102's review outlasts 101's, so 101 integrates after 102's build forked, and the release ticket 103 is pipelined behind 102 alone.
+function pipelinedBuilderMergesTheGroupBranch(run: RecordedDispatchRun): boolean {
+  const releaseBuildPrompt = buildPromptOf(run, RELEASE_TICKET_ID);
+  return eventIndexOf(run, 'main start build 102') !== -1
+    && eventIndexOf(run, 'main start build 102') < eventIndexOf(run, 'main end review 101 integrated')
+    && eventIndexOf(run, 'main end review 101 integrated') < eventIndexOf(run, `main start build ${RELEASE_TICKET_ID}`)
+    && eventIndexOf(run, `main start build ${RELEASE_TICKET_ID}`) < eventIndexOf(run, 'main end review 102 integrated')
+    && releaseBuildPrompt.includes('--after 102`')
+    && releaseBuildPrompt.includes(GROUP_BRANCH_MERGE_COMMAND)
+    && TICKETS_BEFORE_THE_RELEASE.every((ticketId) => !buildPromptOf(run, ticketId).includes(GROUP_BRANCH_MERGE_COMMAND))
+    && releaseTicketWaitsForAllButOneDependencyIntegrated(run);
 }
 
 // Each ticket's builder starts only once the one before it has an `in-review` return in the same run, or was built by an earlier one.
@@ -197,8 +257,8 @@ export const GROUP_CLAIMS: readonly DispatchClaim[] = [
       && !run.rowsRunningAtEnd.includes(`review ${RELEASE_TICKET_ID}`),
     mutant: {
       modulePath: DISPATCHER_MODULE_PATHS.GROUP_DISPATCH_RUN,
-      find:       'if (ticketId === undefined || !this.predecessorIsIntegrated(ticketId)) return null;',
-      replace:    'if (ticketId === undefined || !this.predecessorIsIntegrated(ticketId) || ticketId === this.releaseTicketId) return null;',
+      find:       REVIEWABLE_TICKET_TEST,
+      replace:    REVIEWABLE_TICKET_TEST.replace(/\)$/, ' && ticketId !== this.releaseTicketId)'),
     },
   },
   {
@@ -263,7 +323,7 @@ export const GROUP_CLAIMS: readonly DispatchClaim[] = [
     },
   },
   {
-    name:        'with a failed review of N while N+1 is built, the group run holds one builder and one reviewer at a time',
+    name:        'with a failed review of N while N+1 builds, N\'s rebuild starts beside that build, and no ticket builds before its dependency is built',
     scenarioFor: () => groupScenarioWith({
       slowAgentNames: ['build 102'],
       reviewerReply:  (ticketId, round) => {
@@ -271,28 +331,24 @@ export const GROUP_CLAIMS: readonly DispatchClaim[] = [
         return { verdict: ticketId === '101' && round === 1 ? 'does-not-hold' : 'integrated' };
       },
     }),
-    holds:  (run) => oneBuilderAndOneReviewerAtOnce(run) && bundleIsReleasedOnce(run, run.summary),
-    mutant: {
-      modulePath: DISPATCHER_MODULE_PATHS.GROUP_DISPATCH_RUN,
-      find:       'if (this.agentsInFlightOf(\'build\') >= DISPATCH_POLICY.GROUP_BUILDERS_AT_ONCE) return null;',
-      replace:    '',
-    },
+    holds: (run) => mostInFlightOf(run, 'main', 'build') === 2
+      && eventCountOf(run, 'main start build 101') === 2
+      && eachBuildFollowsItsPredecessorsBuild(run, 'main')
+      && bundleIsReleasedOnce(run, run.summary),
+    mutant: { modulePath: DISPATCHER_MODULE_PATHS.GROUP_DISPATCH_RUN, ...ONE_BUILD_AT_A_TIME },
   },
   {
+    // N's rebuild runs beside N+1's build and outlasts it, so N+1 is built while N is not integrated yet.
     name:        'with a failed review of N, N+1 is reviewed only once N is rebuilt and integrated, and the release only after both',
     scenarioFor: () => groupScenarioWith({
-      slowAgentNames: ['build 102'],
+      slowAgentNames: ['build 101', 'build 102'],
       reviewerReply:  (ticketId, round) => {
         if (ticketId === RELEASE_TICKET_ID) return { verdict: 'released' };
         return { verdict: ticketId === '101' && round === 1 ? 'does-not-hold' : 'integrated' };
       },
     }),
     holds:  (run) => eachReviewFollowsItsPredecessorsIntegration(run, 'main') && bundleIsReleasedOnce(run, run.summary),
-    mutant: {
-      modulePath: DISPATCHER_MODULE_PATHS.GROUP_DISPATCH_RUN,
-      find:       'if (ticketId === undefined || !this.predecessorIsIntegrated(ticketId)) return null;',
-      replace:    'if (ticketId === undefined) return null;',
-    },
+    mutant: { modulePath: DISPATCHER_MODULE_PATHS.GROUP_DISPATCH_RUN, find: REVIEWABLE_TICKET_TEST, replace: 'stage === \'built\')' },
   },
   {
     name:        'N+1 is built only after N\'s builder returned in-review: a parked N leaves every later ticket unbuilt and the main line put',
@@ -304,9 +360,96 @@ export const GROUP_CLAIMS: readonly DispatchClaim[] = [
       && JSON.stringify(summaryField(run.summary, 'parked')).includes('"101"'),
     mutant: {
       modulePath: DISPATCHER_MODULE_PATHS.GROUP_DISPATCH_RUN,
-      find:       'if (ticketId === undefined || !this.predecessorIsBuilt(ticketId)) return null;',
-      replace:    'if (ticketId === undefined) return null;',
+      find:       'const STAGES_IN_REVIEW: readonly GroupTicketStage[] = [\'built\', \'reviewing\'];',
+      replace:    'const STAGES_IN_REVIEW: readonly GroupTicketStage[] = [\'building\', \'built\', \'reviewing\'];',
     },
+  },
+  {
+    // Fails review if false. Taken from the one-builder, one-reviewer pipeline this run replaced: rerun this scenario on it to retake the table.
+    name:        'a straight chain starts and integrates in the same sequence as the one-at-a-time pipeline did',
+    scenarioFor: () => groupScenarioWith({ slowAgentNames: ['review 101'] }),
+    holds:       (run) => run.agentEvents.join(',') === STRAIGHT_CHAIN_EVENTS_WITH_A_SLOW_FIRST_REVIEW.join(',') && run.groupBranchMoves.join(',') === '101,102',
+    mutant:      { modulePath: DISPATCHER_MODULE_PATHS.GROUP_DISPATCH_RUN, find: REVIEWABLE_TICKET_TEST, replace: 'stage === \'built\')' },
+  },
+  {
+    name:        'two tickets with no dependency between them build at once, and the ticket depending on both starts once one of them is integrated',
+    scenarioFor: () => groupScenarioWith({ group: GROUP_OF_TWO_INDEPENDENT_TICKETS }),
+    holds:       (run) => mostInFlightOf(run, 'main', 'build') === 2 && releaseTicketWaitsForAllButOneDependencyIntegrated(run),
+    mutant:      { modulePath: DISPATCHER_MODULE_PATHS.GROUP_DISPATCH_RUN, ...ONE_BUILD_AT_A_TIME },
+  },
+  {
+    name:        'a ticket with two dependencies in review waits, rather than claiming after one of them and being refused',
+    scenarioFor: () => groupScenarioWith({ group: GROUP_OF_TWO_INDEPENDENT_TICKETS }),
+    holds:       releaseTicketWaitsForAllButOneDependencyIntegrated,
+    mutant:      {
+      modulePath: DISPATCHER_MODULE_PATHS.GROUP_DISPATCH_RUN,
+      find:       'if (unintegratedDependencyIds.length === 1 && onlyDependencyId !== undefined',
+      replace:    'if (onlyDependencyId !== undefined',
+    },
+  },
+  {
+    name:        'a builder forks off the group branch, and only a ticket waiting on one dependency in review claims after it and forks off its branch',
+    scenarioFor: () => groupScenarioWith({ group: GROUP_OF_TWO_INDEPENDENT_TICKETS }),
+    holds:       (run) => TICKETS_BEFORE_THE_RELEASE.every((ticketId) => buildPromptOf(run, ticketId).includes('<base> is group-example-group.'))
+      && /--after 10[12]`/.test(buildPromptOf(run, RELEASE_TICKET_ID))
+      && releaseTicketWaitsForAllButOneDependencyIntegrated(run),
+    mutant: {
+      modulePath: DISPATCHER_MODULE_PATHS.GROUP_DISPATCH_RUN,
+      find:       'record.pipelinedBehindId = buildStart.startable ? buildStart.pipelinedBehindId : null;',
+      replace:    'record.pipelinedBehindId = null;',
+    },
+  },
+  {
+    // Fails review if false: a non-pipelined builder's prompt gains no merge step.
+    name:        'a builder pipelined behind one dependency in review merges the group branch after it forks, so a dependency integrated since is in it',
+    scenarioFor: () => groupScenarioWith({ group: GROUP_OF_TWO_INDEPENDENT_TICKETS, slowAgentNames: ['review 102'] }),
+    holds:       pipelinedBuilderMergesTheGroupBranch,
+    mutant:      {
+      modulePath: DISPATCHER_MODULE_PATHS.GROUP_AGENT_PROMPT_UTIL,
+      find:       '  if (placement.pipelinedBehindId !== null) lines.push(integratedDependenciesMergeText(worktree, groupBranch, placement.pipelinedBehindId));\n',
+      replace:    '',
+    },
+  },
+  {
+    name:        'every built ticket whose dependencies are integrated is reviewed at once, not only the first of the order',
+    scenarioFor: () => groupScenarioWith({ group: GROUP_OF_TWO_INDEPENDENT_TICKETS }),
+    holds:       (run) => mostInFlightOf(run, 'main', 'review') === 2 && releaseTicketWaitsForAllButOneDependencyIntegrated(run),
+    mutant:      {
+      modulePath: DISPATCHER_MODULE_PATHS.GROUP_DISPATCH_RUN,
+      find:       REVIEWABLE_TICKET_TEST,
+      replace:    REVIEWABLE_TICKET_TEST.replace(/\)$/, ' && ![...this.records.values()].some((record) => record.stage === \'reviewing\'))'),
+    },
+  },
+  {
+    name:        'startable tickets start by priority, then lowest id first',
+    scenarioFor: () => groupScenarioWith({ limit: 1, highPriorityTicketIds: ['102'], group: GROUP_OF_TWO_INDEPENDENT_TICKETS }),
+    holds:       (run) => run.calls.find((call) => call.kind === 'build')?.ticketId === '102',
+    mutant:      { modulePath: DISPATCHER_MODULE_PATHS.GROUP_DISPATCH_RUN, find: 'priorityRankOf(a.priority) - priorityRankOf(b.priority) || ', replace: '' },
+  },
+  {
+    // Fails review if false: the group run counts the whole-board run's agents against the one limit.
+    name:        'a group run beside a whole-board run starts only within the slots the other leaves, so together they never exceed the limit',
+    scenarioFor: () => groupScenarioWith({
+      limit:                     SHARED_LIMIT,
+      readyTicketIds:            WHOLE_BOARD_TICKET_IDS,
+      groupRunRaces:             true,
+      racingRunStartsAfterTurns: TURNS_UNTIL_THE_WHOLE_BOARD_BUILDERS_CLAIM,
+      group:                     GROUP_OF_TWO_INDEPENDENT_TICKETS,
+    }),
+    holds: (run) => run.mostAgentsInFlightAtOnce <= SHARED_LIMIT
+      && callsNaming(run, 'racing', GROUP_TICKET_ID_PATTERN) > 0
+      && JSON.stringify(summaryField(run.summary, 'delivered')) === JSON.stringify(WHOLE_BOARD_TICKET_IDS),
+    mutant: {
+      modulePath: DISPATCHER_MODULE_PATHS.GROUP_DISPATCH_RUN,
+      find:       'SlotCountUtil.ownSlotLimitOf(this.latestStatedLimit, this.othersInFlight)',
+      replace:    'SlotCountUtil.ownSlotLimitOf(this.latestStatedLimit, 0)',
+    },
+  },
+  {
+    name:        'with every slot held elsewhere, a group run holding nothing still starts a builder, which waits for a slot itself',
+    scenarioFor: () => groupScenarioWith({ limit: 1, otherAgentsInFlight: 1 }),
+    holds:       (run) => run.calls.some((call) => call.kind === 'build' && call.ticketId === '101'),
+    mutant:      { modulePath: DISPATCHER_MODULE_PATHS.GROUP_DISPATCH_RUN, find: 'Math.max(this.ownSlotsHeld() === 0 ? 1 : 0, ', replace: 'Math.max(0, ' },
   },
   {
     name:        'a board stop mid-group ends the group run: nothing starts after it, and the built ticket\'s bar is released',
