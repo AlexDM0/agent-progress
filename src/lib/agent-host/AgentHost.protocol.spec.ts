@@ -120,7 +120,14 @@ describe('hello', () => {
     });
     expect(await resumed.nextFrame((frame) => frame.kind === 'history')).toEqual({
       kind:    'history',
-      entries: [{ sequence: 2, origin: 'agent', line: 'two' }, { sequence: 3, origin: 'agent', line: 'three' }],
+      entries: [
+        {
+          sequence: 2, origin: 'agent', line: 'two', at: expect.any(String)
+        },
+        {
+          sequence: 3, origin: 'agent', line: 'three', at: expect.any(String)
+        },
+      ],
     });
     expect(await endAndAcknowledge(host, watcher)).toBe(0);
   }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
@@ -155,7 +162,8 @@ describe('acting frames', () => {
     client.send({ kind: 'write', line: 'hello child' });
     await client.nextFrame(agentLineArrived('echo:hello child'));
     expect(await endAndAcknowledge(host, client)).toBe(0);
-    expect(eventsOf(1)).toEqual([
+    // Matched rather than equal: each entry also carries the host clock's stamp.
+    expect(eventsOf(1)).toMatchObject([
       { sequence: 1, origin: 'client', line: '{"kind":"write","line":"hello child"}' },
       { sequence: 2, origin: 'agent', line: 'echo:hello child' },
       { sequence: 3, origin: 'client', line: '{"kind":"close-input"}' },

@@ -75,7 +75,9 @@ function hostRecordOf(instance: number): HostRecord {
 function eventsOf(instance: number): readonly EventLogEntry[] {
   const reading = eventLogEntriesOf(readFileSync(hostFilesOf(jobFolder, instance).eventLogPath, 'utf8'));
   if (reading.verdict !== 'read') throw new Error(`event log line ${reading.lineNumber} is malformed`);
-  return reading.entries;
+  // Every entry is stamped; the stamp is the clock's, so the cases compare the rest.
+  if (!reading.entries.every((entry) => typeof entry.at === 'string')) throw new Error('an event log entry carries no stamp');
+  return reading.entries.map(({ sequence, origin, line }) => ({ sequence, origin, line }));
 }
 
 describe('the claim', () => {
