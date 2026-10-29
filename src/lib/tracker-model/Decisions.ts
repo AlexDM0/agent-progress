@@ -90,9 +90,17 @@ export class Decisions {
     return { decision, logged: [this.records.logger.log({ kind: 'decision-withdrawn', decisionId, fields: { reason } }, at)] };
   }
 
-  /** Its answer is logged keyed by its questions, and the log refuses an empty answer, so a decision without one could never be answered. */
+  /**
+   * Its answer is logged keyed by its questions' texts: the log refuses an empty answer, so a decision without one could never be
+   * answered, and two questions of one text would keep only the last answer.
+   */
   requireQuestions(opening: Pick<DecisionOpening, 'questions'>): void {
     if (opening.questions.length === 0) throw new BoardRefusal({ reason: 'decision-without-questions' });
+    const seenQuestionTexts = new Set<string>();
+    for (const { question } of opening.questions) {
+      if (seenQuestionTexts.has(question)) throw new BoardRefusal({ reason: 'decision-questions-repeat', question });
+      seenQuestionTexts.add(question);
+    }
   }
 
   /** A decision leaves the board only by its answer or its withdrawal, so a well-formed id below the counter was already settled. */
