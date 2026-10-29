@@ -31,7 +31,7 @@ const AXIS_PADDING_FRACTION_PER_SIDE = 0.025;
 
 const TICKET_TIMELINE_MAXIMUM_TICKS = 9;
 
-const LOW_PRIORITY_WITHOUT_ROW_NOTE = 'Not started. Low priority: it gets a build row once it is started, after every normal and high ticket is done.';
+const LOW_PRIORITY_WITHOUT_ROW_NOTE = 'Not started. Low priority: it gets a build row once it is started, and is ordered last among the ready tickets.';
 const ABANDONED_WITHOUT_ROW_NOTE    = 'Abandoned before it was started; it never had a build row.';
 const ABANDONED_BEFORE_START_NOTE   = 'Abandoned before it was started.';
 
