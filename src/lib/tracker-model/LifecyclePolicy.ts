@@ -52,10 +52,10 @@ export interface LifecycleFacts {
 /** The jobs a concurrency slot bounds: merge, refresh and merge-agent jobs never wait behind builds, and sessions have no ticket. */
 const SLOT_TAKING_JOB_KINDS: readonly JobKind[] = ['build', 'review'];
 
-/** Sessions, which are never resumed once down: a fresh one boots instead. */
 /** Incidents holding a target's Airlock, which never wait for an orchestrator to boot. */
 const AIRLOCK_HOLDING_INCIDENT_KINDS: readonly IncidentKind[] = ['merge-gate-failed', 'resolution-over-threshold'];
 
+/** Sessions, which are never resumed once down: a fresh one boots instead. */
 const SESSION_JOB_KINDS: readonly JobKind[] = ['orchestrator', 'product-owner'];
 
 /** A job ended with a report code verified, which breaks a run of crashes across tickets. */

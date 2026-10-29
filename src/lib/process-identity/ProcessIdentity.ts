@@ -13,7 +13,8 @@ export interface ProcessIdentity {
 
 export type ProcessGroupSignalOutcome =
   | { verdict: 'signalled' }
-  | { verdict: 'leader-gone' }
+  | { verdict: 'group-gone' }
+  | { verdict: 'group-recycled' }
   | { verdict: 'identity-mismatch'; currentIdentity: ProcessIdentity }
   | { verdict: 'refused'; reason: string };
 
@@ -33,6 +34,9 @@ const MONTH_ABBREVIATIONS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'A
 
 // `ps -o lstart` under the C locale: weekday, month, day, time, year, as in `Wed Oct 28 01:51:25 2026`.
 const START_STAMP_PATTERN = /^[A-Z][a-z]{2}\s+([A-Z][a-z]{2})\s+(\d{1,2})\s+(\d{2}):(\d{2}):(\d{2})\s+(\d{4})$/;
+
+// `ps -A -o pid= -o pgid= -o lstart=`: a pid, its group and its start stamp.
+const PROCESS_LISTING_LINE_PATTERN = /^\s*(\d+)\s+(\d+)\s+(.+)$/;
 
 function errorCodeOf(error: unknown): string | undefined {
   return typeof error === 'object' && error !== null && 'code' in error ? String((error as { code: unknown }).code) : undefined;
@@ -105,15 +109,61 @@ export function processIsGone(processId: number): boolean {
   }
 }
 
-/** The group the leader leads is signalled only while the leader still is the recorded process; a group whose leader is gone is not. */
-export function signalProcessGroup(leader: ProcessIdentity, signal: NodeJS.Signals): ProcessGroupSignalOutcome {
-  const currentIdentity = identityOf(leader.processId);
-  if (currentIdentity === null) return { verdict: 'leader-gone' };
-  if (!sameProcess(currentIdentity, leader)) return { verdict: 'identity-mismatch', currentIdentity };
+function groupHasMembers(processGroupId: number): boolean {
   try {
-    process.kill(-leader.processId, signal);
+    process.kill(-processGroupId, 0);
+    return true;
+  } catch (error) {
+    return errorCodeOf(error) !== NO_SUCH_PROCESS_CODE;
+  }
+}
+
+/** The start of every process in the group, in epoch seconds; `null` when ps cannot be read or a start stamp is not one. */
+function memberStartsOf(processGroupId: number): number[] | null {
+  const listing = outputOf([PROCESS_STATUS_PATH, '-A', '-o', 'pid=', '-o', 'pgid=', '-o', 'lstart=']);
+  if (listing === null) return null;
+  const memberStarts: number[] = [];
+  for (const line of listing.split('\n')) {
+    const match = PROCESS_LISTING_LINE_PATTERN.exec(line);
+    if (match === null || Number(match[2]) !== processGroupId) continue;
+    const startEpochSeconds = startEpochSecondsOf(match[3] ?? '');
+    if (startEpochSeconds === null) return null;
+    memberStarts.push(startEpochSeconds);
+  }
+  return memberStarts;
+}
+
+function signalGroup(processGroupId: number, signal: NodeJS.Signals): ProcessGroupSignalOutcome {
+  try {
+    process.kill(-processGroupId, signal);
     return { verdict: 'signalled' };
   } catch (error) {
-    return { verdict: 'refused', reason: `the process group ${leader.processId} could not be signalled: ${String(error)}` };
+    if (errorCodeOf(error) === NO_SUCH_PROCESS_CODE) return { verdict: 'group-gone' };
+    return { verdict: 'refused', reason: `the process group ${processGroupId} could not be signalled: ${String(error)}` };
   }
+}
+
+/**
+ * A group outlives its leader while members remain. Its id is the recorded group only when this is the recorded boot and no member
+ * started before the recorded leader: a member older than the leader belongs to a group that reused the id.
+ */
+function signalLeaderlessGroup(leader: ProcessIdentity, signal: NodeJS.Signals): ProcessGroupSignalOutcome {
+  if (!groupHasMembers(leader.processId)) return { verdict: 'group-gone' };
+  if (readBootIdentity() !== leader.bootIdentity) return { verdict: 'group-recycled' };
+  const memberStarts = memberStartsOf(leader.processId);
+  if (memberStarts === null) return { verdict: 'refused', reason: `the members of process group ${leader.processId} could not be read` };
+  if (memberStarts.length === 0) return { verdict: 'group-gone' };
+  if (memberStarts.some((startEpochSeconds) => startEpochSeconds < leader.startEpochSeconds)) return { verdict: 'group-recycled' };
+  return signalGroup(leader.processId, signal);
+}
+
+/**
+ * The group the recorded leader led: while the leader lives, only when it still is the recorded process; once it is gone, only while the
+ * group has members and none of them predates the leader. An empty or recycled group is never signalled.
+ */
+export function signalProcessGroup(leader: ProcessIdentity, signal: NodeJS.Signals): ProcessGroupSignalOutcome {
+  const currentIdentity = identityOf(leader.processId);
+  if (currentIdentity === null) return signalLeaderlessGroup(leader, signal);
+  if (!sameProcess(currentIdentity, leader)) return { verdict: 'identity-mismatch', currentIdentity };
+  return signalGroup(leader.processId, signal);
 }

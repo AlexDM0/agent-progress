@@ -132,10 +132,10 @@ export type RunnerNotice =
   | { kind: 'rounds-not-converging'; ticketId: string }
   // A landing found the main checkout off the main line or dirty: that target's landings wait, builds and reviews launch on.
   | { kind: 'dirty-main-checkout'; target: string; branch: string | null; blockingFiles: readonly string[] }
-  // Git declined a removal after a refresh or a release; shown while what it would have removed stands.
-  | { kind: 'cleanup-declined'; cleanup: DeclinedCleanup['cleanup']; groupBranch: string; reason: string }
   // An incident took its default since the runner started: the warning state of owner answer Q34.
-  | { kind: 'incident-defaulted'; incidentId: string; move: IncidentMove; cause: IncidentDefaultCause };
+  | { kind: 'incident-defaulted'; incidentId: string; move: IncidentMove; cause: IncidentDefaultCause }
+  // Git declined a removal after a refresh or a release; shown while what it would have removed stands.
+  | { kind: 'cleanup-declined'; cleanup: DeclinedCleanup['cleanup']; groupBranch: string; reason: string };
 
 /** What a pass knows of the runtime state; the runner adds `handing-over` around a handover. */
 export type PassRuntimeState = 'serving' | 'held-by-install-change';
