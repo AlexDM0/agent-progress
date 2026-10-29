@@ -11,7 +11,10 @@
     "./**/*.ts",
     "./**/*.tsx",
     "../src/shared/constants/ProductNames.ts",
+    "../src/lib/html-escape/HtmlEscapeUtil.ts",
+    "../src/lib/local-time/LocalTimeUtil.ts",
     "../src/lib/token-count/TokenCountUtil.ts",
+    "../src/lib/tracker-model/constants/ReviewRounds.ts",
     "../src/lib/tracker-model/@types/Draft.ts",
     "../src/lib/tracker-model/@types/Task.ts",
     "../src/lib/tracker-model/@types/Ticket.ts"
