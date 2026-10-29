@@ -12,23 +12,23 @@ import {
 import { createConnection } from 'node:net';
 import { join }             from 'node:path';
 
-import type { HistoryFrame, HostFrame }                from '../../lib/agent-host/@types/HostFrame.ts';
-import type { EventLogEntry }                          from '../../lib/agent-host/EventLog.ts';
-import { hostFilesOf }                                 from '../../lib/agent-host/HostFiles.ts';
-import { readHostLaunch }                              from '../../lib/agent-host/HostLaunch.ts';
-import { HOST_PROTOCOL_VERSION }                       from '../../lib/agent-host/constants/HostProtocol.ts';
-import { writeFileAtomically }                         from '../../lib/atomic-file/AtomicFile.ts';
-import { GitProcess }                                  from '../../lib/git/GitProcess.ts';
-import { identityOf, sameProcess, signalProcessGroup } from '../../lib/process-identity/ProcessIdentity.ts';
-import type { InterruptionCause, Job }                 from '../../lib/tracker-model/@types/Job.ts';
-import { PRODUCT_NAMES }                               from '../../shared/constants/ProductNames.ts';
-import { REATTACH_HELLO_TIMEOUT_MILLISECONDS }         from '../../shared/constants/RunnerLimits.ts';
-import { requireProgressFile }                         from '../tracker/TrackerReader.ts';
-import type { Workspace }                              from '../tracker/Workspace.ts';
-import { GroupWorktrees }                              from './GroupWorktrees.ts';
-import { HostFleet }                                   from './HostFleet.ts';
-import { JobLaunch }                                   from './JobLaunch.ts';
-import { LegacyHostReader }                            from './LegacyHostReader.ts';
+import type { HistoryFrame, HostFrame }        from '../../lib/agent-host/@types/HostFrame.ts';
+import type { EventLogEntry }                  from '../../lib/agent-host/EventLog.ts';
+import { hostFilesOf }                         from '../../lib/agent-host/HostFiles.ts';
+import { readHostLaunch }                      from '../../lib/agent-host/HostLaunch.ts';
+import { HOST_PROTOCOL_VERSION }               from '../../lib/agent-host/constants/HostProtocol.ts';
+import { writeFileAtomically }                 from '../../lib/atomic-file/AtomicFile.ts';
+import { GitProcess }                          from '../../lib/git/GitProcess.ts';
+import { identityOf, signalProcessGroup }      from '../../lib/process-identity/ProcessIdentity.ts';
+import type { InterruptionCause, Job }         from '../../lib/tracker-model/@types/Job.ts';
+import { PRODUCT_NAMES }                       from '../../shared/constants/ProductNames.ts';
+import { REATTACH_HELLO_TIMEOUT_MILLISECONDS } from '../../shared/constants/RunnerLimits.ts';
+import { requireProgressFile }                 from '../tracker/TrackerReader.ts';
+import type { Workspace }                      from '../tracker/Workspace.ts';
+import { GroupWorktrees }                      from './GroupWorktrees.ts';
+import { HostFleet }                           from './HostFleet.ts';
+import { JobLaunch }                           from './JobLaunch.ts';
+import { LegacyHostReader }                    from './LegacyHostReader.ts';
 
 export interface HostReattached {
   jobId:           string;
@@ -79,8 +79,7 @@ function settleLostHost(jobFolder: string, instance: number): InterruptionCause 
   let cause: InterruptionCause = 'agent-crashed';
   if (recordedBoot !== null && recordedBoot !== currentBoot) cause = 'reboot';
   else if (record?.childProcess !== undefined && record.childProcess !== null) {
-    const current = identityOf(record.childProcess.processId);
-    if (current !== null && sameProcess(current, record.childProcess) && signalProcessGroup(record.childProcess, 'SIGKILL').verdict === 'signalled') cause = 'host-lost';
+    if (signalProcessGroup(record.childProcess, 'SIGKILL').verdict === 'signalled') cause = 'host-lost';
   }
   writeFileAtomically(lostCauseFileOf(jobFolder, instance), `${cause}\n`);
   return cause;
