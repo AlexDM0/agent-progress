@@ -77,8 +77,9 @@ const HTTP_STATUS = {
   NOT_FOUND:    404,
 } as const;
 
-const JOB_STREAM_PATH = /^\/api\/jobs\/([^/]+)\/stream$/;
-const JOB_FILE_PATH   = /^\/api\/jobs\/([^/]+)\/files\/([^/]+)$/;
+// Job ids and served file names need no percent-decoding, so a segment holding an escape is no route and gets the 404.
+const JOB_STREAM_PATH = /^\/api\/jobs\/([\w.-]+)\/stream$/;
+const JOB_FILE_PATH   = /^\/api\/jobs\/([\w.-]+)\/files\/([\w.-]+)$/;
 
 function contentSecurityPolicyOf(frameOrigins: readonly string[]): string {
   const frameAncestors = frameOrigins.length === 0 ? '\'none\'' : frameOrigins.join(' ');
@@ -212,9 +213,9 @@ function routeOf(request: Request, routes: RunnerRoutes, identity: RunnerIdentit
     return jsonResponse({ status: HTTP_STATUS.OK, body: { outcome: 'done' } });
   }
   const jobStream = method === 'GET' ? JOB_STREAM_PATH.exec(pathname) : null;
-  if (jobStream?.[1] !== undefined) return transcriptResponse(request, routes, decodeURIComponent(jobStream[1]), openStreams);
+  if (jobStream?.[1] !== undefined) return transcriptResponse(request, routes, jobStream[1], openStreams);
   const jobFile = method === 'GET' ? JOB_FILE_PATH.exec(pathname) : null;
-  if (jobFile?.[1] !== undefined && jobFile[2] !== undefined) return jobFileResponse(routes, decodeURIComponent(jobFile[1]), decodeURIComponent(jobFile[2]));
+  if (jobFile?.[1] !== undefined && jobFile[2] !== undefined) return jobFileResponse(routes, jobFile[1], jobFile[2]);
   return jsonResponse({ status: HTTP_STATUS.NOT_FOUND, body: { refusal: 'not-found' } });
 }
 

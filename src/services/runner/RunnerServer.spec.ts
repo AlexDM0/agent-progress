@@ -203,6 +203,15 @@ describe('RunnerServer guards', () => {
     expect((await fetch(new URL('api/jobs/J1/files/..%2Fprogress.json', server.url))).status).toBe(404);
   });
 
+  test('a job path holding a malformed escape is a 404 under the page CSP, never a thrown 500', async () => {
+    const { server } = startExampleServer();
+    for (const path of ['api/jobs/%E0/files/report.json', 'api/jobs/J1/files/%E0', 'api/jobs/%E0/stream']) {
+      const response = await fetch(new URL(path, server.url));
+      expect(response.status).toBe(404);
+      expect(response.headers.get('content-security-policy')).toContain('default-src \'self\'');
+    }
+  });
+
   test('a body-less POST /api/nudge only schedules a pass, without a token; /api/state and /api/summary answer their documents', async () => {
     const { server, nudges, commands } = startExampleServer();
     expect((await fetch(new URL('api/nudge', server.url), { method: 'POST' })).status).toBe(200);
