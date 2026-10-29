@@ -3,6 +3,7 @@ export const DISPATCHER_MODULE_PATHS = {
   DISPATCH_RUN:               'dispatcher/run/DispatchRun.ts',
   GROUP_DISPATCH_RUN:         'dispatcher/run/GroupDispatchRun.ts',
   GROUP_AGENT_PROMPT_UTIL:    'dispatcher/run/utils/GroupAgentPromptUtil.ts',
+  SLOT_COUNT_UTIL:            'dispatcher/run/utils/SlotCountUtil.ts',
   DISPATCHER:                 'dispatcher/Dispatcher.ts',
   AGENT_STARTER:              'dispatcher/run/AgentStarter.ts',
   WORKFLOW_INPUT_UTIL:        'dispatcher/utils/WorkflowInputUtil.ts',

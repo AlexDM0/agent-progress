@@ -223,6 +223,7 @@ function groupTicketReadingsOf(survey: Record<string, unknown>, groupName: strin
     const rowFacts = rowFactsById.get(ticket.id);
     tickets.push({
       ...ticket,
+      priority:            priorityOf(entry['priority']),
       agentModelAndEffort: agentModelAndEffortOf(entry),
       rowNote:             rowFacts?.rowNote ?? '',
       worktreeExists:      groupWorktreeExists(ticket, worktreeNames),

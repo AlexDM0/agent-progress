@@ -422,23 +422,33 @@ states, and the dispatcher decides that in code. It starts no low ticket unless 
   other; when the lookup lists no group tickets at all, every grouped ticket is refused.
 - **A group run**, launched with `group: '<name>'` and no `ticketIds`, builds the group's release
   bundle, read from the board, on the branch `group-<name>` in the worktree
-  `<mainCheckout>/.claude/worktrees/group-<name>`, both made off the main line on first use. The
-  bundle runs in dependency order, lowest id first among equals, as a pipeline of at most one builder
-  and one reviewer: builder N+1 claims with `ticket claim <n+1> --after <n>` on a branch forked off
-  N's built tip while reviewer N rebases N onto the group branch, fast-forwards the group branch to
-  it and approves it; reviewer N+1 starts only once N is integrated. The release ticket, last in the
-  order, is reviewed once every other bundle ticket is integrated, and its reviewer alone reaches the
-  main line: it integrates its own ticket onto the group branch, rebases the group branch onto the
-  main line in the group worktree, runs the full checks and the root `CLAUDE.md`'s pre-release step
-  there, and runs one `release` over every open bundle ticket with `--branch group-<name> --worktree
-  <group worktree>`, which delivers them all and removes the group worktree and branch. A
-  `main-moved` it returns takes one more review round on the bar it left running, and the next parks
-  the release ticket, as in a whole-board run; a release reported by any other bundle ticket's
-  reviewer parks that ticket and starts nothing more. The summary names the released tickets under
-  `delivered`, with `integrated` and, behind a parked ticket, `waitingOnPredecessor`. It never
-  reads or writes the board's dispatcher state or run id, shares the board's slot limit (a group
-  builder waits for a free slot by its own background poll), ends on a board stop like a whole-board
-  run, and a relaunch picks the pipeline up from the board alone.
+  `<mainCheckout>/.claude/worktrees/group-<name>`, both made off the main line on first use. It
+  fills the slots the board's limit leaves after every agent in flight, a whole-board run's
+  included, starting reviews before builds and, among startable tickets, the highest priority
+  first, then the lowest id. A ticket whose dependencies inside the bundle are all integrated is
+  built on a branch forked off the group branch; one whose single unintegrated dependency is in
+  review is built beside that review, claiming with `ticket claim <id> --after <dependency>` on a
+  branch forked off the dependency's; any other waits. So independent tickets build side by side,
+  and a straight chain runs as before, builder N+1 on N's built tip while reviewer N integrates N.
+  A built ticket is reviewed as soon as every dependency is integrated, so reviews run side by side
+  too, and each reviewer brings its branch onto the group branch, fast-forwards the group branch to
+  it and approves it: integration stays one ticket at a time. A reviewer whose fast-forward git
+  refuses because another ticket integrated first merges the group branch's new tip, reruns the
+  full checks and tries again, returning `group-moved` after three refused attempts. The release
+  ticket, which depends on every other bundle ticket, is reviewed once they are all integrated, and
+  its reviewer alone reaches the main line: it integrates its own ticket onto the group branch,
+  merges the main line into the group branch in the group worktree, runs the full checks and the
+  root `CLAUDE.md`'s pre-release step there, and runs one `release` over every open bundle ticket
+  with `--branch group-<name> --worktree <group worktree>`, which delivers them all and removes the
+  group worktree and branch. A `main-moved` it returns takes one more review round on the bar it
+  left running, and the next parks the release ticket, as in a whole-board run; a release reported
+  by any other bundle ticket's reviewer parks that ticket and starts nothing more. The summary names
+  the released tickets under `delivered`, with `integrated` and, behind a parked ticket,
+  `waitingOnPredecessor`. It never
+  reads or writes the board's dispatcher state or run id, and when it holds nothing it starts one
+  builder even with no slot free, since a group builder waits for one by its own background poll
+  before it claims. It ends on a board stop like a whole-board run, and a relaunch picks the run up
+  from the board alone.
 - **A dirty main checkout.** A whole-board run's survey also lists the main checkout's uncommitted
   tracked files (`git status -s -uno`). When there are any, the run starts no
   agent and returns them as `dirtyMainCheckoutFiles`: a release git refuses over one of them

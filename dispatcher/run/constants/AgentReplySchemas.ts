@@ -105,6 +105,12 @@ const BOARD_TICKET_SCHEMA: JsonSchema = {
   required: ['id', 'status', 'dependsOn', 'releasesGroup'],
 };
 
+// A group run starts its startable tickets by priority, so its survey copies each ticket's too.
+const GROUP_BOARD_TICKET_SCHEMA: JsonSchema = {
+  ...BOARD_TICKET_SCHEMA,
+  properties: { ...BOARD_TICKET_SCHEMA.properties, priority: { type: 'string' } },
+};
+
 const TICKET_SETTINGS_LOOKUP: JsonSchema = {
   type:       'object',
   properties: {
@@ -128,7 +134,7 @@ const GROUP_SURVEY: JsonSchema = {
   type:       'object',
   properties: {
     status:        STATUS_BLOCK_SCHEMA,
-    tickets:       { type: 'array', items: BOARD_TICKET_SCHEMA },
+    tickets:       { type: 'array', items: GROUP_BOARD_TICKET_SCHEMA },
     ticketRows:    { type: 'array', items: TICKET_ROW_SCHEMA },
     worktreeNames: WORKTREE_NAMES_SCHEMA,
   },

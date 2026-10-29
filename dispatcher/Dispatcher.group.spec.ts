@@ -1,10 +1,11 @@
 /**
  * The dispatcher's group run, checked against the bundle and a mutant like the claims in `dispatcher/Dispatcher.decisions.spec.ts`. A group's
  * bundle reaches the main line only through its release, so these pin what a group run may never do: move the main line other than once, at the
- * release ticket's reviewer's `released` after every other ticket is integrated, run two builders or two reviewers at once, build a ticket before
- * the one it forks off is built, review one before the one before it is integrated, outlive a board stop, or reach a whole-board run's tickets
- * beside it; that the run starts the release review itself and its one release delivers the bundle; that `main-moved` at the release is
- * retried with the version bump dropped and then parked; and that a relaunch picks the pipeline up from the board alone.
+ * release ticket's reviewer's `released` after every other ticket is integrated, build a ticket before its one dependency still unintegrated is
+ * built or while two are, review one before its dependencies are integrated, take more than the slots a whole-board run beside it leaves, outlive
+ * a board stop, or reach a whole-board run's tickets; that independent tickets build and are reviewed side by side, by priority, while a straight
+ * chain keeps the one-at-a-time pipeline's sequence; that the run starts the release review itself and its one release delivers the bundle; that
+ * `main-moved` at the release is retried with the version bump dropped and then parked; and that a relaunch picks the run up from the board alone.
  */
 import { describe, expect, test } from 'bun:test';
 

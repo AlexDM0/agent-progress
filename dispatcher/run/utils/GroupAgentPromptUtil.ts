@@ -1,6 +1,7 @@
 /**
- * The prompts of a group run's agents: its survey, and the builder and reviewer of each bundle ticket, worked on a ticket branch forked off the one
- * before it and integrated onto the group branch, which only the release ticket's reviewer takes to the main line.
+ * The prompts of a group run's agents: its survey, and the builder and reviewer of each bundle ticket, worked on a ticket branch forked off the group
+ * branch or the one dependency still in review, the group branch merged in, and integrated onto the group branch, which only the release ticket's
+ * reviewer takes to the main line.
  */
 import { DISPATCH_PROTOCOL }                                from '../../../src/shared/constants/DispatchProtocol.ts';
 import { DispatcherClaimNoteUtil }                          from '../../../src/shared/utils/DispatcherClaimNoteUtil.ts';
@@ -46,20 +47,28 @@ function headerLineOf(settings: DispatchSettings, ticketId: string, groupName: s
 function groupOverrideText(settings: DispatchSettings, placement: GroupPlacement): string {
   const groupBranch = groupBranchOf(placement.groupName);
   const orderText = placement.orderedTicketIds.map((groupTicketId) => `#${groupTicketId}`).join(', ');
-  return `This ticket belongs to the group \`${groupBranch}\`, built and reviewed one ticket at a time in this order: ${orderText}. `
+  return `This ticket belongs to the group \`${groupBranch}\`, whose tickets are built and reviewed side by side wherever their dependencies allow `
+    + `and integrated onto ${groupBranch} one at a time; in dependency order they are ${orderText}. `
     + `Its code reaches ${settings.mainLine} once, when the reviewer of the release ticket #${placement.releaseTicketId} releases the whole group. `
     + 'This prompt supersedes the ticket body wherever the two differ: the ticket is worked in the worktree and on the branch named above, '
     + `never in ${groupWorktreeOf(settings, placement.groupName)} itself, and never on ${settings.mainLine} or ${groupBranch}.`;
 }
 
-// Until its reviewer fast-forwards the group branch, the predecessor's code exists only on its own branch, so that branch is what this one forks off.
+// Until its reviewer fast-forwards the group branch, a dependency's code exists only on its own branch, so that branch is what this one forks off.
 function baseDefinitionText(placement: GroupPlacement): string {
   const groupBranch = groupBranchOf(placement.groupName);
-  const { predecessorId } = placement;
-  if (predecessorId === null) return `<base> is ${groupBranch}.`;
-  return `This group runs as a pipeline, one builder and one reviewer at a time, so #${predecessorId}, the ticket before this one, may still be under review while you build. `
-    + `<base> is \`${branchOf(predecessorId)}\` while that branch exists, and ${groupBranch} once it no longer does. `
-    + `Never edit, commit on or rebase \`${branchOf(predecessorId)}\` or its worktree: that is #${predecessorId}'s reviewer's.`;
+  const { pipelinedBehindId } = placement;
+  if (pipelinedBehindId === null) return `<base> is ${groupBranch}.`;
+  return `#${pipelinedBehindId}, the one dependency this ticket still waits on, may still be under review while you build. `
+    + `<base> is \`${branchOf(pipelinedBehindId)}\` while that branch exists, and ${groupBranch} once it no longer does. `
+    + `Never edit, commit on or rebase \`${branchOf(pipelinedBehindId)}\` or its worktree: that is #${pipelinedBehindId}'s reviewer's.`;
+}
+
+// The dependency's branch may have forked before another dependency reached the group branch, so it can lack that one's code.
+function integratedDependenciesMergeText(worktree: string, groupBranch: string, pipelinedBehindId: string): string {
+  return `When you have just forked the ticket branch off \`${branchOf(pipelinedBehindId)}\`, right after the fork run `
+    + `\`git -C ${worktree} merge --no-edit ${groupBranch}\`, never a rebase, so the code of every dependency already integrated onto ${groupBranch} `
+    + 'is on your branch before you build (resolve a conflict by editing the file, `git add`, `GIT_EDITOR=true git commit --no-edit`, never `--abort`).';
 }
 
 const SECONDS_PER_MINUTE = 60;
@@ -73,11 +82,11 @@ function slotWaitText(): string {
     + `it gives up by itself after ${DISPATCH_POLICY.SLOT_WAIT_LIMIT_MINUTES} minutes.`;
 }
 
-function claimCommandOf(settings: DispatchSettings, ticketId: string, owner: string, predecessorId: string | null): string {
+function claimCommandOf(settings: DispatchSettings, ticketId: string, owner: string, pipelinedBehindId: string | null): string {
   const claimNote = DispatcherClaimNoteUtil.claimNoteFor(settings.runLabel, ticketId);
   const claimCommand = `\`agent-progress ticket claim ${ticketId} --owner ${owner} --note "${claimNote}"\``;
-  if (predecessorId === null) return claimCommand;
-  return `${claimCommand}, adding \`--after ${predecessorId}\` when \`agent-progress ticket show ${predecessorId}\` says \`in-review\``;
+  if (pipelinedBehindId === null) return claimCommand;
+  return `${claimCommand}, adding \`--after ${pipelinedBehindId}\` when \`agent-progress ticket show ${pipelinedBehindId}\` says \`in-review\``;
 }
 
 function groupBuilderPrompt(settings: DispatchSettings, placement: GroupPlacement, request: BuilderPromptRequest): string {
@@ -93,7 +102,7 @@ function groupBuilderPrompt(settings: DispatchSettings, placement: GroupPlacemen
     groupOverrideText(settings, placement),
     baseDefinitionText(placement),
     slotWaitText(),
-    `FIRST write: ${claimCommandOf(settings, ticketId, owner, placement.predecessorId)}. `
+    `FIRST write: ${claimCommandOf(settings, ticketId, owner, placement.pipelinedBehindId)}. `
       + 'If it exits 1 saying the ticket is in-progress, read the `note` of the `row` in the ticket\'s `ticketRows` entry of `agent-progress status --json`. '
       + `When that note is exactly "${claimNote}" and ${worktree} exists, the claim is this run's own: an earlier run of this group made it, `
       + 'or this very builder before the runtime restarted or resumed it. Carry on in that worktree, keeping every uncommitted edit it holds. '
@@ -111,6 +120,7 @@ function groupBuilderPrompt(settings: DispatchSettings, placement: GroupPlacemen
   if (settings.installCommand !== '') {
     lines.push(`In a worktree you just created, the group worktree included, run \`${settings.installCommand}\` in it once before anything else there.`);
   }
+  if (placement.pipelinedBehindId !== null) lines.push(integratedDependenciesMergeText(worktree, groupBranch, placement.pipelinedBehindId));
   lines.push(
     'Everything you do happens in the ticket worktree: every edit, every command, every commit, git as `git -C <worktree>`. '
       + 'Your working directory may be the main checkout; it is not yours to touch.',
@@ -186,10 +196,10 @@ function reviewProcedureText(settings: DispatchSettings, placement: GroupPlaceme
 function pipelineStepText(settings: DispatchSettings, placement: GroupPlacement, ticketId: string): string {
   const worktree = worktreeOf(settings, ticketId);
   const groupBranch = groupBranchOf(placement.groupName);
-  const { predecessorId } = placement;
-  const predecessorGate = predecessorId === null ? '' : `\`agent-progress ticket show ${predecessorId}\` must say \`reviewed\`, \`delivered\` or \`abandoned\`; `
+  const dependencyShowCommands = placement.dependencyIds.map((dependencyId) => `\`agent-progress ticket show ${dependencyId}\``).join(', ');
+  const dependencyGate = placement.dependencyIds.length === 0 ? '' : `${dependencyShowCommands} must each say \`reviewed\`, \`delivered\` or \`abandoned\`; `
     + 'otherwise change nothing more, close your bar, and return `not-released` with releaseReason `predecessor-not-integrated`. Then ';
-  return `P. ${predecessorGate}bring the branch onto ${groupBranch}: record \`git -C ${worktree} rev-parse HEAD\` as <pipeline tip>, then `
+  return `P. ${dependencyGate}bring the branch onto ${groupBranch}: record \`git -C ${worktree} rev-parse HEAD\` as <pipeline tip>, then `
     + `${catchUpRuleText(worktree, groupBranch)}. Count what that did: after a rebase `
     + `\`agent-progress rework --rebased-from <pipeline tip> --main ${groupBranch} --worktree ${worktree}\`, after a merge that made a commit `
     + `\`agent-progress rework --merge HEAD --worktree ${worktree}\`; the count joins your total and your \`## Review\`.`;
@@ -209,14 +219,18 @@ function reviewDisciplineLines(): string[] {
 
 // I1 and I2 fast-forward the group branch to the ticket branch, which both a bundle ticket's reviewer and the release ticket's run.
 function fastForwardStepLines(settings: DispatchSettings, placement: GroupPlacement, ticketId: string): string[] {
+  const worktree = worktreeOf(settings, ticketId);
   const groupBranch = groupBranchOf(placement.groupName);
   const groupWorktree = groupWorktreeOf(settings, placement.groupName);
   return [
     `I1. \`git -C ${groupWorktree} branch --show-current\` must print ${groupBranch} and \`git -C ${groupWorktree} status --porcelain\` nothing; `
       + 'otherwise change nothing and return `not-released` with releaseReason `group-worktree-unclean`.',
-    `I2. \`git -C ${groupWorktree} merge --ff-only ${branchOf(ticketId)}\`; when git refuses because ${groupBranch} moved, bring the branch onto it again as P says `
-      + 'and retry once, '
-      + 'and a second refusal returns `not-released` with releaseReason `group-moved`. '
+    `I2. \`git -C ${groupWorktree} merge --ff-only ${branchOf(ticketId)}\`. The group's other reviewers run beside you, so git may refuse because `
+      + `another ticket reached ${groupBranch} first: then \`git -C ${worktree} merge --no-edit ${groupBranch}\` (resolve a conflict by editing the file, `
+      + '`git add`, `GIT_EDITOR=true git commit --no-edit`, never `--abort`, and review every hunk you resolved as step 3 says), count it with '
+      + `\`agent-progress rework --merge HEAD --worktree ${worktree}\`, run \`${settings.checkCommand} 2>&1 | tail -20\` in ${worktree} until green, `
+      + `committing what is uncommitted, and run I2 again. After ${DISPATCH_POLICY.GROUP_FAST_FORWARD_ATTEMPTS} refused attempts in all, `
+      + 'return `not-released` with releaseReason `group-moved`. '
       + `Once it succeeds, append the line \`${integratedLineOf(placement.groupName)}\` at the end of your \`## Review\`, with the full commit `
       + `\`git -C ${groupWorktree} rev-parse HEAD\` prints.`,
   ];
@@ -329,7 +343,7 @@ function groupSurveyPrompt(settings: DispatchSettings): string {
       + 'and make no other call. Judge nothing and leave out no entry; return:',
     '- `status`: its `concurrency` block as printed (limit, agentsInFlight, freeSlots, readyTicketIds, dispatcherState, heldTicketIds, inProgressTicketIds, '
       + `inProgressReviewOfIds), ${AgentPromptUtil.readyTicketsAdditionText()};`,
-    `- \`tickets\`: ${AgentPromptUtil.boardTicketCopyText()};`,
+    `- \`tickets\`: ${AgentPromptUtil.boardTicketCopyText()}, and its \`priority\`;`,
     '- `ticketRows`: every entry of the document\'s top-level `ticketRows` list, each with its `id`, its `row` holding only that row\'s `note` '
       + '(left out where the entry\'s `row` is null), and its `reviewBars` each holding only that bar\'s `status`;',
     `${AgentPromptUtil.worktreeNamesReturnText()}.`,
