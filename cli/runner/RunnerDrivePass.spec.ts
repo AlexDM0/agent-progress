@@ -159,8 +159,24 @@ function buildJobId(): string {
   return buildJob.id;
 }
 
-/** A session that starts and then waits on its stdin, so its host stays live until the spec ends it. */
-const WAITING_SESSION = fakeAgentAdapter([{ kind: 'print', line: fakeStartedLine('fake-session') }, { kind: 'await-line' }]);
+/** A session that starts and then waits on its stdin past the runner's first message, so its host stays live until the spec ends it. */
+const WAITING_SESSION = fakeAgentAdapter([{ kind: 'print', line: fakeStartedLine('fake-session') }, { kind: 'await-line' }, { kind: 'await-line' }]);
+
+/**
+ * Each job's log ends up holding the runner's first message and the session's started line, in either order; once both are there and
+ * read, with the host live, a `WAITING_SESSION` job's log stops changing until the spec acts.
+ */
+function everyJobHasReadItsWholeStart(): boolean {
+  const jobs = storedProgressOf(repositoryDirectory).jobs ?? [];
+  return jobs.length > 0 && jobs.every((job) => {
+    const folder = jobFolder(job.id);
+    const entries = HostFleet.eventsAfter(folder, job.hostInstance, 0);
+    if (entries === 'malformed' || job.state !== 'running' || HostFleet.livenessOf(folder, job.hostInstance).verdict !== 'live') return false;
+    const origins = new Set(entries.map((entry) => entry.origin));
+    const cursorIsAtTheEnd = job.eventCursor.instance === job.hostInstance && job.eventCursor.sequence === entries.at(-1)?.sequence;
+    return origins.has('client') && origins.has('agent') && cursorIsAtTheEnd;
+  });
+}
 
 /** Every folder under `folder` holding a launch file: a job's agent hosts and, nested in it, its process hosts. */
 function hostFoldersUnder(folder: string): string[] {
@@ -351,11 +367,11 @@ describe('waking', () => {
   test('an unforced wake with nothing changed runs no pass, however late, and wakes during a pass coalesce into one more', async () => {
     const drivePass = await drivePassWith(WAITING_SESSION);
     await passOnce(drivePass);
-    const settling = (): boolean => storedProgressOf(repositoryDirectory).jobs?.some((job) => job.state !== 'running' || job.eventCursor.sequence === 0) === true;
-    for (let attempt = 0; attempt < HOST_WAIT_TRIES && settling(); attempt += 1) {
+    for (let attempt = 0; attempt < HOST_WAIT_TRIES && !everyJobHasReadItsWholeStart(); attempt += 1) {
       await Bun.sleep(HOST_WAIT_MILLISECONDS);
       await passOnce(drivePass, false);
     }
+    expect(everyJobHasReadItsWholeStart(), runnerLog.join('\n')).toBe(true);
     const settled = drivePass.state().passes;
     await passOnce(drivePass, false);
     expect(drivePass.state().passes).toBe(settled);
