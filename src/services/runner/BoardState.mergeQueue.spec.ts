@@ -48,22 +48,24 @@ describe('BoardStateAssembly.mergeQueueOf', () => {
     expect(targets[0]?.holder).toBeNull();
   });
 
-  test('names the Airlock holder with its phase and the target-moved decisions of the target\'s tickets', () => {
+  test('names the Airlock holder with its phase and only the target-moved decisions of the target\'s tickets', () => {
     const board = queuedBoard();
     const { job } = board.claimMergeSlot({
       ticketId: '003', target: 'main', targetTip: 'a'.repeat(40), branchTip: 'b'.repeat(40), predictedConflictFiles: []
     }, targetOf, AT);
-    board.openDecision({
-      kind:      'target-moved',
-      ticketIds: ['002'],
-      jobId:     null,
-      askedBy:   'runner',
-      requestId: null,
-      questions: [{
-        question: 'Example?', header: 'Example', multiSelect: false, options: []
-      }],
-      context: 'main moved'
-    }, AT);
+    for (const kind of ['target-moved', 'merge-refused'] as const) {
+      board.openDecision({
+        kind,
+        ticketIds: ['002'],
+        jobId:     null,
+        askedBy:   'runner',
+        requestId: null,
+        questions: [{
+          question: `Example ${kind}?`, header: 'Example', multiSelect: false, options: []
+        }],
+        context: 'main moved'
+      }, AT);
+    }
     const [target] = BoardStateAssembly.mergeQueueOf(board, FORECASTING).targets;
     expect(target?.holder).toEqual({ jobId: job.id, ticketIds: ['003'], phase: 'merge-in' });
     expect(target?.targetMovedDecisionIds).toEqual(['E1']);
