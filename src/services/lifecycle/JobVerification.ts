@@ -20,6 +20,7 @@ import { BUILDER_REPORT_SCHEMA, RESOLVER_REPORT_SCHEMA, REVIEWER_REPORT_SCHEMA }
 import { reportVerdictOf, type JsonSchema }                                      from '../../adapters/reports/ReportValidation.ts';
 import { TicketAcceptanceUtil }                                                  from '../../adapters/tickets/utils/TicketAcceptanceUtil.ts';
 import { GitProcess }                                                            from '../../lib/git/GitProcess.ts';
+import type { JobOutcome }                                                       from '../../lib/tracker-model/@types/Job.ts';
 import type { LogRecord }                                                        from '../../lib/tracker-model/@types/LogRecord.ts';
 import { TicketBodyHashUtil }                                                    from '../../lib/tracker-model/utils/TicketBodyHashUtil.ts';
 import { PRODUCT_NAMES }                                                         from '../../shared/constants/ProductNames.ts';
@@ -63,12 +64,29 @@ export interface LaunchSnapshot {
 
 /** V14's exemptions: refs only the runner or another job moves. */
 export interface RefMovesAllowed {
-  ownBranch:        string;
+  ownBranch:            string;
   /** The branches of the other jobs on the board, each moved by its own session. */
-  otherJobBranches: readonly string[];
+  otherJobBranches:     readonly string[];
   /** Each landing the runner recorded, as the ref it moved and the commit it moved it to. */
-  recordedLandings: readonly { ref: string; commit: string }[];
+  recordedLandings:     readonly { ref: string; commit: string }[];
+  /** The branches the Overseer deletes after a landing, a released group's and each landed ticket's: exempt only once gone. */
+  removedAfterLandings: readonly string[];
+  /** The Airlock's refresh worktrees' detached HEADs, keyed `HEAD:<path>`: added, merged into and removed by the Overseer alone. */
+  refreshWorktreeHeads: readonly string[];
 }
+
+/** How the Overseer names the refs around its landings, which the log records only by ticket and target. */
+export interface OverseerRefNaming {
+  ownBranch:             string;
+  otherJobBranches:      readonly string[];
+  ticketBranchOf:        (ticketId: string) => string;
+  /** The group branch landing this ticket on the main line releases and deletes; `null` for a ticket releasing no group. */
+  releasedGroupBranchOf: (ticketId: string) => string | null;
+  refreshWorktreeOf:     (groupBranch: string) => string;
+}
+
+/** The job endings that move a target's ref: the landings V14 lets pass. */
+const LANDING_OUTCOMES: readonly JobOutcome[] = ['landed', 'integrated', 'refreshed'];
 
 export interface JobVerificationSubject {
   role:                   VerifiedRole;
@@ -410,13 +428,43 @@ function onlyOwnRefsMoved(subject: JobVerificationSubject): CheckVerdict {
   if (now === null) return refused('git-failed', ['for-each-ref']);
   const exempt = new Set([refMovesAllowed.ownBranch, ...refMovesAllowed.otherJobBranches].map((branch) => `refs/heads/${branch}`));
   exempt.add(`HEAD:${subject.worktreePath}`);
+  for (const refreshHead of refMovesAllowed.refreshWorktreeHeads) exempt.add(refreshHead);
+  const removedAfterLandings = new Set(refMovesAllowed.removedAfterLandings);
   const moved = [...new Set([...Object.keys(launchSnapshot.refs), ...Object.keys(now.refs)])].filter((ref) => {
     if (exempt.has(ref)) return false;
     const after = now.refs[ref];
     if (launchSnapshot.refs[ref] === after) return false;
+    if (after === undefined && removedAfterLandings.has(ref)) return false;
     return !refMovesAllowed.recordedLandings.some((landing) => landing.ref === ref && landing.commit === after);
   });
   return moved.length === 0 ? PASSED : refused('foreign-ref-moved', moved.sort());
+}
+
+/** V14's exemptions from the log: each landing on its job's target at its commit, what a main-line landing deletes, and every refresh's worktree. */
+export function refMovesAllowedOf(logRecords: readonly LogRecord[], naming: OverseerRefNaming): RefMovesAllowed {
+  const launchById = new Map<string, { target: string | null; ticketIds: readonly string[] }>();
+  const recordedLandings: { ref: string; commit: string }[] = [];
+  const removedAfterLandings: string[] = [];
+  const refreshWorktreeHeads: string[] = [];
+  for (const record of logRecords) {
+    if (record.kind === 'job-launched') {
+      launchById.set(record.jobId, { target: record.fields.target, ticketIds: record.fields.ticketIds });
+      if (record.fields.kind === 'refresh' && record.fields.target !== null) refreshWorktreeHeads.push(`HEAD:${naming.refreshWorktreeOf(record.fields.target)}`);
+    }
+    if (record.kind !== 'job-ended' || !LANDING_OUTCOMES.includes(record.fields.outcome) || record.fields.commit === undefined) continue;
+    const launch = launchById.get(record.jobId);
+    if (launch === undefined || launch.target === null) continue;
+    recordedLandings.push({ ref: `refs/heads/${launch.target}`, commit: record.fields.commit });
+    if (record.fields.outcome !== 'landed') continue;
+    for (const ticketId of launch.ticketIds) {
+      removedAfterLandings.push(`refs/heads/${naming.ticketBranchOf(ticketId)}`);
+      const groupBranch = naming.releasedGroupBranchOf(ticketId);
+      if (groupBranch !== null) removedAfterLandings.push(`refs/heads/${groupBranch}`);
+    }
+  }
+  return {
+    ownBranch: naming.ownBranch, otherJobBranches: naming.otherJobBranches, recordedLandings, removedAfterLandings, refreshWorktreeHeads
+  };
 }
 
 export const VERIFICATION_CHECKS: Readonly<Record<VerificationCheck, VerificationCheckRun>> = {
