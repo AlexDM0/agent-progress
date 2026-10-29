@@ -411,6 +411,10 @@ test.each<[BoardRefusalDetail, string]>([
     'Decision E7 asks 1 question, so it takes one answer for each, not 2. Nothing was written.',
   ],
   [{ reason: 'decision-without-questions' }, 'A decision asks at least one question, and this one asks none. Nothing was written.'],
+  [
+    { reason: 'decision-questions-repeat', question: 'Same?' },
+    'A decision\'s answers are kept by question, so no two of its questions may read "Same?". Nothing was written.',
+  ],
   [{ reason: 'unknown-incident', incidentId: 'I9' }, 'There is no incident I9. Nothing was written.'],
   [{ reason: 'incident-closed', incidentId: 'I4' }, 'Incident I4 is already closed. Nothing was written.'],
 ])('the decision or incident refusal %o words as its sentence', (detail, message) => {

@@ -44,24 +44,33 @@ export interface MergeAgentReading {
 
 export interface MergeSlotsContext {
   /** The main checkout, where the main line is fast-forwarded. */
-  repositoryRoot:      string;
-  mainLine:            string;
-  groupTargetPrefix:   string;
+  repositoryRoot:        string;
+  mainLine:              string;
+  groupTargetPrefix:     string;
   /** Where the group worktrees and the refresh worktrees live, beside the ticket worktrees. */
-  worktreesRoot:       string;
-  worktreeOf:          (ticketId: string) => string;
-  limits:              MergeSlotLimits;
+  worktreesRoot:         string;
+  worktreeOf:            (ticketId: string) => string;
+  limits:                MergeSlotLimits;
   /** T1b-P14's finding: with the per-job ref denies holding, a target moved by someone else requeues silently. */
-  refDeniesHold:       boolean;
-  hold:                MergeSlotHoldRunner;
-  gateMergedTree:      (worktreePath: string, treeId: string) => Promise<GateOutcome>;
-  mergeAgentReadingOf: (job: Readonly<Job>) => MergeAgentReading;
+  refDeniesHold:         boolean;
+  hold:                  MergeSlotHoldRunner;
+  gateMergedTree:        (worktreePath: string, treeId: string) => Promise<GateOutcome>;
+  mergeAgentReadingOf:   (job: Readonly<Job>) => MergeAgentReading;
   /** The job's own host, an agent's or a process host's, is alive. */
-  hostIsLive:          (job: Readonly<Job>) => boolean;
-  stopMergeAgent:      (job: Readonly<Job>) => Promise<void>;
-  decisionWordingOf:   (draft: DecisionDraft) => DecisionWording;
+  hostIsLive:            (job: Readonly<Job>) => boolean;
+  stopMergeAgent:        (job: Readonly<Job>) => Promise<void>;
+  decisionWordingOf:     (draft: DecisionDraft) => DecisionWording;
   /** `run pause` opens no new slot; a slot already open finishes. */
-  dispatchIsStopped:   () => boolean;
+  dispatchIsStopped:     () => boolean;
+  /** A removal git declined after a refresh or a release: the Overseer logs it and shows it as a notice while the leftover stands. */
+  reportDeclinedCleanup: (declined: DeclinedCleanup) => void;
+}
+
+export interface DeclinedCleanup {
+  cleanup:     'refresh' | 'release';
+  groupBranch: string;
+  /** Git's own reason, as `GroupWorktrees` hands it back. */
+  reason:      string;
 }
 
 /** The `dirty-main-checkout` notice: the target checkout's branch, or the files blocking the fast-forward. */
@@ -169,11 +178,16 @@ export function createMergeSlots(context: MergeSlotsContext): MergeSlots {
     hold.board.setJobSlot(job.id, { ...slotOf(job), phase });
   }
 
+  function removeRefreshWorktree(job: Readonly<Job>): void {
+    const reason = GroupWorktrees.removeWorktree(context.repositoryRoot, slotWorktreeOf(job));
+    if (reason !== null) context.reportDeclinedCleanup({ cleanup: 'refresh', groupBranch: job.target ?? '', reason });
+  }
+
   /** Frees the slot with the worktree back at its recorded start, a refresh's removed; the ticket stays queued unless the caller took it out. */
   async function freeSlot(job: Readonly<Job>, ending: JobEnding, inHold: (hold: MergeSlotHold) => void = () => undefined): Promise<void> {
     const worktree = slotWorktreeOf(job);
     MergeRun.restoreBranchTip(worktree, MergeRun.sidesOf(job, slotOf(job)).startTip);
-    if (isRefresh(job)) GroupWorktrees.removeWorktree(context.repositoryRoot, worktree);
+    if (isRefresh(job)) removeRefreshWorktree(job);
     await context.hold((hold) => {
       const agent = mergeAgentOf(hold.board, job);
       if (agent !== undefined) hold.board.endJob(agent.id, { outcome: 'stopped', cause: ending.cause ?? 'merge-ended' }, hold.at);
@@ -376,8 +390,11 @@ export function createMergeSlots(context: MergeSlotsContext): MergeSlots {
 
   /** After the landing hold: a refresh's temporary worktree goes, and a release removes the group's worktree and deletes its branch. */
   function cleanUpAfterLanding(job: Readonly<Job>, releasedGroup: string | undefined): void {
-    if (isRefresh(job)) GroupWorktrees.removeWorktree(context.repositoryRoot, slotWorktreeOf(job));
-    if (releasedGroup !== undefined) GroupWorktrees.removeGroup(context.repositoryRoot, context.worktreesRoot, `${groupTargetPrefix}${releasedGroup}`);
+    if (isRefresh(job)) removeRefreshWorktree(job);
+    if (releasedGroup === undefined) return;
+    const groupBranch = `${groupTargetPrefix}${releasedGroup}`;
+    const reason      = GroupWorktrees.removeGroup(context.repositoryRoot, context.worktreesRoot, groupBranch);
+    if (reason !== null) context.reportDeclinedCleanup({ cleanup: 'release', groupBranch, reason });
   }
 
   async function runLanding(job: Readonly<Job>): Promise<boolean> {

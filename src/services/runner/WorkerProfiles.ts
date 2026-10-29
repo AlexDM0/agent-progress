@@ -34,7 +34,7 @@ export interface SandboxFacts {
   commitSigning:             CommitSigning;
 }
 
-export type ProfiledRole = 'builder' | 'reviewer' | 'product-owner' | 'orchestrator';
+export type ProfiledRole = 'builder' | 'reviewer' | 'resolver' | 'product-owner' | 'orchestrator';
 
 const GPG_FOLDER = '.gnupg';
 const GPG_PRIVATE_KEYS_FOLDER = 'private-keys-v1.d';
@@ -154,6 +154,7 @@ function webNetworkDomainsOf(role: ProfiledRole, networkDomains: readonly string
  */
 function profileOf(role: ProfiledRole, facts: SandboxFacts, networkDomains: readonly string[], toolchainLines: readonly string[]): WorkerProfile {
   const isWorker = role === 'builder' || role === 'reviewer';
+  if (role === 'resolver') return resolverProfileOf(facts);
   return {
     writableRoots:          [],
     deniedWritableRoots:    deniedWritableRootsOf(facts),
@@ -171,6 +172,31 @@ function profileOf(role: ProfiledRole, facts: SandboxFacts, networkDomains: read
     gitHooksDirectory:      facts.gitHooksDirectory,
     commitSigning:          facts.commitSigning,
     networkDomainGuard:     isWorker ? networkDomainGuardOf(networkDomains) : null,
+  };
+}
+
+/**
+ * The Airlock's resolver: a builder's denies and signing in the worktree it resolves, committing with the git verbs alone, never asking,
+ * never reaching the network, whatever its ticket's `network` line.
+ */
+function resolverProfileOf(facts: SandboxFacts): WorkerProfile {
+  return {
+    writableRoots:          [],
+    deniedWritableRoots:    deniedWritableRootsOf(facts),
+    deniedReadableRoots:    deniedReadableRootsOf(facts),
+    bashNetworkDomains:     [],
+    webNetworkDomains:      'none',
+    relayDirectory:         facts.relayDirectory,
+    allowedCommandPrefixes: [...WORKER_ALLOWED_COMMAND_PREFIXES],
+    deniedCommandPrefixes:  WORKER_DENIED_GIT_SUBCOMMANDS.map((subcommand) => ['git', ...subcommand]),
+    askUser:                false,
+    skills:                 false,
+    subagents:              [],
+    attribution:            'none',
+    instructionsRoot:       facts.repositoryRoot,
+    gitHooksDirectory:      facts.gitHooksDirectory,
+    commitSigning:          facts.commitSigning,
+    networkDomainGuard:     null,
   };
 }
 

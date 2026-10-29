@@ -1044,8 +1044,9 @@ gap-filled. Both lists hold only what is open: an answered or withdrawn decision
 escalated incident, leave in the same write and live on in the log. The first answer wins: a later one, or one to a
 withdrawn decision, is refused `decision-already-answered`, an id never handed out `unknown-decision`, and an answer
 that does not give one text per question `decision-answer-count`; a decision asking no question, opened or escalated,
-is refused `decision-without-questions`; a closed incident is refused `incident-closed`, an
-unknown one `unknown-incident`. A question is keyed by its `requestId` (an incident's by its `requestId` fact) against
+is refused `decision-without-questions`, and one asking two questions of the same text `decision-questions-repeat`,
+since its answer is kept by question text; a closed incident is refused `incident-closed`, an unknown one
+`unknown-incident`. A question is keyed by its `requestId` (an incident's by its `requestId` fact) against
 the open decisions and incidents and its job's `answeredRequestIds`, which an answer joins, so a replayed request opens
 nothing twice.
 

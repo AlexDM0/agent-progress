@@ -2,8 +2,9 @@
  * User's job controls and the product owner's intake, applied through the control service to a Board as a hold carries it. What matters:
  * a stop or wind-down holds the job's ticket in the same hold, before any host exists too, and logs its mode; a message to a finished job
  * is refused `job-finished`; an intake is a product-owner job with no ticket; closing it ends the job once no host is live and lists its
- * drafts in a `ready-drafts` decision whose answer readies the chosen set in the answering hold; a stopped product owner's questions are
- * withdrawn; and past the crash bound a product owner waits on its open question, then a fresh one takes the answers over.
+ * drafts in a `ready-drafts` decision whose answer readies the chosen set, and no draft the decision does not list, in the answering hold;
+ * a stopped product owner's questions are withdrawn; and past the crash bound a product owner waits on its open question,
+ * then a fresh one takes the answers over.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -168,6 +169,18 @@ describe('intake', () => {
     const answered = apply(board, { kind: 'decision-answer', decisionId: 'E1', answer: { form: 'letters', choices: ['b'] } });
     expect(loggedKindsOf(answered)).toEqual(['decision-answered', 'ticket-readied', 'ticket-readied']);
     expect(board.tickets().map((ticket) => ticket.frontmatter.status)).toEqual(['pending', 'pending', 'draft', 'draft']);
+  });
+
+  test('a free-text ready-drafts answer readies only the drafts the decision lists, an unpadded mention included', () => {
+    const { board } = boardFixture({ tickets: [draftFiledBy('004', 'J1'), draftFiledBy('007', 'J9')] });
+    apply(board, { kind: 'intake-start', text: 'A basket' });
+    apply(board, { kind: 'intake-close', jobId: 'J1', proposedDraftSets: [['004']] });
+    board.endIntakeJob('J1', TicketAcceptanceUtil.readinessGapsOf, wordingOf, AT);
+    expect(board.decisions()[0]?.ticketIds).toEqual(['004']);
+
+    const answered = apply(board, { kind: 'decision-answer', decisionId: 'E1', answer: { form: 'text', text: 'Ready #4 and #7' } });
+    expect(loggedKindsOf(answered)).toEqual(['decision-answered', 'ticket-readied']);
+    expect(board.tickets().map((ticket) => ticket.frontmatter.status)).toEqual(['pending', 'draft']);
   });
 
   test('a stopped product owner withdraws its open questions in the same hold, its drafts staying drafts', () => {
