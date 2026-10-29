@@ -51,6 +51,7 @@ export type ReviewerVerdict = 'released' | 'integrated' | 'round-requested' | 'd
 
 /** One ticket of the group, picked from the group survey's copy of the board and joined to its row and worktree. */
 export interface GroupTicketReading extends ReleaseBundleTicket {
+  priority:            TicketPriority;
   agentModelAndEffort: AgentModelAndEffort;
   rowNote:             string;
   worktreeExists:      boolean;

@@ -148,9 +148,12 @@ dispatcher: record no `dispatcher` state or run id for it, and when it returns s
 handle the rest.
 
 **A group ships as one release.** When the user wants tickets to reach the main line together, file
-each with `--group <name>` and `--depends-on` naming the one it builds on, then mark the last with
-`{{program}} ticket release-of <id>`. From that mark the release ticket and every ticket of the
-group it depends on are the group run's alone: the whole-board run never takes them, and a
+each with `--group <name>` and `--depends-on` naming only the tickets whose code it truly builds on,
+then mark the last, which depends on the rest, with `{{program}} ticket release-of <id>`. The
+group run builds and reviews side by side whatever those dependencies allow, within the board's
+limit and beside a whole-board run, and integrates onto the group branch one ticket at a time, so a
+needless dependency only slows the group down. From that mark the release ticket and every ticket of
+the group it depends on are the group run's alone: the whole-board run never takes them, and a
 single-ticket run naming one is refused, so launch none. On the user's go, beside a whole-board run
 or without one, the launch with the args:
 
@@ -168,7 +171,7 @@ a refused release is settled as step 3 says, a moved main line by a relaunch onc
 summary carrying `releaseReviewNext` comes from a dispatcher older than the CLI: ask the user to run
 `{{program}} update`, then relaunch. **Recover
 a group run by launching it again** with the same args, never by resuming it: it keeps no state of its
-own and picks the pipeline up from the board, its builders and reviewers taking over the claims and
+own and picks the run up from the board, its builders and reviewers taking over the claims and
 bars the dead run left.
 
 **The user asking to pause one ticket** — "pause this ticket", "hold #7 before review" — is
