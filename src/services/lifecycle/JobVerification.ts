@@ -120,14 +120,38 @@ function gitLines(directory: string, gitArguments: readonly string[]): string[] 
   return run.standardOutput.split('\n').filter((line) => line !== '');
 }
 
-function rangeOf({ startCommit }: JobVerificationSubject): string {
-  return `${startCommit}..HEAD`;
+type RangeSubject = Pick<JobVerificationSubject, 'worktreePath' | 'startCommit' | 'merge'>;
+
+/** A merge job's own commits leave out every commit the target tip holds, so the target's history is never judged as the job's. */
+function rangeArgumentsOf({ startCommit, merge }: RangeSubject): string[] {
+  return merge === undefined ? [`${startCommit}..HEAD`] : [`${startCommit}..HEAD`, `^${merge.targetTip}`];
+}
+
+function rangeOf(subject: RangeSubject): string {
+  return rangeArgumentsOf(subject).join(' ');
+}
+
+/** `git merge-tree --write-tree` exits 1 when the tree it wrote holds conflicts, which is still the automatic merge. */
+const MERGE_TREE_CONFLICTED_EXIT_CODE = 1;
+
+/** What the net diff is read from: git's automatic merge of branch and target when the job made that merge itself, so only its resolution counts. */
+function netDiffBaseOf(subject: RangeSubject): string | null {
+  const { worktreePath, startCommit, merge } = subject;
+  if (merge === undefined) return startCommit;
+  const mergesInRange = gitLines(worktreePath, ['rev-list', '--merges', ...rangeArgumentsOf(subject)]);
+  if (mergesInRange === null) return null;
+  if (mergesInRange.length === 0) return startCommit;
+  const automaticMerge = GitProcess.run(worktreePath, ['merge-tree', '--write-tree', '--no-messages', merge.branchTip, merge.targetTip]);
+  if (!GitProcess.succeeded(automaticMerge) && automaticMerge?.exitCode !== MERGE_TREE_CONFLICTED_EXIT_CODE) return null;
+  const automaticTree = automaticMerge?.standardOutput.split('\n')[0]?.trim() ?? '';
+  return automaticTree === '' ? null : automaticTree;
 }
 
 /** Each commit's own paths, so a change a later commit undoes still counts, and the range's net diff, which holds a merge's resolution. */
-function pathsChangedInRange(subject: Pick<JobVerificationSubject, 'worktreePath' | 'startCommit'>): string[] | null {
-  const pathsOfEachCommit = gitLines(subject.worktreePath, ['log', '--name-only', '--no-renames', '--format=', `${subject.startCommit}..HEAD`, '--']);
-  const pathsOfTheRange   = gitLines(subject.worktreePath, ['diff', '--name-only', '--no-renames', subject.startCommit, 'HEAD', '--']);
+function pathsChangedInRange(subject: RangeSubject): string[] | null {
+  const netDiffBase       = netDiffBaseOf(subject);
+  const pathsOfEachCommit = gitLines(subject.worktreePath, ['log', '--name-only', '--no-renames', '--format=', ...rangeArgumentsOf(subject), '--']);
+  const pathsOfTheRange   = netDiffBase === null ? null : gitLines(subject.worktreePath, ['diff', '--name-only', '--no-renames', netDiffBase, 'HEAD', '--']);
   if (pathsOfEachCommit === null || pathsOfTheRange === null) return null;
   return [...new Set([...pathsOfEachCommit, ...pathsOfTheRange])];
 }
@@ -158,7 +182,7 @@ function headDescendsFromTheStart(subject: JobVerificationSubject): CheckVerdict
 /** A builder owes a commit only when it reports `built`; a reviewer and a resolution reviewer never do. */
 function aCommitSinceTheStart(subject: JobVerificationSubject): CheckVerdict {
   if (subject.role === 'builder' && reportFieldOf(subject.report, 'outcome') !== 'built') return PASSED;
-  const commits = gitLines(subject.worktreePath, ['rev-list', rangeOf(subject)]);
+  const commits = gitLines(subject.worktreePath, ['rev-list', ...rangeArgumentsOf(subject)]);
   if (commits === null) return refused('git-failed', [rangeOf(subject)]);
   return commits.length > 0 ? PASSED : refused('no-commit-since-start', [subject.startCommit]);
 }
@@ -183,7 +207,7 @@ function ticketBodyUnchanged(subject: JobVerificationSubject): CheckVerdict {
 }
 
 function noAiAttributionInRange(subject: JobVerificationSubject): CheckVerdict {
-  const commits = gitLines(subject.worktreePath, ['rev-list', rangeOf(subject)]);
+  const commits = gitLines(subject.worktreePath, ['rev-list', ...rangeArgumentsOf(subject)]);
   if (commits === null) return refused('git-failed', [rangeOf(subject)]);
   const attributed = commits.filter((commit) => {
     const message = GitProcess.run(subject.worktreePath, ['log', '-1', '--format=%B', commit]);
@@ -205,7 +229,7 @@ function everyAcceptanceItemAccountedFor(subject: JobVerificationSubject): Check
 }
 
 function fixedFindingsNameCommitsInRange(subject: JobVerificationSubject): CheckVerdict {
-  const commits = gitLines(subject.worktreePath, ['rev-list', rangeOf(subject)]);
+  const commits = gitLines(subject.worktreePath, ['rev-list', ...rangeArgumentsOf(subject)]);
   if (commits === null) return refused('git-failed', [rangeOf(subject)]);
   const outside = reportListOf(subject.report, 'findings')
     .filter((finding) => finding['outcome'] === 'fixed')
@@ -216,7 +240,7 @@ function fixedFindingsNameCommitsInRange(subject: JobVerificationSubject): Check
 
 /** The merge commit is the first merge in range, or the start itself for a job that began from the merged commit. */
 function mergeCommitOf(subject: JobVerificationSubject): string | null {
-  const merges = gitLines(subject.worktreePath, ['rev-list', '--merges', '--reverse', rangeOf(subject)]);
+  const merges = gitLines(subject.worktreePath, ['rev-list', '--merges', '--reverse', ...rangeArgumentsOf(subject)]);
   return merges?.[0] ?? subject.startCommit;
 }
 
@@ -340,8 +364,8 @@ function isAgentConfigPath(path: string, hooksFolderPath: string | null): boolea
 }
 
 /** Every path a commit since `sinceCommit` or the worktree itself changes under `.claude/`, `.mcp.json` or an in-tree hooks folder. */
-function agentConfigPathsTouched(worktreePath: string, sinceCommit: string): string[] | null {
-  const paths = pathsChangedInRange({ worktreePath, startCommit: sinceCommit });
+function agentConfigPathsTouched(worktreePath: string, sinceCommit: string, merge?: MergeUnderVerification): string[] | null {
+  const paths = pathsChangedInRange({ worktreePath, startCommit: sinceCommit, ...(merge === undefined ? {} : { merge }) });
   const status = GitProcess.run(worktreePath, ['status', '--porcelain=v1', '--untracked-files=all', '--no-renames']);
   if (paths === null || !GitProcess.succeeded(status)) return null;
   const worktreePaths = status.standardOutput.split('\n').filter((line) => line !== '').map((line) => line.slice('XY '.length));
@@ -350,7 +374,7 @@ function agentConfigPathsTouched(worktreePath: string, sinceCommit: string): str
 }
 
 function agentConfigUntouched(subject: JobVerificationSubject): CheckVerdict {
-  const touched = agentConfigPathsTouched(subject.worktreePath, subject.startCommit);
+  const touched = agentConfigPathsTouched(subject.worktreePath, subject.startCommit, subject.merge);
   if (touched === null) return refused('git-failed', [rangeOf(subject)]);
   const hooksFolderChanged = subject.launchSnapshot !== undefined
     && hooksFolderInsideWorktree(subject.worktreePath) === null
