@@ -392,6 +392,13 @@ describe('waking', () => {
     await passOnce(drivePass);
     expect(drivePass.state().notices).toEqual([{ kind: 'claude-md-block-committed', target: currentBranchOf(repositoryDirectory) }]);
     expect(readFileSync(join(repositoryDirectory, '.agent-progress-v2', 'progress.json'), 'utf8')).not.toContain('claude-md-block-committed');
+
+    writeFileSync(join(repositoryDirectory, 'CLAUDE.md'), '# Example conventions\n');
+    await passOnce(drivePass, true);
+    expect(drivePass.state().notices, 'the block is removed but not yet committed: launches still wait').toHaveLength(1);
+    await Bun.$`git -C ${repositoryDirectory} -c user.name=Example -c user.email=example@example.com commit -q -am Example`.quiet();
+    await passOnce(drivePass, true);
+    expect(drivePass.state().notices, 'the notice clears once the removal is committed').toEqual([]);
   }, PASS_TEST_TIMEOUT_MILLISECONDS);
 });
 

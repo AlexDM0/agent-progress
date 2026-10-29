@@ -1,7 +1,7 @@
 /**
- * What `agent-progress update` refreshes, what it reports about each of those files, and that it leaves a current tracker's progress file,
- * tickets and log byte for byte; and that it refuses, writing nothing, files a newer agent-progress installed and a directory at the manifest's
- * path, which it could not replace.
+ * What `agent-progress update` refreshes, what it reports about each of those files, what it removes once from an install version 16
+ * repository, and that it leaves a current tracker's progress file, tickets and log byte for byte; and that it refuses, writing nothing,
+ * files a newer agent-progress installed and a directory at the manifest's path, which it could not replace.
  */
 import {
   chmodSync,
@@ -15,19 +15,10 @@ import {
 }               from 'node:fs';
 import { join } from 'node:path';
 
-import {
-  afterAll,
-  afterEach,
-  beforeAll,
-  expect,
-  mock,
-  test
-}                                        from 'bun:test';
-import { OperationRefusalWordingUtil }     from '../../../src/adapters/utils/OperationRefusalWordingUtil.ts';
-import * as realWorkflowScriptBundleModule from '../../../src/lib/claude-code/WorkflowScriptBundle.ts';
-import { resourceFilePathOf }              from '../../../src/shared/ResourceFilePath.ts';
-import { DISPATCH_PROTOCOL }               from '../../../src/shared/constants/DispatchProtocol.ts';
-import { PRODUCT_NAMES }                   from '../../../src/shared/constants/ProductNames.ts';
+import { afterEach, expect, test }     from 'bun:test';
+import { OperationRefusalWordingUtil } from '../../../src/adapters/utils/OperationRefusalWordingUtil.ts';
+import { DISPATCH_PROTOCOL }           from '../../../src/shared/constants/DispatchProtocol.ts';
+import { PRODUCT_NAMES }               from '../../../src/shared/constants/ProductNames.ts';
 import {
   addWorktree,
   createScratchDirectory,
@@ -51,17 +42,19 @@ const READ_AND_ENTER_ONLY_MODE = 0o555;
 
 const OWNER_FULL_ACCESS_MODE = 0o755;
 
-const GENERATED_AGENT_BRIEF = (await installedFileTextsFor({ generatesTheDispatcherScript: false })).agentBrief ?? '';
+const GENERATED_SESSION_INSTRUCTIONS = installedFileTextsFor().sessionInstructions ?? '';
+
+const SHARED_SETTINGS = 'settings.json';
+
+const LOCAL_SETTINGS = 'settings.local.json';
+
+const SESSION_START_GROUP = { matcher: '', hooks: [{ type: 'command', command: `${PRODUCT_NAMES.PROGRAM} hook session-start`, timeout: 10 }] };
 
 function scratchRepository(): string {
   const repositoryDirectory = createScratchGitRepository('update-command');
   scratchDirectories.push(repositoryDirectory, `${repositoryDirectory}-worktrees`);
   return repositoryDirectory;
 }
-
-const SHARED_SETTINGS = 'settings.json';
-
-const LOCAL_SETTINGS = 'settings.local.json';
 
 function settingsFilePathIn(repositoryDirectory: string, settingsFileName: string): string {
   return join(repositoryDirectory, '.claude', settingsFileName);
@@ -72,50 +65,48 @@ function writeSettings(repositoryDirectory: string, settingsFileName: string, se
   writeFileSync(settingsFilePathIn(repositoryDirectory, settingsFileName), `${JSON.stringify(settings, null, 2)}\n`);
 }
 
-function subagentStopGroupsIn(repositoryDirectory: string, settingsFileName: string): unknown[] {
-  const settings = JSON.parse(readFileSync(settingsFilePathIn(repositoryDirectory, settingsFileName), 'utf8')) as Record<string, unknown>;
-  return (settings['hooks'] as Record<string, unknown>)['SubagentStop'] as unknown[];
+function settingsIn(repositoryDirectory: string, settingsFileName: string): Record<string, unknown> {
+  return JSON.parse(readFileSync(settingsFilePathIn(repositoryDirectory, settingsFileName), 'utf8')) as Record<string, unknown>;
 }
 
-const GENERATED_DISPATCHER_SCRIPT = (await installedFileTextsFor({ generatesTheDispatcherScript: true })).dispatcherScript ?? '';
-
-function workflowFilePathIn(repositoryDirectory: string): string {
-  return join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'agent-progress-dispatch.js');
+function hookGroupsIn(repositoryDirectory: string, settingsFileName: string, event: string): unknown {
+  return (settingsIn(repositoryDirectory, settingsFileName)['hooks'] as Record<string, unknown> | undefined)?.[event];
 }
 
-// The printed path is the resolved root, which on macOS carries a `/private` the scratch path does not, so the line is matched by its shape.
-function workflowLineSaying(verdict: 'updated' | 'unchanged'): RegExp {
-  return new RegExp(`workflow: {4}${verdict} \\(\\S+/${RegExp.escape(PRODUCT_NAMES.DATA_FOLDER)}/agent-progress-dispatch\\.js\\)\n`);
-}
-
-// The template with its placeholders filled by the default pair and the product's names, which is what `update` must write byte for byte.
-const INSTALLED_AGENT_DEFINITION = readFileSync(resourceFilePathOf('templates', 'AgentProgressWorker.md'), 'utf8')
-  .replace('{{model}}', 'opus')
-  .replace('{{effort}}', 'medium')
-  .replace('{{workerAgentType}}', DISPATCH_PROTOCOL.WORKER_AGENT_TYPE)
-  .replaceAll('{{dataFolder}}', PRODUCT_NAMES.DATA_FOLDER)
-  .replaceAll('{{program}}', PRODUCT_NAMES.PROGRAM);
-
-function agentDefinitionFilePathIn(repositoryDirectory: string): string {
-  return join(repositoryDirectory, '.claude', 'agents', `${DISPATCH_PROTOCOL.WORKER_AGENT_TYPE}.md`);
-}
-
-function agentDefinitionLineSaying(verdict: 'updated' | 'unchanged'): RegExp {
-  return new RegExp(`agent: {7}${verdict} \\(\\S+/\\.claude/agents/${RegExp.escape(DISPATCH_PROTOCOL.WORKER_AGENT_TYPE)}\\.md\\)`);
+function sessionInstructionsPathIn(repositoryDirectory: string): string {
+  return join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'session-instructions.md');
 }
 
 /**
- * A tracked repository whose managed files have all been left behind by an older version of the tool.
- * It is initialised with `--no-hooks`, `--no-workflow` and `--no-agent-definition`, which is the state a repository adopted before
- * any of them existed is in, and lets each test below say for itself what its `.claude/` folder holds.
+ * A tracked repository whose instructions an older version of the tool left behind. It is initialised with `--no-hooks`, which lets each
+ * test below say for itself what its `.claude/` folder holds.
  */
 async function trackedRepositoryWithStaleFiles(): Promise<string> {
   const repositoryDirectory = scratchRepository();
-  await runCommandLine(['init', '--no-hooks', '--no-workflow', '--no-agent-definition'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }));
-  writeFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'agent-brief.md'), '# Agent brief\n\nThe wording two releases ago, which nobody refreshed.\n');
-  const olderClaudeInstructions = `# Example Agency\n\n${CLAUDE_MANAGED_BLOCK_MARKERS.start}\nAn older managed block.\n${CLAUDE_MANAGED_BLOCK_MARKERS.end}\n`;
-  writeFileSync(join(repositoryDirectory, 'CLAUDE.md'), olderClaudeInstructions);
+  await runCommandLine(['init', '--no-hooks'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }));
+  writeFileSync(sessionInstructionsPathIn(repositoryDirectory), '## Progress tracking\n\nThe wording two releases ago, which nobody refreshed.\n');
   return repositoryDirectory;
+}
+
+/** What install version 16 wrote into a repository, each file holding a line of its own so a test can tell it was there. */
+function plantVersion16Install(repositoryDirectory: string): void {
+  const dataFolder = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER);
+  for (const fileName of ['agent-brief.md', 'builder-brief.md', 'review-brief.md', 'agent-progress-dispatch.js']) {
+    writeFileSync(join(dataFolder, fileName), `Example version 16 ${fileName}\n`);
+  }
+  mkdirSync(join(repositoryDirectory, '.claude', 'agents'), { recursive: true });
+  writeFileSync(join(repositoryDirectory, '.claude', 'agents', `${DISPATCH_PROTOCOL.WORKER_AGENT_TYPE}.md`), 'Example worker definition\n');
+  const managedBlock = `${CLAUDE_MANAGED_BLOCK_MARKERS.start}\nAn older managed block.\n${CLAUDE_MANAGED_BLOCK_MARKERS.end}`;
+  writeFileSync(join(repositoryDirectory, 'CLAUDE.md'), `# Example Agency\n\n${managedBlock}\n`);
+  const otherGroup = { matcher: '', hooks: [{ type: 'command', command: 'echo hello' }] };
+  writeSettings(repositoryDirectory, LOCAL_SETTINGS, {
+    hooks: {
+      SubagentStop: [{ matcher: '', hooks: [{ type: 'command', command: `${PRODUCT_NAMES.PROGRAM} hook subagent-stop`, timeout: 20 }] }],
+      PreToolUse:   [{ matcher: 'Bash', hooks: [{ type: 'command', command: `${PRODUCT_NAMES.PROGRAM} hook pre-tool-use`, timeout: 10 }] }],
+      PostToolUse:  [{ matcher: '', hooks: [{ type: 'command', command: `${PRODUCT_NAMES.PROGRAM} hook post-tool-use`, timeout: 10 }] }, otherGroup],
+    },
+  });
+  writeFileSync(installedFilePathsIn(repositoryDirectory).installManifest, '{\n  "installVersion": 16\n}\n');
 }
 
 afterEach(() => {
@@ -123,123 +114,87 @@ afterEach(() => {
 });
 
 describeWhenGitIsPresent('updating a tracked repository', () => {
-  test('rewrites a brief left behind by an older version and says to re-read it', async () => {
+  test('rewrites session instructions left behind by an older version and says to re-read them', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-    const briefFilePath       = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'agent-brief.md');
 
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
     expect(await runCommandLine(['update'], context)).toBe(0);
 
-    expect(readFileSync(briefFilePath, 'utf8')).toBe(GENERATED_AGENT_BRIEF);
+    expect(readFileSync(sessionInstructionsPathIn(repositoryDirectory), 'utf8')).toBe(GENERATED_SESSION_INSTRUCTIONS);
     expect(context.outputText()).toContain('brief:       updated — re-read it before your next brief');
     expect(context.errorText()).toBe('');
   });
 
-  test('a brief that is already the shipped one is reported unchanged', async () => {
+  test('briefs that are already the shipped ones are reported unchanged, and missing ones count as updated', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
     await runCommandLine(['update'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }));
 
     const second = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
     expect(await runCommandLine(['update'], second)).toBe(0);
-
     expect(second.outputText()).toContain('brief:       unchanged');
-    expect(second.outputText()).not.toContain('brief:       updated');
+
+    rmSync(installedFilePathsIn(repositoryDirectory).assistantBrief);
+    const third = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['update'], third)).toBe(0);
+    expect(third.outputText()).toContain('brief:       updated');
+    expect(existsSync(installedFilePathsIn(repositoryDirectory).assistantBrief)).toBe(true);
   });
 
-  test('a brief that is missing altogether counts as updated, and the file is the template afterwards', async () => {
+  test('a version 16 install is removed once: the block, the three hooks, the agent definition, the dispatcher and the three briefs', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-    const briefFilePath       = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'agent-brief.md');
-    rmSync(briefFilePath);
+    plantVersion16Install(repositoryDirectory);
 
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    expect(await runCommandLine(['update'], context)).toBe(0);
+    expect(await runCommandLine(['update'], context), context.errorText()).toBe(0);
 
-    expect(context.outputText()).toContain('brief:       updated');
-    expect(readFileSync(briefFilePath, 'utf8')).toBe(GENERATED_AGENT_BRIEF);
-  });
-
-  test('a stale managed block is rewritten and reported updated, and a current one unchanged', async () => {
-    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-    const claudeFilePath      = join(repositoryDirectory, 'CLAUDE.md');
-
-    const first = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    expect(await runCommandLine(['update'], first)).toBe(0);
-
-    expect(first.outputText()).toContain('CLAUDE.md:   updated (replaced)');
-    expect(readFileSync(claudeFilePath, 'utf8'), 'what the repository wrote outside the markers survives').toContain('# Example Agency');
-    expect(readFileSync(claudeFilePath, 'utf8')).not.toContain('An older managed block.');
+    expect(readFileSync(join(repositoryDirectory, 'CLAUDE.md'), 'utf8')).toBe('# Example Agency\n');
+    expect(context.outputText()).toContain('  CLAUDE.md:   removed; commit CLAUDE.md\n');
+    expect(hookGroupsIn(repositoryDirectory, LOCAL_SETTINGS, 'SubagentStop')).toBeUndefined();
+    expect(hookGroupsIn(repositoryDirectory, LOCAL_SETTINGS, 'PreToolUse')).toBeUndefined();
+    expect(hookGroupsIn(repositoryDirectory, LOCAL_SETTINGS, 'PostToolUse'), 'a hook somebody else wrote stays').toEqual([
+      { matcher: '', hooks: [{ type: 'command', command: 'echo hello' }] },
+    ]);
+    expect(hookGroupsIn(repositoryDirectory, LOCAL_SETTINGS, 'SessionStart')).toEqual([SESSION_START_GROUP]);
+    expect(context.outputText()).toContain('removed SubagentStop, PreToolUse, PostToolUse hooks');
+    expect(readdirSync(join(repositoryDirectory, '.claude', 'agents'))).toEqual([]);
+    for (const fileName of ['agent-brief.md', 'builder-brief.md', 'review-brief.md', 'agent-progress-dispatch.js']) {
+      expect(existsSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, fileName)), fileName).toBe(false);
+    }
+    expect(JSON.parse(readFileSync(installedFilePathsIn(repositoryDirectory).installManifest, 'utf8'))).toEqual({ installVersion: INSTALL_VERSION });
 
     const second = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
     expect(await runCommandLine(['update'], second)).toBe(0);
-    expect(second.outputText()).toContain('CLAUDE.md:   unchanged\n');
-    expect(second.outputText(), 'the outcome names a write, so it says nothing beside `unchanged`').not.toContain('unchanged (replaced)');
+    expect(second.outputText()).toContain('  CLAUDE.md:   no managed block\n');
+    expect(second.outputText()).toContain('  retired:     nothing to remove\n');
   });
 
-  test('--no-claude-md leaves the instructions file byte for byte as it was', async () => {
+  test('a managed block with a start marker and no end is left alone, reported, and the rest of the update still runs', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-    const claudeFilePath      = join(repositoryDirectory, 'CLAUDE.md');
-    const claudeContentBefore = readFileSync(claudeFilePath, 'utf8');
-
-    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    expect(await runCommandLine(['update', '--no-claude-md'], context)).toBe(0);
-
-    expect(readFileSync(claudeFilePath, 'utf8')).toBe(claudeContentBefore);
-    expect(context.outputText()).toContain('CLAUDE.md:   left alone (--no-claude-md)');
-    expect(context.outputText(), 'the brief is refreshed either way').toContain('brief:       updated');
-  });
-
-  test('the hook is installed by default into the local settings file, and the shared one is not even created', async () => {
-    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
+    const truncated = `# Example Agency\n\n${CLAUDE_MANAGED_BLOCK_MARKERS.start}\nsomething truncated the end marker\n`;
+    writeFileSync(join(repositoryDirectory, 'CLAUDE.md'), truncated);
 
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
     expect(await runCommandLine(['update'], context)).toBe(0);
 
-    expect(subagentStopGroupsIn(repositoryDirectory, LOCAL_SETTINGS)).toEqual([
-      { matcher: '', hooks: [{ type: 'command', command: PRODUCT_NAMES.PROGRAM + ' hook subagent-stop', timeout: 20 }] },
-    ]);
-    const localSettings = JSON.parse(readFileSync(settingsFilePathIn(repositoryDirectory, LOCAL_SETTINGS), 'utf8')) as { hooks: Record<string, unknown> };
-    expect(localSettings.hooks['PreToolUse']).toEqual([
-      { matcher: 'Bash', hooks: [{ type: 'command', command: PRODUCT_NAMES.PROGRAM + ' hook pre-tool-use', timeout: 10 }] },
-    ]);
-    expect(localSettings.hooks['PostToolUse']).toEqual([
-      { matcher: '', hooks: [{ type: 'command', command: PRODUCT_NAMES.PROGRAM + ' hook post-tool-use', timeout: 10 }] },
-    ]);
+    expect(readFileSync(join(repositoryDirectory, 'CLAUDE.md'), 'utf8')).toBe(truncated);
+    expect(context.outputText()).toContain('  CLAUDE.md:   refused (start marker without an end marker)');
+    expect(context.errorText()).toContain('with no matching end marker');
+  });
+
+  test('the SessionStart hook is installed by default into the local settings file, the shared one is not created, and a rerun is unchanged', async () => {
+    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
+
+    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['update'], context)).toBe(0);
+    expect(hookGroupsIn(repositoryDirectory, LOCAL_SETTINGS, 'SessionStart')).toEqual([SESSION_START_GROUP]);
     expect(existsSync(settingsFilePathIn(repositoryDirectory, SHARED_SETTINGS)), 'nothing lands in the file colleagues share').toBe(false);
     expect(context.outputText()).toContain('settings.local.json (installed)');
-  });
 
-  test('a second run reports the hook unchanged and leaves the local settings file byte for byte', async () => {
-    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-    await runCommandLine(['update'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }));
     const settingsBefore = readFileSync(settingsFilePathIn(repositoryDirectory, LOCAL_SETTINGS), 'utf8');
-
-    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    expect(await runCommandLine(['update'], context)).toBe(0);
-
+    const second = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['update'], second)).toBe(0);
     expect(readFileSync(settingsFilePathIn(repositoryDirectory, LOCAL_SETTINGS), 'utf8')).toBe(settingsBefore);
-    expect(context.outputText()).toContain('settings.local.json (unchanged)');
-  });
-
-  /** An entry a repository chose to share is its author's; it is kept current where it is rather than copied, which would log every agent twice. */
-  test('a hook already in the shared settings file is refreshed in place, and no local copy of it appears beside it', async () => {
-    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-    writeSettings(repositoryDirectory, SHARED_SETTINGS, {
-      hooks: {
-        SessionStart: [{ matcher: '', hooks: [{ type: 'command', command: 'echo hello' }] }],
-        SubagentStop: [{ matcher: '', hooks: [{ type: 'command', command: PRODUCT_NAMES.PROGRAM + ' hook subagent-stop', timeout: 3 }] }],
-      },
-    });
-
-    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    expect(await runCommandLine(['update'], context)).toBe(0);
-
-    expect(subagentStopGroupsIn(repositoryDirectory, SHARED_SETTINGS)).toEqual([
-      { matcher: '', hooks: [{ type: 'command', command: PRODUCT_NAMES.PROGRAM + ' hook subagent-stop', timeout: 20 }] },
-    ]);
-    expect(subagentStopGroupsIn(repositoryDirectory, LOCAL_SETTINGS), 'a second copy would record every agent twice').toBeUndefined();
-    expect(context.outputText()).toContain('SubagentStop');
-    expect(context.outputText()).toContain('settings.json (updated)');
-    expect(context.outputText(), 'the check command\'s guard, which the shared file lacks, is installed locally').toContain('settings.local.json (installed)');
+    expect(second.outputText()).toContain('settings.local.json (unchanged)');
   });
 
   test('a local settings file that holds other keys keeps every one of them', async () => {
@@ -252,29 +207,20 @@ describeWhenGitIsPresent('updating a tracked repository', () => {
 
     expect(await runCommandLine(['update'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }))).toBe(0);
 
-    const settings = JSON.parse(readFileSync(settingsFilePathIn(repositoryDirectory, LOCAL_SETTINGS), 'utf8')) as Record<string, unknown>;
+    const settings = settingsIn(repositoryDirectory, LOCAL_SETTINGS);
     expect(settings['model']).toBe('claude-opus-4-8');
     expect(settings['permissions']).toEqual({ allow: ['Bash(bun test:*)'] });
-    expect((settings['hooks'] as Record<string, unknown>)['SessionStart']).toEqual([{ matcher: '', hooks: [{ type: 'command', command: 'echo hello' }] }]);
-    expect(subagentStopGroupsIn(repositoryDirectory, LOCAL_SETTINGS)).toHaveLength(1);
+    expect(hookGroupsIn(repositoryDirectory, LOCAL_SETTINGS, 'SessionStart')).toEqual([
+      { matcher: '', hooks: [{ type: 'command', command: 'echo hello' }] },
+      SESSION_START_GROUP,
+    ]);
   });
 
-  test('--no-hooks writes neither settings file, and says so', async () => {
+  /** A shared file holding a retired entry tells a refusal to touch settings apart from having nothing to remove. */
+  test('--no-hooks writes neither settings file and leaves a retired hook in the shared one byte for byte, and says so', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-
-    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    expect(await runCommandLine(['update', '--no-hooks'], context)).toBe(0);
-
-    expect(existsSync(settingsFilePathIn(repositoryDirectory, LOCAL_SETTINGS))).toBe(false);
-    expect(existsSync(settingsFilePathIn(repositoryDirectory, SHARED_SETTINGS))).toBe(false);
-    expect(context.outputText()).toContain('hooks:       left alone (--no-hooks)');
-  });
-
-  /** A repository with nothing in `.claude/` cannot tell a refusal to write from having nothing to write, so the stale entry is really there. */
-  test('--no-hooks leaves a shared settings file that holds a stale entry byte for byte', async () => {
-    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-    const staleGroup = { matcher: '', hooks: [{ type: 'command', command: PRODUCT_NAMES.PROGRAM + ' hook subagent-stop', timeout: 3 }] };
-    writeSettings(repositoryDirectory, SHARED_SETTINGS, { hooks: { SubagentStop: [staleGroup] } });
+    const retiredGroup = { matcher: '', hooks: [{ type: 'command', command: `${PRODUCT_NAMES.PROGRAM} hook subagent-stop`, timeout: 3 }] };
+    writeSettings(repositoryDirectory, SHARED_SETTINGS, { hooks: { SubagentStop: [retiredGroup] } });
     const sharedSettingsBefore = readFileSync(settingsFilePathIn(repositoryDirectory, SHARED_SETTINGS), 'utf8');
 
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
@@ -285,167 +231,40 @@ describeWhenGitIsPresent('updating a tracked repository', () => {
     expect(context.outputText()).toContain('hooks:       left alone (--no-hooks)');
   });
 
-  test('the dispatcher is installed byte-identical to the generated script, and a second run reports it unchanged', async () => {
+  test('the worktrees folder is git-ignored', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-    const workflowFilePath    = workflowFilePathIn(repositoryDirectory);
-
-    const first = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    expect(await runCommandLine(['update'], first)).toBe(0);
-    expect(readFileSync(workflowFilePath, 'utf8')).toBe(GENERATED_DISPATCHER_SCRIPT);
-    expect(first.outputText()).toMatch(workflowLineSaying('updated'));
-
-    const second = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    expect(await runCommandLine(['update'], second)).toBe(0);
-    expect(second.outputText()).toMatch(workflowLineSaying('unchanged'));
-  });
-
-  // The script is the tool's, not the project's: a hand edit to the installed copy is a dispatcher the harness never pinned.
-  test('a dispatcher changed by hand is reported updated and restored to the generated script', async () => {
-    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-    const workflowFilePath    = workflowFilePathIn(repositoryDirectory);
-    await runCommandLine(['update'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }));
-    writeFileSync(workflowFilePath, `${GENERATED_DISPATCHER_SCRIPT}\n// A local tweak nobody reviewed.\n`);
+    writeFileSync(join(repositoryDirectory, '.gitignore'), `${PRODUCT_NAMES.DATA_FOLDER}/\n`);
 
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
     expect(await runCommandLine(['update'], context)).toBe(0);
 
-    expect(context.outputText()).toMatch(workflowLineSaying('updated'));
-    expect(readFileSync(workflowFilePath, 'utf8')).toBe(GENERATED_DISPATCHER_SCRIPT);
+    expect(readFileSync(join(repositoryDirectory, '.gitignore'), 'utf8')).toContain(`${PRODUCT_NAMES.WORKTREES_FOLDER}/`);
+    expect(context.outputText()).toContain(`  worktrees:   ${PRODUCT_NAMES.WORKTREES_FOLDER} entry added`);
   });
 
-  test('--no-workflow writes no dispatcher, in the tracker or under .claude/workflows, and says so', async () => {
+  // The briefs come after the hooks and skills and the manifest after all of them, so a rerun after a failed write still reports the stale
+  // brief and every checked command keeps asking for update until one finishes.
+  test.skipIf(RUNNING_AS_ROOT)('a refresh cut short by an unwritable skills folder leaves the stale brief and no install version for the rerun to report and record', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-
-    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    expect(await runCommandLine(['update', '--no-workflow'], context)).toBe(0);
-
-    expect(existsSync(workflowFilePathIn(repositoryDirectory))).toBe(false);
-    expect(existsSync(join(repositoryDirectory, '.claude', 'workflows'))).toBe(false);
-    expect(context.outputText()).toContain('workflow:    left alone (--no-workflow)');
-  });
-
-  /** A hand-edited copy is the one a refusal to write can be told apart from having nothing to write by. */
-  test('--no-workflow leaves a hand-edited dispatcher byte for byte', async () => {
-    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-    const installedFilePath   = workflowFilePathIn(repositoryDirectory);
-    writeFileSync(installedFilePath, '// Example Agency\'s own tweak of the installed dispatcher.\n');
-
-    expect(await runCommandLine(['update', '--no-workflow'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }))).toBe(0);
-
-    expect(readFileSync(installedFilePath, 'utf8')).toBe('// Example Agency\'s own tweak of the installed dispatcher.\n');
-  });
-
-  // The brief comes after the other files and the manifest after all of them, so a rerun after a failed write still reports the stale brief
-  // and every checked command keeps asking for update until one finishes.
-  test.skipIf(RUNNING_AS_ROOT)('a refresh cut short by an unwritable agents folder leaves the stale brief and no install version for the rerun to report and record', async () => {
-    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-    const briefFilePath       = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'agent-brief.md');
     const manifestFilePath    = installedFilePathsIn(repositoryDirectory).installManifest;
-    const agentsDirectory     = join(repositoryDirectory, '.claude', 'agents');
+    const skillsDirectory     = join(repositoryDirectory, '.claude', 'skills');
     rmSync(manifestFilePath);
-    mkdirSync(agentsDirectory, { recursive: true });
+    rmSync(skillsDirectory, { recursive: true, force: true });
+    mkdirSync(skillsDirectory, { recursive: true });
 
-    chmodSync(agentsDirectory, READ_AND_ENTER_ONLY_MODE);
+    chmodSync(skillsDirectory, READ_AND_ENTER_ONLY_MODE);
     try {
       expect(await runCommandLine(['update'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }))).toBe(2);
     } finally {
-      chmodSync(agentsDirectory, OWNER_FULL_ACCESS_MODE);
+      chmodSync(skillsDirectory, OWNER_FULL_ACCESS_MODE);
     }
-    expect(readFileSync(briefFilePath, 'utf8')).not.toBe(GENERATED_AGENT_BRIEF);
+    expect(readFileSync(sessionInstructionsPathIn(repositoryDirectory), 'utf8')).not.toBe(GENERATED_SESSION_INSTRUCTIONS);
     expect(existsSync(manifestFilePath), 'a refresh cut short leaves the old version, so every command keeps asking for update').toBe(false);
 
     const rerun = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
     expect(await runCommandLine(['update'], rerun)).toBe(0);
     expect(rerun.outputText()).toContain('brief:       updated — re-read it before your next brief');
     expect(JSON.parse(readFileSync(manifestFilePath, 'utf8'))).toEqual({ installVersion: INSTALL_VERSION });
-  });
-
-  test('the worker agent definition is installed with the default pair, and a second run reports it unchanged', async () => {
-    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-    const definitionFilePath  = agentDefinitionFilePathIn(repositoryDirectory);
-
-    const first = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    expect(await runCommandLine(['update'], first)).toBe(0);
-    expect(readFileSync(definitionFilePath, 'utf8')).toBe(INSTALLED_AGENT_DEFINITION);
-    expect(first.outputText()).toMatch(agentDefinitionLineSaying('updated'));
-
-    const second = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    expect(await runCommandLine(['update'], second)).toBe(0);
-    expect(second.outputText()).toMatch(agentDefinitionLineSaying('unchanged'));
-  });
-
-  test('an agent definition changed by hand is reported updated and restored', async () => {
-    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-    const definitionFilePath  = agentDefinitionFilePathIn(repositoryDirectory);
-    await runCommandLine(['update'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }));
-    writeFileSync(definitionFilePath, INSTALLED_AGENT_DEFINITION.replace('effort: medium', 'effort: max'));
-
-    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    expect(await runCommandLine(['update'], context)).toBe(0);
-
-    expect(context.outputText()).toMatch(agentDefinitionLineSaying('updated'));
-    expect(readFileSync(definitionFilePath, 'utf8')).toBe(INSTALLED_AGENT_DEFINITION);
-  });
-
-  test('--no-agent-definition with --no-workflow writes neither, and leaves a hand-edited definition byte for byte', async () => {
-    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-
-    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    expect(await runCommandLine(['update', '--no-agent-definition', '--no-workflow'], context)).toBe(0);
-    expect(existsSync(join(repositoryDirectory, '.claude', 'agents'))).toBe(false);
-    expect(existsSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'agent-progress-dispatch.js'))).toBe(false);
-    expect(context.outputText()).toContain('agent:       left alone (--no-agent-definition)');
-    expect(context.outputText()).toContain('workflow:    left alone (--no-workflow)');
-
-    mkdirSync(join(repositoryDirectory, '.claude', 'agents'), { recursive: true });
-    writeFileSync(agentDefinitionFilePathIn(repositoryDirectory), '---\nname: agent-progress-worker\n---\nExample Agency\'s own.\n');
-    const secondRun = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    expect(await runCommandLine(['update', '--no-agent-definition', '--no-workflow'], secondRun)).toBe(0);
-    expect(readFileSync(agentDefinitionFilePathIn(repositoryDirectory), 'utf8')).toBe('---\nname: agent-progress-worker\n---\nExample Agency\'s own.\n');
-  });
-
-  // The dispatcher starts every worker as the agent the definition declares, so a dispatcher without it could start none.
-  test('--no-agent-definition without --no-workflow is refused with exit 1, and nothing is written', async () => {
-    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-    const filesBefore = repositoryFileContentsOf(repositoryDirectory);
-
-    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    expect(await runCommandLine(['update', '--no-agent-definition'], context)).toBe(1);
-
-    expect(context.errorText()).toContain(`${PRODUCT_NAMES.PROGRAM} update --no-agent-definition needs --no-workflow as well`);
-    expect(context.errorText()).toContain('Nothing was written.');
-    expect(context.outputText()).toBe('');
-    expect(repositoryFileContentsOf(repositoryDirectory)).toEqual(filesBefore);
-    expect(filesBefore.size, 'the fixture holds the tracker and its installed files, so the comparison above is about something').toBeGreaterThan(3);
-  });
-
-  // `--no-workflow` leaves an installed dispatcher in place, and that dispatcher starts every worker as the missing agent.
-  test('--no-agent-definition --no-workflow over a dispatcher without its definition is refused with exit 1, and nothing is written', async () => {
-    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-    expect(await runCommandLine(['update'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }))).toBe(0);
-    rmSync(agentDefinitionFilePathIn(repositoryDirectory));
-    const filesBefore = repositoryFileContentsOf(repositoryDirectory);
-
-    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    expect(await runCommandLine(['update', '--no-agent-definition', '--no-workflow'], context)).toBe(1);
-
-    expect(context.errorText()).toContain(`would leave ${join(realpathSync(repositoryDirectory), PRODUCT_NAMES.DATA_FOLDER, 'agent-progress-dispatch.js')} in place`);
-    expect(context.errorText()).toContain('Nothing was written.');
-    expect(context.outputText()).toBe('');
-    expect(repositoryFileContentsOf(repositoryDirectory)).toEqual(filesBefore);
-    expect(filesBefore.has(`${PRODUCT_NAMES.DATA_FOLDER}/agent-progress-dispatch.js`), 'the fixture holds the dispatcher the refusal protects').toBe(true);
-  });
-
-  test('--no-agent-definition --no-workflow over a dispatcher beside its definition leaves both byte for byte', async () => {
-    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-    expect(await runCommandLine(['update'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }))).toBe(0);
-    const dispatcherBefore = readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'agent-progress-dispatch.js'), 'utf8');
-
-    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    expect(await runCommandLine(['update', '--no-agent-definition', '--no-workflow'], context)).toBe(0);
-
-    expect(readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'agent-progress-dispatch.js'), 'utf8')).toBe(dispatcherBefore);
-    expect(readFileSync(agentDefinitionFilePathIn(repositoryDirectory), 'utf8')).toBe(INSTALLED_AGENT_DEFINITION);
   });
 
   // A tracker adopted before the manifest existed has none, and `update` is what gives it one.
@@ -527,7 +346,7 @@ describeWhenGitIsPresent('from inside a linked worktree', () => {
     const context = createCapturedCommandContext({ currentDirectory: worktreeDirectory });
     expect(await runCommandLine(['update'], context)).toBe(0);
 
-    expect(readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'agent-brief.md'), 'utf8')).toBe(GENERATED_AGENT_BRIEF);
+    expect(readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'session-instructions.md'), 'utf8')).toBe(GENERATED_SESSION_INSTRUCTIONS);
     expect(existsSync(join(worktreeDirectory, PRODUCT_NAMES.DATA_FOLDER)), 'a worktree never grows a tracker of its own').toBe(false);
     expect(context.outputText()).toContain(repositoryDirectory);
   });
@@ -547,15 +366,23 @@ describeWhenGitIsPresent('what update refuses', () => {
     expect(context.outputText()).toBe('');
   });
 
-  test('an unknown option and an extra positional are each refused with exit 1', async () => {
+  test('an unknown option, each retired opt-out flag among them, and an extra positional are each refused with exit 1', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-    const briefFilePath       = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'agent-brief.md');
+    const briefFilePath       = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'session-instructions.md');
     const briefBefore         = readFileSync(briefFilePath, 'utf8');
+    const refusedArgumentLists = [
+      ['update', '--project', 'Example Agency'],
+      ['update', '--root', repositoryDirectory],
+      ['update', '--no-claude-md'],
+      ['update', '--no-workflow'],
+      ['update', '--no-agent-definition'],
+      ['update', 'here'],
+    ];
 
-    for (const refusedArguments of [['update', '--project', 'Example Agency'], ['update', '--root', repositoryDirectory], ['update', '--no-claud-md'], ['update', 'here']]) {
+    for (const refusedArguments of refusedArgumentLists) {
       const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
       expect(await runCommandLine(refusedArguments, context), refusedArguments.join(' ')).toBe(1);
-      expect(context.errorText(), refusedArguments.join(' ')).toContain(`${PRODUCT_NAMES.PROGRAM} update [--no-claude-md] [--no-hooks] [--no-workflow]`);
+      expect(context.errorText(), refusedArguments.join(' ')).toContain(`${PRODUCT_NAMES.PROGRAM} update [--no-hooks]`);
     }
     expect(readFileSync(briefFilePath, 'utf8'), 'a refused invocation writes nothing').toBe(briefBefore);
   });
@@ -608,34 +435,5 @@ describeWhenGitIsPresent('what update refuses', () => {
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
     expect(await runCommandLine(['update'], context)).toBe(0);
     expect(JSON.parse(readFileSync(manifestFilePath, 'utf8'))).toEqual({ installVersion: INSTALL_VERSION });
-  });
-});
-
-describeWhenGitIsPresent('a dispatcher that will not bundle', () => {
-  let realWorkflowScriptBundleExports: Record<string, unknown> = {};
-
-  // Bun keeps a module mock for the rest of the process, so the real exports are copied before the stub goes in and mocked back afterwards.
-  beforeAll(() => {
-    realWorkflowScriptBundleExports = { ...realWorkflowScriptBundleModule };
-    mock.module('../../../src/lib/claude-code/WorkflowScriptBundle.ts', () => ({
-      ...realWorkflowScriptBundleExports,
-      bundleWorkflowScript: () => Promise.resolve({ verdict: 'failed', reason: 'build-failed', detail: 'Example build failure' }),
-    }));
-  });
-
-  afterAll(() => {
-    mock.module('../../../src/lib/claude-code/WorkflowScriptBundle.ts', () => realWorkflowScriptBundleExports);
-  });
-
-  // Every installed text is computed before the first write, so the repository is left exactly as it was, its install version included.
-  test('stops update at exit 2 with every file of the repository byte for byte as it was', async () => {
-    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-    const contentsBefore      = repositoryFileContentsOf(repositoryDirectory);
-
-    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    expect(await runCommandLine(['update'], context)).toBe(2);
-
-    expect(context.errorText()).toContain('could not be generated');
-    expect(repositoryFileContentsOf(repositoryDirectory)).toEqual(contentsBefore);
   });
 });

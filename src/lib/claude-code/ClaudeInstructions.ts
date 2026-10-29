@@ -1,5 +1,5 @@
 /** A block owned by a caller inside a CLAUDE.md, written between two markers so everything outside them is untouched. */
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 
 import { writeFileAtomicallyThroughLinks } from '../atomic-file/AtomicFile.ts';
 
@@ -40,4 +40,29 @@ export function writeManagedBlock(claudeFilePath: string, blockBody: string, mar
   const contentAfter = existingContent.slice(endOffset + markers.end.length);
   writeFileAtomicallyThroughLinks(claudeFilePath, `${contentBefore}${block}${contentAfter}`);
   return 'replaced';
+}
+
+export type RemoveManagedBlockOutcome = 'absent' | 'removed' | 'refused-start-without-end';
+
+/**
+ * The inverse of `writeManagedBlock`: the first marker pair and what it holds go, with the blank lines that separated it, and everything
+ * else stays byte for byte; a file the block was all of is removed. A start marker with no end is refused and the file left as it was.
+ */
+export function removeManagedBlock(claudeFilePath: string, markers: ManagedBlockMarkers): RemoveManagedBlockOutcome {
+  if (!existsSync(claudeFilePath)) return 'absent';
+  const existingContent = readFileSync(claudeFilePath, 'utf8');
+  const startOffset = existingContent.indexOf(markers.start);
+  if (startOffset < 0) return 'absent';
+  const endOffset = existingContent.indexOf(markers.end, startOffset + markers.start.length);
+  if (endOffset < 0) return 'refused-start-without-end';
+
+  const contentBefore = existingContent.slice(0, startOffset).replace(/\n+$/, '');
+  const contentAfter = existingContent.slice(endOffset + markers.end.length).replace(/^\n+/, '');
+  if (contentBefore === '' && contentAfter === '') {
+    rmSync(claudeFilePath);
+    return 'removed';
+  }
+  const remainingContent = contentBefore === '' || contentAfter === '' ? `${contentBefore}${contentAfter}` : `${contentBefore}\n\n${contentAfter}`;
+  writeFileAtomicallyThroughLinks(claudeFilePath, remainingContent.endsWith('\n') ? remainingContent : `${remainingContent}\n`);
+  return 'removed';
 }

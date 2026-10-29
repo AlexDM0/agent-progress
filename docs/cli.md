@@ -77,73 +77,44 @@ cd <the repository to track>
 agent-progress init
 ```
 
-`init` creates the tracker and installs everything a session needs to use it. Of the nine things
-below, the first four are the tracker itself and the instructions pointing at it; the next three are
-what Claude Code runs — the hook and the agent definition under `.claude/`, the dispatcher in the
-tracker — each written by default and each with its own opt-out; the eighth is the two skills, with
-no opt-out; the last records which install version all of them are.
+`init` creates the tracker and installs everything a session needs to use it. Of the seven things
+below, the first three are the tracker itself, its ignore entries and the files beside it; the next
+two are what Claude Code loads — the SessionStart hook under `.claude/`, the skills — the hook with
+its opt-out; the sixth is what install version 16 wrote that 17 removes once; the last records which
+install version all of them are. `init` never writes `CLAUDE.md`: a repository's `CLAUDE.md` holds its
+own conventions only.
 
 | # | what | path | written by | opt-out |
 |---|---|---|---|---|
 | 1 | The tracker: `progress.json`, `log.jsonl`, a `tickets/` folder, the generated `progress.html` and its `progress.stamp.js`, and the `.lock` directory | `.agent-progress/` | `init` only | — |
-| 2 | The briefs, generated from `resources/templates/AgentBrief.md` (the orchestrator's), `BuilderBrief.md` and `ReviewBrief.md`, and the reference they cite, from `Reference.md` | `.agent-progress/agent-brief.md`, `builder-brief.md`, `review-brief.md`, `reference.md` | `init`, `update` | — |
-| 3 | A `.gitignore` entry for the tracker | `.gitignore` | `init` only | — |
-| 4 | The managed block, from `resources/templates/ClaudeInstructionsBlock.md` | `CLAUDE.md` | `init`, `update` | `--no-claude-md` |
-| 5 | The `SubagentStop` hook running `agent-progress hook subagent-stop`, the `PreToolUse` hook on `Bash` running `agent-progress hook pre-tool-use`, and the `PostToolUse` hook on every tool running `agent-progress hook post-tool-use`; each is kept current in `.claude/settings.json` when that file already holds it | `.claude/settings.local.json` | `init`, `update` | `--no-hooks` |
-| 6 | The dispatcher workflow, generated from `dispatcher/DispatchFromWorkflowGlobals.ts` | `.agent-progress/agent-progress-dispatch.js` | `init`, `update` | `--no-workflow` |
-| 7 | The worker agent definition, from `resources/templates/AgentProgressWorker.md` | `.claude/agents/agent-progress-worker.md` | `init`, `update` | `--no-agent-definition` |
-| 8 | The two skills, copied from this checkout's `skills/agent-po/` and `skills/agent-progress-orchestrate/`, each with its `.gitignore` entry | `.claude/skills/agent-po/`, `.claude/skills/agent-progress-orchestrate/` | `init`, `update` | — |
-| 9 | The install version | `.agent-progress/version.json` | `init`, `update` | — |
+| 2 | `.gitignore` entries for the tracker (`init` only) and for the worktrees folder | `.gitignore` | `init`, `update` | — |
+| 3 | The session instructions, from `resources/templates/SessionInstructions.md`, the reference, from `Reference.md`, and the Assistant brief, from `AssistantBrief.md` | `.agent-progress/session-instructions.md`, `reference.md`, `assistant-brief.md` | `init`, `update` | — |
+| 4 | The `SessionStart` hook running `agent-progress hook session-start`, kept current in `.claude/settings.json` when that file already holds it | `.claude/settings.local.json` | `init`, `update` | `--no-hooks` |
+| 5 | The two skills, copied from this checkout's `skills/agent-po/` and `skills/agent-progress-orchestrate/`, each with its `.gitignore` entry | `.claude/skills/agent-po/`, `.claude/skills/agent-progress-orchestrate/` | `init`, `update` | — |
+| 6 | Removed once: the managed `CLAUDE.md` block, the `SubagentStop`, `PreToolUse` and `PostToolUse` hook entries, the worker agent definition, the dispatcher script and the three briefs install version 16 wrote | `CLAUDE.md`, `.claude/`, `.agent-progress/` | `init`, `update` | `--no-hooks` keeps the hook entries |
+| 7 | The install version | `.agent-progress/version.json` | `init`, `update` | — |
 
 1. **The tracker.** Its root is the main checkout, found from any worktree.
-2. **The briefs.** The orchestrator's, `agent-brief.md`, is what it fills in before it spawns an
-   implementing agent: the scope, the facts it needs instead of a reading list, and the ticket's
-   `## Brief` block. Each agent reads only its own: a builder `builder-brief.md` (call discipline, the
-   call budget, when to stop, how to close and what to report), a reviewer `review-brief.md` (the review
-   procedure, its budget and the rework threshold). They are guidance shipped with the tool rather than
-   files a project edits, so every `init` and every `update` rewrites all three, generated with the
-   call budgets and the rework threshold the dispatcher's prompts state, from the same constant. The
-   managed block states that threshold the same way. Both agents' briefs cite `reference.md`, the
-   ticket file's format, the ticket moves and the exit codes copied from this file, which an agent reads
-   on demand and every run rewrites too. The line reports the orchestrator's brief, and `updated` when
-   any of the four changed.
-3. **The `.gitignore` entry**, only when the repository does not already ignore the tracker.
+2. **The `.gitignore` entries**, only where the repository does not already ignore the path:
    `git check-ignore` decides, so a repository covered by a broader pattern, a parent `.gitignore` or
-   `.git/info/exclude` gets no diff at all.
-4. **The managed block**, between `<!-- agent-progress:managed:start -->` and
-   `<!-- agent-progress:managed:end -->`, telling the next agent to track its work through the tool.
-   The file is replaced atomically at the path its symlink resolves to, so a symlinked `CLAUDE.md`
-   stays a symlink; a start marker with no end marker is refused and the file is left alone.
-5. **The hook**, under an empty matcher so every subagent type is recorded. It goes into
-   `.claude/settings.local.json` — the per-user file Claude Code applies over the shared one and keeps
-   out of git — so an accurate token figure needs no flag and lands in nothing colleagues share. A
-   repository that already keeps this hook in the shared `.claude/settings.json` has it kept current
-   there instead: never moved, never a second copy that would log every agent twice. Either way it
-   merges into whatever the file holds, is never added twice, refuses a document it cannot parse
-   rather than replacing it, and writes nothing when the entry already says what it should.
-6. **The dispatcher**, generated by every `init` and `update` from the tool's `dispatcher/` into the
-   git-ignored tracker, so no generated file lands in the project's tree. The orchestrator launches it
-   by its path only —
-   `Workflow({ scriptPath: '<mainCheckout>/.agent-progress/agent-progress-dispatch.js', args: { mainCheckout, mainLine, checkCommand, installCommand, includeLowPriority, group } })`
-   — since it is not under `.claude/workflows/` and has no name to launch it by. Its `checkCommand` is
-   the line `agent-progress checks` prints, stored once in the tracker, which `release` runs itself. It is the tool's
-   script, not the project's, so a hand edit is undone. A dispatcher that cannot be generated is
-   exit 2, and nothing at all is written.
-7. **The worker agent definition**, a Claude Code subagent whose frontmatter sets `model: opus` and
-   `effort: medium` — the default for every agent that builds or reviews a ticket. The Agent tool
-   takes a subagent's effort from its definition alone, so spawning `agent-progress-worker` is how an
-   orchestrator working by hand gets the default pair. A ticket that names another pair
-   (`ticket add --model/--effort`, `ticket agent`) is run through the dispatcher, which starts every
-   builder and reviewer as this type (`agentType`) and passes each the pair from `readyTickets`. Its
-   `tools` list is the shell and file tools, `ToolSearch`, `StructuredOutput` and the browser pane's
-   tools, without `Skill`, so a worker carries neither the session's skill listing nor unrelated MCP
-   tools on every call, and it preloads no skill: what a worker needs is in its brief and this
-   definition. A hand edit is undone. Since the dispatcher cannot start a worker without it,
-   `--no-agent-definition` is refused
-   at exit 1, writing nothing, unless `--no-workflow` is given too. `--no-workflow` leaves an installed
-   dispatcher in place, so the two together are refused the same way while
-   `.agent-progress/agent-progress-dispatch.js` exists and this definition does not.
-8. **The skills**, `agent-po` and `agent-progress-orchestrate` ([The two skills](#the-two-skills)),
+   `.git/info/exclude` gets no diff at all. `init` adds the worktrees folder's before any worktree can
+   exist, and `update` adds it to a repository adopted earlier.
+3. **The files beside the tracker.** `session-instructions.md` is what the SessionStart hook prints to
+   every session User opens: how this repository tracks its work, which skill to load for what, and
+   where the reference is. A fresh `init` writes it first, and its presence marks the files installed.
+   `reference.md` is the ticket file's format, the ticket moves and the exit codes copied from this
+   file, which a session reads on demand. `assistant-brief.md` is the Assistant's role prompt, which the
+   runner fills with the job's id and call budget and reads at each Assistant launch. They are guidance
+   shipped with the tool rather than files a project edits, so every `init` and `update` rewrites all
+   three. The line reports the session instructions, and `updated` when any of the three changed.
+4. **The hook**, under an empty matcher. It goes into `.claude/settings.local.json` — the per-user file
+   Claude Code applies over the shared one and keeps out of git, and which a job's
+   `--setting-sources project` never loads — so it lands in nothing colleagues share and reaches no
+   worker. A repository that already keeps it in the shared `.claude/settings.json` has it kept current
+   there instead. Either way it merges into whatever the file holds, is never added twice, refuses a
+   document it cannot parse rather than replacing it, and writes nothing when the entry already says
+   what it should.
+5. **The skills**, `agent-po` and `agent-progress-orchestrate` ([The two skills](#the-two-skills)),
    copied file for file from this checkout's `skills/` into `.claude/skills/<name>/`, where Claude Code
    reads a project's skills. Every `init` and `update` rewrites each file the skill ships, so a hand
    edit is undone; a file somebody else put in the folder is never touched, so one a newer skill no
@@ -153,7 +124,16 @@ no opt-out; the last records which install version all of them are.
    shipped there (`SKILL.md`, `Reference.md`) and its exact `.gitignore` entry; a file somebody else put
    in it stays, and so does the folder then. The line names each folder, `updated` or `unchanged`, and
    adds `.gitignore entry added` when it added one, and `retired` for a retired folder it cleared.
-9. **The install version** ([its file](#agent-progressversionjson)): the one version of everything
+6. **What version 16 installed.** The managed block between `<!-- agent-progress:managed:start -->` and
+   `<!-- agent-progress:managed:end -->` goes with the blank lines that separated it, everything else in
+   `CLAUDE.md` byte for byte, and a file the block was all of is removed; the `CLAUDE.md` line says
+   `removed; commit CLAUDE.md`, since the runner launches nothing onto a target whose committed
+   `CLAUDE.md` still holds the markers (the `claude-md-block-committed` notice). A start marker with no
+   end marker is refused and the file left alone. The three hook entries go from both settings files,
+   unless `--no-hooks`, and `.claude/agents/agent-progress-worker.md`, the dispatcher script and
+   `agent-brief.md`, `builder-brief.md` and `review-brief.md` from where version 16 wrote them; the
+   `retired` line names what went, or says `nothing to remove`.
+7. **The install version** ([its file](#agent-progressversionjson)): the one version of everything
    above that the tool installs, which changes only when what the CLI and those files expect of each other changes.
    `init` and `update` compute every installed file first and write this one last, after every other
    write, so a run that fails part way leaves the version it found and a second run completes it. A
@@ -164,13 +144,13 @@ Claude Code is the only agent host. A `version.json` naming the `agentHost` an i
 writing nothing and deleting nothing, naming the files that install left: remove them and the key by
 hand, then run the command again.
 
-`update`, and `init` at a root that already has a tracker, report items 2 and 4–8 on a line each:
-`updated` or `unchanged`, judged from the file's bytes before and after (the hook from its entry, and
-as `installed` when it was added), or `left alone` under the item's opt-out. The brief's `updated`
+`update`, and `init` at a root that already has a tracker, report items 3–6 and the worktrees entry on a
+line each: `updated` or `unchanged`, judged from the file's bytes before and after (the hook from its
+entry, and as `installed` when it was added), or `left alone` under the item's opt-out. The brief's `updated`
 adds "re-read it before your next brief", so a session that read it at its start learns its copy is
 stale. A first `init` prints the brief's path instead.
 
-**Re-running.** To pick up a newer brief, block, hook, workflow or agent definition, run
+**Re-running.** To pick up newer instructions, hooks or skills, run
 `agent-progress update`, never `init` again. `init` at a root that already has a tracker does exactly
 what `update` does and says so; `init` below an existing tracker, inside a bare repository, with a
 `--root` that is not an existing directory, or with `AGENT_PROGRESS_ROOT` naming a directory other
@@ -183,16 +163,18 @@ ignore it the way you ignore any personal file; this tool writes no `.gitignore`
 
 ### Install version
 
-`.agent-progress/version.json` records which install version the installed files are (item 9 above),
+`.agent-progress/version.json` records which install version the installed files are (item 7 above),
 written last by `init` and `update`. Every command except `init`, `update`, `help`, `status`, `version`,
 `run status` and `run stop` checks it against the running agent-progress before it does anything:
 
 - the version it records equals this agent-progress's: the command runs;
 - it records a different version, older or newer: refused;
-- it is missing while the brief, `.agent-progress/agent-brief.md`, is there — the files were installed
-  by an agent-progress from before versioning, since every `init` and `update` writes the brief, or a
-  fresh `init`, which writes the brief first, was cut short: refused;
-- it is missing and there is no brief — nothing is installed that could disagree: the command runs;
+- it is missing while `.agent-progress/session-instructions.md`, or a version 16 board's
+  `agent-brief.md`, is there — the files were installed by an agent-progress from before versioning,
+  since every `init` and `update` writes the marker, or a fresh `init`, which writes it first, was cut
+  short: refused;
+- it is missing and neither marker is there — nothing is installed that could disagree: the command
+  runs;
 - it cannot be read or does not hold a whole number of at least 1: refused;
 - a directory sits at its path: refused, saying to remove that directory and then run
   `agent-progress update`, since `update` could not replace it.
@@ -241,8 +223,8 @@ Options in `[brackets]` are optional; `a|b` is a choice of one.
 
 | command | what it does |
 |---|---|
-| `init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]` | Create the tracker here and write the nine items in [Adopting a repository](#adopting-a-repository). `--project` names the project shown on the page (default: the root directory's name); `--root` tracks that directory instead of the discovered repository root. Refused, naming each file and deleting none, while `version.json` names a retired agent host. Refused when an ancestor already holds a tracker, when `--root` is not an existing directory, inside a bare repository, for `--no-agent-definition` without `--no-workflow` (the dispatcher starts every worker as that agent), for the two together while a dispatcher is installed without its definition, and when `AGENT_PROGRESS_ROOT` is set to a directory other than the one it would create the tracker in (the message names both, and nothing is written). A build whose program is not `agent-progress` refuses `older-program-present` at exit 1, like `update`, while the root holds the released program's `.agent-progress/`, writing nothing. A re-run refreshes only what `update` refreshes and leaves the tracker's own files alone; like `update`, it is refused at exit 1, writing nothing, over files a newer agent-progress installed ([Install version](#install-version)). |
-| `update [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]` | Refresh what the tool wrote into a repository it already tracks, refusing like `init` while `version.json` names a retired agent host: the managed block, `agent-brief.md`, the hook, the workflow — generated anew into `.agent-progress/` — the agent definition and the two skills, undoing a hand edit to any of the last three; then `version.json`. Last, when the board's runner is live and its lease names a code or install version other than the one on disk, it sends `runner-restart` and prints the checked handover's outcome (see `run restart`), exiting 1 `runner-handover-failed` with the old runner still driving and what it installed standing; with no live runner it does nothing more. The tracker's own files are left alone, and the first line says so. `setup.sh --login-runner <repository> [--label <label>]` writes `~/Library/LaunchAgents/<label>.plist`, the label defaulting to `LAUNCH_AGENT_LABEL`, which runs `run --detach` in that repository at login with absolute paths to `bun` and the program; a label already naming another repository is refused, and nothing else installs it. A tracker an earlier agent-progress wrote in a format this one no longer reads — a version 1 `progress.json` holding its own log, or a status word the rename retired — is refused at exit 2 by every command that reads it, the reason ending in the advice to run `agent-progress update` with a release that still reads it, which rewrites it in the current format. It creates no tracker, so it takes no `--project` and no `--root`. With no tracker it is refused at exit 1, naming `agent-progress init`; so is `--no-agent-definition` without `--no-workflow`, or with it while a dispatcher is installed without its definition, writing nothing, as for `init`; and over files a newer agent-progress installed at exit 1, writing nothing ([Install version](#install-version)). Every command but `init`, `update`, `help` and `status` is refused until it has run over files of an older install version, and `hook subagent-stop` reports it at exit 0 ([Install version](#install-version)). |
+| `init [--project <name>] [--root <path>] [--no-hooks]` | Create the tracker here and write the seven items in [Adopting a repository](#adopting-a-repository). `--project` names the project shown on the page (default: the root directory's name); `--root` tracks that directory instead of the discovered repository root. Refused, naming each file and deleting none, while `version.json` names a retired agent host. Refused when an ancestor already holds a tracker, when `--root` is not an existing directory, inside a bare repository, and when `AGENT_PROGRESS_ROOT` is set to a directory other than the one it would create the tracker in (the message names both, and nothing is written). A build whose program is not `agent-progress` refuses `older-program-present` at exit 1, like `update`, while the root holds the released program's `.agent-progress/`, writing nothing. A re-run refreshes only what `update` refreshes and leaves the tracker's own files alone; like `update`, it is refused at exit 1, writing nothing, over files a newer agent-progress installed ([Install version](#install-version)). |
+| `update [--no-hooks]` | Refresh what the tool wrote into a repository it already tracks, refusing like `init` while `version.json` names a retired agent host: the files beside the tracker, the SessionStart hook, the two skills and the worktrees folder's `.gitignore` entry, undoing a hand edit to any of them, and removing once what install version 16 wrote (item 6); then `version.json`. Last, when the board's runner is live and its lease names a code or install version other than the one on disk, it sends `runner-restart` and prints the checked handover's outcome (see `run restart`), exiting 1 `runner-handover-failed` with the old runner still driving and what it installed standing; with no live runner it does nothing more. The tracker's own files are left alone, and the first line says so. `setup.sh --login-runner <repository> [--label <label>]` writes `~/Library/LaunchAgents/<label>.plist`, the label defaulting to `LAUNCH_AGENT_LABEL`, which runs `run --detach` in that repository at login with absolute paths to `bun` and the program; a label already naming another repository is refused, and nothing else installs it. A tracker an earlier agent-progress wrote in a format this one no longer reads — a version 1 `progress.json` holding its own log, or a status word the rename retired — is refused at exit 2 by every command that reads it, the reason ending in the advice to run `agent-progress update` with a release that still reads it, which rewrites it in the current format. It creates no tracker, so it takes no `--project` and no `--root`. With no tracker it is refused at exit 1, naming `agent-progress init`; and over files a newer agent-progress installed at exit 1, writing nothing ([Install version](#install-version)). Every command but `init`, `update`, `help` and `status` is refused until it has run over files of an older install version, `hook subagent-stop` reports it at exit 0 and `hook session-start` prints its instructions regardless ([Install version](#install-version)). |
 | `help` | The command reference. |
 
 ### Reading the board
@@ -555,6 +537,7 @@ comment is code, and a file type it does not know counts every non-blank line.
 
 | command | what it does |
 |---|---|
+| `hook session-start` | Print `session-instructions.md` for the session Claude Code is starting. `init` and `update` wire it as the `SessionStart` hook in `.claude/settings.local.json`, which a job's `--setting-sources project` never loads. It prints nothing under a job, skips the install version check, and exits 0 whatever happens, printing nothing on failure. |
 | `hook bash-domains --allow <domains>` | Keep a job's network inside its ticket's `network` line: the `PreToolUse` guard a runner renders into a job's settings for a role with a `network` line, since auto mode's classifier may grant a domain the session asks for. It denies, through the hook's JSON on standard output (`hookSpecificOutput.permissionDecision` `deny`, with a reason), a `Bash` call whose `allowed_domains`, or a `WebFetch` whose URL host, names a domain outside the comma-separated `--allow` list; an entry `*.example.com` admits that domain's subdomains, never the domain itself. Every other call passes, printing nothing and granting nothing. It reads no tracker, skips the install-version check, runs directly under a job, and exits 0 whatever happens, answering deny on any failure: no input, input that is not a JSON object, a url naming no host, an `allowed_domains` that is no list of domains, an unknown option. |
 | `hook post-tool-use` | Keep the page live while agents work. `init` and `update` wire it as a `PostToolUse` hook on every tool beside `hook subagent-stop`. It regenerates `progress.html` and its stamp, as `render` does, only when the page file is more than 5 minutes old (half the page's 10-minute live limit), and otherwise does nothing. It finds the tracker from its own working directory and reads no hook input. It never waits on the tracker lock: a lock another process holds skips the render. It never prints, and every run exits 0, whatever goes wrong — no tracker, installed files of another install version, an unreadable tracker — since its exit would otherwise reach the agent's tool call; `render` reports what is wrong. |
 | `hook pre-tool-use` | Keep the check command the orchestrator's. `init` and `update` wire it as a `PreToolUse` hook on `Bash` beside `hook subagent-stop`. It blocks, at exit 2 with the reason on standard error, a subagent's Bash call whose command line runs `agent-progress checks` with a command line, `--clear` or `--restamp`, anywhere in it (after a `cd <dir> &&`, behind `;`, in `$( )`); a read (`checks`, `checks --json`), every other call, and unreadable input pass at exit 0. It tells a subagent's call from the main session's by `agent_id` alone: it relies on Claude Code setting `agent_id` (and `agent_type`) in the hook input only on a subagent's tool call, so a main-session call is never blocked. It reads no tracker and checks no install version. |

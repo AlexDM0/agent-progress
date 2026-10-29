@@ -1,11 +1,12 @@
 /**
  * The surface of the CLI the installed files name, frozen per `INSTALL_VERSION` in `cli/FrozenInstalledSurface.json`: the commands and flags the
- * brief, the CLAUDE.md block, the worker definition, the skills and the dispatcher's sources name, and the `status --json` fields they read. A
+ * session instructions, the reference, the Assistant brief and the skills name, and the `status --json` and Overseer state fields they read. A
  * version's surface only grows, since a file installed at that version may name any of it; so a frozen name the CLI no longer has means an
  * installed file became wrong, and fails until `INSTALL_VERSION` is bumped. Prose and numbers are not surface, so rewording a template or
  * changing a `DISPATCH_PROTOCOL` number trips nothing. The CLI's side is the help screen for commands and flags, and the keys of both
- * `status --json` documents over a board holding every kind of entry. To retake: add the names a failure lists under the current version, or,
- * after a bump, a new key holding the surface the failure prints; never delete a name from a version already frozen.
+ * `status --json` documents over a board holding every kind of entry, with the top-level keys of the Overseer's state document built on
+ * them. To retake: add the names a failure lists under the current version, or, after a bump, a new key holding the surface the failure
+ * prints; never delete a name from a version already frozen.
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { join }                      from 'node:path';
@@ -16,6 +17,7 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
+import { requireWorkspace }                                                   from '../src/services/tracker/Workspace.ts';
 import { filledTemplateOf, productNameTemplateValuesOf }                      from '../src/shared/FilledTemplate.ts';
 import { ORIGINAL_PRODUCT_NAMES, PRODUCT_NAMES }                              from '../src/shared/constants/ProductNames.ts';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
@@ -23,6 +25,7 @@ import { describeWhenGitIsPresent }                                           fr
 import { helpText }                                                           from './HelpText.ts';
 import { runCommandLine }                                                     from './Main.ts';
 import { INSTALL_VERSION }                                                    from './constants/InstallVersion.ts';
+import { readBoardState }                                                     from './runner/routes/BoardStateReader.ts';
 import { createCapturedCommandContext }                                       from './testing/CapturedCommandContext.ts';
 import { fileReadyTicketThrough }                                             from './testing/ReadyTicketFiling.ts';
 
@@ -47,42 +50,21 @@ const REPOSITORY_ROOT = join(import.meta.dir, '..');
 const FROZEN_TABLE_PATH = 'cli/FrozenInstalledSurface.json';
 
 const INSTALLED_TEMPLATE_PATHS = [
-  'resources/templates/AgentBrief.md',
-  'resources/templates/BuilderBrief.md',
-  'resources/templates/ReviewBrief.md',
+  'resources/templates/SessionInstructions.md',
+  'resources/templates/AssistantBrief.md',
   'resources/templates/Reference.md',
-  'resources/templates/ClaudeInstructionsBlock.md',
-  'resources/templates/AgentProgressWorker.md',
-  // The Claude Code sentences, filled into the block and the brief.
+  // The hook command `init` and `update` write into the settings file.
   'cli/adoption/constants/ClaudeCodeInstall.ts',
 ];
 
 const INSTALLED_SKILL_FOLDERS = ['skills/agent-po', 'skills/agent-progress-orchestrate'];
 
-const DISPATCHER_FOLDER = 'dispatcher';
-
-/** The dispatcher's reply schemas list the `status --json` fields the agents copy by name, not in backticks. */
-const REPLY_SCHEMA_PATH = 'dispatcher/run/constants/AgentReplySchemas.ts';
-
-/** Flags of the git commands the installed files spell out; exact both ways, and none of them is the CLI's. */
-const FOREIGN_TOOL_FLAGS = [
-  '--abort',
-  '--allow-empty',
-  '--amend',
-  '--autosquash',
-  '--continue',
-  '--ff-only',
-  '--is-ancestor',
-  '--merges',
-  '--no-edit',
-  '--porcelain',
-  '--show-current',
-  '--stat',
-];
+/** Flags of other tools' commands the installed files spell out; exact both ways, and none of them is the CLI's. Version 17's files spell out none. */
+const FOREIGN_TOOL_FLAGS: readonly string[] = [];
 
 const FLAG_PATTERN = /--[a-z][a-z-]*[a-z]/g;
 
-/** The templates and skills are filled with the program's name as `init` fills them, but the dispatcher's prompts still name the released program. */
+/** The templates and skills are filled with the program's name as `init` fills them; the released program's name is matched too. */
 function namedCommandPatternOf(programNames: readonly string[]): RegExp {
   const programAlternatives = [...new Set(programNames)].map((programName) => RegExp.escape(programName)).join('|');
   return new RegExp(`(?<![\\w-])(?:${programAlternatives}) ([a-z]+)(?: ([a-z][a-z-]*))?`, 'g');
@@ -98,8 +80,6 @@ const HELP_COMMAND_LINE_PATTERN = /^ {2}([a-z]+)(?: ([a-z][a-z|-]*))?/gm;
 /** A backtick in markdown, or an escaped one inside a TypeScript template literal. */
 const BACKTICKED_NAME_PATTERN = /\\?`([A-Za-z]+)\\?`/g;
 
-const REPLY_SCHEMA_PROPERTY_PATTERN = /(\w+):\s+\{\s*type:/g;
-
 function repositoryFileText(path: string): string {
   return readFileSync(join(REPOSITORY_ROOT, path), 'utf8');
 }
@@ -108,10 +88,7 @@ function installedTextsByPath(): Readonly<Record<string, string>> {
   const skillPaths = INSTALLED_SKILL_FOLDERS.flatMap((folder) => readdirSync(join(REPOSITORY_ROOT, folder))
     .filter((fileName) => fileName.endsWith('.md'))
     .map((fileName) => `${folder}/${fileName}`));
-  const dispatcherPaths = readdirSync(join(REPOSITORY_ROOT, DISPATCHER_FOLDER), { recursive: true, encoding: 'utf8' })
-    .map((relativePath) => `${DISPATCHER_FOLDER}/${relativePath.split('\\').join('/')}`)
-    .filter((path) => path.endsWith('.ts') && !path.endsWith('.spec.ts') && !path.split('/').includes('testing'));
-  return Object.fromEntries([...INSTALLED_TEMPLATE_PATHS, ...skillPaths, ...dispatcherPaths].sort()
+  return Object.fromEntries([...INSTALLED_TEMPLATE_PATHS, ...skillPaths].sort()
     .map((path) => [path, filledTemplateOf(repositoryFileText(path), productNameTemplateValuesOf(PRODUCT_NAMES))]));
 }
 
@@ -135,8 +112,7 @@ function namedSurfaceOf(installedTexts: Readonly<Record<string, string>>, cliSur
   }
   const flags = new Set(texts.flatMap((text) => text.match(FLAG_PATTERN) ?? []).filter((flag) => !FOREIGN_TOOL_FLAGS.includes(flag)));
   const backtickedNames = texts.flatMap((text) => [...text.matchAll(BACKTICKED_NAME_PATTERN)].map(([, name = '']) => name));
-  const replySchemaNames = [...(installedTexts[REPLY_SCHEMA_PATH] ?? '').matchAll(REPLY_SCHEMA_PROPERTY_PATTERN)].map(([, name = '']) => name);
-  const statusJsonFields = new Set([...backtickedNames, ...replySchemaNames].filter((name) => cliSurface.statusJsonFields.has(name)));
+  const statusJsonFields = new Set(backtickedNames.filter((name) => cliSurface.statusJsonFields.has(name)));
   return { commands: [...commands].sort(), flags: [...flags].sort(), statusJsonFields: [...statusJsonFields].sort() };
 }
 
@@ -169,7 +145,7 @@ async function statusDocumentKeysOfAFullBoard(repositoryDirectory: string): Prom
     if (exitCode !== 0) throw new Error(`\`agent-progress ${commandLineArguments.join(' ')}\` failed: ${context.errorText()}`);
     return context.outputText();
   };
-  await run(['init', '--project', 'Example Agency', '--no-claude-md', '--no-hooks', '--no-workflow', '--no-agent-definition']);
+  await run(['init', '--project', 'Example Agency', '--no-hooks']);
   await run(['concurrency', '10']);
   for (const title of ['Example build', 'Example review', 'Example waiting review', 'Example paused build', 'Example held', 'Example ready', 'Example settled']) {
     await fileReadyTicketThrough(run, (output) => output, ['ticket', 'add', '--type', 'ticket', title]);
@@ -191,7 +167,15 @@ async function statusDocumentKeysOfAFullBoard(repositoryDirectory: string): Prom
   await run(['dispatcher', 'running', '--run', 'example-run']);
   await run(['log', 'Example milestone']);
   const documents = [await run(['status', '--json']), await run(['status', '--json', '--full'])].map((text) => JSON.parse(text) as unknown);
-  return new Set(documents.flatMap(keysOf));
+  const overseerState = readBoardState({
+    context:   createCapturedCommandContext({ currentDirectory: repositoryDirectory }),
+    workspace: requireWorkspace(repositoryDirectory),
+    notices:   () => [],
+    overseer:  () => ({
+      state: 'down', url: null, generation: null, codeVersion: 'example', installVersion: INSTALL_VERSION, handoverWarning: null
+    }),
+  }).state;
+  return new Set([...documents.flatMap(keysOf), ...Object.keys(overseerState)]);
 }
 
 const FROZEN_TABLE = JSON.parse(repositoryFileText(FROZEN_TABLE_PATH)) as FrozenSurfaceTable;
@@ -226,7 +210,7 @@ function cliSurfaceWithHelpReplaced(searched: string, replacement: string): CliS
 describeWhenGitIsPresent('the scan itself', () => {
   /** Floors well under today's counts, to fail a scan that read the wrong files or a help screen it could not parse. */
   test('it reads the installed files and finds commands, flags and status fields in them and in the CLI', () => {
-    const expectedPaths = [...INSTALLED_TEMPLATE_PATHS, 'skills/agent-po/SKILL.md', 'skills/agent-progress-orchestrate/SKILL.md', REPLY_SCHEMA_PATH];
+    const expectedPaths = [...INSTALLED_TEMPLATE_PATHS, 'skills/agent-po/SKILL.md', 'skills/agent-progress-orchestrate/SKILL.md'];
     expect(Object.keys(INSTALLED_TEXTS)).toEqual(expect.arrayContaining(expectedPaths));
     const namedSurface = namedSurfaceOf(INSTALLED_TEXTS, cliSurface);
     expect(namedSurface.commands.length, 'commands named').toBeGreaterThanOrEqual(10);
@@ -234,6 +218,7 @@ describeWhenGitIsPresent('the scan itself', () => {
     expect(namedSurface.statusJsonFields.length, 'status fields named').toBeGreaterThanOrEqual(10);
     expect(cliSurface.commands).toContain('ticket claim');
     expect(cliSurface.statusJsonFields).toContain('dispatcherRunId');
+    expect(cliSurface.statusJsonFields, 'a top-level key of the Overseer\'s state document').toContain('mergeQueue');
     const namedCommandCount = Object.values(INSTALLED_TEXTS).flatMap((text) => [...text.matchAll(NAMED_COMMAND_PATTERN)]).length;
     expect(namedCommandCount, 'command mentions matched by the program-built pattern').toBeGreaterThanOrEqual(SMALLEST_NAMED_COMMAND_COUNT);
   });
@@ -265,25 +250,25 @@ describeWhenGitIsPresent('the guard, planted in memory', () => {
 
   test('a flag the brief names, renamed in the CLI and the brief without a bump, fails naming the rule', () => {
     const renamedCli = cliSurfaceWithHelpReplaced('--owner', '--assignee');
-    const renamedTexts = withTextReplaced(INSTALLED_TEXTS, 'resources/templates/AgentBrief.md', '--owner', '--assignee');
+    const renamedTexts = withTextReplaced(INSTALLED_TEXTS, 'resources/templates/Reference.md', '--owner', '--assignee');
     expect(sentencesWith(renamedTexts, renamedCli)).toContain(`the files installed at INSTALL_VERSION ${INSTALL_VERSION} name the flag --owner, which the CLI `
       + 'no longer has: an installed file became wrong, so bump INSTALL_VERSION in cli/constants/InstallVersion.ts (CLAUDE.md, Generated and installed files) '
       + 'and freeze the new version\'s surface');
   });
 
   test('a command and a status field the installed files name, removed from the CLI, fail the same way', () => {
-    const withoutRework = cliSurfaceWithHelpReplaced('\n  rework', '\n  recount');
-    expect(sentencesWith(INSTALLED_TEXTS, withoutRework).some((sentence) => sentence.includes('name the command rework, which the CLI no longer has'))).toBe(true);
-    const withoutTicketRows = { ...cliSurface, statusJsonFields: new Set([...cliSurface.statusJsonFields].filter((field) => field !== 'ticketRows')) };
-    expect(sentencesWith(INSTALLED_TEXTS, withoutTicketRows)).toEqual([`the files installed at INSTALL_VERSION ${INSTALL_VERSION} name the \`status --json\` field `
-      + 'ticketRows, which the CLI no longer has: an installed file became wrong, so bump INSTALL_VERSION in cli/constants/InstallVersion.ts '
+    const withoutChecks = cliSurfaceWithHelpReplaced('\n  checks', '\n  recount');
+    expect(sentencesWith(INSTALLED_TEXTS, withoutChecks).some((sentence) => sentence.includes('name the command checks, which the CLI no longer has'))).toBe(true);
+    const withoutJobs = { ...cliSurface, statusJsonFields: new Set([...cliSurface.statusJsonFields].filter((field) => field !== 'jobs')) };
+    expect(sentencesWith(INSTALLED_TEXTS, withoutJobs)).toEqual([`the files installed at INSTALL_VERSION ${INSTALL_VERSION} name the \`status --json\` field `
+      + 'jobs, which the CLI no longer has: an installed file became wrong, so bump INSTALL_VERSION in cli/constants/InstallVersion.ts '
       + '(CLAUDE.md, Generated and installed files) and freeze the new version\'s surface']);
   });
 
   test('a reworded template or prompt sentence and a changed number trip nothing', () => {
-    const rewordedBrief = withTextReplaced(INSTALLED_TEXTS, 'resources/templates/AgentBrief.md', 'Every section below', 'Each section that follows');
-    const rewordedPrompt = withTextReplaced(rewordedBrief, 'dispatcher/run/utils/AgentPromptUtil.ts', 'As your very last act', 'As the last thing you do');
-    const renumbered = withTextReplaced(rewordedPrompt, 'resources/templates/ReviewBrief.md', 'Report under 150 words', 'Report under 180 words');
+    const rewordedInstructions = withTextReplaced(INSTALLED_TEXTS, 'resources/templates/SessionInstructions.md', 'no session drives', 'no session runs');
+    const rewordedBrief = withTextReplaced(rewordedInstructions, 'resources/templates/AssistantBrief.md', 'booted clean', 'started clean');
+    const renumbered = withTextReplaced(rewordedBrief, 'resources/templates/Reference.md', '16 hex digits', '20 hex digits');
     expect(sentencesWith(renumbered, cliSurface)).toEqual([]);
   });
 

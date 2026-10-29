@@ -453,7 +453,7 @@ function launchFactsOf(board: Board, trackerDirectory: string, job: Readonly<Job
     checksLine:             board.checkCommand() ?? null,
     earlierSessionReplaced: JobResumption.earlierSessionWasReplaced(board.logRecordsSoFar(), job),
     intake:                 IntakeSessions.intakeFactsOf(board, job),
-    assistant:              AssistantBoot.assistantFactsOf(board, job),
+    assistant:              AssistantBoot.assistantFactsOf(board, trackerDirectory, job),
   };
 }
 

@@ -111,15 +111,19 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - Generated files stay out of the repository: `init` and `update` build the dispatcher from `dispatcher/` into
   `.agent-progress/agent-progress-dispatch.js`.
 - One manifest, `.agent-progress/version.json` holding `INSTALL_VERSION`, versions everything installed; no file
-  carries a stamp. It is written last, so a cut-short run leaves the old version; a fresh `init` writes the brief
-  first, so a cut-short one reads as unversioned.
+  carries a stamp. It is written last, so a cut-short run leaves the old version; a fresh `init` writes
+  `session-instructions.md` first, so a cut-short one reads as unversioned.
 - Bump `INSTALL_VERSION` by hand, in the same commit, when an installed file becomes wrong against the new CLI: a
-  command, flag, JSON field, stored state or exit code it names changes meaning or goes, the dispatcher's launch
-  arguments change, or an installed file moves or is added. Wording and `DISPATCH_PROTOCOL` numbers do not bump it.
+  command, flag, JSON field, stored state or exit code it names changes meaning or goes, the SessionStart hook's
+  command changes, or an installed file moves or is added; worker command lines are runtime and never installed.
+  Wording and `DISPATCH_PROTOCOL` numbers do not bump it.
   `cli/InstalledSurface.spec.ts` holds the surface side against `cli/FrozenInstalledSurface.json`.
 - The version check reads only the manifest; `update` and `init` refuse a newer one. `cli/InstallVersionVerdict.spec.ts`
-  holds the verdicts: equal is current; anything else, a missing manifest beside an installed brief, or an unreadable
-  one is a mismatch; missing with no brief is current.
+  holds the verdicts: equal is current; anything else, a missing manifest beside `session-instructions.md` or a version
+  16 board's `agent-brief.md`, or an unreadable one is a mismatch; missing with neither is current.
+- `init` and `update` never write CLAUDE.md: it holds a repository's conventions only. They remove install version 16's
+  managed block once, through `removeManagedBlock`, and the hook entries, files and briefs it installed, whose names
+  live in the unscanned `cli/adoption/constants/RetiredClaudeInstall.ts`.
 
 ### Comments
 
@@ -170,8 +174,9 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 ### Documentation and commits
 
 - One CLAUDE.md, holding only rules, boundaries and decisions; a change that invalidates a rule updates it in the
-  same change. Its `agent-progress:managed` block comes from `resources/templates/ClaudeInstructionsBlock.md`:
-  change the template, never the block.
+  same change. agent-progress's instructions are not in it: they are `.agent-progress/session-instructions.md`,
+  installed from `resources/templates/SessionInstructions.md` and printed by the SessionStart hook. The
+  `agent-progress:managed` block below is this checkout's own install of the released program, never edited by hand.
 - `docs/backlog.md` is agreed and not started, with why it waits. `docs/cli.md` is the one reference for commands,
   flags, exit codes and file formats.
 - `src/ProseWrap.spec.ts` holds the 120-column wrap of this file, `docs/cli.md`, `docs/backlog.md`, the skills and the
@@ -197,6 +202,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 | One reference per fact. | `resources/templates/Reference.md`, installed as `.agent-progress/reference.md`, copies three `docs/cli.md` sections verbatim (ticket format, ticket moves, exit codes); a change to either changes both, held by `cli/ReferenceCopies.spec.ts`. | Agents elsewhere cannot read `docs/cli.md`. |
 | A failure exits non-zero. | Exit 0 for: `hook subagent-stop` after its arguments are read; a store write whose render failed (reported on stderr); `release` when git declined the worktree removal or `branch -d` after the merge (reported). | The agent finished; the store holds the change; the release happened. |
 | A failure exits non-zero. | `hook post-tool-use` exits 0 silently whatever goes wrong: no tracker, another install version, an unreadable store, a held lock. | It runs after every tool call, and a failing hook would reach the agent's call; `render` reports what is wrong. |
+| A failure exits non-zero. | `hook session-start` exits 0 whatever happens, printing nothing on failure and skipping the install check. | A failing SessionStart hook would reach every session in the repository. |
 | A failure exits non-zero. | `hook bash-domains` exits 0 whatever happens, skipping the install check and answering deny through its JSON on any failure. | A hook that errors lets the call through; the deny is what keeps the network inside the ticket's line. |
 | A clock decides nothing. | No launch, resume or orchestrator delivery happens before the usage marker's `resetsAt`, and the runner wakes a DrivePass at it (`src/lib/tracker-model/LifecyclePolicy.ts`, `src/services/runner/DrivePass.ts`). | The vendor names its reset as a time, and only a clock can honour it. |
 | A failure exits non-zero. | A verb relayed under a job whose reply does not come within `RELAY_REPLY_TRIES` × `RELAY_REPLY_INTERVAL_MILLISECONDS` prints `queued <requestId>` and exits 0. | The request is written; the runner applies it later, and the id is what a filed finding cites. |
@@ -213,8 +219,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - Help is one screen, no per-command help; to stdout when asked, to stderr after an unknown command.
 - Every command but `init`, `update`, `help`, `status` and `version` checks the install version first
   (`cli/Main.spec.ts`); `release` reports a mismatch as its `--json` refusal, `hook subagent-stop` at exit 0,
-  `hook post-tool-use` by rendering nothing, silently, at exit 0; `run status` and `run stop` skip it, so a runner
-  whose install changed can still be inspected and stopped.
+  `hook post-tool-use` by rendering nothing, silently, at exit 0; `hook session-start` and `hook bash-domains` skip
+  it; `run status` and `run stop` skip it, so a runner whose install changed can still be inspected and stopped.
 - `src/TestFileConventions.spec.ts` holds that no spec starts a runner without `--port 0`.
 - A new command is an entry in `cli/CommandTable.ts`, a block in `cli/HelpText.ts` and a folder in its set, held by
   `cli/CommandTable.spec.ts` and `cli/HelpText.spec.ts`.
@@ -290,11 +296,11 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - Two skills, split by audience. `skills/agent-po/` loads in any session asked to file a ticket and holds the whole
   filing procedure; it loads no other skill and never dispatches. `skills/agent-progress-orchestrate/` is the one
   session running the board, loads `agent-po` for intake, and holds only what is the orchestrator's.
-- No agent preloads a skill. What a builder or reviewer needs lives in `resources/templates/BuilderBrief.md`,
-  `ReviewBrief.md` and the worker definitions, each rule stated once in whichever the agent reads.
+- No agent preloads a skill, and nothing installs a brief or worker definition: a runner's roles read their runtime
+  prompts under `resources/prompts/`, and the Assistant its installed `.agent-progress/assistant-brief.md`.
 - No skill file lists commands: `agent-progress help` is the reference. Both skills name it and
   `.agent-progress/reference.md`, installed from `resources/templates/Reference.md`, which holds only what help does
-  not print and follows `docs/cli.md`; both briefs cite it.
+  not print and follows `docs/cli.md`.
 - A `SKILL.md` `description` is its trigger, naming the words a user says. Skill files cite only commands, paths in
   a tracked repository, or files beside them; naming a skill the host may offer, such as `grill-me`, is no citation.
 - `skills/agent-progress-orchestrate/` repeats nothing from `skills/agent-po/`, writes rules as instructions,

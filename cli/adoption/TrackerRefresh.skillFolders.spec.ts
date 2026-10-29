@@ -33,7 +33,7 @@ const RETIRED_SKILL_FOLDER = join('.claude', 'skills', PRODUCT_NAMES.PROGRAM);
 
 const PRODUCT_OWNER_SKILL_FOLDER = join('.claude', 'skills', PRODUCT_NAMES.PRODUCT_OWNER_SKILL);
 
-const INSTALLED_FILE_TEXTS = await installedFileTextsFor({ generatesTheDispatcherScript: false });
+const INSTALLED_FILE_TEXTS = installedFileTextsFor();
 
 const scratchDirectories: string[] = [];
 
@@ -53,7 +53,7 @@ function gitIgnores(repositoryDirectory: string, pathInRepository: string): bool
 
 async function initIn(repositoryDirectory: string): Promise<void> {
   const context  = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-  const exitCode = await runCommandLine(['init', '--project', 'Example Agency', '--no-workflow'], context);
+  const exitCode = await runCommandLine(['init', '--project', 'Example Agency'], context);
   if (exitCode !== 0) throw new Error(`init exited ${exitCode}: ${context.errorText()}`);
 }
 
@@ -63,7 +63,7 @@ function refreshSkillsIn(repositoryDirectory: string, skillFileTexts: ReadonlyMa
     installedFileTexts:      INSTALLED_FILE_TEXTS,
     installedSkillFileTexts: Object.fromEntries(Object.values(INSTALLED_SKILL_NAMES).map((installedName) => [installedName, skillFileTexts])),
     commandName:             'update',
-    optOutFlags:             new Set(['no-claude-md', 'no-hooks', 'no-workflow', 'no-agent-definition']),
+    optOutFlags:             new Set(['no-hooks'] as const),
     writesTheBriefFirst:     false,
     standardError:           () => undefined,
   });
@@ -121,7 +121,7 @@ describeWhenGitIsPresent('the installed skill folders', () => {
     refreshSkillsIn(repositoryDirectory, skillFileTexts);
 
     expect(readFileSync(join(repositoryDirectory, '.gitignore'), 'utf8'))
-      .toBe(`.claude/skills/${PRODUCT_NAMES.PRODUCT_OWNER_SKILL}/\n.claude/skills/${PRODUCT_NAMES.ORCHESTRATE_SKILL}/\n`);
+      .toBe(`.claude/skills/${PRODUCT_NAMES.PRODUCT_OWNER_SKILL}/\n.claude/skills/${PRODUCT_NAMES.ORCHESTRATE_SKILL}/\n${PRODUCT_NAMES.WORKTREES_FOLDER}/\n`);
   });
 });
 
@@ -137,7 +137,7 @@ function plantVersionNineSkillFolder(repositoryDirectory: string): void {
 
 async function updateIn(repositoryDirectory: string): Promise<string> {
   const context  = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-  const exitCode = await runCommandLine(['update', '--no-workflow'], context);
+  const exitCode = await runCommandLine(['update'], context);
   if (exitCode !== 0) throw new Error(`update exited ${exitCode}: ${context.errorText()}`);
   return context.outputText();
 }
@@ -174,6 +174,6 @@ describeWhenGitIsPresent('the retired agent-progress skill folder', () => {
     const repositoryDirectory = scratchRepository();
     await initIn(repositoryDirectory);
 
-    expect(await updateIn(repositoryDirectory)).not.toContain('retired');
+    expect(await updateIn(repositoryDirectory)).not.toContain('retired (');
   });
 });

@@ -1,6 +1,6 @@
 /**
  * `update`: refresh what the tool wrote into a repository it already tracks, so nobody reaches for
- * `init` — a verb that reads as destructive — to pick up a newer brief or CLAUDE.md block. It creates
+ * `init` — a verb that reads as destructive — to pick up newer instructions. It creates
  * no tracker, so it takes neither `--project` nor `--root`, and never touches the tracker's own files.
  */
 import { CodeVersion }                                    from '../../../src/services/runner/CodeVersion.ts';
@@ -20,29 +20,23 @@ import {
   optOutFlagsGiven,
   recordInstallVersion,
   refreshReportLinesOf,
-  refreshTrackedRepository,
-  refuseAnAgentDefinitionOptOutKeepingTheWorkflow,
-  refuseKeepingADispatcherWithoutItsAgentDefinition
+  refreshTrackedRepository
 }                                                                             from '../TrackerRefresh.ts';
 
-const USAGE = `${PRODUCT_NAMES.PROGRAM} update [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]`;
+const USAGE = `${PRODUCT_NAMES.PROGRAM} update [--no-hooks]`;
 
-const KNOWN_OPTION_NAMES = ['no-claude-md', 'no-hooks', 'no-workflow', 'no-agent-definition'];
+const KNOWN_OPTION_NAMES = ['no-hooks'];
 
 export const updateCommand: CommandHandler = async (commandArguments, context) => {
   commandArguments.rejectUnknownOptions(KNOWN_OPTION_NAMES, USAGE);
   commandArguments.rejectExtraPositionals(0, USAGE);
-  const optOutFlags                 = optOutFlagsGiven((flagName) => commandArguments.flag(flagName));
-  const writesTheDispatcherWorkflow = !optOutFlags.has('no-workflow');
-  const writesTheAgentDefinition    = !optOutFlags.has('no-agent-definition');
-  refuseAnAgentDefinitionOptOutKeepingTheWorkflow('update', { writesTheAgentDefinition, writesTheDispatcherWorkflow });
+  const optOutFlags = optOutFlagsGiven((flagName) => commandArguments.flag(flagName));
 
   const workspace          = requireWorkspace(context.currentDirectory);
   refuseBesideAnOlderProgram(workspace.rootDirectory);
   requireInstallManifestThisVersionCanReplace(workspace.rootDirectory);
   refuseARetiredAgentHostsInstall('update', workspace.rootDirectory);
-  refuseKeepingADispatcherWithoutItsAgentDefinition('update', workspace.rootDirectory, { writesTheAgentDefinition, writesTheDispatcherWorkflow });
-  const installedFileTexts = await installedFileTextsFor({ generatesTheDispatcherScript: writesTheDispatcherWorkflow });
+  const installedFileTexts = installedFileTextsFor();
   const report             = refreshTrackedRepository({
     workspace,
     installedFileTexts,

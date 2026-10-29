@@ -18,7 +18,7 @@ import { dirname, join }          from 'node:path';
 import { afterAll, expect, test } from 'bun:test';
 
 import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
-import { writeManagedBlock }                              from './ClaudeInstructions.ts';
+import { removeManagedBlock, writeManagedBlock }          from './ClaudeInstructions.ts';
 
 const MANAGED_BLOCK_MARKERS = { start: '<!-- example-tool:managed:start -->', end: '<!-- example-tool:managed:end -->' };
 
@@ -89,6 +89,38 @@ test('with two marker pairs only the first is rewritten, and the second is left 
   );
   expect(writeManagedBlock(claudeFilePath, BLOCK_BODY, MANAGED_BLOCK_MARKERS)).toBe('replaced');
   expect(readFileSync(claudeFilePath, 'utf8')).toBe(`${EXPECTED_BLOCK}\n\nmiddle text\n\n${secondPair}\n`);
+});
+
+test('removing takes the block and its blank separation out, leaving everything around it byte for byte', () => {
+  const before = '# Example Agency\n\nRun the tests before pushing.';
+  const after = '## Local conventions\n\nAlex Example reviews every migration.\n';
+  const claudeFilePath = claudeFileWith('claude-removed-middle', `${before}\n\n${EXPECTED_BLOCK}\n\n${after}`);
+  expect(removeManagedBlock(claudeFilePath, MANAGED_BLOCK_MARKERS)).toBe('removed');
+  expect(readFileSync(claudeFilePath, 'utf8')).toBe(`${before}\n\n${after}`);
+});
+
+test('removing an appended block gives back the file as it was before the append', () => {
+  const original = '# Example Agency\n\nRun the tests before pushing.\n';
+  const claudeFilePath = claudeFileWith('claude-removed-appended', original);
+  writeManagedBlock(claudeFilePath, BLOCK_BODY, MANAGED_BLOCK_MARKERS);
+  expect(removeManagedBlock(claudeFilePath, MANAGED_BLOCK_MARKERS)).toBe('removed');
+  expect(readFileSync(claudeFilePath, 'utf8')).toBe(original);
+  expect(removeManagedBlock(claudeFilePath, MANAGED_BLOCK_MARKERS)).toBe('absent');
+});
+
+test('a file the block was all of is removed, and an absent file is absent', () => {
+  const claudeFilePath = claudeFileWith('claude-removed-whole', null);
+  expect(removeManagedBlock(claudeFilePath, MANAGED_BLOCK_MARKERS)).toBe('absent');
+  writeManagedBlock(claudeFilePath, BLOCK_BODY, MANAGED_BLOCK_MARKERS);
+  expect(removeManagedBlock(claudeFilePath, MANAGED_BLOCK_MARKERS)).toBe('removed');
+  expect(existsSync(claudeFilePath)).toBe(false);
+});
+
+test('removing refuses a start marker with no end marker and leaves the file as it was', () => {
+  const originalContent = `# Example Agency\n\n${MANAGED_BLOCK_MARKERS.start}\nsomething truncated the end marker\n`;
+  const claudeFilePath = claudeFileWith('claude-remove-start-without-end', originalContent);
+  expect(removeManagedBlock(claudeFilePath, MANAGED_BLOCK_MARKERS)).toBe('refused-start-without-end');
+  expect(readFileSync(claudeFilePath, 'utf8')).toBe(originalContent);
 });
 
 test('a start marker with no end marker is refused and the file is not touched at all', () => {

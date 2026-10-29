@@ -55,8 +55,8 @@ line, and the calls beside it are cancelled with it. Then act on the answers in 
    `installCommand`, what a fresh worktree needs before that runs (a `bun install`), or none. When
    `{{program}} checks` prints none, settle the repository's full check line from its `CLAUDE.md`
    or its scripts and store it once with `{{program}} checks "<line>"`: the tracker is where it
-   lives, and every `{{program}} release` runs it on the branch's tip before it changes anything,
-   so never pass the dispatcher another. Ask the user (Intake) only for what the repository does not
+   lives, and every landing runs it on the branch's tip before it changes anything, so never pass
+   an agent another. Ask the user (Intake) only for what the repository does not
    say. Changing it is yours alone, and where the host can block an agent's change, `init` installed
    that block.
    With tickets in flight, change it only with `{{program}} checks "<line>" --restamp`, since a
@@ -110,188 +110,6 @@ another instance of a mistake a ticket on this board already
 fixed, file, once, the invariant behind both, with the search for its other sites as an acceptance
 item and a mechanical guard where one is possible; the second instance is the signal, not the fifth.
 
-## Running the dispatcher
-
-**Starting — only on the user's go.** While the board reads `stopped`, wait for the user however many
-tickets are filed; ask for the go (Intake) once work is ready. On their go, each on its own call:
-`{{program}} dispatcher running`, then the launch (Host mechanics: Launching the dispatcher) with
-the args
-
-```
-{ mainCheckout, mainLine, checkCommand, installCommand, includeLowPriority }
-```
-
-settled at the opening, `installCommand` left out where a worktree needs nothing. **Record the run
-the moment the launch returns**: `{{program}} dispatcher running --run <run id>`, with the run id
-the launch returned; Recovering, below, resumes it. `includeLowPriority: true` is passed only on the launch that
-follows a triage (Low-priority work, below).
-Pass no model, and spawn no agent beside it. Over its length a run may start many more agents than
-the board's limit: the user has approved long runs. Keep taking requests while it runs. **Never stop, kill or relaunch
-a running dispatcher to add, reorder, reprioritise or change tickets**: make the change with the
-ticket commands and leave the run alone. Stopping the run for intake loses the agents in flight. Only
-the user stops a run, and then through `{{program}} dispatcher stopped` (The user saying stop,
-below).
-
-The installed `PostToolUse` hook keeps the page live while any agent works; nothing needs starting or stopping for it.
-
-**The whole-board run is the default; a high ticket has a fast lane.** A **high-priority** ticket filed
-while a whole-board run is going gets a single-ticket run of its own at once, **only when the Next line
-after filing shows a free slot**: the launch, with the args
-
-```
-{ mainCheckout, mainLine, checkCommand, installCommand, ticketIds: ['<id>'], readyTickets: [<its entry from status --json readyTickets>] }
-```
-
-Its entry carries the ticket's model and effort. With no slot free, launch nothing. The user may also
-ask for a single-ticket run by hand, on the same terms. A single-ticket run is not the board's
-dispatcher: record no `dispatcher` state or run id for it, and when it returns skip step 1 below and
-handle the rest.
-
-**A group ships as one release.** When the user wants tickets to reach the main line together, file
-each with `--group <name>` and `--depends-on` naming only the tickets whose code it truly builds on,
-then mark the last, which depends on the rest, with `{{program}} ticket release-of <id>`. The
-group run builds and reviews side by side whatever those dependencies allow, within the board's
-limit and beside a whole-board run, and integrates onto the group branch one ticket at a time, so a
-needless dependency only slows the group down. From that mark the release ticket and every ticket of
-the group it depends on are the group run's alone: the whole-board run never takes them, and a
-single-ticket run naming one is refused, so launch none. On the user's go, beside a whole-board run
-or without one, the launch with the args:
-
-```
-{ mainCheckout, mainLine, checkCommand, installCommand, group: '<name>' }
-```
-
-A group run is not the board's dispatcher either: record no `dispatcher` state or run id for it, and
-when it returns skip step 1 below and handle the rest. A board stop ends it with the rest. Its summary
-adds `group`, `integrated`, `waitingOnPredecessor` (tickets built behind a parked one: settle the
-parked ticket, then relaunch) and `bundleUnread` (mark the release ticket, then relaunch). The
-release is the run's own, so never review or release a group's bundle by hand. `delivered` naming the
-bundle means it was released. When it is empty and the release ticket is in `parked` with its reason,
-a refused release is settled as step 3 says, a moved main line by a relaunch once it is quiet. A
-summary carrying `releaseReviewNext` comes from a dispatcher older than the CLI: ask the user to run
-`{{program}} update`, then relaunch. **Recover
-a group run by launching it again** with the same args, never by resuming it: it keeps no state of its
-own and picks the run up from the board, its builders and reviewers taking over the claims and
-bars the dead run left.
-
-**The user asking to pause one ticket** — "pause this ticket", "hold #7 before review" — is
-`{{program}} ticket hold <id> --reason "<why>"`, never a stop of the run, and `ticket unhold <id>`
-lifts it. Tell the user when the hold came too late for a step already under way.
-
-**A build a hold or a stop left paused** waits for the next whole-board run. Launch a single-ticket
-run for it (`ticketIds: ["<id>"]`, no `readyTickets` entry) only when `ticket unhold <id>` names one
-and no whole-board run is going or due.
-
-**When it returns with `stoppedByFailures`**, tell the user it looks like an outage — a session limit
-or a lost connection, not the tickets failing — and which. Close the dead rows:
-`{{program}} task pause` a builder's row still `in-progress`, and `task finish` then `task deliver`
-a review bar still in progress. Set the board to `stopped` (step 1 below), and ask (Intake) whether
-to relaunch; on the user's go, `{{program}} dispatcher running`
-and the launch. The rest of its summary is handled as below.
-
-**When it returns** — you notice as Host mechanics: Noticing the end of a run says — its summary is
-`{ delivered, parked, findingsFiled, agentsRun, stoppedByBoard?, stoppedByFailures?, lowPriorityWaiting?, held?, pausedBuilds?, reviewsLeft?, dirtyMainCheckoutFiles? }`.
-`dirtyMainCheckoutFiles` means it started nothing: run `{{program}} dispatcher stopped` in place
-of step 1, ask the user (Intake) to commit or stash those files in the main
-checkout, naming them, and relaunch on their go; never commit or stash them yourself. `lowPriorityWaiting` is yours
-to triage (Low-priority work, below). `pausedBuilds` and `reviewsLeft` wait for the next whole-board launch, a low
-paused build for the one with `includeLowPriority: true`.
-`held`, each `{ id, waitingFor: 'build' | 'review' }`, you list to the user, and relaunch for only
-after an unhold. Then:
-
-1. `{{program}} dispatcher finished` — unless the summary carries `stoppedByBoard`: that is the
-   user's stop taking effect, and the state stays `stopped`. With `stoppedByFailures`, run
-   `{{program}} dispatcher stopped` instead, so nothing relaunches before the user's go.
-2. `{{program}} log` one line: delivered, parked, findings filed, agents run.
-3. Each parked ticket, with its reason, logged and handled. A row the run's log names under
-   `No slot free for an agent to pause` is yours to pause with `{{program}} task pause`. Every
-   parked ticket that needs the user's decision is asked (Intake), one question
-   per ticket, its context block naming the reason.
-   **Two failed passes on one ticket is a question for the user, not a third agent**: its context
-   block says what the last Handoff and Review say is missing, and the options are what to do next.
-   A refused release — a main checkout off the main line, a fast-forward git refused over a
-   local change, checks that failed where the reviewer could not fix them, a refused permission —
-   is the user's to settle, and neither you nor an agent runs
-   anything around it: ask how to settle it, the context block naming the ticket, the reason and, for
-   a permission, that allowing `{{program}} release` is the release permission for every reviewer
-   from then on. Review rounds that did not converge are a sign about the ticket, not the reviewers:
-   file a new ticket stating the invariant behind what the reviews kept finding, with the search for
-   its other instances as an acceptance item, and tell the user the parked branch waits on it.
-   A reviewer's `holds, not released: check command broken` means the stored line itself cannot run:
-   fix it with `{{program}} checks "<line>" --restamp` and relaunch the dispatcher.
-   A reviewer's `holds, not released: acceptance-waived` names the items an agent proposes to
-   waive; only the user waives one. Ask per item, its reason in the context block. Agreed: edit the
-   item to `A3. Waived: <reason>` in the Acceptance and run the release again, as the reviewer would
-   have, from the main checkout. Refused: note the decision under the item and dispatch a build.
-   A ticket parked on `acceptance-unnumbered` is the reviewer's to number: dispatch a review, never
-   number it by hand.
-4. Each ticket in `findingsFiled`, judged for severity as Intake says.
-5. `{{program}} status --json`: a row the run left `in-progress` or `in-review` with no agent
-   behind it is yours to close. A ticket's own row moves only through the `ticket` verbs, which
-   refuse `task finish` and `task deliver` on it: `task pause` a build row left running, so the next
-   run resumes it, and `ticket status <id> <status>` to settle it otherwise. A review bar (a row
-   with `reviewOf`) is closed with `task finish` then `task deliver`.
-6. Relaunch at once when a normal or high ticket is ready and the state is `finished` — the Next line
-   says `dispatcher finished: work ready for the orchestrator`. When the summary carries
-   `lowPriorityWaiting` and nothing else is open, the Next line says `dispatcher finished: only low
-   priority ready, for the orchestrator to triage`: relaunch nothing, and triage them first
-   (Low-priority work).
-
-**Relaunching and stopping.** The state on the board decides, never your memory of it; after a
-compaction the `Next:` line of `{{program}} status` says which.
-
-- `finished` — it ended by itself: when the run that finished is one this session launched, a normal
-  or high ticket filed or ready relaunches it without asking, `{{program}} dispatcher running`
-  and the launch. A run this session did not launch is relaunched only on the user's go, asked for
-  as `stopped` says. Low tickets alone relaunch nothing.
-- `stopped` — never started, or the user stopped it: wait for the user's permission, whatever is filed
-  meanwhile, and on their go `{{program}} dispatcher running` and the launch. When work is ready,
-  ask for that permission (Intake) rather than mentioning it in a status line.
-- `running` — a run of this session is at work: wait for it to return. With no run of this session
-  behind it, or the host saying the run was stopped or died, recover it as below.
-
-A launch or relaunch happens only in a turn that is the user's go or the host's notice that this
-session's run ended, never in a turn answering an unrelated request.
-
-**Recovering a run that died or was killed: resume it, never launch fresh.** Its agents in flight left
-their tickets claimed, their bars running and partial work in their worktrees. Resume it with the run
-id the board stored (`concurrency.dispatcherRunId`) and the same args as its launch (Host mechanics:
-Resuming a run), then `{{program}} dispatcher running --run <the new run id>`. Only when there is no stored id or
-the resume is refused: for every `in-progress` row no agent is behind, `{{program}} task pause` a
-build row and `task finish` then `task deliver` a review bar (a row with `reviewOf`); then
-`{{program}} dispatcher running` and a fresh launch.
-
-**Low-priority work is triaged before it is run.** When the only work left is low priority, stop
-relaunching and triage the low tickets: abandon each that is no longer relevant, with the reason;
-merge overlapping ones into one survivor carrying the others' Report and Acceptance, abandoning each
-merged one with the reason `merged into #<survivor>`; and give every survivor its `## Brief`, numbering
-its Acceptance items `A1.`, `A2.`, … where the reviewer who filed it did not. Only
-then launch a run for them — `{{program}} dispatcher running` and the launch with
-`includeLowPriority: true` added to its args — while the state is `finished`; a `stopped` board still
-waits for the user's go, asked for as Intake says. A triage call you cannot make from the tickets
-alone — whether one is still relevant, which of two survives — is a question for the user too.
-
-**The user saying stop** is `{{program}} dispatcher stopped`, on the board; then wait for the run
-to return with `stoppedByBoard` and handle it as When it returns says. Stopping the run outright (Host
-mechanics: Stopping a run outright) happens only on the user's explicit instruction to do exactly that, or on an
-install version refusal (When {{program}} itself changes): it abandons agents mid-work, with their
-claims, bars and worktrees, and the run is then resumed as Recovering says.
-
-**By hand.** Only while the dispatcher is stopped and the user asks for one ticket by hand: create its
-worktree off the main line (`git -C <main checkout> worktree add <path> -b <branch> <main line>`), start
-one builder as the `agent-progress-worker` agent (Host mechanics: Starting an agent by hand), briefed
-from `{{dataFolder}}/agent-brief.md` — the Scope block with its
-`ticket claim` first command and `agent-progress ticket: <id>` line, the ticket's `## Brief`, and every
-block of `{{dataFolder}}/builder-brief.md` — and when it lands one clean reviewer, again
-`agent-progress-worker`, from `{{dataFolder}}/review-brief.md`, its bar added first with
-`task add "Review <N> #<id> — <title>" --review-of <id> --owner opus --start` and named on the brief's
-`agent-progress row:` line. `released` delivered that bar; after any other verdict `task finish` and
-`task deliver` it, and act on the verdict as the dispatcher would. One agent at a time.
-
-Stop when every ticket is delivered or abandoned — the low ones too — **and every row on the chart
-reads `done` or `abandoned`**. Say so, summarise what shipped in a few lines, and wait for the next
-request — do not invent work to keep the loop running.
-
 ## When {{program}} itself changes
 
 **Pull {{program}} only while no tracked repository has a live run**: every tracked repository runs
@@ -338,10 +156,9 @@ drafts as the opening sequence reports them.
 
 ## Keeping the board honest
 
-- **Every row reaches `done`.** The dispatcher's agents move their own rows — a builder its ticket to
-  review, a reviewer its bar, or `{{program}} release` both — and a row one of them left open is
-  yours to close (When it returns), because a chart whose rows stop at `awaiting review` is a chart
-  nobody finished reading.
+- **Every row reaches `done`.** The agents' work moves their own rows — a builder its ticket to
+  review, a reviewer its bar, a landing both — and a row one of them left open is yours to close,
+  because a chart whose rows stop at `awaiting review` is a chart nobody finished reading.
 - Every move you make goes through the CLI **at the moment it happens**, never batched afterwards.
   A chart caught up afterwards has the wrong bars on it.
 - **Pass `--tokens` only where `{{dataFolder}}/agent-brief.md`'s Orchestrator checklist says to.**
@@ -351,13 +168,7 @@ drafts as the opening sequence reports them.
 
 Write the code. Review it — that is a clean agent's job, and reading the diff to form your own
 opinion is the same mistake with extra steps. Merge or rebase anything — a branch goes into main only
-through `{{program}} release`, which is the reviewer's, and nobody runs `git merge` into main by
-hand, after a permission refusal least of all. Launch the dispatcher while the board says `stopped`
-without the user's go, run two whole-board runs at once or a single-ticket run beside one with no
-slot free, or pass its agents a model. Stop, kill or relaunch a running
-dispatcher to add, reorder, reprioritise or change tickets — file them and the run picks them up at
-its next agent's return; only the user stops a run, through `{{program}} dispatcher stopped`, and
-the run is stopped outright only on the user's explicit instruction. Spawn a builder or a reviewer
-yourself, except by hand while the dispatcher is stopped and the user asked for it. Dispatch an agent
-into the main checkout. Re-verify through the browser what an agent already evidenced. Continue a
-finished agent, for any reason: a fresh one for the remainder is cheaper.
+through its landing, and nobody runs `git merge` into main by hand, after a permission refusal least
+of all. Spawn a builder or a reviewer yourself. Dispatch an agent into the main checkout. Re-verify
+through the browser what an agent already evidenced. Continue a finished agent, for any reason: a
+fresh one for the remainder is cheaper.
