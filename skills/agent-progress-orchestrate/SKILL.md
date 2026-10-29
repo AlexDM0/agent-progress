@@ -104,8 +104,8 @@ only what they review and file everything else themselves with `--priority low`:
 the way of the user's own tickets, and listed in the run's `findingsFiled`. Judge each as it reaches
 you: raise one that cannot wait for the user's work — a defect that loses data, breaks a flow the user
 relies on, or undermines a ticket still to come — with `ticket priority <id> high` or `normal`, and
-give it its `## Brief`. The rest wait until every normal and high ticket is delivered or abandoned,
-and are triaged then, before any run is launched for them (Low-priority work, below). If a finding is
+give it its `## Brief`. The rest stay low, ordered last among the ready tickets, and are triaged once
+only low work is left, before any run is launched for them (Low-priority work, below). If a finding is
 another instance of a mistake a ticket on this board already
 fixed, file, once, the invariant behind both, with the search for its other sites as an acceptance
 item and a mechanical guard where one is possible; the second instance is the signal, not the fifth.
