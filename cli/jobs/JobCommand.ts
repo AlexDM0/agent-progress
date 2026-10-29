@@ -108,7 +108,7 @@ function entryLinesOf(adapter: AgentAdapter, instance: number, entries: readonly
   });
 }
 
-/** Read-only: every host instance's event log in instance order, then the newest followed while the job is on the board. */
+/** Read-only: every host instance's event log in instance order, then the newest followed until the job leaves the board. */
 async function attachJob(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
   commandArguments.rejectUnknownOptions(['json'], SHOW_USAGE);
   commandArguments.rejectExtraPositionals(2, SHOW_USAGE);
@@ -137,7 +137,11 @@ async function attachJob(commandArguments: ArgumentParser, context: CommandConte
   printNewEntries(newestInstance);
   for (;;) {
     const current = (requireProgressFile(workspace).jobs ?? []).find((job) => job.id === jobId);
-    if (current === undefined) return;
+    if (current === undefined) {
+      // The Watcher may have written its last entries after the previous print, before the job left the board.
+      printNewEntries(newestInstance);
+      return;
+    }
     if (current.hostInstance !== newestInstance) {
       printNewEntries(newestInstance);
       newestInstance = current.hostInstance;
