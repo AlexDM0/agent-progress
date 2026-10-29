@@ -37,14 +37,12 @@ export class TrackerChanges {
     return { logged, previousLimit, concurrency: this.dispatchQueries.concurrency() };
   }
 
-  /** A `null` run id deletes the stored one, since an older id would be resumed wrongly. */
-  setDispatcherState(state: DispatcherState, runId: string | null, at: string): DispatcherStateSet {
+  /** The record keeps its `runId` field, null, so a log holding a run id from a retired Workflow dispatcher still reads. */
+  setDispatcherState(state: DispatcherState, at: string): DispatcherStateSet {
     const { progress }       = this.records;
     const previousState      = this.dispatchQueries.dispatcherState();
     progress.dispatcherState = state;
-    if (runId === null) delete progress.dispatcherRunId;
-    else progress.dispatcherRunId = runId;
-    return { logged: [this.records.logger.log({ kind: 'dispatcher-set', fields: { state, runId } }, at)], previousState };
+    return { logged: [this.records.logger.log({ kind: 'dispatcher-set', fields: { state, runId: null } }, at)], previousState };
   }
 
   /**

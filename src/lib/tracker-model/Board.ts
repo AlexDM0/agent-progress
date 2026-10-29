@@ -280,7 +280,7 @@ export class Board {
 
   /** Pauses the board, then stops or winds down every live build, review and product-owner job. */
   stopAllJobs(mode: Exclude<JobStopMode, 'fresh'>, at: string): Logged {
-    const pause = (): readonly LogRecord[] => (this.dispatcherState() === 'stopped' ? [] : this.setDispatcherState('stopped', null, at).logged);
+    const pause = (): readonly LogRecord[] => (this.dispatcherState() === 'stopped' ? [] : this.setDispatcherState('stopped', at).logged);
     return this.jobControls.stopAllJobs(mode, pause, at);
   }
 
@@ -571,7 +571,7 @@ export class Board {
       case 'default-incident':
         return this.incidentMoves.defaultIncident(step.incidentId, step.cause, decisionWordingOf, at);
       case 'stop-dispatching':
-        return this.setDispatcherState('stopped', null, at).logged;
+        return this.setDispatcherState('stopped', at).logged;
     }
   }
 
@@ -592,8 +592,8 @@ export class Board {
     return this.trackerChanges.setConcurrencyLimit(limit, at);
   }
 
-  setDispatcherState(state: DispatcherState, runId: string | null, at: string): DispatcherStateSet {
-    return this.trackerChanges.setDispatcherState(state, runId, at);
+  setDispatcherState(state: DispatcherState, at: string): DispatcherStateSet {
+    return this.trackerChanges.setDispatcherState(state, at);
   }
 
   setCheckCommand(command: string | null, restamps: boolean, at: string): CheckCommandSet {
@@ -867,10 +867,6 @@ export class Board {
 
   dispatcherState(): DispatcherState {
     return this.dispatchQueries.dispatcherState();
-  }
-
-  dispatcherRunId(): string | undefined {
-    return this.dispatchQueries.dispatcherRunId();
   }
 
   checkCommand(): string | undefined {

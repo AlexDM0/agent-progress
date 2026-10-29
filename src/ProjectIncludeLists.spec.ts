@@ -1,5 +1,5 @@
 /**
- * The `include` lists of `page/tsconfig.json`, `dispatcher/tsconfig.json` and `bridge/tsconfig.json`, held against what each project
+ * The `include` lists of `page/tsconfig.json` and `bridge/tsconfig.json`, held against what each project
  * reaches: every file outside its folder that its shipping modules import, directly or through each other, and, for the page, every
  * shipping module of the tracker model,
  * which it compiles whole to prove the package DOM-safe. The comparison is exact both ways, so a missing entry
@@ -30,13 +30,6 @@ const PAGE_PROJECT: IncludeListContract = {
   ownFolderGlobs:      ['./**/*.ts'],
 };
 
-const DISPATCHER_PROJECT: IncludeListContract = {
-  configurationPath:   'dispatcher/tsconfig.json',
-  projectFolder:       'dispatcher/',
-  wholePackageFolders: [],
-  ownFolderGlobs:      ['./**/*.ts'],
-};
-
 const BRIDGE_PROJECT: IncludeListContract = {
   configurationPath:   'bridge/tsconfig.json',
   projectFolder:       'bridge/',
@@ -44,7 +37,7 @@ const BRIDGE_PROJECT: IncludeListContract = {
   ownFolderGlobs:      ['./**/*.ts', './**/*.tsx'],
 };
 
-const PROJECTS = [PAGE_PROJECT, DISPATCHER_PROJECT, BRIDGE_PROJECT];
+const PROJECTS = [PAGE_PROJECT, BRIDGE_PROJECT];
 
 const SCANNER = createImportGraphScanner(repositoryRootOfThisCheckout());
 
@@ -84,10 +77,8 @@ describe('the scan itself', () => {
   /** Floors well under today's counts, to fail a scan that read the wrong tree or followed no import. */
   test('it finds each project\'s reach outside its folder, beyond the tracker model the page compiles whole', () => {
     const pageReach = [...reachedPathsOf(PAGE_PROJECT, SCANNER.graph)];
-    const dispatcherReach = [...reachedPathsOf(DISPATCHER_PROJECT, SCANNER.graph)];
     expect(pageReach.filter((path) => !path.startsWith('src/lib/tracker-model/')).length, 'page files reached outside the model').toBeGreaterThanOrEqual(4);
     expect(pageReach.filter((path) => path.startsWith('src/lib/tracker-model/')).length, 'tracker model modules').toBeGreaterThanOrEqual(20);
-    expect(dispatcherReach.length, 'dispatcher files reached').toBeGreaterThanOrEqual(5);
     expect([...reachedPathsOf(BRIDGE_PROJECT, SCANNER.graph)], 'Bridge files reached').toContain('src/shared/constants/ProductNames.ts');
   });
 
@@ -123,7 +114,7 @@ describe('the guard still names each form, planted in memory', () => {
     ]);
   });
 
-  test('an entry nothing needs, added to the page\'s and the dispatcher\'s list', () => {
+  test('an entry nothing needs, added to the page\'s and the Bridge\'s list', () => {
     for (const project of PROJECTS) {
       const includeEntries = [...includeEntriesOf(project.configurationPath), '../src/shared/Environment.ts'];
       expect(includeListSentencesOf(project, includeEntries, SCANNER.graph)).toEqual([
@@ -132,24 +123,24 @@ describe('the guard still names each form, planted in memory', () => {
     }
   });
 
-  test('a new outside file a dispatcher module imports, directly or through a listed file', () => {
+  test('a new outside file a Bridge module imports, directly or through a listed file', () => {
     const graph = SCANNER.graphWithPlantedFiles({
-      'dispatcher/PlantedStep.ts':        'import { planted } from \'../src/shared/PlantedValue.ts\';\nexport const step = planted;\n',
+      'bridge/PlantedStep.ts':            'import { planted } from \'../src/shared/PlantedValue.ts\';\nexport const step = planted;\n',
       'src/shared/PlantedValue.ts':       'import { deeper } from \'./PlantedDeeperValue.ts\';\nexport const planted = deeper;\n',
       'src/shared/PlantedDeeperValue.ts': 'export const deeper = 1;\n',
     });
-    expect(includeListSentencesOf(DISPATCHER_PROJECT, includeEntriesOf(DISPATCHER_PROJECT.configurationPath), graph)).toEqual([
-      'dispatcher/tsconfig.json does not list src/shared/PlantedDeeperValue.ts, which dispatcher/ reaches: add it to the include list',
-      'dispatcher/tsconfig.json does not list src/shared/PlantedValue.ts, which dispatcher/ reaches: add it to the include list',
+    expect(includeListSentencesOf(BRIDGE_PROJECT, includeEntriesOf(BRIDGE_PROJECT.configurationPath), graph)).toEqual([
+      'bridge/tsconfig.json does not list src/shared/PlantedDeeperValue.ts, which bridge/ reaches: add it to the include list',
+      'bridge/tsconfig.json does not list src/shared/PlantedValue.ts, which bridge/ reaches: add it to the include list',
     ]);
   });
 
   test('an import only a spec or a testing helper makes is not a reach', () => {
     const graph = SCANNER.graphWithPlantedFiles({
-      'dispatcher/PlantedStep.spec.ts':    'import { planted } from \'../src/shared/PlantedValue.ts\';\nexport const step = planted;\n',
-      'dispatcher/testing/PlantedHelp.ts': 'import { planted } from \'../../src/shared/PlantedValue.ts\';\nexport const help = planted;\n',
-      'src/shared/PlantedValue.ts':        'export const planted = 1;\n',
+      'bridge/PlantedStep.spec.ts':    'import { planted } from \'../src/shared/PlantedValue.ts\';\nexport const step = planted;\n',
+      'bridge/testing/PlantedHelp.ts': 'import { planted } from \'../../src/shared/PlantedValue.ts\';\nexport const help = planted;\n',
+      'src/shared/PlantedValue.ts':    'export const planted = 1;\n',
     });
-    expect(includeListSentencesOf(DISPATCHER_PROJECT, includeEntriesOf(DISPATCHER_PROJECT.configurationPath), graph)).toEqual([]);
+    expect(includeListSentencesOf(BRIDGE_PROJECT, includeEntriesOf(BRIDGE_PROJECT.configurationPath), graph)).toEqual([]);
   });
 });

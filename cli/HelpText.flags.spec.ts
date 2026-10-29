@@ -39,7 +39,7 @@ const SIGNATURE_ENDING = /(?:[\]>"]|^[a-z |-]+)$/;
 const REFERENCE_COMMAND_TABLE_HEADER = '| command | what it does |';
 
 /** `ticket status` documents its options as "the same options" as the named moves rather than listing them. */
-const ENTRIES_DOCUMENTED_AS_ANOTHER = new Map([['ticket status', 'ticket start']]);
+const ENTRIES_DOCUMENTED_AS_ANOTHER = new Map([['ticket status', 'ticket abandon']]);
 
 /** The one command whose handler never checks its options: it prints the reference whatever follows it. */
 /** `hook session-start` exits 0 whatever it is given, since a failing SessionStart hook would reach every session. */

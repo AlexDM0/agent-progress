@@ -12,10 +12,10 @@ import {
 import type { DispatcherState }               from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import { removeScratchDirectory }             from '../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.ts';
-import { runCommandLine }                     from '../Main.ts';
 import { createCapturedCommandContext }       from '../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../testing/InitializedScratchRepository.ts';
 import { fileReadyTicket }                    from '../testing/ReadyTicketFiling.ts';
+import { runCommandLineWithRunnerMoves }      from '../testing/RunnerTicketMoves.ts';
 
 const FROZEN_NOW = new Date('2026-09-24T12:00:00Z');
 
@@ -42,7 +42,7 @@ let repositoryDirectory = '';
 
 async function run(commandLineArguments: readonly string[]): Promise<ReturnType<typeof createCapturedCommandContext>> {
   const context  = createCapturedCommandContext({ currentDirectory: repositoryDirectory, now: () => FROZEN_NOW });
-  const exitCode = await runCommandLine(commandLineArguments, context);
+  const exitCode = await runCommandLineWithRunnerMoves(commandLineArguments, context);
   expect(exitCode, `\`agent-progress ${commandLineArguments.join(' ')}\` failed: ${context.errorText()}`).toBe(0);
   return context;
 }
@@ -94,14 +94,4 @@ describeWhenGitIsPresent('the running dispatcher notice', () => {
       expect(printed).not.toContain('Dispatcher running');
     });
   }
-
-  // Claiming is the dispatcher's own move, not intake, so the notice would tell its builder to leave alone the run it belongs to.
-  test('`ticket claim` prints no notice while the dispatcher is running', async () => {
-    await run(['dispatcher', 'running']);
-
-    const lines = (await run(['ticket', 'claim', '1'])).outputText().split('\n');
-
-    expect(lines.at(-1)).toStartWith('Next:');
-    expect(lines).not.toContain(RUNNING_DISPATCHER_NOTICE);
-  });
 });

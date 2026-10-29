@@ -40,10 +40,10 @@ import { RunnerLease }                                                     from 
 import { requireWorkspace }                                                from '../../src/services/tracker/Workspace.ts';
 import { fakeAgentAdapter, fakeResultLine, fakeStartedLine }               from '../../src/testing/FakeAgentAdapter.ts';
 import { createScratchDirectory, currentBranchOf, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
-import { runCommandLine }                                                  from '../Main.ts';
 import { createCapturedCommandContext }                                    from '../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository }                              from '../testing/InitializedScratchRepository.ts';
 import { fileReadyTicket }                                                 from '../testing/ReadyTicketFiling.ts';
+import { runCommandLineWithRunnerMoves }                                   from '../testing/RunnerTicketMoves.ts';
 import { storedLogTextOf }                                                 from '../testing/StoredLogText.ts';
 import { storedProgressOf }                                                from '../testing/StoredProgress.ts';
 
@@ -64,7 +64,7 @@ const LAUNCH_FILE_PATTERN = /^launch-(\d+)\.json$/;
 
 async function run(commandLineArguments: readonly string[]) {
   const context  = createCapturedCommandContext({ currentDirectory: repositoryDirectory, now: SPEC_CLOCK });
-  const exitCode = await runCommandLine(commandLineArguments, context);
+  const exitCode = await runCommandLineWithRunnerMoves(commandLineArguments, context);
   expect(exitCode, `\`${commandLineArguments.join(' ')}\` failed: ${context.errorText()}`).toBe(0);
   return context;
 }
@@ -404,7 +404,7 @@ describe('waking', () => {
 
 async function runRefused(commandLineArguments: readonly string[]): Promise<string> {
   const context  = createCapturedCommandContext({ currentDirectory: repositoryDirectory, now: SPEC_CLOCK });
-  const exitCode = await runCommandLine(commandLineArguments, context);
+  const exitCode = await runCommandLineWithRunnerMoves(commandLineArguments, context);
   expect(exitCode, `\`${commandLineArguments.join(' ')}\` was not refused: ${context.outputText()}`).toBe(1);
   return `${context.outputText()}\n${context.errorText()}`;
 }

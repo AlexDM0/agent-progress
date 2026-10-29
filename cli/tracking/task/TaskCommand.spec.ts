@@ -20,10 +20,10 @@ import type { TrackerProgress }               from '../../../src/lib/tracker-mod
 import { PRODUCT_NAMES }                      from '../../../src/shared/constants/ProductNames.ts';
 import { removeScratchDirectory }             from '../../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../../src/testing/ToolGuard.ts';
-import { runCommandLine }                     from '../../Main.ts';
 import { createCapturedCommandContext }       from '../../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../../testing/InitializedScratchRepository.ts';
 import { fileReadyTicket }                    from '../../testing/ReadyTicketFiling.ts';
+import { runCommandLineWithRunnerMoves }      from '../../testing/RunnerTicketMoves.ts';
 import { storedLogTextOf }                    from '../../testing/StoredLogText.ts';
 import { storedProgressOf }                   from '../../testing/StoredProgress.ts';
 
@@ -37,7 +37,7 @@ function contextHere(): ReturnType<typeof createCapturedCommandContext> {
 
 async function run(commandLineArguments: readonly string[]): Promise<ReturnType<typeof createCapturedCommandContext>> {
   const context  = contextHere();
-  const exitCode = await runCommandLine(commandLineArguments, context);
+  const exitCode = await runCommandLineWithRunnerMoves(commandLineArguments, context);
   expect(exitCode, `\`agent-progress ${commandLineArguments.join(' ')}\` failed: ${context.errorText()}`).toBe(0);
   return context;
 }
@@ -162,7 +162,7 @@ describeWhenGitIsPresent('the lifecycle of a row', () => {
 describeWhenGitIsPresent('refusals a caller can act on', () => {
   test('a task id that does not exist is refused with exit 1 rather than silently doing nothing', async () => {
     const context  = contextHere();
-    const exitCode = await runCommandLine(['task', 'start', '42'], context);
+    const exitCode = await runCommandLineWithRunnerMoves(['task', 'start', '42'], context);
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('There is no task #42');
@@ -170,7 +170,7 @@ describeWhenGitIsPresent('refusals a caller can act on', () => {
 
   test('a subcommand that is not one prints the usage and exits 1', async () => {
     const context  = contextHere();
-    const exitCode = await runCommandLine(['task', 'begin', '1'], context);
+    const exitCode = await runCommandLineWithRunnerMoves(['task', 'begin', '1'], context);
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain(`is not a ${PRODUCT_NAMES.PROGRAM} task subcommand`);
@@ -179,7 +179,7 @@ describeWhenGitIsPresent('refusals a caller can act on', () => {
 
   test('an --at nobody can read is refused instead of being backfilled to now', async () => {
     const context  = contextHere();
-    const exitCode = await runCommandLine(['task', 'add', 'Review pass', '--at', '5m'], context);
+    const exitCode = await runCommandLineWithRunnerMoves(['task', 'add', 'Review pass', '--at', '5m'], context);
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('is not a time');
@@ -216,7 +216,7 @@ describeWhenGitIsPresent('linking a row to a ticket', () => {
     await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
 
     const refused = contextHere();
-    expect(await runCommandLine(['task', 'add', 'A second row', '--ticket', '001'], refused)).toBe(1);
+    expect(await runCommandLineWithRunnerMoves(['task', 'add', 'A second row', '--ticket', '001'], refused)).toBe(1);
     expect(refused.errorText()).toContain('already has task #1');
     expect(storedProgressOf(repositoryDirectory).tasks).toHaveLength(1);
 
@@ -267,7 +267,7 @@ describeWhenGitIsPresent('linking a row to a ticket', () => {
     const logBefore      = storedLogTextOf(repositoryDirectory);
 
     const refused = contextHere();
-    expect(await runCommandLine(['task', 'add', 'Review 1 #9 — x', '--review-of', '9', '--start'], refused)).toBe(1);
+    expect(await runCommandLineWithRunnerMoves(['task', 'add', 'Review 1 #9 — x', '--review-of', '9', '--start'], refused)).toBe(1);
 
     expect(refused.errorText()).toContain('--review-of names ticket 9, and there is none');
     expect(readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'), 'utf8')).toBe(progressBefore);
@@ -328,7 +328,7 @@ describeWhenGitIsPresent('token counts', () => {
 
     for (const written of ['12,000', '-5', 'lots', '12.5']) {
       const context  = contextHere();
-      const exitCode = await runCommandLine(['task', 'finish', '1', '--tokens', written], context);
+      const exitCode = await runCommandLineWithRunnerMoves(['task', 'finish', '1', '--tokens', written], context);
       expect(exitCode, written).toBe(1);
       expect(context.errorText(), written).toContain('is not a token count');
     }
@@ -341,19 +341,19 @@ describeWhenGitIsPresent('a row a ticket owns', () => {
     await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it']);
   });
 
-  test('is refused by the task verbs, naming the ticket verb that moves both', async () => {
+  test('is refused by the task verbs, naming the ticket move that moves both', async () => {
     const context  = contextHere();
-    const exitCode = await runCommandLine(['task', 'finish', '1'], context);
+    const exitCode = await runCommandLineWithRunnerMoves(['task', 'finish', '1'], context);
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('belongs to ticket #001');
-    expect(context.errorText()).toContain(`${PRODUCT_NAMES.PROGRAM} ticket finish 001`);
+    expect(context.errorText()).toContain(`${PRODUCT_NAMES.PROGRAM} ticket status 001 in-review`);
     expect(storedProgressOf(repositoryDirectory).tasks[0]?.status).toBe('pending');
   });
 
   test('is refused by rereview too, naming the ticket verb that moves both', async () => {
     const context  = contextHere();
-    const exitCode = await runCommandLine(['task', 'rereview', '1'], context);
+    const exitCode = await runCommandLineWithRunnerMoves(['task', 'rereview', '1'], context);
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain(`${PRODUCT_NAMES.PROGRAM} ticket rereview 001`);
@@ -362,7 +362,7 @@ describeWhenGitIsPresent('a row a ticket owns', () => {
 
   test('is refused by task update --status too, and --force moves only the row', async () => {
     const refused  = contextHere();
-    expect(await runCommandLine(['task', 'update', '1', '--status', 'in-review'], refused)).toBe(1);
+    expect(await runCommandLineWithRunnerMoves(['task', 'update', '1', '--status', 'in-review'], refused)).toBe(1);
 
     await run(['task', 'update', '1', '--status', 'in-review', '--force']);
     expect(storedProgressOf(repositoryDirectory).tasks[0]?.status).toBe('in-review');
@@ -381,7 +381,7 @@ describeWhenGitIsPresent('a row a ticket owns', () => {
 describeWhenGitIsPresent('the refusals that stop a row being filed wrong', () => {
   test('a name that is nothing but whitespace is refused, like an absent one', async () => {
     const context  = contextHere();
-    const exitCode = await runCommandLine(['task', 'add', '   '], context);
+    const exitCode = await runCommandLineWithRunnerMoves(['task', 'add', '   '], context);
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('needs a name');
@@ -391,7 +391,7 @@ describeWhenGitIsPresent('the refusals that stop a row being filed wrong', () =>
     await run(['task', 'add', 'Rewrite the importer']);
 
     const context  = contextHere();
-    const exitCode = await runCommandLine(['task', 'update', '1'], context);
+    const exitCode = await runCommandLineWithRunnerMoves(['task', 'update', '1'], context);
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('at least one of --name');
@@ -404,7 +404,7 @@ describeWhenGitIsPresent('the render report after a write', () => {
     writeFileSync(ticketFilePath, 'no frontmatter here\n');
 
     const context  = contextHere();
-    const exitCode = await runCommandLine(['task', 'add', 'Example task', '--at', '2026-09-18T20:05:00+02:00'], context);
+    const exitCode = await runCommandLineWithRunnerMoves(['task', 'add', 'Example task', '--at', '2026-09-18T20:05:00+02:00'], context);
 
     expect(exitCode).toBe(0);
     expect(context.outputText()).toContain('Task #1 added: Example task');

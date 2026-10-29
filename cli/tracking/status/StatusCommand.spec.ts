@@ -16,10 +16,10 @@ import type { WordedProgressDocument }        from '../../../src/shared/@types/W
 import { PRODUCT_NAMES }                      from '../../../src/shared/constants/ProductNames.ts';
 import { removeScratchDirectory }             from '../../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../../src/testing/ToolGuard.ts';
-import { runCommandLine }                     from '../../Main.ts';
 import { createCapturedCommandContext }       from '../../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../../testing/InitializedScratchRepository.ts';
 import { fileReadyTicket }                    from '../../testing/ReadyTicketFiling.ts';
+import { runCommandLineWithRunnerMoves }      from '../../testing/RunnerTicketMoves.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -60,7 +60,7 @@ function contextHere(): ReturnType<typeof createCapturedCommandContext> {
 
 async function run(commandLineArguments: readonly string[]): Promise<ReturnType<typeof createCapturedCommandContext>> {
   const context  = contextHere();
-  const exitCode = await runCommandLine(commandLineArguments, context);
+  const exitCode = await runCommandLineWithRunnerMoves(commandLineArguments, context);
   expect(exitCode, `\`agent-progress ${commandLineArguments.join(' ')}\` failed: ${context.errorText()}`).toBe(0);
   return context;
 }
@@ -367,22 +367,6 @@ describeWhenGitIsPresent('the concurrency block both --json documents carry', ()
     expect(full.concurrency).toEqual(expected);
   });
 
-  // The orchestrator reads the state here, so the run to resume rides beside it; absent, the block keeps the shape every older reader knows.
-  test('carries the stored run id beside the dispatcher state only while one is stored', async () => {
-    await run(['dispatcher', 'running', '--run', 'wf_example-run-2']);
-
-    const working = JSON.parse((await run(['status', '--json'])).outputText()) as StatusDocument;
-    const full    = JSON.parse((await run(['status', '--json', '--full'])).outputText()) as StatusDocument;
-
-    expect(working.concurrency).toMatchObject({ dispatcherState: 'running', dispatcherRunId: 'wf_example-run-2' });
-    expect(full.concurrency).toMatchObject({ dispatcherState: 'running', dispatcherRunId: 'wf_example-run-2' });
-    expect(full.dispatcherRunId).toBe('wf_example-run-2');
-
-    await run(['dispatcher', 'finished']);
-
-    expect(Object.keys((JSON.parse((await run(['status', '--json'])).outputText()) as StatusDocument).concurrency)).not.toContain('dispatcherRunId');
-  });
-
   // A dispatcher starts each ready ticket's agents on what this list says, so it must name the same tickets in the same order as `readyTicketIds`.
   test('readyTickets resolves each ready ticket to its priority, model and effort, in the ready order', async () => {
     await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Show the role history', '--model', 'sonnet', '--effort', 'high']);
@@ -459,8 +443,8 @@ describeWhenGitIsPresent('the dispatch fields both --json documents carry', () =
     expect(Object.keys(full)).toEqual([...progressKeys, 'tickets', 'epics', 'drafts', 'concurrency', 'readyTickets', ...dispatchKeys]);
   });
 
-  test('the ids in flight end the concurrency block, after the stored run id', async () => {
-    await run(['dispatcher', 'running', '--run', 'wf_example-run-2']);
+  test('the ids in flight end the concurrency block', async () => {
+    await run(['dispatcher', 'running']);
 
     const { working, full } = await bothDocuments();
     const expectedKeys      = [
@@ -470,7 +454,6 @@ describeWhenGitIsPresent('the dispatch fields both --json documents carry', () =
       'readyTicketIds',
       'dispatcherState',
       'heldTicketIds',
-      'dispatcherRunId',
       'inProgressTicketIds',
       'inProgressReviewOfIds',
     ];

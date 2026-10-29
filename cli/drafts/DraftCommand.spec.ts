@@ -23,9 +23,9 @@ import {
 import { PRODUCT_NAMES }                      from '../../src/shared/constants/ProductNames.ts';
 import { removeScratchDirectory }             from '../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.ts';
-import { runCommandLine }                     from '../Main.ts';
 import { createCapturedCommandContext }       from '../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../testing/InitializedScratchRepository.ts';
+import { runCommandLineWithRunnerMoves }      from '../testing/RunnerTicketMoves.ts';
 
 const FROZEN_NOW = new Date('2026-10-24T20:01:45Z');
 
@@ -42,7 +42,7 @@ async function runExpectingExit(expectedExitCode: number, commandLineArguments: 
     now:              () => FROZEN_NOW,
     ...(standardInputText === undefined ? {} : { standardInputText }),
   });
-  const exitCode = await runCommandLine(commandLineArguments, context);
+  const exitCode = await runCommandLineWithRunnerMoves(commandLineArguments, context);
   expect(exitCode, `\`agent-progress ${commandLineArguments.join(' ')}\`: ${context.errorText()}`).toBe(expectedExitCode);
   return context;
 }

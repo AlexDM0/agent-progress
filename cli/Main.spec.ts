@@ -155,7 +155,7 @@ describe('a command run where no tracker is', () => {
 });
 
 describe('a tracker whose installed files are of another install version', () => {
-  const COMMANDS_THAT_RUN_OR_CHECK_ON_THEIR_OWN = new Set(['init', 'update', 'help', 'status', 'version', 'hook', 'release']);
+  const COMMANDS_THAT_RUN_OR_CHECK_ON_THEIR_OWN = new Set(['init', 'update', 'help', 'status', 'version', 'hook']);
   const CHECKED_COMMAND_NAMES = COMMAND_NAMES.filter((commandName) => !COMMANDS_THAT_RUN_OR_CHECK_ON_THEIR_OWN.has(commandName));
 
   /** A tracker made by `init` and then stripped of its manifest is exactly a tracker installed by an agent-progress from before versioning. */

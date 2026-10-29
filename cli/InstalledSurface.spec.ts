@@ -23,11 +23,11 @@ import { ORIGINAL_PRODUCT_NAMES, PRODUCT_NAMES }                              fr
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }                                           from '../src/testing/ToolGuard.ts';
 import { helpText }                                                           from './HelpText.ts';
-import { runCommandLine }                                                     from './Main.ts';
 import { INSTALL_VERSION }                                                    from './constants/InstallVersion.ts';
 import { readBoardState }                                                     from './runner/routes/BoardStateReader.ts';
 import { createCapturedCommandContext }                                       from './testing/CapturedCommandContext.ts';
 import { fileReadyTicketThrough }                                             from './testing/ReadyTicketFiling.ts';
+import { runCommandLineWithRunnerMoves }                                      from './testing/RunnerTicketMoves.ts';
 
 const SURFACE_KINDS = ['commands', 'flags', 'statusJsonFields'] as const;
 
@@ -141,7 +141,7 @@ function keysOf(value: unknown): readonly string[] {
 async function statusDocumentKeysOfAFullBoard(repositoryDirectory: string): Promise<ReadonlySet<string>> {
   const run = async (commandLineArguments: readonly string[]): Promise<string> => {
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    const exitCode = await runCommandLine(commandLineArguments, context);
+    const exitCode = await runCommandLineWithRunnerMoves(commandLineArguments, context);
     if (exitCode !== 0) throw new Error(`\`agent-progress ${commandLineArguments.join(' ')}\` failed: ${context.errorText()}`);
     return context.outputText();
   };
@@ -216,8 +216,8 @@ describeWhenGitIsPresent('the scan itself', () => {
     expect(namedSurface.commands.length, 'commands named').toBeGreaterThanOrEqual(10);
     expect(namedSurface.flags.length, 'flags named').toBeGreaterThanOrEqual(15);
     expect(namedSurface.statusJsonFields.length, 'status fields named').toBeGreaterThanOrEqual(10);
-    expect(cliSurface.commands).toContain('ticket claim');
-    expect(cliSurface.statusJsonFields).toContain('dispatcherRunId');
+    expect(cliSurface.commands).toContain('ticket deliver');
+    expect(cliSurface.statusJsonFields).toContain('dispatcherState');
     expect(cliSurface.statusJsonFields, 'a top-level key of the Overseer\'s state document').toContain('mergeQueue');
     const namedCommandCount = Object.values(INSTALLED_TEXTS).flatMap((text) => [...text.matchAll(NAMED_COMMAND_PATTERN)]).length;
     expect(namedCommandCount, 'command mentions matched by the program-built pattern').toBeGreaterThanOrEqual(SMALLEST_NAMED_COMMAND_COUNT);
@@ -240,6 +240,22 @@ describeWhenGitIsPresent('the scan itself', () => {
 describeWhenGitIsPresent('the frozen surface', () => {
   test(`holds for INSTALL_VERSION ${INSTALL_VERSION}: the CLI still has every name frozen, and every name installed is frozen`, () => {
     expect(surfaceSentencesOf(namedSurfaceOf(INSTALLED_TEXTS, cliSurface), cliSurface, FROZEN_TABLE, INSTALL_VERSION)).toEqual([]);
+  });
+});
+
+/** Owner answer Q41: the by-hand lifecycle verbs, the hook verbs and the Workflow dispatcher retire without a bump, since 17 names none. */
+describeWhenGitIsPresent('the retired verbs', () => {
+  const RETIRED_COMMANDS = ['dispatcher', 'release', 'review record', 'rework', 'ticket approve', 'ticket claim', 'ticket finish', 'ticket start'];
+  const RETIRED_HOOK_EVENTS = ['hook subagent-stop', 'hook pre-tool-use', 'hook post-tool-use'];
+
+  test('frozen key "17" names none of them, and the CLI has none of them', () => {
+    const frozenCommands = FROZEN_TABLE['17']?.commands ?? [];
+    expect(frozenCommands.length, 'the frozen 17 commands').toBeGreaterThan(0);
+    for (const retired of [...RETIRED_COMMANDS, ...RETIRED_HOOK_EVENTS]) {
+      expect(frozenCommands, retired).not.toContain(retired);
+      expect(cliSurface.commands.has(retired), retired).toBe(false);
+    }
+    expect(FROZEN_TABLE['17']?.flags ?? [], 'the dispatcher\'s --run').not.toContain('--run');
   });
 });
 

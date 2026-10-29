@@ -19,10 +19,10 @@ const HELP_ALIASES     = new Set([`--${HELP_OPTION_NAME}`, HELP_SHORT_ALIAS]);
 /** `init` and `update` repair a mismatch, `status` output is a contract that stays silent about one, and `version` reports the versions itself. */
 const COMMANDS_THE_INSTALL_CHECK_SPARES = new Set(['init', 'update', 'help', 'status', 'version']);
 /**
- * `release --json` words the refusal as its own document, the hook reports it at exit 0, and `run status` and `run stop` must reach a
- * runner whose install changed, so each runs the check inside its own handling.
+ * A hook prints or guards whatever the install, and `run status` and `run stop` must reach a runner whose install changed, so each runs the
+ * check inside its own handling.
  */
-const COMMANDS_THAT_CHECK_THEIR_OWN_INSTALL = new Set(['hook', 'release', 'run']);
+const COMMANDS_THAT_CHECK_THEIR_OWN_INSTALL = new Set(['hook', 'run']);
 
 /** The commands whose first argument names a subcommand, which the recorded verb then carries: `ticket finish`, not `ticket`. */
 const COMMANDS_WITH_A_SUBCOMMAND = new Set(['task', 'ticket', 'epic', 'draft', 'hook', 'run', 'job', 'intake', 'incident', 'merge', 'worktree', 'gate']);

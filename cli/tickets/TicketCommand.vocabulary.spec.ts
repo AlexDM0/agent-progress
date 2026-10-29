@@ -15,7 +15,6 @@ import { runCommandLine }                     from '../Main.ts';
 import { createCapturedCommandContext }       from '../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../testing/InitializedScratchRepository.ts';
 import { fileReadyTicket }                    from '../testing/ReadyTicketFiling.ts';
-import { TICKET_CLAIM_SUBCOMMANDS }           from './TicketClaimSubcommands.ts';
 import { TICKET_FILING_SUBCOMMANDS }          from './TicketFilingSubcommands.ts';
 import { TICKET_MOVE_SUBCOMMANDS }            from './TicketMoveSubcommands.ts';
 import { TICKET_READING_SUBCOMMANDS }         from './TicketReadingSubcommands.ts';
@@ -55,7 +54,6 @@ describeWhenGitIsPresent('the ticket command with current words only', () => {
       ...TICKET_FILING_SUBCOMMANDS,
       ...TICKET_READING_SUBCOMMANDS,
       ...TICKET_MOVE_SUBCOMMANDS,
-      ...TICKET_CLAIM_SUBCOMMANDS,
       ...TICKET_SETTING_SUBCOMMANDS,
     });
     expect(currentVerbs.length).toBeGreaterThan(0);

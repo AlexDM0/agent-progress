@@ -69,7 +69,7 @@ describe('the command reference', () => {
 
   test('the delivered state is offered on both the task and the ticket side', () => {
     expect(HELP_TEXT).toContain('task start|pause|finish|approve|rereview|deliver <id>');
-    expect(HELP_TEXT).toContain('ticket start|finish|approve|deliver|abandon|reopen <id>');
+    expect(HELP_TEXT).toContain('ticket abandon|reopen <id>');
     expect(HELP_TEXT).toContain('in-review, reviewed, delivered or abandoned');
   });
 

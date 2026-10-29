@@ -61,7 +61,6 @@ export default [
       'cli/testing/**/*.ts',
       'src/adapters/progress/testing/**/*.ts',
       'src/services/tracker/testing/**/*.ts',
-      'dispatcher/testing/**/*.ts',
       'page/testing/**/*.ts',
       'bridge/testing/**/*.ts',
       'bridge/**/*.dom.tsx',

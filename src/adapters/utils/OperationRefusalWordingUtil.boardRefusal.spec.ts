@@ -34,7 +34,7 @@ const MESSAGE_FOR_REFUSAL: readonly (readonly [BoardRefusalDetail, string])[] = 
       targetStatus: 'in-review',
     },
     'Task #3 belongs to ticket #004, so moving it here would leave the row and the ticket disagreeing. '
-    + 'Run `agent-progress ticket finish 004` instead, which moves both, or pass --force to move only the row.',
+    + 'Run `agent-progress ticket status 004 in-review` instead, which moves both, or pass --force to move only the row.',
   ],
   [
     {
@@ -85,7 +85,7 @@ const MESSAGE_FOR_REFUSAL: readonly (readonly [BoardRefusalDetail, string])[] = 
       status:       'pending',
       targetStatus: 'reviewed',
     },
-    'Ticket #001 is pending, and `agent-progress ticket approve` moves a ticket that is in-progress or in-review. '
+    'Ticket #001 is pending, and a move to reviewed takes a ticket that is in-progress or in-review. '
     + 'Run `agent-progress ticket status 001 reviewed` if you mean to set it directly.',
   ],
   [
@@ -124,11 +124,11 @@ const MESSAGE_FOR_REFUSAL: readonly (readonly [BoardRefusalDetail, string])[] = 
   ],
   [
     { reason: 'rereview-outside-review', ticketId: '003', status: 'in-progress' },
-    'Ticket #003 is in-progress, and another review pass needs a ticket that is in-review. Run `agent-progress ticket finish 003` to send it to its first reviewer.',
+    'Ticket #003 is in-progress, and another review pass needs a ticket that is in-review. Run `agent-progress ticket status 003 in-review` to send it to its first reviewer.',
   ],
   [
     { reason: 'unclaimable-status', ticketId: '003', status: 'in-progress' },
-    'Ticket #003 is in-progress, and `agent-progress ticket claim` takes a ticket that is pending or in-review. Nothing was written.',
+    'Ticket #003 is in-progress, and a claim takes a ticket that is pending or in-review. Nothing was written.',
   ],
   [
     { reason: 'claim-waits-on-dependencies', ticketId: '007', unsettledTicketIds: ['001'] },

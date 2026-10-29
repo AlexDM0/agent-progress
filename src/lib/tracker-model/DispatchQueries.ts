@@ -28,10 +28,6 @@ export class DispatchQueries {
     return DISPATCHER_STATE_READ_FOR_STORED_STATE[this.records.progress.dispatcherState ?? DEFAULT_DISPATCHER_STATE];
   }
 
-  dispatcherRunId(): string | undefined {
-    return this.records.progress.dispatcherRunId;
-  }
-
   checkCommand(): string | undefined {
     return this.records.progress.checkCommand;
   }

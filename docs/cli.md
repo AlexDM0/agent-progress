@@ -33,16 +33,15 @@ ticket file format, the ticket moves and the exit codes, and follows it everywhe
 with `git rev-parse --git-common-dir`, so every worktree of a repository shares one tracker and one
 chart.
 
-**Locking.** Every mutating command (`init`, `task`, `ticket`, `epic`, `log`, `concurrency`, `dispatcher`,
-`checks`, `range`, `release`, `clear`, `hook subagent-stop`) takes the tracker's
+**Locking.** Every mutating command (`init`, `task`, `ticket`, `epic`, `log`, `concurrency`,
+`checks`, `range`, `clear`) takes the tracker's
 lock, reads, changes, writes `progress.json` atomically, writes any ticket file after it, then `log.jsonl` when it
 logged something, and regenerates `progress.html` from disk, then its `progress.stamp.js` — all before releasing
 the lock, so the page never describes a state the store did not hold, a ticket file is never ahead of the progress
 file, and a log line never describes a change that was not stored.
 `render` and `open` take the lock only to render. `status`, `ticket list`, `ticket show`, `epic list`, `epic show`,
-`concurrency`, `dispatcher` and `checks` without an argument, `usage`, `rework` and `review-stats` take none: every file
-they read is written atomically. `release` runs a stored check command before it takes the lock, so a
-release waits for no other release's checks. `update`, and `init` on an existing tracker, never touch the tracker's
+`concurrency` and `checks` without an argument, `usage` and `review-stats` take none: every file
+they read is written atomically. `update`, and `init` on an existing tracker, never touch the tracker's
 own files and take no lock.
 
 **Help and options.** `agent-progress help` prints the whole reference. `--help` works after a
@@ -52,7 +51,7 @@ a value, given twice, is refused at exit 1. An unknown command is refused at exi
 standard error, so a typo never exits 0 or prints the help into a parsed pipe.
 
 **The Next line.** `status`, `ticket add`, every ticket or task move (`task add --start` included),
-`ticket depends`, `priority`, `agent`, `hold` and `unhold`, and `release` end their human output with
+`ticket depends`, `priority`, `agent`, `hold` and `unhold` end their human output with
 one line read from the board after the change:
 
 ```
@@ -184,14 +183,6 @@ A refusal is one paragraph on standard error at exit 1, naming the tracked root 
 installed it says to update agent-progress itself first. Where no tracker governs the directory, the
 command's own no-tracker refusal is unchanged.
 
-- `release` runs the check itself, so `release --json` prints its refusal document,
-  `{ released: false, reason: 'invalid-request', detail: <the paragraph>, cleanup: [] }`, at exit 1:
-  a dispatcher of any install version knows that reason.
-- `hook subagent-stop` checks the tracker the hook input's `cwd` names and, on a mismatch, reports
-  `agent-progress hook subagent-stop: the line could not be recorded in <cwd>: <the paragraph>` and
-  exits 0, crediting nothing, like every other hook failure. Tokens are credited again once `update`
-  has run.
-- `hook post-tool-use` renders nothing on a mismatch, silently, at exit 0.
 - `hook bash-domains` skips the check, so a mismatch changes nothing: it still answers its call at
   exit 0.
 - `update`, and `init` on an existing tracker, are what lift the refusal. They refuse, at exit 1 with
@@ -257,7 +248,7 @@ effort and priority resolved to their defaults.
 
 - `concurrency.inProgressTicketIds`: the `ticket` of every `in-progress` row that has one.
 - `concurrency.inProgressReviewOfIds`: the `reviewOf` of every `in-progress` row that stores one, on
-  any row, a ticket's own row included, as `ticket claim` and the moves out of review read it.
+  any row, a ticket's own row included, as a claim and the moves out of review read it.
 - `reviewWaitingTickets`: `{ id, model, effort }` for every `in-review` ticket whose id is not in
   `inProgressReviewOfIds`, a held one included; `heldTicketIds` says which are held. A group awaiting
   its release is left out (above).
@@ -315,10 +306,9 @@ ticket's agents run on opus at medium effort.
 | `ticket introduced-by <id> [<cause id>] [--at <when>] [--json]` | Name the delivered ticket whose change introduced a bug, stored as its `introducedBy`; no cause, or an empty one, removes the key. Refused at exit 1 with nothing written when the ticket is not a bug, or the cause does not exist, is the ticket itself or is not delivered. One log line, `Ticket #007 introduced by #005`; `updated` is not stamped, and every other line of the file is kept. `--json` prints the ticket. |
 | `ticket depends <id> [<id>...] \| --add <ids> \| --remove <ids> [--json]` | Set the tickets this one waits on. Bare ids replace its list, and no ids clears it; the human line names what the replace dropped, `Ticket #459 waits on #473 (dropped #463)`, and each dropped ticket not yet reviewed or delivered gets a line of its own, `#463 is still open: #459 may now start before it`. `--add 3,4` appends to the list, keeping an id already there; `--remove 3,4` takes ids out. Either beside bare ids, or the two together, is refused as ambiguous at exit 1. `--json` prints the ticket with `added` and `dropped`, the ids the change put in and took out. A ticket that does not exist, or a list that would make tickets wait on each other in a circle, is refused. Until every one is reviewed or delivered, the ticket's row, table entry and card read "waiting on #003", `ticket list` says so too, and `ticket start` warns on standard error but still moves it. An abandoned dependency does not settle it. |
 | `ticket link <ticketId> <taskId> [--force]` | Point a ticket at an existing row instead of the one it filed. Refused when that row already belongs to another ticket, unless `--force`, which unlinks it there first. |
-| `ticket start\|finish\|approve\|deliver\|abandon\|reopen <id> [--branch <b>] [--commit <sha>] [--reason <text>] [--tokens <n>] [--at <when>]` | Move a ticket and its row together, stamping both — see [Ticket moves and their rows](#ticket-moves-and-their-rows) for which status each verb moves from. A move to the status the ticket already has is refused and logs nothing. Every move out of in-review finishes and delivers the ticket's in-progress review bar, with one log line each. `start` warns on standard error, and still moves it, when the ticket is held or waiting on a dependency. `abandon` requires `--reason`; `reopen` clears the stamps and returns the row to pending. `--branch` and `--commit` record where the work landed; `--tokens` replaces the row's figure, and on a ticket with no row (a low one never started) is refused at exit 1. |
+| `ticket abandon\|reopen <id> [--branch <b>] [--commit <sha>] [--reason <text>] [--tokens <n>] [--at <when>]` | Move a ticket and its row together, stamping both — see [Ticket moves and their rows](#ticket-moves-and-their-rows) for which status each verb moves from; the runner makes every other lifecycle move. A move to the status the ticket already has is refused and logs nothing. Every move out of in-review finishes and delivers the ticket's in-progress review bar, with one log line each. A move to in-progress (`ticket status <id> in-progress`) warns on standard error, and still moves it, when the ticket is held or waiting on a dependency. `abandon` requires `--reason`; `reopen` clears the stamps and returns the row to pending. `--branch` and `--commit` record where the work landed; `--tokens` replaces the row's figure, and on a ticket with no row (a low one never started) is refused at exit 1. |
 | `ticket deliver <id> --by-hand [--branch <b>] [--commit <sha>] [--at <when>] [--json]` | The one record-only lifecycle verb: records as delivered a ticket User finished and landed outside the runner, from any status but draft, in one hold, merging, landing and spawning nothing; it logs `ticket-delivered` with `byHand: true`. Refused at exit 1, writing nothing, while a runner's lease is live (`runner-owns-the-lifecycle`, naming its URL) and while a job of the ticket is live (`ticket-has-live-job`), both judged inside the hold. Never relayed. |
-| `ticket claim <id> [<id>...] [--owner <who>] [--note <text>] [--after <id>] [--at <when>] [--json]` | `ticket start` and the row's `--owner` and `--note` in one write, for every ticket named, as one agent: a bundle's builder claims all its tickets in one call, and their rows share one agent key. The first command an implementing agent runs. `--after <predecessor>` claims one ticket, a pipelined successor, while its predecessor is still in review: it is accepted only when the predecessor is in-review, both are in one group's release bundle (see `ticket release-of`), and the predecessor is the one unsettled ticket it waits on; otherwise refused at exit 1 with nothing written, and the slot limit applies as for any claim. Refused at exit 1, all or nothing, when any ticket is not pending or in-review, is held, waits on a ticket outside the claim that is not reviewed or delivered (one inside it counts as settled: the bundle is worked in dependency order), has a review bar in progress, or when the agents in flight already number the concurrency limit. The count and the moves share one lock hold, so two claims racing for the last slot cannot both succeed. `--json` prints the ticket, or with several ids the list. |
-| `ticket finish\|rereview <id> --start-review [--owner <who>] [--note <text>] [--at <when>]` | The move to review, or to the next round, and the reviewer's in-progress bar (`Review <N> #<id> — <title>`, its `reviewOf` the ticket, N the `## Review` sections plus one, stored on the bar as `reviewBarRound`) in one lock hold, closing any bar of the round before: the builder's slot passes to its reviewer, and one round's to the next, without `status --json` ever showing it free. A bundle's bar carries its claim's agent key while other rows of the bundle still run, so it takes no second slot. `--owner` and `--note` name the bar, and are refused without the flag. |
+| `ticket rereview <id> --start-review [--owner <who>] [--note <text>] [--at <when>]` | The next review round and the reviewer's in-progress bar (`Review <N> #<id> — <title>`, its `reviewOf` the ticket, N the `## Review` sections plus one, stored on the bar as `reviewBarRound`) in one lock hold, closing any bar of the round before: the builder's slot passes to its reviewer, and one round's to the next, without `status --json` ever showing it free. A bundle's bar carries its claim's agent key while other rows of the bundle still run, so it takes no second slot. `--owner` and `--note` name the bar, and are refused without the flag. |
 | `ticket rereview <id> [--at <when>]` | Send a ticket already in review round again, for a fresh reviewer: the ticket stays in-review and only its `updated` moves, while its row goes one review round up, from 2, and the log says which round. The one verb legal on the status the ticket already has, and refused from every other. It takes no `--tokens`: the row's figure is the builder's, and a review pass has its own row. |
 | `ticket status <id> <status> [...same options]` | The same move, naming the target status directly — pending, in-progress, in-review, reviewed, delivered or abandoned — with the same options. The documented way to make a move the verbs refuse: it skips the matrix, but never moves a ticket into `draft` (`move-to-draft`) or a draft anywhere but `abandoned` (`move-of-a-draft`). |
 
@@ -379,7 +369,7 @@ open and nobody holds the claim. `status --json`, both documents, carries `draft
 by id, `claimOwner` null while unclaimed, `questions` the stored question tree, an empty list when
 there is none. The page's `boardFacts.drafts` carries the same list from the same Board query.
 
-### The dispatcher and concurrency
+### Concurrency and checks
 
 The limits and states here survive a compaction of the orchestrator's context, because they are
 stored in the tracker.
@@ -392,157 +382,27 @@ stored in the tracker.
 | `checks --key-command ("<line>" \| --clear) [--json]` | Store a shell line whose standard output joins a gate's cache key, as `gateKeyCommand` in `progress.json`, written only once set, with one log line (`Gate key command set to <line>`, `Gate key command cleared`, kind `gate-key-command-set`). It names what else invalidates a cached pass, such as the toolchain: `bun --version`, `python --version && uv --version`. It is stored untried. Before each gate cache lookup the runner runs it as it runs the gate — in the gate's sandboxed process host with the gate's profile, on the gated tree, never in the runner's own process; a merged tree's gate runs it beside that gate — and hashes its standard output, trailing newlines dropped, into the key with the tree, the check command and the install line. One that exits non-zero, or cannot run, caches nothing: the gate records `cannot-run` and opens `gate-cannot-run`. With none stored the key is exactly the tree, the check command and the install line, so no cached pass changes meaning. `--clear` removes the key. It goes alone: beside a check command, `--install`, `--definition-files` or `--restamp`, blank, or beside both a line and `--clear`, it is refused at exit 1 with nothing written. `--json` prints `{ gateKeyCommand, previousGateKeyCommand }`, `null` when none. |
 | `checks --cache-paths ("<path> <path>…" \| --clear) [--json]` | Store the folders a gate and an install line may write besides the worktree, its git admin folder and temp, as `gateCachePaths` in `progress.json`, written only once set, with one log line (`Gate cache paths set to <paths>`, `Gate cache paths cleared`, kind `gate-cache-paths-set`). Each path is absolute or home-relative (`~/.bun/install/cache`), separated by spaces and quoted as one argument. With none stored a gate writes only its worktree, its admin folder and temp. A path that is, sits in or holds a `bin` folder, or is, sits in or holds a folder on the runner's `PATH`, is refused at exit 1 with nothing written (`~/.bun` and `~/.bun/bin` are, `~/.bun/install/cache` is not); one that became so after it was stored is left out of the gate's profile. Whatever is stored, the `bin` beside each of a cache path's ancestors is not writable to a gate; a folder inside a cache path is, a `bin` included. The stored lines also decide what a builder or reviewer may run unasked: the first word of each command in the checks line and the install line (split outside quotes on `&&`, `\|\|`, `;`, `\|` and parentheses, past a leading `NAME=value`), beside the git verbs it reads and commits with; no toolchain is allowed otherwise. `--clear` removes the key. It goes alone: beside a check command, `--install`, `--definition-files`, `--key-command` or `--restamp`, blank, or beside both paths and `--clear`, it is refused at exit 1 with nothing written. `--json` prints `{ gateCachePaths, previousGateCachePaths }`, `null` when none. |
 | `checks ["<command>" \| --clear] [--restamp] [--json]` | Print the check command `release` runs on a branch's tip before it changes anything, or store one for every worktree with one log line (`Check command set to <command>`, `Check command cleared`): the repository's full check line, quoted as one argument. It lives in the tracker, never in the branch being released, and runs through the user's shell — `$SHELL`, else `/bin/sh` — in the branch's worktree. A new line is first run the same way in the main checkout, outside the lock: when it exits non-zero, nothing is stored or logged and it is refused at exit 1 with its last 20 lines, so a typo never stalls a release. `--clear` removes the key; `release` refuses a tracker that never set one (`checks-not-set`), and the read writes nothing. Every move of a ticket into in-progress (`ticket start`, `ticket claim`) stamps the stored line on its row as `checkCommand`, or removes the stamp when none is stored; so setting or clearing it while a ticket whose stamp would then differ is in progress or in review is refused at exit 1 (naming those tickets) unless `--restamp` is given, which stamps every in-progress and in-review ticket's row with the new line in the same write and logs a `ticket-check-command-restamped` line for each. A blank command, a command beside `--clear`, `--restamp` with neither, or `--clear` with none stored and no `--restamp` is refused at exit 1 with nothing written. Only the orchestrator's session changes it: `hook pre-tool-use` blocks a subagent's change. `--json` prints `{ checkCommand }`, `null` when none is stored, and a change adds `previousCheckCommand` and `restampedTicketIds`. |
-| `dispatcher [running\|finished\|stopped] [--run <runId>] [--json]` | Print where the dispatcher was left, or store a new state with one log line. `running`: a dispatcher is at work. `finished`: it ended by itself; it is stored as written and reads as `stopped`, which fails closed. `stopped`: never started, or ended by the user, and it waits for the user's go however many tickets are filed meanwhile. A tracker that never set one reads `stopped`, and the read writes nothing; any other word is refused at exit 1. `running --run <runId>` stores the Workflow run beside the state — the one a killed run is resumed by, with the same args — and every write without `--run` clears it; `--run` beside another state or none, or an empty id, is refused at exit 1. `status --json` carries both as `concurrency.dispatcherState` and `concurrency.dispatcherRunId`. `--json` prints `{ dispatcherState, dispatcherRunId }`, the run id only while one is stored, and a change adds `previousState`. |
 
-**A slot is an agent.** `ticket claim 3 4 5` writes the same `agent` key on each of a bundle's rows,
-the claimed ids joined (`"003,004,005"`). The agents in flight are the `in-progress` rows grouped by
+**A slot is an agent.** A claim of a bundle writes the same `agent` key on each of its rows, the
+claimed ids joined (`"003,004,005"`). The agents in flight are the `in-progress` rows grouped by
 that key, each group counted once, plus every `in-progress` row with no key — a review bar started
-while none of its claim's rows still runs, a `task add --start` row, a ticket started by
-`ticket start` — each an agent of its own. A bundle whose tickets go to review one at a time keeps its
+while none of its claim's rows still runs, a `task add --start` row, a ticket moved there by
+`ticket status` — each an agent of its own. A bundle whose tickets go to review one at a time keeps its
 slot until its last row leaves in-progress, and a row that returns to in-progress other than from a
 pause loses its key, so a reopened bundle ticket is a new agent.
 
-**The dispatcher** is the Workflow script `.agent-progress/agent-progress-dispatch.js`
-([Adopting a repository](#adopting-a-repository), item 6). It runs a builder per ready ticket, each on
-a worktree of its own, within the board's limit, and hands each rebased branch to a clean reviewer
-that releases it with `agent-progress release`. Builders and reviewers run on opus at medium effort
-unless their ticket names another pair; the dispatcher's survey and parking agents run on haiku at low
-effort. A finding a reviewer does not fix it files as a low-priority ticket. A second review round
-runs only when a pass reworked more lines of code than the rework threshold the installed brief
-states, and the dispatcher decides that in code. It starts no low ticket unless launched with
-`includeLowPriority: true`, returning the low ones ready as `lowPriorityWaiting` instead.
-
-- **A single-ticket run**, launched with `ticketIds: ['<id>']` and `readyTickets` (those tickets'
-  entries copied from `status --json`), runs beside the whole-board one: no survey, one agent at a
-  time, exactly those tickets through build, review rounds and release or parking, and the same
-  summary; it never starts another ticket. A ticket given no `readyTickets` entry — one in progress,
-  whose paused build it resumes — has its model and effort read with `ticket show <id> --json` before
-  any builder or reviewer starts. When one names a `group`, the lookup also copies that group's
-  tickets from `status --json`, and a ticket in the group's release bundle is refused, building
-  nothing: the bundle is the group run's. A grouped ticket outside the bundle is built like any
-  other; when the lookup lists no group tickets at all, every grouped ticket is refused.
-- **A group run**, launched with `group: '<name>'` and no `ticketIds`, builds the group's release
-  bundle, read from the board, on the branch `group-<name>` in the worktree
-  `<mainCheckout>/.claude/worktrees/group-<name>`, both made off the main line on first use. It
-  fills the slots the board's limit leaves after every agent in flight, a whole-board run's
-  included, starting reviews before builds and, among startable tickets, the highest priority
-  first, then the lowest id. A ticket whose dependencies inside the bundle are all integrated is
-  built on a branch forked off the group branch; one whose single unintegrated dependency is in
-  review is built beside that review, claiming with `ticket claim <id> --after <dependency>` on a
-  branch forked off the dependency's; any other waits. So independent tickets build side by side,
-  and a straight chain runs as before, builder N+1 on N's built tip while reviewer N integrates N.
-  A built ticket is reviewed as soon as every dependency is integrated, so reviews run side by side
-  too, and each reviewer brings its branch onto the group branch, fast-forwards the group branch to
-  it and approves it: integration stays one ticket at a time. A reviewer whose fast-forward git
-  refuses because another ticket integrated first merges the group branch's new tip, reruns the
-  full checks and tries again, returning `group-moved` after three refused attempts. The release
-  ticket, which depends on every other bundle ticket, is reviewed once they are all integrated, and
-  its reviewer alone reaches the main line: it integrates its own ticket onto the group branch,
-  merges the main line into the group branch in the group worktree, runs the full checks and the
-  root `CLAUDE.md`'s pre-release step there, and runs one `release` over every open bundle ticket
-  with `--branch group-<name> --worktree <group worktree>`, which delivers them all and removes the
-  group worktree and branch. A `main-moved` it returns takes one more review round on the bar it
-  left running, and the next parks the release ticket, as in a whole-board run; a release reported
-  by any other bundle ticket's reviewer parks that ticket and starts nothing more. The summary names
-  the released tickets under `delivered`, with `integrated` and, behind a parked ticket,
-  `waitingOnPredecessor`. It never
-  reads or writes the board's dispatcher state or run id, and when it holds nothing it starts one
-  builder even with no slot free, since a group builder waits for one by its own background poll
-  before it claims. It ends on a board stop like a whole-board run, and a relaunch picks the run up
-  from the board alone.
-- **A dirty main checkout.** A whole-board run's survey also lists the main checkout's uncommitted
-  tracked files (`git status -s -uno`). When there are any, the run starts no
-  agent and returns them as `dirtyMainCheckoutFiles`: a release git refuses over one of them
-  (`merge-refused`) would come only after that ticket's build and review were paid for. Commit or
-  stash them, then relaunch. A survey that does not say starts nothing either. A ticket parked on a
-  refused release names, in its reason, the files the release's `blockingFiles` named.
-- **Two agents in a row that return nothing**, across tickets, stop a run the way a board stop does,
-  and it returns `stoppedByFailures: true`: those deaths count as no failed pass and park nothing.
-- **What a run leaves.** A run that ends while a ticket it claimed is held, or is stopped before a
-  build finished, leaves that build's row `paused` and the ticket in progress. Its summary names the
-  builds it left paused and not held as `pausedBuilds`, the reviews it left waiting as `reviewsLeft`,
-  each absent when empty, and a held ticket's step under `held: [{ id, waitingFor }]`. The next
-  whole-board run resumes them.
-- **Resuming a paused build.** A whole-board run's survey reads `pausedBuilds` and
-  `reviewWaitingTickets` from `status --json`. It resumes every in-progress ticket whose own row is
-  `paused` under a dispatcher run's claim note (`Built by the … dispatcher run on ticket-<id>`), whose
-  worktree exists and which is not held: its builder resumes the row with `task start` and carries on
-  in the ticket's worktree, keeping its uncommitted edits, without a new claim. It is ordered like a
-  ready ticket of the same priority, just before one, and a low one only with
-  `includeLowPriority: true`, until then named in `lowPriorityWaiting` as well. A paused row with any
-  other note is a person's pause, left alone, and a paused build whose worktree is gone is never
-  resumed. Of two runs that want one ticket, the atomic `ticket claim` gives it to one: each builder's
-  claim note names its run, so a builder refused as in-progress carries on only past its own run's
-  claim and otherwise returns. Every builder ends with `ticket finish <id> --start-review`, and its
-  reviewer takes that bar over, so the ticket's slot is held from claim to release.
-- **A run that died or was killed** is resumed rather than relaunched:
-  `Workflow({ scriptPath, resumeFromRunId, args })`, with the id `dispatcher running --run` stored and
-  the launch's args.
-
-### Release and rework
+### Review statistics
 
 | command | what it does |
 |---|---|
-| `release <id> [<id>...] --branch <b> [--worktree <path>] [--main <line>] [--json]` | Release a reviewed branch, and the only way one reaches the main line: allowing this command in the harness is the release permission, and a reviewer never runs `git merge` itself. In one lock hold, so two releases never race, it checks that each ticket is in-progress or in-review — or reviewed, when it is in a group's release bundle and that group's in-progress or in-review release ticket is released with it —, that the main checkout — the tracker's root, wherever this runs from — is on `--main` (default `main`), and that `<b>` is a local branch descending from it; fast-forwards; and moves each ticket to reviewed (unless it already is, so it is approved once) and delivered with `--branch <b>` and `--commit` set to the merged tip. In the same hold every `in-progress` review row whose `reviewOf` names a released ticket is finished and delivered at the release time and named. Several ids are the tickets of one bundle on one branch. A merge never lands ungated: a tracker with no check command stored (`checks`) is refused `checks-not-set` before anything runs. It first, outside the lock so no other release waits on it, needs `--worktree`, refuses unless that worktree's HEAD is `<b>`'s tip and it holds no uncommitted or untracked file, and runs the command there; it refuses when the command exits non-zero or changed a tracked file, and inside the lock when `<b>` moved or the stored command changed since. Before the command runs and again in the lock, each ticket's latest `## Review` must account for every numbered item of its `## Acceptance` (see the ticket file's format). Every refusal changes nothing, the review rows and the main checkout included. Afterwards it runs `git worktree remove` on `--worktree`, never forced, and `git branch -d <b>`; what git declines — a worktree holding untracked files, say — is named with its files at exit 0, since the release happened. |
-| `rework [--since <commit>] [--rebased-from <old tip>] [--main <branch>] [--merge <commit>] [--worktree <path>] [--files] [--json]` | How many lines of code a review reworked on a branch — added plus removed lines, never blank lines, comments or documentation (`*.md`, `*.mdx`, `*.rst`, `*.txt` and anything under the repository's `docs/`) — so that a threshold on it gives every reviewer the same verdict; no threshold is built in. `--since` counts every commit in `<commit>..HEAD`, and is refused at exit 1 when `<commit>` is not an ancestor of HEAD or a merge lies in between: count a merge with `--merge`. `--rebased-from` counts what a rebase changed in the branch's own work — the hand resolution of its conflicts — as the added lines in which the branch's patch against `--main` (default `main`) differs before and after, so a line resolved by hand counts 2, main's own change none, and a rebase without conflicts 0; it is measured up to HEAD, so run it right after the rebase. See below for combining the two. `--merge` counts what a merge commit's resolution changed against git's automatic merge of its two parents (`git merge-tree --write-tree`), leaving out the conflict markers git wrote: a merge git made by itself counts 0, and a commit that is not a merge of two parents is refused at exit 1. `--worktree` reads that working tree instead of the current directory; `--files` adds a per-file breakdown. It needs no tracker, takes no lock and writes nothing. |
-| `review record <id> --worktree <path> --since <review start> --findings-file <path\|-> [--rebased-from <pre-rebase tip> ...] [--main <main line> ...] [--bar <row>] [--json]` | Record one review pass as a `review-recorded` line in `log.jsonl` (see there), on the ticket's newest in-progress review bar, whose stored round it takes; a bundle's review runs on one bar, so its reviewer runs it once per ticket of the bundle, each with `--bar <row>` naming that bar, which must be an in-progress review bar of `<id>` itself or of a ticket claimed with it (their own rows sharing one agent key), or the record is refused at exit 1 and nothing is written; a reviewer runs it once per pass, on every outcome, before step 7 of the review brief, and again after a `main-moved` rebase or a `checks-failed` fix, the latest record of a round being the one that counts. It counts the rework with `rework`'s own reads, so the reviewer adds nothing: the fix lines are the commits in `<review start>..` the first `--rebased-from` (HEAD without one), what `rework --since` printed before the rebase, and each `--rebased-from` is counted as `rework --rebased-from` does, up to the next one's tip, HEAD for the last; it prints the total, which the reviewer reports as `reworkedLines`. One `--main` names every rebase's main line and the builder change's (default `main`), or one is given per `--rebased-from`. The builder's change is `git diff --shortstat <main>...<review start>`, kept because it is lost once the branch is released. The findings file (`-` reads standard input) is a JSON object: `verdict` (`released`, `round-requested`, `does-not-hold`, `not-released`, `integrated`); `claims`, one per Fails-review claim and Acceptance item, each `item`, `result` (`holds`, `does-not-hold`, `waived`, `waiver-proposed`) and `handoffContradicted` (true when the reviewer's measurement disagreed with the Handoff); and `findings`, each `class` (`correctness`, `acceptance-gap`, `test-gap`, `handoff-claim-false`, `convention`, `docs`, `rebase`, `out-of-scope`), `severity` (`would-ship-a-bug`, `acceptance-fails`, `quality`, `nit`), `file`, `summary`, `evidence` (`watched-fail`, `probe`, `reading`) and `outcome`, `fixed` with its `commit` or `filed` with its `filedTicketId`; other keys are dropped. A word outside those, a missing field, or a ticket with no in-progress review bar is refused at exit 1 and nothing is written. The dispatcher's reviewer reply takes the same `class` and `severity` words. |
 | `review-stats [--json]` | What the recorded reviews catch, miss and cost. A *recorded ticket* is one with at least one `review-recorded` line in `log.jsonl`; each `round` of a ticket is one *pass*, its latest line the one that counts as `review record` says, so a ticket with two passes counts two passes and one ticket. Every other ticket appears in no table and is counted on the last line (`unrecordedTicketCount`); with no recorded ticket at all it prints one sentence saying so, at exit 0. It prints one table over every recorded ticket (`all`), then one per split, a column per group that has a ticket: by ticket `type` (`byType`); by the builder's change size, the `builderInsertions` plus `builderDeletions` of the ticket's first pass, `<=50 lines`, `<=200 lines`, `<=750 lines` or `>750 lines` (`byChangeSize`: `small`, `medium`, `large`, `oversized`); and by the ticket's builder `model` and `effort`, the defaults filled in (`byBuilder`). Per group: *tickets recorded* (`ticketCount`); *review passes* (`reviewPassCount`); *rounds per ticket*, the distinct `round` values of each ticket's passes summed and divided by the tickets (`roundsPerTicket`); *verdict* counts over the passes (`verdictCounts`); *findings* over the passes by `class` (`findingCountByClass`) and by `severity` (`findingCountBySeverity`); *serious findings*, those of severity `would-ship-a-bug` or `acceptance-fails` (`seriousFindingCount`), and per ticket (`seriousFindingsPerTicket`); *review tokens per ticket*, the `tokens` of every row whose `reviewOf` is the ticket, ticket-owned rows excepted (`reviewTokens`, `reviewTokensPerTicket`); *builder tokens per ticket*, the `tokens` of the ticket's own row (`builderTokens`, `builderTokensPerTicket`); *review tokens per serious finding* (`reviewTokensPerSeriousFinding`); for the delivered tickets whose last pass in log order had a serious finding (`afterSeriousLastReview`) and those whose last pass had none (`afterCleanLastReview`): *delivered* (`deliveredTicketCount`), *escaped bugs*, the bug tickets whose `introducedBy` names one of them (`escapedBugCount`), and *escaped bugs per delivered* (`escapedBugsPerDeliveredTicket`); *tickets filed from reviews*, the tickets whose `foundInReview` names the ticket (`ticketsFiledFromReviewsCount`); *claims* over the passes (`claimCount`) and the share whose `handoffContradicted` is true (`handoffContradictedClaimCount`, `handoffContradictedShare`, a percentage in the text); *fix lines per ticket* and *rebase lines per ticket*, the passes' `fixReworkedCodeLines` and `rebaseReworkedCodeLines` summed and divided by the tickets (`fixLines`, `fixLinesPerTicket`, `rebaseLines`, `rebaseLinesPerTicket`). Rates print with two decimals and tokens rounded to whole numbers; a rate over nothing is `-` in the text and `null` in `--json`, which prints the same numbers unrounded as one document. A line naming a ticket the board does not hold is left out. It takes no lock and writes and renders nothing, as `status` does. |
 
-**Release refusals.** `--json` prints, on a refusal, `{released: false, reason, detail, blockingFiles, cleanup: []}`,
-`cleanup` always empty because nothing ran, `blockingFiles` the main checkout's uncommitted files, tracked or
-untracked, that the merge would overwrite (on `merge-refused`; empty otherwise), and `reason` is one of:
-
-| reason | exit | when |
-|---|---|---|
-| `invalid-request` | 1 | the arguments do not describe a release — no id or no `--branch`, a branch named like an option or after the main line, an unknown option — or there is no tracker here, or its installed files are of another install version |
-| `unknown-ticket` | 1 | a ticket id names no ticket |
-| `ticket-not-releasable` | 1 | a ticket is not in-progress or in-review, nor a reviewed ticket of a group's release bundle released with that group's release ticket |
-| `unknown-branch` | 1 | `<b>` is not a local branch |
-| `not-on-main-line` | 1 | the main checkout is not on `--main`, or `--main` is not a local branch |
-| `checks-not-set` | 1 | the tracker stores no check command, and a release never lands a branch ungated: set one with `agent-progress checks "<command>"` and release again |
-| `worktree-not-at-tip` | 1 | a check command is stored and the `--worktree` HEAD is not `<b>`'s tip, before the command runs or after it moved it |
-| `worktree-dirty` | 1 | a check command is stored and the worktree holds an uncommitted or untracked file before it runs, or a tracked file it changed: commit or remove them, and release again |
-| `checks-failed` | 1 | the stored check command exited non-zero or could not be started; `detail` ends with its last 20 lines of output, standard error included: fix, commit, and release again |
-| `check-command-changed` | 1 | the stored check command changed, or was set or cleared, while the release ran it |
-| `check-command-differs-from-start` | 1 | a released ticket's row was stamped, when it moved into in-progress, with another check command than the stored one, no command on either side counting as a value; with or without a stored command, before it runs and again in the lock. The detail names both lines and the orchestrator's remedy, `agent-progress checks "<line>" --restamp` |
-| `acceptance-unnumbered` | 1 | a released ticket's `## Acceptance` holds no numbered item (`A1.` at the start of a line); read before the check command runs and again in the lock, each ticket of a bundle on its own, as are the two below |
-| `acceptance-unaccounted` | 1 | an Acceptance item has no `holds` or `waived` line in the ticket's latest `## Review`, or has a `does not hold` one; the detail names the items |
-| `acceptance-waived` | 1 | every item is accounted for, but the Review waives one the Acceptance does not mark `Waived:`; the detail names the items and their reasons. Only the user waives: once agreed, the item is marked `A3. Waived: <reason>` and the release runs again |
-| `branch-moved` | 1 | `<b>` moved off the commit the checks passed on while they ran: release again |
-| `main-moved` | 1 | `<b>` does not descend from the main line: rebase `<b>` onto it, re-run the checks, count the rebase with `rework --rebased-from`, and release again |
-| `merge-refused` | 1 | git will not fast-forward, typically over the main checkout's own uncommitted changes, which `blockingFiles` names and a refusal leaves as they were — never the branch's files: whoever made them stashes them, or commits them when they belong on the main line, and the release runs again |
-| `git-failed` | 2 | git could not be read |
-| `tracker-failed` | 2 | the tracker could not be read, or its lock could not be taken |
-
-`--json` prints, on success,
-`{released: true, tickets, branch, mainLine, commit, checkCommand, closedReviewRows, cleanup}`: `tickets` the ids just
-delivered, `checkCommand` the stored check command that passed, `closedReviewRows` the
-ids of the review rows it delivered with them, and `cleanup` each step, the worktree's first when `--worktree` was
-given, as one of these, `reason` being git's:
-
-```
-{target: worktree, path, outcome: removed}
-{target: worktree, path, outcome: left, reason, untrackedFiles, changedFiles}
-{target: branch, name, outcome: deleted}
-{target: branch, name, outcome: left, reason}
-```
-
-**Counting a rebase.** A rebase rewrites the commits after `<commit>`, so either count `--since`
-before rebasing and `--rebased-from ORIG_HEAD` after it, or rebase first and take `<commit>` from the
-rebased tip: both options in one call then measure the rebase up to `<commit>` and print one total
-and the two parts, counting nothing twice. Comments are read per file type — `//` and `/* */`, `#`,
-`<!-- -->`, Python docstrings, a `<script>` or `<style>` inside HTML — a line of code with a trailing
-comment is code, and a file type it does not know counts every non-blank line.
-
-### Cost: the hook and usage
+### Cost: the hooks and usage
 
 | command | what it does |
 |---|---|
 | `hook session-start` | Print `session-instructions.md` for the session Claude Code is starting. `init` and `update` wire it as the `SessionStart` hook in `.claude/settings.local.json`, which a job's `--setting-sources project` never loads. It prints nothing under a job, skips the install version check, and exits 0 whatever happens, printing nothing on failure. |
 | `hook bash-domains --allow <domains>` | Keep a job's network inside its ticket's `network` line: the `PreToolUse` guard a runner renders into a job's settings for a role with a `network` line, since auto mode's classifier may grant a domain the session asks for. It denies, through the hook's JSON on standard output (`hookSpecificOutput.permissionDecision` `deny`, with a reason), a `Bash` call whose `allowed_domains`, or a `WebFetch` whose URL host, names a domain outside the comma-separated `--allow` list; an entry `*.example.com` admits that domain's subdomains, never the domain itself. Every other call passes, printing nothing and granting nothing. It reads no tracker, skips the install-version check, runs directly under a job, and exits 0 whatever happens, answering deny on any failure: no input, input that is not a JSON object, a url naming no host, an `allowed_domains` that is no list of domains, an unknown option. |
-| `hook post-tool-use` | Keep the page live while agents work. `init` and `update` wire it as a `PostToolUse` hook on every tool beside `hook subagent-stop`. It regenerates `progress.html` and its stamp, as `render` does, only when the page file is more than 5 minutes old (half the page's 10-minute live limit), and otherwise does nothing. It finds the tracker from its own working directory and reads no hook input. It never waits on the tracker lock: a lock another process holds skips the render. It never prints, and every run exits 0, whatever goes wrong — no tracker, installed files of another install version, an unreadable tracker — since its exit would otherwise reach the agent's tool call; `render` reports what is wrong. |
-| `hook pre-tool-use` | Keep the check command the orchestrator's. `init` and `update` wire it as a `PreToolUse` hook on `Bash` beside `hook subagent-stop`. It blocks, at exit 2 with the reason on standard error, a subagent's Bash call whose command line runs `agent-progress checks` with a command line, `--clear` or `--restamp`, anywhere in it (after a `cd <dir> &&`, behind `;`, in `$( )`); a read (`checks`, `checks --json`), every other call, and unreadable input pass at exit 0. It tells a subagent's call from the main session's by `agent_id` alone: it relies on Claude Code setting `agent_id` (and `agent_type`) in the hook input only on a subagent's tool call, so a main-session call is never blocked. It reads no tracker and checks no install version. |
-| `hook subagent-stop` | Record what a finished subagent cost, as one log line. The hook JSON arrives on standard input, and the agent's transcript is summed per API call rather than per line. When the agent's brief — its first message — holds a line `agent-progress row: <id>`, or several ids separated by commas, the log line's `input` total is also added to those rows' tokens, divided evenly. A line `agent-progress ticket: <id>` names tickets instead, each resolved to the row it holds when the hook runs. A line `agent-progress review: <id>` names one ticket whose review row the reviewer files itself: the total goes to the most recently added row reviewing that ticket (its `--review-of`; the name is not read), whatever its status; a row a ticket owns is never a review row. A brief with several is read by one alone: `row:` over `ticket:` over `review:`. The tracker is found from the hook input's own `cwd`. `init` and `update` wire it into `.claude/settings.local.json`; nobody types it. Once its arguments are read (the event word alone, no option; anything else is refused at exit 1) it exits 0 whatever goes wrong — no input, an unreadable transcript, no tracker, installed files of another install version, a row or a ticket's row that does not exist — and writes the reason to standard error: the agent has already finished, so a non-zero exit would prevent nothing and only give the orchestrator an error to read. |
 | `usage [--since <when>] [--transcripts <folder>] [--json]` | What this repository's subagents cost, read out of the transcripts the harness wrote for them under `~/.claude/projects/`, a workflow's agents under `subagents/workflows/<run>/` included: one row per agent, oldest first, with its start, its API calls, its end context, its input and output, its browser calls, the characters the harness injected into it and the first line of its brief; then the cohort summary — median calls and end context, mean input and output, and the mean of each figure below. Three columns catch a brief being breached without anyone reading a transcript: `over 200k` is the share of an agent's input sent at a context past 200,000 tokens (a raw token count under `--json`), `bash edits` counts the edits it made through a shell command — a heredoc, an inline interpreter or an in-place editor — instead of the editing tools, and `checks` counts the full test, type-check and lint runs it made per edit instead of per batch. `--since` splits the cohort on an instant and summarises both sides, which is how a change in the way agents are briefed is measured. `--transcripts` reads a folder other than the one this repository's path resolves to. It writes nothing, takes no lock and regenerates no page; a repository with no transcripts is one sentence at exit 0. |
 
 ### The page and the board's lifetime
@@ -681,7 +541,7 @@ resumes on the ticket while it is open; an answered one settles the hit until an
 An `in-review` ticket's review job, which the policy launches for round `<n>` as its `attempt`, starts a review bar
 for its round, reuses the ticket's worktree (made again from its branch when missing) and moves through the same
 states as a build job, its first message the review prompt and its budget `REVIEWER_API_CALL_BUDGET`. Once verified
-and gated, the runner counts the rework from the review's start to its HEAD in code lines, as `rework` does; commits
+and gated, the runner counts the rework from the review's start to its HEAD in code lines; commits
 `Review round <n> of #<id>: no changes` when the reviewer committed nothing; appends `## Review <n>` from the report's
 `reviewText`, claims and findings; records the review on the bar; and takes the round verdict.
 
@@ -763,7 +623,7 @@ whoever picks the work up next read it instead of re-deriving it from the diff.
 
 Every row carries a token count, shown beside the bar. With the `SubagentStop` hook installed it
 fills itself in: a brief names its row on a line of its own, `agent-progress row: 4` (`4, 7` for a
-bundle), or its tickets or its review as `hook subagent-stop` says, and when the agent stops the hook
+bundle), or its tickets or its review, and when the agent stops the hook
 adds its `input` figure — every token it processed — to that row, divided over several rows floored,
 the remainder to the first. An unset count plus an amount is the amount, so a row two agents worked on
 carries both. A resumed agent stops again with the same agent id and a transcript that still holds its
@@ -911,7 +771,7 @@ the word on the pill are different vocabularies, and the same word labels the st
 | `abandoned` | `Abandoned` | called off, kept for the record |
 
 A row with nothing to merge — a review pass, a chore — still reaches `Done`, through
-`agent-progress task deliver <id>`. A dispatched reviewer's bar is closed by `release`; the
+`agent-progress task deliver <id>`. A review job's bar is closed by the runner's landing; the
 orchestrator closes every row left open, and a chart whose rows stop at `Awaiting review` is a chart
 nobody closed.
 
@@ -926,7 +786,6 @@ nobody closed.
   agent-brief.md         the orchestrator's brief, rewritten by init and update
   builder-brief.md       the builder's brief, rewritten by init and update
   review-brief.md        the reviewer's brief, rewritten by init and update
-  agent-progress-dispatch.js  the dispatcher, generated by init and update
   version.json           the install version, written last by init and update
   tickets/003-<slug>.md  one file per ticket
   epics/<key>.md         one file per epic, the folder made by the first epic add
@@ -956,7 +815,6 @@ wrote them and are displayed as written, never re-parsed into a viewer's zone.
   "nextTaskId": 18,                              // never wound back, so an id is never reused
   "concurrencyLimit": 2,                         // optional: absent reads 2, above 10 reads 10
   "dispatcherState": "running",                  // optional: running|finished|stopped, absent or finished reads stopped
-  "dispatcherRunId": "wf_example-run-1",         // optional: the Workflow run to resume, only beside running
   "checkCommand": "bun run typecheck && bun test", // optional: the shell line release runs; absent refuses every release
   "installCommand": "bun install --frozen-lockfile", // optional: the line that prepares a fresh worktree before a gate
   "checksDefinitionFiles": ["package.json", ".githooks/"], // optional: the patterns V11 holds a job to; absent checks none
@@ -1060,7 +918,7 @@ does not know survive a read and a write, at the top level and on a row, in the 
 ticket's unknown frontmatter lines do.
 
 A present `concurrencyLimit` that is not a whole number of at least 1, a `dispatcherState` outside
-the three, an empty or blank `dispatcherRunId`, a `checkCommand` that is not text or is blank, or a
+the three, a `checkCommand` that is not text or is blank, or a
 `nextDraftId` that is not a whole number of at least 1 makes the file unreadable (exit 2), and so does a
 present optional row key of the wrong shape: `reviewRound` below 2, `reviewBarRound` below 1, a row
 `checkCommand` that is not text or is blank, or a
@@ -1248,7 +1106,7 @@ absent file while `agent-brief.md` is installed; an absent file with no brief is
       "gitOrigin": "git@example.invalid:example/example-agency.git",
       "registeredAt": "2026-10-21T10:00:00+02:00",
       "lastChangedAt": "2026-10-21T11:30:00+02:00",
-      "lastCommand": "ticket finish"
+      "lastCommand": "ticket ready"
     }
   }
 }

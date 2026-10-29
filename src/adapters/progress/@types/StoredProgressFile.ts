@@ -84,7 +84,6 @@ export interface StoredProgressFile {
   nextTaskId:              number;
   concurrencyLimit?:       number;
   dispatcherState?:        DispatcherState;
-  dispatcherRunId?:        string;
   checkCommand?:           string;
   installCommand?:         string;
   checksDefinitionFiles?:  string[];

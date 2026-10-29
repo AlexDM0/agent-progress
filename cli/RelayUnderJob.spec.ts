@@ -252,7 +252,7 @@ describe('read-only and refused verbs', () => {
     const placedVerbs  = new Set([...Object.values(RELAYED_VERB_OF_CONTROL_KIND), ...READ_ONLY_VERBS_UNDER_A_JOB]);
     const refusedVerbs = everyVerb().filter((verb) => !placedVerbs.has(verb));
     const progressBefore = progressFileText();
-    expect(refusedVerbs).toContain('ticket start');
+    expect(refusedVerbs).toContain('ticket deliver');
     for (const verb of refusedVerbs) {
       const context = jobContext();
       expect(await runCommandLine(verb.split(' '), context), verb).toBe(1);

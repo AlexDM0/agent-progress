@@ -1,5 +1,5 @@
 /**
- * Every import edge of the repository's TypeScript, over the files the root, page, dispatcher and Bridge programs compile, read syntactically with
+ * Every import edge of the repository's TypeScript, over the files the root, page and Bridge programs compile, read syntactically with
  * the compiler API so no type checking is paid for. Planted sources add or replace files in memory, so a guard can prove it still fires.
  */
 import { readFileSync } from 'node:fs';
@@ -35,7 +35,7 @@ export interface ImportGraph {
 }
 
 /** Each spec project holds its shipping project plus the specs, so these together name every file the type check compiles. */
-const PROGRAM_CONFIGURATION_PATHS = ['tsconfig.json', 'page/tsconfig.spec.json', 'dispatcher/tsconfig.json', 'dispatcher/tsconfig.spec.json', 'bridge/tsconfig.spec.json'];
+const PROGRAM_CONFIGURATION_PATHS = ['tsconfig.json', 'page/tsconfig.spec.json', 'bridge/tsconfig.spec.json'];
 
 function repositoryPathOf(repositoryRoot: string, absolutePath: string): string {
   return relative(repositoryRoot, absolutePath).split('\\').join('/');
