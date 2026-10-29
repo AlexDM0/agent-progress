@@ -721,8 +721,10 @@ export class Board {
     return this.ticketMoves.rereviewTicket(ticketId, at);
   }
 
-  /** The caller reads each body for its gaps, since what a complete ticket holds is its document's format, not a Board rule. */
-  /** A readied draft a `findings-delivered` incident lists is struck off it, whoever readied it. */
+  /**
+   * The caller reads each body for its gaps, since what a complete ticket holds is its document's format, not a Board rule. A readied
+   * draft a `findings-delivered` incident lists is struck off it, whoever readied it.
+   */
   readyDraftTickets(ticketIds: readonly string[], readinessGapsOf: (body: string) => readonly ReadinessGap[], at: string): TicketsReadied {
     const readied = this.ticketMoves.readyDraftTickets(ticketIds, readinessGapsOf, at);
     return { ...readied, logged: [...readied.logged, ...this.incidentRules.settleListedFindings(ticketIds, 'ticket-ready', at)] };
