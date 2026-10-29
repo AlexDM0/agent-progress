@@ -23,6 +23,7 @@ import { readingBoardOf }                                  from '../../src/lib/t
 import { BoardWatcher }                                    from '../../src/services/runner/BoardWatcher.ts';
 import { CodeVersion }                                     from '../../src/services/runner/CodeVersion.ts';
 import { createDrivePass, type DrivePass }                 from '../../src/services/runner/DrivePass.ts';
+import { createEventBroker, type EventBroker }             from '../../src/services/runner/EventBroker.ts';
 import { HOST_ENTRY_PATH, HostBundle }                     from '../../src/services/runner/HostBundle.ts';
 import { HostFleet }                                       from '../../src/services/runner/HostFleet.ts';
 import { createInstallChangeWatch, versionsFromTheBinary } from '../../src/services/runner/InstallChangeWatch.ts';
@@ -60,6 +61,9 @@ import type { ArgumentParser }          from '../arguments/ArgumentParser.ts';
 import { INSTALL_VERSION }              from '../constants/InstallVersion.ts';
 import { OutputUtil }                   from '../utils/OutputUtil.ts';
 import { RunnerWording }                from './RunnerWording.ts';
+import { readBoardState }               from './routes/BoardStateReader.ts';
+import type { RuntimeRunnerCommand }    from './routes/CommandRoute.ts';
+import { overseerRoutesOf }             from './routes/OverseerRoutes.ts';
 
 export interface ForegroundRunRequest {
   commandArguments: ArgumentParser;
@@ -280,7 +284,7 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
   const runnerState = () => {
     const passState = current?.drivePass.state();
     if (passState === undefined) return null;
-    return { ...passState, runtimeState: handingOver ? 'handing-over' : passState.runtimeState, handoverWarning };
+    return { ...passState, runtimeState: handingOver ? 'handing-over' as const : passState.runtimeState, handoverWarning };
   };
 
   /** Binds, takes a generation through `acquireLease`, records the start and reattaches every host; whatever it took is let go on a failure. */
@@ -293,27 +297,48 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
     let lifetime: ReturnType<typeof runnerLifetime> | null = null;
     let drivePass: DrivePass | null = null;
     enterStep('bind-port');
+    let broker: EventBroker | null = null;
+    let servedUrl: string | null = null;
+    const overseerFactsNow = () => {
+      const state = runnerState();
+      return {
+        state:           state?.runtimeState ?? 'serving',
+        url:             servedUrl,
+        generation:      state?.generation ?? null,
+        codeVersion,
+        installVersion:  INSTALL_VERSION,
+        handoverWarning: state?.handoverWarning ?? null,
+      } as const;
+    };
     const server = RunnerServer.start({
-      onNudge:  () => drivePass?.wake(),
-      state:    runnerState,
       portChoice,
       identity: {
         trackerId: progress.trackerId, project: progress.project, codeVersion, installVersion: INSTALL_VERSION, processId: process.pid,
       },
-      token:            () => token,
-      onRuntimeCommand: (command) => {
-        log(`${command.kind} received${command.now ? ' (now)' : ''}.`);
-        if (current === null || handingOver) return;
-        if (command.kind === 'runner-restart') {
+      routes: overseerRoutesOf({
+        commandArguments: request.commandArguments,
+        context,
+        workspace,
+        token:            () => token,
+        broker:           () => broker,
+        wake:             () => drivePass?.wake(),
+        launchesHeld:     () => runnerState()?.runtimeState === 'held-by-install-change',
+        notices:          () => runnerState()?.notices ?? [],
+        overseer:         overseerFactsNow,
+        onRuntimeCommand: (command: RuntimeRunnerCommand) => {
+          log(`${command.kind} received${command.now ? ' (now)' : ''}.`);
+          if (current === null || handingOver) return;
+          if (command.kind === 'runner-restart') {
           // Set at once, so a second command during this handover never overwrites what the successor reported.
-          handingOver = true;
-          // Written before the command is answered, so whoever sent it never reads an earlier handover's outcome.
-          RunnerHandover.writeHandover(RunnerHandover.handoverFilePathOf(files.runnerDirectory, current.generation), { state: 'requested' });
-          current.lifetime.restart();
-          return;
-        }
-        current.lifetime.stopFor(command.kind);
-      },
+            handingOver = true;
+            // Written before the command is answered, so whoever sent it never reads an earlier handover's outcome.
+            RunnerHandover.writeHandover(RunnerHandover.handoverFilePathOf(files.runnerDirectory, current.generation), { state: 'requested' });
+            current.lifetime.restart();
+            return;
+          }
+          current.lifetime.stopFor(command.kind);
+        },
+      }),
     });
 
     enterStep('take-lease');
@@ -334,6 +359,18 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
       throw leaseRefusalOf(acquisition, files);
     }
     const { generation } = acquisition;
+    const ownBroker = createEventBroker(generation);
+    const publishState = () => {
+      try {
+        ownBroker.publishState(readBoardState({
+          context, workspace, notices: () => runnerState()?.notices ?? [], overseer: overseerFactsNow
+        }).state);
+      } catch (thrown) {
+        log(`The board state could not be read for the event stream: ${thrown instanceof Error ? thrown.message : String(thrown)}`);
+      }
+    };
+    broker    = ownBroker;
+    servedUrl = server.url;
     let watcher: { stop: () => void } | null = null;
     try {
       token    = writeToken(files);
@@ -375,6 +412,7 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
         homeDirectory:         context.homeDirectory,
         log,
         onLeaseTakenOver:      (refusal) => (current?.lifetime ?? startedLifetime).takenOver(refusal),
+        afterPass:             publishState,
       });
       const startedPass = drivePass;
       watcher = BoardWatcher.startWatching({
@@ -390,6 +428,7 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
         generation, server, drivePass, watcher, lifetime
       };
       current = serving;
+      publishState();
       await drivePass.reattach();
       return serving;
     } catch (thrown) {

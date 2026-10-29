@@ -25,8 +25,18 @@ export type AgentSessionEvent =
     readonly parentToolUseId: string | null;
     readonly model:           string;
     readonly usage:           AgentTurnUsage | null;
+    /** The turn's text blocks, joined; empty for a turn of tool calls alone. */
+    readonly text:            string;
   }
-  | { readonly kind: 'tool-call'; readonly toolName: string; readonly inputSummary: string; readonly parentToolUseId: string | null }
+  | {
+    readonly kind:            'tool-call';
+    readonly toolUseId:       string;
+    readonly toolName:        string;
+    readonly inputSummary:    string;
+    readonly parentToolUseId: string | null;
+  }
+  /** The answer to the tool call `toolUseId` names, so a reader knows that call is no longer running. */
+  | { readonly kind: 'tool-result'; readonly toolUseId: string; readonly parentToolUseId: string | null; readonly isError: boolean }
   | { readonly kind: 'question'; readonly requestId: string; readonly questions: readonly AgentQuestion[] }
   | { readonly kind: 'permission-denied'; readonly toolName: string }
   | {

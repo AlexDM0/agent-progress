@@ -73,7 +73,7 @@ export default [
   ...CONFINED_REACH_SITES.map((site) => ({ files: [site], rules: confinedReachRules(site) })),
   {
     files:   ['src/**/*.ts', 'cli/**/*.ts', 'agent-progress.ts', 'agent-host.ts'],
-    ignores: [...SPECS_AND_TESTING_FOLDERS, 'cli/CommandContext.ts'],
+    ignores: [...SPECS_AND_TESTING_FOLDERS, 'cli/CommandContext.ts', 'agent-host.ts'],
     rules:   {
       'no-restricted-syntax': [
         'error',

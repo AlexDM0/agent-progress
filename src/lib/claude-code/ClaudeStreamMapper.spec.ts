@@ -105,7 +105,34 @@ describe('lines that are no event', () => {
   test('a subagent\'s assistant turn keeps its parent tool call id', () => {
     const line = JSON.stringify({ type: 'assistant', parent_tool_use_id: 'toolu_parent', message: { id: 'msg_child', model: 'claude-haiku-5-5', content: [] } });
     expect(claudeStreamEventsOf(line)).toEqual([{
-      kind: 'assistant-turn', messageId: 'msg_child', parentToolUseId: 'toolu_parent', model: 'claude-haiku-5-5', usage: null
+      kind: 'assistant-turn', messageId: 'msg_child', parentToolUseId: 'toolu_parent', model: 'claude-haiku-5-5', usage: null, text: ''
+    }]);
+  });
+
+  test('a turn keeps its text and each tool call its id, and a user record\'s tool result names the call it answers', () => {
+    const turnLine = JSON.stringify({
+      type:               'assistant',
+      parent_tool_use_id: null,
+      message:            {
+        id:      'msg_turn',
+        model:   'claude-opus-5-5',
+        content: [{ type: 'text', text: 'Reading it.' }, {
+          type: 'tool_use', id: 'toolu_read', name: 'Read', input: {}
+        }]
+      },
+    });
+    expect(claudeStreamEventsOf(turnLine)).toEqual([
+      {
+        kind: 'assistant-turn', messageId: 'msg_turn', parentToolUseId: null, model: 'claude-opus-5-5', usage: null, text: 'Reading it.'
+      },
+      {
+        kind: 'tool-call', toolUseId: 'toolu_read', toolName: 'Read', inputSummary: '{}', parentToolUseId: null
+      },
+    ]);
+    const resultContent = [{ type: 'tool_result', tool_use_id: 'toolu_read', is_error: true }];
+    const resultLine = JSON.stringify({ type: 'user', parent_tool_use_id: 'toolu_parent', message: { content: resultContent } });
+    expect(claudeStreamEventsOf(resultLine)).toEqual([{
+      kind: 'tool-result', toolUseId: 'toolu_read', parentToolUseId: 'toolu_parent', isError: true
     }]);
   });
 });

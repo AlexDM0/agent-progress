@@ -1,12 +1,12 @@
 /** The two `status --json` documents: the working view an agent opens a session with, and the full one `--full` prints. */
-import { ProgressFileMappingUtil } from '../../../src/adapters/progress/utils/ProgressFileMappingUtil.ts';
-import { StatusDocumentUtil }      from '../../../src/adapters/utils/StatusDocumentUtil.ts';
-import { TicketJsonUtil }          from '../../../src/adapters/utils/TicketJsonUtil.ts';
-import type { Task }               from '../../../src/lib/tracker-model/@types/Task.ts';
-import type { ReadyTicket }        from '../../../src/lib/tracker-model/@types/Ticket.ts';
-import type { TrackerProgress }    from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
-import type { Board }              from '../../../src/lib/tracker-model/Board.ts';
-import type { WordedLogEntry }     from '../../../src/shared/@types/WordedLogEntry.ts';
+import { ProgressFileMappingUtil } from '../src/adapters/progress/utils/ProgressFileMappingUtil.ts';
+import { StatusDocumentUtil }      from '../src/adapters/utils/StatusDocumentUtil.ts';
+import { TicketJsonUtil }          from '../src/adapters/utils/TicketJsonUtil.ts';
+import type { Task }               from '../src/lib/tracker-model/@types/Task.ts';
+import type { ReadyTicket }        from '../src/lib/tracker-model/@types/Ticket.ts';
+import type { TrackerProgress }    from '../src/lib/tracker-model/@types/TrackerProgress.ts';
+import type { Board }              from '../src/lib/tracker-model/Board.ts';
+import type { WordedLogEntry }     from '../src/shared/@types/WordedLogEntry.ts';
 import { ownerTokenTotalsOf }      from './OwnerTokenTotals.ts';
 
 const WORKING_VIEW_LOG_ENTRY_COUNT = 10;

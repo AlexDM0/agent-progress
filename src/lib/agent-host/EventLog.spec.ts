@@ -24,30 +24,43 @@ afterEach(() => {
   removeScratchDirectory(scratchFolder);
 });
 
+const EXAMPLE_STAMP = '2026-10-29T12:00:00.000Z';
+
 test('numbers entries from 1 in append order, and a reader reads them back', () => {
   const eventLogPath = join(scratchFolder, 'events-1.ndjson');
-  const writer = createEventLogWriter(eventLogPath);
-  expect(writer.append('agent', '{"type":"system"}')).toEqual({ sequence: 1, origin: 'agent', line: '{"type":"system"}' });
+  const writer = createEventLogWriter(eventLogPath, () => EXAMPLE_STAMP);
+  expect(writer.append('agent', '{"type":"system"}')).toEqual({
+    sequence: 1, origin: 'agent', line: '{"type":"system"}', at: EXAMPLE_STAMP
+  });
   writer.append('client', 'a chat line');
   writer.append('host', 'a standing reply');
   writer.syncAndClose();
   expect(eventLogEntriesOf(readFileSync(eventLogPath, 'utf8'))).toEqual({
     verdict: 'read',
     entries: [
-      { sequence: 1, origin: 'agent', line: '{"type":"system"}' },
-      { sequence: 2, origin: 'client', line: 'a chat line' },
-      { sequence: 3, origin: 'host', line: 'a standing reply' },
+      {
+        sequence: 1, origin: 'agent', line: '{"type":"system"}', at: EXAMPLE_STAMP
+      },
+      {
+        sequence: 2, origin: 'client', line: 'a chat line', at: EXAMPLE_STAMP
+      },
+      {
+        sequence: 3, origin: 'host', line: 'a standing reply', at: EXAMPLE_STAMP
+      },
     ],
   });
 });
 
 test('a reader ignores an unterminated last line, even one that is not JSON yet', () => {
   const eventLogPath = join(scratchFolder, 'events-1.ndjson');
-  const writer = createEventLogWriter(eventLogPath);
+  const writer = createEventLogWriter(eventLogPath, () => EXAMPLE_STAMP);
   writer.append('agent', 'kept');
   writer.syncAndClose();
   appendFileSync(eventLogPath, '{"sequence":2,"origin":"ag');
-  expect(eventLogEntriesOf(readFileSync(eventLogPath, 'utf8'))).toEqual({ verdict: 'read', entries: [{ sequence: 1, origin: 'agent', line: 'kept' }] });
+  const keptEntry = {
+    sequence: 1, origin: 'agent' as const, line: 'kept', at: EXAMPLE_STAMP
+  };
+  expect(eventLogEntriesOf(readFileSync(eventLogPath, 'utf8'))).toEqual({ verdict: 'read', entries: [keptEntry] });
 });
 
 test('a terminated line that is not an entry is named, not skipped', () => {

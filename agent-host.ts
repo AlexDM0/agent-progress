@@ -5,4 +5,5 @@
  */
 import { runHost } from './src/lib/agent-host/AgentHost.ts';
 
-process.exit(await runHost(Bun.argv.slice(2)));
+// The host's only clock: it stamps event-log entries, which are recorded and shown, never read to decide.
+process.exit(await runHost(Bun.argv.slice(2), () => new Date().toISOString()));

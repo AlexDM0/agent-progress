@@ -15,6 +15,8 @@ export interface EventLogEntry {
   readonly sequence: number;
   readonly origin:   EventOrigin;
   readonly line:     string;
+  /** When the host appended it: only recorded and shown, never read to decide anything. Absent from a log written before stamps. */
+  readonly at?:      string;
 }
 
 export interface EventLogWriter {
@@ -31,13 +33,15 @@ export type EventLogReading =
 
 const EVENT_ORIGINS: readonly string[] = ['agent', 'client', 'host'] satisfies readonly EventOrigin[];
 
-export function createEventLogWriter(eventLogPath: string): EventLogWriter {
+export function createEventLogWriter(eventLogPath: string, stampNow: () => string): EventLogWriter {
   const fileDescriptor = openSync(eventLogPath, 'a');
   let lastSequence = 0;
   return {
     append: (origin, line) => {
       lastSequence += 1;
-      const entry: EventLogEntry = { sequence: lastSequence, origin, line };
+      const entry: EventLogEntry = {
+        sequence: lastSequence, origin, line, at: stampNow()
+      };
       writeSync(fileDescriptor, `${JSON.stringify(entry)}\n`);
       return entry;
     },
@@ -55,9 +59,12 @@ function entryOf(text: string): EventLogEntry | null {
   try {
     const parsed = JSON.parse(text) as Partial<Record<keyof EventLogEntry, unknown>> | null;
     if (typeof parsed !== 'object' || parsed === null) return null;
-    const { sequence, origin, line } = parsed;
+    const {
+      sequence, origin, line, at
+    } = parsed;
     if (!Number.isSafeInteger(sequence) || typeof origin !== 'string' || !EVENT_ORIGINS.includes(origin) || typeof line !== 'string') return null;
-    return { sequence: sequence as number, origin: origin as EventOrigin, line };
+    const entry: EventLogEntry = { sequence: sequence as number, origin: origin as EventOrigin, line };
+    return typeof at === 'string' ? { ...entry, at } : entry;
   } catch {
     return null;
   }

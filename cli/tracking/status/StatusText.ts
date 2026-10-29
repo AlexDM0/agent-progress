@@ -7,9 +7,9 @@ import type { Board }                                            from '../../../
 import { SETTLED_TASK_STATUSES, TASK_STATUSES, TICKET_STATUSES } from '../../../src/lib/tracker-model/constants/Statuses.ts';
 import type { WordedLogEntry }                                   from '../../../src/shared/@types/WordedLogEntry.ts';
 import { TIMESTAMP_SLICES }                                      from '../../../src/shared/constants/TimestampSlices.ts';
+import type { OwnerTokenTotals }                                 from '../../OwnerTokenTotals.ts';
+import { ownerTokenTotalsOf }                                    from '../../OwnerTokenTotals.ts';
 import { OutputUtil }                                            from '../../utils/OutputUtil.ts';
-import type { OwnerTokenTotals }                                 from './OwnerTokenTotals.ts';
-import { ownerTokenTotalsOf }                                    from './OwnerTokenTotals.ts';
 
 /** `--full` lists settled work too; `--tickets-only` leaves the free-standing task rows out. */
 export interface StatusSelection {

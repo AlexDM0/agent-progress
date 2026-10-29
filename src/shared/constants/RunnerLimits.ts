@@ -77,3 +77,9 @@ export const RUNNER_WATCH_DEBOUNCE_MILLISECONDS = 150;
 
 /** How long a verb's best-effort nudge may wait on the runner after its write; the runner's own watch notices the write anyway. */
 export const RUNNER_NUDGE_TIMEOUT_MILLISECONDS = 500;
+
+/** How often an Overseer event stream sends its `: ping` comment: under Bun's 10-second idle timeout, which closes a quiet stream. */
+export const SSE_HEARTBEAT_SECONDS = 5;
+
+/** The files of a job folder the API serves, as plain text under a sandbox CSP; every other file of the job folder is not served. */
+export const SERVED_JOB_FILE_NAMES: readonly string[] = ['report.json', 'gate.log'];

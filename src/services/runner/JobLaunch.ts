@@ -714,4 +714,5 @@ export const JobLaunch = Object.freeze({
   ticketIdsTouchingAgentConfigOf,
   holdAgentConfigHits,
   sessionReadingOf,
+  callBudgetOf,
 });

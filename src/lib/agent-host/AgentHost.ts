@@ -277,7 +277,7 @@ async function listenFor(launch: HostLaunch, files: HostFiles, eventLog: EventLo
  * without spawning anything, so a re-spawn of the same instance is safe. A host whose child ran keeps its socket after the end until the
  * acknowledgement or `HOST_LINGER_FRAMES` client frames.
  */
-export async function runHost(hostArguments: readonly string[]): Promise<number> {
+export async function runHost(hostArguments: readonly string[], stampNow: () => string): Promise<number> {
   const target = hostFilesOfArguments(hostArguments);
   if (target === null) return HOST_REFUSED_EXIT_CODE;
   const { files, instance } = target;
@@ -298,7 +298,7 @@ export async function runHost(hostArguments: readonly string[]): Promise<number>
   }
   const { launch } = launchReading;
   const launchedRecord: HostRecord = { ...claimedRecord, hostCodeVersion: launch.hostCodeVersion, socketPath: launch.socketPath };
-  const eventLog = createEventLogWriter(files.eventLogPath);
+  const eventLog = createEventLogWriter(files.eventLogPath, stampNow);
   const { session, lingered } = createHostSession();
   const parts = await listenFor(launch, files, eventLog, session);
   if (typeof parts === 'string') {

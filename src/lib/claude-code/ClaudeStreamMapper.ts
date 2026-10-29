@@ -89,19 +89,34 @@ function inputSummaryOf(input: unknown): string {
 function assistantEventsOf(record: StreamRecord): AgentSessionEvent[] {
   const message = recordAt(record, 'message');
   const parentToolUseId = nullableStringAt(record, 'parent_tool_use_id');
+  const contents = recordsAt(message, 'content');
   const turn: AgentSessionEvent = {
     kind:      'assistant-turn',
     messageId: stringAt(message, 'id'),
     parentToolUseId,
     model:     stringAt(message, 'model'),
     usage:     turnUsageOf(recordAt(message, 'usage')),
+    text:      contents.filter((content) => stringAt(content, 'type') === 'text').map((content) => stringAt(content, 'text')).join('\n'),
   };
-  const toolCalls = recordsAt(message, 'content')
+  const toolCalls = contents
     .filter((content) => stringAt(content, 'type') === 'tool_use')
     .map((content): AgentSessionEvent => ({
-      kind: 'tool-call', toolName: stringAt(content, 'name'), inputSummary: inputSummaryOf(fieldOf(content, 'input')), parentToolUseId
+      kind:         'tool-call',
+      toolUseId:    stringAt(content, 'id'),
+      toolName:     stringAt(content, 'name'),
+      inputSummary: inputSummaryOf(fieldOf(content, 'input')),
+      parentToolUseId,
     }));
   return [turn, ...toolCalls];
+}
+
+function toolResultEventsOf(record: StreamRecord): AgentSessionEvent[] {
+  const parentToolUseId = nullableStringAt(record, 'parent_tool_use_id');
+  return recordsAt(recordAt(record, 'message'), 'content')
+    .filter((content) => stringAt(content, 'type') === 'tool_result')
+    .map((content): AgentSessionEvent => ({
+      kind: 'tool-result', toolUseId: stringAt(content, 'tool_use_id'), parentToolUseId, isError: fieldOf(content, 'is_error') === true
+    }));
 }
 
 function questionOf(question: StreamRecord): AgentQuestion {
@@ -179,6 +194,7 @@ function resultEventsOf(record: StreamRecord): AgentSessionEvent[] {
 const EVENTS_OF_RECORD_TYPE: Readonly<Record<string, (record: StreamRecord) => AgentSessionEvent[]>> = {
   system:           startedEventsOf,
   assistant:        assistantEventsOf,
+  user:             toolResultEventsOf,
   control_request:  controlRequestEventsOf,
   rate_limit_event: usageWindowEventsOf,
   result:           resultEventsOf,

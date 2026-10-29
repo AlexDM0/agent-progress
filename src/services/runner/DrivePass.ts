@@ -126,6 +126,8 @@ export interface DrivePassRequest {
   onLeaseTakenOver:                  (refusal: unknown) => void;
   /** Called inside the hold after each of its three phases, on the Board being changed; the step a spec reads the order at. */
   afterHoldPhase?:                   (phase: 'relayed-commands' | 'host-events' | 'lifecycle', board: Board) => void;
+  /** After each pass that ran to its end, outside the hold: the Overseer publishes its state to the event stream there. */
+  afterPass?:                        () => void;
 }
 
 /** Derived each pass from the board, git and the runner's state, never stored; later tickets add the other kinds of design section 8.2. */
@@ -782,6 +784,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
       forcedNext = false;
       try {
         await runOnePass(forced);
+        request.afterPass?.();
       } catch (thrown) {
         request.log(`A drive pass failed and waits for the next wake-up: ${thrown instanceof Error ? thrown.message : String(thrown)}`);
       }

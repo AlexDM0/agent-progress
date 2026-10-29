@@ -2,7 +2,7 @@
  * The reported token counts grouped per owner, case-insensitively on the trimmed owner text and shown under its most common spelling,
  * since the owner is free text an orchestrator types; reported rows without an owner are summed apart.
  */
-import type { Task } from '../../../src/lib/tracker-model/@types/Task.ts';
+import type { Task } from '../src/lib/tracker-model/@types/Task.ts';
 
 export interface OwnerTokenTotal {
   owner:  string;

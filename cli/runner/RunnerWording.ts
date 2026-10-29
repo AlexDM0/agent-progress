@@ -250,8 +250,10 @@ export interface RunnerStateReading {
 
 function runnerStateOf(document: unknown): RunnerStateReading | null {
   if (typeof document !== 'object' || document === null) return null;
-  const { runtimeState, notices, handoverWarning } = document as Partial<Record<keyof RunnerStateReading, unknown>>;
-  if (typeof runtimeState !== 'string' || !Array.isArray(notices)) return null;
+  const { overseer, notices } = document as { overseer?: unknown; notices?: unknown };
+  if (typeof overseer !== 'object' || overseer === null || !Array.isArray(notices)) return null;
+  const { state: runtimeState, handoverWarning } = overseer as { state?: unknown; handoverWarning?: unknown };
+  if (typeof runtimeState !== 'string') return null;
   return { runtimeState, notices: notices as RunnerNotice[], handoverWarning: (handoverWarning ?? null) as HandoverFailure | null };
 }
 
