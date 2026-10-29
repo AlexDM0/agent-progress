@@ -293,6 +293,31 @@ describe('a low ticket and the chart', () => {
     expect(progress.tasks).toEqual([]);
     expect(progress.nextTaskId).toBe(1);
   });
+
+  test('a draft abandoned at any priority gets no row, and a clear keeping tickets seeds none for it', () => {
+    for (const priority of [undefined, 'low', 'normal', 'high'] as const) {
+      const { board, progress } = boardFixture({ tickets: [ticketFixture({ id: '003', status: 'draft', ...(priority === undefined ? {} : { priority }) })] });
+      const moved               = board.moveTicket('003', 'abandoned', { checksLegality: true, reason: EXAMPLE_REASON }, FINISHED_AT);
+
+      expect(moved.ticket.frontmatter.task, String(priority)).toBeNull();
+      expect(progress.tasks, String(priority)).toEqual([]);
+      board.clearTracker({ ticketsSurvive: true }, DELIVERED_AT);
+      expect(moved.ticket.frontmatter.task, String(priority)).toBeNull();
+      expect(progress.tasks, String(priority)).toEqual([]);
+    }
+  });
+
+  test('a never-started normal ticket abandoned keeps the row it had, through a clear keeping tickets', () => {
+    const { board, progress } = boardFixture({ tickets: [ticketFixture({ id: '003', priority: 'normal', task: 1 })], tasks: [taskFixture({ id: 1, ticket: '003' })] });
+    const moved               = board.moveTicket('003', 'abandoned', { checksLegality: true, reason: EXAMPLE_REASON }, FINISHED_AT);
+
+    expect(moved.ticket.frontmatter.task).toBe(1);
+    expect(progress.tasks).toHaveLength(1);
+    expect(progress.tasks[0]).toMatchObject({ id: 1, status: 'abandoned' });
+    board.clearTracker({ ticketsSurvive: true }, DELIVERED_AT);
+    expect(progress.tasks).toHaveLength(1);
+    expect(progress.tasks[0]).toMatchObject({ status: 'abandoned', ticket: '003' });
+  });
 });
 
 describe('review bars a move ends', () => {

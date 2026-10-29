@@ -16,8 +16,13 @@ import {
   gitOutputIn,
   removeScratchDirectory
 }                                            from '../../../testing/ScratchWorkspace.ts';
-import { GroupWorktrees }                                            from '../GroupWorktrees.ts';
-import { createMergeSlots, type MergeAgentReading, type MergeSlots } from '../MergeSlots.ts';
+import { GroupWorktrees } from '../GroupWorktrees.ts';
+import {
+  createMergeSlots,
+  type DeclinedCleanup,
+  type MergeAgentReading,
+  type MergeSlots
+} from '../MergeSlots.ts';
 
 export const HARNESS_AT = '2026-10-28T10:00:00+01:00';
 
@@ -39,13 +44,15 @@ export interface HarnessTicket {
 }
 
 export interface MergeSlotsHarness {
-  repository: string;
-  board:      Board;
-  slots:      MergeSlots;
+  repository:       string;
+  board:            Board;
+  slots:            MergeSlots;
   /** The slot phase each hold left on the main line's merge job, in hold order. */
-  phases:     string[];
-  gatedTrees: string[];
-  stopped:    string[];
+  phases:           string[];
+  gatedTrees:       string[];
+  stopped:          string[];
+  /** Every removal git declined after a refresh or a release, as the Overseer was told. */
+  declinedCleanups: DeclinedCleanup[];
   settings:    {
     gateOutcome:   GateOutcome;
     reading:       MergeAgentReading;
@@ -95,6 +102,7 @@ export function createMergeSlotsHarness(tickets: readonly HarnessTicket[], limit
   const phases: string[] = [];
   const gatedTrees: string[] = [];
   const stopped: string[] = [];
+  const declinedCleanups: DeclinedCleanup[] = [];
   const settings: MergeSlotsHarness['settings'] = {
     gateOutcome: 'passed', reading: { calls: 0, report: undefined }, hostIsLive: false, refDeniesHold: true, beforeGate: () => undefined,
   };
@@ -132,7 +140,8 @@ export function createMergeSlotsHarness(tickets: readonly HarnessTicket[], limit
       }],
       context: ''
     }),
-    dispatchIsStopped: () => false,
+    dispatchIsStopped:     () => false,
+    reportDeclinedCleanup: (declined) => declinedCleanups.push(declined),
   });
   return {
     repository,
@@ -141,6 +150,7 @@ export function createMergeSlotsHarness(tickets: readonly HarnessTicket[], limit
     phases,
     gatedTrees,
     stopped,
+    declinedCleanups,
     settings,
     worktreeOf,
     tipOf:      (branch) => gitOutputIn(repository, ['rev-parse', `refs/heads/${branch}`]),

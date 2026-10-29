@@ -34,26 +34,32 @@ import {
   type HandoverSchedule,
   type HandoverStep,
   type HandoverStepRun,
+  type RebindOutcome,
   RunnerHandover
 } from '../../src/services/runner/RunnerHandover.ts';
-import { RunnerLease, type RunnerLeaseAcquisition, type RunnerLeaseRecord }                   from '../../src/services/runner/RunnerLease.ts';
-import type { RunnerPortChoice }                                                              from '../../src/services/runner/RunnerPort.ts';
-import { RunnerServer, type RunnerServer as StartedServer }                                   from '../../src/services/runner/RunnerServer.ts';
-import { registerWithTheMonitor, type MonitorRegistrationRequest }                            from '../../src/services/tracker/MonitorRegistration.ts';
-import { requireProgressFile }                                                                from '../../src/services/tracker/TrackerReader.ts';
-import type { Workspace }                                                                     from '../../src/services/tracker/Workspace.ts';
-import { environmentCopy }                                                                    from '../../src/shared/Environment.ts';
-import { OperationRefusal }                                                                   from '../../src/shared/OperationRefusal.ts';
-import { PRODUCT_NAMES }                                                                      from '../../src/shared/constants/ProductNames.ts';
-import { HANDOVER_READY_INTERVAL_MILLISECONDS, HANDOVER_READY_TRIES, HANDOVER_RELEASE_TRIES } from '../../src/shared/constants/RunnerLimits.ts';
-import type { CommandContext }                                                                from '../CommandContext.ts';
-import { requireCurrentInstall }                                                              from '../InstallVersionCheck.ts';
-import { openTrackerForWriting }                                                              from '../OpenTrackerForWriting.ts';
-import { CLAUDE_MANAGED_BLOCK_MARKERS }                                                       from '../adoption/constants/ClaudeManagedBlockMarkers.ts';
-import type { ArgumentParser }                                                                from '../arguments/ArgumentParser.ts';
-import { INSTALL_VERSION }                                                                    from '../constants/InstallVersion.ts';
-import { OutputUtil }                                                                         from '../utils/OutputUtil.ts';
-import { RunnerWording }                                                                      from './RunnerWording.ts';
+import { RunnerLease, type RunnerLeaseAcquisition, type RunnerLeaseRecord } from '../../src/services/runner/RunnerLease.ts';
+import type { RunnerPortChoice }                                            from '../../src/services/runner/RunnerPort.ts';
+import { RunnerServer, type RunnerServer as StartedServer }                 from '../../src/services/runner/RunnerServer.ts';
+import { registerWithTheMonitor, type MonitorRegistrationRequest }          from '../../src/services/tracker/MonitorRegistration.ts';
+import { requireProgressFile }                                              from '../../src/services/tracker/TrackerReader.ts';
+import type { Workspace }                                                   from '../../src/services/tracker/Workspace.ts';
+import { environmentCopy }                                                  from '../../src/shared/Environment.ts';
+import { OperationRefusal }                                                 from '../../src/shared/OperationRefusal.ts';
+import { PRODUCT_NAMES }                                                    from '../../src/shared/constants/ProductNames.ts';
+import {
+  HANDOVER_READY_INTERVAL_MILLISECONDS,
+  HANDOVER_READY_TRIES,
+  HANDOVER_REBIND_TRIES,
+  HANDOVER_RELEASE_TRIES
+} from '../../src/shared/constants/RunnerLimits.ts';
+import type { CommandContext }          from '../CommandContext.ts';
+import { requireCurrentInstall }        from '../InstallVersionCheck.ts';
+import { openTrackerForWriting }        from '../OpenTrackerForWriting.ts';
+import { CLAUDE_MANAGED_BLOCK_MARKERS } from '../adoption/constants/ClaudeManagedBlockMarkers.ts';
+import type { ArgumentParser }          from '../arguments/ArgumentParser.ts';
+import { INSTALL_VERSION }              from '../constants/InstallVersion.ts';
+import { OutputUtil }                   from '../utils/OutputUtil.ts';
+import { RunnerWording }                from './RunnerWording.ts';
 
 export interface ForegroundRunRequest {
   commandArguments: ArgumentParser;
@@ -401,9 +407,8 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
     log('Released the board to the successor.');
   }
 
-  async function handOver(serving: Serving): Promise<HandoverOutcome> {
+  async function handOver(serving: Serving, successor: ProcessIdentity | null): Promise<HandoverOutcome> {
     log(`Handing the board over to the code on disk (lease ${serving.generation}).`);
-    const successor = spawnSuccessor(context, workspace, files, serving.generation, serving.server.port);
     return await RunnerHandover.handOver({
       handoverFilePath:     RunnerHandover.handoverFilePathOf(files.runnerDirectory, serving.generation),
       successor,
@@ -418,6 +423,20 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
     handoverWarning = failure;
     log(`The handover failed at ${failure.step}: ${failure.error}. This runner keeps driving.`);
     await openTrackerForWriting(request.commandArguments, context, (change) => change.board.recordRunnerHandoverFailed(failure, change.at));
+  }
+
+  /** A taken-back board whose port never came free: the failure, naming the port, is logged and recorded before the runner exits 1. */
+  async function lostPortRefusal(port: number, rebound: Exclude<RebindOutcome<Serving>, { verdict: 'bound' }>): Promise<OperationRefusal> {
+    const cause = rebound.verdict === 'successor-live' ? 'the killed successor was still live' : rebound.error;
+    const failure: HandoverFailure = {
+      successorCodeVersion: CodeVersion.onDisk(),
+      step:                 'bind-port',
+      error:                `port ${port} could not be bound again within ${HANDOVER_REBIND_TRIES} tries: ${cause}`,
+    };
+    handoverWarning = failure;
+    log(`Taking the board back failed: ${failure.error}. This runner exits with no runner on the board.`);
+    await openTrackerForWriting(request.commandArguments, context, (change) => change.board.recordRunnerHandoverFailed(failure, change.at));
+    return new OperationRefusal('refused', { kind: 'runner-handover-failed', ...failure, url: null });
   }
 
   /** Proves the new code, waits for the release, then serves; a failure is left in the handover file and the process exits 1. */
@@ -467,7 +486,8 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
   for (;;) {
     const end = await serving.lifetime.ended;
     if (end.kind === 'restart') {
-      const outcome = await handOver(serving);
+      const successor = spawnSuccessor(context, workspace, files, serving.generation, serving.server.port);
+      const outcome = await handOver(serving, successor);
       if (outcome.verdict === 'handed-over') {
         log(`Handed the board over to code ${outcome.successorCodeVersion} at ${outcome.url} under lease ${outcome.generation}; exiting.`);
         serving.lifetime.stopListening();
@@ -486,7 +506,15 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
       serving.lifetime.stopListening();
       const failedGeneration = serving.generation + 1;
       const takeBack = (record: RunnerLeaseRecord) => RunnerLease.acquireAbove(files.runnerDirectory, record, failedGeneration);
-      serving = await startServing({ kind: 'given', port: serving.server.port }, takeBack, () => undefined);
+      const { port } = serving.server;
+      const rebound = await RunnerHandover.rebindAfterTakeBack({
+        successor,
+        tries:                HANDOVER_REBIND_TRIES,
+        intervalMilliseconds: HANDOVER_READY_INTERVAL_MILLISECONDS,
+        bind:                 () => startServing({ kind: 'given', port }, takeBack, () => undefined),
+      });
+      if (rebound.verdict !== 'bound') throw await lostPortRefusal(port, rebound);
+      serving = rebound.bound;
       handingOver = false;
       continue;
     }

@@ -33,6 +33,9 @@ export const HANDOVER_READY_INTERVAL_MILLISECONDS = 250;
 /** How many times, at the same interval, a successor waits for `released` and the old runner then waits for the successor to serve. */
 export const HANDOVER_RELEASE_TRIES = 240;
 
+/** How many times, at the same interval, an old runner taking a handover back waits for its killed successor to be gone and binds its port. */
+export const HANDOVER_REBIND_TRIES = 40;
+
 /** How many times, at the same interval, `run restart` and `update` look for a handover's outcome: every wait of it end to end. */
 export const HANDOVER_OUTCOME_TRIES = HANDOVER_READY_TRIES + HANDOVER_RELEASE_TRIES + HANDOVER_RELEASE_TRIES;
 

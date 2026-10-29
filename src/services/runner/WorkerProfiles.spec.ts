@@ -118,6 +118,31 @@ describe('a builder\'s profile', () => {
   });
 });
 
+describe('a resolver\'s profile', () => {
+  const profile = profileOf('resolver', ['registry.example.com']);
+
+  test('denies writes to the target branches\' refs and everything else a builder\'s denies', () => {
+    expect(profile.deniedWritableRoots).toContain('/example/repository/.git/refs/heads/main');
+    expect(profile.deniedWritableRoots).toContain('/example/repository/.git/refs/heads/group-example');
+    expect(profile.deniedWritableRoots).toEqual(profileOf('builder').deniedWritableRoots);
+    expect(profile.deniedReadableRoots).toEqual(profileOf('builder').deniedReadableRoots);
+  });
+
+  test('signs its commit as a builder does', () => {
+    const signingFacts: SandboxFacts = { ...FACTS, commitSigning: { kind: 'agent-sockets', sockets: ['/home/alex-example/.gnupg/S.gpg-agent'] } };
+    expect(profileOf('resolver', [], signingFacts).commitSigning).toEqual(profileOf('builder', [], signingFacts).commitSigning);
+  });
+
+  test('never asks and reaches no network whatever the ticket\'s line, committing with the git verbs and none of the toolchain', () => {
+    expect(profile).toMatchObject({
+      askUser: false, skills: false, bashNetworkDomains: [], webNetworkDomains: 'none', networkDomainGuard: null
+    });
+    expect(profile.allowedCommandPrefixes).toEqual(expect.arrayContaining([['git', 'add'], ['git', 'commit']]));
+    expect(profile.allowedCommandPrefixes).not.toContainEqual(['bun']);
+    expect(profile.deniedCommandPrefixes).toEqual(profileOf('builder').deniedCommandPrefixes);
+  });
+});
+
 describe('the network line', () => {
   test('becomes the Bash allowed domains and the WebFetch domains of a builder', () => {
     const profile = profileOf('builder', ['registry.example.com', 'docs.example.org']);

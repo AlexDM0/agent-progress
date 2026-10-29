@@ -379,6 +379,26 @@ describeWhenGitIsPresent('a group\'s slot in its own worktree', () => {
     expect(Bun.spawnSync(['git', 'rev-parse', '--verify', '--quiet', 'refs/heads/group-example'], { cwd: harness.repository }).exitCode).not.toBe(0);
   });
 
+  test('a group branch given a commit main lacks before its release lands is kept, and git\'s branch -d refusal is reported', async () => {
+    harness = createMergeSlotsHarness([
+      {
+        id: '010', group: 'example', status: 'reviewed', change: ['cart.ts', 'export const cart = 1;\n']
+      },
+      {
+        id: '012', group: 'example', releasesGroup: true, dependsOn: ['010'], change: ['release.ts', 'export const release = 1;\n']
+      },
+    ]);
+    const current = harness;
+    current.settings.beforeGate = () => commitFile(groupWorktree(current), 'late.ts', 'export const late = 1;\n');
+
+    await harness.slots.sweep();
+
+    expect(kindsLogged(harness, 'merge-landed').map((record) => (record['fields'] as { kind: string }).kind)).toEqual(['landed']);
+    expect(harness.declinedCleanups).toEqual([{ cleanup: 'release', groupBranch: 'group-example', reason: expect.stringContaining('branch -d') }]);
+    expect(harness.declinedCleanups[0]?.reason).toContain('not fully merged');
+    expect(harness.tipOf('group-example')).not.toBe('');
+  });
+
   test('a release whose branch lacks the group\'s tip is refused before its merge-in, so main and the bundle stay put', async () => {
     harness = createMergeSlotsHarness([
       {

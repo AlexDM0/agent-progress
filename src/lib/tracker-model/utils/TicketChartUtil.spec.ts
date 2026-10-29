@@ -1,5 +1,6 @@
 /**
- * Where a ticket stands on the chart. What callers rely on: only a low ticket never started, pending or abandoned, has no row to be given;
+ * Where a ticket stands on the chart. What callers rely on: only a draft, a low ticket never started while pending, and any ticket abandoned
+ * before it was ever started (an abandoned draft) have no row to be given;
  * the two stored row names; and the row a ticket is seeded as after `clear`, drawn from its own stamps.
  */
 import { describe, expect, test } from 'bun:test';
@@ -56,8 +57,16 @@ describe('ticketStaysOffTheChart', () => {
     expect(ticketStaysOffTheChart(frontmatterFixture({ priority: 'low', status: 'reviewed' }))).toBe(false);
   });
 
-  test('a normal or high ticket, or one that names no priority, is always on the chart once out of draft', () => {
-    for (const status of TICKET_STATUSES.filter((candidate) => candidate !== 'draft')) {
+  test('a ticket abandoned before it was ever started, as a draft is, stays off the chart at every priority', () => {
+    for (const priority of [undefined, 'low', 'normal', 'high'] as const) {
+      const frontmatter = frontmatterFixture({ status: 'abandoned', ...(priority === undefined ? {} : { priority }) });
+      expect(ticketStaysOffTheChart(frontmatter), String(priority)).toBe(true);
+      expect(ticketStaysOffTheChart({ ...frontmatter, started: STARTED_AT }), String(priority)).toBe(false);
+    }
+  });
+
+  test('a normal or high ticket, or one that names no priority, is otherwise always on the chart once out of draft', () => {
+    for (const status of TICKET_STATUSES.filter((candidate) => candidate !== 'draft' && candidate !== 'abandoned')) {
       expect(ticketStaysOffTheChart(frontmatterFixture({ status })), status).toBe(false);
       expect(ticketStaysOffTheChart(frontmatterFixture({ status, priority: 'normal' })), status).toBe(false);
       expect(ticketStaysOffTheChart(frontmatterFixture({ status, priority: 'high' })), status).toBe(false);
