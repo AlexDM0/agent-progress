@@ -274,6 +274,8 @@ function observe(request: DrivePassRequest, jobLaunchContext: JobLaunchContext):
         || JobResumption.instanceSessionStarted(jobFolder, job.hostInstance, request.agentAdapter),
     };
   });
+  // Also before relay folders: a `result` closing an Assistant's turn must not be seen before the move it queued ahead of it.
+  const assistantReadings = AssistantSession.readingsOf(workspace.trackerDirectory, request.agentAdapter, { jobs: () => jobs });
   const pendingRequests = RelayInbox.pendingRequestsOf(workspace.rootDirectory, jobs);
   const targets         = [...new Set([request.mainLine, ...jobs.flatMap((job) => (job.target === null ? [] : [job.target]))])].sort();
   const targetTips      = Object.fromEntries(targets.map((target) => [target, targetTipOf(workspace.rootDirectory, target)]));
@@ -293,9 +295,9 @@ function observe(request: DrivePassRequest, jobLaunchContext: JobLaunchContext):
     buildJobs,
     ticketIdsTouchingAgentConfig,
     usageMarker,
-    assistantReadings: AssistantSession.readingsOf(workspace.trackerDirectory, request.agentAdapter, { jobs: () => jobs }),
-    fingerprint:       fingerprintOf(workspace, hosts, pendingRequests, targetTips, buildJobs, usageMarker, ticketIdsTouchingAgentConfig),
-    trackerId:         progress.trackerId,
+    assistantReadings,
+    fingerprint: fingerprintOf(workspace, hosts, pendingRequests, targetTips, buildJobs, usageMarker, ticketIdsTouchingAgentConfig),
+    trackerId:   progress.trackerId,
   };
 }
 
