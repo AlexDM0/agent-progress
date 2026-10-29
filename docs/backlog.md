@@ -30,3 +30,15 @@ README no longer repeats. Agreed: edit both SVGs, then re-render the PNGs with
 
 Not started because the SVGs are hand-drawn, not generated: each wants a design pass rather than a
 rerun of the script.
+
+## Out of the code-owned lifecycle epic
+
+Two things the `code-lifecycle` epic deliberately leaves out. Neither is deferred work waiting its turn here: each
+returns only as a new decision of the owner's.
+
+- **The Copilot worker adapter**, with `workers --vendor` and the `workerVendor` board key. The runner launches
+  Claude Code and nothing else, behind the launcher port in `src/lib/agent-launch/` with one Claude Code adapter, so
+  a second vendor is a new adapter behind that seam rather than a change to the lifecycle.
+- **A cross-project overview.** Each repository's runner serves only its own board; the view across boards stays
+  agent-dashboard's, a separate project reading the monitor registry and each runner's API, so agent-progress keeps
+  no machine-wide process.

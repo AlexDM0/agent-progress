@@ -204,16 +204,17 @@ command's own no-tracker refusal is unchanged.
 ## The two skills
 
 `init` and `update` copy two Claude Code skills from this checkout's `skills/` into the tracked
-repository's git-ignored `.claude/skills/` (item 8 of [Adopting a repository](#adopting-a-repository)),
-split by audience: filing a ticket in any session, and running the board in one. No agent that builds
-or reviews a ticket loads either: what it needs is in its brief (item 2) and the worker definition
-(item 7), and both briefs cite `.agent-progress/reference.md` for the formats and exit codes. Neither
-skill lists commands: `agent-progress help` is the reference, and both name it and the reference file.
+repository's git-ignored `.claude/skills/` (item 5 of [Adopting a repository](#adopting-a-repository)),
+split by audience: filing a ticket in any session, and working alongside the runner in one. No job the
+runner launches loads either, except the product owner, whose first line runs `agent-po`: every other role
+reads its prompt under `resources/prompts/`, and the Assistant `.agent-progress/assistant-brief.md`.
+Neither skill lists commands: `agent-progress help` is the reference, and both name it and
+`.agent-progress/reference.md`.
 
 | skill | folder | loads | holds |
 |---|---|---|---|
-| `agent-po` | `skills/agent-po/` | by itself in any session asked to file, report or track a ticket, bug or research question, or with `/agent-po`; and by the orchestrator for its intake | the whole filing procedure: fact-finding through subagents with capped reports, filing without questions and writing each assumption into Wanted (grilling only when the user asks, through a `grill-me` skill when the session has one, else the host's question tool), the split by mechanism, the epic check, merging or ordering tickets that share files or a mechanism, the body with its numbered Acceptance and `## Brief`, and the filing mechanics. It never dispatches, claims, starts or releases a ticket. |
-| `agent-progress-orchestrate` | `skills/agent-progress-orchestrate/` | only with `/agent-progress-orchestrate` or when asked to run the board | what is the orchestrator's alone: grilling before every filing, asking every question with the question tool, judging a finding's severity, asking for the go, launching, relaunching and resuming the dispatcher, triaging low-priority tickets. It loads `agent-po` for intake and repeats none of it. |
+| `agent-po` | `skills/agent-po/` | by itself in any session asked to file, report or track a ticket, bug or research question, or with `/agent-po`; by the wrapper for its intake; and as the first line of a runner's product-owner job | PO intake: fact-finding through subagents with capped reports in a resumable filing draft, filing without questions and writing each assumption into Wanted (grilling only when the user asks), the split by mechanism, merging drafts or ordering them against unclaimed tickets, a group's real dependencies, the epic check, the body with its numbered Acceptance and `## Brief`, which `ticket ready` requires, and the mechanics. Every ticket is filed as a draft. In the user's own session it ends with one question, "Ready these to build?", and runs `ticket ready <ids>` on the yes; under the runner it closes intake with `intake close` and never readies. |
+| `agent-progress-orchestrate` | `skills/agent-progress-orchestrate/` | only with `/agent-progress-orchestrate` or when asked to run the board | the interactive wrapper around a running runner, the Overseer: it reads `run status --json` and `status --json`, starts the runner on the user's go with `run --detach` and gives its URL, turns the user's intent into commands (ready, holds, priorities, pause and resume, `decide`, job messages, wind-downs and stops, `intake`), loads `agent-po` for intake, and may wait on `await` to put a new decision to the user. It never drives the lifecycle and never handles an incident: those are the runner's and its Assistant's. |
 
 ## Commands
 
@@ -716,9 +717,10 @@ Through its relay it may make only the moves its delivered incidents allow, each
 triage only the findings a delivered `findings-delivered` incident lists: filing, priorities, waivers, settings and
 answers to User's decisions are refused.
 
-### Under a job: the relay
+### Under a job: the Hatch
 
-A session the runner launched cannot write the data folder. With both `AGENT_PROGRESS_JOB_ID` and
+A session the runner launched cannot write the data folder; its relay folder, the Hatch, is its one way to change
+the board. With both `AGENT_PROGRESS_JOB_ID` and
 `AGENT_PROGRESS_RELAY_DIRECTORY` set (named from the build's environment prefix), the read-only verbs (`help`,
 `status`, `usage`, `review-stats`, `ticket show|list`, `epic show|list`, `draft show|list`, `hook bash-domains`,
 `version`, `run status`, `decisions`, `incidents`, `merges`, `jobs`, `job show|attach`) run directly. A verb of
@@ -733,16 +735,22 @@ role: the runner takes both from the relay folder's job record, refuses a reques
 --needs-user` exists only for a worker's relayed low finding and is refused `worker-filing-flag` anywhere else. An
 admitted filing is stamped with two more frontmatter keys: `filedByJob`, the filing job's id, and on a worker's
 finding `findingRoute`, `orchestrator` or `user`, which only `ticket triage` changes afterwards; any other route
-makes the file malformed. Neither is in the installed reference's ticket format, nor are the relay's exit codes,
-until the group's install version bump; the exit-code table below holds them then.
+makes the file malformed. Both are in the ticket file's format, and the relay's outputs in the exit-code table below.
+
+**Findings.** A builder's, reviewer's or merge-gate fixer's finding is that relayed low draft. With route
+`orchestrator` it waits for the ticket it was found on: in the hold that delivers or abandons that ticket the runner
+opens one `findings-delivered` incident listing its findings, and the Assistant readies each with `ticket ready <id>
+--incident <I>` or triages it to User with `ticket triage <id> --incident <I>`, the incident's default triaging what
+is still listed. With route `user` it waits in User's Low-priority triage list until User readies, edits or abandons
+it.
 
 ## Exit codes
 
 | code | meaning | examples |
 |---|---|---|
-| **0** | done, or there was nothing to do | also a store write whose page could not be rebuilt (reported on standard error, with an error banner on the page when only its script failed; `render` rebuilds it), a release whose cleanup git declined, every `hook subagent-stop` run as `init` and `update` wire it (a wrong event word, an extra argument or an option is refused at exit 1), every `hook pre-tool-use` run it lets through, every `hook post-tool-use` run, and every `hook bash-domains` run, a deny answered through its JSON |
-| **1** | a refusal the caller can act on | no tracker here (run `{{program}} init`), no such task or ticket, a missing `--reason`, a move the matrix refuses, a claim with no free slot, lowering a ticket that is not pending, a `network` domain that is not public, a release refused (`main-moved` among them), installed files of another install version (every command but `init`, `update`, `help`, `status` and `hook subagent-stop`, which reports it at exit 0; run `{{program}} update`), `init` or `update` over files a newer {{program}} installed or a `version.json` naming a retired agent host, `hook` given a wrong event word, an extra argument or an option, and an unknown command |
-| **2** | a state the tool will not repair on its own | an unreadable or malformed progress file, an unreadable or malformed log.jsonl, a malformed ticket file a command names, a lock it could not take, a release reason `git-failed` or `tracker-failed`, `hook pre-tool-use` blocking a subagent's change to the check command (exit 2 is how Claude Code reads a block), and any error the tool did not expect |
+| **0** | done, or there was nothing to do | also a store write whose page could not be rebuilt (reported on standard error, with an error banner on the page when only its script failed; `render` rebuilds it), a command under a job that printed `done`, `nothing-to-do` or `queued` with its request id, `run stop` with no live runner, every `hook session-start` run, and every `hook bash-domains` run, a deny answered through its JSON |
+| **1** | a refusal the caller can act on | no tracker here (run `{{program}} init`), no such task or ticket, a missing `--reason`, a move the matrix refuses, readying a ticket that is not a draft or lacks a numbered Acceptance or a Brief (`incomplete-tickets`), lowering a ticket that is not a draft or pending, a `network` domain that is not public, `ticket deliver --by-hand` while a runner is live (`runner-owns-the-lifecycle`), an answer to a decision already answered, a move its incident does not allow, a command under a job that its role may not run or that the runner refused, a second runner (`runner-already-running`), installed files of another install version (every command but `init`, `update`, `help`, `status`, `version`, `run status` and `run stop`; run `{{program}} update`), `init` or `update` over files a newer {{program}} installed or a `version.json` naming a retired agent host, `hook` given a wrong event word, an extra argument or an option, and an unknown command |
+| **2** | a state the tool will not repair on its own | an unreadable or malformed progress file, an unreadable or malformed log.jsonl, a malformed ticket file a command names, a lock it could not take, a runner whose lease a newer generation took (`lease-taken-over`), and any error the tool did not expect |
 
 Check the code rather than the wording.
 
@@ -1296,6 +1304,8 @@ releasesGroup: true
 dependsOn: "001, 002"
 epics: "loyalty-programme, checkout-redesign"
 network: "api.example.com, cdn.example.com"
+filedByJob: "J12"
+findingRoute: "orchestrator"
 claimedBodyHash: "5f1d3c9a0b7e2468"
 task: 17
 owner: Alex Example
@@ -1319,8 +1329,10 @@ owner: Alex Example
 | `network` | only once set | the public domains the ticket's agents may reach, written `"api.example.com, cdn.example.com"` and read like `epics`, lower case, in order. A domain that is not public makes the file malformed. Set it with `ticket add --network` or `ticket network`, only while the ticket is a draft or pending; `--clear` removes it. |
 | `introducedBy` | only once named, on a bug | one ticket id, written `"005"`, read like a `dependsOn` entry: the delivered ticket whose change introduced the bug. Set it with `ticket add --introduced-by` or `ticket introduced-by`, which refuse a ticket that is not a bug and a cause that is missing, the ticket itself or not delivered; an empty cause removes it. |
 | `foundInReview` | only once named | one ticket id, written and read like `introducedBy`: the ticket whose review found this one. Set only at filing, with `ticket add --found-in-review`, which refuses a ticket that does not exist. |
-| `claimedBodyHash` | once the ticket was claimed or started | the content hash (64-bit FNV-1a, 16 hex digits) of the body as it read at the last `ticket claim` or `ticket start`; absent on a ticket never claimed. `ticket show` compares it with a hash of the body now to say whether the body changed since the claim. |
-| `task` | always | the row's id as an unquoted integer, or `null` for a low ticket never started; a quoted `task` makes the file malformed |
+| `filedByJob` | only on a ticket a job filed | the id of the job whose relay filed it, written `"J12"`, stamped by the runner from the relay folder's job, never from the request |
+| `findingRoute` | only on a worker's finding | who settles the low draft a builder, reviewer or merge-gate fixer filed: `orchestrator`, the Assistant once the ticket it was found on is delivered, or `user`, User's Low-priority triage list, for a finding filed with `--needs-user`. Only `ticket triage` changes it afterwards, to `user`; any other value makes the file malformed. |
+| `claimedBodyHash` | once the ticket was started | the content hash (64-bit FNV-1a, 16 hex digits) of the body as it read when the ticket last moved to in-progress; absent on a ticket never started. `ticket show` compares it with a hash of the body now to say whether the body changed since. |
+| `task` | always | the row's id as an unquoted integer, or `null` for a draft, and for a low ticket filed before install version 17 and never started; a quoted `task` makes the file malformed |
 
 **The frontmatter is a deliberately small YAML subset.** One `key: value` per line, split at the
 first `': '`, so `title: Fix: the thing` keeps its second colon; `key:` alone is an empty value.
@@ -1345,18 +1357,23 @@ The body is preserved byte for byte from the ticket template (Report, Wanted, Ac
 `--body` or `--body-file`; an empty body falls back to the template. `ticket edit` replaces the body or
 appends to it and leaves the frontmatter's bytes as they are, a hand-written layout included; `ticket edit --title`
 rewrites only the `title` line, and a first body line still reading `# <id> — <old title>`, never the file name; on a
-claimed ticket whose body is unchanged since the claim it moves `claimedBodyHash` along. Past `pending`, `ticket edit`
-needs `--force`. A malformed ticket file is listed as ignored rather than failing `status` or `render`. A new ticket
-id is one past the highest of every file name, every parsed id and every ticket a row names;
+started ticket whose body is unchanged since its build started it moves `claimedBodyHash` along. Past `pending`,
+`ticket edit` needs `--force`. A malformed ticket file is listed as ignored rather than failing `status` or `render`.
+A new ticket id is one past the highest of every file name, every parsed id and every ticket a row names;
 gaps are tolerated, never filled.
 
 **The Acceptance is numbered.** Each item of `## Acceptance` starts a line with `A1.`, `A2.`, …, its
 continuation lines beneath it up to a blank line or the next item; an item is never renumbered and its
 number never reused. `A3. Waived: <reason>` marks an item the user waived. A review's `## Review` holds
 one line per item, bulleted or not: `A2 holds — <evidence>`, `A2 does not hold — <gap>` or
-`A3 waived — <reason>`. `release` reads only the latest `## Review`, a heading inside a code fence not
+`A3 waived — <reason>`. A landing reads only the latest `## Review`, a heading inside a code fence not
 counting as one: an item is accounted for when the Acceptance marks it waived, or when that Review has a
 `holds` or `waived` line for it and no `does not hold` one.
+
+**The Brief is the builder's brief.** A ticket's `## Brief` is what its builder reads as its scope and contract,
+beside the Report, Wanted and Acceptance. `ticket ready` refuses a draft whose `## Acceptance` holds no numbered
+item (`acceptance-unnumbered`) or that has no `## Brief` holding a non-blank line (`brief-missing`), so every
+ticket that builds carries both.
 
 ### `.agent-progress/epics/checkout-redesign.md`
 
@@ -1428,40 +1445,35 @@ tracker that never opened a draft has no `filing-cabinet/` folder and no `nextDr
 
 ## Ticket moves and their rows
 
-The **from** column is the matrix the named verbs enforce; `ticket status <id> <status>` skips it.
-**its row** is the status stored; **pill** is what that row then reads on the chart.
+The **from** column is the matrix the named verbs enforce and the runner's moves keep; `ticket status <id> <status>`
+skips it. **its row** is the status stored; **pill** is what that row then reads on the chart.
 
-| command | from | ticket status | its row | pill | stamps written | log line |
+| move | from | ticket status | its row | pill | stamps written | log line |
 |---|---|---|---|---|---|---|
 | `ticket add` | — | draft | none, at any priority | `Draft` | `filed` | `Ticket #003 filed: <title>` |
 | `ticket ready` | draft, for every id named, each with a numbered `## Acceptance` and a `## Brief` holding a non-blank line | pending | created `pending`, at any priority | `To do` | — | `Ticket #003 ready to build`, one per ticket |
-| `ticket start` | pending, in-review | in-progress | `in-progress`, its claim's `agent` key dropped; created for a low ticket | `In progress` | `started` if null; the row's end cleared | `Ticket #003 started` |
-| `ticket claim` | pending, in-review, and for every id named: not held, no review bar in progress, dependencies settled (one on a ticket in the same claim is, and with `--after` the in-review predecessor of its release bundle), and a free slot | in-progress | `in-progress`, created for a low ticket; with `--owner`, `--note` and the claim's `agent` key | `In progress` | as `start` | `Ticket #003 started`, one per ticket |
-| `ticket finish` | in-progress | in-review | `in-review` | `Awaiting review`; `Reviewing` while a review bar of the ticket is in progress | `finished` if null | `Ticket #003 in review` |
-| `ticket finish --start-review` | in-progress | in-review | `in-review`, plus an in-progress review row | `Reviewing` | as `finish` | as `finish`, and `Review row #18 started: <name>` |
-| `ticket rereview` | in-review | in-review, unchanged | `re-review`, one round up from 2 | `Reviewing (round 2)` | `updated` only | `Ticket #003 in review, round 2` |
-| `ticket rereview --start-review` | in-review | in-review, unchanged | as `rereview`, plus an in-progress review row; the round before's row delivered | `Reviewing (round 2)` | as `rereview` | as `rereview`, then `Closed the review row #18, delivered: <name>` and `Review row #19 started: <name>` |
-| `ticket approve` | in-progress, in-review | reviewed | `reviewed`, its `reviewed` stamp set if unset | `Awaiting merge` | `finished` if null | `Ticket #003 reviewed` |
-| `ticket deliver` | reviewed | delivered | `delivered` | `Done` | `delivered` if null | `Ticket #003 delivered` |
-| `release` | in-progress, in-review; reviewed for a release bundle's ticket released with its group's release ticket | reviewed (unless already), then delivered | `delivered`; in-progress review rows delivered | `Done` | `finished` and `delivered` if null; `branch`, `commit` | the reviewed and delivered lines, and one per review row closed |
-| `ticket abandon` | anything but delivered, abandoned | abandoned | `abandoned`; none created for a low ticket without one | `Abandoned` | `abandonedAt`, always; the row's end if it had started | `Ticket #003 abandoned: <reason>` |
+| a build job prepares its worktree, or a review finds an item that does not hold | pending; in-review | in-progress | `in-progress`; created for a ticket without one | `In progress` | `started` if null; the row's end cleared | `Ticket #003 started` |
+| a build job passes its gate | in-progress | in-review | `in-review` | `Awaiting review`; `Reviewing` while a review bar of the ticket is in progress | `finished` if null | `Ticket #003 in review` |
+| a review job launches | in-review | in-review, unchanged | `in-review`, plus an in-progress review row for the job's round | `Reviewing` | — | `Review row #18 started: <name>` |
+| a group ticket's merge lands on its group branch | in-review | reviewed | `reviewed`, its `reviewed` stamp set if unset | `Awaiting merge` | `finished` if null | `Ticket #003 reviewed` |
+| a merge lands on the main line | in-review; reviewed for a release bundle's ticket landed with its group's release ticket | reviewed (unless already), then delivered | `delivered`; in-progress review rows delivered | `Done` | `finished` and `delivered` if null; `branch`, `commit` | the reviewed and delivered lines, and one per review row closed |
+| `ticket deliver --by-hand` | anything but draft, while no runner is live and no job of the ticket is | delivered | `delivered` | `Done` | `delivered` if null | `Ticket #003 delivered` |
+| `ticket abandon` | anything but delivered, abandoned | abandoned | `abandoned`; none created for a ticket without one | `Abandoned` | `abandonedAt`, always; the row's end if it had started | `Ticket #003 abandoned: <reason>` |
 | `ticket reopen` | anything but draft and pending; a group's release ticket only while no other release ticket of its group is open | pending | `pending`, its start, end, `reviewed` and `reviewRound` cleared | `To do` | all four cleared; `reason` dropped | `Ticket #003 reopened` |
 | `ticket priority … low` | draft, pending | unchanged | kept | — | — | `Ticket #003 priority normal → low` |
-| `ticket priority` from low | any | unchanged | created when it has none: `pending` while the ticket is pending, else seeded from its stamps | per status | — | `Ticket #003 priority low → normal` |
+| `ticket priority` from low | any | unchanged | created when it has none and is not a draft: `pending` while the ticket is pending, else seeded from its stamps | per status | — | `Ticket #003 priority low → normal` |
 
 A closing stamp is written only while it is still null, while `abandonedAt` is written every time:
 re-entering a status is a correction, abandoning twice is deciding twice. Every move to a status other
-than in-review — `start`, `approve`, `deliver`, `abandon`, `reopen`, `status` — finishes and delivers the
-ticket's in-progress review bar, with one log line each; a plain `ticket rereview` leaves it in progress.
+than in-review finishes and delivers the ticket's in-progress review bar, with one log line each.
 
 Filing the row is the first entry in its `history`, and each move appends another, so the detail
 panel can say when the row reached each state and how long it sat there — the wait
 between `To do` and `In progress` being the queue time. `task update --status` is not appended: it
 corrects a row rather than moving it.
 
-Moving a ticket to the status it already has is refused and logs nothing; `ticket rereview` is the one
-exception, since every review pass is still review and the round is counted on the row. A ticket
-taken straight to in-review, reviewed or delivered with `ticket status`, having never started, gets a row
-whose start is stamped along with its end — an end without a start would draw from the origin of the chart. There
-is no `paused` ticket status: `task pause <id>` records a waiting row and the ticket stays where it
-was.
+Moving a ticket to the status it already has is refused and logs nothing; a review round is counted on its review
+bar, never as a move. A ticket taken straight to in-review, reviewed or delivered with `ticket status`, having
+never started, gets a row whose start is stamped along with its end — an end without a start would draw from the
+origin of the chart. There is no `paused` ticket status: `task pause <id>` records a waiting row and the ticket
+stays where it was.

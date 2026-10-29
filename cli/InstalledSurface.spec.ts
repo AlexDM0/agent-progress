@@ -249,9 +249,9 @@ describeWhenGitIsPresent('the guard, planted in memory', () => {
   );
 
   test('a flag the brief names, renamed in the CLI and the brief without a bump, fails naming the rule', () => {
-    const renamedCli = cliSurfaceWithHelpReplaced('--owner', '--assignee');
-    const renamedTexts = withTextReplaced(INSTALLED_TEXTS, 'resources/templates/Reference.md', '--owner', '--assignee');
-    expect(sentencesWith(renamedTexts, renamedCli)).toContain(`the files installed at INSTALL_VERSION ${INSTALL_VERSION} name the flag --owner, which the CLI `
+    const renamedCli = cliSurfaceWithHelpReplaced('--depends-on', '--waits-on');
+    const renamedTexts = withTextReplaced(INSTALLED_TEXTS, 'resources/templates/Reference.md', '--depends-on', '--waits-on');
+    expect(sentencesWith(renamedTexts, renamedCli)).toContain(`the files installed at INSTALL_VERSION ${INSTALL_VERSION} name the flag --depends-on, which the CLI `
       + 'no longer has: an installed file became wrong, so bump INSTALL_VERSION in cli/constants/InstallVersion.ts (CLAUDE.md, Generated and installed files) '
       + 'and freeze the new version\'s surface');
   });

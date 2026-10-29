@@ -297,9 +297,13 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 
 ### Skills
 
-- Two skills, split by audience. `skills/agent-po/` loads in any session asked to file a ticket and holds the whole
-  filing procedure; it loads no other skill and never dispatches. `skills/agent-progress-orchestrate/` is the one
-  session running the board, loads `agent-po` for intake, and holds only what is the orchestrator's.
+- Two skills, split by audience. `skills/agent-po/` is PO intake: it loads in any session asked to file a ticket and
+  as a runner product-owner job's first line, holds the whole filing procedure, files every ticket as a draft with a
+  numbered Acceptance and a `## Brief`, and readies drafts only on User's yes in User's own session (under the runner
+  it closes intake instead); it loads no other skill. `skills/agent-progress-orchestrate/` is the interactive wrapper
+  around a running Overseer (`run`): it reads its state, starts it on User's go, turns User's intent into verbs,
+  loads `agent-po` for intake and may wait on `await`; it never drives the lifecycle or handles an incident, which
+  are the Overseer's and its Assistant's.
 - No agent preloads a skill, and nothing installs a brief or worker definition: a runner's roles read their runtime
   prompts under `resources/prompts/`, and the Assistant its installed `.agent-progress/assistant-brief.md`.
 - No skill file lists commands: `agent-progress help` is the reference. Both skills name it and
@@ -308,8 +312,10 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - A `SKILL.md` `description` is its trigger, naming the words a user says. Skill files cite only commands, paths in
   a tracked repository, or files beside them; naming a skill the host may offer, such as `grill-me`, is no citation.
 - `skills/agent-progress-orchestrate/` repeats nothing from `skills/agent-po/`, writes rules as instructions,
-  and never restates what the dispatcher decides. Call budgets and the rework threshold are `DISPATCH_PROTOCOL`
+  and never restates what the Overseer decides. Call budgets and the rework threshold are `DISPATCH_PROTOCOL`
   (`src/shared/constants/DispatchProtocol.ts`), stated by the dispatcher's prompts and never by an installed file.
+  Neither skill nor the installed guidance names a by-hand lifecycle verb but `ticket deliver --by-hand`, held by
+  `cli/HelpText.spec.ts`.
 - `init` and `update` copy both into the tracked repository's git-ignored `.claude/skills/`, never globally, and
   remove the files a retired skill folder installed there with its `.gitignore` entry; `setup.sh` only removes the
   `~/.claude/skills/` symlinks into this checkout that earlier versions made.
@@ -329,12 +335,13 @@ resources/           files read at runtime: the page template, template.html, an
                      ticket add fill
 src/lib/             package-grade building blocks, one folder each
 src/adapters/        the boundary: every stored format read, written and mapped, and the wording
-src/services/        the tracker and render services
+src/services/        the tracker and render services, and the Overseer's: runner/ (`run`, its DrivePass and its
+                     API), lifecycle/ (gates, verification, merges, landings) and control/ (the control contract)
 src/shared/          app-specific code several parts use
 src/testing/         test-only helpers several parts use
-skills/              the two skills, one folder each, named after the skill: agent-po/, which a session asked
-                     to file a ticket loads, and agent-progress-orchestrate/, for the one session running the
-                     board
+skills/              the two skills, one folder each, named after the skill: agent-po/, PO intake, which a
+                     session asked to file a ticket and a runner's product-owner job load, and
+                     agent-progress-orchestrate/, the interactive wrapper around a running Overseer
 docs/                the CLI reference, development notes, the backlog, the migration plan, README images
 .readme-graphics/    the scripts and demo board that retake the README images; its build/ is git-ignored
 ```
