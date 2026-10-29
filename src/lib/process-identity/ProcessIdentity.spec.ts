@@ -1,8 +1,9 @@
 /**
  * Process identity against real processes. What matters is that an identity read under one timezone equals one read under another (the
  * stamp is read in UTC whatever the caller's TZ), that equality catches a reused pid and a changed boot, that a gone process has no
- * identity, and that a process group is signalled only while its leader is still the recorded process: the group kill stops a child
- * that a kill of the leader alone leaves running.
+ * identity, and that a process group is signalled only while its leader is still the recorded process or, once the leader is gone, while
+ * it has members none of which predates the recorded leader: the group kill stops a child that a kill of the leader alone leaves running,
+ * and an empty or recycled group is never signalled.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -118,14 +119,39 @@ describe('comparing identities', () => {
 });
 
 describe('signalling a process group', () => {
-  test('killing the leader alone leaves its child running, and the group is then no longer signalled', async () => {
+  test('killing the leader alone leaves its child running, and the group kill still reaches what is left of it', async () => {
     const { leader, childProcessId } = await spawnGroupWithLingeringChild();
     const leaderIdentity = identityOrThrow(leader.pid);
     try {
       process.kill(leader.pid, 'SIGKILL');
       await leader.exited;
       expect(processIsGone(childProcessId)).toBe(false);
-      expect(signalProcessGroup(leaderIdentity, 'SIGKILL')).toEqual({ verdict: 'leader-gone' });
+      expect(signalProcessGroup(leaderIdentity, 'SIGKILL')).toEqual({ verdict: 'signalled' });
+      expect(await waitUntilGone(childProcessId)).toBe(true);
+    } finally {
+      if (!processIsGone(childProcessId)) process.kill(childProcessId, 'SIGKILL');
+    }
+  });
+
+  test('a group whose leader is gone and which has no members left is not signalled', async () => {
+    const { leader, childProcessId } = await spawnGroupWithLingeringChild();
+    const leaderIdentity = identityOrThrow(leader.pid);
+    process.kill(-leader.pid, 'SIGKILL');
+    await leader.exited;
+    expect(await waitUntilGone(childProcessId)).toBe(true);
+    expect(signalProcessGroup(leaderIdentity, 'SIGKILL')).toEqual({ verdict: 'group-gone' });
+  });
+
+  test.each([
+    ['a member started before the recorded leader', (identity: ProcessIdentity) => ({ ...identity, startEpochSeconds: identity.startEpochSeconds + 60 })],
+    ['the recorded leader started in another boot', (identity: ProcessIdentity) => ({ ...identity, bootIdentity: 'EXAMPLE-BOOT-OTHER' })],
+  ])('a leaderless group is read as recycled and not signalled when %s', async (_case, recordOf) => {
+    const { leader, childProcessId } = await spawnGroupWithLingeringChild();
+    const recordedLeader = recordOf(identityOrThrow(leader.pid));
+    try {
+      process.kill(leader.pid, 'SIGKILL');
+      await leader.exited;
+      expect(signalProcessGroup(recordedLeader, 'SIGKILL')).toEqual({ verdict: 'group-recycled' });
       expect(processIsGone(childProcessId)).toBe(false);
     } finally {
       process.kill(childProcessId, 'SIGKILL');
