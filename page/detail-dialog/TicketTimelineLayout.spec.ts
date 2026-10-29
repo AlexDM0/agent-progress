@@ -325,7 +325,7 @@ describe('the shapes the design did not show', () => {
   test('a low ticket without a row has no build row and says why', () => {
     const timeline = ticketTimelineOf(inputFor(exampleTicket('073', { priority: 'low', filed: at('12:00') }), []));
     expect(timeline.buildTimeText).toBe('no row');
-    expect(timeline.note).toBe('Not started. Low priority: it gets a build row once it is started, after every normal and high ticket is done.');
+    expect(timeline.note).toBe('Not started. Low priority: it gets a build row once it is started, and is ordered last among the ready tickets.');
   });
 
   test('a ticket abandoned before it started ends at its abandonment and is not waiting', () => {

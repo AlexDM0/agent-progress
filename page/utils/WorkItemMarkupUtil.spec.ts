@@ -128,7 +128,7 @@ describe('stateBadgeMarkup', () => {
 describe('priorityMarkMarkup', () => {
   test('marks a low ticket with the quiet badge', () => {
     expect(priorityMarkMarkup(exampleTicket({ priority: 'low' }))).toBe('<span class="ap-ticket-badge" data-priority="low" title="Low priority: no row on the chart'
-      + ' until it is started, and worked once every normal and high ticket is done">low</span>');
+      + ' until it is started, and ordered last among the ready tickets">low</span>');
   });
 
   test('leaves a normal ticket unmarked', () => {

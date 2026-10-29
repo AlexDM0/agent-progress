@@ -17,7 +17,7 @@ const EXPECTED_GROUP_TITLE_FOR_PRIORITY: Readonly<Record<TicketPriority, string>
 });
 
 const EXPECTED_MARK_TITLE_FOR_PRIORITY: Readonly<Record<'low' | 'high', string>> = Object.freeze({
-  low:  'Low priority: no row on the chart until it is started, and worked once every normal and high ticket is done',
+  low:  'Low priority: no row on the chart until it is started, and ordered last among the ready tickets',
   high: 'High priority: dispatched before every normal ticket',
 });
 

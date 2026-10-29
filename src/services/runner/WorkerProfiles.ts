@@ -2,7 +2,7 @@
  * The per-job confinement of design section 4.4, as the launcher port's neutral `WorkerProfile`: what a builder's sandbox and permission
  * rules deny and allow, from the paths and refs as they stand at launch. The adapter renders it; the process-host sandbox reuses its denies.
  */
-import { existsSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import {
   basename,
   isAbsolute,
@@ -243,11 +243,13 @@ function sandboxFactsOf(request: SandboxFactsRequest): SandboxFacts {
   const branches = gitLinesOf(request.repositoryRoot, ['for-each-ref', '--format=%(refname:short)', 'refs/heads/']);
   const ownAdminFolder = adminFolderOf(request.worktree);
   const worktreesFolder = join(commonGitDirectory, 'worktrees');
+  // `--absolute-git-dir` answers with symlinks resolved, so a repository reached through one is matched on its real path too.
+  const worktreesFolderPrefixes = [worktreesFolder, existsSync(worktreesFolder) ? realpathSync(worktreesFolder) : worktreesFolder].map((folder) => `${folder}/`);
   const adminFolders = gitLinesOf(request.repositoryRoot, ['worktree', 'list', '--porcelain'])
     .filter((line) => line.startsWith('worktree '))
     .map((line) => line.slice('worktree '.length))
     .flatMap((path) => adminFolderOf(path) ?? [])
-    .filter((folder) => folder.startsWith(`${worktreesFolder}/`) && folder !== ownAdminFolder)
+    .filter((folder) => worktreesFolderPrefixes.some((prefix) => folder.startsWith(prefix)) && folder !== ownAdminFolder)
     .map((folder) => join(worktreesFolder, basename(folder)));
   return {
     dataFolder:                request.dataFolder,

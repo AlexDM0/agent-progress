@@ -12,8 +12,6 @@ export interface DependencyGraphReaders<Item extends DependencyGraphItem> {
   settlesDependents: (item: Item) => boolean;
   /** Links between items of different primary groups become cross-group links. */
   primaryGroupKeyOf: (item: Item) => string | null;
-  /** An open item left out of the waves is drawn nowhere, yet still holds its dependents back; every open item enters when absent. */
-  entersWaves?:      (item: Item) => boolean;
 }
 
 /** What the dependency views need of a ticket; a `BoardTicket` is one. */
@@ -45,11 +43,10 @@ export interface CrossGroupLink {
 export interface DependencyGraph {
   /** Lowest id first. */
   settledNodeIds:  readonly string[];
-  /** Lowest id first, only those entering the waves: a pending low-priority ticket is in neither list. */
+  /** Lowest id first. */
   openNodeIds:     readonly string[];
   /** Only open nodes have a wave. */
   waveOfNode:      ReadonlyMap<string, number>;
-  /** A wave can be empty, its nodes all waiting on one left out of the waves. */
   waves:           readonly DependencyWave[];
   /** The open nodes in the waves waiting on a node directly or further down the chain, for every node in the graph. */
   heldOfNode:      ReadonlyMap<string, ReadonlySet<string>>;
