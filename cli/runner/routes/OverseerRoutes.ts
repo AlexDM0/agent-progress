@@ -1,9 +1,12 @@
 /**
  * The routes the Overseer's API serves, over the board, its job folders and agent-dashboard's server record: the state and summary read
- * fresh each request, a job's transcript and served files, and the origins allowed to frame the Bridge.
+ * fresh each request, a job's transcript and served files, the origins allowed to frame the Bridge, and the Bridge itself, whose HTML
+ * import is the one place the command surface reaches `bridge/`, by path, for Bun to bundle.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { join }                     from 'node:path';
+
+import bridgePage from '../../../bridge/index.html';
 
 import { BoardStateAssembly }                             from '../../../src/services/runner/BoardState.ts';
 import type { EventBroker }                               from '../../../src/services/runner/EventBroker.ts';
@@ -88,5 +91,6 @@ export function overseerRoutesOf(request: OverseerRouteRequest): RunnerRoutes {
       }
     },
     frameOrigins: () => dashboardFrameOriginsOf(context.homeDirectory),
+    page:         bridgePage,
   };
 }

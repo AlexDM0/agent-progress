@@ -24,7 +24,10 @@ const MECHANISED_RULE_IDS = [
   '@typescript-eslint/consistent-type-imports',
   'id-length',
   '@typescript-eslint/no-magic-numbers',
+  'react-hooks/rules-of-hooks',
 ];
+
+const CONDITIONAL_HOOK = 'import { useState } from \'react\';\n\nexport function View({ on }: { on: boolean }) {\n  if (on) useState(0);\n  return null;\n}\n';
 
 const LINTER = new ESLint({ cwd: repositoryRootOfThisCheckout() });
 
@@ -61,6 +64,13 @@ const PLANTED_VIOLATIONS: readonly PlantedViolation[] = [
   },
   { path: 'cli/Planted.ts', text: 'export const x = \'value\';\n', ruleId: 'id-length' },
   { path: 'page/Planted.ts', text: 'export const scaled = (side: number): number => side * 7;\n', ruleId: '@typescript-eslint/no-magic-numbers' },
+  { path: 'bridge/shell/Planted.tsx', text: 'export const view = <div dangerouslySetInnerHTML={{ __html: \'<b>bold</b>\' }} />;\n', ruleId: 'no-restricted-syntax' },
+  { path: 'bridge/shell/Planted.ts', text: 'export const fill = (element: Element): void => {\n  element.innerHTML = \'<b>bold</b>\';\n};\n', ruleId: 'no-restricted-syntax' },
+  { path: 'bridge/shell/Planted.ts', text: 'export const swap = (element: Element): void => {\n  element.outerHTML = \'<b>bold</b>\';\n};\n', ruleId: 'no-restricted-syntax' },
+  { path: 'bridge/shell/Planted.ts', text: 'export const stored = localStorage.getItem(\'key\');\n', ruleId: 'no-restricted-globals' },
+  { path: 'bridge/shell/Planted.ts', text: 'export const storage = window.sessionStorage;\n', ruleId: 'no-restricted-properties' },
+  { path: 'bridge/shell/Planted.tsx', text: CONDITIONAL_HOOK, ruleId: 'react-hooks/rules-of-hooks' },
+  { path: 'bridge/shell/Planted.tsx', text: 'export const scaled = (side: number): number => side * 7;\n', ruleId: '@typescript-eslint/no-magic-numbers' },
 ];
 
 const PLANTED_EXCEPTIONS: readonly (readonly [string, string, string])[] = [
@@ -78,6 +88,9 @@ const PLANTED_EXCEPTIONS: readonly (readonly [string, string, string])[] = [
   ['arithmetic identities', 'page/Planted.ts', 'export const share = (part: number): string => (part * 100 / 2 - 1).toString(16);\n'],
   ['a number in a constants folder', 'page/constants/Planted.ts', 'export const scaled = (side: number): number => side * 7;\n'],
   ['a number in a spec', 'page/Planted.spec.ts', 'export const scaled = (side: number): number => side * 7;\n'],
+  ['the Bridge\'s preference store reaching storage', 'bridge/preferences/PreferenceStore.ts', 'export const storage = (): Storage => window.localStorage;\n'],
+  ['a number in a DOM spec', 'bridge/shell/Planted.dom.tsx', 'export const scaled = (side: number): number => side * 7;\n'],
+  ['a component rendering a value as text', 'bridge/shell/Planted.tsx', 'export const view = (text: string) => <p className="bridge-empty">{text}</p>;\n'],
 ];
 
 describe('the mechanised CLAUDE.md rules in eslint.config.js', () => {

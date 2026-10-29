@@ -1,0 +1,84 @@
+/*
+ * The Bridge's design tokens, designer-owned and never generated: every colour, every state's colours (one set per ticket status, `draft`
+ * included, plus the Overseer's runtime states), spacing, type, motion and both themes. `board.css` reads only these custom properties;
+ * no colour is written anywhere else.
+ */
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+
+  --radius-control: 6px;
+  --radius-panel:   10px;
+
+  --fs-micro: 11px;
+  --fs-small: 12px;
+  --fs-body:  13px;
+  --fs-title: 15px;
+  --fs-page:  20px;
+  --font-ui:   -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --motion-fast: 120ms;
+  --ease-out:    cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg:               oklch(0.9875 0.002 265);
+  --surface:          oklch(1 0 0);
+  --surface-selected: oklch(0.93 0.008 262);
+  --ink:              oklch(0.24 0.02 265);
+  --ink-muted:        oklch(0.52 0.02 265);
+  --line:             oklch(0.90 0.012 240);
+  --line-strong:      oklch(0.81 0.018 240);
+  --link:             oklch(0.48 0.13 255);
+  --link-tint:        oklch(0.48 0.13 255 / 0.10);
+  --status-live:      oklch(0.62 0.17 150);
+  --warn-tint:        oklch(0.955 0.035 15);
+  --warn-edge:        oklch(0.78 0.11 15);
+  --warn-ink:         oklch(0.47 0.15 15);
+  --err-tint:         oklch(0.962 0.035 25);
+  --err-edge:         oklch(0.80 0.10 25);
+  --err-ink:          oklch(0.46 0.14 25);
+  --shadow-control:   oklch(0 0 0 / 0.08);
+
+  --state-draft-tint:       oklch(0.965 0.020 95);  --state-draft-ink:       oklch(0.45 0.080 90);  --state-draft-edge:       oklch(0.84 0.060 92);
+  --state-pending-tint:     oklch(0.960 0.006 265); --state-pending-ink:     oklch(0.46 0.020 265); --state-pending-edge:     oklch(0.86 0.010 265);
+  --state-in-progress-tint: oklch(0.9625 0.0465 73.5); --state-in-progress-ink: oklch(0.46 0.1125 62.5); --state-in-progress-edge: oklch(0.83 0.105 70);
+  --state-in-review-tint:   oklch(0.957 0.028 205); --state-in-review-ink:   oklch(0.43 0.090 205); --state-in-review-edge:   oklch(0.80 0.070 205);
+  --state-reviewed-tint:    oklch(0.957 0.033 155); --state-reviewed-ink:    oklch(0.42 0.095 155); --state-reviewed-edge:    oklch(0.79 0.080 155);
+  --state-delivered-tint:   oklch(0.957 0.030 300); --state-delivered-ink:   oklch(0.44 0.125 300); --state-delivered-edge:   oklch(0.80 0.075 300);
+  --state-abandoned-tint:   oklch(0.955 0.004 265); --state-abandoned-ink:   oklch(0.50 0.008 265); --state-abandoned-edge:   oklch(0.885 0.006 265);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg:               oklch(0.185 0.012 265);
+  --surface:          oklch(0.232 0.014 265);
+  --surface-selected: oklch(0.25 0.022 262);
+  --ink:              oklch(0.94 0.008 265);
+  --ink-muted:        oklch(0.70 0.015 265);
+  --line:             oklch(0.33 0.014 265);
+  --line-strong:      oklch(0.42 0.016 265);
+  --link:             oklch(0.78 0.10 255);
+  --link-tint:        oklch(0.78 0.10 255 / 0.14);
+  --status-live:      oklch(0.76 0.18 150);
+  --warn-tint:        oklch(0.31 0.055 80);
+  --warn-edge:        oklch(0.50 0.09 80);
+  --warn-ink:         oklch(0.92 0.06 85);
+  --err-tint:         oklch(0.30 0.06 25);
+  --err-edge:         oklch(0.50 0.11 25);
+  --err-ink:          oklch(0.92 0.05 25);
+  --shadow-control:   oklch(0 0 0 / 0.3);
+
+  --state-draft-tint:       oklch(0.31 0.045 92);  --state-draft-ink:       oklch(0.90 0.060 95);  --state-draft-edge:       oklch(0.50 0.070 92);
+  --state-pending-tint:     oklch(0.27 0.008 265); --state-pending-ink:     oklch(0.80 0.012 265); --state-pending-edge:     oklch(0.40 0.010 265);
+  --state-in-progress-tint: oklch(0.33 0.065 80);  --state-in-progress-ink: oklch(0.91 0.075 85);  --state-in-progress-edge: oklch(0.52 0.10 80);
+  --state-in-review-tint:   oklch(0.32 0.050 205); --state-in-review-ink:   oklch(0.89 0.055 205); --state-in-review-edge:   oklch(0.50 0.075 205);
+  --state-reviewed-tint:    oklch(0.32 0.055 155); --state-reviewed-ink:    oklch(0.89 0.060 155); --state-reviewed-edge:    oklch(0.50 0.080 155);
+  --state-delivered-tint:   oklch(0.32 0.060 300); --state-delivered-ink:   oklch(0.89 0.060 300); --state-delivered-edge:   oklch(0.51 0.095 300);
+  --state-abandoned-tint:   oklch(0.28 0.006 265); --state-abandoned-ink:   oklch(0.72 0.010 265); --state-abandoned-edge:   oklch(0.38 0.008 265);
+}

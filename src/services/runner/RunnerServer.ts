@@ -6,6 +6,8 @@
  */
 import { timingSafeEqual } from 'node:crypto';
 
+import type { HTMLBundle } from 'bun';
+
 import { HOST_PROTOCOL_VERSION }                        from '../../lib/agent-host/constants/HostProtocol.ts';
 import type { TranscriptEntry }                         from '../../shared/@types/TranscriptEntry.ts';
 import { PRODUCT_NAMES }                                from '../../shared/constants/ProductNames.ts';
@@ -48,6 +50,11 @@ export interface RunnerRoutes {
   jobFileText:  (jobId: string, fileName: string) => string | null;
   /** The origins allowed to frame the Bridge, read per response: agent-dashboard's. */
   frameOrigins: () => readonly string[];
+  /**
+   * The Bridge's HTML import, served at `GET /` by Bun's own route with `development: false`: Bun bundles and minifies its scripts and
+   * stylesheets on the first request and serves the chunks itself. Absent, `GET /` is a 404 like any unknown path.
+   */
+  page?:        HTMLBundle;
 }
 
 export interface RunnerServerRequest {
@@ -230,9 +237,11 @@ function start(serverRequest: RunnerServerRequest): RunnerServer {
   const openStreams: OpenStreams = new Set();
   const identity: RunnerIdentity = { application: PRODUCT_NAMES.PROGRAM, ...serverRequest.identity, hostProtocolVersion: HOST_PROTOCOL_VERSION };
   const server = RunnerPort.bindFirstFree(serverRequest.portChoice, (port) => Bun.serve({
-    hostname:  LOOPBACK_ADDRESS,
+    hostname:    LOOPBACK_ADDRESS,
     port,
-    reusePort: false,
+    reusePort:   false,
+    development: false,
+    ...(routes.page === undefined ? {} : { routes: { '/': routes.page } }),
     async fetch(request, ownServer) {
       const boundPort = ownServer.port ?? port;
       const frameOrigins = routes.frameOrigins();

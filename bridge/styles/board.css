@@ -1,0 +1,148 @@
+/*
+ * Every class the Bridge's components emit, designer-owned and never generated; colours come only from `tokens.css`.
+ * `bridge/StyleContract.spec.ts` holds this file and the components equal both ways: an unstyled class and a dead rule both fail.
+ *
+ * Containers
+ *   #bridge-root            the React root
+ *   .bridge-shell           the banners, the header and the selected view's panel
+ *   .bridge-header          project, Overseer state, Pause or Resume, tabs and theme; hidden when [data-embedded="dashboard"]
+ *   .bridge-panel[data-tab] the selected view
+ * Marks
+ *   .bridge-banner          a full-width alert: -unreachable (event stream down), -install (launches held), -error (a render failed)
+ *   .bridge-control         a command button and, beside it, the Overseer's refusal verbatim (.bridge-refusal)
+ *   .bridge-overseer-state[data-state]  serving | held-by-install-change | handing-over | down | connecting
+ */
+
+html:not([data-theme]) body {
+  visibility: hidden;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: var(--fs-body) / 1.45 var(--font-ui);
+}
+
+.bridge-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.bridge-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+[data-embedded="dashboard"] .bridge-header {
+  display: none;
+}
+
+.bridge-project {
+  margin: 0;
+  font-size: var(--fs-page);
+  font-weight: 600;
+}
+
+.bridge-overseer-state {
+  color: var(--ink-muted);
+  font-size: var(--fs-small);
+}
+
+.bridge-overseer-state[data-state="serving"] {
+  color: var(--status-live);
+}
+
+.bridge-overseer-state[data-state="held-by-install-change"],
+.bridge-overseer-state[data-state="down"] {
+  color: var(--warn-ink);
+}
+
+.bridge-tabs {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.bridge-tab {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-control);
+  color: var(--ink-muted);
+  text-decoration: none;
+}
+
+.bridge-tab[aria-current="page"] {
+  background: var(--surface-selected);
+  color: var(--ink);
+}
+
+.bridge-theme {
+  display: flex;
+  margin-left: auto;
+  gap: var(--space-1);
+}
+
+.bridge-theme-choice,
+.bridge-button {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-out);
+}
+
+.bridge-theme-choice[aria-checked="true"] {
+  background: var(--link-tint);
+  border-color: var(--link);
+}
+
+.bridge-button:disabled {
+  color: var(--ink-muted);
+  cursor: not-allowed;
+}
+
+.bridge-control {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.bridge-refusal {
+  color: var(--err-ink);
+  font-size: var(--fs-small);
+}
+
+.bridge-banner {
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--warn-edge);
+  background: var(--warn-tint);
+  color: var(--warn-ink);
+}
+
+.bridge-banner-unreachable,
+.bridge-banner-install {
+  font-weight: 600;
+}
+
+.bridge-banner-error {
+  border-color: var(--err-edge);
+  background: var(--err-tint);
+  color: var(--err-ink);
+}
+
+.bridge-panel {
+  flex: 1;
+  padding: var(--space-4);
+}
+
+.bridge-empty {
+  color: var(--ink-muted);
+}

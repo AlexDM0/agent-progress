@@ -127,6 +127,22 @@ describe('the Overseer API on a scratch board', () => {
     expect(summary['summaryVersion']).toBe(1);
   }, API_TEST_TIMEOUT_MILLISECONDS);
 
+  test('GET / serves the Bridge from its HTML import, its bundled script and stylesheet served beside it', async () => {
+    const runner = startAgentProgress(['run', '--port', '0'], { currentDirectory: repositoryDirectory, homeDirectory });
+    const url = await runner.firstOutputLine ?? '';
+    const page = await fetch(url);
+    expect(page.status).toBe(200);
+    expect(page.headers.get('content-type')).toContain('text/html');
+    const html = await page.text();
+    expect(html).toContain('<div id="bridge-root"></div>');
+    const scriptPath = /<script[^>]+src="([^"]+)"/.exec(html)?.[1] ?? '';
+    const stylesheetPath = /<link[^>]+rel="stylesheet"[^>]+href="([^"]+)"/.exec(html)?.[1] ?? /<link[^>]+href="([^"]+)"[^>]+rel="stylesheet"/.exec(html)?.[1] ?? '';
+    const script = await fetch(new URL(scriptPath, url));
+    expect(script.status).toBe(200);
+    expect(await script.text()).toContain('bridge-root');
+    expect((await fetch(new URL(stylesheetPath, url))).status).toBe(200);
+  }, API_TEST_TIMEOUT_MILLISECONDS);
+
   test('an event-stream client sees a board event for a ticket move and a job event for each state the build job is published in', async () => {
     const runner = startAgentProgress(['run', '--port', '0'], { currentDirectory: repositoryDirectory, homeDirectory });
     const url = await runner.firstOutputLine ?? '';

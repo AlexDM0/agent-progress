@@ -1,0 +1,17 @@
+{
+  // DOM library, React's JSX and no Bun or Node types, so a Bridge module reaching for `Bun.file` or `node:fs` fails to compile.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": []
+  },
+  // The Bridge's own modules plus the shared files it reaches, named one by one.
+  "include": [
+    "./**/*.ts",
+    "./**/*.tsx",
+    "../src/shared/constants/ProductNames.ts"
+  ],
+  // The specs, the DOM specs and the test-only helpers stay out, so this program's surface is the Bridge that ships.
+  "exclude": ["./**/*.spec.ts", "./**/*.dom.tsx", "./testing/**"]
+}

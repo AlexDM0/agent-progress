@@ -1,6 +1,7 @@
 /**
- * The `include` lists of `page/tsconfig.json` and `dispatcher/tsconfig.json`, held against what each project reaches: every file outside its
- * folder that its shipping modules import, directly or through each other, and, for the page, every shipping module of the tracker model,
+ * The `include` lists of `page/tsconfig.json`, `dispatcher/tsconfig.json` and `bridge/tsconfig.json`, held against what each project
+ * reaches: every file outside its folder that its shipping modules import, directly or through each other, and, for the page, every
+ * shipping module of the tracker model,
  * which it compiles whole to prove the package DOM-safe. The comparison is exact both ways, so a missing entry
  * and one nothing needs both fail. The scan first proves it found each project's reach, and each form is planted once in memory to prove the
  * guard still names it.
@@ -18,26 +19,37 @@ interface IncludeListContract {
   readonly projectFolder:       string;
   /** Folders whose every shipping module the project compiles, reached or not. */
   readonly wholePackageFolders: readonly string[];
+  /** The globs naming the project's own folder, one per source extension. */
+  readonly ownFolderGlobs:      readonly string[];
 }
 
 const PAGE_PROJECT: IncludeListContract = {
   configurationPath:   'page/tsconfig.json',
   projectFolder:       'page/',
   wholePackageFolders: ['src/lib/tracker-model/'],
+  ownFolderGlobs:      ['./**/*.ts'],
 };
 
 const DISPATCHER_PROJECT: IncludeListContract = {
   configurationPath:   'dispatcher/tsconfig.json',
   projectFolder:       'dispatcher/',
   wholePackageFolders: [],
+  ownFolderGlobs:      ['./**/*.ts'],
 };
 
-const PROJECTS = [PAGE_PROJECT, DISPATCHER_PROJECT];
+const BRIDGE_PROJECT: IncludeListContract = {
+  configurationPath:   'bridge/tsconfig.json',
+  projectFolder:       'bridge/',
+  wholePackageFolders: [],
+  ownFolderGlobs:      ['./**/*.ts', './**/*.tsx'],
+};
+
+const PROJECTS = [PAGE_PROJECT, DISPATCHER_PROJECT, BRIDGE_PROJECT];
 
 const SCANNER = createImportGraphScanner(repositoryRootOfThisCheckout());
 
 function isShippingModule(path: string): boolean {
-  return !path.endsWith('.spec.ts') && !path.split('/').includes('testing');
+  return !path.endsWith('.spec.ts') && !path.endsWith('.dom.tsx') && !path.split('/').includes('testing');
 }
 
 function includeEntriesOf(configurationPath: string): readonly string[] {
@@ -76,13 +88,14 @@ describe('the scan itself', () => {
     expect(pageReach.filter((path) => !path.startsWith('src/lib/tracker-model/')).length, 'page files reached outside the model').toBeGreaterThanOrEqual(4);
     expect(pageReach.filter((path) => path.startsWith('src/lib/tracker-model/')).length, 'tracker model modules').toBeGreaterThanOrEqual(20);
     expect(dispatcherReach.length, 'dispatcher files reached').toBeGreaterThanOrEqual(5);
+    expect([...reachedPathsOf(BRIDGE_PROJECT, SCANNER.graph)], 'Bridge files reached').toContain('src/shared/constants/ProductNames.ts');
   });
 
-  test('it reads each include list, and each names its own folder by one glob', () => {
+  test('it reads each include list, and each names its own folder by one glob per source extension', () => {
     for (const project of PROJECTS) {
       const includeEntries = includeEntriesOf(project.configurationPath);
-      expect(listedPathsOf(project, includeEntries).length, project.configurationPath).toBeGreaterThanOrEqual(5);
-      expect(includeEntries.filter((entry) => entry.includes('*')), project.configurationPath).toEqual(['./**/*.ts']);
+      expect(listedPathsOf(project, includeEntries).length, project.configurationPath).toBeGreaterThanOrEqual(1);
+      expect(includeEntries.filter((entry) => entry.includes('*')), project.configurationPath).toEqual([...project.ownFolderGlobs]);
     }
   });
 });
