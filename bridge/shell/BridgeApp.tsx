@@ -13,14 +13,17 @@ import {
 
 import type { BoardStateDocument, OverseerIdentity }                                     from '../@types/BoardStateDocument.ts';
 import type { ConversationBoardDocument }                                                from '../@types/ConversationDocuments.ts';
+import type { KanbanBoardState }                                                         from '../@types/KanbanBoardState.ts';
 import type { PreferenceStorage }                                                        from '../@types/PreferenceStorage.ts';
 import type { CommandClient }                                                            from '../api/CommandClient.ts';
 import type { ConnectionState, EventStreamHandlers }                                     from '../api/EventStreamClient.ts';
-import { boardPreferenceStoreOf, sharedPreferenceStoreOf }                               from '../preferences/PreferenceStore.ts';
+import { boardPreferenceStoreOf, sharedPreferenceStoreOf, type PreferenceStore }         from '../preferences/PreferenceStore.ts';
 import { AgentsView, BROWSER_AGENTS_CLOCK, type AgentsClock }                            from '../views/agents/AgentsView.tsx';
 import { AssistantView }                                                                 from '../views/assistant/AssistantView.tsx';
 import type { TranscriptFollower }                                                       from '../views/assistant/TranscriptLog.tsx';
 import { IntakeView }                                                                    from '../views/intake/IntakeView.tsx';
+import { KanbanModel }                                                                   from '../views/kanban/KanbanModel.ts';
+import { KanbanView }                                                                    from '../views/kanban/KanbanView.tsx';
 import { QuestionAlerts, type QuestionNotifier }                                         from '../views/questions/QuestionAlerts.ts';
 import { QuestionsView }                                                                 from '../views/questions/QuestionsView.tsx';
 import { BoardStateUpdate }                                                              from './BoardStateUpdate.ts';
@@ -50,20 +53,26 @@ export interface BridgeServices {
 }
 
 interface SelectedViewProps {
-  readonly tab:           BridgeTab;
-  readonly selectedJobId: string | null;
-  readonly boardState:    BoardStateDocument;
-  readonly services:      BridgeServices;
-  readonly agentsClock:   AgentsClock;
+  readonly tab:              BridgeTab;
+  readonly selectedJobId:    string | null;
+  readonly boardState:       BoardStateDocument;
+  readonly services:         BridgeServices;
+  readonly agentsClock:      AgentsClock;
+  /** `null` when the board carries no page payload the Kanban can read: the tab then shows the counts. */
+  readonly kanbanBoardState: KanbanBoardState | null;
+  readonly boardStore:       PreferenceStore | null;
 }
 
 function SelectedView({
-  tab, selectedJobId, boardState, services, agentsClock
+  tab, selectedJobId, boardState, services, agentsClock, kanbanBoardState, boardStore
 }: SelectedViewProps) {
   const conversationBoard = boardState as unknown as ConversationBoardDocument;
   switch (tab) {
     case 'agents':
       return <AgentsView jobs={boardState.jobs} decisions={boardState.decisions} selectedJobId={selectedJobId} clock={agentsClock} />;
+    case 'kanban':
+      if (kanbanBoardState !== null) return <KanbanView boardState={kanbanBoardState} boardStore={boardStore} />;
+      break;
     case 'questions':
       return <QuestionsView board={conversationBoard} notifier={services.questionNotifier} />;
     case 'assistant':
@@ -71,8 +80,9 @@ function SelectedView({
     case 'intake':
       return <IntakeView board={conversationBoard} followTranscript={services.followTranscript} />;
     default:
-      return <p className="bridge-empty">{`${boardState.jobs.length} jobs, ${boardState.decisions.length} decisions, ${boardState.incidents.length} incidents.`}</p>;
+      break;
   }
+  return <p className="bridge-empty">{`${boardState.jobs.length} jobs, ${boardState.decisions.length} decisions, ${boardState.incidents.length} incidents.`}</p>;
 }
 
 export interface BridgeAppProps {
@@ -159,6 +169,7 @@ export function BridgeApp({ services }: BridgeAppProps) {
   }), [streamIsDown, installIsHeld, services]);
 
   const agentsClock = useMemo((): AgentsClock => ({ now: services.now, everySecond: BROWSER_AGENTS_CLOCK.everySecond }), [services]);
+  const kanbanBoardState = useMemo(() => KanbanModel.kanbanBoardStateOf(boardState), [boardState]);
 
   const chooseTheme = (choice: ThemeChoice): void => {
     ThemeBootstrap.chooseTheme(sharedStore, choice);
@@ -183,7 +194,17 @@ export function BridgeApp({ services }: BridgeAppProps) {
         <main className="bridge-panel" data-tab={route.tab}>
           {boardState === null
             ? <p className="bridge-empty">Waiting for the Overseer&apos;s first board.</p>
-            : <SelectedView tab={route.tab} selectedJobId={route.item} boardState={boardState} services={services} agentsClock={agentsClock} />}
+            : (
+              <SelectedView
+                tab={route.tab}
+                selectedJobId={route.item}
+                boardState={boardState}
+                services={services}
+                agentsClock={agentsClock}
+                kanbanBoardState={kanbanBoardState}
+                boardStore={boardStore}
+              />
+            )}
         </main>
       </div>
     </ControlSurroundingsContext.Provider>

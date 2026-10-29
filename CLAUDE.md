@@ -274,8 +274,13 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - `bridge/styles/tokens.css` holds every colour, state token and theme value; `bridge/styles/board.css` holds every
   class. Both are designer-owned. `bridge/StyleContract.spec.ts` holds both ways that every class a component emits is
   styled and every styled class is emitted; a `className` is a literal the scan can read.
-- React's escaping is the one escape for a value. `eslint.config.js` bans `dangerouslySetInnerHTML` and assigning
-  `innerHTML` or `outerHTML` in `bridge/`; agent-written HTML reaches the DOM only as a sandboxed iframe's `srcdoc`.
+- React's escaping is the one escape for a value, so the static page's `escapeHtml` rule does not reach `bridge/`: no
+  value is escaped by hand, and a pre-escaped one would show its entities. `eslint.config.js` bans
+  `dangerouslySetInnerHTML` and assigning `innerHTML` or `outerHTML` in `bridge/`; agent-written HTML reaches the DOM
+  only as a sandboxed iframe's `srcdoc`.
+- A view is `bridge/views/<view>/`: its component, and its logic in a pure `<View>Model.ts` beside it, specced as a
+  plain `.spec.ts` in the main run; its behaviour is held by `.dom.tsx` specs, never a frozen markup table. A pure
+  page util a view uses moves to `bridge/utils/` (chip parts to `bridge/chips/`) unchanged, with its spec.
 - `bridge/shell/` holds what the entry starts with: the hash router, the theme bootstrap, the embedded channel (theme in
   and Esc out by `postMessage`, only with the framing parent's origin), the banners and the error boundary.
   `bridge/api/` holds the clients of the Overseer's API. Every control is a `CommandButton` posting a

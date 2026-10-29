@@ -13,17 +13,19 @@ export interface CommandButtonProps {
   readonly command:                   ControlCommandBody | null;
   /** Restart and Stop: the Overseer answers them while launches are held for an install change. */
   readonly answeredWhileInstallHeld?: boolean;
+  /** The view's own reason it has nothing to send, such as a multi-select with nothing selected. */
+  readonly hasNothingToSend?:         boolean;
   /** Called once the Overseer applied the command, so a form can clear itself. */
   readonly onApplied?:                () => void;
 }
 
 export function CommandButton({
-  label, command, answeredWhileInstallHeld = false, onApplied
+  label, command, answeredWhileInstallHeld = false, hasNothingToSend = false, onApplied
 }: CommandButtonProps) {
   const { availability, commandClient, onInstallHeld } = useContext(ControlSurroundingsContext);
   const [refusal, setRefusal] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
-  const enabled = ControlAvailabilityUtil.controlIsEnabled(availability, answeredWhileInstallHeld) && !sending && command !== null;
+  const enabled = ControlAvailabilityUtil.controlIsEnabled(availability, answeredWhileInstallHeld) && !sending && !hasNothingToSend && command !== null;
 
   const send = async (): Promise<void> => {
     if (command === null) return;
