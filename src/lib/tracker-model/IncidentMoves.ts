@@ -72,6 +72,23 @@ export class IncidentMoves {
     return { logged: [...handled, ...this.parkUnder(ticketId, incident, wording, at)] };
   }
 
+  /**
+   * `merge abort` on a merge job's incident: handled by the move, and its tickets held `parked:<kind>` with a `parked` decision, as the
+   * kind's default does; the Airlock then aborts the merge of a parked ticket and frees the slot.
+   */
+  abortMerge(incidentId: string, at: string): Logged {
+    const incident = this.input.incidentRules.requireOpenIncident(incidentId);
+    const handled  = this.input.incidentRules.handleIncident(incidentId, 'merge-abort', at).logged;
+    // The decision names the incident's kind, a stored value the page shows as it shows a `ticket park` reason.
+    const wording  = {
+      questions: [{
+        question: incident.kind, header: 'parked', multiSelect: false, options: []
+      }],
+      context: ''
+    };
+    return { logged: [...handled, ...incident.ticketIds.flatMap((ticketId) => this.parkUnder(ticketId, incident, wording, at))] };
+  }
+
   /** `ticket ready` of findings: a draft is readied through the completeness check, a v16 leftover has its `first-run review` hold lifted. */
   readyFindings(ticketIds: readonly string[], readinessGapsOf: (body: string) => readonly ReadinessGap[], at: string): TicketsReadied {
     const leftovers = ticketIds.filter((ticketId) => this.input.records.ticketRecordById(ticketId)?.frontmatter.hold === FIRST_RUN_REVIEW_HOLD);

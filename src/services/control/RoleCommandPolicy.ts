@@ -58,7 +58,7 @@ const PRODUCT_OWNER_OWN_DRAFT_KINDS: ReadonlySet<string> = new Set(['ticket-edit
 const FIELDS_ONLY_THE_RUNNER_DECIDES = ['jobId', 'role', 'admission'] as const;
 
 /** Their `jobId` is the job the move acts on, not the sender's identity. */
-const JOB_TARGETING_KINDS: ReadonlySet<string> = new Set(['job-fresh', 'job-message']);
+const JOB_TARGETING_KINDS: ReadonlySet<string> = new Set(['job-fresh', 'job-message', 'gate-retry', 'merge-fixer', 'merge-abort', 'merge-review', 'merge-land']);
 
 function refused(reason: RoleCommandRefusalReason): RoleCommandVerdict {
   return { verdict: 'refused', reason };

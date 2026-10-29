@@ -53,6 +53,8 @@ export interface MergeSlotsHarness {
   stopped:          string[];
   /** Every removal git declined after a refresh or a release, as the Overseer was told. */
   declinedCleanups: DeclinedCleanup[];
+  /** The facts each merge job's Airlock incident left for the agent it launches, by merge job id. */
+  keptAirlockFacts: Map<string, Readonly<Record<string, string>>>;
   settings:    {
     gateOutcome:   GateOutcome;
     reading:       MergeAgentReading;
@@ -103,6 +105,7 @@ export function createMergeSlotsHarness(tickets: readonly HarnessTicket[], limit
   const gatedTrees: string[] = [];
   const stopped: string[] = [];
   const declinedCleanups: DeclinedCleanup[] = [];
+  const keptAirlockFacts = new Map<string, Readonly<Record<string, string>>>();
   const settings: MergeSlotsHarness['settings'] = {
     gateOutcome: 'passed', reading: { calls: 0, report: undefined }, hostIsLive: false, refDeniesHold: true, beforeGate: () => undefined,
   };
@@ -126,7 +129,7 @@ export function createMergeSlotsHarness(tickets: readonly HarnessTicket[], limit
     gateMergedTree: (_worktreePath, treeId) => {
       gatedTrees.push(treeId);
       settings.beforeGate();
-      return Promise.resolve(settings.gateOutcome);
+      return Promise.resolve({ outcome: settings.gateOutcome, output: 'Example gate output\nexpected 2, received 3' });
     },
     mergeAgentReadingOf: () => settings.reading,
     hostIsLive:          () => settings.hostIsLive,
@@ -140,6 +143,7 @@ export function createMergeSlotsHarness(tickets: readonly HarnessTicket[], limit
       }],
       context: ''
     }),
+    keepAirlockFacts:      (mergeJob, facts) => keptAirlockFacts.set(mergeJob.id, facts),
     dispatchIsStopped:     () => false,
     reportDeclinedCleanup: (declined) => declinedCleanups.push(declined),
   });
@@ -151,6 +155,7 @@ export function createMergeSlotsHarness(tickets: readonly HarnessTicket[], limit
     gatedTrees,
     stopped,
     declinedCleanups,
+    keptAirlockFacts,
     settings,
     worktreeOf,
     tipOf:      (branch) => gitOutputIn(repository, ['rev-parse', `refs/heads/${branch}`]),

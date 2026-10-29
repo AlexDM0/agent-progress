@@ -53,6 +53,7 @@ describe('the command table', () => {
       'dispatcher',
       'draft',
       'epic',
+      'gate',
       'help',
       'hook',
       'incident',
@@ -62,6 +63,7 @@ describe('the command table', () => {
       'job',
       'jobs',
       'log',
+      'merge',
       'merges',
       'open',
       'range',
@@ -77,6 +79,7 @@ describe('the command table', () => {
       'update',
       'usage',
       'version',
+      'worktree',
     ]);
   });
 });

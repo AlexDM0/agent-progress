@@ -281,6 +281,23 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
       return `Job ${detail.jobId} waits on a question for the user; a chat turn would answer it. ${NOTHING_WAS_WRITTEN}`;
     case 'job-is-product-owner':
       return `Job ${detail.jobId} is the user's product-owner session; only the user chats with it. ${NOTHING_WAS_WRITTEN}`;
+    case 'no-open-incident':
+      return `${detail.subject} has no open incident that allows ${detail.move}; it is legal only as an incident's move. ${NOTHING_WAS_WRITTEN}`;
+    case 'several-open-incidents':
+      return `${detail.subject} has several open incidents that allow ${detail.move} (${detail.incidentIds.join(', ')}); name one with --incident. `
+        + NOTHING_WAS_WRITTEN;
+    case 'merge-gate-not-passed':
+      return `No gate passed on the merged tree ${detail.tree === '' ? 'of' : `${detail.tree} of`} job ${detail.jobId}, so it cannot land; `
+        + `review the resolution or abort the merge. ${NOTHING_WAS_WRITTEN}`;
+    case 'job-holds-no-merge-slot':
+      return `Job ${detail.jobId} holds no merge slot. ${NOTHING_WAS_WRITTEN}`;
+    case 'worktree-in-use':
+      return `Job ${detail.jobIds.join(', ')} still runs on the worktree of #${detail.ticketId}; stop it first. ${NOTHING_WAS_WRITTEN}`;
+    case 'worktree-has-uncommitted-work':
+      return `The worktree ${detail.worktreePath} of #${detail.ticketId} holds uncommitted work that could not be saved to a patch, so it `
+        + `was not recreated. ${NOTHING_WAS_WRITTEN}`;
+    case 'worktree-repair-failed':
+      return `Git refused the ${detail.step} repair of the worktree of #${detail.ticketId}: ${detail.gitReason} ${NOTHING_WAS_WRITTEN}`;
   }
 }
 

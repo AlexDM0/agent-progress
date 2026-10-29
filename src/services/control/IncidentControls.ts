@@ -5,7 +5,8 @@
  */
 import { TicketAcceptanceUtil }               from '../../adapters/tickets/utils/TicketAcceptanceUtil.ts';
 import type { Logged }                        from '../../lib/tracker-model/@types/BoardChanges.ts';
-import type { IncidentMove }                  from '../../lib/tracker-model/@types/Incident.ts';
+import type { Incident, IncidentMove }        from '../../lib/tracker-model/@types/Incident.ts';
+import { BoardRefusal }                       from '../../lib/tracker-model/BoardRefusal.ts';
 import type { ControlCommand }                from '../../shared/@types/ControlCommand.ts';
 import type { ControlCommandOf as CommandOf } from '../../shared/@types/ControlCommand.ts';
 import { OperationRefusal }                   from '../../shared/OperationRefusal.ts';
@@ -18,6 +19,41 @@ export function requireIncidentAllows(change: TrackerChange, incidentId: string,
   const incident = change.board.requireOpenIncident(incidentId);
   const reason = RoleCommandPolicy.incidentMoveVerdictOf(incident, command);
   if (reason !== null) throw new OperationRefusal('refused', { kind: 'role-command-refused', reason, commandKind: command.kind });
+}
+
+/** The job or ticket a repair or Airlock move acts on, and which incidents are its own. */
+export interface MoveSubject {
+  /** `J4` or `#12`, as a refusal names it. */
+  name:     string;
+  concerns: (incident: Readonly<Incident>) => boolean;
+}
+
+/**
+ * The incident a repair or Airlock move handles. A named one must be open, its subject's and allow the move; with none named the move acts
+ * on its subject's one open incident that allows it, or applies as a plain User control, except where `requiresIncident`.
+ */
+export function incidentForMove(
+  change: TrackerChange,
+  command: ControlCommand & { incidentId?: string },
+  subject: MoveSubject,
+  requiresIncident: boolean,
+): Readonly<Incident> | null {
+  if (command.incidentId !== undefined) {
+    requireIncidentAllows(change, command.incidentId, command);
+    const named = change.board.requireOpenIncident(command.incidentId);
+    if (!subject.concerns(named)) throw new OperationRefusal('refused', { kind: 'role-command-refused', reason: 'incident-move-not-allowed', commandKind: command.kind });
+    return named;
+  }
+  const allowing = change.board.incidents().filter((incident) => subject.concerns(incident) && RoleCommandPolicy.incidentMoveVerdictOf(incident, command) === null);
+  if (allowing.length > 1) {
+    throw new BoardRefusal({
+      reason: 'several-open-incidents', subject: subject.name, move: command.kind, incidentIds: allowing.map((incident) => incident.id)
+    });
+  }
+  const [only] = allowing;
+  if (only !== undefined) return only;
+  if (requiresIncident) throw new BoardRefusal({ reason: 'no-open-incident', subject: subject.name, move: command.kind });
+  return null;
 }
 
 /** The move, then the incident marked handled by it, unless the move closed it already (a park, a ready or a triage of its last finding). */
