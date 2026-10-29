@@ -10,6 +10,12 @@ every ticket through its build, review and merge; no session drives the board by
 - When User asks to file, report or track a ticket, bug or research question, load the `{{productOwnerSkill}}`
   skill. Only when User asks this session to run the board, load `{{orchestrateSkill}}`; it loads
   `{{productOwnerSkill}}` itself. Filing or editing a ticket does not make a session the orchestrator.
+- A ticket is filed as a draft and builds only once `{{program}} ticket ready` readies it, which needs a numbered
+  `## Acceptance` and a `## Brief` holding a non-blank line: the Brief is its builder's brief.
+- A worker's finding is a low draft: it awaits the Assistant, which readies or triages it once the ticket it was
+  found on is delivered, or, filed with `--needs-user`, User's Low-priority triage list.
+- Work User finished and landed outside the runner is recorded with `{{program}} ticket deliver <id> --by-hand`,
+  refused while a runner is live; no other lifecycle move is made by hand.
 - `{{dataFolder}}/reference.md` holds the ticket format, the moves and the exit codes; `{{program}} help` holds
   every command.
 - Record milestones with `{{program}} log "<what happened>"`; `--at -5m` backfills a stamp nobody registered at the

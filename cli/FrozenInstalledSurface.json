@@ -406,14 +406,14 @@
       "reviewWaitingTickets", "reviewed", "round", "row", "start", "started", "status", "task", "ticket", "ticketRows", "tickets", "title", "type", "updated"]
   },
   "17": {
-    "commands": ["checks", "draft", "epic list", "help", "incidents", "init", "log", "open", "range", "run", "run status", "status", "task deliver",
-      "ticket add", "ticket show", "update"],
-    "flags": ["--add", "--after", "--assumption", "--at", "--body", "--body-file", "--clear", "--depends-on", "--effort", "--epic", "--force",
-      "--found-in-review", "--from", "--group", "--incident", "--introduced-by", "--json", "--model", "--multiple", "--network", "--no-hooks", "--note",
-      "--owner", "--priority", "--reason", "--remove", "--restamp", "--review-of", "--size", "--start", "--start-review", "--status", "--ticket", "--title",
-      "--to", "--tokens", "--type", "--under"],
+    "commands": ["await", "checks", "decisions", "draft", "epic list", "help", "incidents", "init", "intake close", "jobs", "log", "open", "range",
+      "run", "run status", "status", "task deliver", "ticket add", "ticket deliver", "ticket ready", "ticket show", "update"],
+    "flags": ["--add", "--after", "--assumption", "--at", "--body", "--body-file", "--by-hand", "--clear", "--depends-on", "--detach", "--effort",
+      "--epic", "--force", "--found-in-review", "--from", "--group", "--incident", "--introduced-by", "--json", "--model", "--multiple", "--needs-user",
+      "--network", "--no-hooks", "--note", "--owner", "--priority", "--reason", "--remove", "--restamp", "--review-of", "--set", "--size", "--start",
+      "--start-review", "--status", "--ticket", "--title", "--to", "--tokens", "--type", "--under"],
     "statusJsonFields": ["abandoned", "abandonedAt", "agent", "claimedBodyHash", "decisions", "delivered", "drafts", "effort", "epics", "filed", "finished",
       "group", "history", "hold", "id", "incidents", "jobs", "mergeQueue", "model", "overseer", "pending", "priority", "reviewOf", "reviewed", "start",
-      "started", "status", "task", "ticket", "title", "type", "updated", "usage"]
+      "started", "status", "task", "ticket", "title", "type", "updated", "usage", "version"]
   }
 }
