@@ -16,12 +16,20 @@ import type { PreferenceStorage }                                               
 import type { CommandClient }                                                            from '../api/CommandClient.ts';
 import type { ConnectionState, EventStreamHandlers }                                     from '../api/EventStreamClient.ts';
 import { boardPreferenceStoreOf, sharedPreferenceStoreOf }                               from '../preferences/PreferenceStore.ts';
+import { EpicsModel }                                                                    from '../views/epics/EpicsModel.ts';
+import { EpicsView }                                                                     from '../views/epics/EpicsView.tsx';
+import { FinishedWorkModel }                                                             from '../views/finished-work/FinishedWorkModel.ts';
+import type { FinishedWorkChoice }                                                       from '../views/finished-work/FinishedWorkModel.ts';
+import { FinishedWorkMenu, FinishedWorkView, useFinishedWorkChoice }                     from '../views/finished-work/FinishedWorkView.tsx';
+import { MergeQueueModel }                                                               from '../views/merge-queue/MergeQueueModel.ts';
+import { MergeQueueView }                                                                from '../views/merge-queue/MergeQueueView.tsx';
 import { BoardStateUpdate }                                                              from './BoardStateUpdate.ts';
-import { BridgeHeader }                                                                  from './BridgeHeader.tsx';
 import { ConnectionBanners }                                                             from './ConnectionBanners.tsx';
 import { ControlAvailabilityUtil, ControlSurroundingsContext, type ControlSurroundings } from './ControlAvailability.ts';
 import { EmbeddedChannel, type EmbeddedSurroundings }                                    from './EmbeddedChannel.ts';
 import { DEFAULT_TAB, HashRouter, TAB_CHOICE_NAME }                                      from './HashRouter.ts';
+import { Header }                                                                        from './Header.tsx';
+import { HeaderModelUtil }                                                               from './HeaderModel.ts';
 import { ThemeBootstrap, type ThemeChoice }                                              from './ThemeBootstrap.ts';
 
 export interface BridgeServices {
@@ -41,6 +49,9 @@ export interface BridgeAppProps {
 
 const HELD_BY_INSTALL_CHANGE = 'held-by-install-change';
 
+/** The Kanban's Merge queue lane opens its detail at `#kanban/merge-queue`. */
+export const MERGE_QUEUE_ITEM = 'merge-queue';
+
 export function BridgeApp({ services }: BridgeAppProps) {
   const sharedStore = useMemo(() => sharedPreferenceStoreOf(services.storage), [services]);
   const [identity, setIdentity] = useState<OverseerIdentity | null>(null);
@@ -55,6 +66,7 @@ export function BridgeApp({ services }: BridgeAppProps) {
   const boardStore = useMemo(() => (identity === null ? null : boardPreferenceStoreOf(identity.trackerId, services.storage)), [identity, services]);
   const storedTab = useCallback(() => boardStore?.readChoice(TAB_CHOICE_NAME) ?? null, [boardStore]);
   const route = HashRouter.useHashRoute(storedTab);
+  const [finishedWorkChoice, chooseFinishedWork] = useFinishedWorkChoice(boardStore);
 
   useEffect(() => {
     let current = true;
@@ -129,9 +141,9 @@ export function BridgeApp({ services }: BridgeAppProps) {
           boardShownAsOf={boardShownAsOf}
           installHeldRefusal={installIsHeld ? installRefusal : undefined}
         />
-        <BridgeHeader
+        <Header
           project={boardState?.project ?? identity?.project ?? ''}
-          overseer={boardState?.overseer ?? null}
+          model={HeaderModelUtil.headerModelOf(boardState, services.now())}
           selectedTab={route.tab}
           themeChoice={themeChoice}
           onThemeChoice={chooseTheme}
@@ -139,9 +151,43 @@ export function BridgeApp({ services }: BridgeAppProps) {
         <main className="bridge-panel" data-tab={route.tab}>
           {boardState === null
             ? <p className="bridge-empty">Waiting for the Overseer&apos;s first board.</p>
-            : <p className="bridge-empty">{`${boardState.jobs.length} jobs, ${boardState.decisions.length} decisions, ${boardState.incidents.length} incidents.`}</p>}
+            : <BoardViews boardState={boardState} route={route} finishedWorkChoice={finishedWorkChoice} onFinishedWorkChoice={chooseFinishedWork} now={services.now()} />}
         </main>
       </div>
     </ControlSurroundingsContext.Provider>
+  );
+}
+
+interface BoardViewsProps {
+  readonly boardState:           BoardStateDocument;
+  readonly route:                ReturnType<typeof HashRouter.routeOf>;
+  readonly finishedWorkChoice:   FinishedWorkChoice;
+  readonly onFinishedWorkChoice: (choice: FinishedWorkChoice) => void;
+  readonly now:                  Date;
+}
+
+function BoardViews({
+  boardState, route, finishedWorkChoice, onFinishedWorkChoice, now
+}: BoardViewsProps) {
+  if (route.tab === 'kanban' && route.item === MERGE_QUEUE_ITEM) {
+    return <MergeQueueView targets={MergeQueueModel.mergeQueueModelOf(boardState.mergeQueue, boardState.notices ?? [])} />;
+  }
+  if (route.tab === 'progress' && boardState.page !== undefined) {
+    const nowEpochMilliseconds = now.getTime();
+    const { page } = boardState;
+    const cutoff = FinishedWorkModel.cutoffEpochMillisecondsOf(finishedWorkChoice, nowEpochMilliseconds);
+    return (
+      <>
+        <FinishedWorkMenu choice={finishedWorkChoice} onChoice={onFinishedWorkChoice} hiddenCount={FinishedWorkModel.finishedTicketsOf(page.tickets, cutoff).hiddenCount} />
+        <EpicsView model={EpicsModel.epicsModelOf(page, finishedWorkChoice, nowEpochMilliseconds)} />
+        <FinishedWorkView tickets={page.tickets} choice={finishedWorkChoice} nowEpochMilliseconds={nowEpochMilliseconds} />
+      </>
+    );
+  }
+  return (
+    <p className="bridge-empty">
+      {`${boardState.jobs.length} jobs, ${boardState.decisions.length} decisions, ${boardState.incidents.length} incidents. `}
+      {route.tab === 'kanban' ? <a href={HashRouter.fragmentOf({ tab: 'kanban', item: MERGE_QUEUE_ITEM })}>Merge queue</a> : null}
+    </p>
   );
 }

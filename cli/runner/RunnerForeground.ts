@@ -325,6 +325,7 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
         launchesHeld:     () => runnerState()?.runtimeState === 'held-by-install-change',
         notices:          () => runnerState()?.notices ?? [],
         overseer:         overseerFactsNow,
+        mainLine,
         onRuntimeCommand: (command: RuntimeRunnerCommand) => {
           log(`${command.kind} received${command.now ? ' (now)' : ''}.`);
           if (current === null || handingOver) return;
@@ -363,7 +364,7 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
     const publishState = () => {
       try {
         ownBroker.publishState(readBoardState({
-          context, workspace, notices: () => runnerState()?.notices ?? [], overseer: overseerFactsNow
+          context, workspace, notices: () => runnerState()?.notices ?? [], overseer: overseerFactsNow, mainLine
         }).state);
       } catch (thrown) {
         log(`The board state could not be read for the event stream: ${thrown instanceof Error ? thrown.message : String(thrown)}`);
