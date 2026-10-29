@@ -16,6 +16,14 @@ export const READ_ONLY_VERBS_UNDER_A_JOB: readonly string[] = [
   'draft show',
   'draft list',
   'hook bash-domains',
+  'version',
+  'run status',
+  'decisions',
+  'incidents',
+  'merges',
+  'jobs',
+  'job show',
+  'job attach',
 ];
 
 /** Verbs that build a kind whose own verb is named above: `job wind-down` is a `job-stop` of mode `wind-down`. */

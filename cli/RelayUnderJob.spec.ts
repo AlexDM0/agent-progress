@@ -23,6 +23,7 @@ import {
 import type { RelayRequest }                                         from '../src/adapters/relay/@types/RelayFormat.ts';
 import { RelayFormatUtil }                                           from '../src/adapters/relay/utils/RelayFormatUtil.ts';
 import { OperationRefusalWordingUtil }                               from '../src/adapters/utils/OperationRefusalWordingUtil.ts';
+import type { Job }                                                  from '../src/lib/tracker-model/@types/Job.ts';
 import { ControlService }                                            from '../src/services/control/ControlService.ts';
 import { RoleCommandPolicy }                                         from '../src/services/control/RoleCommandPolicy.ts';
 import { createRenderState }                                         from '../src/services/render/RenderState.ts';
@@ -114,10 +115,36 @@ const ARGUMENTS_OF_READ_ONLY_VERB: Readonly<Record<string, readonly string[]>> =
   'draft show':        ['draft', 'show', 'D1'],
   'draft list':        ['draft', 'list'],
   'hook bash-domains': ['hook', 'bash-domains', '--allow', 'registry.example.com'],
+  'version':           ['version'],
+  'run status':        ['run', 'status'],
+  'decisions':         ['decisions'],
+  'incidents':         ['incidents'],
+  'merges':            ['merges'],
+  'jobs':              ['jobs'],
+  'job show':          ['job', 'show', 'J7'],
+  'job attach':        ['job', 'attach', 'J7', '--json'],
 };
 
 let repositoryDirectory = '';
 let relayDirectory      = '';
+
+/** The job the session runs under, on the board so `job show` and `job attach` find it. */
+function sessionJob(): Job {
+  return {
+    id:                 'J7',
+    kind:               'product-owner',
+    role:               'product-owner',
+    ticketIds:          [],
+    parentJobId:        null,
+    attempt:            1,
+    target:             null,
+    state:              'running',
+    hostInstance:       1,
+    eventCursor:        { instance: 1, sequence: 0 },
+    answeredRequestIds: [],
+    crashResumes:       0,
+  };
+}
 
 beforeAll(async () => {
   repositoryDirectory = await createInitializedScratchRepository('relay-under-job', ['--project', 'Example Agency', '--no-claude-md', '--no-hooks'], SPEC_CLOCK);
@@ -129,6 +156,9 @@ beforeAll(async () => {
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory, now: SPEC_CLOCK });
     expect(await runCommandLine(setupArguments, context), context.errorText()).toBe(0);
   }
+  const progressFilePath = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json');
+  const progress         = JSON.parse(readFileSync(progressFilePath, 'utf8')) as Record<string, unknown>;
+  writeFileSync(progressFilePath, `${JSON.stringify({ ...progress, jobs: [sessionJob()] }, null, 2)}\n`);
 });
 
 afterAll(() => {
