@@ -289,6 +289,31 @@ describe('moves naming an incident', () => {
     expect(() => apply(board, { kind: 'incident-answer', incidentId: 'I1', text: 'bun' })).toThrow(expect.objectContaining({ detail: refusedDetail }) as Error);
   });
 
+  test.each<[string, ControlCommand]>([
+    ['job fresh', { kind: 'job-fresh', jobId: 'J9', incidentId: 'I1' }],
+    ['job message', {
+      kind: 'job-message', jobId: 'J9', text: 'Go on.', incidentId: 'I1'
+    }],
+  ])('%s naming a job that is not the incident\'s own is refused and leaves the incident unhandled', (_move, command) => {
+    const board = quietJobBoard();
+    const refusedDetail = { kind: 'role-command-refused', reason: 'incident-target-mismatch', commandKind: command.kind };
+    expect(() => apply(board, command)).toThrow(expect.objectContaining({ detail: refusedDetail }) as Error);
+    expect(board.incidents().map((open) => open.id)).toEqual(['I1']);
+  });
+
+  test('ticket park naming a ticket the incident does not list is refused and leaves the incident unhandled', () => {
+    const board = runningBuildBoard();
+    board.openIncident({
+      kind: 'out-of-calls', ticketIds: ['001'], jobId: 'J1', facts: {}, defaultMove: 'job-fresh'
+    }, AT);
+    const command: ControlCommand = {
+      kind: 'ticket-park', ticketReference: '9', reason: 'Needs Alex Example', incidentId: 'I1'
+    };
+    const refusedDetail = { kind: 'role-command-refused', reason: 'incident-target-mismatch', commandKind: 'ticket-park' };
+    expect(() => apply(board, command)).toThrow(expect.objectContaining({ detail: refusedDetail }) as Error);
+    expect(board.incidents().map((open) => open.id)).toEqual(['I1']);
+  });
+
   test('job message under an incident is refused to a job waiting on User, to one whose ticket has an open agent-question, and to a product owner', () => {
     const waiting = quietJobBoard();
     waiting.moveJob('J1', 'waiting-for-answer', AT);

@@ -19,15 +19,26 @@ export interface RelayingJob {
   deliveredIncidents: ReadonlyArray<Pick<Incident, 'id' | 'kind' | 'ticketIds' | 'jobId'>>;
 }
 
-/** Whether the incident's kind allows the move, and a finding move names only tickets it lists; a `job fresh` needs a waiting job. */
+function incidentListsTicket(incident: Pick<Incident, 'ticketIds'>, reference: unknown): boolean {
+  const ticketId = typeof reference === 'string' ? TicketIdUtil.parseTicketReference(reference) : null;
+  return ticketId !== null && incident.ticketIds.includes(ticketId);
+}
+
+function moveTargetsTheIncidentsOwn(incident: Pick<Incident, 'ticketIds' | 'jobId'>, command: ControlCommand): boolean {
+  if (command.kind === 'job-fresh' || command.kind === 'job-message') return command.jobId === incident.jobId;
+  return command.kind !== 'ticket-park' || incidentListsTicket(incident, command.ticketReference);
+}
+
+/**
+ * Whether the incident's kind allows the move, a finding move names only tickets it lists, and a `job fresh`, `job message` or `ticket park`
+ * targets the incident's own job or ticket; a `job fresh` needs a waiting job.
+ */
 function incidentMoveVerdictOf(incident: Pick<Incident, 'kind' | 'ticketIds' | 'jobId'>, command: ControlCommand): RoleCommandRefusalReason | null {
   const move = ALLOWED_MOVES_BY_INCIDENT_KIND[incident.kind].find((allowed) => allowed === command.kind);
   if (move === undefined || (move === 'job-fresh' && incident.jobId === null)) return 'incident-move-not-allowed';
+  if (!moveTargetsTheIncidentsOwn(incident, command)) return 'incident-target-mismatch';
   if (!FINDING_MOVES.includes(move)) return null;
-  const everyTicketIsListed = referencedTicketTextsOf(command).every((reference) => {
-    const ticketId = typeof reference === 'string' ? TicketIdUtil.parseTicketReference(reference) : null;
-    return ticketId !== null && incident.ticketIds.includes(ticketId);
-  });
+  const everyTicketIsListed = referencedTicketTextsOf(command).every((reference) => incidentListsTicket(incident, reference));
   return everyTicketIsListed ? null : 'finding-not-listed';
 }
 

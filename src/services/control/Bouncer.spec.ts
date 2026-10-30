@@ -224,6 +224,48 @@ describe('assistant', () => {
   });
 });
 
+describe('an incident move\'s target is the incident\'s own', () => {
+  const OWN_INCIDENT = {
+    id: 'I9', kind: 'quiet-job' as const, ticketIds: ['011'], jobId: 'J2'
+  };
+  const FAILED_RESUME = { ...OWN_INCIDENT, kind: 'resume-failed' as const };
+
+  function verdictUnder(incident: RelayingJob['deliveredIncidents'][number], command: ControlCommand) {
+    return Bouncer.verdictOf(jobOf('assistant', { deliveredIncidents: [incident] }), command);
+  }
+
+  test.each([
+    ['job fresh', OWN_INCIDENT, { kind: 'job-fresh', incidentId: 'I9' }, { jobId: 'J2' }, { jobId: 'J3' }],
+    ['job message', OWN_INCIDENT, { kind: 'job-message', text: 'Commit what you have.', incidentId: 'I9' }, { jobId: 'J2' }, { jobId: 'J3' }],
+    ['ticket park', FAILED_RESUME, { kind: 'ticket-park', reason: 'Needs Alex Example', incidentId: 'I9' }, { ticketReference: '#11' }, { ticketReference: '12' }],
+  ] as const)('%s naming the incident\'s own is admitted, naming another is refused incident-target-mismatch', (_move, incident, command, own, another) => {
+    const ownCommand = { ...command, ...own } as ControlCommand;
+    expect(verdictUnder(incident, ownCommand)).toEqual({ verdict: 'admitted', command: ownCommand });
+    expect(verdictUnder(incident, { ...command, ...another } as ControlCommand)).toEqual({ verdict: 'refused', reason: 'incident-target-mismatch' });
+  });
+
+  test('a job message under an incident with no job, and a park under one with no tickets, are refused incident-target-mismatch', () => {
+    expect(verdictUnder({ ...OWN_INCIDENT, jobId: null }, COMMAND_OF_MOVE['job-message'] ?? lowFinding()))
+      .toEqual({ verdict: 'refused', reason: 'incident-target-mismatch' });
+    expect(verdictUnder({ ...FAILED_RESUME, ticketIds: [] }, COMMAND_OF_MOVE['ticket-park'] ?? lowFinding()))
+      .toEqual({ verdict: 'refused', reason: 'incident-target-mismatch' });
+  });
+
+  test('a park whose reference is no ticket id is refused incident-target-mismatch', () => {
+    const command: ControlCommand = {
+      kind: 'ticket-park', ticketReference: 'eleven', reason: 'Needs Alex Example', incidentId: 'I9'
+    };
+    expect(verdictUnder(FAILED_RESUME, command)).toEqual({ verdict: 'refused', reason: 'incident-target-mismatch' });
+  });
+
+  test('the kind guard goes first: a move the kind does not allow stays incident-move-not-allowed on any target', () => {
+    const elsewhere: ControlCommand = {
+      kind: 'ticket-park', ticketReference: '12', reason: 'Needs Alex Example', incidentId: 'I9'
+    };
+    expect(verdictUnder(OWN_INCIDENT, elsewhere)).toEqual({ verdict: 'refused', reason: 'incident-move-not-allowed' });
+  });
+});
+
 describe('identity comes from the job record, never from the request', () => {
   test.each(['role', 'jobId'])('a command carrying a forged %s is refused hatch-identity-mismatch', (field) => {
     const forged = { ...lowFinding(), [field]: field === 'role' ? 'product-owner' : 'J1' } as ControlCommand;
