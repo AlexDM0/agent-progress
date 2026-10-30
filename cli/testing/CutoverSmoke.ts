@@ -29,7 +29,8 @@ import {
   type RegroupingObservation,
   type SmokeItemVerdict,
   type SmokeLogRecord,
-  type SmokeStreamedEvent
+  type SmokeStreamedEvent,
+  type StreamGap
 } from './CutoverSmokeUtil.ts';
 
 interface CutoverSmokeOptions {
@@ -71,16 +72,18 @@ const AGENT_QUESTION_TICKET = {
     'The example palette in `palette.txt` names no colour yet.',
     '',
     '## Acceptance',
-    'A1. The first line of `palette.txt` reads `colour: <the colour User chose>`; nothing else in the file changes.',
+    'A1. `palette.txt` holds a line `colour: <the colour User chose>`; every other line it held is unchanged. Another ticket may add',
+    'its own line to the file.',
     '',
     '## Brief',
     'Work belongs in: `palette.txt`.',
     'Before changing anything, ask User which colour to use with the AskUserQuestion tool: one question, header `colour`, options `Red`',
-    'and `Blue`. Wait for the answer, then set the first line of `palette.txt` to `colour: <answer>` and commit.',
+    'and `Blue`. Wait for the answer, then append the line `colour: <answer>` at the end of `palette.txt` and commit.',
     '',
   ].join('\n'),
 };
 
+/** Appends at the same end of the same file as the other ticket: a textual conflict whose resolution keeps both lines. */
 const MALFORMED_TICKET_TICKET = {
   title: 'Name the palette shade',
   body:  [
@@ -88,20 +91,21 @@ const MALFORMED_TICKET_TICKET = {
     'The example palette in `palette.txt` should name a shade.',
     '',
     '## Acceptance',
-    'A1. The first line of `palette.txt` reads `colour: <shade>`, the shade the board settles; nothing else in the file changes.',
+    'A1. `palette.txt` holds a line `shade: <shade>`, the shade the board settles; every other line it held is unchanged. Another',
+    'ticket may add its own line to the file.',
     '',
     '## Brief',
     'Work belongs in: `palette.txt`.',
     'This ticket does not say which shade to use. Before changing anything, report that gap with the AskUserQuestion tool: one question',
-    'with header `ticket`, asking which shade the first line of `palette.txt` should name, options `Teal` and `Amber`. Use the answer you',
-    'get, set the first line of `palette.txt` to `colour: <answer>` and commit.',
+    'with header `ticket`, asking which shade `palette.txt` should name, options `Light` and `Dark`. Use the answer you get, append the',
+    'line `shade: <answer>` at the end of `palette.txt` and commit.',
     '',
   ].join('\n'),
 };
 
 const GATES: readonly (readonly string[])[] = [
   ['readme', '--', 'test', '-s', 'README.md'],
-  ['palette', '--', 'grep', '-q', '^colour: ', 'palette.txt'],
+  ['palette', '--', 'grep', '-q', '^# Example palette', 'palette.txt'],
   ['palette-file', '--', 'test', '-f', 'palette.txt'],
 ];
 
@@ -136,6 +140,7 @@ function createSmoke(options: CutoverSmokeOptions, logPath: string) {
   const trackerDirectory = join(repository, PRODUCT_NAMES.DATA_FOLDER);
   const deadline = Date.now() + options.timeoutMinutes * MILLISECONDS_PER_MINUTE;
   const events: SmokeStreamedEvent[] = [];
+  const streamGaps: StreamGap[] = [];
   let streamOpenedAt = '';
   let streamController: AbortController | null = null;
 
@@ -250,7 +255,7 @@ function createSmoke(options: CutoverSmokeOptions, logPath: string) {
       // A sandboxed session cannot reach gpg, so a signing default in the owner's git configuration would stop every commit.
       git(['config', 'commit.gpgsign', 'false']);
       writeFileSync(join(repository, 'README.md'), '# Cutover smoke\n\nAn example repository for the cutover smoke of Example Agency.\n');
-      writeFileSync(join(repository, 'palette.txt'), 'colour: none\nnotes: the example palette of the cutover smoke\n');
+      writeFileSync(join(repository, 'palette.txt'), '# Example palette\nnotes: the example palette of the cutover smoke\n');
       git(['add', '-A']);
       git([...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'commit', '-q', '-m', 'Start the example palette']);
       log(`Scratch repository ${repository}; ${PRODUCT_NAMES.PROGRAM} is ${ENTRY_POINT} through ${shimPath}`);
@@ -291,25 +296,31 @@ function createSmoke(options: CutoverSmokeOptions, logPath: string) {
       const lease = newestLease();
       if (lease === null || hostProcessId === null) throw new Error('no lease or host record to regroup around');
       log(`kill -9 of the Overseer (process ${lease.processId}) while job ${job.id} (#${ticketId}) runs on host instance ${job.hostInstance}, process ${hostProcessId}`);
+      const killedAt = new Date().toISOString();
       process.kill(lease.processId, 'SIGKILL');
       while (processIsAlive(lease.processId)) await sleep(POLL_INTERVAL_MILLISECONDS / 10);
       const regrouped = await programJson<{ url: string }>(['run', '--detach', '--port', '0']);
       openStream(regrouped.url);
+      streamGaps.push({ from: killedAt, to: new Date().toISOString() });
       await sleep(SETTLE_AFTER_REGROUPING_MILLISECONDS);
-      const afterRegrouping = (await liveJobs()).find((liveJob) => liveJob.id === job.id);
-      const hostAliveAfterRegrouping = processIsAlive(hostProcessId);
+      // A build may finish inside the wait: an agent that ended its work uninterrupted kept running as far as the kill is concerned.
+      const agentKeptRunning = (): boolean => processIsAlive(hostProcessId) || !storedLogRecords().some((record) => record.kind === 'job-interrupted' && record.jobId === job.id);
+      const newestInstance = (): number => readdirSync(join(trackerDirectory, 'jobs', job.id)).filter((fileName) => /^host-\d+\.json$/.test(fileName)).length;
+      const instanceAfterRegrouping = newestInstance();
+      const keptRunningAfterRegrouping = agentKeptRunning();
+      const restartedAt = new Date().toISOString();
       const restart = await program(['run', 'restart', '--json']);
-      await sleep(SETTLE_AFTER_RESTART_MILLISECONDS);
       const restartedUrl = await liveUrl();
       if (restartedUrl !== null) openStream(restartedUrl);
-      const afterRestart = (await liveJobs()).find((liveJob) => liveJob.id === job.id);
+      streamGaps.push({ from: restartedAt, to: new Date().toISOString() });
+      await sleep(SETTLE_AFTER_RESTART_MILLISECONDS);
       return {
         jobId:                           job.id,
         hostInstanceBeforeKill:          job.hostInstance,
-        hostInstanceAfterRegrouping:     afterRegrouping?.hostInstance ?? -1,
-        hostInstanceAfterRestart:        afterRestart?.hostInstance ?? -1,
-        hostProcessAliveAfterRegrouping: hostAliveAfterRegrouping,
-        hostProcessAliveAfterRestart:    processIsAlive(hostProcessId),
+        hostInstanceAfterRegrouping:     instanceAfterRegrouping,
+        hostInstanceAfterRestart:        newestInstance(),
+        hostProcessAliveAfterRegrouping: keptRunningAfterRegrouping,
+        hostProcessAliveAfterRestart:    agentKeptRunning(),
         restartExitCode:                 restart.exitCode,
         buildJobsOnTheTicketAfterKill:   buildLaunchesOf(ticketId) - buildLaunchesBefore,
       };
@@ -357,7 +368,7 @@ function createSmoke(options: CutoverSmokeOptions, logPath: string) {
         regrouping === null ? { item: 2, passed: false, detail: 'no build ran to regroup around' } : CutoverSmokeUtil.regroupingVerdictOf(regrouping),
         CutoverSmokeUtil.conflictVerdictOf(records),
         CutoverSmokeUtil.questionVerdictOf(records, { agentQuestionTicketId, malformedTicketTicketId }),
-        CutoverSmokeUtil.eventVerdictOf(records, events, streamOpenedAt),
+        CutoverSmokeUtil.eventVerdictOf(records, events, streamOpenedAt, streamGaps),
       ];
     },
 

@@ -23,6 +23,12 @@ export interface SmokeStreamedEvent {
   data:       Record<string, unknown>;
 }
 
+/** A span with no Overseer serving the SSE client: from the kill or the restart to the client's reconnection. */
+export interface StreamGap {
+  from: string;
+  to:   string;
+}
+
 export interface SmokeItemVerdict {
   item:   number;
   passed: boolean;
@@ -220,17 +226,22 @@ export const CutoverSmokeUtil = Object.freeze({
   },
 
   /**
-   * Item 5: every ticket move logged after the stream opened shows in a `board` event as the status it moved to, and every job launched after
-   * it was published in at least one `job` event.
+   * Item 5: every ticket move logged while the stream was connected shows in a `board` event as the status it moved to, and every job
+   * launched then was published in at least one `job` event. A move a later move of the same ticket in the same stamp overtook is never
+   * published, since an event carries the state a whole pass left; a record logged while no Overseer served the stream is not asked of it.
    */
-  eventVerdictOf(records: readonly SmokeLogRecord[], events: readonly SmokeStreamedEvent[], streamOpenedAt: string): SmokeItemVerdict {
-    const recordsSinceOpening = records.filter((record) => epochMillisecondsOf(record.at) >= epochMillisecondsOf(streamOpenedAt) - 1000);
+  eventVerdictOf(records: readonly SmokeLogRecord[], events: readonly SmokeStreamedEvent[], streamOpenedAt: string, gaps: readonly StreamGap[] = []): SmokeItemVerdict {
+    const inAGap = (record: SmokeLogRecord): boolean => gaps.some((gap) => epochMillisecondsOf(record.at) >= epochMillisecondsOf(gap.from) - 1000
+      && epochMillisecondsOf(record.at) <= epochMillisecondsOf(gap.to) + 1000);
+    const recordsSinceOpening = records.filter((record) => epochMillisecondsOf(record.at) >= epochMillisecondsOf(streamOpenedAt) - 1000 && !inAGap(record));
     const seenStatuses = new Set(events.filter((event) => event.kind === 'board')
       .flatMap((event) => ticketStatusesOfBoardEvent(event.data).map(({ id, status }) => `#${id} ${status}`)));
-    const unseenMoves = recordsSinceOpening.flatMap((record) => {
-      const status = Object.hasOwn(STATUS_OF_TICKET_MOVE, record.kind) ? STATUS_OF_TICKET_MOVE[record.kind] : undefined;
-      if (status === undefined || record.ticketId === undefined) return [];
-      return seenStatuses.has(`#${record.ticketId} ${status}`) ? [] : [`#${record.ticketId} ${status}`];
+    const isMove = (record: SmokeLogRecord): boolean => Object.hasOwn(STATUS_OF_TICKET_MOVE, record.kind) && record.ticketId !== undefined;
+    const unseenMoves = recordsSinceOpening.flatMap((record, i) => {
+      if (!isMove(record)) return [];
+      const overtaken = recordsSinceOpening.slice(i + 1).some((later) => isMove(later) && later.ticketId === record.ticketId && later.at === record.at);
+      const label = `#${record.ticketId} ${STATUS_OF_TICKET_MOVE[record.kind]}`;
+      return overtaken || seenStatuses.has(label) ? [] : [label];
     });
     const jobStates = new Map<string, Set<string>>();
     for (const event of events.filter((streamed) => streamed.kind === 'job')) {

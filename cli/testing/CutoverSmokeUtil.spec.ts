@@ -172,6 +172,14 @@ describe('item 5: the event stream', () => {
     expect(verdict.detail).toContain('no job event for J8');
   });
 
+  test('a move overtaken in its own stamp, and a record logged while no Overseer served the stream, are not asked of it', () => {
+    const approvedThenDelivered = [...DELIVERED_BOARD, record(11, 'ticket-approved', { ticketId: '001' }), record(11, 'ticket-delivered', { ticketId: '001' })];
+    expect(CutoverSmokeUtil.eventVerdictOf(approvedThenDelivered, everyMove, at(0)).passed).toBe(true);
+    const withoutJ8 = everyMove.filter((event) => event.data['id'] !== 'J8');
+    expect(CutoverSmokeUtil.eventVerdictOf(DELIVERED_BOARD, withoutJ8, at(0)).passed).toBe(false);
+    expect(CutoverSmokeUtil.eventVerdictOf(DELIVERED_BOARD, withoutJ8, at(0), [{ from: at(13), to: at(13) }]).passed).toBe(true);
+  });
+
   test('a move logged before the stream opened is not asked of it', () => {
     expect(CutoverSmokeUtil.eventVerdictOf(DELIVERED_BOARD, everyMove.slice(1), at(5)).passed).toBe(true);
   });
