@@ -1,4 +1,4 @@
-/** Every threshold the lifecycle policy, the round verdict and the dispatcher's runs decide by, passed into the tracker model as `limits`. */
+/** Every threshold the lifecycle policy, the round verdict and the runner's jobs decide by, passed into the tracker model as `limits`. */
 import type { LifecycleThresholds } from '../../lib/tracker-model/@types/LifecycleLimits.ts';
 import { DISPATCH_PROTOCOL }        from './DispatchProtocol.ts';
 

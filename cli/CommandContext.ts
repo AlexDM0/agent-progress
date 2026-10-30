@@ -35,7 +35,7 @@ export interface CommandContext {
   executableSearchPath:    readonly string[];
   /** `temporaryDirectoriesOfThisMachine()`: a tracker under any of them is a scratch one the monitor registry leaves out. */
   temporaryDirectories:    readonly string[];
-  /** The verb `cli/Main.ts` dispatched, such as `ticket finish`, which the monitor registry records; empty before the dispatch. */
+  /** The verb `cli/Main.ts` dispatched, such as `ticket hold`, which the monitor registry records; empty before the dispatch. */
   commandVerb:             string;
   /** Created once per invocation; holds the render service's memos, the page bundle and the configured Marked. */
   renderState:             RenderState;
@@ -119,8 +119,8 @@ export function createProcessContext(): CommandContext {
 }
 
 /**
- * A terminal is answered with the empty string rather than read: `agent-progress hook subagent-stop`
- * typed by hand would otherwise hang until whoever typed it found `Ctrl-D`.
+ * A terminal is answered with the empty string rather than read: a `hook` verb typed by hand would
+ * otherwise hang until whoever typed it found `Ctrl-D`.
  */
 function readEverythingOnStandardInput(): Promise<string> {
   if (process.stdin.isTTY === true) return Promise.resolve('');

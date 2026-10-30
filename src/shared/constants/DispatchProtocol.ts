@@ -1,7 +1,6 @@
 /**
- * The numbers the dispatcher's prompts and the installed briefs both state, the paths of the installed briefs both name, and the agent type
- * the dispatcher starts its workers as, which the installed agent definition is named for. It imports only the product names, so the
- * dispatcher's project compiles it.
+ * The call budgets and rework threshold the runner's job prompts state, the brief paths, and the agent type the retired worker
+ * definition was named for, which `update` removes by that name. It imports only the product names.
  */
 import { PRODUCT_NAMES } from './ProductNames.ts';
 

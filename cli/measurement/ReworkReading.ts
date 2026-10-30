@@ -1,5 +1,5 @@
 /**
- * The git reads `rework` and `review record` count from: the worktree's head, the commits since a review started, what a rebase changed,
+ * The git reads a rework count is taken from: the worktree's head, the commits since a review started, what a rebase changed,
  * what a merge's resolution changed, and the size of the builder's change.
  */
 import {

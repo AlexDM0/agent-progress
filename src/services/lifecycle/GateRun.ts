@@ -1,5 +1,5 @@
 /**
- * A gate: one run of the stored checks line on a tree, the code the runner and the by-hand `release` share. The argv arrives built, so the
+ * A gate: one run of the stored checks line on a tree, as the runner's lifecycle runs it. The argv arrives built, so the
  * runner can wrap it in a sandboxed process host; it runs in a process group of its own with the job variables removed from its
  * environment, and a pass is cached by content, never by time.
  */
