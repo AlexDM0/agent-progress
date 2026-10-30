@@ -76,7 +76,7 @@ export function boardStateFixture(changes: Partial<BoardStateDocument> = {}): Bo
     decisions: [{ id: 'E4' }],
     incidents: [],
     overseer:  {
-      state: 'serving', paused: false, codeVersion: 'code-1', handoverWarning: null
+      state: 'serving', paused: false, codeVersion: 'code-1', batonPassWarning: null
     },
     usage:       { resetsAt: null, window: null },
     notices:     [],

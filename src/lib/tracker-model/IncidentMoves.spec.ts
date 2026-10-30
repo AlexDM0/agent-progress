@@ -10,7 +10,7 @@ import { describe, expect, test } from 'bun:test';
 import { boardFixture, refusalDetailOf, ticketFixture } from '../../testing/BoardFixtures.ts';
 import type { DecisionQuestion }                        from './@types/Decision.ts';
 import type { IncidentKind, IncidentMove }              from './@types/Incident.ts';
-import type { DecisionDraft }                           from './@types/LifecycleStep.ts';
+import type { DecisionDraft }                           from './@types/PlaybookStep.ts';
 import type { Board }                                   from './Board.ts';
 
 const AT = '2026-10-28T10:00:00+01:00';
@@ -53,9 +53,9 @@ function recordKindsOf(records: readonly { kind: string }[]): string[] {
 describe('incident note and answer', () => {
   test('a note is logged incident-noted and leaves the incident open', () => {
     const { board, records } = boardWithWaitingQuestion('system-question');
-    board.noteIncident('I1', 'The tool is on the runner image', AT);
+    board.noteIncident('I1', 'The tool is on the Overseer image', AT);
     expect(records).toEqual([{
-      at: AT, kind: 'incident-noted', incidentId: 'I1', fields: { text: 'The tool is on the runner image' }
+      at: AT, kind: 'incident-noted', incidentId: 'I1', fields: { text: 'The tool is on the Overseer image' }
     }]);
     expect(board.incidentById('I1')).toBeDefined();
   });
@@ -88,12 +88,12 @@ describe('incident note and answer', () => {
 describe('ticket park', () => {
   test('under a question incident it holds parked:<kind>, stops the waiting job and puts the agent\'s questions to User', () => {
     const { board, records, progress } = boardWithWaitingQuestion('system-question');
-    board.parkTicket('001', 'The runner image lacks the tool', 'I1', AT);
+    board.parkTicket('001', 'The Overseer image lacks the tool', 'I1', AT);
     expect(records[0]).toMatchObject({ kind: 'incident-handled', fields: { move: 'ticket-park' } });
     expect(board.ticketByReference('001')?.frontmatter.hold).toBe('parked:system-question');
     expect(records.find((record) => record.kind === 'job-ended')).toMatchObject({ jobId: 'J1', fields: { outcome: 'stopped', cause: 'parked' } });
     expect(progress.decisions?.[0]).toMatchObject({
-      kind: 'parked', ticketIds: ['001'], questions: [AGENT_WORDS], context: 'The runner image lacks the tool'
+      kind: 'parked', ticketIds: ['001'], questions: [AGENT_WORDS], context: 'The Overseer image lacks the tool'
     });
   });
 
@@ -113,18 +113,18 @@ describe('each kind\'s default', () => {
       const { incident } = board.openIncident({
         kind, ticketIds: ['001'], jobId: null, facts: { round: String(i) }, defaultMove
       }, AT);
-      board.advanceLifecycle({
-        FAILED_PASSES_BEFORE_PARKING:                2,
-        CONSECUTIVE_DEAD_AGENTS_BEFORE_STOPPING:     2,
-        ROUND_GRANTED_ON_REWORK_ALONE:               2,
-        FINDINGS_SHRINK_FACTOR_PER_ROUND:            2,
-        REWORK_ROUND_THRESHOLD_LINES:                750,
-        JOB_RESUMES_BEFORE_FRESH:                    2,
-        RED_HANDOFF_RESUMES_BEFORE_PARKING:          2,
-        REPLACED_JOBS_BEFORE_JOB_LOST:               2,
-        FAILED_ORCHESTRATOR_BOOTS_BEFORE_DEFAULTING: 0,
-        now:                                         AT,
-        usageResetsAt:                               null,
+      board.followPlaybook({
+        FAILED_PASSES_BEFORE_PARKING:             2,
+        CONSECUTIVE_DEAD_AGENTS_BEFORE_STOPPING:  2,
+        ROUND_GRANTED_ON_REWORK_ALONE:            2,
+        FINDINGS_SHRINK_FACTOR_PER_ROUND:         2,
+        REWORK_ROUND_THRESHOLD_LINES:             750,
+        JOB_RESUMES_BEFORE_FRESH:                 2,
+        RED_HANDOFF_RESUMES_BEFORE_PARKING:       2,
+        REPLACED_JOBS_BEFORE_JOB_LOST:            2,
+        FAILED_ASSISTANT_BOOTS_BEFORE_DEFAULTING: 0,
+        now:                                      AT,
+        usageResetsAt:                            null,
       }, {
         mainLine:                     'main',
         groupTargetPrefix:            'group-',
@@ -150,7 +150,7 @@ describe('each kind\'s default', () => {
     const board = defaulted(kind, move);
     expect(board.ticketByReference('001')?.frontmatter.hold).toBe(hold);
     expect(board.decisions().map((decision) => decision.kind)).toEqual(['parked']);
-    expect(board.logRecordsSoFar().find((record) => record.kind === 'incident-defaulted')).toMatchObject({ fields: { move, cause: 'no-orchestrator' } });
+    expect(board.logRecordsSoFar().find((record) => record.kind === 'incident-defaulted')).toMatchObject({ fields: { move, cause: 'no-assistant' } });
   });
 
   test.each([
@@ -184,16 +184,16 @@ describe('findings-delivered', () => {
       tickets: [
         ticketFixture({ id: '001', status: 'reviewed', task: 1 }),
         ticketFixture({
-          id: '002', status: 'draft', filedByJob: 'J1', findingRoute: 'orchestrator'
+          id: '002', status: 'draft', filedByJob: 'J1', findingRoute: 'assistant'
         }),
         ticketFixture({
-          id: '003', status: 'draft', filedByJob: 'J1', findingRoute: 'orchestrator'
+          id: '003', status: 'draft', filedByJob: 'J1', findingRoute: 'assistant'
         }),
         ticketFixture({
           id: '004', status: 'draft', filedByJob: 'J1', findingRoute: 'user'
         }),
         ticketFixture({
-          id: '005', status: 'draft', filedByJob: 'J9', findingRoute: 'orchestrator'
+          id: '005', status: 'draft', filedByJob: 'J9', findingRoute: 'assistant'
         }),
       ],
     });
@@ -232,18 +232,18 @@ describe('findings-delivered', () => {
   test('its default triages every finding still listed', () => {
     const { board } = boardWithFindings();
     board.moveTicket('001', 'delivered', { checksLegality: false }, AT);
-    board.advanceLifecycle({
-      FAILED_PASSES_BEFORE_PARKING:                2,
-      CONSECUTIVE_DEAD_AGENTS_BEFORE_STOPPING:     2,
-      ROUND_GRANTED_ON_REWORK_ALONE:               2,
-      FINDINGS_SHRINK_FACTOR_PER_ROUND:            2,
-      REWORK_ROUND_THRESHOLD_LINES:                750,
-      JOB_RESUMES_BEFORE_FRESH:                    2,
-      RED_HANDOFF_RESUMES_BEFORE_PARKING:          2,
-      REPLACED_JOBS_BEFORE_JOB_LOST:               2,
-      FAILED_ORCHESTRATOR_BOOTS_BEFORE_DEFAULTING: 0,
-      now:                                         AT,
-      usageResetsAt:                               null,
+    board.followPlaybook({
+      FAILED_PASSES_BEFORE_PARKING:             2,
+      CONSECUTIVE_DEAD_AGENTS_BEFORE_STOPPING:  2,
+      ROUND_GRANTED_ON_REWORK_ALONE:            2,
+      FINDINGS_SHRINK_FACTOR_PER_ROUND:         2,
+      REWORK_ROUND_THRESHOLD_LINES:             750,
+      JOB_RESUMES_BEFORE_FRESH:                 2,
+      RED_HANDOFF_RESUMES_BEFORE_PARKING:       2,
+      REPLACED_JOBS_BEFORE_JOB_LOST:            2,
+      FAILED_ASSISTANT_BOOTS_BEFORE_DEFAULTING: 0,
+      now:                                      AT,
+      usageResetsAt:                            null,
     }, {
       mainLine:                     'main',
       groupTargetPrefix:            'group-',

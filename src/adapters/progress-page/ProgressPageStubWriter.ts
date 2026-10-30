@@ -6,7 +6,7 @@ import { writeFileAtomically } from '../../lib/atomic-file/AtomicFile.ts';
 import { HtmlEscapeUtil }      from '../../lib/html-escape/HtmlEscapeUtil.ts';
 import { PRODUCT_NAMES }       from '../../shared/constants/ProductNames.ts';
 
-/** `liveUrl` is the live lease's URL, or null when no Overseer serves the board. */
+/** `liveUrl` is the live Baton's URL, or null when no Overseer serves the board. */
 export function progressPageStubTextOf(liveUrl: string | null): string {
   const line = liveUrl === null
     ? `Overseer down. Start one with <code>${PRODUCT_NAMES.PROGRAM} run --detach</code>.`

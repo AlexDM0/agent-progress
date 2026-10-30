@@ -13,10 +13,10 @@ import {
   executableSearchPath,
   fakeAgentIsOn,
   fakeAgentKeepsWorking,
-  relayDirectory,
-  runnerJobId
+  hatchDirectory,
+  overseerJobId
 } from '../src/shared/Environment.ts';
-import { RELAY_REPLY_INTERVAL_MILLISECONDS, RELAY_REPLY_TRIES } from '../src/shared/constants/RunnerLimits.ts';
+import { HATCH_REPLY_INTERVAL_MILLISECONDS, HATCH_REPLY_TRIES } from '../src/shared/constants/OverseerLimits.ts';
 import { fakeAgentAdapter, WORKING_FAKE_AGENT_STEPS }           from '../src/testing/FakeAgentAdapter.ts';
 
 export interface CommandContext {
@@ -40,13 +40,13 @@ export interface CommandContext {
   commandVerb:             string;
   /** Created once per invocation; holds the render service's memos, the page bundle and the configured Marked. */
   renderState:             RenderState;
-  /** Present only when the runner launched this process for a job: then a mutating verb relays rather than opening the tracker. */
+  /** Present only when the Overseer launched this process for a job: then a mutating verb relays rather than opening the tracker. */
   job?:                    JobContext;
-  /** The runtime and the entry point this process was started with, which `run --detach` starts again with the runner's arguments. */
+  /** The runtime and the entry point this process was started with, which `run --detach` starts again with the Overseer's arguments. */
   programCommand:          readonly string[];
-  /** Calls `listener` on SIGTERM and SIGINT, which a foreground runner takes as a stop; returns the unsubscribe. */
+  /** Calls `listener` on SIGTERM and SIGINT, which a foreground Overseer takes as a stop; returns the unsubscribe. */
   onStopSignal:            (listener: () => void) => () => void;
-  /** What the runner launches its sessions through: Claude Code, or the scripted fake agent under the fake-agent switch. */
+  /** What the Overseer launches its sessions through: Claude Code, or the scripted fake agent under the fake-agent switch. */
   agentAdapter:            AgentAdapter;
 }
 
@@ -73,18 +73,18 @@ function programCommandOfThisProcess(): string[] {
 
 export interface JobContext {
   jobId:                     string;
-  relayDirectory:            string;
+  hatchDirectory:            string;
   replyTries:                number;
   replyIntervalMilliseconds: number;
 }
 
-/** Both getters set, or no job: one alone is a session the runner did not launch whole, which runs as any other process does. */
+/** Both getters set, or no job: one alone is a session the Overseer did not launch whole, which runs as any other process does. */
 function jobContextOfThisProcess(): JobContext | undefined {
-  const jobId          = runnerJobId();
-  const relayFolder    = relayDirectory();
-  if (jobId === undefined || relayFolder === undefined) return undefined;
+  const jobId          = overseerJobId();
+  const hatchFolder    = hatchDirectory();
+  if (jobId === undefined || hatchFolder === undefined) return undefined;
   return {
-    jobId, relayDirectory: relayFolder, replyTries: RELAY_REPLY_TRIES, replyIntervalMilliseconds: RELAY_REPLY_INTERVAL_MILLISECONDS
+    jobId, hatchDirectory: hatchFolder, replyTries: HATCH_REPLY_TRIES, replyIntervalMilliseconds: HATCH_REPLY_INTERVAL_MILLISECONDS
   };
 }
 

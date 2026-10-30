@@ -18,7 +18,7 @@ export const DECISION_KINDS = [
 ] as const satisfies readonly DecisionKind[];
 
 /** Who opens a decision beside an agent of a job role. */
-export const NON_AGENT_DECISION_ASKERS = ['runner', 'orchestrator'] as const;
+export const NON_AGENT_DECISION_ASKERS = ['overseer', 'assistant'] as const;
 
 export const INCIDENT_KINDS = [
   'system-question',
@@ -54,7 +54,7 @@ export const INCIDENT_MOVES = [
   'open-quiet-job-decision',
 ] as const satisfies readonly IncidentMove[];
 
-export const INCIDENT_DEFAULT_CAUSES = ['turn-closed', 'turn-budget', 'no-orchestrator'] as const satisfies readonly IncidentDefaultCause[];
+export const INCIDENT_DEFAULT_CAUSES = ['turn-closed', 'turn-budget', 'no-assistant'] as const satisfies readonly IncidentDefaultCause[];
 
 export const DECISION_ID_PREFIX = 'E';
 
@@ -77,7 +77,7 @@ export const QUESTIONS_FACT = 'questions';
 /** A ticket whose job ended with its question open is held `awaiting answer (E7)` until User answers it. */
 export const AWAITING_ANSWER_HOLD_PREFIX = 'awaiting answer';
 
-/** A v16 low `pending` ticket the runner's first start holds for its orchestrator's triage. */
+/** A v16 low `pending` ticket the Overseer's first start holds for its orchestrator's triage. */
 export const FIRST_RUN_REVIEW_HOLD = 'first-run review';
 
 /** The section of a ticket's body the answers to its ended job's questions go under, for the next agent. */

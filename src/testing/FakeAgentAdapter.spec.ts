@@ -1,5 +1,5 @@
 /**
- * The fake agent stands in for a vendor in every runner, host and crash spec, so it must behave as a session does where those specs
+ * The fake agent stands in for a vendor in every Overseer, Watcher and crash spec, so it must behave as a session does where those specs
  * look: it takes its first line, asks, waits for the answer, reports, and exits; and it can die without a result, as a killed session does.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -53,7 +53,7 @@ function launched(adapter: AgentAdapter): ReturnType<typeof Bun.spawn<'pipe', 'p
       deniedReadableRoots:    [],
       bashNetworkDomains:     [],
       webNetworkDomains:      'none',
-      relayDirectory:         scratch,
+      hatchDirectory:         scratch,
       allowedCommandPrefixes: [],
       deniedCommandPrefixes:  [],
       askUser:                true,

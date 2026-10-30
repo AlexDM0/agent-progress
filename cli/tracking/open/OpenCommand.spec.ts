@@ -21,7 +21,7 @@ afterEach(() => {
   removeScratchDirectory(repositoryDirectory);
 });
 
-testWhenGitIsPresent('A3: with no live lease, open is refused overseer-down at exit 1, advising run --detach, and prints no path', async () => {
+testWhenGitIsPresent('A3: with no live Baton, open is refused overseer-down at exit 1, advising run --detach, and prints no path', async () => {
   const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
   expect(await runCommandLine(['open'], context)).toBe(1);
 

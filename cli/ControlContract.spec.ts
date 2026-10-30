@@ -16,7 +16,7 @@ import { INCIDENT_SUBCOMMAND_NAMES }                                            
 import { INTAKE_SUBCOMMAND_NAMES }                                                                from './intake/IntakeCommand.ts';
 import { JOB_SUBCOMMAND_NAMES }                                                                   from './jobs/JobCommand.ts';
 import { MERGE_SUBCOMMAND_NAMES }                                                                 from './merges/MergeCommand.ts';
-import { RUN_SUBCOMMAND_NAMES }                                                                   from './runner/RunCommand.ts';
+import { RUN_SUBCOMMAND_NAMES }                                                                   from './overseer/OverseerCommand.ts';
 import { TICKET_SUBCOMMAND_NAMES }                                                                from './tickets/TicketCommand.ts';
 import { WORKTREE_SUBCOMMAND_NAMES }                                                              from './worktrees/WorktreeCommand.ts';
 
@@ -79,7 +79,7 @@ function tableVerbsOf(commandNames: readonly string[]): string[] {
     if (command === 'worktree') return subcommandVerbsOf(command, WORKTREE_SUBCOMMAND_NAMES);
     if (command === 'gate') return subcommandVerbsOf(command, GATE_SUBCOMMAND_NAMES);
     if (command === 'intake') return [command, ...subcommandVerbsOf(command, INTAKE_SUBCOMMAND_NAMES)];
-    // The measurement events retire as `hook`; the network guard a runner renders into a job's settings stays.
+    // The measurement events retire as `hook`; the network guard an Overseer renders into a job's settings stays.
     if (command === 'hook') return [command, 'hook bash-domains', 'hook session-start'];
     return [command];
   });
@@ -121,7 +121,7 @@ const CONTRACT: ControlContract = {
 };
 
 describe('the control contract', () => {
-  // Owner answer Q41: the runner makes every lifecycle move, and User records only a ticket landed outside it.
+  // Owner answer Q41: the Overseer makes every lifecycle move, and User records only a ticket landed outside it.
   test('the not-relayable list names `ticket deliver --by-hand` as the only lifecycle verb', () => {
     const LIFECYCLE_VERB_PATTERN = /^(?:release|rework|review record|dispatcher|ticket (?:claim|start|finish|approve|deliver))\b/;
     expect(LIFECYCLE_VERB_PATTERN.test('ticket finish'), 'the pattern finds a lifecycle verb').toBe(true);

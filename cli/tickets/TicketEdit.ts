@@ -5,8 +5,8 @@ import type { ControlCommandOf }  from '../../src/shared/@types/ControlCommand.t
 import { OperationRefusal }       from '../../src/shared/OperationRefusal.ts';
 import { PRODUCT_NAMES }          from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }    from '../CommandContext.ts';
+import { hatchWhenUnderJob }      from '../HatchUnderJob.ts';
 import { openTrackerForWriting }  from '../OpenTrackerForWriting.ts';
-import { relayWhenUnderJob }      from '../RelayUnderJob.ts';
 import { suppliedMarkdownBodyOf } from '../SuppliedMarkdownBody.ts';
 import type { ArgumentParser }    from '../arguments/ArgumentParser.ts';
 import { OutputUtil }             from '../utils/OutputUtil.ts';
@@ -48,7 +48,7 @@ export async function editTicket(commandArguments: ArgumentParser, context: Comm
     appendsBody:       appends,
     allowsPastPending: forced,
   };
-  await relayWhenUnderJob(context, command);
+  await hatchWhenUnderJob(context, command);
   const edited = await openTrackerForWriting(commandArguments, context, (change) => ControlService.apply(command, change).result);
 
   const ticketId = edited.ticket.frontmatter.id;

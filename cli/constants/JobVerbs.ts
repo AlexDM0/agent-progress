@@ -2,7 +2,7 @@ import type { ControlCommandKind } from '../../src/shared/@types/ControlCommand.
 
 /**
  * The verbs a session under a job runs directly: none takes the lock or writes the data folder. Every other verb relays, when it is the
- * verb of a control command, or is refused; `cli/RelayUnderJob.spec.ts` holds both lists exact.
+ * verb of a control command, or is refused; `cli/HatchUnderJob.spec.ts` holds both lists exact.
  */
 export const READ_ONLY_VERBS_UNDER_A_JOB: readonly string[] = [
   'help',
@@ -72,10 +72,10 @@ export const RELAYED_VERB_OF_CONTROL_KIND: Readonly<Record<ControlCommandKind, s
   'intake-start':              'intake',
   'onboarder-advise':          'advise',
   'intake-close':              'intake close',
-  'runner-pause':              'run pause',
-  'runner-resume':             'run resume',
-  'runner-stop':               'run stop',
-  'runner-restart':            'run restart',
+  'overseer-pause':            'run pause',
+  'overseer-resume':           'run resume',
+  'overseer-stop':             'run stop',
+  'overseer-restart':          'run restart',
   'concurrency-set':           'concurrency',
   'pipeline-prepare-step-set': 'gate prepare',
   'pipeline-gate-add':         'gate add',

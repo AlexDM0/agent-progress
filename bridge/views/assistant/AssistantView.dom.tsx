@@ -25,7 +25,7 @@ const PLANTED = '<script>window.planted = true</script><img src=x onerror="windo
 
 const BOARD: ConversationBoardDocument = {
   jobs: [{
-    id: 'J9', kind: 'orchestrator', ticketIds: [], state: 'running'
+    id: 'J9', kind: 'assistant', ticketIds: [], state: 'running'
   }],
   decisions: [],
   incidents: [{

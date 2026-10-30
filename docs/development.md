@@ -165,7 +165,7 @@ by a spec.
 
 The dashboard is the Bridge, a React app under `bridge/` with its own DOM-only project (`bridge/tsconfig.json`,
 specs under `bridge/tsconfig.spec.json`). `bridge/Main.tsx` is its entry and `bridge/index.html` its page, which
-`cli/runner/routes/OverseerRoutes.ts` imports by path so Bun bundles it, the one place the command surface reaches
+`cli/overseer/routes/OverseerRoutes.ts` imports by path so Bun bundles it, the one place the command surface reaches
 `bridge/`. The Overseer serves it and keeps it current over `/api/events`; the board state it sends carries the
 page payload `src/services/render/PagePayloadAssembly.ts` assembles. `.agent-progress/progress.html` is only the
 stub `src/adapters/progress-page/ProgressPageStubWriter.ts` writes. The `*.dom.tsx` specs run under happy-dom through

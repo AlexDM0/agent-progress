@@ -1,5 +1,5 @@
 /**
- * A launched agent's environment is an allowlist, never an inheritance: a runner started from inside another agent session carries that
+ * A launched agent's environment is an allowlist, never an inheritance: an Overseer started from inside another agent session carries that
  * session's variables, which would change the child's tools. These cases hold the allowlist and that nothing else crosses.
  */
 import { describe, expect, test } from 'bun:test';

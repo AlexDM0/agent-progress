@@ -95,7 +95,7 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
     ],
   }, at);
   board.queueTicketForMerge('001', 'main', at);
-  const merge = board.claimMergeSlot({
+  const merge = board.claimAirlock({
     ticketId:               '001',
     target:                 'main',
     targetTip:              'b2c3d4e5f60718293a4b5c6d7e8f901234567890',
@@ -117,7 +117,7 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
     tickMinutes: 15,
   }, at);
   board.setConcurrencyLimit(3, at);
-  board.setRunnerState('running', at);
+  board.setOverseerState('running', at);
   board.recordAgentStop({
     agentId:              'example-agent',
     agentType:            'agent-progress-worker',
@@ -127,7 +127,7 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
     cacheReadInputTokens: 250_000,
     outputTokens:         9_000,
   }, [], at);
-  board.recordRunnerStarted({ codeVersion: 'a1b2c3d', installVersion: 17 }, at);
+  board.recordOverseerStarted({ codeVersion: 'a1b2c3d', installVersion: 17 }, at);
   const { job } = board.launchJob({
     kind:        'build',
     role:        'builder',
@@ -157,7 +157,7 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
   }, at);
   board.answerDecision('E1', ['CSV'], at);
   board.openDecision({
-    kind: 'outage', ticketIds: [], jobId: null, askedBy: 'runner', requestId: null, questions: [question], context: 'Two crashed jobs',
+    kind: 'outage', ticketIds: [], jobId: null, askedBy: 'overseer', requestId: null, questions: [question], context: 'Two crashed jobs',
   }, at);
   board.withdrawDecision('E2', 'job stopped', at);
   const incidentOpening = {
@@ -171,9 +171,9 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
   board.openIncident({ ...incidentOpening, facts: { requestId: 'request-4' } }, at);
   board.escalateIncident('I3', { askedBy: 'builder', questions: [question], context: 'Example cart' }, at);
   board.triageTickets(['004'], at);
-  board.recordRunnerStopped('stopped', at);
-  board.recordRunnerHandoverFailed({ successorCodeVersion: 'd4e5f6a', step: 'build-bundles', error: 'Example bundle error' }, at);
-  board.recordRelayApplied('J1', { requestId: 'request-5', commandKind: 'ticket-add', outcome: 'done' }, at);
+  board.recordOverseerStopped('stopped', at);
+  board.recordBatonPassFailed({ successorCodeVersion: 'd4e5f6a', step: 'build-bundles', error: 'Example bundle error' }, at);
+  board.recordHatchApplied('J1', { requestId: 'request-5', commandKind: 'ticket-add', outcome: 'done' }, at);
   board.clearTracker({ ticketsSurvive: true }, at);
   return records;
 }

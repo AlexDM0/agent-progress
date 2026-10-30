@@ -26,23 +26,23 @@ export type OperationRefusalDetail =
   | { kind: 'malformed-pipeline'; filePath: string; reason: string }
   | { kind: 'role-command-refused'; reason: RoleCommandRefusalReason; commandKind: string }
   | { kind: 'verb-not-relayable'; verb: string; jobId: string }
-  | { kind: 'malformed-relay-reply'; replyFilePath: string }
-  | { kind: 'runner-already-running'; url: string; leaseFilePath: string }
-  | { kind: 'overseer-down'; runnerDirectory: string }
-  | { kind: 'runner-contended'; runnerDirectory: string }
-  | { kind: 'lease-taken-over'; leaseFilePath: string }
-  | { kind: 'runner-port-in-use'; firstPort: number; lastPort: number }
-  | { kind: 'runner-identity-unreadable'; processId: number }
-  | { kind: 'runner-did-not-start'; exitCode: number | null; logFilePath: string }
-  | { kind: 'runner-still-live'; url: string; processId: number }
-  | { kind: 'runner-handover-failed'; successorCodeVersion: string; step: string; error: string; url: string | null }
-  | { kind: 'runner-control-is-runtime-only'; commandKind: string }
+  | { kind: 'malformed-hatch-reply'; replyFilePath: string }
+  | { kind: 'overseer-already-running'; url: string; batonFilePath: string }
+  | { kind: 'overseer-down'; overseerDirectory: string }
+  | { kind: 'overseer-contended'; overseerDirectory: string }
+  | { kind: 'baton-taken'; batonFilePath: string }
+  | { kind: 'overseer-port-in-use'; firstPort: number; lastPort: number }
+  | { kind: 'overseer-identity-unreadable'; processId: number }
+  | { kind: 'overseer-did-not-start'; exitCode: number | null; logFilePath: string }
+  | { kind: 'overseer-still-live'; url: string; processId: number }
+  | { kind: 'baton-pass-failed'; successorCodeVersion: string; step: string; error: string; url: string | null }
+  | { kind: 'overseer-control-is-runtime-only'; commandKind: string }
   | { kind: 'intake-close-without-job' }
-  | { kind: 'runner-owns-the-lifecycle'; url: string; leaseFilePath: string }
-  | { kind: 'host-bundle-failed'; entryPath: string; reason: string }
+  | { kind: 'overseer-owns-the-lifecycle'; url: string; batonFilePath: string }
+  | { kind: 'watcher-bundle-failed'; entryPath: string; reason: string }
   | { kind: 'ticket-has-live-job'; ticketId: string; jobId: string; state: string }
-  | { kind: 'malformed-relay-request'; requestId: string }
-  | { kind: 'relay-identity-mismatch'; requestId: string; jobId: string };
+  | { kind: 'malformed-hatch-request'; requestId: string }
+  | { kind: 'hatch-identity-mismatch'; requestId: string; jobId: string };
 
 function reasonCodeOf(detail: OperationRefusalDetail): string {
   if (detail.kind === 'role-command-refused') return detail.reason;

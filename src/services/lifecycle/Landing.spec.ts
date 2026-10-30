@@ -73,7 +73,7 @@ describeWhenGitIsPresent('landing a gated commit', () => {
     expect(tipOf('main')).toBe(mainTip);
   });
 
-  test('a target moved by nobody the runner recorded is refused target-moved, and nothing moves', () => {
+  test('a target moved by nobody the Overseer recorded is refused target-moved, and nothing moves', () => {
     const movedTip = commitFile(repositoryDirectory, 'elsewhere.ts', 'export const elsewhere = true;\n');
 
     expect(Landing.landOnTarget(mainLanding())).toEqual({ verdict: 'refused', reason: 'target-moved', facts: { targetTip: movedTip } });

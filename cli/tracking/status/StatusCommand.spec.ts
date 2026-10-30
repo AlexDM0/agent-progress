@@ -18,8 +18,8 @@ import { removeScratchDirectory }             from '../../../src/testing/Scratch
 import { describeWhenGitIsPresent }           from '../../../src/testing/ToolGuard.ts';
 import { createCapturedCommandContext }       from '../../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../../testing/InitializedScratchRepository.ts';
+import { runCommandLineWithOverseerMoves }    from '../../testing/OverseerTicketMoves.ts';
 import { fileReadyTicket }                    from '../../testing/ReadyTicketFiling.ts';
-import { runCommandLineWithRunnerMoves }      from '../../testing/RunnerTicketMoves.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -37,7 +37,7 @@ type StatusDocument = WordedProgressDocument & {
     agentsInFlight:        number;
     freeSlots:             number;
     readyTicketIds:        string[];
-    runnerState:           string;
+    overseerState:         string;
     inProgressTicketIds:   string[];
     inProgressReviewOfIds: string[];
   };
@@ -59,7 +59,7 @@ function contextHere(): ReturnType<typeof createCapturedCommandContext> {
 
 async function run(commandLineArguments: readonly string[]): Promise<ReturnType<typeof createCapturedCommandContext>> {
   const context  = contextHere();
-  const exitCode = await runCommandLineWithRunnerMoves(commandLineArguments, context);
+  const exitCode = await runCommandLineWithOverseerMoves(commandLineArguments, context);
   expect(exitCode, `\`agent-progress ${commandLineArguments.join(' ')}\` failed: ${context.errorText()}`).toBe(0);
   return context;
 }
@@ -343,7 +343,7 @@ describeWhenGitIsPresent('the log listing', () => {
 });
 
 describeWhenGitIsPresent('the concurrency block both --json documents carry', () => {
-  // The runner reads this to decide whether to start an agent and on what: the review bar counts, and a ticket waiting on unfinished work is not ready.
+  // The Overseer reads this to decide whether to start an agent and on what: the review bar counts, and a ticket waiting on unfinished work is not ready.
   test('counts every running row against the limit and lists the ready tickets lowest first', async () => {
     await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Show the role history']);
     await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Export the roles', '--depends-on', '1']);
@@ -357,7 +357,7 @@ describeWhenGitIsPresent('the concurrency block both --json documents carry', ()
       agentsInFlight:        2,
       freeSlots:             0,
       readyTicketIds:        ['002', '004'],
-      runnerState:           'paused',
+      overseerState:         'paused',
       heldTicketIds:         [],
       inProgressTicketIds:   ['001'],
       inProgressReviewOfIds: [],
@@ -366,7 +366,7 @@ describeWhenGitIsPresent('the concurrency block both --json documents carry', ()
     expect(full.concurrency).toEqual(expected);
   });
 
-  // The runner starts each ready ticket's agents on what this list says, so it must name the same tickets in the same order as `readyTicketIds`.
+  // The Overseer starts each ready ticket's agents on what this list says, so it must name the same tickets in the same order as `readyTicketIds`.
   test('readyTickets resolves each ready ticket to its priority, model and effort, in the ready order', async () => {
     await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Show the role history', '--model', 'sonnet', '--effort', 'high']);
     await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Export the roles', '--depends-on', '1']);
@@ -451,7 +451,7 @@ describeWhenGitIsPresent('the dispatch fields both --json documents carry', () =
       'agentsInFlight',
       'freeSlots',
       'readyTicketIds',
-      'runnerState',
+      'overseerState',
       'heldTicketIds',
       'inProgressTicketIds',
       'inProgressReviewOfIds',
@@ -472,7 +472,7 @@ describeWhenGitIsPresent('the dispatch fields both --json documents carry', () =
     expect(full.concurrency.inProgressTicketIds).toEqual(['001', '002']);
   });
 
-  // A review started with the move is a reviewer at work; one finished without it waits for a reviewer the runner starts on these settings.
+  // A review started with the move is a reviewer at work; one finished without it waits for a reviewer the Overseer starts on these settings.
   test('finish --start-review puts the ticket\'s review in flight, while a plain finish leaves it waiting with its agents resolved', async () => {
     await run(['concurrency', '5']);
     await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Show the role history', '--model', 'sonnet']);

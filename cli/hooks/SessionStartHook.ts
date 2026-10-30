@@ -1,5 +1,5 @@
 /**
- * `hook session-start`: prints the installed session instructions, which Claude Code adds to the session it starts. A session the runner
+ * `hook session-start`: prints the installed session instructions, which Claude Code adds to the session it starts. A session the Overseer
  * launched for a job prints nothing, since its role prompt is its whole brief. Never checks the install version.
  */
 import { readFileSync } from 'node:fs';

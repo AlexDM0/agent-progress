@@ -1,16 +1,16 @@
 /**
- * `Board.advanceLifecycle` over real board records. What matters: the steps the policy derives are applied in the same pass (jobs launched as
+ * `Board.followPlaybook` over real board records. What matters: the steps the policy derives are applied in the same pass (jobs launched as
  * records, a park held and asked about, decisions and incidents opened, defaults taken), every record stamped with `limits.now`; a ready
  * ticket is any pending, unheld one, a low one and one with an open question alike; failed passes, crashes on one ticket and usage limits
- * are acted on with no incident, and a runner restart counts toward no outage; and a group builds in parallel, each ticket as soon as the
+ * are acted on with no incident, and an Overseer restart counts toward no outage; and a group builds in parallel, each ticket as soon as the
  * group tickets it names are integrated.
  */
 import { describe, expect, test } from 'bun:test';
 
 import type { Decision }                  from './@types/Decision.ts';
-import type { LifecycleObservations }     from './@types/LifecycleStep.ts';
 import type { LogRecord }                 from './@types/LogRecord.ts';
 import type { Pipeline }                  from './@types/Pipeline.ts';
+import type { PlaybookObservations }      from './@types/PlaybookStep.ts';
 import type { Ticket, TicketFrontmatter } from './@types/Ticket.ts';
 import type { TrackerProgress }           from './@types/TrackerProgress.ts';
 import { Board }                          from './Board.ts';
@@ -72,7 +72,7 @@ function lifecycleBoardOf(contents: { tickets: Ticket[]; progress?: Partial<Trac
     view:             { kind: 'auto' },
     nextTaskId:       1,
     concurrencyLimit: 4,
-    runnerState:      'running',
+    overseerState:    'running',
     nextJobId:        901,
     jobs:             [{ ...LIVE_ORCHESTRATOR }],
     tasks:            [],
@@ -89,8 +89,8 @@ function lifecycleBoardOf(contents: { tickets: Ticket[]; progress?: Partial<Trac
   return { board, progress, records };
 }
 
-function advance(board: Board, observations: LifecycleObservations = FIXTURE_OBSERVATIONS): ReturnType<Board['advanceLifecycle']> {
-  return board.advanceLifecycle(FIXTURE_LIMITS, observations, () => WORDING);
+function advance(board: Board, observations: PlaybookObservations = FIXTURE_OBSERVATIONS): ReturnType<Board['followPlaybook']> {
+  return board.followPlaybook(FIXTURE_LIMITS, observations, () => WORDING);
 }
 
 function questionOn(ticketId: string): Decision {
@@ -108,7 +108,7 @@ describe('no pipeline and no gates on purpose are told apart', () => {
     advance(board);
 
     expect(board.decisions().map((decision) => decision.kind)).toEqual(['checks-not-set']);
-    expect(board.jobs().map((job) => [job.kind, job.role, job.target, job.ticketIds])).toEqual([['orchestrator', 'orchestrator', null, []], ['onboarder', 'onboarder', null, []]]);
+    expect(board.jobs().map((job) => [job.kind, job.role, job.target, job.ticketIds])).toEqual([['assistant', 'assistant', null, []], ['onboarder', 'onboarder', null, []]]);
   });
 
   test('after gate none the board opens no checks-not-set, launches the ready ticket and logged the choice once', () => {
@@ -118,7 +118,7 @@ describe('no pipeline and no gates on purpose are told apart', () => {
     advance(board);
 
     expect(board.decisions()).toEqual([]);
-    expect(board.jobs().map((job) => job.kind)).toEqual(['orchestrator', 'build']);
+    expect(board.jobs().map((job) => job.kind)).toEqual(['assistant', 'build']);
     expect(records.filter((record) => record.kind === 'pipeline-gates-none')).toHaveLength(1);
     expect(board.pipeline()).toEqual({ prepare: [], gates: [] });
     expect(board.checksLine()).toBe('true');
@@ -134,7 +134,7 @@ describe('advancing the lifecycle applies what the policy derives', () => {
     expect(advanced.steps).toEqual([{
       kind: 'launch-build', ticketId: '001', attempt: 1, base: 'main'
     }]);
-    expect(board.jobs().map((job) => [job.kind, job.ticketIds, job.target, job.state])).toEqual([['orchestrator', [], null, 'running'], ['build', ['001'], 'main', 'launching']]);
+    expect(board.jobs().map((job) => [job.kind, job.ticketIds, job.target, job.state])).toEqual([['assistant', [], null, 'running'], ['build', ['001'], 'main', 'launching']]);
     expect(advanced.logged).toEqual(records);
     expect(records.every((record) => record.at === FIXTURE_AT)).toBe(true);
   });
@@ -151,7 +151,7 @@ describe('advancing the lifecycle applies what the policy derives', () => {
 
     expect(board.tickets()[0]?.frontmatter.hold).toBe('parked:failed-passes');
     expect(board.decisions().map((decision) => [decision.kind, decision.ticketIds, decision.askedBy, decision.context]))
-      .toEqual([['parked', ['001'], 'runner', 'Example context']]);
+      .toEqual([['parked', ['001'], 'overseer', 'Example context']]);
     expect(board.incidents()).toEqual([]);
   });
 
@@ -159,19 +159,19 @@ describe('advancing the lifecycle applies what the policy derives', () => {
     const storedLogRecords = [
       launchedRecord('J1', 'build', ['001']),
       launchedRecord('J2', 'build', ['002']),
-      interruptedRecord('J1', 'host-lost'),
+      interruptedRecord('J1', 'watcher-lost'),
       interruptedRecord('J2', 'agent-crashed'),
     ];
     const { board } = lifecycleBoardOf({ tickets: [], storedLogRecords });
 
     advance(board);
 
-    expect(board.runnerState()).toBe('paused');
+    expect(board.overseerState()).toBe('paused');
     expect(board.decisions().map((decision) => decision.kind)).toEqual(['outage']);
     expect(board.incidents()).toEqual([]);
   });
 
-  test('an interrupted job is resumed on its next host instance, and one past its crash bound is ended replaced', () => {
+  test('an interrupted job is resumed on its next Watcher instance, and one past its crash bound is ended replaced', () => {
     const { board } = lifecycleBoardOf({
       tickets:  [ticketWith('001', { status: 'in-progress' }), ticketWith('002', { status: 'in-progress' })],
       progress: {
@@ -190,7 +190,7 @@ describe('advancing the lifecycle applies what the policy derives', () => {
     const advanced = advance(board);
 
     expect(stepKindsOf(advanced.steps)).toEqual(['resume-job', 'replace-job']);
-    expect(board.jobById('J1')).toMatchObject({ state: 'running', hostInstance: 2 });
+    expect(board.jobById('J1')).toMatchObject({ state: 'running', watcherInstance: 2 });
     expect(board.jobById('J2')).toBeUndefined();
     expect(board.incidents()).toEqual([]);
   });
@@ -234,17 +234,17 @@ describe('ready is pending and unheld', () => {
 });
 
 describe('what code counts and acts on alone', () => {
-  test('a runner restart between two crashes is not counted: the outage still pauses the runner', () => {
+  test('an Overseer restart between two crashes is not counted: the outage still pauses the overseer', () => {
     const storedLogRecords = [
       launchedRecord('J1', 'build', ['001']),
       launchedRecord('J2', 'build', ['002']),
-      interruptedRecord('J1', 'host-lost'),
-      { kind: 'runner-started', fields: { codeVersion: 'example', installVersion: 17 }, at: FIXTURE_AT } satisfies LogRecord,
-      interruptedRecord('J2', 'host-lost'),
+      interruptedRecord('J1', 'watcher-lost'),
+      { kind: 'overseer-started', fields: { codeVersion: 'example', installVersion: 17 }, at: FIXTURE_AT } satisfies LogRecord,
+      interruptedRecord('J2', 'watcher-lost'),
     ];
     const { board } = lifecycleBoardOf({ tickets: [], storedLogRecords });
 
-    expect(stepKindsOf(advance(board).steps)).toContain('pause-runner');
+    expect(stepKindsOf(advance(board).steps)).toContain('pause-overseer');
   });
 
   test('one failed pass rebuilds on the next attempt and opens nothing', () => {

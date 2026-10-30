@@ -33,11 +33,11 @@ describe('the Overseer state and its controls', () => {
 
   test('during a Baton pass the state reads handing over and no control is offered, new code or not', () => {
     const model = headerModelOf(boardStateFixture({
-      overseer: { state: 'handing-over', paused: false, codeVersion: 'code-1' },
+      overseer: { state: 'passing-baton', paused: false, codeVersion: 'code-1' },
       notices:  [{ kind: 'new-code' }],
     }), FIXTURE_NOW);
     expect([model.stateToken, model.stateText, model.pauseControl, model.restartOffered, model.stopOffered]).toEqual([
-      'handing-over', 'Overseer handing over', null, false, false,
+      'passing-baton', 'Overseer handing over', null, false, false,
     ]);
   });
 
@@ -51,14 +51,14 @@ describe('the warnings and notices', () => {
   test('every incident default, a failed Baton pass and an Assistant that cannot come up are warnings', () => {
     const model = headerModelOf(boardStateFixture({
       overseer: {
-        state: 'serving', paused: false, codeVersion: 'code-1', handoverWarning: { successorCodeVersion: 'code-2', step: 'prepared', error: 'the successor exited' }
+        state: 'serving', paused: false, codeVersion: 'code-1', batonPassWarning: { successorCodeVersion: 'code-2', step: 'prepared', error: 'the successor exited' }
       },
       notices: [
         {
           kind: 'incident-defaulted', incidentId: 'I3', move: 'merge-abort', cause: 'turn-closed'
         },
         {
-          kind: 'incident-defaulted', incidentId: 'I4', move: 'merge-review', cause: 'no-orchestrator'
+          kind: 'incident-defaulted', incidentId: 'I4', move: 'merge-review', cause: 'no-assistant'
         },
       ],
     }), FIXTURE_NOW);

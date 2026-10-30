@@ -31,7 +31,7 @@ describe('counting a ticket\'s failed passes', () => {
   });
 
   test('a crash and a replacement are not failed passes', () => {
-    const records = [launchedRecord('J1', 'build', ['001']), interruptedRecord('J1', 'host-lost'), ...finishedJobRecords('J2', 'build', '001', 'replaced')];
+    const records = [launchedRecord('J1', 'build', ['001']), interruptedRecord('J1', 'watcher-lost'), ...finishedJobRecords('J2', 'build', '001', 'replaced')];
     expect(failedPassesOf('001', records)).toBe(0);
   });
 

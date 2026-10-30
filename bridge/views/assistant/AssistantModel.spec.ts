@@ -12,7 +12,7 @@ const AT = '2026-10-29T20:00:00+01:00';
 
 const BOARD: ConversationBoardDocument = {
   jobs: [{
-    id: 'J9', kind: 'orchestrator', ticketIds: [], state: 'running'
+    id: 'J9', kind: 'assistant', ticketIds: [], state: 'running'
   }],
   decisions: [],
   incidents: [{
@@ -35,7 +35,7 @@ const BOARD: ConversationBoardDocument = {
       kind: 'incident-escalated', at: AT, incidentId: 'I2', fields: { decisionId: 'E5' }
     },
     {
-      kind: 'incident-defaulted', at: AT, incidentId: 'I1', fields: { move: 'merge-abort', cause: 'no-orchestrator' }
+      kind: 'incident-defaulted', at: AT, incidentId: 'I1', fields: { move: 'merge-abort', cause: 'no-assistant' }
     },
   ],
 };
@@ -46,7 +46,7 @@ describe('AssistantModelUtil.assistantModelOf', () => {
     expect(AssistantModelUtil.assistantModelOf({
       ...BOARD,
       jobs: [{
-        id: 'J10', kind: 'orchestrator', ticketIds: [], state: 'launching'
+        id: 'J10', kind: 'assistant', ticketIds: [], state: 'launching'
       }]
     }).assistantJobId).toBeNull();
     expect(AssistantModelUtil.assistantModelOf({ ...BOARD, jobs: [] }).assistantJobId).toBeNull();
@@ -62,7 +62,7 @@ describe('AssistantModelUtil.assistantModelOf', () => {
     const { settledIncidents } = AssistantModelUtil.assistantModelOf(BOARD);
     expect(settledIncidents.map(({ incidentId, settlement, steps }) => ({ incidentId, settlement, steps: steps.map((step) => step.text) }))).toEqual([
       { incidentId: 'I2', settlement: 'escalated', steps: ['note: Needs the owner', 'escalated to User as E5'] },
-      { incidentId: 'I1', settlement: 'defaulted', steps: ['default applied: merge-abort (no-orchestrator)'] },
+      { incidentId: 'I1', settlement: 'defaulted', steps: ['default applied: merge-abort (no-assistant)'] },
     ]);
   });
 });

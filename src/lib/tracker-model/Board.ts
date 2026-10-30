@@ -40,7 +40,7 @@ import type {
   TicketsReleased,
   TokenCredit,
   TrackerCleared,
-  RunnerStateSet
+  OverseerStateSet
 }                                                           from './@types/BoardChanges.ts';
 import type { Concurrency, DispatchCapacity }                 from './@types/Concurrency.ts';
 import type { Decision, DecisionAnswerForm, DecisionOpening } from './@types/Decision.ts';
@@ -72,19 +72,19 @@ import type {
   JobEventCursor,
   JobLaunch,
   JobStopMode,
-  MergeSlot,
-  RunnerStopReason
+  Airlock,
+  OverseerStopReason
 }                                              from './@types/Job.ts';
-import type { LifecycleLimits } from './@types/LifecycleLimits.ts';
+import type { LifecycleLimits }                          from './@types/LifecycleLimits.ts';
+import type { AgentUsage, LogRecord, LogRecordFieldsOf } from './@types/LogRecord.ts';
+import type { Pipeline, PipelineGate, PipelineStep }     from './@types/Pipeline.ts';
 import type {
   DecisionDraft,
   DecisionWording,
-  LifecycleObservations,
-  LifecycleStep
-}                                              from './@types/LifecycleStep.ts';
-import type { AgentUsage, LogRecord, LogRecordFieldsOf } from './@types/LogRecord.ts';
-import type { Pipeline, PipelineGate, PipelineStep }     from './@types/Pipeline.ts';
-import type { DisplayState, Task, TaskStatus }           from './@types/Task.ts';
+  PlaybookObservations,
+  PlaybookStep
+}                                              from './@types/PlaybookStep.ts';
+import type { DisplayState, Task, TaskStatus } from './@types/Task.ts';
 import type {
   ReadinessGap,
   ReadyTicket,
@@ -93,35 +93,35 @@ import type {
   TicketSize,
   TicketStatus
 }                                                         from './@types/Ticket.ts';
-import type { RunnerState, TrackerProgress, ViewRange } from './@types/TrackerProgress.ts';
-import { AgentQuestions }                               from './AgentQuestions.ts';
-import { BoardRecords }                                 from './BoardRecords.ts';
-import { BoardRefusal }                                 from './BoardRefusal.ts';
-import { Decisions }                                    from './Decisions.ts';
-import { DispatchQueries }                              from './DispatchQueries.ts';
-import { DisplayQueries }                               from './DisplayQueries.ts';
-import { DraftContents }                                from './DraftContents.ts';
-import { Drafts }                                       from './Drafts.ts';
-import { Epics }                                        from './Epics.ts';
-import { GroupReleases }                                from './GroupReleases.ts';
-import { IncidentMoves }                                from './IncidentMoves.ts';
-import type { IncidentEscalation }                      from './Incidents.ts';
-import { Incidents }                                    from './Incidents.ts';
-import { JobControls }                                  from './JobControls.ts';
-import type { SteppedJobState }                         from './Jobs.ts';
-import { Jobs }                                         from './Jobs.ts';
-import type { LifecycleFacts }                          from './LifecyclePolicy.ts';
-import { LifecyclePolicy }                              from './LifecyclePolicy.ts';
-import type { Logger }                                  from './Logger.ts';
-import { MergeQueueMarks }                              from './MergeQueueMarks.ts';
+import type { OverseerState, TrackerProgress, ViewRange } from './@types/TrackerProgress.ts';
+import { AgentQuestions }                                 from './AgentQuestions.ts';
 import {
   type MergeCandidate,
   type MergeLanding,
-  MergeSlotClaims,
-  type MergeSlotClaim,
+  AirlockClaims,
+  type AirlockClaim,
   type MergeTargetOf,
   type RefreshSlotClaim
-}                                                         from './MergeSlotClaims.ts';
+}                                                         from './AirlockClaims.ts';
+import { BoardRecords }                  from './BoardRecords.ts';
+import { BoardRefusal }                  from './BoardRefusal.ts';
+import { Decisions }                     from './Decisions.ts';
+import { DispatchQueries }               from './DispatchQueries.ts';
+import { DisplayQueries }                from './DisplayQueries.ts';
+import { DraftContents }                 from './DraftContents.ts';
+import { Drafts }                        from './Drafts.ts';
+import { Epics }                         from './Epics.ts';
+import { GroupReleases }                 from './GroupReleases.ts';
+import { IncidentMoves }                 from './IncidentMoves.ts';
+import type { IncidentEscalation }       from './Incidents.ts';
+import { Incidents }                     from './Incidents.ts';
+import { JobControls }                   from './JobControls.ts';
+import type { SteppedJobState }          from './Jobs.ts';
+import { Jobs }                          from './Jobs.ts';
+import type { Logger }                   from './Logger.ts';
+import { MergeQueueMarks }               from './MergeQueueMarks.ts';
+import type { PlaybookFacts }            from './Playbook.ts';
+import { Playbook }                      from './Playbook.ts';
 import { ReviewBars }                    from './ReviewBars.ts';
 import type { ReviewStatisticsReport }   from './ReviewStatistics.ts';
 import { ReviewStatistics }              from './ReviewStatistics.ts';
@@ -192,7 +192,7 @@ export class Board {
 
   private readonly mergeQueueMarks: MergeQueueMarks;
 
-  private readonly mergeSlotClaims: MergeSlotClaims;
+  private readonly airlockClaims: AirlockClaims;
 
   private readonly decisionRules: Decisions;
 
@@ -225,7 +225,7 @@ export class Board {
     this.draftContents      = new DraftContents(this.records, this.draftRules);
     this.jobRules           = new Jobs(this.records);
     this.mergeQueueMarks    = new MergeQueueMarks(this.records);
-    this.mergeSlotClaims    = new MergeSlotClaims(this.records, this.jobRules);
+    this.airlockClaims    = new AirlockClaims(this.records, this.jobRules);
     this.decisionRules      = new Decisions(this.records);
     this.incidentRules      = new Incidents(this.records, this.decisionRules);
     this.agentQuestions     = new AgentQuestions(this.records, this.jobRules, this.decisionRules, this.ticketSettings, this.ticketEdits);
@@ -280,7 +280,7 @@ export class Board {
 
   /** Pauses the board, then stops or winds down every live build, review and product-owner job. */
   stopAllJobs(mode: Exclude<JobStopMode, 'fresh'>, at: string): Logged {
-    const pause = (): readonly LogRecord[] => (this.runnerState() === 'paused' ? [] : this.setRunnerState('paused', at).logged);
+    const pause = (): readonly LogRecord[] => (this.overseerState() === 'paused' ? [] : this.setOverseerState('paused', at).logged);
     return this.jobControls.stopAllJobs(mode, pause, at);
   }
 
@@ -305,7 +305,7 @@ export class Board {
       && filingJobIds.includes(frontmatter.filedByJob));
   }
 
-  /** The runner's end of a closed intake: the job ends `closed` and a `ready-drafts` decision lists its drafts, worded by the caller. */
+  /** The Overseer's end of a closed intake: the job ends `closed` and a `ready-drafts` decision lists its drafts, worded by the caller. */
   endIntakeJob(
     jobId: string,
     readinessGapsOf: (body: string) => readonly ReadinessGap[],
@@ -317,7 +317,7 @@ export class Board {
     const ended = this.endJob(jobId, { outcome: 'closed' }, at);
     if (draft === null) return { logged: ended.logged };
     const opened = this.openDecision({
-      ...draft, askedBy: 'runner', requestId: null, ...decisionWordingOf(draft)
+      ...draft, askedBy: 'overseer', requestId: null, ...decisionWordingOf(draft)
     }, at);
     return { logged: [...ended.logged, ...opened.logged] };
   }
@@ -352,32 +352,32 @@ export class Board {
     return this.jobRules.addAnsweredRequestId(jobId, requestId);
   }
 
-  setJobSlot(jobId: string, slot: MergeSlot | null): Readonly<Job> {
+  setJobSlot(jobId: string, slot: Airlock | null): Readonly<Job> {
     return this.jobRules.setJobSlot(jobId, slot);
   }
 
-  recordRunnerStarted(versions: { codeVersion: string; installVersion: number }, at: string): Logged {
-    return this.jobRules.recordRunnerStarted(versions, at);
+  recordOverseerStarted(versions: { codeVersion: string; installVersion: number }, at: string): Logged {
+    return this.jobRules.recordOverseerStarted(versions, at);
   }
 
-  recordRunnerStopped(reason: RunnerStopReason, at: string): Logged {
-    return this.jobRules.recordRunnerStopped(reason, at);
+  recordOverseerStopped(reason: OverseerStopReason, at: string): Logged {
+    return this.jobRules.recordOverseerStopped(reason, at);
   }
 
-  recordRunnerHandoverFailed(failure: { successorCodeVersion: string; step: string; error: string }, at: string): Logged {
-    return this.jobRules.recordRunnerHandoverFailed(failure, at);
+  recordBatonPassFailed(failure: { successorCodeVersion: string; step: string; error: string }, at: string): Logged {
+    return this.jobRules.recordBatonPassFailed(failure, at);
   }
 
   recordUsageLimitHit(jobId: string, limit: { window: string; resetsAt: string }, at: string): Logged {
     return this.jobRules.recordUsageLimitHit(jobId, limit, at);
   }
 
-  recordRelayApplied(jobId: string, applied: { requestId: string; commandKind: string; outcome: string }, at: string): Logged {
-    return this.jobRules.recordRelayApplied(jobId, applied, at);
+  recordHatchApplied(jobId: string, applied: { requestId: string; commandKind: string; outcome: string }, at: string): Logged {
+    return this.jobRules.recordHatchApplied(jobId, applied, at);
   }
 
-  relayRequestIsApplied(requestId: string): boolean {
-    return this.jobRules.relayRequestIsApplied(requestId);
+  hatchRequestIsApplied(requestId: string): boolean {
+    return this.jobRules.hatchRequestIsApplied(requestId);
   }
 
   setTicketMergeQueued(ticketId: string, queued: boolean, at: string): Readonly<Task> | null {
@@ -392,38 +392,38 @@ export class Board {
     return this.mergeQueueMarks.ticketIsMergeQueued(ticketId);
   }
 
-  mergeSlotHolderOf(target: string): Readonly<Job> | undefined {
-    return this.mergeSlotClaims.slotHolderOf(target);
+  airlockHolderOf(target: string): Readonly<Job> | undefined {
+    return this.airlockClaims.slotHolderOf(target);
   }
 
   mergeCandidatesOf(target: string, targetOf: MergeTargetOf): MergeCandidate[] {
-    return this.mergeSlotClaims.mergeCandidatesOf(target, targetOf);
+    return this.airlockClaims.mergeCandidatesOf(target, targetOf);
   }
 
-  claimMergeSlot(claim: MergeSlotClaim, targetOf: MergeTargetOf, at: string): JobChanged {
-    return this.mergeSlotClaims.claimMergeSlot(claim, targetOf, at);
+  claimAirlock(claim: AirlockClaim, targetOf: MergeTargetOf, at: string): JobChanged {
+    return this.airlockClaims.claimAirlock(claim, targetOf, at);
   }
 
   claimRefreshSlot(claim: RefreshSlotClaim, at: string): JobChanged {
-    return this.mergeSlotClaims.claimRefreshSlot(claim, at);
+    return this.airlockClaims.claimRefreshSlot(claim, at);
   }
 
   /** The group's release ticket id while it is queued to merge or holds the main line's slot. */
   groupReleaseQueuedOrSlotted(group: string): string | null {
-    return this.mergeSlotClaims.releaseIsQueuedOrSlotted(group);
+    return this.airlockClaims.releaseIsQueuedOrSlotted(group);
   }
 
   /** The tickets the group's release delivers, walked through `dependsOn` from its open release ticket. */
   releaseBundleTicketIdsOf(group: string): string[] {
-    return this.mergeSlotClaims.releaseBundleOf(group).map((ticket) => ticket.frontmatter.id);
+    return this.airlockClaims.releaseBundleOf(group).map((ticket) => ticket.frontmatter.id);
   }
 
   recordMergeLanded(jobId: string, landing: MergeLanding, at: string): Logged {
-    return this.mergeSlotClaims.recordMergeLanded(jobId, landing, at);
+    return this.airlockClaims.recordMergeLanded(jobId, landing, at);
   }
 
   recordedLandingsOn(target: string): string[] {
-    return this.mergeSlotClaims.recordedLandingsOn(target);
+    return this.airlockClaims.recordedLandingsOn(target);
   }
 
   /** The unsettled jobs, in launch order. */
@@ -461,7 +461,7 @@ export class Board {
     return this.incidentRules.escalateIncident(incidentId, escalation, at);
   }
 
-  /** The runner's first start holds the v16 low `pending` tickets `first-run review` and lists them in one `findings-delivered` incident. */
+  /** The Overseer's first start holds the v16 low `pending` tickets `first-run review` and lists them in one `findings-delivered` incident. */
   holdFirstRunLeftovers(at: string): Logged {
     const held = this.agentQuestions.holdFirstRunLeftovers(at);
     if (held.ticketIds.length === 0) return { logged: held.logged };
@@ -508,22 +508,22 @@ export class Board {
     return this.incidentRules.escalateIncident(incidentId, escalation, at);
   }
 
-  /** The open incidents for the runner's orchestrator, in opening order. */
+  /** The open incidents for the Assistant, in opening order. */
   incidents(): readonly Readonly<Incident>[] {
     return this.incidentRules.incidents();
   }
 
   /**
-   * Applies every step the lifecycle policy derives from this board, in order, each record stamped `limits.now`. A decision the policy
+   * Applies every step the Playbook derives from this board, in order, each record stamped `limits.now`. A decision the policy
    * opens is worded by `decisionWordingOf`, since the policy holds no words.
    */
-  advanceLifecycle(limits: LifecycleLimits, observations: LifecycleObservations, decisionWordingOf: (draft: DecisionDraft) => DecisionWording): LifecycleAdvanced {
-    const steps = LifecyclePolicy.nextStepsOf(this.lifecycleFactsOf(observations), limits);
-    const logged = steps.flatMap((step) => this.applyLifecycleStep(step, decisionWordingOf, limits.now));
+  followPlaybook(limits: LifecycleLimits, observations: PlaybookObservations, decisionWordingOf: (draft: DecisionDraft) => DecisionWording): LifecycleAdvanced {
+    const steps = Playbook.nextStepsOf(this.playbookFactsOf(observations), limits);
+    const logged = steps.flatMap((step) => this.applyPlaybookStep(step, decisionWordingOf, limits.now));
     return { steps, logged };
   }
 
-  private lifecycleFactsOf(observations: LifecycleObservations): LifecycleFacts {
+  private playbookFactsOf(observations: PlaybookObservations): PlaybookFacts {
     return {
       tickets:                     this.records.ticketRecords.map((ticket) => ({ ...ticket.frontmatter, mergeQueued: this.ticketIsMergeQueued(ticket.frontmatter.id) })),
       jobs:                        this.jobs(),
@@ -532,16 +532,16 @@ export class Board {
       logRecords:                  [...this.records.storedLogRecords, ...this.records.loggedRecords],
       readinessPositionByTicketId: this.dispatchQueries.readinessPositionByTicketId(),
       concurrencyLimit:            this.concurrency().limit,
-      runnerState:                 this.runnerState(),
+      overseerState:               this.overseerState(),
       pipelineIsSet:               this.records.pipeline !== null,
       reviewIsSet:                 this.records.pipeline?.review !== undefined,
       observations,
     };
   }
 
-  private applyLifecycleStep(step: LifecycleStep, decisionWordingOf: (draft: DecisionDraft) => DecisionWording, at: string): readonly LogRecord[] {
+  private applyPlaybookStep(step: PlaybookStep, decisionWordingOf: (draft: DecisionDraft) => DecisionWording, at: string): readonly LogRecord[] {
     const openDecision = (draft: DecisionDraft): readonly LogRecord[] => this.openDecision({
-      ...draft, askedBy: 'runner', requestId: null, ...decisionWordingOf(draft)
+      ...draft, askedBy: 'overseer', requestId: null, ...decisionWordingOf(draft)
     }, at).logged;
     switch (step.kind) {
       case 'launch-build':
@@ -554,9 +554,9 @@ export class Board {
         }, at).logged;
       case 'queue-merge':
         return this.queueTicketForMerge(step.ticketId, step.target, at).logged;
-      case 'boot-orchestrator':
+      case 'boot-assistant':
         return this.launchJob({
-          kind: 'orchestrator', role: 'orchestrator', ticketIds: [], parentJobId: null, attempt: 1, target: null
+          kind: 'assistant', role: 'assistant', ticketIds: [], parentJobId: null, attempt: 1, target: null
         }, at).logged;
       case 'launch-onboarder':
         return this.jobControls.startOnboarder(at).logged;
@@ -580,8 +580,8 @@ export class Board {
         return this.openIncident(step.incident, at).logged;
       case 'default-incident':
         return this.incidentMoves.defaultIncident(step.incidentId, step.cause, decisionWordingOf, at);
-      case 'pause-runner':
-        return this.setRunnerState('paused', at).logged;
+      case 'pause-overseer':
+        return this.setOverseerState('paused', at).logged;
     }
   }
 
@@ -602,8 +602,8 @@ export class Board {
     return this.trackerChanges.setConcurrencyLimit(limit, at);
   }
 
-  setRunnerState(state: RunnerState, at: string): RunnerStateSet {
-    return this.trackerChanges.setRunnerState(state, at);
+  setOverseerState(state: OverseerState, at: string): OverseerStateSet {
+    return this.trackerChanges.setOverseerState(state, at);
   }
 
   setPrepareStep(step: PipelineStep, at: string): PipelineChanged {
@@ -875,8 +875,8 @@ export class Board {
     return this.dispatchQueries.concurrency();
   }
 
-  runnerState(): RunnerState {
-    return this.dispatchQueries.runnerState();
+  overseerState(): OverseerState {
+    return this.dispatchQueries.overseerState();
   }
 
   /** `null` when none is stored, or the stored one could not be read: either way no gate is set. */
@@ -951,7 +951,7 @@ export class Board {
     return this.displayQueries.reviewRowsOf(ticketId);
   }
 
-  /** The log the Board was opened with, then every record logged since, as the lifecycle policy reads it. */
+  /** The log the Board was opened with, then every record logged since, as the Playbook reads it. */
   logRecordsSoFar(): readonly LogRecord[] {
     return [...this.records.storedLogRecords, ...this.records.loggedRecords];
   }

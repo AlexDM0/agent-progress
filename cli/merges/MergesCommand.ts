@@ -1,7 +1,7 @@
 /** The merge queue as `status` reads the tracker: each target's held slot, then its queued tickets in priority and readiness order. */
 import type { LogRecord }      from '../../src/lib/tracker-model/@types/LogRecord.ts';
+import { MERGE_PRIORITY_RANK } from '../../src/lib/tracker-model/AirlockClaims.ts';
 import type { Board }          from '../../src/lib/tracker-model/Board.ts';
-import { MERGE_PRIORITY_RANK } from '../../src/lib/tracker-model/MergeSlotClaims.ts';
 import { readingBoardOf }      from '../../src/lib/tracker-model/ReadingBoard.ts';
 import { requireTracker }      from '../../src/services/tracker/TrackerReader.ts';
 import { requireWorkspace }    from '../../src/services/tracker/Workspace.ts';
@@ -55,7 +55,7 @@ function mergesReportOf(board: Board, storedLog: readonly LogRecord[]): MergesRe
 }
 
 function mergesTextOf(report: MergesReport): string {
-  if (report.slots.length === 0 && report.queue.length === 0) return 'No merge slot is held and nothing is queued to merge.';
+  if (report.slots.length === 0 && report.queue.length === 0) return 'No Airlock is held and nothing is queued to merge.';
   const slotLines  = report.slots.map((slot) => `${slot.target}: job ${slot.jobId} merging #${slot.ticketIds.join(', #')} (${slot.phase})`);
   const queueLines = report.queue.map((queued, index) => `${index + 1}. #${queued.ticketId} into ${queued.target}, ${queued.priority} priority`);
   return [...slotLines, ...(queueLines.length === 0 ? ['Nothing is queued to merge.'] : ['Queued:', ...queueLines])].join('\n');

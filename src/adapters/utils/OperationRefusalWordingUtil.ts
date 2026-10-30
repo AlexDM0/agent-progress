@@ -42,7 +42,7 @@ function incompleteTicketText(incompleteTicket: IncompleteTicket): string {
   return `ticket #${incompleteTicket.ticketId} is incomplete: ${incompleteTicket.gaps.map((gap) => READINESS_GAP_TEXT[gap]).join(', and ')}`;
 }
 
-/** The statuses a ticket verb still reaches; the runner makes every other lifecycle move, so those are named as `ticket status`. */
+/** The statuses a ticket verb still reaches; the Overseer makes every other lifecycle move, so those are named as `ticket status`. */
 const STATUSES_A_TICKET_VERB_REACHES: ReadonlySet<TaskStatus> = new Set(['pending', 're-review', 'abandoned']);
 
 function ticketMoveArgumentsFor(ticketId: string, targetStatus: TaskStatus): string {
@@ -250,8 +250,8 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
     case 'merge-queue-of-a-ticket-not-in-review':
       return `Ticket #${detail.ticketId} is ${StatusWordingUtil.statusTextFor(detail.status)}, `
         + `so it was not queued to merge: only a ticket in review whose review passed is. ${NOTHING_WAS_WRITTEN}`;
-    case 'merge-slot-held':
-      return `Job ${detail.jobId} holds the ${detail.target} merge slot, and a target merges one ticket at a time. ${NOTHING_WAS_WRITTEN}`;
+    case 'airlock-held':
+      return `Job ${detail.jobId} holds the ${detail.target} Airlock, and a target merges one ticket at a time. ${NOTHING_WAS_WRITTEN}`;
     case 'merge-candidate-not-queued':
       return `Ticket #${detail.ticketId} is not queued to merge into ${detail.target}. ${NOTHING_WAS_WRITTEN}`;
     case 'higher-priority-queued':
@@ -296,8 +296,8 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
     case 'merge-gate-not-passed':
       return `No gate passed on the merged tree ${detail.tree === '' ? 'of' : `${detail.tree} of`} job ${detail.jobId}, so it cannot land; `
         + `review the resolution or abort the merge. ${NOTHING_WAS_WRITTEN}`;
-    case 'job-holds-no-merge-slot':
-      return `Job ${detail.jobId} holds no merge slot. ${NOTHING_WAS_WRITTEN}`;
+    case 'job-holds-no-airlock':
+      return `Job ${detail.jobId} holds no Airlock. ${NOTHING_WAS_WRITTEN}`;
     case 'worktree-in-use':
       return `Job ${detail.jobIds.join(', ')} still runs on the worktree of #${detail.ticketId}; stop it first. ${NOTHING_WAS_WRITTEN}`;
     case 'worktree-has-uncommitted-work':
@@ -412,74 +412,74 @@ function messageOf(refusal: OperationRefusal): string {
       return `${detail.filePath} cannot be read as a pipeline (${detail.reason}), so it is not overwritten. Nothing was written; repair `
         + 'or delete it first.';
     case 'role-command-refused':
-      return `The runner refused the relayed ${detail.commandKind}: ${ROLE_COMMAND_REFUSAL_TEXT[detail.reason]} (${detail.reason}). ${NOTHING_WAS_WRITTEN}`;
+      return `The Overseer refused the relayed ${detail.commandKind}: ${ROLE_COMMAND_REFUSAL_TEXT[detail.reason]} (${detail.reason}). ${NOTHING_WAS_WRITTEN}`;
     case 'verb-not-relayable':
-      return `\`${PRODUCT_NAMES.PROGRAM} ${detail.verb}\` cannot run under job ${detail.jobId}: it is neither read-only nor a command the runner `
-        + `applies through the relay. ${NOTHING_WAS_WRITTEN}`;
-    case 'malformed-relay-reply':
-      return `The runner's reply ${detail.replyFilePath} cannot be read, so whether the request was applied is unknown.`;
-    case 'runner-already-running':
-      return `A runner already serves this board at ${detail.url} (${detail.leaseFilePath}). Stop it first with \`${PRODUCT_NAMES.PROGRAM} run stop\`.`;
+      return `\`${PRODUCT_NAMES.PROGRAM} ${detail.verb}\` cannot run under job ${detail.jobId}: it is neither read-only nor a command the Overseer `
+        + `applies through the Hatch. ${NOTHING_WAS_WRITTEN}`;
+    case 'malformed-hatch-reply':
+      return `The Overseer's reply ${detail.replyFilePath} cannot be read, so whether the request was applied is unknown.`;
+    case 'overseer-already-running':
+      return `An Overseer already serves this board at ${detail.url} (${detail.batonFilePath}). Stop it first with \`${PRODUCT_NAMES.PROGRAM} run stop\`.`;
     case 'overseer-down':
-      return `No Overseer serves this board (${detail.runnerDirectory} holds no live lease), so there is nothing to open. `
+      return `No Overseer serves this board (${detail.overseerDirectory} holds no live Baton), so there is nothing to open. `
         + `Start one with \`${PRODUCT_NAMES.PROGRAM} run --detach\`.`;
-    case 'runner-contended':
-      return `Another runner started in ${detail.runnerDirectory} at the same moment and holds the newer lease, so this one stopped without serving.`;
-    case 'lease-taken-over':
-      return `A newer runner took this board over from the lease ${detail.leaseFilePath}, so this runner stopped without acting.`;
-    case 'runner-port-in-use':
+    case 'overseer-contended':
+      return `Another Overseer started in ${detail.overseerDirectory} at the same moment and holds the newer Baton, so this one stopped without serving.`;
+    case 'baton-taken':
+      return `A newer Overseer took this board over from the Baton ${detail.batonFilePath}, so this Overseer stopped without acting.`;
+    case 'overseer-port-in-use':
       return detail.firstPort === detail.lastPort
-        ? `Port ${detail.firstPort} on 127.0.0.1 is in use, so the runner did not start. Pass another --port, or 0 for any free one.`
-        : `Every port from ${detail.firstPort} to ${detail.lastPort} on 127.0.0.1 is in use, so the runner did not start. Pass a free one with --port.`;
-    case 'runner-identity-unreadable':
-      return `The start and boot of process ${detail.processId} cannot be read, so it cannot hold a runner lease.`;
-    case 'runner-did-not-start':
-      return `The detached runner exited${detail.exitCode === null ? '' : ` with code ${detail.exitCode}`} before it answered. `
+        ? `Port ${detail.firstPort} on 127.0.0.1 is in use, so the Overseer did not start. Pass another --port, or 0 for any free one.`
+        : `Every port from ${detail.firstPort} to ${detail.lastPort} on 127.0.0.1 is in use, so the Overseer did not start. Pass a free one with --port.`;
+    case 'overseer-identity-unreadable':
+      return `The start and boot of process ${detail.processId} cannot be read, so it cannot hold an Overseer Baton.`;
+    case 'overseer-did-not-start':
+      return `The detached Overseer exited${detail.exitCode === null ? '' : ` with code ${detail.exitCode}`} before it answered. `
         + `Its log is ${detail.logFilePath}; run \`${PRODUCT_NAMES.PROGRAM} run\` in the foreground to see why.`;
-    case 'runner-still-live':
-      return `The runner at ${detail.url} (process ${detail.processId}) is still live after being asked to stop; its lease was left as it is.`;
-    case 'runner-handover-failed':
-      return `The handover to code ${detail.successorCodeVersion} failed at ${detail.step}: ${detail.error}. `
-        + `The old runner keeps driving${detail.url === null ? '' : ` at ${detail.url}`} and shows this as a warning; `
-        + `see \`${PRODUCT_NAMES.PROGRAM} run status\` and the runner log.`;
-    case 'runner-control-is-runtime-only':
-      return `${detail.commandKind} is sent to the live runner, never applied to the board. ${NOTHING_WAS_WRITTEN}`;
+    case 'overseer-still-live':
+      return `The Overseer at ${detail.url} (process ${detail.processId}) is still live after being asked to stop; its Baton was left as it is.`;
+    case 'baton-pass-failed':
+      return `The Baton pass to code ${detail.successorCodeVersion} failed at ${detail.step}: ${detail.error}. `
+        + `The old Overseer keeps driving${detail.url === null ? '' : ` at ${detail.url}`} and shows this as a warning; `
+        + `see \`${PRODUCT_NAMES.PROGRAM} run status\` and the Overseer log.`;
+    case 'overseer-control-is-runtime-only':
+      return `${detail.commandKind} is sent to the live Overseer, never applied to the board. ${NOTHING_WAS_WRITTEN}`;
     case 'intake-close-without-job':
       return `Name the product-owner job whose intake to close, as J4. ${NOTHING_WAS_WRITTEN}`;
-    case 'runner-owns-the-lifecycle':
-      return `A runner drives this board at ${detail.url} (${detail.leaseFilePath}), so only it delivers tickets. `
+    case 'overseer-owns-the-lifecycle':
+      return `An Overseer drives this board at ${detail.url} (${detail.batonFilePath}), so only it delivers tickets. `
         + `Stop it with \`${PRODUCT_NAMES.PROGRAM} run stop\` before recording work by hand. ${NOTHING_WAS_WRITTEN}`;
-    case 'host-bundle-failed':
-      return `The host entry ${detail.entryPath} did not bundle, so the runner cannot spawn hosts: ${detail.reason}`;
+    case 'watcher-bundle-failed':
+      return `The Watcher entry ${detail.entryPath} did not bundle, so the Overseer cannot spawn Watchers: ${detail.reason}`;
     case 'ticket-has-live-job':
       return `Ticket #${detail.ticketId} has job ${detail.jobId} live (${detail.state}), so it cannot be recorded delivered by hand. ${NOTHING_WAS_WRITTEN}`;
-    case 'malformed-relay-request':
-      return `The relayed request ${detail.requestId} is not a request the runner reads. ${NOTHING_WAS_WRITTEN}`;
-    case 'relay-identity-mismatch':
+    case 'malformed-hatch-request':
+      return `The relayed request ${detail.requestId} is not a request the Overseer reads. ${NOTHING_WAS_WRITTEN}`;
+    case 'hatch-identity-mismatch':
       return `The relayed request ${detail.requestId} names a job or role of its own; a request takes job ${detail.jobId}'s from its folder. `
         + NOTHING_WAS_WRITTEN;
   }
 }
 
 const ROLE_COMMAND_REFUSAL_TEXT: Readonly<Record<RoleCommandRefusalReason, string>> = {
-  'relay-identity-mismatch':      'a request may not name a job, a role or an admission; the relay folder says who sent it',
+  'hatch-identity-mismatch':      'a request may not name a job, a role or an admission; the Hatch folder says who sent it',
   'command-not-allowed-for-role': 'this job\'s role may not run it',
-  'worker-filing-flag':           'a worker files only a low finding, with --priority low and the flags a finding takes, and --needs-user only through its relay',
+  'worker-filing-flag':           'a worker files only a low finding, with --priority low and the flags a finding takes, and --needs-user only through its hatch',
   'worker-filing-limit':          'this job has already filed as many findings as one job may',
   'not-own-draft':                'it changes only a draft ticket this job filed',
   'incident-move-not-allowed':    'it is legal only as a move the named delivered incident allows',
   'finding-not-listed':           'the named findings-delivered incident does not list that ticket',
 };
 
-/** What a relayed verb prints once the runner answered it, or once it gave up waiting; a refusal is worded by `messageOf`. */
-function relayAnsweredMessageOf(requestId: string, outcome: 'done' | 'nothing-to-do', ticketIds: readonly string[]): string {
+/** What a relayed verb prints once the Overseer answered it, or once it gave up waiting; a refusal is worded by `messageOf`. */
+function hatchAnsweredMessageOf(requestId: string, outcome: 'done' | 'nothing-to-do', ticketIds: readonly string[]): string {
   const ticketsText = ticketIds.length === 0 ? '' : ` (${ticketIds.map((ticketId) => `#${ticketId}`).join(', ')})`;
   return outcome === 'done'
-    ? `done ${requestId}${ticketsText}: the runner applied the request.`
-    : `nothing-to-do ${requestId}${ticketsText}: the runner found the change already made.`;
+    ? `done ${requestId}${ticketsText}: the Overseer applied the request.`
+    : `nothing-to-do ${requestId}${ticketsText}: the Overseer found the change already made.`;
 }
 
-function relayQueuedMessageOf(requestId: string): string {
+function hatchQueuedMessageOf(requestId: string): string {
   return `queued ${requestId}`;
 }
 
@@ -487,6 +487,6 @@ export const OperationRefusalWordingUtil = {
   boardRefusalMessageOf,
   installVersionMismatchMessageOf,
   messageOf,
-  relayAnsweredMessageOf,
-  relayQueuedMessageOf,
+  hatchAnsweredMessageOf,
+  hatchQueuedMessageOf,
 } as const;

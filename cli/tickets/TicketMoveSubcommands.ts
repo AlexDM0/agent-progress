@@ -6,14 +6,14 @@ import { TicketJsonUtil }                                                     fr
 import type { TicketStatus }                                                  from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { VocabularyUtil }                                                     from '../../src/lib/tracker-model/utils/VocabularyUtil.ts';
 import { ControlService }                                                     from '../../src/services/control/ControlService.ts';
-import { runnerFilesIn }                                                      from '../../src/services/runner/RunnerFiles.ts';
-import { RunnerLease }                                                        from '../../src/services/runner/RunnerLease.ts';
+import { Baton }                                                              from '../../src/services/overseer/Baton.ts';
+import { overseerFilesIn }                                                    from '../../src/services/overseer/OverseerFiles.ts';
 import type { ControlCommandOf }                                              from '../../src/shared/@types/ControlCommand.ts';
 import { OperationRefusal }                                                   from '../../src/shared/OperationRefusal.ts';
 import { PRODUCT_NAMES }                                                      from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                                                from '../CommandContext.ts';
+import { hatchWhenUnderJob }                                                  from '../HatchUnderJob.ts';
 import { openTrackerForWritingThenReadNextLine }                              from '../OpenTrackerForWriting.ts';
-import { relayWhenUnderJob }                                                  from '../RelayUnderJob.ts';
 import type { ArgumentParser }                                                from '../arguments/ArgumentParser.ts';
 import { SUBCOMMAND_WITH_TWO_ARGUMENTS_POSITIONAL_COUNT }                     from '../arguments/constants/SubcommandPositionalCounts.ts';
 import { OutputUtil }                                                         from '../utils/OutputUtil.ts';
@@ -45,8 +45,8 @@ function requireTicketReference(commandArguments: ArgumentParser, subcommand: st
 }
 
 /**
- * The one record-only lifecycle verb: a ticket User finished and landed outside the runner is recorded delivered in one hold, merging,
- * landing and spawning nothing. Both refusals are judged inside the hold, so a runner starting meanwhile reads the ticket delivered or not at all.
+ * The one record-only lifecycle verb: a ticket User finished and landed outside the Overseer is recorded delivered in one hold, merging,
+ * landing and spawning nothing. Both refusals are judged inside the hold, so an Overseer starting meanwhile reads the ticket delivered or not at all.
  */
 async function deliverByHand(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
   commandArguments.rejectUnknownOptions(BY_HAND_OPTION_NAMES, TICKET_USAGE);
@@ -57,11 +57,11 @@ async function deliverByHand(commandArguments: ArgumentParser, context: CommandC
   const branch    = commandArguments.option('branch');
   const commit    = commandArguments.option('commit');
   const { result: move, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
-    const { runnerDirectory } = runnerFilesIn(change.workspace.trackerDirectory);
-    const newestLease     = RunnerLease.newestLeaseOf(runnerDirectory);
-    if (newestLease.verdict === 'live') {
-      const leaseFilePath = RunnerLease.leaseFilePathFor(runnerDirectory, newestLease.generation);
-      throw new OperationRefusal('refused', { kind: 'runner-owns-the-lifecycle', url: newestLease.record.url, leaseFilePath });
+    const { overseerDirectory } = overseerFilesIn(change.workspace.trackerDirectory);
+    const newestBaton     = Baton.newestBatonOf(overseerDirectory);
+    if (newestBaton.verdict === 'live') {
+      const batonFilePath = Baton.batonFilePathFor(overseerDirectory, newestBaton.generation);
+      throw new OperationRefusal('refused', { kind: 'overseer-owns-the-lifecycle', url: newestBaton.record.url, batonFilePath });
     }
     const ticketId = TicketLookupUtil.requireTicket(change, reference).frontmatter.id;
     const liveJob  = change.board.jobs().find((job) => job.ticketIds.includes(ticketId));
@@ -123,7 +123,7 @@ async function readyTheNamedTickets(commandArguments: ArgumentParser, context: C
 
   const incidentId = commandArguments.option('incident')?.toUpperCase();
   const command: ControlCommandOf<'ticket-ready'> = { kind: 'ticket-ready', ticketReferences: references, ...(incidentId === undefined ? {} : { incidentId }) };
-  await relayWhenUnderJob(context, command);
+  await hatchWhenUnderJob(context, command);
   const { result: readied, nextLine } = await openTrackerForWritingThenReadNextLine(
     commandArguments,
     context,

@@ -13,11 +13,11 @@ import type {
   JobRole,
   JobStopMode,
   LandingKind,
-  RunnerStopReason
+  OverseerStopReason
 }                                                                        from './Job.ts';
 import type { ReviewClaim, ReviewFinding, ReviewVerdict } from './ReviewRecord.ts';
 import type { AgentPair, TicketPriority, TicketSize }     from './Ticket.ts';
-import type { RunnerState, ViewRange }                    from './TrackerProgress.ts';
+import type { OverseerState, ViewRange }                  from './TrackerProgress.ts';
 
 /** The states the retired Workflow dispatcher logged in its `dispatcher-set` records, which an older log still holds. */
 export type RetiredDispatcherState = 'running' | 'finished' | 'stopped';
@@ -36,7 +36,7 @@ interface ValueOfFieldShape {
   'review-round':           number;
   'chart-range':            ViewRange;
   'concurrency-limit':      number;
-  'runner-state':           RunnerState;
+  'overseer-state':         OverseerState;
   'dispatcher-state':       RetiredDispatcherState;
   'dispatcher-run-id':      string | null;
   'check-command':          string | null;
@@ -50,9 +50,9 @@ interface ValueOfFieldShape {
   'job-role':               JobRole | null;
   'job-outcome':            JobOutcome;
   'interruption-cause':     InterruptionCause;
-  'host-instance':          number;
+  'watcher-instance':       number;
   'permission-names':       readonly string[];
-  'runner-stop-reason':     RunnerStopReason;
+  'overseer-stop-reason':   OverseerStopReason;
   'job-stop-mode':          JobStopMode;
   'decision-kind':          DecisionKind;
   'decision-answer':        DecisionAnswer;

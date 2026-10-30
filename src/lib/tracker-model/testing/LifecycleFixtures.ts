@@ -1,19 +1,19 @@
-/** Synthetic facts, jobs and log records for the lifecycle policy's specs, every value a test does not name set to the quiet default. */
+/** Synthetic facts, jobs and log records for the Playbook's specs, every value a test does not name set to the quiet default. */
 import type {
   InterruptionCause,
   Job,
   JobKind,
   JobOutcome
 } from '../@types/Job.ts';
-import type { LifecycleLimits }                      from '../@types/LifecycleLimits.ts';
-import type { LifecycleObservations, LifecycleStep } from '../@types/LifecycleStep.ts';
-import type { LogRecord }                            from '../@types/LogRecord.ts';
-import type { TicketStatus }                         from '../@types/Ticket.ts';
-import type { LifecycleFacts, LifecycleTicket }      from '../LifecyclePolicy.ts';
+import type { LifecycleLimits }                    from '../@types/LifecycleLimits.ts';
+import type { LogRecord }                          from '../@types/LogRecord.ts';
+import type { PlaybookObservations, PlaybookStep } from '../@types/PlaybookStep.ts';
+import type { TicketStatus }                       from '../@types/Ticket.ts';
+import type { PlaybookFacts, PlaybookTicket }      from '../Playbook.ts';
 
 export const FIXTURE_AT = '2026-10-28T10:00:00+01:00';
 
-export const FIXTURE_OBSERVATIONS: LifecycleObservations = {
+export const FIXTURE_OBSERVATIONS: PlaybookObservations = {
   mainLine:                     'main',
   groupTargetPrefix:            'group-',
   installVersionChanged:        false,
@@ -27,17 +27,17 @@ export const FIXTURE_OBSERVATIONS: LifecycleObservations = {
 
 /** The values `src/shared/constants/LifecycleLimits.ts` passes in, which the tracker model may not import. */
 export const FIXTURE_LIMITS: LifecycleLimits = {
-  FAILED_PASSES_BEFORE_PARKING:                2,
-  CONSECUTIVE_DEAD_AGENTS_BEFORE_STOPPING:     2,
-  ROUND_GRANTED_ON_REWORK_ALONE:               2,
-  FINDINGS_SHRINK_FACTOR_PER_ROUND:            2,
-  REWORK_ROUND_THRESHOLD_LINES:                750,
-  JOB_RESUMES_BEFORE_FRESH:                    2,
-  RED_HANDOFF_RESUMES_BEFORE_PARKING:          2,
-  REPLACED_JOBS_BEFORE_JOB_LOST:               2,
-  FAILED_ORCHESTRATOR_BOOTS_BEFORE_DEFAULTING: 2,
-  now:                                         FIXTURE_AT,
-  usageResetsAt:                               null,
+  FAILED_PASSES_BEFORE_PARKING:             2,
+  CONSECUTIVE_DEAD_AGENTS_BEFORE_STOPPING:  2,
+  ROUND_GRANTED_ON_REWORK_ALONE:            2,
+  FINDINGS_SHRINK_FACTOR_PER_ROUND:         2,
+  REWORK_ROUND_THRESHOLD_LINES:             750,
+  JOB_RESUMES_BEFORE_FRESH:                 2,
+  RED_HANDOFF_RESUMES_BEFORE_PARKING:       2,
+  REPLACED_JOBS_BEFORE_JOB_LOST:            2,
+  FAILED_ASSISTANT_BOOTS_BEFORE_DEFAULTING: 2,
+  now:                                      FIXTURE_AT,
+  usageResetsAt:                            null,
 };
 
 export function jobFixture(overrides: Partial<Job> & Pick<Job, 'id'>): Job {
@@ -49,7 +49,7 @@ export function jobFixture(overrides: Partial<Job> & Pick<Job, 'id'>): Job {
     attempt:            1,
     target:             'main',
     state:              'running',
-    hostInstance:       1,
+    watcherInstance:    1,
     eventCursor:        { instance: 1, sequence: 0 },
     answeredRequestIds: [],
     crashResumes:       0,
@@ -57,16 +57,16 @@ export function jobFixture(overrides: Partial<Job> & Pick<Job, 'id'>): Job {
   };
 }
 
-/** The live orchestrator every fact set starts with, so a spec sees no `boot-orchestrator` it did not ask for. */
+/** The live orchestrator every fact set starts with, so a spec sees no `boot-assistant` it did not ask for. */
 export const LIVE_ORCHESTRATOR = jobFixture({
-  id: 'J900', kind: 'orchestrator', role: 'orchestrator', target: null
+  id: 'J900', kind: 'assistant', role: 'assistant', target: null
 });
 
-export function ticketOf(id: string, status: TicketStatus, overrides: Partial<LifecycleTicket> = {}): LifecycleTicket {
+export function ticketOf(id: string, status: TicketStatus, overrides: Partial<PlaybookTicket> = {}): PlaybookTicket {
   return { id, status, ...overrides };
 }
 
-export function factsWith(overrides: Partial<LifecycleFacts> = {}): LifecycleFacts {
+export function factsWith(overrides: Partial<PlaybookFacts> = {}): PlaybookFacts {
   return {
     tickets:                     [],
     jobs:                        [LIVE_ORCHESTRATOR],
@@ -75,7 +75,7 @@ export function factsWith(overrides: Partial<LifecycleFacts> = {}): LifecycleFac
     logRecords:                  [],
     readinessPositionByTicketId: new Map(),
     concurrencyLimit:            3,
-    runnerState:                 'running',
+    overseerState:               'running',
     pipelineIsSet:               true,
     reviewIsSet:                 true,
     observations:                FIXTURE_OBSERVATIONS,
@@ -102,7 +102,7 @@ export function endedRecord(jobId: string, outcome: JobOutcome): LogRecord {
 
 export function interruptedRecord(jobId: string, cause: InterruptionCause): LogRecord {
   return {
-    kind: 'job-interrupted', jobId, fields: { cause, hostInstance: 1 }, at: FIXTURE_AT,
+    kind: 'job-interrupted', jobId, fields: { cause, watcherInstance: 1 }, at: FIXTURE_AT,
   };
 }
 
@@ -117,10 +117,10 @@ export function finishedJobRecords(jobId: string, kind: JobKind, ticketId: strin
   return [launchedRecord(jobId, kind, [ticketId], attempt), endedRecord(jobId, outcome)];
 }
 
-export function launchedTicketIdsOf(steps: readonly LifecycleStep[]): string[] {
+export function launchedTicketIdsOf(steps: readonly PlaybookStep[]): string[] {
   return steps.flatMap((step) => (step.kind === 'launch-build' || step.kind === 'launch-review' ? [step.ticketId] : []));
 }
 
-export function stepKindsOf(steps: readonly LifecycleStep[]): string[] {
+export function stepKindsOf(steps: readonly PlaybookStep[]): string[] {
   return steps.map((step) => step.kind);
 }

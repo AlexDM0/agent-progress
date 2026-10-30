@@ -1,7 +1,7 @@
 /**
  * `ticket hold` and `ticket unhold`, as the command surface sees them. The cases that matter: the key is written only while held and a
  * round trip leaves the ticket as it was, each move logs one line, `status --json` names a held ticket in review as much as a ready one — the
- * runner decides on that list — every refusal leaves the whole tracker byte-identical, and `ticket claim` refuses a held ticket.
+ * Overseer decides on that list — every refusal leaves the whole tracker byte-identical, and `ticket claim` refuses a held ticket.
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { join }                      from 'node:path';
@@ -17,8 +17,8 @@ import { removeScratchDirectory }             from '../../src/testing/ScratchWor
 import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.ts';
 import { createCapturedCommandContext }       from '../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../testing/InitializedScratchRepository.ts';
+import { runCommandLineWithOverseerMoves }    from '../testing/OverseerTicketMoves.ts';
 import { fileReadyTicket }                    from '../testing/ReadyTicketFiling.ts';
-import { runCommandLineWithRunnerMoves }      from '../testing/RunnerTicketMoves.ts';
 import { storedLogEntriesOf }                 from '../testing/StoredLogEntries.ts';
 import { storedLogTextOf }                    from '../testing/StoredLogText.ts';
 import { storedProgressOf }                   from '../testing/StoredProgress.ts';
@@ -38,14 +38,14 @@ function contextHere(): ReturnType<typeof createCapturedCommandContext> {
 
 async function run(commandLineArguments: readonly string[]): Promise<ReturnType<typeof createCapturedCommandContext>> {
   const context  = contextHere();
-  const exitCode = await runCommandLineWithRunnerMoves(commandLineArguments, context);
+  const exitCode = await runCommandLineWithOverseerMoves(commandLineArguments, context);
   expect(exitCode, `\`agent-progress ${commandLineArguments.join(' ')}\` failed: ${context.errorText()}`).toBe(0);
   return context;
 }
 
 async function runExpectingRefusal(commandLineArguments: readonly string[]): Promise<ReturnType<typeof createCapturedCommandContext>> {
   const context  = contextHere();
-  const exitCode = await runCommandLineWithRunnerMoves(commandLineArguments, context);
+  const exitCode = await runCommandLineWithOverseerMoves(commandLineArguments, context);
   expect(exitCode, `\`agent-progress ${commandLineArguments.join(' ')}\` was expected to be refused`).toBe(1);
   return context;
 }
@@ -107,7 +107,7 @@ describeWhenGitIsPresent('holding a ticket', () => {
     expect((await statusDocument()).concurrency.heldTicketIds).toEqual(['001']);
   });
 
-  // The runner decides on this list, and a ticket in review has no readyTickets entry to carry the flag.
+  // The Overseer decides on this list, and a ticket in review has no readyTickets entry to carry the flag.
   test('status --json lists a held ticket in review, and marks a held ready ticket\'s entry', async () => {
     await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Show the role history']);
     await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Export the roles']);
@@ -160,13 +160,13 @@ describeWhenGitIsPresent('holding a ticket', () => {
   });
 });
 
-const RESUME_BUILD_HINT = 'which the runner never takes over';
+const RESUME_BUILD_HINT = 'which the Overseer never takes over';
 
 async function unholdOutput(extraArguments: readonly string[] = []): Promise<string> {
   return (await run(['ticket', 'unhold', '1', ...extraArguments])).outputText();
 }
 
-// The runner launches jobs and never takes over a paused row, so whatever note the row carries, the hint names resuming it by hand.
+// The Overseer launches jobs and never takes over a paused row, so whatever note the row carries, the hint names resuming it by hand.
 describeWhenGitIsPresent('unholding a ticket whose build row was left paused', () => {
   beforeEach(async () => {
     await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Show the role history']);

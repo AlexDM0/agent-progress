@@ -85,15 +85,15 @@ const FROZEN_STORED_LINES = [
   '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-abandoned","ticketId":"003","fields":{"reason":"superseded by #001"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"chart-range-set","fields":{"view":{"kind":"relative","from":"-2h","to":"now","tickMinutes":15}}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"concurrency-limit-set","fields":{"limit":3}}',
-  '{"at":"2026-09-26T10:15:00+02:00","kind":"runner-set","fields":{"state":"running"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"overseer-set","fields":{"state":"running"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"agent-stopped","fields":{"agentId":"example-agent","agentType":"agent-progress-worker",'
     + '"apiCallCount":12,"endContextTokens":48000,"totalInputTokens":310000,"cacheReadInputTokens":250000,"outputTokens":9000}}',
-  '{"at":"2026-09-26T10:15:00+02:00","kind":"runner-started","fields":{"codeVersion":"a1b2c3d","installVersion":17}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"overseer-started","fields":{"codeVersion":"a1b2c3d","installVersion":17}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"job-launched","jobId":"J2","fields":{"kind":"build","role":"builder","ticketIds":["002"],'
     + '"attempt":1,"target":"main","parentJobId":null}}',
-  '{"at":"2026-09-26T10:15:00+02:00","kind":"job-interrupted","jobId":"J2","fields":{"cause":"agent-crashed","hostInstance":1}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"job-interrupted","jobId":"J2","fields":{"cause":"agent-crashed","watcherInstance":1}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"usage-limit-hit","jobId":"J2","fields":{"window":"five_hour","resetsAt":"2026-09-26T13:00:34.000Z"}}',
-  '{"at":"2026-09-26T10:15:00+02:00","kind":"job-resumed","jobId":"J2","fields":{"hostInstance":2,"cause":"agent-crashed"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"job-resumed","jobId":"J2","fields":{"watcherInstance":2,"cause":"agent-crashed"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"job-messaged","jobId":"J2","fields":{"text":"Keep the example export small."}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"job-stop-requested","jobId":"J2","fields":{"mode":"wind-down"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-held","ticketId":"002","fields":{"reason":"wound down by User (J2)"}}',
@@ -101,7 +101,7 @@ const FROZEN_STORED_LINES = [
   '{"at":"2026-09-26T10:15:00+02:00","kind":"job-launched","jobId":"J3","fields":{"kind":"product-owner","role":"product-owner","ticketIds":[],'
     + '"attempt":1,"target":null,"parentJobId":null}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"job-ended","jobId":"J3","fields":{"outcome":"closed","deniedPermissions":[]}}',
-  '{"at":"2026-09-26T10:15:00+02:00","kind":"job-reopened","jobId":"J3","fields":{"hostInstance":2,"text":"Add the example import as well.",'
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"job-reopened","jobId":"J3","fields":{"watcherInstance":2,"text":"Add the example import as well.",'
     + '"offeredTicketIds":[]}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"decision-opened","decisionId":"E1","fields":{"kind":"agent-question","ticketIds":["002"]}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"decision-answered","decisionId":"E1","fields":{"answer":{"Ship the example export as CSV?":"CSV"},"requestId":"request-1"}}',
@@ -117,10 +117,10 @@ const FROZEN_STORED_LINES = [
   '{"at":"2026-09-26T10:15:00+02:00","kind":"decision-opened","decisionId":"E3","fields":{"kind":"agent-question","ticketIds":["002"]}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"incident-escalated","incidentId":"I3","fields":{"decisionId":"E3"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-triaged","ticketId":"004","fields":{}}',
-  '{"at":"2026-09-26T10:15:00+02:00","kind":"runner-stopped","fields":{"reason":"stopped"}}',
-  '{"at":"2026-09-26T10:15:00+02:00","kind":"runner-handover-failed","fields":{"successorCodeVersion":"d4e5f6a","step":"build-bundles",'
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"overseer-stopped","fields":{"reason":"stopped"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"baton-pass-failed","fields":{"successorCodeVersion":"d4e5f6a","step":"build-bundles",'
     + '"error":"Example bundle error"}}',
-  '{"at":"2026-09-26T10:15:00+02:00","kind":"relay-applied","jobId":"J1","fields":{"requestId":"request-5","commandKind":"ticket-add","outcome":"done"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"hatch-applied","jobId":"J1","fields":{"requestId":"request-5","commandKind":"ticket-add","outcome":"done"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"tracker-cleared","fields":{}}',
 ];
 

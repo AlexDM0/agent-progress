@@ -1,5 +1,5 @@
 /**
- * The process runner must refuse a directory outside the scratch root before it spawns the binary, or a refusal would be swallowed into an exit
+ * The process Overseer must refuse a directory outside the scratch root before it spawns the binary, or a refusal would be swallowed into an exit
  * code; and a spawned binary always runs with the fake agent and the `claude` trap first on its `PATH`, whatever a spec's environment says,
  * since a spec turning either off would let the binary start a real agent session.
  */

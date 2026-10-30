@@ -9,7 +9,7 @@
 import { describe, expect, test } from 'bun:test';
 
 import type { IncidentKind }                            from '../../lib/tracker-model/@types/Incident.ts';
-import type { SlotPhase }                               from '../../lib/tracker-model/@types/Job.ts';
+import type { AirlockPhase }                            from '../../lib/tracker-model/@types/Job.ts';
 import type { Board }                                   from '../../lib/tracker-model/Board.ts';
 import type { ControlCommand }                          from '../../shared/@types/ControlCommand.ts';
 import { OperationRefusal }                             from '../../shared/OperationRefusal.ts';
@@ -30,7 +30,7 @@ function apply(board: Board, command: ControlCommand): { logged: { kind: string;
   return ControlService.apply(command, changeOf(board)).result as unknown as { logged: { kind: string }[] };
 }
 
-function mergeBoard(phase: SlotPhase, incidentKind: IncidentKind | null): Board {
+function mergeBoard(phase: AirlockPhase, incidentKind: IncidentKind | null): Board {
   const { board } = boardFixture({ tickets: [ticketFixture({ id: '001', status: 'in-review' })] });
   const { job } = board.launchJob({
     kind: 'merge', role: null, ticketIds: ['001'], parentJobId: null, attempt: 1, target: 'main'

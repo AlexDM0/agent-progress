@@ -13,7 +13,7 @@ import { join }                          from 'node:path';
 import { afterEach, beforeEach, expect } from 'bun:test';
 
 import type { Job }                                       from '../../src/lib/tracker-model/@types/Job.ts';
-import { HostFleet }                                      from '../../src/services/runner/HostFleet.ts';
+import { WatcherFleet }                                   from '../../src/services/overseer/WatcherFleet.ts';
 import { requireWorkspace }                               from '../../src/services/tracker/Workspace.ts';
 import { removeScratchDirectory }                         from '../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent, testWhenGitIsPresent } from '../../src/testing/ToolGuard.ts';
@@ -38,7 +38,7 @@ function productOwnerJob(): Job {
     attempt:            1,
     target:             null,
     state:              'running',
-    hostInstance:       1,
+    watcherInstance:    1,
     eventCursor:        { instance: 1, sequence: 0 },
     answeredRequestIds: [],
     crashResumes:       0,
@@ -63,7 +63,7 @@ describeWhenGitIsPresent('job attach following a job to its end', () => {
     repositoryDirectory = await createInitializedScratchRepository('job-attach', ['--project', 'Example Agency', '--no-hooks'], SPEC_CLOCK);
     const { trackerDirectory } = requireWorkspace(repositoryDirectory);
     progressFilePath = join(trackerDirectory, 'progress.json');
-    const jobFolder  = HostFleet.jobFolderOf(trackerDirectory, JOB_ID);
+    const jobFolder  = WatcherFleet.jobFolderOf(trackerDirectory, JOB_ID);
     mkdirSync(jobFolder, { recursive: true });
     eventLogPath = join(jobFolder, 'events-1.ndjson');
     writeFileSync(eventLogPath, eventLineOf(1, 'Example first message'));

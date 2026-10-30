@@ -8,20 +8,20 @@ import {
   INCIDENT_MOVES
 }                             from '../../lib/tracker-model/constants/DecisionAndIncidentVocabulary.ts';
 import {
-  FIRST_HOST_INSTANCE,
+  FIRST_WATCHER_INSTANCE,
   GATE_OUTCOMES,
   LANDING_KINDS,
   INTERRUPTION_CAUSES,
   JOB_KINDS,
   JOB_OUTCOMES,
   JOB_ROLES,
-  RUNNER_STOP_REASONS,
+  OVERSEER_STOP_REASONS,
   JOB_STOP_MODES
 }                                                            from '../../lib/tracker-model/constants/JobStates.ts';
 import type { LogFieldShape }                                                   from '../../lib/tracker-model/constants/LogRecordSchema.ts';
 import { LOG_RECORD_SCHEMA, LOG_RECORD_SUBJECT_IDS, RETIRED_DISPATCHER_STATES } from '../../lib/tracker-model/constants/LogRecordSchema.ts';
+import { OVERSEER_STATES }                                                      from '../../lib/tracker-model/constants/OverseerStates.ts';
 import { FIRST_REPEAT_REVIEW_ROUND, FIRST_REVIEW_BAR_ROUND }                    from '../../lib/tracker-model/constants/ReviewRounds.ts';
-import { RUNNER_STATES }                                                        from '../../lib/tracker-model/constants/RunnerStates.ts';
 import { TICKET_PRIORITIES, TICKET_SIZES }                                      from '../../lib/tracker-model/constants/TicketFields.ts';
 import { BoardSettingsUtil }                                                    from '../../lib/tracker-model/utils/BoardSettingsUtil.ts';
 import { VocabularyUtil }                                                       from '../../lib/tracker-model/utils/VocabularyUtil.ts';
@@ -51,8 +51,8 @@ function checkCommandProblem(value: unknown, path: string): string | null {
   return value === null || BoardSettingsUtil.checkCommandIsWellFormed(value) ? null : `${path} is neither null nor a shell line that is not blank`;
 }
 
-function hostInstanceProblem(value: unknown, path: string): string | null {
-  return StoredValueUtil.wholeNumberIsAtLeast(value, FIRST_HOST_INSTANCE) ? null : `${path} is not a whole number of at least ${FIRST_HOST_INSTANCE}`;
+function watcherInstanceProblem(value: unknown, path: string): string | null {
+  return StoredValueUtil.wholeNumberIsAtLeast(value, FIRST_WATCHER_INSTANCE) ? null : `${path} is not a whole number of at least ${FIRST_WATCHER_INSTANCE}`;
 }
 
 function decisionAnswerProblem(value: unknown, path: string): string | null {
@@ -87,8 +87,8 @@ function reviewBarRoundProblem(value: unknown, path: string): string | null {
   return StoredValueUtil.wholeNumberIsAtLeast(value, FIRST_REVIEW_BAR_ROUND) ? null : `${path} is not a whole round of at least ${FIRST_REVIEW_BAR_ROUND}`;
 }
 
-function runnerStateProblem(value: unknown, path: string): string | null {
-  return BoardSettingsUtil.runnerStateIsKnown(value) ? null : `${path} is ${JSON.stringify(value)}, which is not one of ${RUNNER_STATES.join(', ')}`;
+function overseerStateProblem(value: unknown, path: string): string | null {
+  return BoardSettingsUtil.overseerStateIsKnown(value) ? null : `${path} is ${JSON.stringify(value)}, which is not one of ${OVERSEER_STATES.join(', ')}`;
 }
 
 function retiredDispatcherRunIdProblem(value: unknown, path: string): string | null {
@@ -110,7 +110,7 @@ const CHECK_FOR_FIELD_SHAPE: Readonly<Record<LogFieldShape, FieldShapeCheck>> = 
   'review-round':           reviewRoundProblem,
   'chart-range':            (value, path) => (BoardSettingsUtil.viewRangeIsWellFormed(value) ? null : `${path} is not a chart range`),
   'concurrency-limit':      (value, path) => (BoardSettingsUtil.concurrencyLimitIsWellFormed(value) ? null : `${path} is not a whole number of agents`),
-  'runner-state':           runnerStateProblem,
+  'overseer-state':         overseerStateProblem,
   'dispatcher-state':       (value, path) => vocabularyProblem(value, path, RETIRED_DISPATCHER_STATES),
   'dispatcher-run-id':      retiredDispatcherRunIdProblem,
   'check-command':          checkCommandProblem,
@@ -124,9 +124,9 @@ const CHECK_FOR_FIELD_SHAPE: Readonly<Record<LogFieldShape, FieldShapeCheck>> = 
   'job-role':               (value, path) => (value === null ? null : vocabularyProblem(value, path, JOB_ROLES)),
   'job-outcome':            (value, path) => vocabularyProblem(value, path, JOB_OUTCOMES),
   'interruption-cause':     (value, path) => vocabularyProblem(value, path, INTERRUPTION_CAUSES),
-  'host-instance':          hostInstanceProblem,
+  'watcher-instance':       watcherInstanceProblem,
   'permission-names':       (value, path) => listOfTextProblem(value, path, 'permission names'),
-  'runner-stop-reason':     (value, path) => vocabularyProblem(value, path, RUNNER_STOP_REASONS),
+  'overseer-stop-reason':   (value, path) => vocabularyProblem(value, path, OVERSEER_STOP_REASONS),
   'job-stop-mode':          (value, path) => vocabularyProblem(value, path, JOB_STOP_MODES),
   'decision-kind':          (value, path) => vocabularyProblem(value, path, DECISION_KINDS),
   'decision-answer':        decisionAnswerProblem,

@@ -1,4 +1,4 @@
-import type { RunnerState } from './TrackerProgress.ts';
+import type { OverseerState } from './TrackerProgress.ts';
 
 export interface Concurrency {
   limit:          number;
@@ -10,6 +10,6 @@ export interface Concurrency {
 
 export interface DispatchCapacity extends Concurrency {
   readyTicketIds: string[];
-  runnerState:    RunnerState;
+  overseerState:  OverseerState;
   heldTicketIds:  string[];
 }

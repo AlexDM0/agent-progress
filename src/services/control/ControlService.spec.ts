@@ -1,5 +1,5 @@
 /**
- * The control contract as data: one example of every kind, typed so a new kind needs one, survives JSON unchanged, which a relay file and an
+ * The control contract as data: one example of every kind, typed so a new kind needs one, survives JSON unchanged, which a Hatch file and an
  * HTTP body depend on; and a ticket reference the hold cannot resolve leaves the service as a wordless detail, refused when nothing is
  * there and unrepaired when a file of that id will not parse, worded only by the adapter's refusal-wording util.
  */
@@ -95,10 +95,10 @@ const EXAMPLE_OF_KIND: { readonly [Kind in ControlCommandKind]: ControlCommandOf
   'intake-start':              { kind: 'intake-start', text: 'Alex Example asks for a basket.' },
   'onboarder-advise':          { kind: 'onboarder-advise' },
   'intake-close':              { kind: 'intake-close', jobId: 'J3', proposedDraftSets: [['4', '5']] },
-  'runner-pause':              { kind: 'runner-pause' },
-  'runner-resume':             { kind: 'runner-resume' },
-  'runner-stop':               { kind: 'runner-stop', now: true },
-  'runner-restart':            { kind: 'runner-restart', now: false },
+  'overseer-pause':            { kind: 'overseer-pause' },
+  'overseer-resume':           { kind: 'overseer-resume' },
+  'overseer-stop':             { kind: 'overseer-stop', now: true },
+  'overseer-restart':          { kind: 'overseer-restart', now: false },
   'concurrency-set':           { kind: 'concurrency-set', limit: 3 },
   'pipeline-prepare-step-set': { kind: 'pipeline-prepare-step-set', step: { name: 'install', run: 'bun install' } },
   'pipeline-gate-add':         { kind: 'pipeline-gate-add', gate: { name: 'test', run: 'bun test', definedBy: ['bunfig.toml'] } },

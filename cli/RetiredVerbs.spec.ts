@@ -1,5 +1,5 @@
 /**
- * The Workflow dispatcher, its hook verbs and the by-hand lifecycle verbs are retired: the runner makes those moves now (owner answer Q41).
+ * The Workflow dispatcher, its hook verbs and the by-hand lifecycle verbs are retired: the Overseer makes those moves now (owner answer Q41).
  * What matters is that each is refused at exit 1 as unknown, writing nothing, on a tracked repository where the verb would otherwise have
  * had a ticket to act on; `ticket deliver --by-hand`, the one record-only lifecycle verb kept, still delivers.
  */

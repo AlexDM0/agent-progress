@@ -1,7 +1,7 @@
-/** Whether a value read from outside is a well-formed board setting: the view, the concurrency limit, the runner state, the checks. */
-import type { RunnerState, ViewRange }     from '../@types/TrackerProgress.ts';
+/** Whether a value read from outside is a well-formed board setting: the view, the concurrency limit, the Overseer state, the checks. */
+import type { OverseerState, ViewRange }   from '../@types/TrackerProgress.ts';
 import { LOWEST_CONCURRENCY_LIMIT_AGENTS } from '../constants/ConcurrencyLimits.ts';
-import { RUNNER_STATES }                   from '../constants/RunnerStates.ts';
+import { OVERSEER_STATES }                 from '../constants/OverseerStates.ts';
 
 function viewRangeIsWellFormed(value: unknown): value is ViewRange {
   if (typeof value !== 'object' || value === null) return false;
@@ -17,8 +17,8 @@ function concurrencyLimitIsWellFormed(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= LOWEST_CONCURRENCY_LIMIT_AGENTS;
 }
 
-function runnerStateIsKnown(value: unknown): value is RunnerState {
-  return typeof value === 'string' && (RUNNER_STATES as readonly string[]).includes(value);
+function overseerStateIsKnown(value: unknown): value is OverseerState {
+  return typeof value === 'string' && (OVERSEER_STATES as readonly string[]).includes(value);
 }
 
 function checkCommandIsWellFormed(value: unknown): value is string {
@@ -28,6 +28,6 @@ function checkCommandIsWellFormed(value: unknown): value is string {
 export const BoardSettingsUtil = {
   viewRangeIsWellFormed,
   concurrencyLimitIsWellFormed,
-  runnerStateIsKnown,
+  overseerStateIsKnown,
   checkCommandIsWellFormed,
 } as const;

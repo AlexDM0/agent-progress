@@ -165,7 +165,7 @@ function forecastTicketsOf(state: ProgressBoardState): ForecastTicket[] {
   });
 }
 
-/** "ETA 25m–50m": the wave's p50 to p80 finish from now; asked for only while the runner runs, since it is shown, never decides. */
+/** "ETA 25m–50m": the wave's p50 to p80 finish from now; asked for only while the Overseer runs, since it is shown, never decides. */
 function waveForecastTextOf(state: ProgressBoardState, graph: DependencyGraph, nowEpochMilliseconds: number): (waveNodeIds: readonly string[]) => string | null {
   const forecastTickets = forecastTicketsOf(state);
   const ticketById = new Map(forecastTickets.map((ticket) => [ticket.id, ticket]));
@@ -202,7 +202,7 @@ function dependenciesModelOf(state: ProgressBoardState, nowEpochMilliseconds: nu
   const graph = DependencyGraphUtil.dependencyGraphOf(graphTickets, payload.concurrency.limit);
   const ticketById = new Map(tickets.map((ticket) => [ticket.id, ticket]));
   const readyTicketIds = new Set(payload.boardFacts.readyTickets.filter((ready) => ready.held !== true).map((ready) => ready.id));
-  const forecastOf = payload.progress.runnerState === 'running' ? waveForecastTextOf(state, graph, nowEpochMilliseconds) : null;
+  const forecastOf = payload.progress.overseerState === 'running' ? waveForecastTextOf(state, graph, nowEpochMilliseconds) : null;
   const placedColumns = columnsInRowOrder(graph, ticketById);
   const forecastTexts = placedColumns.map((column) => (column.isDone || forecastOf === null ? null : forecastOf(column.nodeIds)));
   const headHeight = forecastTexts.some((text) => text !== null) ? FORECAST_HEAD_HEIGHT_PIXELS : COLUMN_HEAD_HEIGHT_PIXELS;

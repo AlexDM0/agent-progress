@@ -38,7 +38,7 @@ function StopOverseer() {
   return (
     <span className="bridge-confirm" role="group" aria-label="Confirm stopping the Overseer">
       Stop the Overseer? Launches end until it is started again.
-      <CommandButton label="Confirm stop" command={{ kind: 'runner-stop', now: false }} answeredWhileInstallHeld />
+      <CommandButton label="Confirm stop" command={{ kind: 'overseer-stop', now: false }} answeredWhileInstallHeld />
       <button type="button" className="bridge-button" onClick={() => setConfirming(false)}>Cancel</button>
     </span>
   );
@@ -67,10 +67,10 @@ export function Header({
       {model.pauseControl === null ? null : (
         <CommandButton
           label={model.pauseControl === 'resume' ? 'Resume' : 'Pause'}
-          command={{ kind: model.pauseControl === 'resume' ? 'runner-resume' : 'runner-pause' }}
+          command={{ kind: model.pauseControl === 'resume' ? 'overseer-resume' : 'overseer-pause' }}
         />
       )}
-      {model.restartOffered ? <CommandButton label="Restart" command={{ kind: 'runner-restart', now: false }} answeredWhileInstallHeld /> : null}
+      {model.restartOffered ? <CommandButton label="Restart" command={{ kind: 'overseer-restart', now: false }} answeredWhileInstallHeld /> : null}
       {model.stopOffered ? <StopOverseer /> : null}
       {model.newCodeNotice === null ? null : <span className="bridge-new-code" role="status">{model.newCodeNotice}</span>}
       {model.concurrencyLimit === null ? null : <ConcurrencyControl key={model.concurrencyLimit} limit={model.concurrencyLimit} />}

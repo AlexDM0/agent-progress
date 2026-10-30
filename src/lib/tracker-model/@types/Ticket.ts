@@ -10,8 +10,8 @@ export type TicketPriority = 'low' | 'normal' | 'high';
 /** The expected change in code lines, comments and docs not counted: XS ≤ 20, S ≤ 100, M ≤ 300, L ≤ 750, XL ≤ 1500, XXL beyond. */
 export type TicketSize     = 'XS' | 'S' | 'M' | 'L' | 'XL' | 'XXL';
 export type LineEnding    = '\n' | '\r\n';
-/** Who settles a low finding a job filed: the runner's orchestrator, or only User. */
-export type FindingRoute  = 'orchestrator' | 'user';
+/** Who settles a low finding a job filed: the Assistant, or only User. */
+export type FindingRoute  = 'assistant' | 'user';
 
 /** The model aliases a Claude Code agent definition's `model` key accepts, as an agent working a ticket runs on. */
 export type AgentModel  = 'haiku' | 'sonnet' | 'opus' | 'fable';
@@ -59,7 +59,7 @@ export interface TicketFrontmatter {
   introducedBy?:    string;
   /** The padded id of the ticket whose review found this one; absent on a ticket no review filed. */
   foundInReview?:   string;
-  /** The job that filed the ticket through its relay, stamped from the relay folder's job record; absent on a ticket no job filed. */
+  /** The job that filed the ticket through its Hatch, stamped from the Hatch folder's job record; absent on a ticket no job filed. */
   filedByJob?:      string;
   /** On a finding a job filed: who decides it once the ticket it was found on is delivered; absent on every other ticket. */
   findingRoute?:    FindingRoute;

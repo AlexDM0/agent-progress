@@ -55,6 +55,6 @@ export interface StatusJobs {
 export interface StatusDecisionsAndIncidents {
   /** Every open decision for the user, in opening order, as progress.json stores it; empty when none is open. */
   decisions: readonly Readonly<Decision>[];
-  /** Every open incident for the runner's orchestrator, in opening order, as progress.json stores it; empty when none is open. */
+  /** Every open incident for the Assistant, in opening order, as progress.json stores it; empty when none is open. */
   incidents: readonly Readonly<Incident>[];
 }

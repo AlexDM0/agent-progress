@@ -5,7 +5,7 @@ itself and therefore never out of step with it. Run it when you need a flag you 
 nothing here repeats it.
 
 What is here is what the tool does not print: the ticket file an agent edits and the Brief it carries, what each
-move does to the Gantt row, the jobs, decisions and incidents the runner keeps, how a finding travels, what a session
+move does to the Gantt row, the jobs, decisions and incidents the Overseer keeps, how a finding travels, what a session
 under a job may run, where a review bar is drawn, how a row's tokens are credited, what counts against the limit,
 the time axis and the exit codes. `{{program}} init` and `update` install it as `{{dataFolder}}/reference.md` and
 rewrite it on every run, so a hand edit is undone; read it when a skill or a prompt sends you here, not before.
@@ -42,7 +42,7 @@ dependsOn: "001, 002"
 epics: "loyalty-programme, checkout-redesign"
 network: "api.example.com, cdn.example.com"
 filedByJob: "J12"
-findingRoute: "orchestrator"
+findingRoute: "assistant"
 claimedBodyHash: "5f1d3c9a0b7e2468"
 task: 17
 owner: Alex Example
@@ -66,8 +66,8 @@ owner: Alex Example
 | `network` | only once set | the public domains the ticket's agents may reach, written `"api.example.com, cdn.example.com"` and read like `epics`, lower case, in order. A domain that is not public makes the file malformed. Set it with `ticket add --network` or `ticket network`, only while the ticket is a draft or pending; `--clear` removes it. |
 | `introducedBy` | only once named, on a bug | one ticket id, written `"005"`, read like a `dependsOn` entry: the delivered ticket whose change introduced the bug. Set it with `ticket add --introduced-by` or `ticket introduced-by`, which refuse a ticket that is not a bug and a cause that is missing, the ticket itself or not delivered; an empty cause removes it. |
 | `foundInReview` | only once named | one ticket id, written and read like `introducedBy`: the ticket whose review found this one. Set only at filing, with `ticket add --found-in-review`, which refuses a ticket that does not exist. |
-| `filedByJob` | only on a ticket a job filed | the id of the job whose relay filed it, written `"J12"`, stamped by the runner from the relay folder's job, never from the request |
-| `findingRoute` | only on a worker's finding | who settles the low draft a builder, reviewer or merge-gate fixer filed: `orchestrator`, the Assistant once the ticket it was found on is delivered, or `user`, User's Low-priority triage list, for a finding filed with `--needs-user`. Only `ticket triage` changes it afterwards, to `user`; any other value makes the file malformed. |
+| `filedByJob` | only on a ticket a job filed | the id of the job whose Hatch filed it, written `"J12"`, stamped by the Overseer from the Hatch folder's job, never from the request |
+| `findingRoute` | only on a worker's finding | who settles the low draft a builder, reviewer or merge-gate fixer filed: `assistant`, the Assistant once the ticket it was found on is delivered, or `user`, User's Low-priority triage list, for a finding filed with `--needs-user`. Only `ticket triage` changes it afterwards, to `user`; any other value makes the file malformed. |
 | `claimedBodyHash` | once the ticket was started | the content hash (64-bit FNV-1a, 16 hex digits) of the body as it read when the ticket last moved to in-progress; absent on a ticket never started. `ticket show` compares it with a hash of the body now to say whether the body changed since. |
 | `task` | always | the row's id as an unquoted integer, or `null` for a draft, and for a low ticket filed before install version 17 and never started; a quoted `task` makes the file malformed |
 
@@ -115,10 +115,10 @@ ticket that builds carries both.
 ## The Brief template
 
 What only the filer knows goes into the `## Brief`, at the end of the ticket body when it is filed: where the work
-belongs, the facts its builder would otherwise go and discover, and the claims its reviewer is to test. The runner
+belongs, the facts its builder would otherwise go and discover, and the claims its reviewer is to test. The Overseer
 builds other tickets beside it, so `Out of bounds` names what this ticket must not touch, and two tickets that
 rewrite one file are ordered with `--depends-on` rather than fenced here. A Brief never states a worktree, a branch,
-a claim or a merge step: the runner's prompts name them.
+a claim or a merge step: the Overseer's prompts name them.
 
 ```
 ## Brief
@@ -138,7 +138,7 @@ the rule it is an instance of and make the search an Acceptance item, with the c
 
 ## What each move does to the Gantt row
 
-The **from** column is the matrix the named verbs enforce and the runner's moves keep; `ticket status <id> <status>`
+The **from** column is the matrix the named verbs enforce and the Overseer's moves keep; `ticket status <id> <status>`
 skips it. **its row** is the status stored; **pill** is what that row then reads on the chart.
 
 | move | from | ticket status | its row | pill | stamps written | log line |
@@ -150,7 +150,7 @@ skips it. **its row** is the status stored; **pill** is what that row then reads
 | a review job launches | in-review | in-review, unchanged | `in-review`, plus an in-progress review row for the job's round | `Reviewing` | — | `Review row #18 started: <name>` |
 | a group ticket's merge lands on its group branch | in-review | reviewed | `reviewed`, its `reviewed` stamp set if unset | `Awaiting merge` | `finished` if null | `Ticket #003 reviewed` |
 | a merge lands on the main line | in-review; reviewed for a release bundle's ticket landed with its group's release ticket | reviewed (unless already), then delivered | `delivered`; in-progress review rows delivered | `Done` | `finished` and `delivered` if null; `branch`, `commit` | the reviewed and delivered lines, and one per review row closed |
-| `ticket deliver --by-hand` | anything but draft, while no runner is live and no job of the ticket is | delivered | `delivered` | `Done` | `delivered` if null | `Ticket #003 delivered` |
+| `ticket deliver --by-hand` | anything but draft, while no Overseer is live and no job of the ticket is | delivered | `delivered` | `Done` | `delivered` if null | `Ticket #003 delivered` |
 | `ticket abandon` | anything but delivered, abandoned | abandoned | `abandoned`; none created for a ticket without one | `Abandoned` | `abandonedAt`, always; the row's end if it had started | `Ticket #003 abandoned: <reason>` |
 | `ticket reopen` | anything but draft and pending; a group's release ticket only while no other release ticket of its group is open | pending | `pending`, its start, end, `reviewed` and `reviewRound` cleared | `To do` | all four cleared; `reason` dropped | `Ticket #003 reopened` |
 | `ticket priority … low` | draft, pending | unchanged | kept | — | — | `Ticket #003 priority normal → low` |
@@ -177,19 +177,19 @@ reaches `Done` through `{{program}} task deliver <id>` once its work is accepted
 
 ## Jobs, decisions and incidents
 
-**A job** is one agent session the runner launched, kept on the board while it lives: a `build` or `review` job on
-a ticket, a `merge` job holding a target's merge slot (its resolver, resolution reviewer or merge-gate fixer), a
-`product-owner` job running an intake, and the one `orchestrator` job, the Assistant. `{{program}} jobs` lists them
-with their state (`launching`, `preparing`, `running`, `verifying`, `gating`, `waiting-for-answer`, `stopping`, …);
+**A job** is one agent session the Overseer launched, kept on the board while it lives: a `build` or `review` job on
+a ticket, a `merge` job holding a target's Airlock (its resolver, resolution reviewer or merge-gate fixer), a
+`product-owner` job running an intake, and the one `assistant` job, the Assistant. `{{program}} jobs` lists them
+with their state (`launching`, `preparing`, `running`, `in-customs`, `gating`, `waiting-for-answer`, `stopping`, …);
 `job show` and `job attach` read one. A job is verified by code before anything it reports counts: its report, its
 commits and the checks line run on its tree.
 
 **A decision** is a question for User, kept on the board until answered: an agent's own question (`agent-question`),
 drafts to ready (`ready-drafts`), a parked ticket, a proposed waiver, a refused landing or merge, and the other kinds
-the runner opens from the facts. `{{program}} decisions` lists the open ones; `decide` answers one with the runner up
+the Overseer opens from the facts. `{{program}} decisions` lists the open ones; `decide` answers one with the Overseer up
 or down, the first answer winning. An agent's question carries exactly its words, never anybody's opinion.
 
-**An incident** is operational trouble the runner's code cannot settle alone, addressed to the Assistant, never to
+**An incident** is operational trouble the Overseer's code cannot settle alone, addressed to the Assistant, never to
 User: an agent's `system` or `ticket` question, a failed setup, a job out of calls, a blocked or lost job, a gate
 that cannot run, a merge whose gate failed or whose resolution is large, a quiet job, or a delivered ticket's
 findings. Each kind allows a fixed set of moves (`{{program}} incidents` shows them) and has a default, taken when
@@ -202,9 +202,9 @@ that do not converge.
 ## Findings and the by-hand rule
 
 **A finding** is a low draft a builder, reviewer or merge-gate fixer filed with `ticket add --priority low` through
-its relay, its `findingRoute` saying who settles it:
+its Hatch, its `findingRoute` saying who settles it:
 
-- `orchestrator`, the default: once the ticket it was found on is delivered or abandoned, the runner opens one
+- `assistant`, the default: once the ticket it was found on is delivered or abandoned, the Overseer opens one
   `findings-delivered` incident listing that ticket's findings. The Assistant readies each the board has room for
   and that needs no decision of User's with `ticket ready <id> --incident <I>`, and triages the rest with
   `ticket triage <id> --incident <I>`; the incident's default triages whatever is still listed.
@@ -214,17 +214,17 @@ its relay, its `findingRoute` saying who settles it:
 
 A readied finding passes `ticket ready`'s check like any other draft, and builds after every normal and high ticket.
 
-**Nothing is moved through the lifecycle by hand.** The runner launches, verifies, merges and delivers; the one
+**Nothing is moved through the lifecycle by hand.** The Overseer launches, verifies, merges and delivers; the one
 record-only verb is `{{program}} ticket deliver <id> --by-hand`, which records as delivered a ticket User finished
-and landed outside the runner. It is refused while a runner is live (`runner-owns-the-lifecycle`) and while a job
+and landed outside the Overseer. It is refused while an Overseer is live (`overseer-owns-the-lifecycle`) and while a job
 of the ticket is.
 
 ## Under a job: the Hatch
 
-A session the runner launched cannot write the data folder. Its read-only commands run directly; a command that
-would change the board goes through its job's relay folder, the Hatch: the CLI writes the request there and waits for
-the runner's reply, printing `done <requestId>` or `nothing-to-do <requestId>` when the runner applied it, the
-refusal worded as a direct run words it, or `queued <requestId>` when no reply came in time, which the runner still
+A session the Overseer launched cannot write the data folder. Its read-only commands run directly; a command that
+would change the board goes through its job's Hatch folder, the Hatch: the CLI writes the request there and waits for
+the Overseer's reply, printing `done <requestId>` or `nothing-to-do <requestId>` when the Overseer applied it, the
+refusal worded as a direct run words it, or `queued <requestId>` when no reply came in time, which the Overseer still
 applies. Never repeat a `queued` command. Each role may run only what its prompt names; anything else is refused.
 
 ## Where a review bar is drawn
@@ -237,7 +237,7 @@ done — is drawn where its filing puts it.
 
 ## A row's tokens
 
-When a job ends, the runner credits its tokens, every token the session and its subagents processed, to the row it
+When a job ends, the Overseer credits its tokens, every token the session and its subagents processed, to the row it
 worked: a build's, a fixer's or a merge job's to its ticket's row, a review's to its review bar. A resumed session is
 credited only what it grew by since its last credit. Product-owner and Assistant jobs have no row: their tokens are
 kept on the job. `--tokens` on a `task` verb **sets** a row's count.
@@ -262,8 +262,8 @@ marked, never dropped.
 
 | code | meaning | examples |
 |---|---|---|
-| **0** | done, or there was nothing to do | also a command under a job that printed `done`, `nothing-to-do` or `queued` with its request id, `run stop` with no live runner, every `hook session-start` run, and every `hook bash-domains` run, a deny answered through its JSON |
-| **1** | a refusal the caller can act on | no tracker here (run `{{program}} init`), no such task or ticket, a missing `--reason`, a move the matrix refuses, readying a ticket that is not a draft or lacks a numbered Acceptance or a Brief (`incomplete-tickets`), lowering a ticket that is not a draft or pending, a `network` domain that is not public, `ticket deliver --by-hand` while a runner is live (`runner-owns-the-lifecycle`), an answer to a decision already answered, a move its incident does not allow, a command under a job that its role may not run or that the runner refused, a second runner (`runner-already-running`), installed files of another install version (every command but `init`, `update`, `help`, `status`, `version`, `run status` and `run stop`; run `{{program}} update`), `init` or `update` over files a newer {{program}} installed or a `version.json` naming a retired agent host, `hook` given a wrong event word, an extra argument or an option, and an unknown command |
-| **2** | a state the tool will not repair on its own | an unreadable or malformed progress file, an unreadable or malformed log.jsonl, a malformed ticket file a command names, a lock it could not take, a runner whose lease a newer generation took (`lease-taken-over`), and any error the tool did not expect |
+| **0** | done, or there was nothing to do | also a command under a job that printed `done`, `nothing-to-do` or `queued` with its request id, `run stop` with no live Overseer, every `hook session-start` run, and every `hook bash-domains` run, a deny answered through its JSON |
+| **1** | a refusal the caller can act on | no tracker here (run `{{program}} init`), no such task or ticket, a missing `--reason`, a move the matrix refuses, readying a ticket that is not a draft or lacks a numbered Acceptance or a Brief (`incomplete-tickets`), lowering a ticket that is not a draft or pending, a `network` domain that is not public, `ticket deliver --by-hand` while an Overseer is live (`overseer-owns-the-lifecycle`), an answer to a decision already answered, a move its incident does not allow, a command under a job that its role may not run or that the Overseer refused, a second Overseer (`overseer-already-running`), installed files of another install version (every command but `init`, `update`, `help`, `status`, `version`, `run status` and `run stop`; run `{{program}} update`), `init` or `update` over files a newer {{program}} installed or a `version.json` naming a retired agent host, `hook` given a wrong event word, an extra argument or an option, and an unknown command |
+| **2** | a state the tool will not repair on its own | an unreadable or malformed progress file, an unreadable or malformed log.jsonl, a malformed ticket file a command names, a lock it could not take, an Overseer whose Baton a newer generation took (`baton-taken`), and any error the tool did not expect |
 
 Check the code rather than the wording.

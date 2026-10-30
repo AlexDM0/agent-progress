@@ -1,14 +1,14 @@
 /**
  * `job` and its subcommands: `show` and `attach` read without the lock; `message`, `wind-down`, `stop` and `fresh` each record one control
- * command in a hold, with the runner up or down, and the runner sends the frames.
+ * command in a hold, with the Overseer up or down, and the Overseer sends the frames.
  */
-import type { EventLogEntry }                  from '../../src/lib/agent-host/EventLog.ts';
 import type { AgentAdapter }                   from '../../src/lib/agent-launch/AgentAdapter.ts';
 import type { AgentSessionEvent }              from '../../src/lib/agent-launch/AgentSessionEvent.ts';
 import type { Job }                            from '../../src/lib/tracker-model/@types/Job.ts';
 import type { LogRecord }                      from '../../src/lib/tracker-model/@types/LogRecord.ts';
+import type { EventLogEntry }                  from '../../src/lib/watcher/EventLog.ts';
 import { ControlService }                      from '../../src/services/control/ControlService.ts';
-import { HostFleet }                           from '../../src/services/runner/HostFleet.ts';
+import { WatcherFleet }                        from '../../src/services/overseer/WatcherFleet.ts';
 import { requireProgressFile, requireTracker } from '../../src/services/tracker/TrackerReader.ts';
 import { requireWorkspace, type Workspace }    from '../../src/services/tracker/Workspace.ts';
 import type { ControlCommand }                 from '../../src/shared/@types/ControlCommand.ts';
@@ -16,8 +16,8 @@ import { OperationRefusal }                    from '../../src/shared/OperationR
 import { PRODUCT_NAMES }                       from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                 from '../CommandContext.ts';
 import type { CommandHandler }                 from '../CommandHandler.ts';
+import { hatchWhenUnderJob }                   from '../HatchUnderJob.ts';
 import { openTrackerForWriting }               from '../OpenTrackerForWriting.ts';
-import { relayWhenUnderJob }                   from '../RelayUnderJob.ts';
 import type { ArgumentParser }                 from '../arguments/ArgumentParser.ts';
 import { OutputUtil }                          from '../utils/OutputUtil.ts';
 
@@ -52,10 +52,10 @@ function jobIdIn(commandArguments: ArgumentParser, usage: string): string {
 }
 
 async function recordControl(commandArguments: ArgumentParser, context: CommandContext, command: ControlCommand): Promise<void> {
-  await relayWhenUnderJob(context, command);
+  await hatchWhenUnderJob(context, command);
   const { logged } = await openTrackerForWriting(commandArguments, context, (change) => ControlService.apply(command, change).result);
   const sentences = OutputUtil.loggedSentencesOf(logged);
-  const text = `${sentences === '' ? 'Recorded.' : sentences}\nThe runner carries it out, at once when it is up, else when it starts.`;
+  const text = `${sentences === '' ? 'Recorded.' : sentences}\nThe Overseer carries it out, at once when it is up, else when it starts.`;
   OutputUtil.printEntity(commandArguments, context, { command, logged }, text);
 }
 
@@ -83,7 +83,7 @@ async function showJob(commandArguments: ArgumentParser, context: CommandContext
   const workspace = requireWorkspace(context.currentDirectory);
   const jobId     = jobIdIn(commandArguments, SHOW_USAGE);
   const { record } = jobRecordOf(workspace, jobId);
-  const jobFolder = HostFleet.jobFolderOf(workspace.trackerDirectory, jobId);
+  const jobFolder = WatcherFleet.jobFolderOf(workspace.trackerDirectory, jobId);
   const lines = [...Object.entries(record).map(([field, value]) => `${field}: ${typeof value === 'string' ? value : JSON.stringify(value)}`), `files: ${jobFolder}`];
   OutputUtil.printEntity(commandArguments, context, { job: record, jobFolder }, lines.join('\n'));
   return Promise.resolve();
@@ -114,19 +114,19 @@ function entryLinesOf(adapter: AgentAdapter, instance: number, entries: readonly
   });
 }
 
-/** Read-only: every host instance's event log in instance order, then the newest followed until the job leaves the board. */
+/** Read-only: every Watcher instance's event log in instance order, then the newest followed until the job leaves the board. */
 async function attachJob(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
   commandArguments.rejectUnknownOptions(['json'], SHOW_USAGE);
   commandArguments.rejectExtraPositionals(2, SHOW_USAGE);
   const workspace = requireWorkspace(context.currentDirectory);
   const jobId     = jobIdIn(commandArguments, SHOW_USAGE);
   const { live, record } = jobRecordOf(workspace, jobId);
-  const jobFolder = HostFleet.jobFolderOf(workspace.trackerDirectory, jobId);
-  let newestInstance = live?.hostInstance ?? (typeof record['hostInstance'] === 'number' ? record['hostInstance'] : 1);
+  const jobFolder = WatcherFleet.jobFolderOf(workspace.trackerDirectory, jobId);
+  let newestInstance = live?.watcherInstance ?? (typeof record['watcherInstance'] === 'number' ? record['watcherInstance'] : 1);
   if (commandArguments.flag('json')) {
     // A script reads one document, so --json replays without following.
     const lines = Array.from({ length: newestInstance }, (_unused, i) => i + 1).flatMap((instance) => {
-      const entries = HostFleet.eventsAfter(jobFolder, instance, 0);
+      const entries = WatcherFleet.eventsAfter(jobFolder, instance, 0);
       return entries === 'malformed' ? [] : entryLinesOf(context.agentAdapter, instance, entries);
     });
     OutputUtil.printEntity(commandArguments, context, { jobId, lines }, lines.join('\n'));
@@ -134,7 +134,7 @@ async function attachJob(commandArguments: ArgumentParser, context: CommandConte
   }
   let cursor = 0;
   const printNewEntries = (instance: number): void => {
-    const entries = HostFleet.eventsAfter(jobFolder, instance, instance === newestInstance ? cursor : 0);
+    const entries = WatcherFleet.eventsAfter(jobFolder, instance, instance === newestInstance ? cursor : 0);
     if (entries === 'malformed') return;
     for (const line of entryLinesOf(context.agentAdapter, instance, entries)) context.standardOutput(line);
     if (instance === newestInstance) cursor = entries.at(-1)?.sequence ?? cursor;
@@ -148,9 +148,9 @@ async function attachJob(commandArguments: ArgumentParser, context: CommandConte
       printNewEntries(newestInstance);
       return;
     }
-    if (current.hostInstance !== newestInstance) {
+    if (current.watcherInstance !== newestInstance) {
       printNewEntries(newestInstance);
-      newestInstance = current.hostInstance;
+      newestInstance = current.watcherInstance;
       cursor = 0;
     }
     await Bun.sleep(ATTACH_POLL_MILLISECONDS);
@@ -158,7 +158,7 @@ async function attachJob(commandArguments: ArgumentParser, context: CommandConte
   }
 }
 
-/** `--incident <I>` names the incident the move handles; the runner's orchestrator must name one. */
+/** `--incident <I>` names the incident the move handles; the Assistant must name one. */
 function incidentOf(commandArguments: ArgumentParser): { incidentId?: string } {
   const incidentId = commandArguments.option('incident')?.toUpperCase();
   return incidentId === undefined ? {} : { incidentId };

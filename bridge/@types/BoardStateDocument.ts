@@ -3,20 +3,20 @@ export interface IdentifiedRecord {
   readonly id: string;
 }
 
-export type OverseerRuntimeState = 'serving' | 'held-by-install-change' | 'handing-over' | 'down';
+export type OverseerRuntimeState = 'serving' | 'held-by-install-change' | 'passing-baton' | 'down';
 
 /** The last Baton pass that failed while this Overseer kept driving. */
-export interface HandoverWarningDocument {
+export interface BatonPassWarningDocument {
   readonly successorCodeVersion: string;
   readonly step:                 string;
   readonly error:                string;
 }
 
 export interface OverseerFactsDocument {
-  readonly state:            OverseerRuntimeState;
-  readonly paused:           boolean;
-  readonly codeVersion:      string;
-  readonly handoverWarning?: HandoverWarningDocument | null;
+  readonly state:             OverseerRuntimeState;
+  readonly paused:            boolean;
+  readonly codeVersion:       string;
+  readonly batonPassWarning?: BatonPassWarningDocument | null;
 }
 
 /** A notice the Overseer derives each pass: its `kind` and the facts that kind carries. */

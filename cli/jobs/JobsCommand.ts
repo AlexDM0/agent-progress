@@ -1,8 +1,8 @@
-/** One screen of the board's live jobs, one line each, then a footer of the runner and what is open for User. Read-only, no lock. */
+/** One screen of the board's live jobs, one line each, then a footer of the Overseer and what is open for User. Read-only, no lock. */
 import { readingBoardOf }                      from '../../src/lib/tracker-model/ReadingBoard.ts';
-import { IncidentRouter }                      from '../../src/services/runner/IncidentRouter.ts';
-import { runnerFilesIn }                       from '../../src/services/runner/RunnerFiles.ts';
-import { RunnerLease }                         from '../../src/services/runner/RunnerLease.ts';
+import { Baton }                               from '../../src/services/overseer/Baton.ts';
+import { IncidentRouter }                      from '../../src/services/overseer/IncidentRouter.ts';
+import { overseerFilesIn }                     from '../../src/services/overseer/OverseerFiles.ts';
 import { requireProgressFile, requireTracker } from '../../src/services/tracker/TrackerReader.ts';
 import { requireWorkspace }                    from '../../src/services/tracker/Workspace.ts';
 import { PRODUCT_NAMES }                       from '../../src/shared/constants/ProductNames.ts';
@@ -22,11 +22,11 @@ export const jobsCommand: CommandHandler = (commandArguments, context) => {
   const progress  = requireProgressFile(workspace);
   const board     = readingBoardOf(progress, [], []);
   const jobs      = progress.jobs ?? [];
-  const lease     = RunnerLease.newestLeaseOf(runnerFilesIn(workspace.trackerDirectory).runnerDirectory);
+  const baton     = Baton.newestBatonOf(overseerFilesIn(workspace.trackerDirectory).overseerDirectory);
   const concurrency = board.concurrency();
   const footer = {
-    runner:             lease.verdict === 'live' ? { state: 'live', url: lease.record.url } : { state: 'down' },
-    paused:             board.runnerState() === 'paused',
+    overseer:           baton.verdict === 'live' ? { state: 'live', url: baton.record.url } : { state: 'down' },
+    paused:             board.overseerState() === 'paused',
     agentsInFlight:     concurrency.agentsInFlight,
     limit:              concurrency.limit,
     openDecisions:      (progress.decisions ?? []).length,
@@ -42,11 +42,11 @@ export const jobsCommand: CommandHandler = (commandArguments, context) => {
     OutputUtil.padColumn(job.state, STATE_COLUMN_WIDTH),
     job.ticketIds.length === 0 ? '-' : job.ticketIds.map((ticketId) => `#${ticketId}`).join(','),
     `attempt ${job.attempt}`,
-    `host ${job.hostInstance}`,
+    `watcher ${job.watcherInstance}`,
     ...(job.stopRequest === undefined ? [] : [`(${job.stopRequest} asked)`]),
   ].join('  '));
-  const runnerText = footer.runner.state === 'live' ? `runner: live at ${lease.verdict === 'live' ? lease.record.url : ''}` : 'runner: down';
-  const footerText = `${runnerText}; ${footer.paused ? 'paused' : 'not paused'}; agents ${footer.agentsInFlight}/${footer.limit}; `
+  const overseerText = footer.overseer.state === 'live' ? `overseer: live at ${baton.verdict === 'live' ? baton.record.url : ''}` : 'overseer: down';
+  const footerText = `${overseerText}; ${footer.paused ? 'paused' : 'not paused'}; agents ${footer.agentsInFlight}/${footer.limit}; `
     + `open decisions ${footer.openDecisions}; open incidents ${footer.openIncidents}`;
   const text = [...(jobLines.length === 0 ? ['No job is live.'] : jobLines), footerText, ...warningLines].join('\n');
   OutputUtil.printEntity(commandArguments, context, { jobs, ...footer }, text);

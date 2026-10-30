@@ -3,7 +3,7 @@
  * bit and exit code included, for a spec that must set the child's environment, which no spec may set in-process, and for one whose
  * command must run in its own process beside another. Its callers are `cli/BinarySmoke.spec.ts`, `cli/InitRootOverride.spec.ts`,
  * `cli/dispatch/release/ReleaseCommand.checks.spec.ts`, `cli/RegisterWrittenTracker.spec.ts`, `cli/MonitorRegistryIsolation.spec.ts`,
- * `cli/ProductNameIsolation.spec.ts`, `cli/HoldJournalCrash.spec.ts` and `cli/runner/RunCommand.spec.ts`, whose runners run until stopped.
+ * `cli/ProductNameIsolation.spec.ts`, `cli/HoldJournalCrash.spec.ts` and `cli/overseer/OverseerCommand.spec.ts`, whose Overseers run until stopped.
  */
 import { existsSync }               from 'node:fs';
 import { delimiter, dirname, join } from 'node:path';
@@ -90,7 +90,7 @@ async function firstLineAndRestOf(stream: ReadableStream<Uint8Array>, onFirstLin
 }
 
 /**
- * A long-running command, such as a foreground runner, in its own process beside the spec: the spec reads its first output line while
+ * A long-running command, such as a foreground Overseer, in its own process beside the spec: the spec reads its first output line while
  * it runs and its result once something stops it. Its `HOME` is the one the options name, never removed here, since the child outlives
  * this call.
  */

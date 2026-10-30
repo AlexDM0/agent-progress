@@ -152,15 +152,15 @@ function boardWithHeldAndLowTickets(): ReturnType<typeof boardFixture> {
 }
 
 // Callers print this object as it comes, so its key order is part of the document a script reads.
-test('the dispatch capacity is the concurrency, then the ready ids in the order to take them, the runner state and the held ids', () => {
+test('the dispatch capacity is the concurrency, then the ready ids in the order to take them, the Overseer state and the held ids', () => {
   const capacity = boardWithHeldAndLowTickets().board.dispatchCapacity();
-  expect(Object.keys(capacity)).toEqual(['limit', 'agentsInFlight', 'freeSlots', 'readyTicketIds', 'runnerState', 'heldTicketIds']);
+  expect(Object.keys(capacity)).toEqual(['limit', 'agentsInFlight', 'freeSlots', 'readyTicketIds', 'overseerState', 'heldTicketIds']);
   expect(capacity).toEqual({
     limit:          3,
     agentsInFlight: 1,
     freeSlots:      2,
     readyTicketIds: ['002', '001', '003'],
-    runnerState:    'paused',
+    overseerState:  'paused',
     heldTicketIds:  ['001'],
   });
 });

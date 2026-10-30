@@ -1,5 +1,5 @@
 /**
- * The Bridge served by a real runner and loaded in headless Chrome, skipped by name where Chrome is missing. What matters: the shell
+ * The Bridge served by a real Overseer and loaded in headless Chrome, skipped by name where Chrome is missing. What matters: the shell
  * renders the board's project from the live event stream, every tab routes, and nothing errs: no console error, no exception, no failed
  * request and no CSP violation.
  */

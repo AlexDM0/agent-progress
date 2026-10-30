@@ -21,7 +21,7 @@ import {
   test
 }                                        from 'bun:test';
 import type { PipelineGate }                         from '../../lib/tracker-model/@types/Pipeline.ts';
-import { JOB_ID_VARIABLE, RELAY_DIRECTORY_VARIABLE } from '../../shared/Environment.ts';
+import { JOB_ID_VARIABLE, HATCH_DIRECTORY_VARIABLE } from '../../shared/Environment.ts';
 import {
   commitFile,
   createScratchDirectory,
@@ -190,13 +190,13 @@ describe('the gate process', () => {
     expect(GateRun.gateOutcomeOf(run)).toBe('cannot-run');
   });
 
-  test('has the job id and the relay folder removed from its environment, and keeps every other variable', async () => {
+  test('has the job id and the Hatch folder removed from its environment, and keeps every other variable', async () => {
     const environment = {
-      [JOB_ID_VARIABLE]: 'J7', [RELAY_DIRECTORY_VARIABLE]: '/example/relay', EXAMPLE_KEPT: 'kept', PATH: '/usr/bin:/bin'
+      [JOB_ID_VARIABLE]: 'J7', [HATCH_DIRECTORY_VARIABLE]: '/example/hatch', EXAMPLE_KEPT: 'kept', PATH: '/usr/bin:/bin'
     };
 
     const run = await GateRun.runGate({
-      argv:      ['/bin/sh', '-c', `echo "\${${JOB_ID_VARIABLE}-unset} \${${RELAY_DIRECTORY_VARIABLE}-unset} $EXAMPLE_KEPT"`],
+      argv:      ['/bin/sh', '-c', `echo "\${${JOB_ID_VARIABLE}-unset} \${${HATCH_DIRECTORY_VARIABLE}-unset} $EXAMPLE_KEPT"`],
       directory: scratchDirectory,
       environment,
     });

@@ -12,7 +12,7 @@ export interface LaunchFile {
 }
 
 /**
- * How a host answers a session while nobody is there: a stdout line whose every `whenAllEqual` dotted path holds its value, and none of whose
+ * How a Watcher answers a session while nobody is there: a stdout line whose every `whenAllEqual` dotted path holds its value, and none of whose
  * `whenNoneEqual` paths does, is answered with `replyTemplate`, its `{{request_id}}` filled from the line's `request_id`.
  */
 export interface StandingReply {

@@ -6,8 +6,8 @@ import { ControlService }        from '../src/services/control/ControlService.ts
 import type { ControlCommand }   from '../src/shared/@types/ControlCommand.ts';
 import { OperationRefusal }      from '../src/shared/OperationRefusal.ts';
 import type { CommandContext }   from './CommandContext.ts';
+import { hatchWhenUnderJob }     from './HatchUnderJob.ts';
 import { openTrackerForWriting } from './OpenTrackerForWriting.ts';
-import { relayWhenUnderJob }     from './RelayUnderJob.ts';
 import type { ArgumentParser }   from './arguments/ArgumentParser.ts';
 import { OutputUtil }            from './utils/OutputUtil.ts';
 
@@ -31,7 +31,7 @@ export function incidentOf(commandArguments: ArgumentParser): { incidentId?: str
 }
 
 export async function recordIncidentMove(commandArguments: ArgumentParser, context: CommandContext, command: ControlCommand): Promise<void> {
-  await relayWhenUnderJob(context, command);
+  await hatchWhenUnderJob(context, command);
   const { logged } = await openTrackerForWriting(commandArguments, context, (change) => ControlService.apply(command, change).result);
   const sentences = OutputUtil.loggedSentencesOf(logged);
   OutputUtil.printEntity(commandArguments, context, { command, logged }, sentences === '' ? 'Nothing to do.' : sentences);

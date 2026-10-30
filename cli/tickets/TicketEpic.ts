@@ -5,8 +5,8 @@ import type { ControlCommandOf, ListEdit } from '../../src/shared/@types/Control
 import { OperationRefusal }                from '../../src/shared/OperationRefusal.ts';
 import { PRODUCT_NAMES }                   from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }             from '../CommandContext.ts';
+import { hatchWhenUnderJob }               from '../HatchUnderJob.ts';
 import { openTrackerForWriting }           from '../OpenTrackerForWriting.ts';
-import { relayWhenUnderJob }               from '../RelayUnderJob.ts';
 import type { ArgumentParser }             from '../arguments/ArgumentParser.ts';
 import { OutputUtil }                      from '../utils/OutputUtil.ts';
 import { TICKET_USAGE }                    from './constants/TicketUsage.ts';
@@ -48,7 +48,7 @@ export async function setTicketEpics(commandArguments: ArgumentParser, context: 
   const command: ControlCommandOf<'ticket-epic'> = {
     kind: 'ticket-epic', ticketReference: reference, edit: edit.kind, epicKeys: edit.epicKeys
   };
-  await relayWhenUnderJob(context, command);
+  await hatchWhenUnderJob(context, command);
   const changed = await openTrackerForWriting(commandArguments, context, (change) => ControlService.apply(command, change).result);
 
   const droppedSuffix = changed.droppedEpicKeys.length === 0 ? '' : ` (dropped ${changed.droppedEpicKeys.join(', ')})`;

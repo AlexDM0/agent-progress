@@ -24,10 +24,10 @@ import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } fr
 import { describeWhenGitIsPresent }                                           from '../src/testing/ToolGuard.ts';
 import { helpText }                                                           from './HelpText.ts';
 import { INSTALL_VERSION }                                                    from './constants/InstallVersion.ts';
-import { readBoardState }                                                     from './runner/routes/BoardStateReader.ts';
+import { readBoardState }                                                     from './overseer/routes/BoardStateReader.ts';
 import { createCapturedCommandContext }                                       from './testing/CapturedCommandContext.ts';
+import { runCommandLineWithOverseerMoves }                                    from './testing/OverseerTicketMoves.ts';
 import { fileReadyTicketThrough }                                             from './testing/ReadyTicketFiling.ts';
-import { runCommandLineWithRunnerMoves }                                      from './testing/RunnerTicketMoves.ts';
 
 const SURFACE_KINDS = ['commands', 'flags', 'statusJsonFields'] as const;
 
@@ -143,11 +143,11 @@ function keysOf(value: unknown): readonly string[] {
   return Object.entries(value).flatMap(([key, child]) => [key, ...keysOf(child)]);
 }
 
-/** Every kind of entry both documents can hold: ready, grouped, held, in progress, paused, waiting on review, under one, settled, a running runner. */
+/** Every kind of entry both documents can hold: ready, grouped, held, in progress, paused, waiting on review, under one, settled, a running Overseer. */
 async function statusDocumentKeysOfAFullBoard(repositoryDirectory: string): Promise<ReadonlySet<string>> {
   const run = async (commandLineArguments: readonly string[]): Promise<string> => {
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    const exitCode = await runCommandLineWithRunnerMoves(commandLineArguments, context);
+    const exitCode = await runCommandLineWithOverseerMoves(commandLineArguments, context);
     if (exitCode !== 0) throw new Error(`\`agent-progress ${commandLineArguments.join(' ')}\` failed: ${context.errorText()}`);
     return context.outputText();
   };
@@ -178,7 +178,7 @@ async function statusDocumentKeysOfAFullBoard(repositoryDirectory: string): Prom
     workspace: requireWorkspace(repositoryDirectory),
     notices:   () => [],
     overseer:  () => ({
-      state: 'down', url: null, generation: null, codeVersion: 'example', installVersion: INSTALL_VERSION, handoverWarning: null
+      state: 'down', url: null, generation: null, codeVersion: 'example', installVersion: INSTALL_VERSION, batonPassWarning: null
     }),
   }).state;
   return new Set([...documents.flatMap(keysOf), ...Object.keys(overseerState)]);
@@ -223,7 +223,7 @@ describeWhenGitIsPresent('the scan itself', () => {
     expect(namedSurface.flags.length, 'flags named').toBeGreaterThanOrEqual(15);
     expect(namedSurface.statusJsonFields.length, 'status fields named').toBeGreaterThanOrEqual(10);
     expect(cliSurface.commands).toContain('ticket deliver');
-    expect(cliSurface.statusJsonFields).toContain('runnerState');
+    expect(cliSurface.statusJsonFields).toContain('overseerState');
     expect(cliSurface.statusJsonFields, 'a top-level key of the Overseer\'s state document').toContain('mergeQueue');
     const namedCommandCount = Object.values(INSTALLED_TEXTS).flatMap((text) => [...text.matchAll(NAMED_COMMAND_PATTERN)]).length;
     expect(namedCommandCount, 'command mentions matched by the program-built pattern').toBeGreaterThanOrEqual(SMALLEST_NAMED_COMMAND_COUNT);

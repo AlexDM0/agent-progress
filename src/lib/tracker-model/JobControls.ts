@@ -1,11 +1,11 @@
 /**
  * User's controls over a live job and the product owner's intake (design sections 7.4, 8.1 and 8.4): each records in the hold and the
- * runner carries it out, so every one works with the runner down. A stop or wind-down holds the job's ticket in the same hold.
+ * Overseer carries it out, so every one works with the Overseer down. A stop or wind-down holds the job's ticket in the same hold.
  */
 import type { JobChanged, Logged }            from './@types/BoardChanges.ts';
 import type { Job, JobEnding, JobStopMode }   from './@types/Job.ts';
-import type { DecisionDraft, ReadyDraftFact } from './@types/LifecycleStep.ts';
 import type { LogRecord }                     from './@types/LogRecord.ts';
+import type { DecisionDraft, ReadyDraftFact } from './@types/PlaybookStep.ts';
 import type { ReadinessGap }                  from './@types/Ticket.ts';
 import type { AgentQuestions }                from './AgentQuestions.ts';
 import type { BoardRecords }                  from './BoardRecords.ts';
@@ -19,7 +19,7 @@ import { TicketIdUtil }                       from './utils/TicketIdUtil.ts';
 /** The states with no agent session to stop: a stop there ends the job in the same hold. */
 const SESSIONLESS_STATES: readonly Job['state'][] = ['launching', 'preparing', 'interrupted', 'awaiting-answer'];
 
-/** The jobs `job stop --all` reaches: the agents User started work through, never the orchestrator or a merge slot's agents. */
+/** The jobs `job stop --all` reaches: the agents User started work through, never the orchestrator or an Airlock's agents. */
 const STOPPABLE_BY_ALL_KINDS: readonly Job['kind'][] = ['build', 'review', 'product-owner'];
 
 const PRODUCT_OWNER_KIND = 'product-owner';
@@ -88,7 +88,7 @@ export class JobControls {
     return this.jobRules.reopenEndedJob(jobId, { text, offeredTicketIds, intake: { text } }, at);
   }
 
-  /** Recorded `launching` with no ticket and no build slot, so it works with the runner down; several may run at once. */
+  /** Recorded `launching` with no ticket and no build slot, so it works with the Overseer down; several may run at once. */
   startIntake(text: string, at: string): JobChanged {
     return this.jobRules.launchJob({
       kind: PRODUCT_OWNER_KIND, role: PRODUCT_OWNER_KIND, ticketIds: [], parentJobId: null, attempt: 1, target: null, intake: { text },
@@ -102,7 +102,7 @@ export class JobControls {
     }, at);
   }
 
-  /** Closes the session's input; the runner ends it `closed` once its host is gone and opens the `ready-drafts` decision then. */
+  /** Closes the session's input; the Overseer ends it `closed` once its Watcher is gone and opens the `ready-drafts` decision then. */
   closeIntake(jobId: string, proposedDraftSets: readonly (readonly string[])[], at: string): JobChanged {
     const job = this.jobRules.requireJob(jobId);
     if (job.kind !== PRODUCT_OWNER_KIND) throw new BoardRefusal({ reason: 'job-not-intake', jobId, kind: job.kind });
@@ -112,7 +112,7 @@ export class JobControls {
   }
 
   /**
-   * The runner's end of an intake: the job ends `closed`, and a `ready-drafts` decision lists the drafts it and the sessions it took over
+   * The Overseer's end of an intake: the job ends `closed`, and a `ready-drafts` decision lists the drafts it and the sessions it took over
    * from filed; with none, nothing opens.
    */
   readyDraftsDraftOf(job: Readonly<Job>, readinessGapsOf: (body: string) => readonly ReadinessGap[]): DecisionDraft | null {

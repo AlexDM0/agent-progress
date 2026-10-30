@@ -1,7 +1,7 @@
 /** Where each file the tool installs into a tracked repository lives. */
 import { join } from 'node:path';
 
-import { CONSTITUTION_DEFAULT_PATH, defaultInstructionPathOf } from '../src/services/runner/InstructionFiles.ts';
+import { CONSTITUTION_DEFAULT_PATH, defaultInstructionPathOf } from '../src/services/overseer/InstructionFiles.ts';
 import { TRACKER_FILES }                                       from '../src/services/tracker/constants/TrackerFiles.ts';
 
 const INSTALL_MANIFEST_FILE_NAME = 'version.json';

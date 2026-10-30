@@ -40,7 +40,7 @@ function textIsPresent(value: unknown): value is string {
   return typeof value === 'string' && value.trim() !== '';
 }
 
-/** A gate's writable folder is absolute or home-relative: a relative one would resolve against wherever the runner runs. */
+/** A gate's writable folder is absolute or home-relative: a relative one would resolve against wherever the Overseer runs. */
 function writablePathIsWellFormed(path: string): boolean {
   return path.startsWith('/') || path.startsWith('~/');
 }

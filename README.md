@@ -72,7 +72,7 @@ Running one coding agent is easy to follow. Running five is not: which one is on
 safe to merge, who checked the work, and what did it all cost? The answers end up scattered across
 terminal tabs and a context window that gets compacted halfway through the afternoon.
 
-agent-progress puts the answers on a board, and one runner, the **Overseer** (`agent-progress run`), works
+agent-progress puts the answers on a board, and one Overseer, the **Overseer** (`agent-progress run`), works
 it. You describe a request in the Bridge's Intake view or in a Claude Code session; a product owner files
 it as a draft ticket with a testable Acceptance. Once you ready it, the Overseer launches a builder agent
 per ready ticket in its own worktree, gates the result, hands every finished build to a reviewer agent
@@ -101,7 +101,7 @@ two failed passes park a ticket for you, and two agents in a row dying stop laun
 of blaming the tickets. What only you can answer becomes a decision in the Questions view.
 
 **Merges cannot collide.** Store the repository's gates once with `agent-progress gate add`, and every
-build runs them on its final commit. The Airlock holds one merge slot per target: it merges the target's
+build runs them on its final commit. The Airlock holds one Airlock per target: it merges the target's
 tip into the reviewed branch, gates the merged tree, and lands it by a compare-and-swap fast-forward, so a
 main line that moved meanwhile only requeues the ticket. On this board a row's *done* pill means merged.
 
@@ -115,7 +115,7 @@ the transcripts.
 | Role | Runs as | Does |
 |---|---|---|
 | **You** | yourself, in the Bridge or a Claude Code session | Describe the work, ready drafts, answer decisions, pause and stop. |
-| **Overseer** | `agent-progress run`, one runner per board | Launches every job below, gates each build, decides rounds and parking, serves the Bridge, reads each session's calls and tokens live. |
+| **Overseer** | `agent-progress run`, one Overseer per board | Launches every job below, gates each build, decides rounds and parking, serves the Bridge, reads each session's calls and tokens live. |
 | **Bridge** | the page the Overseer serves on `127.0.0.1`, opened with `agent-progress open` | Shows the board and takes your moves: Kanban, Progress, Tickets, Agents, Questions, Assistant and Intake. |
 | **Product owner** | a job the Overseer launches for an Intake request, or any Claude Code session with the `agent-po` skill | Files draft tickets with a brief and a numbered Acceptance, its fact-finding in subagents. Builds nothing. |
 | **Assistant** | the Overseer's own orchestrating session | Handles the incidents the Overseer delivers and chats with you in the Assistant view. Writes no code. |
@@ -137,7 +137,7 @@ on the board, so a restarted Overseer picks up where the last one left off.
 <summary><b>Where everything goes</b> — the architecture</summary>
 <br>
 <p align="center">
-  <img src="docs/images/architecture.png" width="680" alt="One runner owns the board: you work through the Bridge in your browser or an optional orchestrator session; both reach the Overseer, agent-progress run, which launches product-owner, builder, reviewer and Assistant sessions, keeps .agent-progress/, and passes reviewed tickets through the merge queue to the Airlock, which lands them on main one at a time">
+  <img src="docs/images/architecture.png" width="680" alt="One Overseer owns the board: you work through the Bridge in your browser or an optional orchestrator session; both reach the Overseer, agent-progress run, which launches product-owner, builder, reviewer and Assistant sessions, keeps .agent-progress/, and passes reviewed tickets through the merge queue to the Airlock, which lands them on main one at a time">
 </p>
 </details>
 

@@ -127,7 +127,7 @@ describe('the shell\'s controls', () => {
       fireEvent.click(pauseButton());
       await Promise.resolve();
     });
-    expect(bridge.sent).toEqual([{ kind: 'runner-pause' }]);
+    expect(bridge.sent).toEqual([{ kind: 'overseer-pause' }]);
   });
 
   test('every control is disabled while the stream is down, under the unreachable banner, and the board stays on screen', async () => {

@@ -429,10 +429,10 @@ describe('the total input of a call', () => {
 
 /**
  * A workflow agent's transcript opens with the harness relaying the session user's request and only then the script's prompt, both as plain
- * strings rather than content arrays. What callers rely on: the computed task is read as the brief, and nothing else after a relay ever is.
+ * strings rather than content arrays. What callers rely on: the computed task is read as the brief, and nothing else after a Hatch ever is.
  */
 describe('a workflow agent\'s brief', () => {
-  const RELAY_TURN = '[Workflow harness — user request] The harness relays the request below.\n  Run the board.';
+  const HATCH_TURN = '[Workflow harness — user request] The harness relays the request below.\n  Run the board.';
 
   function plainUserLine(text: string): string {
     return JSON.stringify({ type: 'user', message: { role: 'user', content: text } });
@@ -443,8 +443,8 @@ describe('a workflow agent\'s brief', () => {
   }
 
   /** The real shape: the harness's preamble is one column-zero line, and the indented script prompt follows it with no blank line between. */
-  test('the excerpt is the script\'s prompt, not the relay and not the harness\'s preamble to it', () => {
-    const transcript = [plainUserLine(RELAY_TURN), plainUserLine(computedTaskTurn('  Example task: 42\n  Worktree: /tmp/example   Branch: example-042'))].join('\n');
+  test('the excerpt is the script\'s prompt, not the Hatch and not the harness\'s preamble to it', () => {
+    const transcript = [plainUserLine(HATCH_TURN), plainUserLine(computedTaskTurn('  Example task: 42\n  Worktree: /tmp/example   Branch: example-042'))].join('\n');
 
     const { briefExcerpt } = transcriptProfileOf(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS, BRIEF_EXCERPT_CHARACTERS);
 
@@ -453,19 +453,19 @@ describe('a workflow agent\'s brief', () => {
 
   test('a preamble spanning several lines is removed up to its first blank line', () => {
     const preamble   = '[Workflow harness — computed task] The task text below\nwas computed at runtime.';
-    const transcript = [plainUserLine(RELAY_TURN), plainUserLine(`${preamble}\n\n  Build the ticket.`)].join('\n');
+    const transcript = [plainUserLine(HATCH_TURN), plainUserLine(`${preamble}\n\n  Build the ticket.`)].join('\n');
 
     expect(transcriptProfileOf(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS, BRIEF_EXCERPT_CHARACTERS).briefExcerpt).toBe('Build the ticket.');
   });
 
-  test('a relay with no computed task after it has no brief, so its excerpt is empty rather than the relay', () => {
-    const transcript = [plainUserLine(RELAY_TURN), plainUserLine('Hello.')].join('\n');
+  test('a Hatch with no computed task after it has no brief, so its excerpt is empty rather than the hatch', () => {
+    const transcript = [plainUserLine(HATCH_TURN), plainUserLine('Hello.')].join('\n');
 
     expect(transcriptProfileOf(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS, BRIEF_EXCERPT_CHARACTERS).briefExcerpt).toBe('');
   });
 
-  /** A workflow run launched with no user request has no relay: its agents open on the computed task, and their rows name the prompt all the same. */
-  test('a computed task with no relay before it is excerpted from the script\'s prompt too', () => {
+  /** A workflow run launched with no user request has no Hatch: its agents open on the computed task, and their rows name the prompt all the same. */
+  test('a computed task with no Hatch before it is excerpted from the script\'s prompt too', () => {
     const transcript = plainUserLine(computedTaskTurn('  Build the ticket.'));
 
     expect(transcriptProfileOf(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS, BRIEF_EXCERPT_CHARACTERS).briefExcerpt).toBe('Build the ticket.');
@@ -482,10 +482,10 @@ describe('a workflow agent\'s brief', () => {
 
 /**
  * The brief is what a caller reads a marker or an excerpt from, so what matters is which turn it is: never an attachment-only turn,
- * the computed task after a workflow relay, and nothing at all after a relay that is followed by anything else.
+ * the computed task after a workflow Hatch, and nothing at all after a Hatch that is followed by anything else.
  */
 describe('the brief a transcript opens with', () => {
-  const RELAY_TURN = '[Workflow harness — user request] The harness relays the request below.\n  Run the board.';
+  const HATCH_TURN = '[Workflow harness — user request] The harness relays the request below.\n  Run the board.';
 
   const COMPUTED_TASK_TURN = '[Workflow harness — computed task] The task text below was computed at runtime.\n  Build the ticket.';
 
@@ -508,14 +508,14 @@ describe('the brief a transcript opens with', () => {
     expect(briefTextOf(transcript)).toBe('Do the thing.');
   });
 
-  test('a relay followed by a computed task gives the computed task', () => {
-    const transcript = [plainUserLine(RELAY_TURN), plainUserLine(COMPUTED_TASK_TURN)].join('\n');
+  test('a Hatch followed by a computed task gives the computed task', () => {
+    const transcript = [plainUserLine(HATCH_TURN), plainUserLine(COMPUTED_TASK_TURN)].join('\n');
 
     expect(briefTextOf(transcript)).toBe(COMPUTED_TASK_TURN);
   });
 
-  test('a relay followed by an ordinary message gives no brief at all', () => {
-    const transcript = [plainUserLine(RELAY_TURN), plainUserLine('Do the thing.')].join('\n');
+  test('a Hatch followed by an ordinary message gives no brief at all', () => {
+    const transcript = [plainUserLine(HATCH_TURN), plainUserLine('Do the thing.')].join('\n');
 
     expect(briefTextOf(transcript)).toBe('');
   });

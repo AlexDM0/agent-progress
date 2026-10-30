@@ -1,6 +1,6 @@
 /**
  * A launcher-port adapter whose session is the fake child `src/testing/fake-agent/FakeAgentChild.ts`: it plays a scripted list of
- * steps, printing Claude-shaped stream-json lines, waiting for stdin lines, exiting or crashing, so runner, host and crash specs drive a
+ * steps, printing Claude-shaped stream-json lines, waiting for stdin lines, exiting or crashing, so Overseer, Watcher and crash specs drive a
  * session without a vendor. Its lines are read and written as the Claude adapter's.
  */
 import { join } from 'node:path';
@@ -49,7 +49,7 @@ export function fakeAssistantTurnLine(messageId: string): string {
 
 export const FAKE_AGENT_VENDOR = 'fake-agent';
 
-/** What a session the runner launches under the fake-agent switch plays: it starts, reports nothing and exits. */
+/** What a session the Overseer launches under the fake-agent switch plays: it starts, reports nothing and exits. */
 export const DEFAULT_FAKE_AGENT_STEPS: readonly FakeAgentStep[] = Object.freeze([
   { kind: 'print', line: fakeStartedLine('fake-session') },
   { kind: 'exit', code: 0 },

@@ -81,7 +81,7 @@ export type BoardRefusalDetail =
   | { reason: 'job-not-intake'; jobId: string; kind: JobKind }
   | { reason: 'job-move-illegal'; jobId: string; state: JobState; targetState: JobMoveTarget }
   | { reason: 'merge-queue-of-a-ticket-not-in-review'; ticketId: string; status: TicketStatus }
-  | { reason: 'merge-slot-held'; target: string; jobId: string }
+  | { reason: 'airlock-held'; target: string; jobId: string }
   | { reason: 'merge-candidate-not-queued'; ticketId: string; target: string }
   | { reason: 'higher-priority-queued'; ticketId: string; queuedTicketIds: readonly string[] }
   | { reason: 'refresh-beside-a-queued-release'; group: string; releaseTicketId: string }
@@ -101,7 +101,7 @@ export type BoardRefusalDetail =
   | { reason: 'no-open-incident'; subject: string; move: string }
   | { reason: 'several-open-incidents'; subject: string; move: string; incidentIds: readonly string[] }
   | { reason: 'merge-gate-not-passed'; jobId: string; tree: string }
-  | { reason: 'job-holds-no-merge-slot'; jobId: string }
+  | { reason: 'job-holds-no-airlock'; jobId: string }
   | { reason: 'worktree-in-use'; ticketId: string; jobIds: readonly string[] }
   | { reason: 'worktree-has-uncommitted-work'; ticketId: string; worktreePath: string }
   | { reason: 'worktree-repair-failed'; ticketId: string; step: string; gitReason: string };

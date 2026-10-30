@@ -4,29 +4,29 @@
 # `core.hooksPath` pointed at its tracked `.githooks/`.
 #
 # It edits nothing outside $HOME/.claude, this repository's git config and, on the offer, one shell rc
-# file (with --login-runner, only one file under ~/Library/LaunchAgents), and it deletes nothing that is not a symlink into this checkout. Per-repository setup, the
+# file (with --login-overseer, only one file under ~/Library/LaunchAgents), and it deletes nothing that is not a symlink into this checkout. Per-repository setup, the
 # skills included, is `agent-progress init`'s job, not this one's.
 #
 # Usage: ./setup.sh [--instruct-only]
-#        ./setup.sh --login-runner <repository> [--label <label>] [--instruct-only]
+#        ./setup.sh --login-overseer <repository> [--label <label>] [--instruct-only]
 #   --instruct-only  changes nothing: every offer declines and every write is reported as "would".
-#   --login-runner   only writes ~/Library/LaunchAgents/<label>.plist, which runs `run --detach` in that repository at
-#                    login, so its runner is back after a reboot. A second repository needs a --label of its own.
+#   --login-overseer   only writes ~/Library/LaunchAgents/<label>.plist, which runs `run --detach` in that repository at
+#                    login, so its Overseer is back after a reboot. A second repository needs a --label of its own.
 set -euo pipefail
 
 # The login item's default label: src/ProductNames.spec.ts holds it equal to LAUNCH_AGENT_LABEL.
-LAUNCH_AGENT_LABEL="com.agent-progress-v2.runner"
-USAGE="Usage: ./setup.sh [--instruct-only] | ./setup.sh --login-runner <repository> [--label <label>] [--instruct-only]"
+LAUNCH_AGENT_LABEL="com.agent-progress-v2.overseer"
+USAGE="Usage: ./setup.sh [--instruct-only] | ./setup.sh --login-overseer <repository> [--label <label>] [--instruct-only]"
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTRUCT_ONLY=0
-LOGIN_RUNNER_REPOSITORY=""
-LOGIN_RUNNER_LABEL="$LAUNCH_AGENT_LABEL"
+LOGIN_OVERSEER_REPOSITORY=""
+LOGIN_OVERSEER_LABEL="$LAUNCH_AGENT_LABEL"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --instruct-only) INSTRUCT_ONLY=1 ;;
-    --login-runner) [[ $# -ge 2 ]] || { printf "%s\n" "$USAGE" >&2; exit 1; }; LOGIN_RUNNER_REPOSITORY="$2"; shift ;;
-    --label) [[ $# -ge 2 ]] || { printf "%s\n" "$USAGE" >&2; exit 1; }; LOGIN_RUNNER_LABEL="$2"; shift ;;
+    --login-overseer) [[ $# -ge 2 ]] || { printf "%s\n" "$USAGE" >&2; exit 1; }; LOGIN_OVERSEER_REPOSITORY="$2"; shift ;;
+    --label) [[ $# -ge 2 ]] || { printf "%s\n" "$USAGE" >&2; exit 1; }; LOGIN_OVERSEER_LABEL="$2"; shift ;;
     *) printf "Unknown option: %s\n%s\n" "$1" "$USAGE" >&2; exit 1 ;;
   esac
   shift
@@ -51,18 +51,18 @@ xml_escaped() {
   printf '%s' "$text"
 }
 
-# The runner restarts after a reboot only through User, agent-dashboard or this optional item; runtime code never installs it.
-write_login_runner() {
-  [[ -d "$LOGIN_RUNNER_REPOSITORY" ]] || { fail "$LOGIN_RUNNER_REPOSITORY is not a folder"; exit 1; }
+# The Overseer restarts after a reboot only through User, agent-dashboard or this optional item; runtime code never installs it.
+write_login_overseer() {
+  [[ -d "$LOGIN_OVERSEER_REPOSITORY" ]] || { fail "$LOGIN_OVERSEER_REPOSITORY is not a folder"; exit 1; }
   local repository bun_path plist_directory plist_path
-  repository="$(cd "$LOGIN_RUNNER_REPOSITORY" && pwd -P)"
+  repository="$(cd "$LOGIN_OVERSEER_REPOSITORY" && pwd -P)"
   bun_path="$(command -v bun || true)"
   [[ -n "$bun_path" ]] || { fail "bun not found; run ./setup.sh first"; exit 1; }
   bun_path="$(cd "$(dirname "$bun_path")" && pwd -P)/$(basename "$bun_path")"
   plist_directory="$HOME/Library/LaunchAgents"
-  plist_path="$plist_directory/$LOGIN_RUNNER_LABEL.plist"
+  plist_path="$plist_directory/$LOGIN_OVERSEER_LABEL.plist"
   if [[ -f "$plist_path" ]] && ! grep -qF "<string>$(xml_escaped "$repository")</string>" "$plist_path"; then
-    fail "$plist_path already starts the runner of another repository; pass --label <label> for $repository"
+    fail "$plist_path already starts the Overseer of another repository; pass --label <label> for $repository"
     exit 1
   fi
   if [[ "$INSTRUCT_ONLY" == "1" ]]; then
@@ -76,7 +76,7 @@ write_login_runner() {
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>$(xml_escaped "$LOGIN_RUNNER_LABEL")</string>
+  <string>$(xml_escaped "$LOGIN_OVERSEER_LABEL")</string>
   <key>ProgramArguments</key>
   <array>
     <string>$(xml_escaped "$bun_path")</string>
@@ -96,14 +96,14 @@ write_login_runner() {
 </dict>
 </plist>
 PLIST
-  ok "Wrote $plist_path: the runner of $repository starts at login"
+  ok "Wrote $plist_path: the Overseer of $repository starts at login"
   warn "To start it now as well: launchctl bootstrap gui/$(id -u) \"$plist_path\""
 }
 
 export PATH="$HOME/.bun/bin:$PATH"
-if [[ -n "$LOGIN_RUNNER_REPOSITORY" ]]; then
-  step "The runner's login item (LaunchAgent)"
-  write_login_runner
+if [[ -n "$LOGIN_OVERSEER_REPOSITORY" ]]; then
+  step "The Overseer's login item (LaunchAgent)"
+  write_login_overseer
   exit 0
 fi
 

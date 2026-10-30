@@ -35,7 +35,7 @@ function storedTextWithJobs(): string {
       attempt:              1,
       target:               'main',
       state:                'merging',
-      hostInstance:         1,
+      watcherInstance:      1,
       eventCursor:          { instance: 1, unknownCursorKey: 0, sequence: 4 },
       answeredRequestIds:   [],
       crashResumes:         0,

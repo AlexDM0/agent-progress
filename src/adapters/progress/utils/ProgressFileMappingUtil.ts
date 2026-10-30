@@ -8,7 +8,7 @@ import type {
   Job,
   JobEventCursor,
   JobIntake,
-  MergeSlot
+  Airlock
 } from '../../../lib/tracker-model/@types/Job.ts';
 import type { Task, TaskPhase }        from '../../../lib/tracker-model/@types/Task.ts';
 import type { TrackerProgress }        from '../../../lib/tracker-model/@types/TrackerProgress.ts';
@@ -22,7 +22,7 @@ import type {
   StoredIncidentDeliveryTurn,
   StoredJob,
   StoredJobEventCursor,
-  StoredMergeSlot,
+  StoredAirlock,
   StoredProgressFile,
   StoredTask,
   StoredTaskPhase
@@ -40,7 +40,7 @@ const KNOWN_PROGRESS_KEYS = {
   view:                   true,
   nextTaskId:             true,
   concurrencyLimit:       true,
-  runnerState:            true,
+  overseerState:          true,
   nextDraftId:            true,
   nextJobId:              true,
   jobs:                   true,
@@ -62,7 +62,7 @@ const KNOWN_JOB_KEYS = {
   target:             true,
   state:              true,
   interruption:       true,
-  hostInstance:       true,
+  watcherInstance:    true,
   eventCursor:        true,
   answeredRequestIds: true,
   crashResumes:       true,
@@ -116,12 +116,12 @@ const KNOWN_INCIDENT_KEYS = {
 
 const KNOWN_DELIVERY_TURN_KEYS = { jobId: true, chatSequence: true } as const satisfies Record<keyof IncidentDeliveryTurn | keyof StoredIncidentDeliveryTurn, true>;
 
-const KNOWN_MERGE_SLOT_KEYS = {
+const KNOWN_AIRLOCK_KEYS = {
   target:    true,
   targetTip: true,
   branchTip: true,
   phase:     true,
-} as const satisfies Record<keyof MergeSlot | keyof StoredMergeSlot, true>;
+} as const satisfies Record<keyof Airlock | keyof StoredAirlock, true>;
 
 const KNOWN_TASK_KEYS = {
   id:             true,
@@ -210,8 +210,8 @@ function eventCursorOf(stored: StoredJobEventCursor): JobEventCursor {
   return readInFileOrder(stored, KNOWN_EVENT_CURSOR_KEYS, { instance: stored.instance, sequence: stored.sequence });
 }
 
-function mergeSlotOf(stored: StoredMergeSlot): MergeSlot {
-  return readInFileOrder(stored, KNOWN_MERGE_SLOT_KEYS, {
+function airlockOf(stored: StoredAirlock): Airlock {
+  return readInFileOrder(stored, KNOWN_AIRLOCK_KEYS, {
     target:    stored.target,
     targetTip: stored.targetTip,
     branchTip: stored.branchTip,
@@ -242,7 +242,7 @@ function decisionOf(stored: StoredDecision): Decision {
   });
 }
 
-/** `facts` is a map whose every key is the runner's, so it is copied whole. */
+/** `facts` is a map whose every key is the Overseer's, so it is copied whole. */
 function incidentOf(stored: StoredIncident): Incident {
   const turn = stored.deliveredInTurn;
   return readInFileOrder(stored, KNOWN_INCIDENT_KEYS, {
@@ -268,11 +268,11 @@ function jobOf(stored: StoredJob): Job {
     target:             stored.target,
     state:              stored.state,
     ...(stored.interruption === undefined ? {} : { interruption: stored.interruption }),
-    hostInstance:       stored.hostInstance,
+    watcherInstance:    stored.watcherInstance,
     eventCursor:        eventCursorOf(stored.eventCursor),
     answeredRequestIds: [...stored.answeredRequestIds],
     crashResumes:       stored.crashResumes,
-    ...(stored.slot === undefined ? {} : { slot: mergeSlotOf(stored.slot) }),
+    ...(stored.slot === undefined ? {} : { slot: airlockOf(stored.slot) }),
     ...(stored.stopRequest === undefined ? {} : { stopRequest: stored.stopRequest }),
     ...(stored.intake === undefined ? {} : { intake: intakeCopyOf(stored.intake) }),
     ...(stored.outcome === undefined ? {} : { outcome: stored.outcome }),
@@ -287,7 +287,7 @@ function progressOf(document: StoredProgressFile): TrackerProgress {
     view:       document.view,
     nextTaskId: document.nextTaskId,
     ...(document.concurrencyLimit === undefined ? {} : { concurrencyLimit: document.concurrencyLimit }),
-    ...(document.runnerState === undefined ? {} : { runnerState: document.runnerState }),
+    ...(document.overseerState === undefined ? {} : { overseerState: document.overseerState }),
     ...(document.nextDraftId === undefined ? {} : { nextDraftId: document.nextDraftId }),
     ...(document.nextJobId === undefined ? {} : { nextJobId: document.nextJobId }),
     ...(document.jobs === undefined ? {} : { jobs: document.jobs.map(jobOf) }),
@@ -330,7 +330,7 @@ function storedEventCursorOf(cursor: JobEventCursor): StoredJobEventCursor {
   return writtenInModelOrder(cursor, [], { instance: cursor.instance, sequence: cursor.sequence });
 }
 
-function storedMergeSlotOf(slot: MergeSlot): StoredMergeSlot {
+function storedAirlockOf(slot: Airlock): StoredAirlock {
   return writtenInModelOrder(slot, [], {
     target:    slot.target,
     targetTip: slot.targetTip,
@@ -387,11 +387,11 @@ function storedJobOf(job: Job): StoredJob {
     target:             job.target,
     state:              job.state,
     ...(job.interruption === undefined ? {} : { interruption: job.interruption }),
-    hostInstance:       job.hostInstance,
+    watcherInstance:    job.watcherInstance,
     eventCursor:        storedEventCursorOf(job.eventCursor),
     answeredRequestIds: [...job.answeredRequestIds],
     crashResumes:       job.crashResumes,
-    ...(job.slot === undefined ? {} : { slot: storedMergeSlotOf(job.slot) }),
+    ...(job.slot === undefined ? {} : { slot: storedAirlockOf(job.slot) }),
     ...(job.stopRequest === undefined ? {} : { stopRequest: job.stopRequest }),
     ...(job.intake === undefined ? {} : { intake: intakeCopyOf(job.intake) }),
     ...(job.outcome === undefined ? {} : { outcome: job.outcome }),
@@ -408,7 +408,7 @@ function storedDocumentOf(progress: TrackerProgress): StoredProgressFile {
     view:       progress.view,
     nextTaskId: progress.nextTaskId,
     ...(progress.concurrencyLimit === undefined ? {} : { concurrencyLimit: progress.concurrencyLimit }),
-    ...(progress.runnerState === undefined ? {} : { runnerState: progress.runnerState }),
+    ...(progress.overseerState === undefined ? {} : { overseerState: progress.overseerState }),
     ...(progress.nextDraftId === undefined ? {} : { nextDraftId: progress.nextDraftId }),
     ...(progress.nextJobId === undefined ? {} : { nextJobId: progress.nextJobId }),
     ...(progress.jobs === undefined ? {} : { jobs: progress.jobs.map(storedJobOf) }),

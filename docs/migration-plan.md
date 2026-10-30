@@ -161,7 +161,7 @@ do not exist yet.
 | `lib/utils/TranscriptUsageUtil.ts`, `lib/utils/TranscriptCohortUtil.ts` | src/lib/claude-code/utils |
 | `lib/platform/AtomicFile.ts` | src/lib/atomic-file |
 | `lib/platform/Lock.ts`, `lib/platform/Workspace.ts` | src/services/tracker (its only consumer) |
-| `lib/platform/RepositoryRoot.ts`, `lib/platform/GitIgnore.ts`, `lib/platform/BranchRelease.ts`, `lib/platform/ReworkDiffs.ts` | src/lib/git, behind one new GitProcess runner (removes the verbatim duplicate plumbing) |
+| `lib/platform/RepositoryRoot.ts`, `lib/platform/GitIgnore.ts`, `lib/platform/BranchRelease.ts`, `lib/platform/ReworkDiffs.ts` | src/lib/git, behind one new GitProcess Overseer (removes the verbatim duplicate plumbing) |
 | `lib/platform/ClaudeSettings.ts`, `lib/platform/ClaudeInstructions.ts`, `lib/platform/ClaudeTranscripts.ts` | src/lib/claude-code |
 | `lib/platform/Environment.ts`, `lib/platform/OperationRefusal.ts` | src/shared |
 | `lib/progress/ProgressStore.ts` | split: ingestion class + writer → src/adapters; mutations and queries → Board; store orchestration → src/services/tracker |
@@ -185,7 +185,7 @@ do not exist yet.
 | `cli/hook/HookCommand.ts` | cli/measurement; its import of `reviewedTicketNumberOf` from the page (a feature reaching into another) becomes the Board query for a ticket's review bars |
 | `templates/*.md` | resources/templates |
 | `templates/workflows/AgentProgressDispatch.js` | removed; its policy is ported to dispatcher/ in TypeScript and generated into target projects |
-| `lib/tooling/dev/*` | test-only helpers, beside their only consumer (§6): the dispatch script harness and the workflow script source reader → dispatcher/ (replaced by the TypeScript port's own specs where they only read the old script); the captured command context and the CLI process runner → cli/testing if only cli/ uses them; the scratch workspace and the tracker isolation check → src/testing. `lib/tooling/dev/SourceComments.ts` goes with the guards if nothing else uses it |
+| `lib/tooling/dev/*` | test-only helpers, beside their only consumer (§6): the dispatch script harness and the workflow script source reader → dispatcher/ (replaced by the TypeScript port's own specs where they only read the old script); the captured command context and the CLI process Overseer → cli/testing if only cli/ uses them; the scratch workspace and the tracker isolation check → src/testing. `lib/tooling/dev/SourceComments.ts` goes with the guards if nothing else uses it |
 | `lib/ImportDirection.spec.ts`, `lib/EnvironmentReads.spec.ts`, `lib/DocumentedPaths.spec.ts`, `lib/TrackerIsolationBypasses.spec.ts` | deleted |
 | `cli/CLAUDE.md`, `lib/CLAUDE.md`, `lib/render/CLAUDE.md`, `lib/tickets/CLAUDE.md`, `skill/CLAUDE.md`, `skill-orchestrate/CLAUDE.md` | deleted; any rule the code cannot show moves to the root CLAUDE.md first |
 | `.idea/` | untracked and ignored |
@@ -302,7 +302,7 @@ conventions lens), and its minor findings are deferred to the polish sweep (owne
 ## 5. What carries over from the earlier proposal
 
 These foundation items from `agent-progress-architecture.html` still apply, with the destinations
-above: one git runner (F4), one Claude Code home (F7), status subsets declared once (F5), the review
+above: one git Overseer (F4), one Claude Code home (F7), status subsets declared once (F5), the review
 bar's stored round and the end of the name fallback (F8), the dispatcher in TypeScript plus the CLI
 JSON contract (F9, now generated into the target instead of committed), docs consolidation (F10),
 the pre-work shapes (F11) and atomic writes (F12). F2 (guard hardening) and F6's committed-artifact
@@ -328,7 +328,7 @@ parts are dropped.
   given as a value is refused naming its new word. The skills, the brief, the dispatcher, the help
   and `docs/cli.md` change in the same step.
 - **Test-only helpers** go beside their only consumer, like any other code: the dispatcher harness
-  beside dispatcher/, the captured command context and CLI process runner beside cli/ if only cli/
+  beside dispatcher/, the captured command context and CLI process Overseer beside cli/ if only cli/
   uses them. Helpers used by several parts (the scratch workspace, the tracker isolation check) go
   in src/testing/, the one place in src/ that never ships. The lint devDependency exemption covers
   exactly those folders.

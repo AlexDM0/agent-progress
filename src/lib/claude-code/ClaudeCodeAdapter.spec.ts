@@ -2,7 +2,7 @@
  * The adapter is the whole of what a launched session may do, so these cases hold its rendering per role as a table: the command line
  * of design section 4.2, the settings that confine the session (sandbox sets as `//`-anchored paths, git denies, no attribution, no
  * memory, no instruction file above the repository), the subagents, the git configuration, the scrubbed environment, the one standing
- * reply, and the lines a host sends, against the ones the probes recorded.
+ * reply, and the lines a Watcher sends, against the ones the probes recorded.
  */
 import { readFileSync } from 'node:fs';
 import { join }         from 'node:path';
@@ -17,26 +17,26 @@ import { CLAUDE_CODE_ADAPTER, CLAUDE_NESTING_VARIABLES, claudeSessionIdOf } from
 const REPOSITORY = '/Users/example/development/example-repository';
 const WORKTREE = `${REPOSITORY}/.example-worktrees/ticket-7`;
 const JOB_FILES = `${REPOSITORY}/.example-data/jobs/J1`;
-const RELAY = `${REPOSITORY}/.example-worktrees/relay/J1`;
+const HATCH = `${REPOSITORY}/.example-worktrees/hatch/J1`;
 const FIXTURES_FOLDER = join(import.meta.dir, 'testing', 'fixtures');
 
-type Role = 'builder' | 'reviewer' | 'merge-fix' | 'resolver' | 'product-owner' | 'orchestrator';
+type Role = 'builder' | 'reviewer' | 'merge-fix' | 'resolver' | 'product-owner' | 'assistant';
 
 const GIT_DENIES = [
   ['git', 'push'], ['git', 'rebase'], ['git', 'reset'], ['git', 'commit', '--amend'], ['git', 'worktree'], ['git', 'update-ref'], ['git', 'branch', '-f'], ['git', '-C'],
 ];
 
 function profileOf(role: Role): WorkerProfile {
-  const workerRole = role !== 'product-owner' && role !== 'orchestrator';
+  const workerRole = role !== 'product-owner' && role !== 'assistant';
   return {
     writableRoots:       [],
     deniedWritableRoots: [`${REPOSITORY}/.example-data`, `${WORKTREE}/.claude`, `${REPOSITORY}/.git/packed-refs`],
     deniedReadableRoots: [`${REPOSITORY}/.example-data/jobs/*/launch-*.json`, '/Users/example/.ssh', '/Users/example/.gnupg/private-keys-v1.d'],
     bashNetworkDomains:  role === 'builder' ? ['registry.example.com'] : [],
     webNetworkDomains:   {
-      'builder': ['registry.example.com'], 'reviewer': 'none', 'merge-fix': 'none', 'resolver': 'none', 'product-owner': 'any', 'orchestrator': 'none'
+      'builder': ['registry.example.com'], 'reviewer': 'none', 'merge-fix': 'none', 'resolver': 'none', 'product-owner': 'any', 'assistant': 'none'
     }[role] as WorkerProfile['webNetworkDomains'],
-    relayDirectory:         RELAY,
+    hatchDirectory:         HATCH,
     allowedCommandPrefixes: [['uv'], ['git', 'commit']],
     deniedCommandPrefixes:  workerRole ? GIT_DENIES : [],
     askUser:                role === 'builder' || role === 'reviewer' || role === 'product-owner',
@@ -77,7 +77,7 @@ function requestOf(role: Role, overrides: Partial<AgentLaunchRequest> = {}): Age
     environment:       { HOME: '/Users/example', PATH: '/usr/bin:/bin', USER: 'example' },
     profile:           profileOf(role),
     jobFilesDirectory: JOB_FILES,
-    reportSchema:      role === 'product-owner' || role === 'orchestrator' ? null : { type: 'object', required: ['role'] },
+    reportSchema:      role === 'product-owner' || role === 'assistant' ? null : { type: 'object', required: ['role'] },
     ...overrides,
   };
 }
@@ -139,7 +139,7 @@ describe('the command line, per role', () => {
       role: 'product-owner', slashCommandsOff: false, disallowedTools: undefined, reportSchema: false
     },
     {
-      role: 'orchestrator', slashCommandsOff: true, disallowedTools: 'WebSearch,WebFetch,AskUserQuestion', reportSchema: false
+      role: 'assistant', slashCommandsOff: true, disallowedTools: 'WebSearch,WebFetch,AskUserQuestion', reportSchema: false
     },
   ];
 
@@ -210,7 +210,7 @@ describe('the command line, per role', () => {
 });
 
 describe('the rendered settings', () => {
-  const ROLES: readonly Role[] = ['builder', 'reviewer', 'merge-fix', 'resolver', 'product-owner', 'orchestrator'];
+  const ROLES: readonly Role[] = ['builder', 'reviewer', 'merge-fix', 'resolver', 'product-owner', 'assistant'];
 
   for (const role of ROLES) {
     test(`${role}: no attribution, no auto-memory, and every instruction file above the repository excluded`, () => {
@@ -226,21 +226,21 @@ describe('the rendered settings', () => {
     });
   }
 
-  test('the sandbox carries the write and read sets as //-anchored paths, the relay writable, the network strict', () => {
+  test('the sandbox carries the write and read sets as //-anchored paths, the Hatch writable, the network strict', () => {
     const { sandbox } = settingsOf(CLAUDE_CODE_ADAPTER.planOf(requestOf('builder')));
     expect(sandbox).toMatchObject({
       enabled: true, failIfUnavailable: true, allowUnsandboxedCommands: false, autoAllowBashIfSandboxed: true
     });
-    expect(sandbox.filesystem.allowWrite).toEqual([`/${RELAY}`]);
+    expect(sandbox.filesystem.allowWrite).toEqual([`/${HATCH}`]);
     expect(sandbox.filesystem.denyWrite).toEqual([`/${REPOSITORY}/.example-data`, `/${WORKTREE}/.claude`, `/${REPOSITORY}/.git/packed-refs`]);
     expect(sandbox.filesystem.denyRead).toEqual([`/${REPOSITORY}/.example-data/jobs/*/launch-*.json`, '//Users/example/.ssh', '//Users/example/.gnupg/private-keys-v1.d']);
     expect(sandbox.network).toMatchObject({ allowedDomains: ['registry.example.com'], strictAllowlist: true });
   });
 
-  test('the gates\' writes the profile names are writable beside the relay, //-anchored', () => {
+  test('the gates\' writes the profile names are writable beside the Hatch, //-anchored', () => {
     const request = requestOf('builder');
     const plan    = CLAUDE_CODE_ADAPTER.planOf({ ...request, profile: { ...request.profile, writableRoots: ['/Users/example/.cache/example-uv'] } });
-    expect(settingsOf(plan).sandbox.filesystem.allowWrite).toEqual([`/${RELAY}`, '//Users/example/.cache/example-uv']);
+    expect(settingsOf(plan).sandbox.filesystem.allowWrite).toEqual([`/${HATCH}`, '//Users/example/.cache/example-uv']);
   });
 
   test('the signing allowance is the agent sockets alone, with the key folder\'s private keys read-denied, and no unsigned fallback', () => {
@@ -350,7 +350,7 @@ describe('the standing reply', () => {
   });
 });
 
-describe('the lines a host sends', () => {
+describe('the lines a Watcher sends', () => {
   const recordedStdin = fixtureLines('ask-user-question-live-answer.stdin.jsonl');
 
   test('a chat line is the recorded user line, byte for byte', () => {

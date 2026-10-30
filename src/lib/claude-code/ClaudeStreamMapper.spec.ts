@@ -1,6 +1,6 @@
 /**
- * The mapper is the runner's only reading of a Claude session, so each case replays a recorded 2.1.311 fixture
- * (`docs/development/runner-claude-probe.md`) rather than a hand-written line: the start, a question the runner must deliver, the denials it
+ * The mapper is the Overseer's only reading of a Claude session, so each case replays a recorded 2.1.311 fixture
+ * (`docs/development/overseer-claude-probe.md`) rather than a hand-written line: the start, a question the Overseer must deliver, the denials it
  * counts, the structured report it verifies, and the two rate-limit shapes of which only the top-level refusal may interrupt a job.
  */
 import { readFileSync } from 'node:fs';

@@ -168,20 +168,20 @@ testWhenGitIsPresent('A1: each mutating command updates lastChangedAt and lastCo
   expect(Object.keys(registry().projects)).toEqual([trackerId]);
 });
 
-testWhenGitIsPresent('a runner key is added at the runner\'s start, kept by every other write, and removed at its stop', async () => {
+testWhenGitIsPresent('an Overseer key is added at the overseer\'s start, kept by every other write, and removed at its stop', async () => {
   const repositoryDirectory = await initializedRepository();
   const trackerId           = trackerIdOf(repositoryDirectory);
-  const runner              = { url: 'http://127.0.0.1:4930/', processId: 4242, startedAt: LocalTimeUtil.formatLocalIso(FIRST_NOW) };
+  const overseer              = { url: 'http://127.0.0.1:4930/', processId: 4242, startedAt: LocalTimeUtil.formatLocalIso(FIRST_NOW) };
   const registration = {
     workspace: workspacePathsFor(repositoryDirectory), homeDirectory, temporaryDirectories: [folderOutsideEveryRepository], command: 'run', now: () => FIRST_NOW,
   };
 
-  expect((await registerWithTheMonitor({ ...registration, runner })).verdict).toBe('registered');
-  expect(registry().projects[trackerId]).toMatchObject({ runner, lastCommand: 'run' });
+  expect((await registerWithTheMonitor({ ...registration, overseer })).verdict).toBe('registered');
+  expect(registry().projects[trackerId]).toMatchObject({ overseer, lastCommand: 'run' });
   await requireExitZero(['log', 'Example milestone'], registeringContext(repositoryDirectory, SECOND_NOW));
-  expect(registry().projects[trackerId]).toMatchObject({ runner, lastCommand: 'log' });
-  expect((await registerWithTheMonitor({ ...registration, runner: 'removed' })).verdict).toBe('registered');
-  expect(Object.keys(registry().projects[trackerId] ?? {})).not.toContain('runner');
+  expect(registry().projects[trackerId]).toMatchObject({ overseer, lastCommand: 'log' });
+  expect((await registerWithTheMonitor({ ...registration, overseer: 'removed' })).verdict).toBe('registered');
+  expect(Object.keys(registry().projects[trackerId] ?? {})).not.toContain('overseer');
 });
 
 testWhenGitIsPresent('A2: status, ticket show, and open refused with no Overseer register nothing', async () => {

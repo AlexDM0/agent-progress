@@ -1,4 +1,4 @@
-/** Maps the Board's answers into the fields `status --json` carries for the runner and an orchestrator, the ticket defaults resolved. */
+/** Maps the Board's answers into the fields `status --json` carries for the Overseer and an orchestrator, the ticket defaults resolved. */
 import type { Task }          from '../../lib/tracker-model/@types/Task.ts';
 import type { Ticket }        from '../../lib/tracker-model/@types/Ticket.ts';
 import type { Board }         from '../../lib/tracker-model/Board.ts';

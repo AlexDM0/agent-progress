@@ -27,9 +27,9 @@ import { removeScratchDirectory }             from '../../src/testing/ScratchWor
 import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.ts';
 import { createCapturedCommandContext }       from '../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../testing/InitializedScratchRepository.ts';
+import { runCommandLineWithOverseerMoves }    from '../testing/OverseerTicketMoves.ts';
 import { fileReadyTicket, filedTicketFileOf } from '../testing/ReadyTicketFiling.ts';
 import { dropTicketRow }                      from '../testing/RowlessTicket.ts';
-import { runCommandLineWithRunnerMoves }      from '../testing/RunnerTicketMoves.ts';
 import { storedLogEntriesOf }                 from '../testing/StoredLogEntries.ts';
 import { storedProgressOf }                   from '../testing/StoredProgress.ts';
 import { TICKET_FILING_SUBCOMMANDS }          from './TicketFilingSubcommands.ts';
@@ -51,7 +51,7 @@ function contextHere(): ReturnType<typeof createCapturedCommandContext> {
 
 async function run(commandLineArguments: readonly string[]): Promise<ReturnType<typeof createCapturedCommandContext>> {
   const context  = contextHere();
-  const exitCode = await runCommandLineWithRunnerMoves(commandLineArguments, context);
+  const exitCode = await runCommandLineWithOverseerMoves(commandLineArguments, context);
   expect(exitCode, `\`agent-progress ${commandLineArguments.join(' ')}\` failed: ${context.errorText()}`).toBe(0);
   return context;
 }
@@ -98,7 +98,7 @@ describeWhenGitIsPresent('filing a ticket', () => {
 
   test('--body beside --body-file is refused at exit 1 and files nothing, rather than dropping the file', async () => {
     const context  = contextHere();
-    const exitCode = await runCommandLineWithRunnerMoves(['ticket', 'add', '--type', 'ticket', 'Fix the axis', '--body', 'a', '--body-file', 'b'], context);
+    const exitCode = await runCommandLineWithOverseerMoves(['ticket', 'add', '--type', 'ticket', 'Fix the axis', '--body', 'a', '--body-file', 'b'], context);
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('takes --body or --body-file, not both');
@@ -108,7 +108,7 @@ describeWhenGitIsPresent('filing a ticket', () => {
   test('a type that is not one of the three, a retired one included, is refused at exit 1 naming the three and files nothing', async () => {
     for (const writtenType of ['defect', 'change', 'feature']) {
       const context  = contextHere();
-      const exitCode = await runCommandLineWithRunnerMoves(['ticket', 'add', 'Fix the axis', '--type', writtenType], context);
+      const exitCode = await runCommandLineWithOverseerMoves(['ticket', 'add', 'Fix the axis', '--type', writtenType], context);
 
       expect(exitCode, writtenType).toBe(1);
       expect(context.errorText()).toContain(`"${writtenType}" is not a ticket type. The types are ticket, bug, research.`);
@@ -118,7 +118,7 @@ describeWhenGitIsPresent('filing a ticket', () => {
 
   test('an add without --type is refused at exit 1 with the usage line and files nothing', async () => {
     const context  = contextHere();
-    const exitCode = await runCommandLineWithRunnerMoves(['ticket', 'add', 'Fix the axis'], context);
+    const exitCode = await runCommandLineWithOverseerMoves(['ticket', 'add', 'Fix the axis'], context);
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain(`${PRODUCT_NAMES.PROGRAM} ticket add needs --type ticket|bug|research.`);
@@ -163,8 +163,8 @@ describeWhenGitIsPresent('filing a ticket', () => {
 
     await withLock(workspacePathsFor(repositoryDirectory), async () => {
       queuedAdds = [
-        runCommandLineWithRunnerMoves(['ticket', 'add', '--type', 'ticket', 'Held A'], contextHere()),
-        runCommandLineWithRunnerMoves(['ticket', 'add', '--type', 'ticket', 'Held B'], contextHere()),
+        runCommandLineWithOverseerMoves(['ticket', 'add', '--type', 'ticket', 'Held A'], contextHere()),
+        runCommandLineWithOverseerMoves(['ticket', 'add', '--type', 'ticket', 'Held B'], contextHere()),
       ];
       await Bun.sleep(LOCK_HELD_WHILE_ADDS_QUEUE_MILLISECONDS);
     }, () => new Date());
@@ -232,7 +232,7 @@ describeWhenGitIsPresent('readying a draft ticket', () => {
     const progressBefore = readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'), 'utf8');
 
     const context = contextHere();
-    expect(await runCommandLineWithRunnerMoves(['ticket', 'ready', '2', '1'], context)).toBe(1);
+    expect(await runCommandLineWithOverseerMoves(['ticket', 'ready', '2', '1'], context)).toBe(1);
 
     expect(context.errorText()).toContain('Ticket #001 is pending, not a draft ticket');
     expect(storedTicketText('002-show-the-role-history.md')).toContain('status: "draft"');
@@ -245,7 +245,7 @@ describeWhenGitIsPresent('readying a draft ticket', () => {
     await run(['ticket', 'add', '--type', 'ticket', 'Export the roles', '--body', UNNUMBERED_BODY]);
 
     const context = contextHere();
-    expect(await runCommandLineWithRunnerMoves(['ticket', 'ready', '1', '2', '3'], context)).toBe(1);
+    expect(await runCommandLineWithOverseerMoves(['ticket', 'ready', '1', '2', '3'], context)).toBe(1);
 
     expect(context.errorText()).toContain('#002');
     expect(context.errorText()).toContain('brief-missing');
@@ -331,7 +331,7 @@ describeWhenGitIsPresent('moving a ticket', () => {
 
   test('abandon needs a reason, and refuses without one rather than inventing a blank', async () => {
     const refused  = contextHere();
-    const exitCode = await runCommandLineWithRunnerMoves(['ticket', 'abandon', '1'], refused);
+    const exitCode = await runCommandLineWithOverseerMoves(['ticket', 'abandon', '1'], refused);
 
     expect(exitCode).toBe(1);
     expect(refused.errorText()).toContain('--reason');
@@ -353,7 +353,7 @@ describeWhenGitIsPresent('moving a ticket', () => {
 
   test('a status that is not one is refused, listing the ones that are', async () => {
     const context  = contextHere();
-    const exitCode = await runCommandLineWithRunnerMoves(['ticket', 'status', '1', 'finished'], context);
+    const exitCode = await runCommandLineWithOverseerMoves(['ticket', 'status', '1', 'finished'], context);
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('is not a ticket status');
@@ -362,7 +362,7 @@ describeWhenGitIsPresent('moving a ticket', () => {
 
   test('a ticket that does not exist is refused with exit 1', async () => {
     const context  = contextHere();
-    const exitCode = await runCommandLineWithRunnerMoves(['ticket', 'start', '42'], context);
+    const exitCode = await runCommandLineWithOverseerMoves(['ticket', 'start', '42'], context);
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('There is no readable ticket 42');
@@ -413,7 +413,7 @@ describeWhenGitIsPresent('a second review pass', () => {
     await fileReadyTicket(run, ['ticket', 'add', 'Fix the axis', '--type', 'bug']);
 
     const context  = contextHere();
-    const exitCode = await runCommandLineWithRunnerMoves(['ticket', 'rereview', '2'], context);
+    const exitCode = await runCommandLineWithOverseerMoves(['ticket', 'rereview', '2'], context);
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('Ticket #002 is pending');
@@ -427,14 +427,14 @@ describeWhenGitIsPresent('a second review pass', () => {
     await run(['ticket', 'start', '2']);
 
     const context = contextHere();
-    await runCommandLineWithRunnerMoves(['ticket', 'rereview', '2'], context);
+    await runCommandLineWithOverseerMoves(['ticket', 'rereview', '2'], context);
 
     expect(context.errorText()).toContain(`${PRODUCT_NAMES.PROGRAM} ticket status 002 in-review`);
   });
 
   test('rereview takes no --tokens, so the figure on the row stays the builder\'s', async () => {
     const context  = contextHere();
-    const exitCode = await runCommandLineWithRunnerMoves(['ticket', 'rereview', '1', '--tokens', '48k'], context);
+    const exitCode = await runCommandLineWithOverseerMoves(['ticket', 'rereview', '1', '--tokens', '48k'], context);
 
     expect(exitCode).not.toBe(0);
     expect(storedProgressOf(repositoryDirectory).tasks[0]?.status).not.toBe('re-review');
@@ -506,7 +506,7 @@ describeWhenGitIsPresent('linking a ticket to a row', () => {
     await fileReadyTicket(run, ['ticket', 'add', 'Fix the axis', '--type', 'bug']);
 
     const refused = contextHere();
-    expect(await runCommandLineWithRunnerMoves(['ticket', 'link', '1', '2'], refused)).toBe(1);
+    expect(await runCommandLineWithOverseerMoves(['ticket', 'link', '1', '2'], refused)).toBe(1);
     expect(refused.errorText()).toContain('already belongs to ticket #002');
 
     await run(['ticket', 'link', '1', '2', '--force']);
@@ -523,7 +523,7 @@ describeWhenGitIsPresent('the transition matrix', () => {
 
   test('a verb refuses a ticket that is not in a status it moves from, naming the override', async () => {
     const context  = contextHere();
-    const exitCode = await runCommandLineWithRunnerMoves(['ticket', 'deliver', '1'], context);
+    const exitCode = await runCommandLineWithOverseerMoves(['ticket', 'deliver', '1'], context);
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('Ticket #001 is pending');
@@ -534,7 +534,7 @@ describeWhenGitIsPresent('the transition matrix', () => {
   test('a refused move writes no log line and leaves the ticket where it was', async () => {
     const logBefore = storedLogEntriesOf(repositoryDirectory).length;
 
-    expect(await runCommandLineWithRunnerMoves(['ticket', 'deliver', '1'], contextHere())).toBe(1);
+    expect(await runCommandLineWithOverseerMoves(['ticket', 'deliver', '1'], contextHere())).toBe(1);
 
     expect(storedLogEntriesOf(repositoryDirectory)).toHaveLength(logBefore);
     expect(storedTicketText()).toContain('status: "pending"');
@@ -545,11 +545,11 @@ describeWhenGitIsPresent('the transition matrix', () => {
     const logBefore = storedLogEntriesOf(repositoryDirectory).length;
 
     const byVerb = contextHere();
-    expect(await runCommandLineWithRunnerMoves(['ticket', 'start', '1'], byVerb)).toBe(1);
+    expect(await runCommandLineWithOverseerMoves(['ticket', 'start', '1'], byVerb)).toBe(1);
     expect(byVerb.errorText()).toContain('is already in-progress');
 
     const byStatus = contextHere();
-    expect(await runCommandLineWithRunnerMoves(['ticket', 'status', '1', 'in-progress'], byStatus)).toBe(1);
+    expect(await runCommandLineWithOverseerMoves(['ticket', 'status', '1', 'in-progress'], byStatus)).toBe(1);
     expect(byStatus.errorText()).toContain('is already in-progress');
 
     expect(storedLogEntriesOf(repositoryDirectory)).toHaveLength(logBefore);
@@ -577,7 +577,7 @@ describeWhenGitIsPresent('the transition matrix', () => {
     await run(['ticket', 'status', '1', 'delivered']);
 
     const refused = contextHere();
-    expect(await runCommandLineWithRunnerMoves(['ticket', 'abandon', '1', '--reason', 'superseded'], refused)).toBe(1);
+    expect(await runCommandLineWithOverseerMoves(['ticket', 'abandon', '1', '--reason', 'superseded'], refused)).toBe(1);
     expect(refused.errorText()).toContain('a move to abandoned takes a ticket that is draft or pending');
 
     await run(['ticket', 'reopen', '1']);
@@ -587,7 +587,7 @@ describeWhenGitIsPresent('the transition matrix', () => {
 
   test('an inherited property of the subcommand table is not a subcommand', async () => {
     const context  = contextHere();
-    const exitCode = await runCommandLineWithRunnerMoves(['ticket', 'constructor', '1'], context);
+    const exitCode = await runCommandLineWithOverseerMoves(['ticket', 'constructor', '1'], context);
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain(`is not a ${PRODUCT_NAMES.PROGRAM} ticket subcommand`);
@@ -611,7 +611,7 @@ describeWhenGitIsPresent('token counts on a ticket move', () => {
     const ticketBefore   = storedTicketText();
 
     const context  = contextHere();
-    const exitCode = await runCommandLineWithRunnerMoves(['ticket', 'abandon', '1', '--reason', 'superseded', '--tokens', '12k'], context);
+    const exitCode = await runCommandLineWithOverseerMoves(['ticket', 'abandon', '1', '--reason', 'superseded', '--tokens', '12k'], context);
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('has no row');
@@ -627,7 +627,7 @@ describeWhenGitIsPresent('where --body-file reads from', () => {
       now:               () => FROZEN_NOW,
       standardInputText: '## Report\nPiped by Alex Example.\n',
     });
-    expect(await runCommandLineWithRunnerMoves(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it', '--body-file', '-'], context)).toBe(0);
+    expect(await runCommandLineWithOverseerMoves(['ticket', 'add', '--type', 'ticket', 'Double-click a role to edit it', '--body-file', '-'], context)).toBe(0);
 
     expect(storedTicketText()).toContain('Piped by Alex Example.');
   });
@@ -645,7 +645,7 @@ describeWhenGitIsPresent('where --body-file reads from', () => {
 describeWhenGitIsPresent('what ticket add refuses and what it falls back to', () => {
   test('a title that is nothing but whitespace is refused', async () => {
     const context  = contextHere();
-    const exitCode = await runCommandLineWithRunnerMoves(['ticket', 'add', '--type', 'ticket', '  '], context);
+    const exitCode = await runCommandLineWithOverseerMoves(['ticket', 'add', '--type', 'ticket', '  '], context);
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('needs a title');
@@ -677,7 +677,7 @@ describeWhenGitIsPresent('ticket dependencies', () => {
 
   async function refusalOf(commandLineArguments: readonly string[]): Promise<string> {
     const context  = contextHere();
-    const exitCode = await runCommandLineWithRunnerMoves(commandLineArguments, context);
+    const exitCode = await runCommandLineWithOverseerMoves(commandLineArguments, context);
     expect(exitCode).toBe(1);
     return context.errorText();
   }
@@ -798,11 +798,11 @@ describeWhenGitIsPresent('a ticket file that will not parse', () => {
 
     for (const commandLine of [['ticket', 'show', '1'], ['ticket', 'claim', '1', '--owner', 'opus']]) {
       const context = contextHere();
-      expect(await runCommandLineWithRunnerMoves(commandLine, context), commandLine.join(' ')).toBe(2);
+      expect(await runCommandLineWithOverseerMoves(commandLine, context), commandLine.join(' ')).toBe(2);
       expect(context.errorText(), commandLine.join(' ')).toMatch(new RegExp(`^Ticket file ignored: .*${FIRST_TICKET_FILE_NAME}`));
     }
     const missingContext = contextHere();
-    expect(await runCommandLineWithRunnerMoves(['ticket', 'show', '2'], missingContext)).toBe(1);
+    expect(await runCommandLineWithOverseerMoves(['ticket', 'show', '2'], missingContext)).toBe(1);
     expect(missingContext.errorText()).toContain('There is no readable ticket 2');
   });
 });
@@ -847,7 +847,7 @@ describeWhenGitIsPresent('the subcommand groups', () => {
 
   test('constructor, inherited by every table, is refused as an unknown subcommand, with nothing on standard output', async () => {
     const context  = contextHere();
-    const exitCode = await runCommandLineWithRunnerMoves(['ticket', 'constructor', '1'], context);
+    const exitCode = await runCommandLineWithOverseerMoves(['ticket', 'constructor', '1'], context);
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toStartWith(`"constructor" is not a ${PRODUCT_NAMES.PROGRAM} ticket subcommand.\n  Usage: ${PRODUCT_NAMES.PROGRAM} ticket add "<title>"`);

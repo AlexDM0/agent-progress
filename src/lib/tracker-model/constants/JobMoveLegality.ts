@@ -2,22 +2,22 @@ import type { JobMoveTarget, JobState } from '../@types/Job.ts';
 
 /**
  * Read as "to reach the key, the job has to be in one of these". Launching is reached only by a launch, and every state may end; a move
- * into `running` from a state with no process, `interrupted` or `awaiting-answer`, is a resume and spawns the next host instance.
+ * into `running` from a state with no process, `interrupted` or `awaiting-answer`, is a resume and spawns the next Watcher instance.
  */
 export const LEGAL_SOURCE_STATES_FOR_JOB_MOVE: Readonly<Record<JobMoveTarget, readonly JobState[]>> = {
   'launching':          [],
   'preparing':          ['launching'],
   'running':            ['launching', 'preparing', 'waiting-for-answer', 'interrupted', 'awaiting-answer'],
   'waiting-for-answer': ['running'],
-  // From `verifying` or `gating`: a handoff whose Customs check or gate went red waits there for its session's resume.
-  'interrupted':        ['preparing', 'running', 'waiting-for-answer', 'stopping', 'verifying', 'gating'],
+  // From `in-customs` or `gating`: a handoff whose Customs check or gate went red waits there for its session's resume.
+  'interrupted':        ['preparing', 'running', 'waiting-for-answer', 'stopping', 'in-customs', 'gating'],
   // From `gating`: a review whose gate passed waits there, with no process, for User's answer to its waiver proposals.
   'awaiting-answer':    ['interrupted', 'gating'],
-  'verifying':          ['running'],
-  'gating':             ['verifying', 'merging'],
+  'in-customs':         ['running'],
+  'gating':             ['in-customs', 'merging'],
   'merging':            ['launching'],
   'landing':            ['gating'],
-  'stopping':           ['launching', 'preparing', 'running', 'waiting-for-answer', 'interrupted', 'awaiting-answer', 'verifying', 'gating', 'merging', 'landing'],
+  'stopping':           ['launching', 'preparing', 'running', 'waiting-for-answer', 'interrupted', 'awaiting-answer', 'in-customs', 'gating', 'merging', 'landing'],
   'ended':              [
     'launching',
     'preparing',
@@ -25,7 +25,7 @@ export const LEGAL_SOURCE_STATES_FOR_JOB_MOVE: Readonly<Record<JobMoveTarget, re
     'waiting-for-answer',
     'interrupted',
     'awaiting-answer',
-    'verifying',
+    'in-customs',
     'gating',
     'merging',
     'landing',

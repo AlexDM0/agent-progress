@@ -1,7 +1,7 @@
 /**
  * The machine-wide usage marker both ways. What matters: a written marker reads back whole, into a monitor folder that does not exist yet;
- * a marker any runner could misread (no stamp, no seenBy, not JSON) is `malformed`, never a throw, so a hand-edited file cannot take the
- * runner down; and no marker is `absent`.
+ * a marker any Overseer could misread (no stamp, no seenBy, not JSON) is `malformed`, never a throw, so a hand-edited file cannot take the
+ * Overseer down; and no marker is `absent`.
  */
 import { readdirSync, writeFileSync } from 'node:fs';
 import { join }                       from 'node:path';

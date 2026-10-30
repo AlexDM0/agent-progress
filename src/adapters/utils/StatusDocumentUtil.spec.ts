@@ -26,7 +26,7 @@ describe('the decisions and incidents', () => {
       kind:      'outage',
       ticketIds: [],
       jobId:     null,
-      askedBy:   'runner',
+      askedBy:   'overseer',
       requestId: null,
       questions: [{
         question: 'Resume the board?', header: 'Outage', multiSelect: false, options: []

@@ -5,12 +5,12 @@ import type { Draft }                           from './Draft.ts';
 import type { Epic }                            from './Epic.ts';
 import type { Incident }                        from './Incident.ts';
 import type { Job }                             from './Job.ts';
-import type { LifecycleStep }                   from './LifecycleStep.ts';
 import type { LogRecord, LogRecordFieldsOf }    from './LogRecord.ts';
 import type { Pipeline }                        from './Pipeline.ts';
+import type { PlaybookStep }                    from './PlaybookStep.ts';
 import type { Task, TaskStatus }                from './Task.ts';
 import type { AgentEffort, AgentModel, Ticket } from './Ticket.ts';
-import type { RunnerState }                     from './TrackerProgress.ts';
+import type { OverseerState }                   from './TrackerProgress.ts';
 
 export interface AgentChoice {
   model?:  AgentModel;
@@ -76,7 +76,7 @@ export interface TicketMoveRequest {
   commit?:        string;
   reason?:        string;
   tokens?:        number;
-  /** Logged on a delivery recorded by hand, work the runner never merged or landed. */
+  /** Logged on a delivery recorded by hand, work the Overseer never merged or landed. */
   byHand?:        boolean;
 }
 
@@ -124,7 +124,7 @@ export interface JobChanged extends Logged {
 
 /** The lifecycle steps one pass applied, in order, and everything they logged. */
 export interface LifecycleAdvanced extends Logged {
-  steps: readonly LifecycleStep[];
+  steps: readonly PlaybookStep[];
 }
 
 /** `decision` is `null` when the request it was opened for was already answered, and the open one, logging nothing, when it is open. */
@@ -201,8 +201,8 @@ export interface ConcurrencyLimitSet extends Logged {
   concurrency:   Concurrency;
 }
 
-export interface RunnerStateSet extends Logged {
-  previousState: RunnerState;
+export interface OverseerStateSet extends Logged {
+  previousState: OverseerState;
 }
 
 export interface PipelineChanged extends Logged {

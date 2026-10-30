@@ -47,7 +47,7 @@ const LIVE: JobLiveFactsDocument = {
 };
 
 const BUILD_JOB: AgentJobDocument = {
-  id: 'J12', kind: 'build', role: 'builder', ticketIds: ['042'], state: 'running', attempt: 1, hostInstance: 1, crashResumes: 0, live: LIVE,
+  id: 'J12', kind: 'build', role: 'builder', ticketIds: ['042'], state: 'running', attempt: 1, watcherInstance: 1, crashResumes: 0, live: LIVE,
 };
 
 interface FakeClock {
@@ -214,9 +214,9 @@ describe('the job rows', () => {
       await Promise.resolve();
     });
     expect(cellOf(jobRow('J12'), 'calls').textContent).toBe('12 / 150');
-    act(() => stream().onEvent('job', { ...BUILD_JOB, state: 'verifying', live: { ...LIVE, calls: 13 } }));
+    act(() => stream().onEvent('job', { ...BUILD_JOB, state: 'in-customs', live: { ...LIVE, calls: 13 } }));
     expect(cellOf(jobRow('J12'), 'calls').textContent).toBe('13 / 150');
-    expect(within(jobRow('J12')).getByText('verifying')).toBeDefined();
+    expect(within(jobRow('J12')).getByText('in-customs')).toBeDefined();
   });
 });
 

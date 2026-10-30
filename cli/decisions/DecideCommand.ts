@@ -5,8 +5,8 @@ import type { ControlCommandOf }   from '../../src/shared/@types/ControlCommand.
 import { OperationRefusal }        from '../../src/shared/OperationRefusal.ts';
 import { PRODUCT_NAMES }           from '../../src/shared/constants/ProductNames.ts';
 import type { CommandHandler }     from '../CommandHandler.ts';
+import { hatchWhenUnderJob }       from '../HatchUnderJob.ts';
 import { openTrackerForWriting }   from '../OpenTrackerForWriting.ts';
-import { relayWhenUnderJob }       from '../RelayUnderJob.ts';
 import { OutputUtil }              from '../utils/OutputUtil.ts';
 
 const USAGE = `${PRODUCT_NAMES.PROGRAM} decide <decision> <letters>... | -- <text> [--json]`;
@@ -34,7 +34,7 @@ export const decideCommand: CommandHandler = async (commandArguments, context) =
   const text = commandArguments.positionals().slice(1 + choices.length).join(' ').trim();
 
   const command: ControlCommandOf<'decision-answer'> = { kind: 'decision-answer', decisionId: decisionId.toUpperCase(), answer: answerFormOf(choices, text) };
-  await relayWhenUnderJob(context, command);
+  await hatchWhenUnderJob(context, command);
   const { answer, logged } = await openTrackerForWriting(commandArguments, context, (change) => ControlService.apply(command, change).result);
   OutputUtil.printEntity(commandArguments, context, { decisionId: command.decisionId, answer }, OutputUtil.loggedSentencesOf(logged));
 };

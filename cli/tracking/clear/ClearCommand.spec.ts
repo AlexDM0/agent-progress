@@ -21,8 +21,8 @@ import { removeScratchDirectory }             from '../../../src/testing/Scratch
 import { describeWhenGitIsPresent }           from '../../../src/testing/ToolGuard.ts';
 import { createCapturedCommandContext }       from '../../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../../testing/InitializedScratchRepository.ts';
+import { runCommandLineWithOverseerMoves }    from '../../testing/OverseerTicketMoves.ts';
 import { fileReadyTicket }                    from '../../testing/ReadyTicketFiling.ts';
-import { runCommandLineWithRunnerMoves }      from '../../testing/RunnerTicketMoves.ts';
 import { storedLogEntriesOf }                 from '../../testing/StoredLogEntries.ts';
 import { storedProgressOf }                   from '../../testing/StoredProgress.ts';
 
@@ -42,7 +42,7 @@ function contextHere(): ReturnType<typeof createCapturedCommandContext> {
 
 async function run(commandLineArguments: readonly string[]): Promise<ReturnType<typeof createCapturedCommandContext>> {
   const context  = contextHere();
-  const exitCode = await runCommandLineWithRunnerMoves(commandLineArguments, context);
+  const exitCode = await runCommandLineWithOverseerMoves(commandLineArguments, context);
   expect(exitCode, `\`agent-progress ${commandLineArguments.join(' ')}\` failed: ${context.errorText()}`).toBe(0);
   return context;
 }
@@ -123,7 +123,7 @@ describeWhenGitIsPresent('clearing everything', () => {
     chmodSync(trackerDirectory, READ_AND_ENTER_ONLY_MODE);
     try {
       const context = contextHere();
-      expect(await runCommandLineWithRunnerMoves(['clear', '--all', '--yes'], context)).toBe(2);
+      expect(await runCommandLineWithOverseerMoves(['clear', '--all', '--yes'], context)).toBe(2);
     } finally {
       chmodSync(trackerDirectory, OWNER_FULL_ACCESS_MODE);
     }
@@ -191,7 +191,7 @@ describeWhenGitIsPresent('the confirmation', () => {
   /** A prompt written to a stream nobody is reading is a hang in a subprocess an agent is waiting on. */
   test('a non-terminal standard input without --yes refuses and changes nothing', async () => {
     const context  = contextHere();
-    const exitCode = await runCommandLineWithRunnerMoves(['clear'], context);
+    const exitCode = await runCommandLineWithOverseerMoves(['clear'], context);
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('--yes');
@@ -206,7 +206,7 @@ describeWhenGitIsPresent('the confirmation', () => {
       confirmAnswer:           false,
     });
 
-    expect(await runCommandLineWithRunnerMoves(['clear'], context)).toBe(0);
+    expect(await runCommandLineWithOverseerMoves(['clear'], context)).toBe(0);
 
     expect(context.questionsAsked()).toHaveLength(1);
     expect(context.outputText()).toContain('Nothing was cleared.');
@@ -221,7 +221,7 @@ describeWhenGitIsPresent('the confirmation', () => {
       confirmAnswer:           true,
     });
 
-    expect(await runCommandLineWithRunnerMoves(['clear', '--all'], context)).toBe(0);
+    expect(await runCommandLineWithOverseerMoves(['clear', '--all'], context)).toBe(0);
 
     expect(context.questionsAsked()[0]).toContain('every ticket and every epic');
     expect(ticketFileNames()).toEqual([]);

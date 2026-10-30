@@ -6,7 +6,7 @@ export interface WorkerProfile {
   readonly bashNetworkDomains:     readonly string[];
   readonly webNetworkDomains:      readonly string[] | 'any' | 'none';
   /** The one folder outside the working directory the session may write. */
-  readonly relayDirectory:         string;
+  readonly hatchDirectory:         string;
   /** Argv prefixes, such as `['git', 'commit']`. */
   readonly allowedCommandPrefixes: readonly (readonly string[])[];
   readonly deniedCommandPrefixes:  readonly (readonly string[])[];

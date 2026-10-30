@@ -1,6 +1,6 @@
 /**
  * Maps one stdout line of a `claude -p --output-format stream-json` session to the launcher port's events. A line that is not JSON, or a
- * record the runner has no use for (hooks, summaries, thinking estimates), maps to none.
+ * record the Overseer has no use for (hooks, summaries, thinking estimates), maps to none.
  */
 import type {
   AgentQuestion,

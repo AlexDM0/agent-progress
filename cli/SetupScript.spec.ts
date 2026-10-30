@@ -218,17 +218,17 @@ function launchAgentPathOf(label: string): string {
   return join(scratchHomeDirectory, 'Library', 'LaunchAgents', `${label}.plist`);
 }
 
-function runLoginRunner(loginArguments: readonly string[]): FinishedSetupRun {
-  const finished = Bun.spawnSync(['bash', SETUP_SCRIPT_PATH, '--login-runner', ...loginArguments], {
+function runLoginOverseer(loginArguments: readonly string[]): FinishedSetupRun {
+  const finished = Bun.spawnSync(['bash', SETUP_SCRIPT_PATH, '--login-overseer', ...loginArguments], {
     cwd: scratchHomeDirectory, env: setupScriptEnvironment(), stdin: 'ignore', stdout: 'pipe', stderr: 'pipe',
   });
   return { exitCode: finished.exitCode, output: `${finished.stdout.toString()}\n${finished.stderr.toString()}` };
 }
 
-testWhenBashIsPresent('setup.sh --login-runner writes a LaunchAgent labelled LAUNCH_AGENT_LABEL running run --detach at load, every path absolute', () => {
+testWhenBashIsPresent('setup.sh --login-overseer writes a LaunchAgent labelled LAUNCH_AGENT_LABEL running run --detach at load, every path absolute', () => {
   const repositoryDirectory = join(scratchDirectory, 'tracked-repository');
   mkdirSync(repositoryDirectory);
-  const { exitCode, output } = runLoginRunner([repositoryDirectory]);
+  const { exitCode, output } = runLoginOverseer([repositoryDirectory]);
   expect(exitCode, output).toBe(0);
 
   const plist = readFileSync(launchAgentPathOf(PRODUCT_NAMES.LAUNCH_AGENT_LABEL), 'utf8');
@@ -240,20 +240,20 @@ testWhenBashIsPresent('setup.sh --login-runner writes a LaunchAgent labelled LAU
   expect(recordedBunCalls()).toEqual([]);
 }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
-testWhenBashIsPresent('setup.sh --login-runner refuses a second repository under the same label, takes one under its own, and --instruct-only writes nothing', () => {
+testWhenBashIsPresent('setup.sh --login-overseer refuses a second repository under the same label, takes one under its own, and --instruct-only writes nothing', () => {
   const firstRepository = join(scratchDirectory, 'first-repository');
   const secondRepository = join(scratchDirectory, 'second-repository');
   mkdirSync(firstRepository);
   mkdirSync(secondRepository);
   const homeBefore = snapshotOf(scratchHomeDirectory);
-  expect(runLoginRunner([firstRepository, '--instruct-only']).exitCode).toBe(0);
+  expect(runLoginOverseer([firstRepository, '--instruct-only']).exitCode).toBe(0);
   expect(snapshotOf(scratchHomeDirectory)).toEqual(homeBefore);
 
-  expect(runLoginRunner([firstRepository]).exitCode).toBe(0);
-  const refused = runLoginRunner([secondRepository]);
+  expect(runLoginOverseer([firstRepository]).exitCode).toBe(0);
+  const refused = runLoginOverseer([secondRepository]);
   expect(refused.exitCode).toBe(1);
   expect(refused.output).toContain('pass --label');
   expect(readFileSync(launchAgentPathOf(PRODUCT_NAMES.LAUNCH_AGENT_LABEL), 'utf8')).toContain(firstRepository);
-  expect(runLoginRunner([secondRepository, '--label', 'com.example-agency.runner']).exitCode).toBe(0);
-  expect(readFileSync(launchAgentPathOf('com.example-agency.runner'), 'utf8')).toContain(secondRepository);
+  expect(runLoginOverseer([secondRepository, '--label', 'com.example-agency.overseer']).exitCode).toBe(0);
+  expect(readFileSync(launchAgentPathOf('com.example-agency.overseer'), 'utf8')).toContain(secondRepository);
 }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);

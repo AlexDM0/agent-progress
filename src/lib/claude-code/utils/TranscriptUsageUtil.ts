@@ -216,7 +216,7 @@ function scriptPromptOf(computedTask: string): string {
   return promptStartIndex === -1 ? '' : lines.slice(promptStartIndex).join('\n');
 }
 
-/** A workflow run started without a user request opens on the computed task itself, so the preamble is removed whether or not a relay came first. */
+/** A workflow run started without a user request opens on the computed task itself, so the preamble is removed whether or not a Hatch came first. */
 function briefExcerptOf(transcriptText: string, briefExcerptCharacters: number): string {
   const briefText     = briefTextOf(transcriptText);
   const excerptSource = briefText.trimStart().startsWith(WORKFLOW_COMPUTED_TASK_PREFIX) ? scriptPromptOf(briefText) : briefText;
@@ -242,7 +242,7 @@ function* spokenUserTurnsOf(transcriptText: string): Generator<string> {
 /**
  * The first user turn with spoken text, which `transcriptProfileOf` excerpts too; an empty string when there is none.
  * A workflow agent's first turn is the harness relaying the session user's request, and its brief is the computed task that must follow it
- * at once; a relay followed by anything else has no brief, so a marker the relay quotes or a later message carries never counts.
+ * at once; a Hatch followed by anything else has no brief, so a marker the Hatch quotes or a later message carries never counts.
  */
 function briefTextOf(transcriptText: string): string {
   const spokenUserTurns = spokenUserTurnsOf(transcriptText);

@@ -1,6 +1,6 @@
 /**
  * The decision kinds of the control contract: User's answer to an open decision, the first one winning. It is a `writeTracker` change, so it
- * is taken with the runner down too; the runner delivers it to the session after the hold. A `ready-drafts` answer readies the drafts its
+ * is taken with the Overseer down too; the Overseer delivers it to the session after the hold. A `ready-drafts` answer readies the drafts its
  * chosen option names, in the answering hold, and only those the decision lists.
  */
 import { TicketAcceptanceUtil }  from '../../adapters/tickets/utils/TicketAcceptanceUtil.ts';

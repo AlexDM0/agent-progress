@@ -9,8 +9,8 @@ import { OperationRefusal }                 from '../../../src/shared/OperationR
 import { PRODUCT_NAMES }                    from '../../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }              from '../../CommandContext.ts';
 import type { CommandHandler }              from '../../CommandHandler.ts';
+import { hatchWhenUnderJob }                from '../../HatchUnderJob.ts';
 import { openTrackerForWriting }            from '../../OpenTrackerForWriting.ts';
-import { relayWhenUnderJob }                from '../../RelayUnderJob.ts';
 import type { ArgumentParser }              from '../../arguments/ArgumentParser.ts';
 import { OutputUtil }                       from '../../utils/OutputUtil.ts';
 
@@ -49,7 +49,7 @@ export const concurrencyCommand: CommandHandler = async (commandArguments, conte
   const limit = limitFrom(written);
 
   const command: ControlCommandOf<'concurrency-set'> = { kind: 'concurrency-set', limit };
-  await relayWhenUnderJob(context, command);
+  await hatchWhenUnderJob(context, command);
   const { logged, previousLimit, concurrency } = await openTrackerForWriting(
     commandArguments,
     context,

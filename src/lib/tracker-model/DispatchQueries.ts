@@ -1,14 +1,14 @@
 /**
- * What the runner reads off the Board to start its next job: the concurrency, the ready and held tickets, what a ticket still waits
+ * What the Overseer reads off the Board to start its next job: the concurrency, the ready and held tickets, what a ticket still waits
  * on, which tickets have a builder or a reviewer at work, and the check command a release runs.
  */
 import type { Concurrency, DispatchCapacity } from './@types/Concurrency.ts';
 import type { Task }                          from './@types/Task.ts';
 import type { ReadyTicket, Ticket }           from './@types/Ticket.ts';
-import type { RunnerState }                   from './@types/TrackerProgress.ts';
+import type { OverseerState }                 from './@types/TrackerProgress.ts';
 import type { BoardRecords }                  from './BoardRecords.ts';
 import type { GroupReleases }                 from './GroupReleases.ts';
-import { DEFAULT_RUNNER_STATE }               from './constants/RunnerStates.ts';
+import { DEFAULT_OVERSEER_STATE }             from './constants/OverseerStates.ts';
 import { SETTLED_TICKET_STATUSES }            from './constants/Statuses.ts';
 import { ConcurrencyUtil }                    from './utils/ConcurrencyUtil.ts';
 import { TicketDefaultsUtil }                 from './utils/TicketDefaultsUtil.ts';
@@ -24,8 +24,8 @@ export class DispatchQueries {
     return ConcurrencyUtil.concurrencyOf(this.records.progress.tasks, this.records.progress.concurrencyLimit);
   }
 
-  runnerState(): RunnerState {
-    return this.records.progress.runnerState ?? DEFAULT_RUNNER_STATE;
+  overseerState(): OverseerState {
+    return this.records.progress.overseerState ?? DEFAULT_OVERSEER_STATE;
   }
 
   /** In the order to take them: by priority, then by readiness, then by id. */
@@ -56,7 +56,7 @@ export class DispatchQueries {
     }));
   }
 
-  /** Every held ticket the runner could still start a step of, in progress or in review as much as ready. */
+  /** Every held ticket the Overseer could still start a step of, in progress or in review as much as ready. */
   heldTicketIds(): string[] {
     return this.records.ticketRecords
       .filter((ticket) => ticket.frontmatter.hold !== undefined && !SETTLED_TICKET_STATUSES.includes(ticket.frontmatter.status))
@@ -64,14 +64,14 @@ export class DispatchQueries {
   }
 
   /**
-   * What the runner needs to start the next job: the limit, the agents in flight against it, what is left, and the tickets that could take it —
-   * in the order to take them — and where the user left the runner.
+   * What the Overseer needs to start the next job: the limit, the agents in flight against it, what is left, and the tickets that could take it —
+   * in the order to take them — and where the user left the Overseer.
    */
   dispatchCapacity(): DispatchCapacity {
     return {
       ...this.concurrency(),
       readyTicketIds: this.readyTickets().map((ticket) => ticket.frontmatter.id),
-      runnerState:    this.runnerState(),
+      overseerState:  this.overseerState(),
       heldTicketIds:  this.heldTicketIds(),
     };
   }

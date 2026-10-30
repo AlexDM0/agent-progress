@@ -1,12 +1,12 @@
 /**
- * A unit of the runner's agent work, stored in progress.json while it is unsettled so a restart reads every job from disk. Only what the
- * runner decided is stored: a host's process identity lives in the job's own folder, never on the board.
+ * A unit of the Overseer's agent work, stored in progress.json while it is unsettled so a restart reads every job from disk. Only what the
+ * Overseer decided is stored: a Watcher's process identity lives in the job's own folder, never on the board.
  */
 
 /** `onboarder` reads the repository and proposes its pipeline, or advises on the one it has; it never touches a ticket. */
-export type JobKind = 'build' | 'review' | 'merge' | 'merge-agent' | 'refresh' | 'orchestrator' | 'product-owner' | 'onboarder';
+export type JobKind = 'build' | 'review' | 'merge' | 'merge-agent' | 'refresh' | 'assistant' | 'product-owner' | 'onboarder';
 
-export type JobRole = 'builder' | 'reviewer' | 'merge-fix' | 'resolver' | 'resolution-review' | 'orchestrator' | 'product-owner' | 'onboarder';
+export type JobRole = 'builder' | 'reviewer' | 'merge-fix' | 'resolver' | 'resolution-review' | 'assistant' | 'product-owner' | 'onboarder';
 
 export type JobState =
   | 'launching'
@@ -15,7 +15,7 @@ export type JobState =
   | 'waiting-for-answer'
   | 'interrupted'
   | 'awaiting-answer'
-  | 'verifying'
+  | 'in-customs'
   | 'gating'
   | 'merging'
   | 'landing'
@@ -42,18 +42,18 @@ export type JobOutcome =
   | 'closed';
 
 /**
- * `host-lost` and `agent-crashed` are the crashes a resume counts; the others never count. `handoff-red` is a handoff whose gate or Customs
+ * `watcher-lost` and `agent-crashed` are the crashes a resume counts; the others never count. `handoff-red` is a handoff whose gate or Customs
  * check went red: the same session is resumed to fix it, counted on its own bound.
  */
-export type InterruptionCause = 'host-lost' | 'agent-crashed' | 'reboot' | 'answer-delivery' | 'usage-limit' | 'handoff-red';
+export type InterruptionCause = 'watcher-lost' | 'agent-crashed' | 'reboot' | 'answer-delivery' | 'usage-limit' | 'handoff-red';
 
-export type SlotPhase = 'merge-in' | 'resolving' | 'reviewing-resolution' | 'gating' | 'fixing' | 'landing';
+export type AirlockPhase = 'merge-in' | 'resolving' | 'reviewing-resolution' | 'gating' | 'fixing' | 'landing';
 
-export interface MergeSlot {
+export interface Airlock {
   target:    string;
   targetTip: string;
   branchTip: string;
-  phase:     SlotPhase;
+  phase:     AirlockPhase;
 }
 
 /** What User asked of a live job: `stop` and `wind-down` hold its ticket, `fresh` stops it for a fresh agent on the same worktree. */
@@ -69,7 +69,7 @@ export interface JobIntake {
   carriedAnswers?:    Readonly<Record<string, string>>[];
 }
 
-/** The last host event the runner applied, written in the hold that applied it. */
+/** The last Watcher event the Overseer applied, written in the hold that applied it. */
 export interface JobEventCursor {
   instance: number;
   sequence: number;
@@ -91,16 +91,16 @@ export interface Job {
   state:              JobState;
   /** Why the job was last interrupted; absent on a job never interrupted. */
   interruption?:      InterruptionCause;
-  /** The newest host instance spawned or to spawn, from 1. */
-  hostInstance:       number;
+  /** The newest Watcher instance spawned or to spawn, from 1. */
+  watcherInstance:    number;
   eventCursor:        JobEventCursor;
   /** The relayed question request ids already answered, kept until the job ends, so an answer is never delivered twice. */
   answeredRequestIds: string[];
-  /** Resumes after a `host-lost` or `agent-crashed` interruption only. */
+  /** Resumes after a `watcher-lost` or `agent-crashed` interruption only. */
   crashResumes:       number;
   /** On the merge or refresh job holding its target's slot, while it holds it. */
-  slot?:              MergeSlot;
-  /** Set once User stopped, wound down or freshened the job; the runner sends its frames from it. */
+  slot?:              Airlock;
+  /** Set once User stopped, wound down or freshened the job; the Overseer sends its frames from it. */
   stopRequest?:       JobStopMode;
   /** On a product-owner job only. */
   intake?:            JobIntake;
@@ -120,14 +120,14 @@ export interface JobLaunch {
 
 export interface JobEnding {
   outcome:            JobOutcome;
-  /** What ended it, worded by the runner; absent when the outcome says it all. */
+  /** What ended it, worded by the Overseer; absent when the outcome says it all. */
   cause?:             string;
   /** The commit the job's work ended on, when it made one. */
   commit?:            string;
   deniedPermissions?: readonly string[];
 }
 
-export type RunnerStopReason = 'stopped' | 'handed-over';
+export type OverseerStopReason = 'stopped' | 'handed-over';
 
 /** How a merge reached its target: `landed` fast-forwarded the main line, `integrated` a group branch. */
 export type LandingKind = 'landed' | 'integrated';

@@ -8,33 +8,33 @@ import type {
   JobOutcome,
   JobState
 } from '../@types/Job.ts';
-import type { LifecycleStep, DecisionWording }              from '../@types/LifecycleStep.ts';
 import type { LogRecord }                                   from '../@types/LogRecord.ts';
+import type { PlaybookStep, DecisionWording }               from '../@types/PlaybookStep.ts';
 import type { Ticket, TicketFrontmatter }                   from '../@types/Ticket.ts';
 import type { TrackerProgress }                             from '../@types/TrackerProgress.ts';
+import type { MergeTargetOf }                               from '../AirlockClaims.ts';
 import { Board }                                            from '../Board.ts';
 import { BoardRefusal }                                     from '../BoardRefusal.ts';
 import { createLogger }                                     from '../Logger.ts';
-import type { MergeTargetOf }                               from '../MergeSlotClaims.ts';
 import { FIXTURE_AT, FIXTURE_LIMITS, FIXTURE_OBSERVATIONS } from './LifecycleFixtures.ts';
 
 const WORLD_CONCURRENCY_LIMIT = 2;
 
-const INTERRUPTION_CAUSES: readonly InterruptionCause[] = ['host-lost', 'agent-crashed', 'reboot', 'usage-limit'];
+const INTERRUPTION_CAUSES: readonly InterruptionCause[] = ['watcher-lost', 'agent-crashed', 'reboot', 'usage-limit'];
 
-const ENDINGS_BY_KIND: Readonly<Record<'build' | 'review' | 'orchestrator', readonly JobOutcome[]>> = {
-  build:        ['built', 'built', 'failed'],
-  review:       ['reviewed', 'does-not-hold', 'round-granted'],
-  orchestrator: ['closed'],
+const ENDINGS_BY_KIND: Readonly<Record<'build' | 'review' | 'assistant', readonly JobOutcome[]>> = {
+  build:     ['built', 'built', 'failed'],
+  review:    ['reviewed', 'does-not-hold', 'round-granted'],
+  assistant: ['closed'],
 };
 
-/** The states in which a job's host runs its session, so the world keeps a host instance live for it. */
-const HOST_RUNNING_STATES: readonly JobState[] = ['running', 'waiting-for-answer'];
+/** The states in which a job's Watcher runs its session, so the world keeps a Watcher instance live for it. */
+const WATCHER_RUNNING_STATES: readonly JobState[] = ['running', 'waiting-for-answer'];
 
-/** The states in which a worktree job's session or the runner acts on its worktree with git. */
-const GIT_OPERATING_STATES: readonly JobState[] = ['preparing', 'running', 'waiting-for-answer', 'verifying', 'gating', 'merging', 'landing'];
+/** The states in which a worktree job's session or the Overseer acts on its worktree with git. */
+const GIT_OPERATING_STATES: readonly JobState[] = ['preparing', 'running', 'waiting-for-answer', 'in-customs', 'gating', 'merging', 'landing'];
 
-const CRASH_CAUSES: readonly string[] = ['host-lost', 'agent-crashed'];
+const CRASH_CAUSES: readonly string[] = ['watcher-lost', 'agent-crashed'];
 
 const WORLD_TARGETS: readonly string[] = ['main', 'group-example'];
 
@@ -109,7 +109,7 @@ export class LifecycleWorld {
     view:             { kind: 'auto' },
     nextTaskId:       1,
     concurrencyLimit: WORLD_CONCURRENCY_LIMIT,
-    runnerState:      'running',
+    overseerState:    'running',
     tasks:            [],
   };
 
@@ -121,8 +121,8 @@ export class LifecycleWorld {
 
   private requestCount = 0;
 
-  /** The host instances the world keeps running per job: spawned as a job runs on an instance, killed only by an interruption or an end. */
-  private readonly liveHostInstances = new Map<string, Set<number>>();
+  /** The Watcher instances the world keeps running per job: spawned as a job runs on an instance, killed only by an interruption or an end. */
+  private readonly liveWatcherInstances = new Map<string, Set<number>>();
 
   /** How far the log was already checked for resumes, so each record is judged once. */
   private checkedRecordCount = 0;
@@ -158,16 +158,16 @@ export class LifecycleWorld {
 
   private advance(turn: number): void {
     const jobsBefore = this.board.jobs().map((job) => ({ ...job }));
-    let steps: readonly LifecycleStep[] = [];
+    let steps: readonly PlaybookStep[] = [];
     try {
-      ({ steps } = this.board.advanceLifecycle(FIXTURE_LIMITS, FIXTURE_OBSERVATIONS, () => WORLD_WORDING));
+      ({ steps } = this.board.followPlaybook(FIXTURE_LIMITS, FIXTURE_OBSERVATIONS, () => WORLD_WORDING));
     } catch (error) {
       this.violations.push(`turn ${turn}: the pass threw ${String(error)}`);
     }
     for (const step of steps) {
       if (step.kind !== 'resume-job') continue;
       const resumed = jobsBefore.find((job) => job.id === step.jobId);
-      if (resumed?.state !== 'interrupted' || resumed.kind === 'orchestrator') this.violations.push(`turn ${turn}: resumed ${step.jobId}, which was no interrupted agent job`);
+      if (resumed?.state !== 'interrupted' || resumed.kind === 'assistant') this.violations.push(`turn ${turn}: resumed ${step.jobId}, which was no interrupted agent job`);
     }
     this.syncHosts(turn);
     this.checkInvariants(turn);
@@ -175,24 +175,24 @@ export class LifecycleWorld {
     this.checkResumes(turn);
   }
 
-  /** A job running on an instance the world has not spawned gets that host; a job interrupted, ended or gone has none left. */
+  /** A job running on an instance the world has not spawned gets that Watcher; a job interrupted, ended or gone has none left. */
   private syncHosts(turn: number): void {
     const liveJobs = new Map(this.board.jobs().map((job) => [job.id, job]));
-    for (const [jobId, instances] of this.liveHostInstances) {
+    for (const [jobId, instances] of this.liveWatcherInstances) {
       const job = liveJobs.get(jobId);
-      if (job === undefined || !HOST_RUNNING_STATES.includes(job.state)) instances.clear();
+      if (job === undefined || !WATCHER_RUNNING_STATES.includes(job.state)) instances.clear();
     }
     for (const job of liveJobs.values()) {
-      if (!HOST_RUNNING_STATES.includes(job.state)) continue;
-      const instances = this.liveHostInstances.get(job.id) ?? new Set<number>();
-      instances.add(job.hostInstance);
-      this.liveHostInstances.set(job.id, instances);
-      if (instances.size > 1) this.violations.push(`turn ${turn}: job ${job.id} has host instances ${[...instances].join(', ')} live at once`);
+      if (!WATCHER_RUNNING_STATES.includes(job.state)) continue;
+      const instances = this.liveWatcherInstances.get(job.id) ?? new Set<number>();
+      instances.add(job.watcherInstance);
+      this.liveWatcherInstances.set(job.id, instances);
+      if (instances.size > 1) this.violations.push(`turn ${turn}: job ${job.id} has Watcher instances ${[...instances].join(', ')} live at once`);
     }
   }
 
-  private killHost(jobId: string): void {
-    this.liveHostInstances.get(jobId)?.clear();
+  private killWatcher(jobId: string): void {
+    this.liveWatcherInstances.get(jobId)?.clear();
   }
 
   /** Read from the log as written: a resume of a job already ended, or a crash resume past the bound, is a violation. */
@@ -263,7 +263,7 @@ export class LifecycleWorld {
     if (decision === undefined) return;
     this.board.answerDecision(decisionId, ['Yes'], FIXTURE_AT);
     if (decision.kind === 'parked') decision.ticketIds.forEach((ticketId) => this.board.unholdTicket(ticketId, FIXTURE_AT));
-    if (decision.kind === 'outage') this.board.setRunnerState('running', FIXTURE_AT);
+    if (decision.kind === 'outage') this.board.setOverseerState('running', FIXTURE_AT);
     if (decision.jobId !== null && this.board.jobById(decision.jobId)?.state === 'waiting-for-answer') this.board.moveJob(decision.jobId, 'running', FIXTURE_AT);
     try {
       this.board.answerDecision(decisionId, ['No'], FIXTURE_AT);
@@ -273,20 +273,20 @@ export class LifecycleWorld {
     }
   }
 
-  /** A runner's allocation at a random moment: the claim itself must refuse whatever would break a slot invariant. */
+  /** An Overseer's allocation at a random moment: the claim itself must refuse whatever would break a slot invariant. */
   private claimASlot(): void {
     const target = this.pick(WORLD_TARGETS) ?? 'main';
     const tip = `tip-${this.logRecords.length}`;
     try {
       const candidate = this.pick(this.board.mergeCandidatesOf(target, worldMergeTargetOf));
-      // With nothing queued on the group, the runner's refresh may be due.
+      // With nothing queued on the group, the Overseer's refresh may be due.
       if (candidate === undefined && target !== 'main' && this.random() < WORLD_REFRESH_CHANCE) {
         this.board.claimRefreshSlot({
           group: 'example', target, targetTip: tip, mainTip: `main-${tip}`
         }, FIXTURE_AT);
       }
       if (candidate === undefined) return;
-      this.board.claimMergeSlot({
+      this.board.claimAirlock({
         ticketId: candidate.ticketId, target, targetTip: tip, branchTip: `branch-${candidate.ticketId}`, predictedConflictFiles: []
       }, worldMergeTargetOf, FIXTURE_AT);
     } catch (refusal) {
@@ -336,7 +336,7 @@ export class LifecycleWorld {
       return;
     }
     if (job.state !== 'running') return;
-    if (roll < 0.15 && job.kind !== 'orchestrator') {
+    if (roll < 0.15 && job.kind !== 'assistant') {
       this.board.moveJob(job.id, 'waiting-for-answer', FIXTURE_AT);
       this.requestCount += 1;
       this.board.openDecision({
@@ -345,15 +345,15 @@ export class LifecycleWorld {
       return;
     }
     if (roll < 0.35) {
-      this.killHost(job.id);
-      this.board.interruptJob(job.id, this.pick(INTERRUPTION_CAUSES) ?? 'host-lost', FIXTURE_AT);
+      this.killWatcher(job.id);
+      this.board.interruptJob(job.id, this.pick(INTERRUPTION_CAUSES) ?? 'watcher-lost', FIXTURE_AT);
       return;
     }
     this.end(job);
   }
 
   private end(job: Readonly<Job>): void {
-    const kind    = job.kind === 'review' || job.kind === 'orchestrator' ? job.kind : 'build';
+    const kind    = job.kind === 'review' || job.kind === 'assistant' ? job.kind : 'build';
     const outcome = this.pick(ENDINGS_BY_KIND[kind]) ?? 'failed';
     this.board.endJob(job.id, { outcome }, FIXTURE_AT);
     const ticketId = job.ticketIds[0];

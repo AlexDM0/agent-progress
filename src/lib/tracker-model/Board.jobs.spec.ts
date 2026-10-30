@@ -1,5 +1,5 @@
 /**
- * The runner's jobs on the Board. What matters: a job's ids are never reused or gap-filled, since a log line and a host folder name it for
+ * The Overseer's jobs on the Board. What matters: a job's ids are never reused or gap-filled, since a log line and a Watcher folder name it for
  * good; the record holds what a restart needs and no process identity; every move goes through the one legality table, an illegal one
  * refused `job-move-illegal` from every state; a job is finished only by `job-ended`, after which every move is refused `job-finished`;
  * only the launch, an interruption, a resume and the end are logged; and the merge-queue mark lives on in-review rows only.
@@ -46,8 +46,8 @@ const PATH_TO_STATE: Readonly<Record<JobState, readonly JobMoveTarget[]>> = {
   'waiting-for-answer': ['running', 'waiting-for-answer'],
   'interrupted':        ['running', 'interrupted'],
   'awaiting-answer':    ['running', 'interrupted', 'awaiting-answer'],
-  'verifying':          ['running', 'verifying'],
-  'gating':             ['running', 'verifying', 'gating'],
+  'in-customs':         ['running', 'in-customs'],
+  'gating':             ['running', 'in-customs', 'gating'],
   'merging':            ['merging'],
   'landing':            ['merging', 'gating', 'landing'],
   'stopping':           ['stopping'],
@@ -58,7 +58,7 @@ function boardWithTicket(): ReturnType<typeof boardFixture> {
 }
 
 function stepJob(board: Board, jobId: string, target: JobMoveTarget): void {
-  if (target === 'interrupted') board.interruptJob(jobId, 'host-lost', AT);
+  if (target === 'interrupted') board.interruptJob(jobId, 'watcher-lost', AT);
   else if (target === 'ended') board.endJob(jobId, { outcome: 'failed' }, AT);
   else board.moveJob(jobId, target, AT);
 }
@@ -84,13 +84,13 @@ describe('a launch', () => {
       'attempt',
       'target',
       'state',
-      'hostInstance',
+      'watcherInstance',
       'eventCursor',
       'answeredRequestIds',
       'crashResumes',
     ]);
     expect(job).toMatchObject({
-      id: 'J1', state: 'launching', hostInstance: 1, eventCursor: { instance: 1, sequence: 0 }, answeredRequestIds: []
+      id: 'J1', state: 'launching', watcherInstance: 1, eventCursor: { instance: 1, sequence: 0 }, answeredRequestIds: []
     });
     expect(board.jobs()).toEqual([job]);
     expect(logged).toEqual(records);
@@ -125,12 +125,12 @@ describe('the legality table', () => {
     const DESIGNED_TARGETS_FROM_STATE: Readonly<Record<JobState, readonly JobMoveTarget[]>> = {
       'launching':          ['preparing', 'running', 'merging', 'stopping', 'ended'],
       'preparing':          ['running', 'interrupted', 'stopping', 'ended'],
-      'running':            ['waiting-for-answer', 'interrupted', 'verifying', 'stopping', 'ended'],
+      'running':            ['waiting-for-answer', 'interrupted', 'in-customs', 'stopping', 'ended'],
       'waiting-for-answer': ['running', 'interrupted', 'stopping', 'ended'],
       'interrupted':        ['running', 'awaiting-answer', 'stopping', 'ended'],
       'awaiting-answer':    ['running', 'stopping', 'ended'],
       // A red Customs check or gate interrupts the job, so the same session is resumed to fix it.
-      'verifying':          ['gating', 'interrupted', 'stopping', 'ended'],
+      'in-customs':         ['gating', 'interrupted', 'stopping', 'ended'],
       'gating':             ['awaiting-answer', 'interrupted', 'landing', 'stopping', 'ended'],
       'merging':            ['gating', 'stopping', 'ended'],
       'landing':            ['stopping', 'ended'],
@@ -177,13 +177,13 @@ describe('the moves a job logs', () => {
   test('a move between live states logs nothing: the state lives in progress.json', () => {
     const { board, records } = boardWithTicket();
     const { job }            = board.launchJob(BUILD_LAUNCH, AT);
-    for (const target of ['preparing', 'running', 'waiting-for-answer', 'running', 'verifying', 'gating'] as const satisfies readonly SteppedJobState[]) {
+    for (const target of ['preparing', 'running', 'waiting-for-answer', 'running', 'in-customs', 'gating'] as const satisfies readonly SteppedJobState[]) {
       expect(board.moveJob(job.id, target, AT).logged).toEqual([]);
     }
     expect(records.map((record) => record.kind)).toEqual(['job-launched']);
   });
 
-  test('an interruption records its cause; the resume spawns the next host instance and counts only a crash', () => {
+  test('an interruption records its cause; the resume spawns the next Watcher instance and counts only a crash', () => {
     const { board, records } = boardWithTicket();
     const { job }            = board.launchJob(BUILD_LAUNCH, AT);
     board.moveJob(job.id, 'running', AT);
@@ -192,20 +192,20 @@ describe('the moves a job logs', () => {
     board.interruptJob(job.id, 'agent-crashed', AT);
     board.moveJob(job.id, 'running', AT);
 
-    expect(board.jobById(job.id)).toMatchObject({ hostInstance: 3, crashResumes: 1, interruption: 'agent-crashed' });
+    expect(board.jobById(job.id)).toMatchObject({ watcherInstance: 3, crashResumes: 1, interruption: 'agent-crashed' });
     expect(records.slice(1).map(({ kind, fields }) => [kind, fields])).toEqual([
-      ['job-interrupted', { cause: 'reboot', hostInstance: 1 }],
-      ['job-resumed', { hostInstance: 2, cause: 'reboot' }],
-      ['job-interrupted', { cause: 'agent-crashed', hostInstance: 2 }],
-      ['job-resumed', { hostInstance: 3, cause: 'agent-crashed' }],
+      ['job-interrupted', { cause: 'reboot', watcherInstance: 1 }],
+      ['job-resumed', { watcherInstance: 2, cause: 'reboot' }],
+      ['job-interrupted', { cause: 'agent-crashed', watcherInstance: 2 }],
+      ['job-resumed', { watcherInstance: 3, cause: 'agent-crashed' }],
     ]);
   });
 
-  test('a job awaiting an answer resumes into running in the next host instance', () => {
+  test('a job awaiting an answer resumes into running in the next Watcher instance', () => {
     const { board } = boardWithTicket();
     const jobId     = jobInState(board, 'awaiting-answer');
     expect(board.moveJob(jobId, 'running', AT).logged.map((record) => record.kind)).toEqual(['job-resumed']);
-    expect(board.jobById(jobId)?.hostInstance).toBe(2);
+    expect(board.jobById(jobId)?.watcherInstance).toBe(2);
   });
 });
 
@@ -294,11 +294,11 @@ describe('the merge-queue mark', () => {
   });
 });
 
-describe('the runner state', () => {
+describe('the Overseer state', () => {
   test('the stored state is the one the Board and its dispatch capacity read', () => {
     const { board, progress } = boardFixture();
-    progress.runnerState      = 'running';
-    expect(board.runnerState()).toBe('running');
-    expect(board.dispatchCapacity().runnerState).toBe('running');
+    progress.overseerState      = 'running';
+    expect(board.overseerState()).toBe('running');
+    expect(board.dispatchCapacity().overseerState).toBe('running');
   });
 });

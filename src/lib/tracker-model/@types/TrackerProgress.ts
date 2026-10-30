@@ -10,7 +10,7 @@ export type ViewRange =
   | { kind: 'relative'; from: string; to: string; tickMinutes: number | null };
 
 /** `paused`, never resumed or paused by the user, starts no new job until the user's go. */
-export type RunnerState = 'running' | 'paused';
+export type OverseerState = 'running' | 'paused';
 
 export interface TrackerProgress {
   trackerId:               string;
@@ -21,8 +21,8 @@ export interface TrackerProgress {
   nextTaskId:              number;
   /** How many agents may be in flight at once; absent on a tracker that never set one, which reads as the default. */
   concurrencyLimit?:       number;
-  /** Where the user left the runner; absent on a tracker that never set one, which reads as `paused`. */
-  runnerState?:            RunnerState;
+  /** Where the user left the Overseer; absent on a tracker that never set one, which reads as `paused`. */
+  overseerState?:          OverseerState;
   /** The number the next draft takes, never wound back; absent on a tracker that never opened a draft. */
   nextDraftId?:            number;
   /** The number the next job takes, never wound back; absent on a tracker that never launched a job. */
@@ -35,7 +35,7 @@ export interface TrackerProgress {
   decisions?:              Decision[];
   /** The number the next incident takes, never wound back; absent on a tracker that never opened one. */
   nextIncidentId?:         number;
-  /** The open incidents for the runner's orchestrator, in opening order; a closed one leaves. Absent on a tracker that never opened one. */
+  /** The open incidents for the Assistant, in opening order; a closed one leaves. Absent on a tracker that never opened one. */
   incidents?:              Incident[];
   /** When the Overseer first started on this board, written once and kept by `clear`; absent on a board it never started on. */
   overseerFirstStartedAt?: string;

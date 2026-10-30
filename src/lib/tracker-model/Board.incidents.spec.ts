@@ -1,5 +1,5 @@
 /**
- * The runner's orchestrator's incidents on the Board. What matters: an incident starts undelivered and carries its facts and default
+ * The Overseer's orchestrator's incidents on the Board. What matters: an incident starts undelivered and carries its facts and default
  * move; it closes exactly once, by a move (`incident-handled`), by its own default with the cause the warning state reads
  * (`incident-defaulted`), or by an escalation that puts the agent's questions to the user unchanged as an `agent-question` decision on the
  * same tickets, job and request; a closed one refuses every later close; and a replayed question request opens no second incident.
@@ -100,7 +100,7 @@ describe('closing an incident', () => {
     }]);
   });
 
-  test.each(['turn-closed', 'turn-budget', 'no-orchestrator'] as const)('by its default for %s logs its own default move and the cause', (cause) => {
+  test.each(['turn-closed', 'turn-budget', 'no-assistant'] as const)('by its default for %s logs its own default move and the cause', (cause) => {
     const { board, records } = freshBoard();
     board.openIncident({ ...SYSTEM_QUESTION, kind: 'merge-gate-failed', defaultMove: 'merge-abort' }, AT);
     records.length = 0;
@@ -141,7 +141,7 @@ describe('closing an incident', () => {
   test('an escalated incident no question opened carries no request', () => {
     const { board } = freshBoard();
     board.openIncident({ ...SYSTEM_QUESTION, facts: {} }, AT);
-    expect(board.escalateIncident('I1', { askedBy: 'orchestrator', questions: [AGENT_WORDS], context: '' }, AT).decision.requestId).toBeNull();
+    expect(board.escalateIncident('I1', { askedBy: 'assistant', questions: [AGENT_WORDS], context: '' }, AT).decision.requestId).toBeNull();
   });
 
   test('an escalation asking no question is refused decision-without-questions and leaves the incident open', () => {

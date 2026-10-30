@@ -21,8 +21,8 @@ import { removeScratchDirectory }             from '../../src/testing/ScratchWor
 import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.ts';
 import { createCapturedCommandContext }       from '../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../testing/InitializedScratchRepository.ts';
+import { runCommandLineWithOverseerMoves }    from '../testing/OverseerTicketMoves.ts';
 import { fileReadyTicket }                    from '../testing/ReadyTicketFiling.ts';
-import { runCommandLineWithRunnerMoves }      from '../testing/RunnerTicketMoves.ts';
 import { storedLogTextOf }                    from '../testing/StoredLogText.ts';
 
 const FROZEN_NOW = new Date('2026-09-24T09:25:00Z');
@@ -61,7 +61,7 @@ type CapturedContext = ReturnType<typeof createCapturedCommandContext>;
 
 async function runExpectingExit(expectedExitCode: number, commandLineArguments: readonly string[], standardInputText?: string): Promise<CapturedContext> {
   const context  = contextHere(standardInputText);
-  const exitCode = await runCommandLineWithRunnerMoves(commandLineArguments, context);
+  const exitCode = await runCommandLineWithOverseerMoves(commandLineArguments, context);
   expect(exitCode, `\`agent-progress ${commandLineArguments.join(' ')}\`: ${context.errorText()}`).toBe(expectedExitCode);
   return context;
 }
@@ -243,8 +243,8 @@ describeWhenGitIsPresent('editing a ticket past pending', () => {
       const editedText = `Edited in round ${reference}.\n`;
 
       const [claimExit, editExit] = await Promise.all([
-        runCommandLineWithRunnerMoves(['ticket', 'claim', reference], contextHere()),
-        runCommandLineWithRunnerMoves(['ticket', 'edit', reference, '--body', editedText], contextHere()),
+        runCommandLineWithOverseerMoves(['ticket', 'claim', reference], contextHere()),
+        runCommandLineWithOverseerMoves(['ticket', 'edit', reference, '--body', editedText], contextHere()),
       ]);
 
       expect(claimExit).toBe(0);

@@ -10,7 +10,7 @@ export const TICKET_PRIORITIES = ['low', 'normal', 'high'] as const;
 
 export const TICKET_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'] as const;
 
-export const FINDING_ROUTES = ['orchestrator', 'user'] as const satisfies readonly FindingRoute[];
+export const FINDING_ROUTES = ['assistant', 'user'] as const satisfies readonly FindingRoute[];
 
 export const DEFAULT_TICKET_PRIORITY: TicketPriority = 'normal';
 

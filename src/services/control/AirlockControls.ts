@@ -5,7 +5,7 @@
  */
 import type { Logged }                   from '../../lib/tracker-model/@types/BoardChanges.ts';
 import type { Incident }                 from '../../lib/tracker-model/@types/Incident.ts';
-import type { Job, SlotPhase }           from '../../lib/tracker-model/@types/Job.ts';
+import type { Job, AirlockPhase }        from '../../lib/tracker-model/@types/Job.ts';
 import { BoardRefusal }                  from '../../lib/tracker-model/BoardRefusal.ts';
 import type { ControlCommandOf }         from '../../shared/@types/ControlCommand.ts';
 import type { TrackerChange }            from '../tracker/TrackerPipeline.ts';
@@ -22,11 +22,11 @@ function airlockMoveOf(command: AirlockCommand, change: TrackerChange): AirlockM
   const incident = incidentForMove(change, command, { name: command.jobId, concerns: (open) => open.jobId === command.jobId }, true);
   const job      = change.board.jobById(command.jobId);
   if (incident === null) throw new BoardRefusal({ reason: 'no-open-incident', subject: command.jobId, move: command.kind });
-  if (job?.slot === undefined) throw new BoardRefusal({ reason: 'job-holds-no-merge-slot', jobId: command.jobId });
+  if (job?.slot === undefined) throw new BoardRefusal({ reason: 'job-holds-no-airlock', jobId: command.jobId });
   return { job, incident };
 }
 
-function movedToPhase(change: TrackerChange, move: AirlockMove, phase: SlotPhase, kind: AirlockCommand['kind']): Logged {
+function movedToPhase(change: TrackerChange, move: AirlockMove, phase: AirlockPhase, kind: AirlockCommand['kind']): Logged {
   const { job, incident } = move;
   if (job.slot !== undefined) change.board.setJobSlot(job.id, { ...job.slot, phase });
   return handledUnder(change, incident.id, kind, { logged: [] });

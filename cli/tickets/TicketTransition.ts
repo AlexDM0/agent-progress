@@ -5,8 +5,8 @@ import type { TicketStatus }                     from '../../src/lib/tracker-mod
 import { ControlService }                        from '../../src/services/control/ControlService.ts';
 import { PRODUCT_NAMES }                         from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                   from '../CommandContext.ts';
+import { hatchWhenUnderJob }                     from '../HatchUnderJob.ts';
 import { openTrackerForWritingThenReadNextLine } from '../OpenTrackerForWriting.ts';
-import { relayWhenUnderJob }                     from '../RelayUnderJob.ts';
 import type { ArgumentParser }                   from '../arguments/ArgumentParser.ts';
 import { OptionValueUtil }                       from '../utils/OptionValueUtil.ts';
 import { OutputUtil }                            from '../utils/OutputUtil.ts';
@@ -34,7 +34,7 @@ export async function transitionOneTicket(
     ...(reason === undefined ? {} : { reason }),
     ...(tokens === undefined ? {} : { tokens }),
   };
-  if (targetStatus === 'abandoned' && checksLegality) await relayWhenUnderJob(context, { kind: 'ticket-abandon', ticketReference: reference, ...moveDetails });
+  if (targetStatus === 'abandoned' && checksLegality) await hatchWhenUnderJob(context, { kind: 'ticket-abandon', ticketReference: reference, ...moveDetails });
 
   const { result: moved, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
     const { board }   = change;

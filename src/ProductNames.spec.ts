@@ -37,7 +37,7 @@ function setupScriptLabelsIn(scriptText: string): string[] {
   return [...scriptText.matchAll(SETUP_LABEL_PATTERN)].map((match) => match[1] ?? '');
 }
 
-test('setup.sh --login-runner defaults its label to LAUNCH_AGENT_LABEL, set once', () => {
+test('setup.sh --login-overseer defaults its label to LAUNCH_AGENT_LABEL, set once', () => {
   const { launchAgentLabel } = productNamesFromAChildProcess();
   expect(setupScriptLabelsIn(readFileSync(join(REPOSITORY_ROOT, 'setup.sh'), 'utf8'))).toEqual([launchAgentLabel]);
 });

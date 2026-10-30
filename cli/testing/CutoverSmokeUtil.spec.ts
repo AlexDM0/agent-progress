@@ -102,24 +102,24 @@ describe('item 1: delivery', () => {
 
 describe('item 2: regrouping', () => {
   const kept: RegroupingObservation = {
-    jobId:                           'J2',
-    hostInstanceBeforeKill:          1,
-    hostInstanceAfterRegrouping:     1,
-    hostInstanceAfterRestart:        1,
-    hostProcessAliveAfterRegrouping: true,
-    hostProcessAliveAfterRestart:    true,
-    restartExitCode:                 0,
-    buildJobsOnTheTicketAfterKill:   0,
+    jobId:                              'J2',
+    watcherInstanceBeforeKill:          1,
+    watcherInstanceAfterRegrouping:     1,
+    watcherInstanceAfterRestart:        1,
+    watcherProcessAliveAfterRegrouping: true,
+    watcherProcessAliveAfterRestart:    true,
+    restartExitCode:                    0,
+    buildJobsOnTheTicketAfterKill:      0,
   };
 
-  test('passes when the host lived through the kill and the handover on one instance', () => {
+  test('passes when the Watcher lived through the kill and the Baton pass on one instance', () => {
     expect(CutoverSmokeUtil.regroupingVerdictOf(kept).passed).toBe(true);
   });
 
-  test('fails on a second host instance or a second build job', () => {
-    const verdict = CutoverSmokeUtil.regroupingVerdictOf({ ...kept, hostInstanceAfterRegrouping: 2, buildJobsOnTheTicketAfterKill: 1 });
+  test('fails on a second Watcher instance or a second build job', () => {
+    const verdict = CutoverSmokeUtil.regroupingVerdictOf({ ...kept, watcherInstanceAfterRegrouping: 2, buildJobsOnTheTicketAfterKill: 1 });
     expect(verdict.passed).toBe(false);
-    expect(verdict.detail).toContain('host instance 2');
+    expect(verdict.detail).toContain('watcher instance 2');
     expect(verdict.detail).toContain('1 more build jobs');
   });
 });

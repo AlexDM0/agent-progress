@@ -25,7 +25,7 @@ import { removeScratchDirectory }             from '../../src/testing/ScratchWor
 import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.ts';
 import { createCapturedCommandContext }       from '../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../testing/InitializedScratchRepository.ts';
-import { runCommandLineWithRunnerMoves }      from '../testing/RunnerTicketMoves.ts';
+import { runCommandLineWithOverseerMoves }    from '../testing/OverseerTicketMoves.ts';
 
 const FROZEN_NOW = new Date('2026-10-24T20:01:45Z');
 
@@ -42,7 +42,7 @@ async function runExpectingExit(expectedExitCode: number, commandLineArguments: 
     now:              () => FROZEN_NOW,
     ...(standardInputText === undefined ? {} : { standardInputText }),
   });
-  const exitCode = await runCommandLineWithRunnerMoves(commandLineArguments, context);
+  const exitCode = await runCommandLineWithOverseerMoves(commandLineArguments, context);
   expect(exitCode, `\`agent-progress ${commandLineArguments.join(' ')}\`: ${context.errorText()}`).toBe(expectedExitCode);
   return context;
 }

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="680" height="540" viewBox="0 0 680 540" role="img" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
-  <title>One runner owns the board</title>
-  <desc>You work through the Bridge in your browser, or an orchestrator session that runs agent-progress commands. Both reach the Overseer, the one runner, which decides every move in code: it launches product-owner, builder, reviewer and Assistant sessions, reads what they hand back through their Hatch, keeps the store in .agent-progress/, and hands each reviewed ticket to the Airlock, which gates the merge and lands it on main one at a time.</desc>
+  <title>One Overseer owns the board</title>
+  <desc>You work through the Bridge in your browser, or an orchestrator session that runs agent-progress commands. Both reach the Overseer, the one Overseer, which decides every move in code: it launches product-owner, builder, reviewer and Assistant sessions, reads what they hand back through their Hatch, keeps the store in .agent-progress/, and hands each reviewed ticket to the Airlock, which gates the merge and lands it on main one at a time.</desc>
   <defs>
     <marker id="ah" markerWidth="9" markerHeight="9" refX="6" refY="4.5" orient="auto">
       <path d="M0,0 L8,4.5 L0,9 z" fill="#73726c"/>
@@ -12,7 +12,7 @@
 
   <rect x="1" y="1" width="678" height="538" rx="16" fill="#FAF9F5" stroke="#ECE7DC" stroke-width="1.5"/>
 
-  <text x="40" y="46" font-size="18" font-weight="500" fill="#3d3d3a">One runner owns the board</text>
+  <text x="40" y="46" font-size="18" font-weight="500" fill="#3d3d3a">One Overseer owns the board</text>
   <text x="40" y="68" font-size="13" fill="#73726c">so the board can never disagree with the work</text>
 
   <!-- connectors -->

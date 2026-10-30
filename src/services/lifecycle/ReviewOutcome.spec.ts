@@ -11,8 +11,8 @@ import {
   expect,
   test
 } from 'bun:test';
-import type { DecisionDraft, DecisionWording } from '../../lib/tracker-model/@types/LifecycleStep.ts';
 import type { LogRecord }                      from '../../lib/tracker-model/@types/LogRecord.ts';
+import type { DecisionDraft, DecisionWording } from '../../lib/tracker-model/@types/PlaybookStep.ts';
 import type { Ticket }                         from '../../lib/tracker-model/@types/Ticket.ts';
 import type { TrackerProgress }                from '../../lib/tracker-model/@types/TrackerProgress.ts';
 import { Board }                               from '../../lib/tracker-model/Board.ts';
@@ -59,7 +59,7 @@ function newBoard(storedLogRecords: readonly LogRecord[] = []): Board {
     view:             { kind: 'auto' },
     nextTaskId:       1,
     concurrencyLimit: 2,
-    runnerState:      'running',
+    overseerState:    'running',
     tasks:            [],
   };
   const ticket: Ticket = {
@@ -90,14 +90,14 @@ function newBoard(storedLogRecords: readonly LogRecord[] = []): Board {
   });
 }
 
-/** A review job of the round, standing in `gating` with its review bar, as the runner leaves it once the gate passed. */
+/** A review job of the round, standing in `gating` with its review bar, as the Overseer leaves it once the gate passed. */
 function reviewJobAtRound(round: number): string {
   const launched = board.launchJob({
     kind: 'review', role: 'reviewer', ticketIds: ['001'], parentJobId: null, attempt: round, target
   }, AT);
   const jobId = launched.job.id;
   board.startReviewBar('001', { round, owner: jobId }, AT);
-  for (const state of ['preparing', 'running', 'verifying', 'gating'] as const) board.moveJob(jobId, state, AT);
+  for (const state of ['preparing', 'running', 'in-customs', 'gating'] as const) board.moveJob(jobId, state, AT);
   return jobId;
 }
 
@@ -189,7 +189,7 @@ describeWhenGitIsPresent('a review pass settled by code', () => {
         }
       },
       {
-        at: AT, kind: 'relay-applied', jobId: 'J1', fields: { requestId: 'R3', commandKind: 'ticket-add', outcome: 'applied' }
+        at: AT, kind: 'hatch-applied', jobId: 'J1', fields: { requestId: 'R3', commandKind: 'ticket-add', outcome: 'applied' }
       },
     ]);
     const jobId = reviewJobAtRound(1);
@@ -199,7 +199,7 @@ describeWhenGitIsPresent('a review pass settled by code', () => {
     const outcome = settle(jobId, report([claim('A1', 'holds'), claim('A2', 'holds')], [
       { ...finding, outcome: 'fixed', commit: fixCommit },
       {
-        ...finding, class: 'out-of-scope', outcome: 'filed', filedTicketId: null, relayRequestId: 'R3'
+        ...finding, class: 'out-of-scope', outcome: 'filed', filedTicketId: null, hatchRequestId: 'R3'
       },
     ]));
 
@@ -224,7 +224,7 @@ describeWhenGitIsPresent('a review pass settled by code', () => {
 
     expect(outcome).toMatchObject({ move: 'fresh-reviewer', reworkedLines: OVER_THRESHOLD_LINES });
     expect(recordsOfKind('job-ended').map((record) => record.fields.outcome)).toEqual(['round-granted']);
-    const advanced = board.advanceLifecycle({ ...LIFECYCLE_LIMITS, now: AT, usageResetsAt: null }, {
+    const advanced = board.followPlaybook({ ...LIFECYCLE_LIMITS, now: AT, usageResetsAt: null }, {
       mainLine:                     target,
       groupTargetPrefix:            'group-',
       installVersionChanged:        false,
@@ -273,7 +273,7 @@ describeWhenGitIsPresent('a review pass settled by code', () => {
     expect(board.ticketIsMergeQueued('001')).toBe(false);
     expect(board.jobById(jobId)?.state).toBe('awaiting-answer');
     board.endJob(jobId, { outcome: 'stopped' }, AT);
-    const advanced = board.advanceLifecycle({ ...LIFECYCLE_LIMITS, now: AT, usageResetsAt: null }, {
+    const advanced = board.followPlaybook({ ...LIFECYCLE_LIMITS, now: AT, usageResetsAt: null }, {
       mainLine:                     target,
       groupTargetPrefix:            'group-',
       installVersionChanged:        false,

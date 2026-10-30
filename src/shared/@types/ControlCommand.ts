@@ -1,6 +1,6 @@
 /**
  * One control a person, a UI or a relayed session can issue, as data: the only shape `src/services/control/ControlService.ts` applies.
- * Every value is plain JSON, so a command survives a relay file or an HTTP body unchanged; a body or request file is read before the
+ * Every value is plain JSON, so a command survives a Hatch file or an HTTP body unchanged; a body or request file is read before the
  * command is built, which carries its text. A ticket is named as it was written (`3`, `003`, `#3`), resolved inside the hold.
  */
 import type { DecisionAnswerForm }                 from '../../lib/tracker-model/@types/Decision.ts';
@@ -20,7 +20,7 @@ export type ListEdit = 'replace' | 'add' | 'remove';
 
 export type WorktreeRepairStep = 'prune' | 'reinstall' | 'recreate' | 'unlock';
 
-/** What the runner stamps on a ticket its relay filed: the filing job, from the relay folder's job record, and a worker finding's route. */
+/** What the Overseer stamps on a ticket its Hatch filed: the filing job, from the Hatch folder's job record, and a worker finding's route. */
 export interface FilingAdmission {
   filedByJob:    string;
   findingRoute?: FindingRoute;
@@ -43,9 +43,9 @@ export type ControlCommand =
     foundInReview: string | null;
     /** Null files the ticket template's body. */
     bodyText:      string | null;
-    /** `--needs-user`, relay-only: a worker's finding only User can settle. Refused `worker-filing-flag` anywhere else. */
+    /** `--needs-user`, hatch-only: a worker's finding only User can settle. Refused `worker-filing-flag` anywhere else. */
     needsUser?:    true;
-    /** Set only by `RoleCommandPolicy`'s admission of a relayed filing, never by a request: a request carrying it is refused. */
+    /** Set only by `Bouncer`'s admission of a relayed filing, never by a request: a request carrying it is refused. */
     admission?:    FilingAdmission;
   }
   | {
@@ -95,12 +95,12 @@ export type ControlCommand =
   | { kind: 'draft-close'; draftId: string; ticketReferences: string[] }
   | { kind: 'draft-abandon'; draftId: string; reason: string }
   | { kind: 'decision-answer'; decisionId: string; answer: DecisionAnswerForm }
-  | { kind: 'runner-pause' }
-  | { kind: 'runner-resume' }
-  /** Runtime only: sent to the live runner, which stops; the board is never changed by it. */
-  | { kind: 'runner-stop'; now: boolean }
-  /** Runtime only: sent to the live runner, which hands the board to a successor on the code on disk. */
-  | { kind: 'runner-restart'; now: boolean }
+  | { kind: 'overseer-pause' }
+  | { kind: 'overseer-resume' }
+  /** Runtime only: sent to the live Overseer, which stops; the board is never changed by it. */
+  | { kind: 'overseer-stop'; now: boolean }
+  /** Runtime only: sent to the live Overseer, which hands the board to a successor on the code on disk. */
+  | { kind: 'overseer-restart'; now: boolean }
   | { kind: 'job-stop'; jobId: string; mode: Exclude<JobStopMode, 'fresh'> }
   /** `incidentId` names the incident the move handles, in the same hold; the orchestrator must name one. */
   | { kind: 'job-fresh'; jobId: string; incidentId?: string }
@@ -119,7 +119,7 @@ export type ControlCommand =
   | { kind: 'job-message'; jobId: string; text: string; incidentId?: string }
   | { kind: 'intake-start'; text: string }
   | { kind: 'onboarder-advise' }
-  /** Relayed by a product owner without `jobId`: the role policy stamps its own job, from the relay folder. */
+  /** Relayed by a product owner without `jobId`: the role policy stamps its own job, from the Hatch folder. */
   | { kind: 'intake-close'; jobId?: string; proposedDraftSets: string[][] }
   | { kind: 'concurrency-set'; limit: number }
   | { kind: 'pipeline-prepare-step-set'; step: PipelineStep }

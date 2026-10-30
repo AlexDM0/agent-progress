@@ -161,8 +161,8 @@ function sentenceOf(record: LogRecordContent): string {
       return `Chart range: ${chartRangeTextOf(record.fields.view)}`;
     case 'concurrency-limit-set':
       return `Concurrency limit set to ${record.fields.limit}`;
-    case 'runner-set':
-      return `Runner set to ${record.fields.state}`;
+    case 'overseer-set':
+      return `Overseer set to ${record.fields.state}`;
     case 'dispatcher-set':
       return `Dispatcher set to ${retiredDispatcherStateTextOf(record.fields.state, record.fields.runId)}`;
     case 'pipeline-prepare-step-set':
@@ -191,18 +191,18 @@ function sentenceOf(record: LogRecordContent): string {
       return 'Tracker cleared';
     case 'agent-stopped':
       return agentStoppedTextOf(record.fields);
-    case 'runner-started':
-      return `Runner started on code ${record.fields.codeVersion}, install version ${record.fields.installVersion}`;
-    case 'runner-stopped':
-      return record.fields.reason === 'handed-over' ? 'Runner handed the board over to its successor' : 'Runner stopped';
-    case 'runner-handover-failed':
-      return `Runner handover to code ${record.fields.successorCodeVersion} failed at ${record.fields.step}: ${record.fields.error}; the old runner keeps driving`;
+    case 'overseer-started':
+      return `Overseer started on code ${record.fields.codeVersion}, install version ${record.fields.installVersion}`;
+    case 'overseer-stopped':
+      return record.fields.reason === 'handed-over' ? 'Overseer handed the board over to its successor' : 'Overseer stopped';
+    case 'baton-pass-failed':
+      return `Overseer Baton pass to code ${record.fields.successorCodeVersion} failed at ${record.fields.step}: ${record.fields.error}; the old Overseer keeps driving`;
     case 'job-launched':
       return jobLaunchedTextOf(record.jobId, record.fields);
     case 'job-interrupted':
-      return `Job ${record.jobId} interrupted (${record.fields.cause}) in host instance ${record.fields.hostInstance}`;
+      return `Job ${record.jobId} interrupted (${record.fields.cause}) in Watcher instance ${record.fields.watcherInstance}`;
     case 'job-resumed':
-      return `Job ${record.jobId} resumed in host instance ${record.fields.hostInstance} after ${record.fields.cause}`;
+      return `Job ${record.jobId} resumed in Watcher instance ${record.fields.watcherInstance} after ${record.fields.cause}`;
     case 'usage-limit-hit':
       return `Job ${record.jobId} hit the ${record.fields.window} usage limit; nothing launches or resumes before ${record.fields.resetsAt}`;
     case 'job-ended':
@@ -212,7 +212,7 @@ function sentenceOf(record: LogRecordContent): string {
     case 'job-messaged':
       return `Message for job ${record.jobId}: ${record.fields.text}`;
     case 'job-reopened':
-      return `Job ${record.jobId} reopened in host instance ${record.fields.hostInstance} for User's message: ${record.fields.text}`;
+      return `Job ${record.jobId} reopened in Watcher instance ${record.fields.watcherInstance} for User's message: ${record.fields.text}`;
     case 'ticket-triaged':
       return `Ticket #${record.ticketId} put to the user's low-priority triage`;
     case 'worktree-repaired':
@@ -239,7 +239,7 @@ function sentenceOf(record: LogRecordContent): string {
       return mergeStartedTextOf(record.jobId, record.fields);
     case 'merge-landed':
       return `Job ${record.jobId} ${record.fields.kind === 'landed' ? 'landed' : 'integrated'} ${record.fields.commit} on ${record.fields.target}`;
-    case 'relay-applied':
+    case 'hatch-applied':
       return `Job ${record.jobId}'s relayed ${record.fields.commandKind} ${record.fields.requestId} answered ${record.fields.outcome}`;
   }
 }
@@ -251,9 +251,9 @@ const JOB_STOP_MODE_PHRASES: Readonly<Record<JobStopMode, string>> = {
 };
 
 const INCIDENT_DEFAULT_CAUSE_TEXT: Readonly<Record<IncidentDefaultCause, string>> = {
-  'turn-closed':     'when its delivery turn closed',
-  'turn-budget':     'when its delivery turn reached its call budget',
-  'no-orchestrator': 'while no orchestrator could come up',
+  'turn-closed':  'when its delivery turn closed',
+  'turn-budget':  'when its delivery turn reached its call budget',
+  'no-assistant': 'while no orchestrator could come up',
 };
 
 function ticketsSuffixOf(ticketIds: readonly string[]): string {
@@ -268,7 +268,7 @@ function decisionAnsweredTextOf(decisionId: string, answer: Readonly<Record<stri
 
 function mergeStartedTextOf(jobId: string, started: LogRecordFieldsOf<'merge-started'>): string {
   const conflicts = started.predictedConflictFiles.length === 0 ? 'predicted clean' : `predicted to conflict in ${started.predictedConflictFiles.join(', ')}`;
-  return `Job ${jobId} took the ${started.target} merge slot at ${started.target} ${started.targetTip}, branch ${started.branchTip}, ${conflicts}`;
+  return `Job ${jobId} took the ${started.target} Airlock at ${started.target} ${started.targetTip}, branch ${started.branchTip}, ${conflicts}`;
 }
 
 function jobLaunchedTextOf(jobId: string, launch: LogRecordFieldsOf<'job-launched'>): string {

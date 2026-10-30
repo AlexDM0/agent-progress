@@ -13,7 +13,7 @@ type ImportViolation =
   | 'feature-imports-another-feature'
   | 'command-imports-a-sibling-command'
   | 'binary-imports-beyond-cli'
-  | 'host-binary-imports-beyond-its-package'
+  | 'watcher-binary-imports-beyond-its-package'
   | 'test-helper-imported-outside-its-allowlist'
   | 'lib-imports-an-undeclared-package'
   | 'tracker-model-reaches-outside-itself'
@@ -23,7 +23,7 @@ type ImportViolation =
 
 type Layer =
   | 'binary'
-  | 'host-binary'
+  | 'watcher-binary'
   | 'lib'
   | 'shared'
   | 'adapters'
@@ -31,7 +31,7 @@ type Layer =
   | 'tracker-service'
   | 'lifecycle-service'
   | 'control-service'
-  | 'runner-service'
+  | 'overseer-service'
   | 'test-support'
   | 'repository-guard'
   | 'cli'
@@ -45,22 +45,22 @@ interface Finding {
 }
 
 const BINARY_PATH = 'agent-progress.ts';
-const HOST_BINARY_PATH = 'agent-host.ts';
-const HOST_PACKAGE_FOLDER = 'src/lib/agent-host/';
+const WATCHER_BINARY_PATH = 'watcher.ts';
+const WATCHER_PACKAGE_FOLDER = 'src/lib/watcher/';
 const FEATURES = ['cli', 'bridge'] as const satisfies readonly Layer[];
 const VENDOR_ADAPTER_PATH = 'src/lib/claude-code/ClaudeCodeAdapter.ts';
 const VENDOR_ADAPTER_PACKAGE_FOLDER = 'src/lib/claude-code/';
 /** The one shipping module that chooses the adapter; everything else reaches a session through the launcher port it hands over. */
 const VENDOR_ADAPTER_SEAM = 'cli/CommandContext.ts';
 const SOURCE_LAYERS = [
-  'lib', 'shared', 'adapters', 'render-service', 'tracker-service', 'lifecycle-service', 'control-service', 'runner-service',
+  'lib', 'shared', 'adapters', 'render-service', 'tracker-service', 'lifecycle-service', 'control-service', 'overseer-service',
 ] as const satisfies readonly Layer[];
 
 /** What each layer may import, a folder in a testing folder aside: those are judged by `TESTING_FOLDER_IMPORTERS` alone. */
 const LAYER_REACH: Readonly<Record<Layer, readonly Layer[]>> = {
   'binary':            ['cli'],
   // Narrowed further to its own package by directionFinding.
-  'host-binary':       ['lib'],
+  'watcher-binary':    ['lib'],
   'lib':               ['lib'],
   'shared':            ['lib', 'shared'],
   'adapters':          ['lib', 'shared', 'adapters'],
@@ -68,7 +68,7 @@ const LAYER_REACH: Readonly<Record<Layer, readonly Layer[]>> = {
   'tracker-service':   ['lib', 'shared', 'adapters', 'render-service', 'tracker-service'],
   'lifecycle-service': ['lib', 'shared', 'adapters', 'render-service', 'tracker-service', 'lifecycle-service'],
   'control-service':   ['lib', 'shared', 'adapters', 'render-service', 'tracker-service', 'lifecycle-service', 'control-service'],
-  'runner-service':    ['lib', 'shared', 'adapters', 'render-service', 'tracker-service', 'lifecycle-service', 'control-service', 'runner-service'],
+  'overseer-service':  ['lib', 'shared', 'adapters', 'render-service', 'tracker-service', 'lifecycle-service', 'control-service', 'overseer-service'],
   'test-support':      [...SOURCE_LAYERS],
   'repository-guard':  [],
   'cli':               [...SOURCE_LAYERS, 'cli'],
@@ -87,7 +87,7 @@ const TESTING_FOLDER_IMPORTERS: Readonly<Record<string, readonly string[]>> = {
   'src/adapters/progress/testing/': ['src/adapters/'],
   'src/adapters/reports/testing/':  ['src/adapters/', 'src/services/'],
   'src/services/tracker/testing/':  ['src/services/tracker/'],
-  'src/services/runner/testing/':   ['src/services/runner/'],
+  'src/services/overseer/testing/': ['src/services/overseer/'],
   'cli/testing/':                   ['cli/', 'bridge/'],
   'bridge/testing/':                ['bridge/'],
 };
@@ -98,7 +98,7 @@ interface FeatureReachByPath {
   readonly target:   string;
 }
 
-const FEATURE_REACHES_BY_PATH: readonly FeatureReachByPath[] = [{ importer: 'cli/runner/routes/OverseerRoutes.ts', target: 'bridge/index.html' }];
+const FEATURE_REACHES_BY_PATH: readonly FeatureReachByPath[] = [{ importer: 'cli/overseer/routes/OverseerRoutes.ts', target: 'bridge/index.html' }];
 
 interface Allowlists {
   readonly testingFolderImporters: Readonly<Record<string, readonly string[]>>;
@@ -127,7 +127,7 @@ function isInside(path: string, folder: string): boolean {
 
 function layerOf(path: string): Layer {
   if (path === BINARY_PATH) return 'binary';
-  if (path === HOST_BINARY_PATH) return 'host-binary';
+  if (path === WATCHER_BINARY_PATH) return 'watcher-binary';
   const [topFolder, layerFolder, unitFolder] = path.split('/');
   if (topFolder === 'cli' || topFolder === 'bridge') return topFolder;
   if (topFolder !== 'src' || layerFolder === undefined) return 'unplaced';
@@ -144,7 +144,7 @@ function layerOf(path: string): Layer {
       if (unitFolder === 'tracker') return 'tracker-service';
       if (unitFolder === 'lifecycle') return 'lifecycle-service';
       if (unitFolder === 'control') return 'control-service';
-      return unitFolder === 'runner' ? 'runner-service' : 'unplaced';
+      return unitFolder === 'overseer' ? 'overseer-service' : 'unplaced';
     case 'testing':
       return 'test-support';
     default:
@@ -222,8 +222,8 @@ function directionFinding(edge: ImportEdge, targetPath: string, allowlists: Allo
   if (allowlists.featureReachesByPath.some((reach) => reach.importer === edge.fromPath && reach.target === targetPath)) return null;
   const fromLayer = layerOf(edge.fromPath);
   const targetLayer = layerOf(targetPath);
-  if (fromLayer === 'host-binary' && !isInside(targetPath, HOST_PACKAGE_FOLDER)) {
-    return edgeFinding(edge, 'host-binary-imports-beyond-its-package', `${HOST_BINARY_PATH} imports only ${HOST_PACKAGE_FOLDER}`);
+  if (fromLayer === 'watcher-binary' && !isInside(targetPath, WATCHER_PACKAGE_FOLDER)) {
+    return edgeFinding(edge, 'watcher-binary-imports-beyond-its-package', `${WATCHER_BINARY_PATH} imports only ${WATCHER_PACKAGE_FOLDER}`);
   }
   if (testingFolderOf(targetPath) !== null || LAYER_REACH[fromLayer].includes(targetLayer)) return null;
   if (fromLayer === 'binary') {
@@ -267,10 +267,10 @@ function edgeFindingsOf(edge: ImportEdge, declarations: ReadonlyMap<string, read
   }
   const libVerdict = libFinding(edge, declarations);
   if (edge.target.kind === 'package') {
-    const hostBinaryVerdict = layerOf(edge.fromPath) === 'host-binary'
-      ? edgeFinding(edge, 'host-binary-imports-beyond-its-package', `${HOST_BINARY_PATH} imports only ${HOST_PACKAGE_FOLDER}`)
+    const watcherBinaryVerdict = layerOf(edge.fromPath) === 'watcher-binary'
+      ? edgeFinding(edge, 'watcher-binary-imports-beyond-its-package', `${WATCHER_BINARY_PATH} imports only ${WATCHER_PACKAGE_FOLDER}`)
       : null;
-    return [libVerdict, hostBinaryVerdict];
+    return [libVerdict, watcherBinaryVerdict];
   }
   const targetPath = edge.target.path;
   return [
@@ -409,7 +409,7 @@ describe('the scan itself', () => {
   test('it read the root and Bridge programs and found the imports inside the repository in each', () => {
     const repositoryEdges = GRAPH.edges.filter((edge) => edge.target.kind === 'repository-file');
     expect(GRAPH.scannedPaths).toContain(BINARY_PATH);
-    expect(GRAPH.scannedPaths).toContain(HOST_BINARY_PATH);
+    expect(GRAPH.scannedPaths).toContain(WATCHER_BINARY_PATH);
     for (const topFolder of ['cli/', 'bridge/', 'src/lib/', 'src/shared/', 'src/adapters/', 'src/services/', 'src/testing/']) {
       expect(GRAPH.scannedPaths.filter((path) => isInside(path, topFolder)).length, `files under ${topFolder}`).toBeGreaterThanOrEqual(5);
       expect(repositoryEdges.filter((edge) => isInside(edge.fromPath, topFolder)).length, `imports made under ${topFolder}`).toBeGreaterThanOrEqual(5);
@@ -434,7 +434,7 @@ describe('the scan itself', () => {
     expect(commandFolders.size, 'command folders under cli/').toBeGreaterThanOrEqual(10);
     expect(libPackages.size, 'packages under src/lib/').toBeGreaterThanOrEqual(4);
     expect(declaredLibDependenciesOf(GRAPH).get('claude-code')).toEqual(['agent-launch', 'atomic-file', 'json-record', 'local-time']);
-    expect(declaredLibDependenciesOf(GRAPH).get('agent-host')).toEqual(['atomic-file', 'process-identity']);
+    expect(declaredLibDependenciesOf(GRAPH).get('watcher')).toEqual(['atomic-file', 'process-identity']);
   });
 
   test('every allowlist entry and every declared lib dependency is still used, and every testing folder is listed', () => {
@@ -455,20 +455,20 @@ describe('the guard still names each violation, planted in memory', () => {
       'layer-imports-upward — src/shared/PlantedValue.ts:1 imports cli/Main.ts: shared reaches only lib, shared, not cli',
     ]);
     expect(plantedSentencesOf({ 'src/services/tracker/PlantedStep.ts': importing('../render/RenderState.ts') })).toEqual([]);
-    expect(plantedSentencesOf({ 'src/services/tracker/PlantedStep.ts': importing('../runner/PlantedPass.ts') })).toEqual([
-      'layer-imports-upward — src/services/tracker/PlantedStep.ts:1 imports src/services/runner/PlantedPass.ts: '
-        + 'tracker-service reaches only lib, shared, adapters, render-service, tracker-service, not runner-service',
+    expect(plantedSentencesOf({ 'src/services/tracker/PlantedStep.ts': importing('../overseer/PlantedPass.ts') })).toEqual([
+      'layer-imports-upward — src/services/tracker/PlantedStep.ts:1 imports src/services/overseer/PlantedPass.ts: '
+        + 'tracker-service reaches only lib, shared, adapters, render-service, tracker-service, not overseer-service',
     ]);
-    expect(plantedSentencesOf({ 'src/services/runner/PlantedPass.ts': importing('../tracker/TrackerLock.ts') })).toEqual([]);
+    expect(plantedSentencesOf({ 'src/services/overseer/PlantedPass.ts': importing('../tracker/TrackerLock.ts') })).toEqual([]);
     expect(plantedSentencesOf({ 'src/services/control/PlantedControl.ts': importing('../tracker/TrackerLock.ts') })).toEqual([]);
-    expect(plantedSentencesOf({ 'src/services/runner/PlantedPass.ts': importing('../control/ControlService.ts') })).toEqual([]);
+    expect(plantedSentencesOf({ 'src/services/overseer/PlantedPass.ts': importing('../control/ControlService.ts') })).toEqual([]);
     expect(plantedSentencesOf({ 'src/services/tracker/PlantedStep.ts': importing('../control/ControlService.ts') })).toEqual([
       'layer-imports-upward — src/services/tracker/PlantedStep.ts:1 imports src/services/control/ControlService.ts: '
         + 'tracker-service reaches only lib, shared, adapters, render-service, tracker-service, not control-service',
     ]);
-    expect(plantedSentencesOf({ 'src/services/control/PlantedControl.ts': importing('../runner/PlantedPass.ts') })).toEqual([
-      'layer-imports-upward — src/services/control/PlantedControl.ts:1 imports src/services/runner/PlantedPass.ts: '
-        + 'control-service reaches only lib, shared, adapters, render-service, tracker-service, lifecycle-service, control-service, not runner-service',
+    expect(plantedSentencesOf({ 'src/services/control/PlantedControl.ts': importing('../overseer/PlantedPass.ts') })).toEqual([
+      'layer-imports-upward — src/services/control/PlantedControl.ts:1 imports src/services/overseer/PlantedPass.ts: '
+        + 'control-service reaches only lib, shared, adapters, render-service, tracker-service, lifecycle-service, control-service, not overseer-service',
     ]);
     expect(plantedSentencesOf({ 'src/services/lifecycle/PlantedGate.ts': importing('../tracker/TrackerLock.ts') })).toEqual([]);
     expect(plantedSentencesOf({ 'src/services/control/PlantedControl.ts': importing('../lifecycle/PlantedGate.ts') })).toEqual([]);
@@ -485,12 +485,12 @@ describe('the guard still names each violation, planted in memory', () => {
   });
 
   test('a feature reaching the Bridge by path from any importer but the listed one, and the listed importer reaching another Bridge file', () => {
-    expect(plantedSentencesOf({ 'cli/runner/routes/PlantedRoute.ts': importing('../../../bridge/index.html') })).toEqual([
-      'feature-imports-another-feature — cli/runner/routes/PlantedRoute.ts:1 imports bridge/index.html: the cli feature imports another feature, bridge',
+    expect(plantedSentencesOf({ 'cli/overseer/routes/PlantedRoute.ts': importing('../../../bridge/index.html') })).toEqual([
+      'feature-imports-another-feature — cli/overseer/routes/PlantedRoute.ts:1 imports bridge/index.html: the cli feature imports another feature, bridge',
     ]);
-    const routesSource = `${importing('../../../bridge/Main.tsx')}${GRAPH.sourceTextOf('cli/runner/routes/OverseerRoutes.ts')}`;
-    expect(plantedSentencesOf({ 'cli/runner/routes/OverseerRoutes.ts': routesSource })).toEqual([
-      'feature-imports-another-feature — cli/runner/routes/OverseerRoutes.ts:1 imports bridge/Main.tsx: the cli feature imports another feature, bridge',
+    const routesSource = `${importing('../../../bridge/Main.tsx')}${GRAPH.sourceTextOf('cli/overseer/routes/OverseerRoutes.ts')}`;
+    expect(plantedSentencesOf({ 'cli/overseer/routes/OverseerRoutes.ts': routesSource })).toEqual([
+      'feature-imports-another-feature — cli/overseer/routes/OverseerRoutes.ts:1 imports bridge/Main.tsx: the cli feature imports another feature, bridge',
     ]);
   });
 
@@ -517,19 +517,19 @@ describe('the guard still names each violation, planted in memory', () => {
     ]);
   });
 
-  test('the host binary importing anything but its package, another lib package and a builtin included, and not its package', () => {
-    expect(plantedSentencesOf({ 'agent-host.ts': importing('./src/lib/claude-code/ClaudeCodeAdapter.ts') })).toEqual([
-      'host-binary-imports-beyond-its-package — agent-host.ts:1 imports src/lib/claude-code/ClaudeCodeAdapter.ts: agent-host.ts imports only src/lib/agent-host/',
-      'vendor-adapter-imported-outside-its-seam — agent-host.ts:1 imports src/lib/claude-code/ClaudeCodeAdapter.ts: '
+  test('the Watcher binary importing anything but its package, another lib package and a builtin included, and not its package', () => {
+    expect(plantedSentencesOf({ 'watcher.ts': importing('./src/lib/claude-code/ClaudeCodeAdapter.ts') })).toEqual([
+      'watcher-binary-imports-beyond-its-package — watcher.ts:1 imports src/lib/claude-code/ClaudeCodeAdapter.ts: watcher.ts imports only src/lib/watcher/',
+      'vendor-adapter-imported-outside-its-seam — watcher.ts:1 imports src/lib/claude-code/ClaudeCodeAdapter.ts: '
         + 'only cli/CommandContext.ts chooses the vendor\'s adapter',
     ]);
-    expect(plantedSentencesOf({ 'agent-host.ts': importing('./cli/Main.ts') })).toEqual([
-      'host-binary-imports-beyond-its-package — agent-host.ts:1 imports cli/Main.ts: agent-host.ts imports only src/lib/agent-host/',
+    expect(plantedSentencesOf({ 'watcher.ts': importing('./cli/Main.ts') })).toEqual([
+      'watcher-binary-imports-beyond-its-package — watcher.ts:1 imports cli/Main.ts: watcher.ts imports only src/lib/watcher/',
     ]);
-    expect(plantedSentencesOf({ 'agent-host.ts': importing('node:fs') })).toEqual([
-      'host-binary-imports-beyond-its-package — agent-host.ts:1 imports node:fs: agent-host.ts imports only src/lib/agent-host/',
+    expect(plantedSentencesOf({ 'watcher.ts': importing('node:fs') })).toEqual([
+      'watcher-binary-imports-beyond-its-package — watcher.ts:1 imports node:fs: watcher.ts imports only src/lib/watcher/',
     ]);
-    expect(plantedSentencesOf({ 'agent-host.ts': importing('./src/lib/agent-host/AgentHost.ts') })).toEqual([]);
+    expect(plantedSentencesOf({ 'watcher.ts': importing('./src/lib/watcher/Watcher.ts') })).toEqual([]);
   });
 
   test('a test-only folder imported by shipped code, by a spec outside its allowlist or with no entry at all, and not by an allowed spec', () => {
@@ -560,14 +560,14 @@ describe('the guard still names each violation, planted in memory', () => {
   test('the vendor\'s adapter imported outside its seam, by a service, a test helper or any spec outside its package, and not by the seam', () => {
     const vendorSentenceOf = (importerPath: string): string => `vendor-adapter-imported-outside-its-seam — ${importerPath}:1 imports `
       + 'src/lib/claude-code/ClaudeCodeAdapter.ts: only cli/CommandContext.ts chooses the vendor\'s adapter';
-    expect(plantedSentencesOf({ 'src/services/runner/PlantedLaunch.ts': importing('../../lib/claude-code/ClaudeCodeAdapter.ts') }))
-      .toEqual([vendorSentenceOf('src/services/runner/PlantedLaunch.ts')]);
+    expect(plantedSentencesOf({ 'src/services/overseer/PlantedLaunch.ts': importing('../../lib/claude-code/ClaudeCodeAdapter.ts') }))
+      .toEqual([vendorSentenceOf('src/services/overseer/PlantedLaunch.ts')]);
     expect(plantedSentencesOf({ 'src/testing/PlantedAdapter.ts': importing('../lib/claude-code/ClaudeCodeAdapter.ts') }))
       .toEqual([vendorSentenceOf('src/testing/PlantedAdapter.ts')]);
-    expect(plantedSentencesOf({ 'cli/runner/PlantedRun.spec.ts': importing('../../src/lib/claude-code/ClaudeCodeAdapter.ts') }))
-      .toEqual([vendorSentenceOf('cli/runner/PlantedRun.spec.ts')]);
-    expect(plantedSentencesOf({ 'cli/runner/PlantedRun.realAgent.spec.ts': importing('../../src/lib/claude-code/ClaudeCodeAdapter.ts') }))
-      .toEqual([vendorSentenceOf('cli/runner/PlantedRun.realAgent.spec.ts')]);
+    expect(plantedSentencesOf({ 'cli/overseer/PlantedRun.spec.ts': importing('../../src/lib/claude-code/ClaudeCodeAdapter.ts') }))
+      .toEqual([vendorSentenceOf('cli/overseer/PlantedRun.spec.ts')]);
+    expect(plantedSentencesOf({ 'cli/overseer/PlantedRun.realAgent.spec.ts': importing('../../src/lib/claude-code/ClaudeCodeAdapter.ts') }))
+      .toEqual([vendorSentenceOf('cli/overseer/PlantedRun.realAgent.spec.ts')]);
     expect(plantedSentencesOf({ 'src/lib/claude-code/PlantedPlan.ts': importing('./ClaudeCodeAdapter.ts') })).toEqual([]);
   });
 
@@ -620,13 +620,13 @@ describe('the guard still names each violation, planted in memory', () => {
   test('an allowlist entry or a declared lib dependency nothing uses any more, and a testing folder without an entry', () => {
     const plantedAllowlists: Allowlists = {
       testingFolderImporters: { ...TESTING_FOLDER_IMPORTERS, 'cli/testing/': ['cli/', 'bridge/', 'src/'], 'src/retired/testing/': ['src/'] },
-      featureReachesByPath:   [...FEATURE_REACHES_BY_PATH, { importer: 'cli/runner/routes/OverseerRoutes.ts', target: 'bridge/retired.html' }],
+      featureReachesByPath:   [...FEATURE_REACHES_BY_PATH, { importer: 'cli/overseer/routes/OverseerRoutes.ts', target: 'bridge/retired.html' }],
     };
     const mainModulePath = 'src/lib/claude-code/ClaudeTranscripts.ts';
     const plantedHeader = GRAPH.sourceTextOf(mainModulePath).replace('depends on `src/lib/agent-launch`', 'depends on `src/lib/git`, `src/lib/agent-launch`');
     const plantedGraph = SCANNER.graphWithPlantedFiles({ [mainModulePath]: plantedHeader, 'src/shared/testing/PlantedFixture.ts': 'export const planted = 1;\n' });
     expect(unusedAllowancesOf(plantedGraph, plantedAllowlists)).toEqual([
-      'FEATURE_REACHES_BY_PATH lets cli/runner/routes/OverseerRoutes.ts import bridge/retired.html, and it does not',
+      'FEATURE_REACHES_BY_PATH lets cli/overseer/routes/OverseerRoutes.ts import bridge/retired.html, and it does not',
       'TESTING_FOLDER_IMPORTERS lets src/ import cli/testing/, and nothing there does',
       'TESTING_FOLDER_IMPORTERS lets src/ import src/retired/testing/, and nothing there does',
       'TESTING_FOLDER_IMPORTERS lists src/retired/testing/, which holds no file',
@@ -653,8 +653,8 @@ describe('the imports of the tree', () => {
     expect(sentencesAbout(FINDINGS, 'binary-imports-beyond-cli')).toEqual([]);
   });
 
-  test('agent-host.ts imports only src/lib/agent-host/', () => {
-    expect(sentencesAbout(FINDINGS, 'host-binary-imports-beyond-its-package')).toEqual([]);
+  test('watcher.ts imports only src/lib/watcher/', () => {
+    expect(sentencesAbout(FINDINGS, 'watcher-binary-imports-beyond-its-package')).toEqual([]);
   });
 
   test('nothing that ships imports a testing folder, and each testing folder is imported only by the specs its entry names', () => {

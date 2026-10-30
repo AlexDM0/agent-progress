@@ -1,3 +1,0 @@
-{"sequence":1,"origin":"agent","line":"{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"example-session\"}"}
-{"sequence":2,"origin":"client","line":"{\"type\":\"user\",\"message\":\"Example line from Alex Example\"}"}
-{"sequence":3,"origin":"host","line":"{\"kind\":\"end\",\"reason\":\"exited\",\"exitCode\":0}"}

@@ -20,7 +20,7 @@
  * Marks
  *   .bridge-banner          a full-width alert: -unreachable (event stream down), -install (launches held), -error (a render failed)
  *   .bridge-control         a command button and, beside it, the Overseer's refusal verbatim (.bridge-refusal)
- *   .bridge-overseer-state[data-state]  serving | held-by-install-change | handing-over | down | connecting
+ *   .bridge-overseer-state[data-state]  serving | held-by-install-change | passing-baton | down | connecting
  *   .agents-elapsed-silent  the time since a job's last tool call while its silent sweeps are above zero
  * Kanban (bridge/views/kanban/)
  *   .bridge-kanban          the epic chips over .bridge-kanban-lanes

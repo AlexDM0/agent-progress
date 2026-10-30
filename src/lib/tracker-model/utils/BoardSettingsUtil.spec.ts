@@ -1,18 +1,18 @@
 /**
  * The checks a stored or written board setting passes before the model takes it. What matters: every stored view shape passes and a
- * malformed one does not, a limit above the ceiling is still well-formed on disk, a name every object inherits is no runner state,
+ * malformed one does not, a limit above the ceiling is still well-formed on disk, a name every object inherits is no Overseer state,
  * and a blank check command is none.
  */
 import { describe, expect, test } from 'bun:test';
 
 import { CONCURRENCY_LIMIT_CEILING_AGENTS, LOWEST_CONCURRENCY_LIMIT_AGENTS } from '../constants/ConcurrencyLimits.ts';
-import { RUNNER_STATES }                                                     from '../constants/RunnerStates.ts';
+import { OVERSEER_STATES }                                                   from '../constants/OverseerStates.ts';
 import { BoardSettingsUtil }                                                 from './BoardSettingsUtil.ts';
 
 const {
   checkCommandIsWellFormed,
   concurrencyLimitIsWellFormed,
-  runnerStateIsKnown,
+  overseerStateIsKnown,
   viewRangeIsWellFormed,
 } = BoardSettingsUtil;
 
@@ -56,15 +56,15 @@ describe('concurrencyLimitIsWellFormed', () => {
   });
 });
 
-describe('runnerStateIsKnown', () => {
-  test('knows every runner state', () => {
-    expect(RUNNER_STATES.filter((state) => !runnerStateIsKnown(state))).toEqual([]);
+describe('overseerStateIsKnown', () => {
+  test('knows every Overseer state', () => {
+    expect(OVERSEER_STATES.filter((state) => !overseerStateIsKnown(state))).toEqual([]);
   });
 
-  // `stopped` is what the retired Workflow dispatcher stored; the runner's own word is `paused`.
+  // `stopped` is what the retired Workflow dispatcher stored; the Overseer's own word is `paused`.
   test('does not know a name every object inherits, nor a plausible state the tuple lacks', () => {
-    expect(runnerStateIsKnown('constructor')).toBe(false);
-    expect(runnerStateIsKnown('stopped')).toBe(false);
+    expect(overseerStateIsKnown('constructor')).toBe(false);
+    expect(overseerStateIsKnown('stopped')).toBe(false);
   });
 });
 

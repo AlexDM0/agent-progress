@@ -28,10 +28,10 @@ const tokenAnswer = (token: string) => () => Response.json({ token });
 
 describe('the command client', () => {
   test('fetches the token once and sends it as a bearer header with every command', async () => {
-    const { fetchOf, calls } = fakeFetch([tokenAnswer('token-1'), () => Response.json({ outcome: 'done', result: { kind: 'runner-pause' } })]);
+    const { fetchOf, calls } = fakeFetch([tokenAnswer('token-1'), () => Response.json({ outcome: 'done', result: { kind: 'overseer-pause' } })]);
     const client = CommandClient.create(fetchOf);
-    expect(await client.send({ kind: 'runner-pause' })).toEqual({ verdict: 'applied', outcome: 'done', result: { kind: 'runner-pause' } });
-    await client.send({ kind: 'runner-pause' });
+    expect(await client.send({ kind: 'overseer-pause' })).toEqual({ verdict: 'applied', outcome: 'done', result: { kind: 'overseer-pause' } });
+    await client.send({ kind: 'overseer-pause' });
     expect(calls).toEqual([
       { path: '/api/session-token', authorization: null },
       { path: '/api/commands', authorization: 'Bearer token-1' },
@@ -46,7 +46,7 @@ describe('the command client', () => {
       tokenAnswer('token-2'),
       () => Response.json({ outcome: 'done', result: null }),
     ]);
-    expect((await CommandClient.create(fetchOf).send({ kind: 'runner-resume' })).verdict).toBe('applied');
+    expect((await CommandClient.create(fetchOf).send({ kind: 'overseer-resume' })).verdict).toBe('applied');
     expect(calls.map((call) => call.authorization)).toEqual([null, 'Bearer token-1', null, 'Bearer token-2']);
   });
 
@@ -55,12 +55,12 @@ describe('the command client', () => {
     expect(await CommandClient.create(refused.fetchOf).send({ kind: 'ticket-ready' })).toEqual({ verdict: 'refused', refusal: 'Ticket 042 is not ready.' });
     const held = fakeFetch([tokenAnswer('token-1'), () => Response.json({ refusal: 'The install version changed.' }, { status: 423 })]);
     expect(await CommandClient.create(held.fetchOf).send({ kind: 'ticket-ready' })).toEqual({ verdict: 'install-held', refusal: 'The install version changed.' });
-    expect(await CommandClient.create(() => Promise.reject(new Error('down'))).send({ kind: 'runner-pause' })).toEqual({ verdict: 'unreachable' });
+    expect(await CommandClient.create(() => Promise.reject(new Error('down'))).send({ kind: 'overseer-pause' })).toEqual({ verdict: 'unreachable' });
   });
 
   test('a session token refused (no same-origin fetch) leaves the command unsent', async () => {
     const { fetchOf, calls } = fakeFetch([() => Response.json({ refusal: 'forbidden' }, { status: 403 })]);
-    expect(await CommandClient.create(fetchOf).send({ kind: 'runner-pause' })).toEqual({ verdict: 'unreachable' });
+    expect(await CommandClient.create(fetchOf).send({ kind: 'overseer-pause' })).toEqual({ verdict: 'unreachable' });
     expect(calls.map((call) => call.path)).toEqual(['/api/session-token']);
   });
 });

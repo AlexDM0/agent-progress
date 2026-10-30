@@ -51,7 +51,7 @@ const REPOSITORY_ROOT = repositoryRootOfThisCheckout();
 const PROSE_FILES = wrappedProseFilePaths(REPOSITORY_ROOT).map((path) => ({ path, text: readFileSync(join(REPOSITORY_ROOT, path), 'utf8') }));
 
 describe('prose wraps at 120 columns', () => {
-  test('the scan reads paragraph lines of the rules, both skills, the templates, the reference and the runner\'s prompts', () => {
+  test('the scan reads paragraph lines of the rules, both skills, the templates, the reference and the overseer\'s prompts', () => {
     for (const expectedPath of ['CLAUDE.md',
       'docs/cli.md',
       'skills/agent-po/SKILL.md',

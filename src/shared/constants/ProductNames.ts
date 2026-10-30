@@ -1,6 +1,6 @@
 /**
  * Every name the product goes by on a machine: its program, its folders, its skills, its storage and environment prefixes, its login item
- * and its first runner port. A build linked beside the released one takes the side-by-side names, so neither reads or removes the other's
+ * and its first Overseer port. A build linked beside the released one takes the side-by-side names, so neither reads or removes the other's
  * files. It imports nothing, so the Bridge's project compiles it.
  */
 export interface ProductNames {
@@ -13,7 +13,7 @@ export interface ProductNames {
   STORAGE_PREFIX:      string;
   ENVIRONMENT_PREFIX:  string;
   LAUNCH_AGENT_LABEL:  string;
-  RUNNER_PORT_FIRST:   number;
+  OVERSEER_PORT_FIRST: number;
 }
 
 /** The names the released program has always gone by. */
@@ -26,8 +26,8 @@ export const ORIGINAL_PRODUCT_NAMES: Readonly<ProductNames> = {
   ORCHESTRATE_SKILL:   'agent-progress-orchestrate',
   STORAGE_PREFIX:      'agent-progress',
   ENVIRONMENT_PREFIX:  'AGENT_PROGRESS_',
-  LAUNCH_AGENT_LABEL:  'com.agent-progress.runner',
-  RUNNER_PORT_FIRST:   4730,
+  LAUNCH_AGENT_LABEL:  'com.agent-progress.overseer',
+  OVERSEER_PORT_FIRST: 4730,
 };
 
 /** The names of a build `bun link`ed beside the released program while the code-owned lifecycle is under way. */
@@ -40,8 +40,8 @@ export const SIDE_BY_SIDE_PRODUCT_NAMES: Readonly<ProductNames> = {
   ORCHESTRATE_SKILL:   'agent-progress-orchestrate-v2',
   STORAGE_PREFIX:      'agent-progress-v2',
   ENVIRONMENT_PREFIX:  'AGENT_PROGRESS_V2_',
-  LAUNCH_AGENT_LABEL:  'com.agent-progress-v2.runner',
-  RUNNER_PORT_FIRST:   4930,
+  LAUNCH_AGENT_LABEL:  'com.agent-progress-v2.overseer',
+  OVERSEER_PORT_FIRST: 4930,
 };
 
 export const PRODUCT_NAMES: Readonly<ProductNames> = SIDE_BY_SIDE_PRODUCT_NAMES;

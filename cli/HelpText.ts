@@ -28,7 +28,7 @@ depends\`, \`priority\`, \`agent\`, \`hold\` and \`unhold\` end their
 output with one line read from the board after the change: \`Next: 1 of 2 slots free; ready: #003, #005\`, \`Next: no slot
 free (2 agents in flight); ready: #003\` or \`Next: 2 of 2 slots free; nothing ready\` — at most five
 ready ids, then \`and N more\`; a held ready ticket is left out and named apart, \`; held: #002\` —
-followed, while the runner is paused, by \`; runner paused: wait for the user's go\`. --json output
+followed, while the Overseer is paused, by \`; overseer paused: wait for the user's go\`. --json output
 never carries it.
 
   init                        Create the tracker here: \`${PRODUCT_NAMES.DATA_FOLDER}/\` with an empty progress
@@ -36,7 +36,7 @@ never carries it.
       [--root <path>]         and for \`${PRODUCT_NAMES.WORKTREES_FOLDER}/\`, before any worktree can exist. Beside the
       [--no-hooks]            tracker go \`session-instructions.md\` (written first, its presence marking
                               the install), \`reference.md\` (the ticket format, the moves and the exit
-                              codes) and \`assistant-brief.md\`, the role prompt the runner fills for
+                              codes) and \`assistant-brief.md\`, the role prompt the Overseer fills for
                               its Assistant; the SessionStart hook \`hook session-start\` goes into
                               \`.claude/settings.local.json\`, and two skills into \`.claude/skills/\`:
                               ${PRODUCT_NAMES.PRODUCT_OWNER_SKILL}, which a session asked to file a ticket loads, and
@@ -55,7 +55,7 @@ never carries it.
                               the worktrees folder's \`.gitignore\` entry, removing what an earlier
                               version installed in a skill folder this one retired. It removes,
                               once, what install version 16 wrote: the managed CLAUDE.md block,
-                              reported "removed; commit CLAUDE.md" since the runner launches
+                              reported "removed; commit CLAUDE.md" since the Overseer launches
                               nothing onto a branch whose committed CLAUDE.md still holds it, the
                               SubagentStop, PreToolUse and PostToolUse hook entries (unless
                               --no-hooks), the worker agent definition, the dispatcher script and the
@@ -137,7 +137,7 @@ never carries it.
                               exits 0 whatever happens, printing nothing on failure.
 
   hook bash-domains           Keep a job's network inside its ticket's \`network\` line: the
-      --allow <domains>       PreToolUse guard a runner renders into a job's settings. It denies,
+      --allow <domains>       PreToolUse guard an Overseer renders into a job's settings. It denies,
                               through the hook's JSON on standard output, a Bash call whose
                               \`allowed_domains\`, or a WebFetch whose URL host, names a domain
                               outside the comma-separated list (\`*.example.com\` admits its
@@ -244,7 +244,7 @@ never carries it.
 
   ticket hold <id> [--reason <text>] [--at <when>]
                               Pause a ticket between steps without stopping the run: the
-                              runner starts no builder or reviewer for it while it is held, and
+                              Overseer starts no builder or reviewer for it while it is held, and
                               a claim refuses it. One log line; \`status --json\` lists it in
                               \`heldTicketIds\`. An agent already running is never interrupted, so
                               a hold set after a builder's final status read is too late for the
@@ -253,9 +253,9 @@ never carries it.
 
   ticket unhold <id> [--at <when>]
                               Lift the hold, with one log line: the step it held starts at the
-                              runner's next pass. On a ticket in progress whose row is paused, a
+                              Overseer's next pass. On a ticket in progress whose row is paused, a
                               last line says to resume it with \`task start <row>\`, since the
-                              runner never takes a paused row over. Refused at exit 1 on a
+                              Overseer never takes a paused row over. Refused at exit 1 on a
                               delivered or abandoned ticket and on one not held.
 
   ticket release-of <id> [--clear] [--at <when>]
@@ -313,7 +313,7 @@ never carries it.
       [--reason <text>] [--tokens <n>] [--at <when>]
                               Move a ticket and its Gantt row together, stamping both: abandon
                               from anything not already delivered or abandoned, reopen from
-                              anything but a draft ticket or pending. The runner makes every other
+                              anything but a draft ticket or pending. The Overseer makes every other
                               lifecycle move. A draft ticket moves only through \`ticket ready\` or
                               \`abandon\`.
                               Moving a ticket to the status it already has is refused and logs
@@ -328,10 +328,10 @@ never carries it.
 
   ticket deliver <id> --by-hand [--branch <b>] [--commit <sha>] [--at <when>]
                               Record as delivered a ticket finished and landed outside the
-                              runner, from any status but draft, in one hold: it merges, lands
+                              Overseer, from any status but draft, in one hold: it merges, lands
                               and spawns nothing, and logs \`ticket-delivered\` with byHand true.
-                              Refused at exit 1 while a runner's lease is live
-                              (runner-owns-the-lifecycle) and while a job of the ticket is live
+                              Refused at exit 1 while an Overseer's Baton is live
+                              (overseer-owns-the-lifecycle) and while a job of the ticket is live
                               (ticket-has-live-job).
 
   ticket rereview <id> --start-review [--owner <who>] [--note <text>] [--at <when>]
@@ -507,35 +507,35 @@ never carries it.
                               --tick, and any of them beside it is refused at exit 1.
 
   open                        Open the live Overseer's URL in the default browser and print it. With
-                              no live lease it is refused (overseer-down) at exit 1, advising
+                              no live Baton it is refused (overseer-down) at exit 1, advising
                               \`run --detach\`. \`progress.html\` is only a stub naming that URL, or
                               saying the Overseer is down, written by \`init\`, \`update\` and \`run\`.
 
   run [--port <n>] [--detach] [--json]
-                              Start the board's one runner on 127.0.0.1, logging to standard error
-                              and \`runner.log\`: it creates the lease \`runner/lease-<n>.json\`, writes
-                              the API token to \`runner/token\` (mode 0600), prints its URL and serves
+                              Start the board's one Overseer on 127.0.0.1, logging to standard error
+                              and \`overseer.log\`: it creates the Baton \`overseer/baton-<n>.json\`, writes
+                              the API token to \`overseer/token\` (mode 0600), prints its URL and serves
                               until stopped. The port derives from the tracker id, moving upward
                               past one in use; --port binds the one given, 0 any free one. A live
-                              runner refuses it (runner-already-running, with its URL) at exit 1, as
-                              does a starter that lost the race (runner-contended); a runner whose
-                              lease a newer one overtook stops lease-taken-over at exit 2.
+                              Overseer refuses it (overseer-already-running, with its URL) at exit 1, as
+                              does a starter that lost the race (overseer-contended); an Overseer whose
+                              Baton a newer one overtook stops baton-taken at exit 2.
                               --detach starts it in the background and prints the URL once it answers.
   run --successor-of <generation> [--port <n>]
-                              The successor's side of \`run restart\`'s handover, which only the
-                              live runner starts.
-  run stop [--now] [--json]   Stop the live runner, through its API or else SIGTERM to the process
-                              its lease names; agent hosts are never touched. --now also stops
-                              process hosts.
+                              The successor's side of \`run restart\`'s Baton pass, which only the
+                              live Overseer starts.
+  run stop [--now] [--json]   Stop the live Overseer, through its API or else SIGTERM to the process
+                              its Baton names; Watchers are never touched. --now also stops
+                              process Watchers.
   run restart [--now] [--json]
                               Hand the board to the code on disk: a successor proves it, then takes
-                              over and reattaches every host; no agent is touched. A failed
-                              handover leaves the old runner driving with a warning and exits 1
-                              (runner-handover-failed).
-  run pause|resume [--json]   Store \`runnerState\` \`paused\` or \`running\`: no new jobs while
-                              paused. Works with the runner up or down.
-  run status [--json]         The lease, the URL, the runtime state, paused or not, and the code
-                              version on disk against the live runner's. Read-only, no lock.
+                              over and regroups every Watcher; no agent is touched. A failed
+                              Baton pass leaves the old Overseer driving with a warning and exits 1
+                              (baton-pass-failed).
+  run pause|resume [--json]   Store \`overseerState\` \`paused\` or \`running\`: no new jobs while
+                              paused. Works with the Overseer up or down.
+  run status [--json]         The Baton, the URL, the runtime state, paused or not, and the code
+                              version on disk against the live Overseer's. Read-only, no lock.
 
   version [--json]            Print the code version on disk and the install version:
                               {codeVersion, installVersion}. Read-only.
@@ -572,14 +572,14 @@ never carries it.
                               its options lettered a, b, c as decide takes them. Read-only, no lock.
 
   decide <decision> <letters>... | -- <text> [--json]
-                              Answer an open decision, with the runner up or down: one choice of
+                              Answer an open decision, with the Overseer up or down: one choice of
                               option letters per question (b; ac for a multi-select), or free text
                               after -- for a one-question decision (decision-has-several-questions
                               otherwise). The first answer wins (decision-already-answered); it is
                               stored as {question: answer}, logged decision-answered, and the
-                              runner delivers it to the asking session.
+                              Overseer delivers it to the asking session.
 
-  incidents [--json]          The open incidents for the runner's orchestrator, in opening order,
+  incidents [--json]          The open incidents for the Assistant, in opening order,
                               each with its facts, the moves its kind allows and its default.
                               Read-only, no lock.
   incident answer <I> -- <text> [--json]
@@ -596,15 +596,15 @@ never carries it.
                               the incident handled in the same hold (incident-handled).
 
   jobs [--json]               The live jobs, one line each (id, kind and role, state, tickets,
-                              attempt, host instance, a stop asked), then the runner, paused or not,
+                              attempt, Watcher instance, a stop asked), then the Overseer, paused or not,
                               agents against the limit, open decisions and incidents, and each
-                              incident that took its default since the runner started, a warning.
+                              incident that took its default since the Overseer started, a warning.
                               Read-only.
   job show <J> [--json]       The job's record, or what the log holds of a finished one.
-  job attach <J> [--json]     Replay every host instance's event log, then follow the newest while
+  job attach <J> [--json]     Replay every Watcher instance's event log, then follow the newest while
                               the job is on the board (--json replays only). Both read-only.
   job message <J> [--incident <I>] -- <text> [--json]
-                              A chat turn the runner writes to the session (job-messaged); a closed
+                              A chat turn the Overseer writes to the session (job-messaged); a closed
                               product owner is reopened, resuming its session (job-reopened), and
                               any other finished job is refused job-finished. Under an
                               incident, refused job-awaits-user-answer for a job waiting on User or
@@ -613,23 +613,23 @@ never carries it.
   job wind-down|stop <J> [--json]
                               Logged job-stop-requested with the mode. stop and wind-down hold the
                               ticket "stopped by User (J<n>)" or "wound down by User (J<n>)" in the
-                              same hold, with the runner up or down; a stopped product owner is
+                              same hold, with the Overseer up or down; a stopped product owner is
                               finished and its open decisions withdrawn. fresh stops the job so the
                               next attempt starts on its worktree (job-has-no-ticket otherwise).
   job stop --all [--wind-down] [--json]
                               run pause, then stop or wind down every build, review and
                               product-owner job.
 
-  intake -- <text> [--json]   Record a product-owner job (no ticket, no build slot) the runner
+  intake -- <text> [--json]   Record a product-owner job (no ticket, no build slot) the Overseer
                               launches in <worktrees>/sessions/<J>/ with /${PRODUCT_NAMES.PRODUCT_OWNER_SKILL} <text>;
                               several may run at once, and job message chats with one.
   intake close <J> [--set <id,id>]... [--json]
                               Close its input (job-not-intake for another kind of job); once its
-                              session ends the runner opens a ready-drafts decision listing its
+                              session ends the Overseer opens a ready-drafts decision listing its
                               drafts, one option per --set and one for none. Under the product
                               owner's own job it names no job.
 
-  advise [--json]             Record an onboarder job (no ticket, no build slot) the runner
+  advise [--json]             Record an onboarder job (no ticket, no build slot) the Overseer
                               launches on a main-line snapshot: it reads the repository and the
                               gate history, files each optimisation as a draft low ticket, and
                               proposes the pipeline. With no pipeline one starts by itself

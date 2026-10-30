@@ -21,7 +21,7 @@ export function fakeAgentVariableOf({ ENVIRONMENT_PREFIX }: Pick<ProductNames, '
 export const FAKE_AGENT_VARIABLE = fakeAgentVariableOf(PRODUCT_NAMES);
 
 /**
- * Launches every session the runner starts as the scripted fake agent rather than a vendor's CLI, so a spec-spawned binary spends no
+ * Launches every session the Overseer starts as the scripted fake agent rather than a vendor's CLI, so a spec-spawned binary spends no
  * subscription; `cli/testing/CliProcess.ts` sets it on every child. Read like the every-tool switch.
  */
 export function fakeAgentIsOn(): boolean {
@@ -75,22 +75,22 @@ export function jobIdVariableOf({ ENVIRONMENT_PREFIX }: Pick<ProductNames, 'ENVI
   return `${ENVIRONMENT_PREFIX}JOB_ID`;
 }
 
-export function relayDirectoryVariableOf({ ENVIRONMENT_PREFIX }: Pick<ProductNames, 'ENVIRONMENT_PREFIX'>): string {
-  return `${ENVIRONMENT_PREFIX}RELAY_DIRECTORY`;
+export function hatchDirectoryVariableOf({ ENVIRONMENT_PREFIX }: Pick<ProductNames, 'ENVIRONMENT_PREFIX'>): string {
+  return `${ENVIRONMENT_PREFIX}HATCH_DIRECTORY`;
 }
 
 export const JOB_ID_VARIABLE = jobIdVariableOf(PRODUCT_NAMES);
 
-export const RELAY_DIRECTORY_VARIABLE = relayDirectoryVariableOf(PRODUCT_NAMES);
+export const HATCH_DIRECTORY_VARIABLE = hatchDirectoryVariableOf(PRODUCT_NAMES);
 
-/** The runner's job this process runs under, set on every session it launches; empty or whitespace-only reads as unset. */
-export function runnerJobId(): string | undefined {
+/** The Overseer's job this process runs under, set on every session it launches; empty or whitespace-only reads as unset. */
+export function overseerJobId(): string | undefined {
   return nonBlankValueOf(JOB_ID_VARIABLE);
 }
 
-/** The job's relay folder, the one place outside its working directory the session may write; empty or whitespace-only reads as unset. */
-export function relayDirectory(): string | undefined {
-  return nonBlankValueOf(RELAY_DIRECTORY_VARIABLE);
+/** The job's Hatch folder, the one place outside its working directory the session may write; empty or whitespace-only reads as unset. */
+export function hatchDirectory(): string | undefined {
+  return nonBlankValueOf(HATCH_DIRECTORY_VARIABLE);
 }
 
 function nonBlankValueOf(variable: string): string | undefined {

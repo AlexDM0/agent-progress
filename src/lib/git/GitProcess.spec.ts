@@ -1,5 +1,5 @@
 /**
- * The one git runner, against real git in scratch repositories. What matters is what every caller parses: standard output arrives raw so a
+ * The one git Overseer, against real git in scratch repositories. What matters is what every caller parses: standard output arrives raw so a
  * caller decides what to trim, standard error arrives trimmed for a reason text, a path is printed unquoted, a git that cannot be started
  * reads as null rather than a throw, and a revision shaped like an option is looked up rather than obeyed.
  */
@@ -63,7 +63,7 @@ describeWhenGitIsPresent('a git run', () => {
   });
 
   // BranchIntegration names the files a worktree still holds from this output, so a quoted, octal-escaped name would name no file at all;
-  // the repository asks for quoting, so only the runner's own override can unquote it.
+  // the repository asks for quoting, so only the Overseer's own override can unquote it.
   test('a non-ASCII file name is printed unquoted, whatever the user\'s own configuration says', () => {
     const repositoryDirectory = scratchGitRepository('git-process-unquoted');
     gitOutputIn(repositoryDirectory, ['config', 'core.quotePath', 'true']);

@@ -18,8 +18,8 @@ const HEAD = 'a'.repeat(40);
 
 const ONBOARDED = onboarderReportOf(HEAD);
 
-function adviceFiling(relayRequestId: string | null): Record<string, unknown> {
-  return { ...ONBOARDED, mode: 'advise', optimisations: [{ summary: 'Cache the test gate.', filedTicketId: null, relayRequestId }] };
+function adviceFiling(hatchRequestId: string | null): Record<string, unknown> {
+  return { ...ONBOARDED, mode: 'advise', optimisations: [{ summary: 'Cache the test gate.', filedTicketId: null, hatchRequestId }] };
 }
 
 const BUILT = {
@@ -45,7 +45,7 @@ const REVIEWED = {
     item: 'A1', result: 'holds', handoffContradicted: false, note: 'Watched it fail.'
   }],
   findings: [{ ...FINDING, outcome: 'fixed', commit: HEAD }, {
-    ...FINDING, outcome: 'filed', filedTicketId: null, relayRequestId: '5f0c'
+    ...FINDING, outcome: 'filed', filedTicketId: null, hatchRequestId: '5f0c'
   }],
   reviewText: 'Holds.',
 };
@@ -77,13 +77,13 @@ const REPORT_TABLE: ReadonlyArray<[name: string, schema: JsonSchema, report: unk
   ['a filed finding naming its ticket', REVIEWER_REPORT_SCHEMA, {
     ...REVIEWED,
     findings: [{
-      ...FINDING, outcome: 'filed', filedTicketId: '014', relayRequestId: null
+      ...FINDING, outcome: 'filed', filedTicketId: '014', hatchRequestId: null
     }]
   }, true],
   ['a filed finding naming neither', REVIEWER_REPORT_SCHEMA, {
     ...REVIEWED,
     findings: [{
-      ...FINDING, outcome: 'filed', filedTicketId: null, relayRequestId: null
+      ...FINDING, outcome: 'filed', filedTicketId: null, hatchRequestId: null
     }]
   }, false],
   ['a file-ticket finding', REVIEWER_REPORT_SCHEMA, { ...REVIEWED, findings: [{ ...FINDING, outcome: 'file-ticket' }] }, false],

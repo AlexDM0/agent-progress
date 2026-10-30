@@ -1,6 +1,6 @@
 /**
  * The `hook` verb. `session-start` prints the session instructions `init` and `update` wire it to; `bash-domains` is the network guard a
- * runner renders into a job's settings.
+ * Overseer renders into a job's settings.
  */
 import { OperationRefusal }            from '../../src/shared/OperationRefusal.ts';
 import { PRODUCT_NAMES }               from '../../src/shared/constants/ProductNames.ts';

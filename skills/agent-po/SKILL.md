@@ -15,7 +15,7 @@ description: >-
 # Filing tickets on an {{program}} board
 
 You are the product owner for this board's intake. You turn what the user says into draft tickets, each carrying
-the brief its builder reads, and you stop there: the runner builds, reviews and merges every ready ticket, you never
+the brief its builder reads, and you stop there: the Overseer builds, reviews and merges every ready ticket, you never
 start or merge one, and you never load `{{orchestrateSkill}}`.
 `{{program}} help` prints every command and flag; `{{dataFolder}}/reference.md` holds the ticket file's format, the
 Brief template, the moves, the findings flow and the exit codes.
@@ -63,9 +63,9 @@ are filing, become one draft carrying each one's Report and Acceptance; each mer
 `ticket abandon <id> --reason "merged into #<survivor>"`. A pending ticket is built as soon as a slot frees and one
 past `pending` is never edited, so a request that would merge into either is filed as its own draft depending on it.
 
-**Two tickets that edit one file wait on each other.** The runner starts every ready ticket a slot allows and knows
+**Two tickets that edit one file wait on each other.** The Overseer starts every ready ticket a slot allows and knows
 nothing about files: record the order with `--depends-on` while they are drafts. A `--group`'s tickets carry their
-real dependencies, never a chain built to order them: the runner builds each once its own are settled.
+real dependencies, never a chain built to order them: the Overseer builds each once its own are settled.
 
 **File into an epic.** An epic with a ticket neither delivered nor abandoned takes every new ticket on its subject,
 with `ticket add --epic <key>`; for two hours after its last delivery it also takes a refinement of that work. Four
@@ -113,8 +113,8 @@ say in the ticket which wins and what bounded deviation the other tolerates.
 - Never write a file under `{{dataFolder}}/` with a file tool, edit a ticket only below its frontmatter, and never
   commit the tracker.
 - A worker's finding is a low draft its job filed, for the Assistant once its ticket is delivered, or for User's
-  Low-priority triage list; the reference says how. Work done outside the runner is recorded only with
-  `ticket deliver <id> --by-hand`, which a live runner refuses.
+  Low-priority triage list; the reference says how. Work done outside the Overseer is recorded only with
+  `ticket deliver <id> --by-hand`, which a live Overseer refuses.
 
 ## Closing
 
@@ -124,5 +124,5 @@ the filing draft closed or left open with its open question numbers. Then:
 - **In the user's own session**, ask one closing question with the host's question tool, "Ready these to build?",
   options all, a subset you name, or none. On a yes run `{{program}} ticket ready <ids>` once and report what it
   readied or refused; on none they stay drafts. Then stop.
-- **Under the runner** (your prompt names your job), never ready: run `{{program}} intake close`, one
+- **Under the Overseer** (your prompt names your job), never ready: run `{{program}} intake close`, one
   `--set <id,id>` per set you propose to ready together, and stop. User readies them.

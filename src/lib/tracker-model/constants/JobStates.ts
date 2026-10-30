@@ -7,11 +7,11 @@ import type {
   JobState,
   JobStopMode,
   LandingKind,
-  RunnerStopReason,
-  SlotPhase
+  OverseerStopReason,
+  AirlockPhase
 } from '../@types/Job.ts';
 
-export const JOB_KINDS = ['build', 'review', 'merge', 'merge-agent', 'refresh', 'orchestrator', 'product-owner', 'onboarder'] as const satisfies readonly JobKind[];
+export const JOB_KINDS = ['build', 'review', 'merge', 'merge-agent', 'refresh', 'assistant', 'product-owner', 'onboarder'] as const satisfies readonly JobKind[];
 
 export const JOB_ROLES = [
   'builder',
@@ -19,7 +19,7 @@ export const JOB_ROLES = [
   'merge-fix',
   'resolver',
   'resolution-review',
-  'orchestrator',
+  'assistant',
   'product-owner',
   'onboarder',
 ] as const satisfies readonly JobRole[];
@@ -31,7 +31,7 @@ export const JOB_STATES = [
   'waiting-for-answer',
   'interrupted',
   'awaiting-answer',
-  'verifying',
+  'in-customs',
   'gating',
   'merging',
   'landing',
@@ -56,17 +56,17 @@ export const JOB_OUTCOMES = [
   'closed',
 ] as const satisfies readonly JobOutcome[];
 
-export const INTERRUPTION_CAUSES = ['host-lost', 'agent-crashed', 'reboot', 'answer-delivery', 'usage-limit', 'handoff-red'] as const satisfies readonly InterruptionCause[];
+export const INTERRUPTION_CAUSES = ['watcher-lost', 'agent-crashed', 'reboot', 'answer-delivery', 'usage-limit', 'handoff-red'] as const satisfies readonly InterruptionCause[];
 
 /** The interruption of a handoff whose gate or Customs check went red, which resumes the same session to fix it. */
 export const HANDOFF_RED_INTERRUPTION = 'handoff-red' satisfies InterruptionCause;
 
 /** The interruptions a resume counts in `crashResumes`; a reboot, an answer delivery or a usage limit is nobody's crash. */
-export const CRASH_INTERRUPTION_CAUSES = ['host-lost', 'agent-crashed'] as const satisfies readonly InterruptionCause[];
+export const CRASH_INTERRUPTION_CAUSES = ['watcher-lost', 'agent-crashed'] as const satisfies readonly InterruptionCause[];
 
-export const SLOT_PHASES = ['merge-in', 'resolving', 'reviewing-resolution', 'gating', 'fixing', 'landing'] as const satisfies readonly SlotPhase[];
+export const SLOT_PHASES = ['merge-in', 'resolving', 'reviewing-resolution', 'gating', 'fixing', 'landing'] as const satisfies readonly AirlockPhase[];
 
-export const RUNNER_STOP_REASONS = ['stopped', 'handed-over'] as const satisfies readonly RunnerStopReason[];
+export const OVERSEER_STOP_REASONS = ['stopped', 'handed-over'] as const satisfies readonly OverseerStopReason[];
 
 export const JOB_STOP_MODES = ['stop', 'wind-down', 'fresh'] as const satisfies readonly JobStopMode[];
 
@@ -79,5 +79,5 @@ export const JOB_ID_PREFIX = 'J';
 /** The number the first job a tracker launches takes, `J1`: the lowest `nextJobId` a progress file may store. */
 export const FIRST_JOB_NUMBER = 1;
 
-/** The host instance a job's first launch spawns; a resume spawns the next one. */
-export const FIRST_HOST_INSTANCE = 1;
+/** The Watcher instance a job's first launch spawns; a resume spawns the next one. */
+export const FIRST_WATCHER_INSTANCE = 1;

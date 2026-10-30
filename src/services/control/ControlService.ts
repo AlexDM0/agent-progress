@@ -9,8 +9,8 @@ import { DECISION_CONTROLS }                                         from './Dec
 import { FILING_CONTROLS }                                           from './FilingControls.ts';
 import { INCIDENT_CONTROLS }                                         from './IncidentControls.ts';
 import { JOB_CONTROLS }                                              from './JobControls.ts';
+import { OVERSEER_CONTROLS }                                         from './OverseerControls.ts';
 import { REPAIR_CONTROLS }                                           from './RepairControls.ts';
-import { RUNNER_CONTROLS }                                           from './RunnerControls.ts';
 import { SETTING_CONTROLS }                                          from './SettingControls.ts';
 import { TICKET_CONTROLS }                                           from './TicketControls.ts';
 
@@ -22,7 +22,7 @@ const CONTROL_APPLIERS = {
   ...JOB_CONTROLS,
   ...REPAIR_CONTROLS,
   ...AIRLOCK_CONTROLS,
-  ...RUNNER_CONTROLS,
+  ...OVERSEER_CONTROLS,
   ...SETTING_CONTROLS,
 } as const satisfies { [Kind in ControlCommandKind]: (command: ControlCommandOf<Kind>, change: TrackerChange) => unknown };
 

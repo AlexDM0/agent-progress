@@ -1,6 +1,6 @@
 /**
- * The launcher port: what a coding-agent vendor's adapter does for a host that knows no vendor. It renders a launch plan the host executes,
- * maps each stdout line the session prints to events, and writes the lines a host sends the session. The package depends on nothing else.
+ * The launcher port: what a coding-agent vendor's adapter does for a Watcher that knows no vendor. It renders a launch plan the Watcher executes,
+ * maps each stdout line the session prints to events, and writes the lines a Watcher sends the session. The package depends on nothing else.
  */
 import type { AgentLaunchPlan }                  from './AgentLaunchPlan.ts';
 import type { AgentLaunchRequest }               from './AgentLaunchRequest.ts';
@@ -18,7 +18,7 @@ export interface AgentAdapter {
   readonly vendor:       string;
   readonly capabilities: AgentCapabilities;
   planOf(request: AgentLaunchRequest): AgentLaunchPlan;
-  /** The session id a job keeps across every host instance and resume, derived from the board's scope and the job, never random. */
+  /** The session id a job keeps across every Watcher instance and resume, derived from the board's scope and the job, never random. */
   sessionIdOf(scope: string, jobId: string): string;
   /** One stdout line, mapped; a line the adapter does not recognise maps to no event. */
   eventsOf(line: string): readonly AgentSessionEvent[];

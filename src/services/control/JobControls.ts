@@ -1,6 +1,6 @@
 /**
- * The job and intake kinds of the control contract. Each records in the hold and the runner carries it out, so every one works with the
- * runner down; `job fresh` is a stop whose job ends `replaced`, so the policy launches the next attempt on the same worktree. Naming an
+ * The job and intake kinds of the control contract. Each records in the hold and the Overseer carries it out, so every one works with the
+ * Overseer down; `job fresh` is a stop whose job ends `replaced`, so the policy launches the next attempt on the same worktree. Naming an
  * incident marks it handled by the move in the same hold.
  */
 import { BoardRefusal }                        from '../../lib/tracker-model/BoardRefusal.ts';

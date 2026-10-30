@@ -32,7 +32,7 @@ export interface AssistantModel {
 }
 
 /** The Assistant's job kind as the board stores it. */
-const ASSISTANT_JOB_KIND = 'orchestrator';
+const ASSISTANT_JOB_KIND = 'assistant';
 const NOT_YET_UP_STATES: ReadonlySet<string> = new Set(['launching', 'preparing', 'interrupted', 'stopping']);
 const SETTLING_KINDS: Readonly<Record<string, IncidentSettlement>> = {
   'incident-handled':   'handled',

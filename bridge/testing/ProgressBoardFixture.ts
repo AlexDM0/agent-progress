@@ -48,7 +48,7 @@ export interface ExampleProgressBoardFields {
   readonly waitingOn?:        Readonly<Record<string, readonly string[]>>;
   readonly readyTicketIds?:   readonly string[];
   readonly concurrencyLimit?: number;
-  readonly runnerState?:      string;
+  readonly overseerState?:    string;
   readonly epics?:            readonly ProgressEpicFacts[];
   /** The tracker's own range, as the `range` command sets it; Fit when left out. */
   readonly view?:             ViewRange;
@@ -69,7 +69,7 @@ export function exampleProgressBoard(fields: ExampleProgressBoardFields = {}): P
           startedAt: EXAMPLE_STARTED_AT,
           view:      fields.view ?? { kind: 'auto' },
           tasks,
-          ...fields.runnerState === undefined ? {} : { runnerState: fields.runnerState },
+          ...fields.overseerState === undefined ? {} : { overseerState: fields.overseerState },
         },
         limits:      EXAMPLE_PAGE_LIMITS,
         concurrency: { limit: fields.concurrencyLimit ?? 3 },

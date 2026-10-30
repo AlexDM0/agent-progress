@@ -1,6 +1,6 @@
 /**
- * `decisions`, `decide` and `await` on an initialised scratch repository with no runner. What matters: `decisions` letters each option
- * as `decide` takes it and writes nothing; `decide` answers through the write pipeline with the runner down, storing `{question: answer}`
+ * `decisions`, `decide` and `await` on an initialised scratch repository with no Overseer. What matters: `decisions` letters each option
+ * as `decide` takes it and writes nothing; `decide` answers through the write pipeline with the Overseer down, storing `{question: answer}`
  * and logging it with its request, and the second answer is refused because the first wins; free text is refused on a decision of several
  * questions; and `await` wakes on a `decision-opened` past its position, waiting for one opened after it started.
  */
@@ -88,7 +88,7 @@ describeWhenGitIsPresent('the decision commands', () => {
     expect(readFileSync(progressPath, 'utf8')).toBe(before);
   });
 
-  test('decide answers with the runner down, stores {question: answer}, logs it with its request, and the first answer wins', async () => {
+  test('decide answers with the Overseer down, stores {question: answer}, logs it with its request, and the first answer wins', async () => {
     await openTheExampleDecision();
     const answered = await run(['decide', 'E1', 'b', 'ab', '--json']);
     expect(JSON.parse(answered.outputText())).toEqual({ decisionId: 'E1', answer: { 'Which export format?': 'JSON', 'Which columns?': 'Name, Total' } });

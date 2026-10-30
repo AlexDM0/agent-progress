@@ -3,9 +3,9 @@
  * `init` — a verb that reads as destructive — to pick up newer instructions. It creates
  * no tracker, so it takes neither `--project` nor `--root`, and never touches the tracker's own files.
  */
-import { CodeVersion }                                    from '../../../src/services/runner/CodeVersion.ts';
-import { runnerFilesIn }                                  from '../../../src/services/runner/RunnerFiles.ts';
-import { RunnerLease }                                    from '../../../src/services/runner/RunnerLease.ts';
+import { Baton }                                          from '../../../src/services/overseer/Baton.ts';
+import { CodeVersion }                                    from '../../../src/services/overseer/CodeVersion.ts';
+import { overseerFilesIn }                                from '../../../src/services/overseer/OverseerFiles.ts';
 import { requireWorkspace }                               from '../../../src/services/tracker/Workspace.ts';
 import { PRODUCT_NAMES }                                  from '../../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                            from '../../CommandContext.ts';
@@ -13,7 +13,7 @@ import type { CommandHandler }                            from '../../CommandHan
 import { requireInstallManifestThisVersionCanReplace }    from '../../InstallVersionCheck.ts';
 import { writeProgressPageStub }                          from '../../WriteProgressPageStub.ts';
 import { INSTALL_VERSION }                                from '../../constants/InstallVersion.ts';
-import { RunnerRemote }                                   from '../../runner/RunnerRemote.ts';
+import { OverseerRemote }                                 from '../../overseer/OverseerRemote.ts';
 import { installedFileTextsFor, installedSkillFileTexts } from '../InstalledFileGeneration.ts';
 import { refuseBesideAnOlderProgram }                     from '../OlderProgramRefusal.ts';
 import { refuseARetiredAgentHostsInstall }                from '../RetiredAgentHostRefusal.ts';
@@ -52,25 +52,25 @@ export const updateCommand: CommandHandler = async (commandArguments, context) =
   for (const line of refreshReportLinesOf(report, workspace.htmlFilePath)) context.standardOutput(line);
   writeProgressPageStub(workspace);
   recordInstallVersion(workspace.rootDirectory);
-  await handTheLiveRunnerToTheCodeOnDisk(context, workspace.trackerDirectory);
+  await handTheLiveOverseerToTheCodeOnDisk(context, workspace.trackerDirectory);
 };
 
 /**
- * The last step of `update`: a live runner on other code or another install version is handed to the code on disk through the checked
- * handover. A failed one exits 1 `runner-handover-failed` with the old runner still driving, and what `update` installed stands.
+ * The last step of `update`: a live Overseer on other code or another install version is handed to the code on disk through the checked
+ * Baton pass. A failed one exits 1 `baton-pass-failed` with the old Overseer still driving, and what `update` installed stands.
  */
-async function handTheLiveRunnerToTheCodeOnDisk(context: CommandContext, trackerDirectory: string): Promise<void> {
-  const files  = runnerFilesIn(trackerDirectory);
-  const newest = RunnerLease.newestLeaseOf(files.runnerDirectory);
+async function handTheLiveOverseerToTheCodeOnDisk(context: CommandContext, trackerDirectory: string): Promise<void> {
+  const files  = overseerFilesIn(trackerDirectory);
+  const newest = Baton.newestBatonOf(files.overseerDirectory);
   if (newest.verdict !== 'live') return;
   if (newest.record.codeVersion === CodeVersion.onDisk() && newest.record.installVersion === INSTALL_VERSION) return;
-  context.standardOutput(`Handing the runner at ${newest.record.url} over to the code on disk…`);
-  const handover = await RunnerRemote.handOverTheLiveRunner(files, false);
-  if (handover.verdict === 'handed-over') {
-    context.standardOutput(`Runner handed over to code ${handover.successorCodeVersion} at ${handover.url}.`);
+  context.standardOutput(`Handing the Overseer at ${newest.record.url} over to the code on disk…`);
+  const batonPass = await OverseerRemote.handOverTheLiveOverseer(files, false);
+  if (batonPass.verdict === 'handed-over') {
+    context.standardOutput(`Overseer handed over to code ${batonPass.successorCodeVersion} at ${batonPass.url}.`);
     return;
   }
-  if (handover.verdict === 'not-taken') {
-    context.standardOutput(`The runner at ${handover.record.url} did not take the handover; run \`${PRODUCT_NAMES.PROGRAM} run restart\`.`);
+  if (batonPass.verdict === 'not-taken') {
+    context.standardOutput(`The Overseer at ${batonPass.record.url} did not take the Baton pass; run \`${PRODUCT_NAMES.PROGRAM} run restart\`.`);
   }
 }

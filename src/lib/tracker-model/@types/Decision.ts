@@ -32,8 +32,8 @@ export interface DecisionQuestion {
   options:     DecisionQuestionOption[];
 }
 
-/** An agent's role for its own question; `runner` for a decision code opens from the facts, `orchestrator` for its `ticket park`. */
-export type DecisionAsker = JobRole | 'runner' | 'orchestrator';
+/** An agent's role for its own question; `overseer` for a decision code opens from the facts, `assistant` for its `ticket park`. */
+export type DecisionAsker = JobRole | 'overseer' | 'assistant';
 
 export interface Decision {
   id:        string;

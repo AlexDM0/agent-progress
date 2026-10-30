@@ -1,6 +1,6 @@
-/** Why the runner refused a relayed command under the job's role, as `RoleCommandPolicy.verdictOf` decides and a relay reply carries. */
+/** Why the Overseer refused a relayed command under the job's role, as `Bouncer.verdictOf` decides and a Hatch reply carries. */
 export type RoleCommandRefusalReason =
-  | 'relay-identity-mismatch'
+  | 'hatch-identity-mismatch'
   | 'command-not-allowed-for-role'
   | 'worker-filing-flag'
   | 'worker-filing-limit'

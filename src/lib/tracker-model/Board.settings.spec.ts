@@ -1,12 +1,12 @@
 /**
- * Each setting hands back the value it replaced and logs exactly one record, and a board that never set the runner state reads the
+ * Each setting hands back the value it replaced and logs exactly one record, and a board that never set the Overseer state reads the
  * default, which starts nothing before the user's go.
  */
 import { expect, test } from 'bun:test';
 
 import { boardFixture, taskFixture } from '../../testing/BoardFixtures.ts';
 import type { ViewRange }            from './@types/TrackerProgress.ts';
-import { DEFAULT_RUNNER_STATE }      from './constants/RunnerStates.ts';
+import { DEFAULT_OVERSEER_STATE }    from './constants/OverseerStates.ts';
 
 const CHANGED_AT = '2026-09-18T20:40:00+02:00';
 
@@ -17,19 +17,19 @@ const EXAMPLE_VIEW: ViewRange = {
   tickMinutes: 15,
 };
 
-test('a tracker that never set a runner state reads the default one', () => {
+test('a tracker that never set an Overseer state reads the default one', () => {
   const { board, progress } = boardFixture();
-  expect(progress.runnerState).toBeUndefined();
-  expect(board.runnerState()).toBe(DEFAULT_RUNNER_STATE);
+  expect(progress.overseerState).toBeUndefined();
+  expect(board.overseerState()).toBe(DEFAULT_OVERSEER_STATE);
 });
 
-test('setting the runner state hands back the state before and logs one runner-set record', () => {
+test('setting the Overseer state hands back the state before and logs one overseer-set record', () => {
   const { board, progress, records } = boardFixture();
-  const changed                      = board.setRunnerState('running', CHANGED_AT);
+  const changed                      = board.setOverseerState('running', CHANGED_AT);
 
-  expect(changed.previousState).toBe(DEFAULT_RUNNER_STATE);
-  expect(progress.runnerState).toBe('running');
-  expect(records).toEqual([{ at: CHANGED_AT, kind: 'runner-set', fields: { state: 'running' } }]);
+  expect(changed.previousState).toBe(DEFAULT_OVERSEER_STATE);
+  expect(progress.overseerState).toBe('running');
+  expect(records).toEqual([{ at: CHANGED_AT, kind: 'overseer-set', fields: { state: 'running' } }]);
   expect(changed.logged).toEqual(records);
 });
 

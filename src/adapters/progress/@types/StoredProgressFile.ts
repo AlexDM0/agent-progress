@@ -12,10 +12,10 @@ import type {
   JobRole,
   JobState,
   JobStopMode,
-  SlotPhase
+  AirlockPhase
 }                                             from '../../../lib/tracker-model/@types/Job.ts';
 import type { TaskStatus }                    from '../../../lib/tracker-model/@types/Task.ts';
-import type { RunnerState, ViewRange }        from '../../../lib/tracker-model/@types/TrackerProgress.ts';
+import type { OverseerState, ViewRange }      from '../../../lib/tracker-model/@types/TrackerProgress.ts';
 import type { CURRENT_PROGRESS_FILE_VERSION } from '../constants/ProgressFileVersions.ts';
 
 export interface StoredTaskPhase {
@@ -48,11 +48,11 @@ export interface StoredJobEventCursor {
   sequence: number;
 }
 
-export interface StoredMergeSlot {
+export interface StoredAirlock {
   target:    string;
   targetTip: string;
   branchTip: string;
-  phase:     SlotPhase;
+  phase:     AirlockPhase;
 }
 
 export interface StoredJob {
@@ -65,11 +65,11 @@ export interface StoredJob {
   target:             string | null;
   state:              JobState;
   interruption?:      InterruptionCause;
-  hostInstance:       number;
+  watcherInstance:    number;
   eventCursor:        StoredJobEventCursor;
   answeredRequestIds: string[];
   crashResumes:       number;
-  slot?:              StoredMergeSlot;
+  slot?:              StoredAirlock;
   stopRequest?:       JobStopMode;
   intake?:            JobIntake;
   outcome?:           JobOutcome;
@@ -83,7 +83,7 @@ export interface StoredProgressFile {
   view:                    ViewRange;
   nextTaskId:              number;
   concurrencyLimit?:       number;
-  runnerState?:            RunnerState;
+  overseerState?:          OverseerState;
   nextDraftId?:            number;
   nextJobId?:              number;
   jobs?:                   StoredJob[];

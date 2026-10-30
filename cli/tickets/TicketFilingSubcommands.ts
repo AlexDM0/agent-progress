@@ -6,8 +6,8 @@ import type { ControlCommandOf }                 from '../../src/shared/@types/C
 import { OperationRefusal }                      from '../../src/shared/OperationRefusal.ts';
 import { PRODUCT_NAMES }                         from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                   from '../CommandContext.ts';
+import { hatchWhenUnderJob }                     from '../HatchUnderJob.ts';
 import { openTrackerForWritingThenReadNextLine } from '../OpenTrackerForWriting.ts';
-import { relayWhenUnderJob }                     from '../RelayUnderJob.ts';
 import { suppliedMarkdownBodyOf }                from '../SuppliedMarkdownBody.ts';
 import type { ArgumentParser }                   from '../arguments/ArgumentParser.ts';
 import { OutputUtil }                            from '../utils/OutputUtil.ts';
@@ -70,7 +70,7 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
     bodyText: suppliedBody ?? null,
     ...(commandArguments.flag('needs-user') ? { needsUser: true as const } : {}),
   };
-  await relayWhenUnderJob(context, command);
+  await hatchWhenUnderJob(context, command);
   const { result: filed, nextLine } = await openTrackerForWritingThenReadNextLine(
     commandArguments,
     context,

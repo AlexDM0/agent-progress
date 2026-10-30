@@ -6,15 +6,15 @@ import { PipelineFile }                            from '../../src/adapters/pipe
 import type { Pipeline, PipelineGate }             from '../../src/lib/tracker-model/@types/Pipeline.ts';
 import { PipelineUtil }                            from '../../src/lib/tracker-model/utils/PipelineUtil.ts';
 import { ControlService }                          from '../../src/services/control/ControlService.ts';
-import { type CacheFolderRefusal, GateCachePaths } from '../../src/services/runner/GateCachePaths.ts';
+import { type CacheFolderRefusal, GateCachePaths } from '../../src/services/overseer/GateCachePaths.ts';
 import { requireWorkspace }                        from '../../src/services/tracker/Workspace.ts';
 import type { ControlCommand }                     from '../../src/shared/@types/ControlCommand.ts';
 import { OperationRefusal }                        from '../../src/shared/OperationRefusal.ts';
 import { PRODUCT_NAMES }                           from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                     from '../CommandContext.ts';
+import { hatchWhenUnderJob }                       from '../HatchUnderJob.ts';
 import { openTrackerForWriting }                   from '../OpenTrackerForWriting.ts';
 import { refuseUsage }                             from '../RecordedIncidentMove.ts';
-import { relayWhenUnderJob }                       from '../RelayUnderJob.ts';
 import type { ArgumentParser }                     from '../arguments/ArgumentParser.ts';
 import { OutputUtil }                              from '../utils/OutputUtil.ts';
 
@@ -53,7 +53,7 @@ function commandLineFrom(commandArguments: ArgumentParser, usage: string): strin
   return commandLine;
 }
 
-/** A folder a gate could never write is refused when stored, so the runner's later dropping of it never comes as a surprise. */
+/** A folder a gate could never write is refused when stored, so the Overseer's later dropping of it never comes as a surprise. */
 function refuseUnwritableFolder(path: string, context: CommandContext, usage: string): void {
   if (!PipelineFile.writablePathIsWellFormed(path)) refuseUsage(`--writes takes an absolute or ~/ folder, and ${path} is neither.`, usage);
   const refusal = GateCachePaths.refusalOf(path, context.homeDirectory, context.executableSearchPath);
@@ -61,7 +61,7 @@ function refuseUnwritableFolder(path: string, context: CommandContext, usage: st
 }
 
 async function applyPipelineChange(commandArguments: ArgumentParser, context: CommandContext, command: ControlCommand): Promise<void> {
-  await relayWhenUnderJob(context, command);
+  await hatchWhenUnderJob(context, command);
   const changed = await openTrackerForWriting(commandArguments, context, (change) => ControlService.apply(command, change).result);
   if (!('pipeline' in changed)) return;
   const { logged, pipeline } = changed;

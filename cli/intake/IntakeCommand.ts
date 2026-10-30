@@ -1,6 +1,6 @@
 /**
- * `intake -- <text>` records a product-owner job the runner launches in a session folder of its own; `intake close <J>` closes its input,
- * and the runner then opens the `ready-drafts` decision. Under the product owner's own job `intake close` names no job: the runner stamps it.
+ * `intake -- <text>` records a product-owner job the Overseer launches in a session folder of its own; `intake close <J>` closes its input,
+ * and the Overseer then opens the `ready-drafts` decision. Under the product owner's own job `intake close` names no job: the Overseer stamps it.
  */
 import { ControlService }        from '../../src/services/control/ControlService.ts';
 import type { ControlCommandOf } from '../../src/shared/@types/ControlCommand.ts';
@@ -8,8 +8,8 @@ import { OperationRefusal }      from '../../src/shared/OperationRefusal.ts';
 import { PRODUCT_NAMES }         from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }   from '../CommandContext.ts';
 import type { CommandHandler }   from '../CommandHandler.ts';
+import { hatchWhenUnderJob }     from '../HatchUnderJob.ts';
 import { openTrackerForWriting } from '../OpenTrackerForWriting.ts';
-import { relayWhenUnderJob }     from '../RelayUnderJob.ts';
 import type { ArgumentParser }   from '../arguments/ArgumentParser.ts';
 import { OutputUtil }            from '../utils/OutputUtil.ts';
 
@@ -29,7 +29,7 @@ async function recordControl(
   context: CommandContext,
   command: ControlCommandOf<'intake-start'> | ControlCommandOf<'intake-close'>,
 ): Promise<string> {
-  await relayWhenUnderJob(context, command);
+  await hatchWhenUnderJob(context, command);
   const { job, logged } = await openTrackerForWriting(commandArguments, context, (change) => ControlService.apply(command, change).result);
   const sentences = OutputUtil.loggedSentencesOf(logged);
   OutputUtil.printEntity(commandArguments, context, { jobId: job.id, logged }, sentences === '' ? `Intake of job ${job.id} closed.` : sentences);
@@ -46,7 +46,7 @@ async function closeIntake(commandArguments: ArgumentParser, context: CommandCon
   const proposedDraftSets = proposedDraftSetsIn(commandArguments);
   if (context.job !== undefined) {
     commandArguments.rejectExtraPositionals(1, CLOSE_USAGE);
-    await relayWhenUnderJob(context, { kind: 'intake-close', proposedDraftSets });
+    await hatchWhenUnderJob(context, { kind: 'intake-close', proposedDraftSets });
     return;
   }
   commandArguments.rejectExtraPositionals(2, CLOSE_USAGE);
@@ -65,7 +65,7 @@ export const intakeCommand: CommandHandler = async (commandArguments, context) =
   const text = commandArguments.positionals().join(' ').trim();
   if (text === '') refuseUsage('Write the request after --.', START_USAGE);
   const jobId = await recordControl(commandArguments, context, { kind: 'intake-start', text });
-  context.standardError(`The runner launches the product owner of job ${jobId}; follow it with \`${PROGRAM} job attach ${jobId}\`.`);
+  context.standardError(`The Overseer launches the product owner of job ${jobId}; follow it with \`${PROGRAM} job attach ${jobId}\`.`);
 };
 
 export const INTAKE_SUBCOMMAND_NAMES: readonly string[] = Object.freeze(['close']);

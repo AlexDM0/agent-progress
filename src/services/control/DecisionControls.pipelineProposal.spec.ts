@@ -1,6 +1,6 @@
 /**
  * Answering an onboarder's `pipeline-proposal`: Accept writes every proposed prepare step and gate through the `gate` verbs' Board moves in
- * the answering hold, an empty gate list as `gate none`; Decline, or a proposal the runner never stored, changes nothing but the answer.
+ * the answering hold, an empty gate list as `gate none`; Decline, or a proposal the Overseer never stored, changes nothing but the answer.
  */
 import {
   afterEach,
@@ -25,7 +25,7 @@ const PROPOSAL_OPTIONS = [{ label: 'Accept the prepare steps and gates', descrip
 let trackerDirectory = '';
 
 function changeOf(board: Board): TrackerChange {
-  // The decision applier reads the Board, the stamp and, for a proposal, the tracker folder the runner stored it in.
+  // The decision applier reads the Board, the stamp and, for a proposal, the tracker folder the Overseer stored it in.
   return { board, at: AT, workspace: { trackerDirectory } } as unknown as TrackerChange;
 }
 
@@ -48,7 +48,7 @@ function boardWithOpenProposal(): Board {
     kind:      'pipeline-proposal',
     ticketIds: [],
     jobId:     JOB_ID,
-    askedBy:   'runner',
+    askedBy:   'overseer',
     requestId: null,
     questions: [{
       question: 'Accept it?', header: 'pipeline-proposal', multiSelect: false, options: PROPOSAL_OPTIONS

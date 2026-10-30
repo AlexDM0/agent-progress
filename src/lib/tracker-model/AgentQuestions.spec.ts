@@ -2,7 +2,7 @@
  * An agent's question through its life on the Board. What matters: `decide`'s letters resolve to the agent's own option labels, and every
  * malformed choice is refused before anything is written; answering moves a job waiting on that answer alone back to `running`; a ticket
  * job ended `replaced` or `stopped` leaves its question on the ticket, held `awaiting answer (E<n>)`, and the answer goes under `##
- * Questions` and lifts the hold; a question incident escalates with exactly the agent's words; and only a board's first runner start holds
+ * Questions` and lifts the hold; a question incident escalates with exactly the agent's words; and only a board's first overseer start holds
  * the v16 low leftovers, in one `findings-delivered` incident.
  */
 import { describe, expect, test } from 'bun:test';
@@ -145,7 +145,7 @@ describe('escalating a question incident', () => {
   });
 });
 
-describe('the runner\'s first start', () => {
+describe('the overseer\'s first start', () => {
   function boardOfV16Tickets(): ReturnType<typeof boardFixture> {
     return boardFixture({
       tickets: [
@@ -168,9 +168,9 @@ describe('the runner\'s first start', () => {
     expect(board.decisions()).toEqual([]);
   });
 
-  test('a board whose log holds runner-started holds nothing, and neither does a fresh board', () => {
+  test('a board whose log holds overseer-started holds nothing, and neither does a fresh board', () => {
     const started = boardOfV16Tickets();
-    started.board.recordRunnerStarted({ codeVersion: 'example', installVersion: 17 }, AT);
+    started.board.recordOverseerStarted({ codeVersion: 'example', installVersion: 17 }, AT);
     expect(started.board.holdFirstRunLeftovers(AT).logged).toEqual([]);
 
     const fresh = boardFixture();
@@ -181,7 +181,7 @@ describe('the runner\'s first start', () => {
   test('a start after clear threw the log away holds nothing: the first start is kept in progress.json', () => {
     const { board, progress, tickets } = boardFixture({ tickets: [ticketFixture({ id: '001', status: 'pending', priority: 'normal' })] });
     board.holdFirstRunLeftovers(AT);
-    board.recordRunnerStarted({ codeVersion: 'example', installVersion: 17 }, AT);
+    board.recordOverseerStarted({ codeVersion: 'example', installVersion: 17 }, AT);
     board.clearTracker({ ticketsSurvive: true }, AT);
 
     const ticketsAfterClear = [...tickets, ticketFixture({ id: '002', status: 'pending', priority: 'low' })];

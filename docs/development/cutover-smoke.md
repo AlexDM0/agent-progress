@@ -19,7 +19,7 @@ bun cli/testing/CutoverSmoke.ts --with-real-claude [--model sonnet] [--effort me
   so it runs only under the side-by-side names: `agent-progress-v2`, `.agent-progress-v2/`, `~/.agent-progress-v2-monitor/`.
 - `--model` and `--effort` go on both tickets; without them the product's defaults apply.
 - The log goes to `<main checkout>/.claude/.evidence/cutover-smoke/cutover-smoke-<stamp>.log`, beside the board's
-  `-log.jsonl`, `-runner.log` and the SSE client's `-events.ndjson`. The main checkout is the one the script's
+  `-log.jsonl`, `-overseer.log` and the SSE client's `-events.ndjson`. The main checkout is the one the script's
   checkout belongs to (`git rev-parse --git-common-dir`), or `--main-checkout`; the script refuses when that folder is
   not git-ignored there. In a standalone scratch clone, pass the real main checkout.
 - Exit 0 only when items 1-5 pass.
@@ -42,13 +42,13 @@ scratch repository is kept for reading and named on the log's last line; remove 
      answers with `decide <id> a` as soon as it is open.
    - #002 reports its ticket malformed through AskUserQuestion with the reserved header `ticket`: a `malformed-ticket`
      incident the script leaves to the Assistant. An escalation opens an `agent-question` decision, answered as above.
-3. At the first build job `running`: `kill -9` of the process the newest lease names, `run --detach` again, a wait,
-   `run restart`, a wait; the agent's host process and host instance are read before and after each.
+3. At the first build job `running`: `kill -9` of the process the newest Baton names, `run --detach` again, a wait,
+   `run restart`, a wait; the agent's Watcher process and Watcher instance are read before and after each.
 4. Polls every ten seconds until both tickets are `delivered`, a decision only User may take opens (a park, a refused
    landing or merge), or the timeout, logging every change of the tickets and jobs; then `job stop --all`,
-   a bounded wait for the stopped jobs to end, `run stop --now`, and kills the hosts still running in the scratch board,
-   logging apart how many belonged to ended jobs (the runner reaps those, so 0) and to jobs still live, such as the
-   Assistant's, which outlive the runner by design.
+   a bounded wait for the stopped jobs to end, `run stop --now`, and kills the Watchers still running in the scratch board,
+   logging apart how many belonged to ended jobs (the Overseer reaps those, so 0) and to jobs still live, such as the
+   Assistant's, which outlive the Overseer by design.
 
 ## Reading the log
 
@@ -58,7 +58,7 @@ the board's stored log and the received events:
 | Item | Passes when |
 | --- | --- |
 | 1 | both tickets had a builder and a reviewer and were delivered; at least two landings; no two merges held one target at once; at least three passed `gate-ran` records |
-| 2 | the build's host process lived through the kill and the restart (or its job ended with no `job-interrupted`), its job folder holds no second host instance, no further build job launched on its ticket, and `run restart` exited 0 |
+| 2 | the build's Watcher process lived through the kill and the restart (or its job ended with no `job-interrupted`), its job folder holds no second Watcher instance, no further build job launched on its ticket, and `run restart` exited 0 |
 | 3 | a `resolver` job ended `resolved` and its parent merge job then landed |
 | 4 | #001's decision was answered and #001 finished after it; #002's `malformed-ticket` incident was answered or escalated |
 | 5 | every ticket move logged while the stream was connected showed as that status in a `board` event, and every job launched then in a `job` event; the job states seen are listed. A move a later move of the ticket overtook in the same stamp is never published (an event carries what a whole pass left), and the gaps from the kill and the restart to the reconnection are not judged |

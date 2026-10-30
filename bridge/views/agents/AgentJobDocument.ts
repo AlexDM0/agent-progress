@@ -29,16 +29,16 @@ export interface JobLiveFactsDocument {
 }
 
 export interface AgentJobDocument extends IdentifiedRecord {
-  readonly kind:         string;
-  readonly role:         string | null;
-  readonly ticketIds:    readonly string[];
-  readonly state:        string;
-  readonly attempt:      number;
-  readonly hostInstance: number;
-  readonly crashResumes: number;
-  readonly slot?:        { readonly phase: string };
-  readonly stopRequest?: string;
-  readonly live:         JobLiveFactsDocument;
+  readonly kind:            string;
+  readonly role:            string | null;
+  readonly ticketIds:       readonly string[];
+  readonly state:           string;
+  readonly attempt:         number;
+  readonly watcherInstance: number;
+  readonly crashResumes:    number;
+  readonly slot?:           { readonly phase: string };
+  readonly stopRequest?:    string;
+  readonly live:            JobLiveFactsDocument;
 }
 
 export interface JobDecisionDocument extends IdentifiedRecord {

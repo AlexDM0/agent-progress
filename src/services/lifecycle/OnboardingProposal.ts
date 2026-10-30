@@ -6,12 +6,12 @@ import { readFileSync } from 'node:fs';
 import { join }         from 'node:path';
 
 import { writeFileAtomically }                               from '../../lib/atomic-file/AtomicFile.ts';
-import type { PipelineProposalFacts }                        from '../../lib/tracker-model/@types/LifecycleStep.ts';
 import type { LogRecord }                                    from '../../lib/tracker-model/@types/LogRecord.ts';
 import type { PipelineGate, PipelineStep }                   from '../../lib/tracker-model/@types/Pipeline.ts';
+import type { PipelineProposalFacts }                        from '../../lib/tracker-model/@types/PlaybookStep.ts';
 import type { Board }                                        from '../../lib/tracker-model/Board.ts';
 import type { CachingSuggestion }                            from './CachingChecks.ts';
-import type { VerificationCheck, VerificationRefusalReason } from './JobVerification.ts';
+import type { VerificationCheck, VerificationRefusalReason } from './Customs.ts';
 import type { ProposalRunRecord }                            from './ProposalTwiceRun.ts';
 
 export type OnboarderMode = 'setup' | 'advise';
@@ -35,7 +35,7 @@ export type OnboardingOutcome =
 
 const OUTCOME_FILE = 'onboarding-outcome.json';
 
-/** The job folder the runner keeps per job, `<data>/jobs/<J>`, which only the runner writes. */
+/** The job folder the Overseer keeps per job, `<data>/jobs/<J>`, which only the Overseer writes. */
 function outcomePathOf(trackerDirectory: string, jobId: string): string {
   return join(trackerDirectory, 'jobs', jobId, OUTCOME_FILE);
 }
@@ -44,7 +44,7 @@ function storeOutcome(trackerDirectory: string, jobId: string, outcome: Onboardi
   writeFileAtomically(outcomePathOf(trackerDirectory, jobId), `${JSON.stringify(outcome, null, 2)}\n`);
 }
 
-/** `null` before the runner settled the pass, or when the file is unreadable, which accepts nothing. */
+/** `null` before the Overseer settled the pass, or when the file is unreadable, which accepts nothing. */
 function storedOutcomeOf(trackerDirectory: string, jobId: string): OnboardingOutcome | null {
   try {
     const parsed: unknown = JSON.parse(readFileSync(outcomePathOf(trackerDirectory, jobId), 'utf8'));

@@ -11,10 +11,10 @@ import {
 } from '../../lib/tracker-model/constants/ReviewRecordVocabulary.ts';
 import type { JsonSchema } from './ReportValidation.ts';
 
-/** A reviewer report's finding: the stored `ReviewFinding` unchanged when fixed; when filed, the relay's ticket id or its request id. */
+/** A reviewer report's finding: the stored `ReviewFinding` unchanged when fixed; when filed, the Hatch's ticket id or its request id. */
 export type ReportedReviewFinding =
   | Extract<ReviewFinding, { outcome: 'fixed' }>
-  | Omit<Extract<ReviewFinding, { outcome: 'filed' }>, 'filedTicketId'> & { filedTicketId: string | null; relayRequestId: string | null };
+  | Omit<Extract<ReviewFinding, { outcome: 'filed' }>, 'filedTicketId'> & { filedTicketId: string | null; hatchRequestId: string | null };
 
 const DRAFT_07 = 'http://json-schema.org/draft-07/schema#';
 
@@ -78,18 +78,18 @@ const FINDING_DESCRIPTION: Readonly<Record<string, JsonSchema>> = {
 
 const FIXED_FINDING = closedObject({ ...FINDING_DESCRIPTION, outcome: { const: 'fixed' }, commit: COMMIT_SHA });
 
-/** A filed finding names the ticket the relay answered with, or the request id `queued` printed: at least one of the two. */
+/** A filed finding names the ticket the Hatch answered with, or the request id `queued` printed: at least one of the two. */
 const FILED_FINDING: JsonSchema = {
   ...closedObject({
-    ...FINDING_DESCRIPTION, outcome: { const: 'filed' }, filedTicketId: NULLABLE_TEXT, relayRequestId: NULLABLE_TEXT
+    ...FINDING_DESCRIPTION, outcome: { const: 'filed' }, filedTicketId: NULLABLE_TEXT, hatchRequestId: NULLABLE_TEXT
   }),
   anyOf: [
     { properties: { filedTicketId: TEXT }, required: ['filedTicketId'] },
-    { properties: { relayRequestId: TEXT }, required: ['relayRequestId'] },
+    { properties: { hatchRequestId: TEXT }, required: ['hatchRequestId'] },
   ],
 };
 
-/** There is no `file-ticket` outcome: a reviewer files its own out-of-scope findings through the relay. */
+/** There is no `file-ticket` outcome: a reviewer files its own out-of-scope findings through the Hatch. */
 export const REVIEWER_REPORT_SCHEMA: JsonSchema = {
   $schema: DRAFT_07,
   title:   'reviewer report',
@@ -114,10 +114,10 @@ const ONBOARDER_REVIEW: JsonSchema = { oneOf: [{ type: 'null' }, closedObject({ 
 
 /** Each optimisation `advise` makes is a draft low ticket the onboarder filed through its Hatch, named as a reviewer names a filed finding. */
 const FILED_OPTIMISATION: JsonSchema = {
-  ...closedObject({ summary: TEXT, filedTicketId: NULLABLE_TEXT, relayRequestId: NULLABLE_TEXT }),
+  ...closedObject({ summary: TEXT, filedTicketId: NULLABLE_TEXT, hatchRequestId: NULLABLE_TEXT }),
   anyOf: [
     { properties: { filedTicketId: TEXT }, required: ['filedTicketId'] },
-    { properties: { relayRequestId: TEXT }, required: ['relayRequestId'] },
+    { properties: { hatchRequestId: TEXT }, required: ['hatchRequestId'] },
   ],
 };
 

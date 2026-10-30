@@ -37,7 +37,7 @@ guard spec holds is one line naming the guard: the spec is the full statement.
 ### Imports
 
 ```
-src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → tracker → lifecycle → control → runner)  →  features (cli/, bridge/)
+src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → tracker → lifecycle → control → Overseer)  →  features (cli/, bridge/)
 ```
 
 - `src/ImportDirection.spec.ts` holds the direction, cycles, barrels, feature and sibling-command isolation, the bin
@@ -73,7 +73,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   record); an adapter util words the records, the collector gathers them, the writer stores
   `.agent-progress/log.jsonl`.
 - Every name the product goes by on a machine (program, data, worktrees and monitor folders, skills, storage and
-  environment prefixes, login item, runner port) is `PRODUCT_NAMES` in `src/shared/constants/ProductNames.ts`; every
+  environment prefixes, login item, Overseer port) is `PRODUCT_NAMES` in `src/shared/constants/ProductNames.ts`; every
   folder, marker, key and removal derives from it. The build is `agent-progress-v2` beside the released program, and
   `init` and `update` refuse `older-program-present` where the released program's data folder exists.
 
@@ -92,7 +92,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 ### Runtime
 
 - `eslint.config.js` (`CONFINED_REACHES`, the clock selectors) holds `process.env` to `src/shared/Environment.ts`,
-  `process.exit` to `agent-progress.ts` and `agent-host.ts` (Deviations), `process.cwd`, `homedir()` and the clock
+  `process.exit` to `agent-progress.ts` and `watcher.ts` (Deviations), `process.cwd`, `homedir()` and the clock
   in `src/` and `cli/` to `cli/CommandContext.ts`, and `process.chdir` to nowhere. The environment is read through
   documented getters; specs set it in a child process (one exception, Deviations). The product's own variables are
   named from `PRODUCT_NAMES.ENVIRONMENT_PREFIX`, never as literals.
@@ -181,23 +181,23 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 | Rule | Done instead | Why |
 | --- | --- | --- |
 | Ingestion reads, validates and maps in separate steps. | The ticket parse is one line-oriented pass. | A second walk would risk the unowned lines kept byte for byte. |
-| No work at module load. | `agent-progress.ts` runs the command on import, `agent-host.ts` runs its host, the preload `src/testing/TestRunReport.ts` registers its report, the preload `src/testing/ClaudeLaunchGuard.ts` installs its `claude` trap, the preload `cli/testing/OtherProductNamesPreload.ts` registers its name swap, the fake agent `src/testing/fake-agent/FakeAgentChild.ts` plays its scenario, `bridge/Main.tsx` mounts the Bridge, `bridge/testing/RunDomSpecs.ts` runs the DOM specs, the preload `bridge/testing/HappyDom.ts` registers the DOM. | They are entry points. |
+| No work at module load. | `agent-progress.ts` runs the command on import, `watcher.ts` runs its Watcher, the preload `src/testing/TestRunReport.ts` registers its report, the preload `src/testing/ClaudeLaunchGuard.ts` installs its `claude` trap, the preload `cli/testing/OtherProductNamesPreload.ts` registers its name swap, the fake agent `src/testing/fake-agent/FakeAgentChild.ts` plays its scenario, `bridge/Main.tsx` mounts the Bridge, `bridge/testing/RunDomSpecs.ts` runs the DOM specs, the preload `bridge/testing/HappyDom.ts` registers the DOM. | They are entry points. |
 | Specs never set the environment in-process. | `src/shared/Environment.spec.ts` does, once; the preload `src/testing/ClaudeLaunchGuard.ts` prepends its trap to `PATH`. | It tests the getters themselves; the trap must lead every spawn's `PATH`. |
 | A frozen table comes from the previous implementation. | `cli/FrozenInstalledSurface.json` is taken from the installed files. | No previous implementation holds them. |
 | Only the current stored format is read. | A ticket stored with `type` `change` or `feature` reads as `ticket` everywhere, and every write keeps its stored `type` line. | Stored tickets are never rewritten; both are older names for `ticket`. |
 | Only the current stored format is read. | A stored `dispatcherState` `finished` reads as `stopped`. | Stored files are never rewritten; reading it as stopped fails closed. |
-| Only the current stored format is read. | A host's `host-<instance>.json` and event log are read in that host's own `EVENT_LOG_FORMAT_VERSION` until it ends, one below `HOST_PROTOCOL_OLDEST_SUPPORTED` as a watch-only legacy host (`src/services/runner/LegacyHostReader.spec.ts`, a fixture per version). | A runner update must never kill or strand a running agent. |
-| Only `agent-progress.ts` exits. | `agent-host.ts`, the host binary, exits with the code `runHost` in `src/lib/agent-host/` returns, and imports nothing else, held by `src/ImportDirection.spec.ts` and `src/lib/agent-host/HostBundleClosure.spec.ts`. | It is a second entry point: the runner bundles and spawns it, detached, once per job instance. |
-| Every write of a file a reader may hold open goes through the atomic-file package. | A host appends its `events-<instance>.ndjson` in place, fsynced before its `end` is written. | An append-only log is never replaced; a reader ignores an unterminated last line. |
-| Every write of a file a reader may hold open goes through the atomic-file package. | The runner appends `runner.log` in place, one line per write. | A log someone tails is never replaced; an atomic rewrite would break the tail. |
+| Only the current stored format is read. | A Watcher's `watcher-<instance>.json` and event log are read in that Watcher's own `EVENT_LOG_FORMAT_VERSION` until it ends, one below `WATCHER_PROTOCOL_OLDEST_SUPPORTED` as a watch-only legacy Watcher (`src/services/overseer/LegacyWatcherReader.spec.ts`, a fixture per version). | An Overseer update must never kill or strand a running agent. |
+| Only `agent-progress.ts` exits. | `watcher.ts`, the Watcher binary, exits with the code `runWatcher` in `src/lib/watcher/` returns, and imports nothing else, held by `src/ImportDirection.spec.ts` and `src/lib/watcher/WatcherBundleClosure.spec.ts`. | It is a second entry point: the Overseer bundles and spawns it, detached, once per job instance. |
+| Every write of a file a reader may hold open goes through the atomic-file package. | A Watcher appends its `events-<instance>.ndjson` in place, fsynced before its `end` is written. | An append-only log is never replaced; a reader ignores an unterminated last line. |
+| Every write of a file a reader may hold open goes through the atomic-file package. | The Overseer appends `overseer.log` in place, one line per write. | A log someone tails is never replaced; an atomic rewrite would break the tail. |
 | A `src/lib/` package leaves a refusal as a verdict. | The tracker model's `Board` throws `BoardRefusal`. | A domain class throws a typed domain error. |
-| A feature never reaches another. | `cli/runner/routes/OverseerRoutes.ts` imports `bridge/index.html`, the one entry of `FEATURE_REACHES_BY_PATH` in `src/ImportDirection.spec.ts`. | Bundled, never imported: Bun bundles the HTML import. |
+| A feature never reaches another. | `cli/overseer/routes/OverseerRoutes.ts` imports `bridge/index.html`, the one entry of `FEATURE_REACHES_BY_PATH` in `src/ImportDirection.spec.ts`. | Bundled, never imported: Bun bundles the HTML import. |
 | One reference per fact. | `resources/templates/Reference.md`, installed as `.agent-progress/reference.md`, copies three `docs/cli.md` sections verbatim (ticket format, ticket moves, exit codes); a change to either changes both, held by `cli/ReferenceCopies.spec.ts`. | Agents elsewhere cannot read `docs/cli.md`. |
 | A failure exits non-zero. | `hook session-start` exits 0 whatever happens, printing nothing on failure and skipping the install check. | A failing SessionStart hook would reach every session in the repository. |
 | A failure exits non-zero. | `hook bash-domains` exits 0 whatever happens, skipping the install check and answering deny through its JSON on any failure. | A hook that errors lets the call through; the deny is what keeps the network inside the ticket's line. |
-| A clock decides nothing. | No launch, resume or orchestrator delivery happens before the usage marker's `resetsAt`, and the runner wakes a DrivePass at it (`src/lib/tracker-model/LifecyclePolicy.ts`, `src/services/runner/DrivePass.ts`). | The vendor names its reset as a time, and only a clock can honour it. |
-| A failure exits non-zero. | A verb relayed under a job whose reply does not come within `RELAY_REPLY_TRIES` × `RELAY_REPLY_INTERVAL_MILLISECONDS` prints `queued <requestId>` and exits 0. | The request is written; the runner applies it later, and the id is what a filed finding cites. |
-| A clock decides nothing. | A running build or review whose event log stands still for `QUIET_JOB_SWEEPS` runner sweeps opens `quiet-job` (`src/services/runner/IncidentRouter.ts`). | A hung session makes no calls, so no count of its own bounds it; sweeps come at an interval, and the incident only asks. |
+| A clock decides nothing. | No launch, resume or orchestrator delivery happens before the usage marker's `resetsAt`, and the Overseer wakes a DrivePass at it (`src/lib/tracker-model/Playbook.ts`, `src/services/overseer/DrivePass.ts`). | The vendor names its reset as a time, and only a clock can honour it. |
+| A failure exits non-zero. | A verb relayed under a job whose reply does not come within `HATCH_REPLY_TRIES` × `HATCH_REPLY_INTERVAL_MILLISECONDS` prints `queued <requestId>` and exits 0. | The request is written; the Overseer applies it later, and the id is what a filed finding cites. |
+| A clock decides nothing. | A running build or review whose event log stands still for `QUIET_JOB_SWEEPS` Overseer sweeps opens `quiet-job` (`src/services/overseer/IncidentRouter.ts`). | A hung session makes no calls, so no count of its own bounds it; sweeps come at an interval, and the incident only asks. |
 | A failure exits non-zero. | A monitor registry (`~/.agent-progress-monitor/projects.json`) that cannot be read or written, a newer version or a malformed one is reported on stderr and the command keeps its exit code. | The command's own work is done; the registry is only a pointer for a monitor. |
 
 ## Local rules
@@ -210,8 +210,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - Help is one screen, no per-command help; to stdout when asked, to stderr after an unknown command.
 - Every command but `init`, `update`, `help`, `status` and `version` checks the install version first
   (`cli/Main.spec.ts`); `hook session-start` and `hook bash-domains` skip it; `run status` and `run stop` skip
-  it, so a runner whose install changed can still be inspected and stopped.
-- `src/TestFileConventions.spec.ts` holds that no spec starts a runner without `--port 0`.
+  it, so an Overseer whose install changed can still be inspected and stopped.
+- `src/TestFileConventions.spec.ts` holds that no spec starts an Overseer without `--port 0`.
 - A new command is an entry in `cli/CommandTable.ts`, a block in `cli/HelpText.ts` and a folder in its set, held by
   `cli/CommandTable.spec.ts` and `cli/HelpText.spec.ts`.
 - Every mutating command writes through `writeTracker` in `src/services/tracker/TrackerPipeline.ts` (lock, read into
@@ -233,7 +233,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   lifecycle: its progress is a Board roll-up over its tickets, and it never touches dispatch, claiming, concurrency or
   release, which stay `group`'s.
 - A row's `history` holds only what the tool watched.
-- A runner build job's `## Handoff` is code's: written from the builder's verified report only after its gate passes,
+- An Overseer build job's `## Handoff` is code's: written from the builder's verified report only after its gate passes,
   replacing the section the filing template left; a builder never edits its ticket file (`docs/cli.md`, "A build job").
 - A review row belongs to its ticket by `reviewOf` alone. The Bridge reads which rows are bars from the Board facts,
   and a bar's name only to order a ticket's bars.
@@ -241,7 +241,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 ### The Bridge
 
 - The Bridge is the board's one page: the React live UI the Overseer serves at `GET /` from `bridge/index.html`, an
-  HTML import in `cli/runner/routes/OverseerRoutes.ts` that `src/services/runner/RunnerServer.ts` builds with
+  HTML import in `cli/overseer/routes/OverseerRoutes.ts` that `src/services/overseer/OverseerServer.ts` builds with
   `Bun.build` for production and serves through `fetch`, never Bun's HTML route, which takes no headers: every file
   carries the page CSP's `frame-ancestors`. It reads the Overseer's API and nothing else, and keeps no copy of the
   rules: what it shows arrives as facts. Nothing renders a static page: `open` opens the live Overseer's URL or is
@@ -270,19 +270,19 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   `ControlCommand`, disabled while the event stream is down or launches are held, its refusal shown verbatim.
 - `eslint.config.js` holds the Bridge's browser storage to `bridge/preferences/PreferenceStore.ts`, keys under
   `<STORAGE_PREFIX>:<trackerId>` and the theme under `<STORAGE_PREFIX>:theme`.
-- `bridge/HeadlessBridge.spec.ts` loads the Bridge from a real runner in headless Chrome and fails on a console error,
+- `bridge/HeadlessBridge.spec.ts` loads the Bridge from a real Overseer in headless Chrome and fails on a console error,
   an exception or a failed request; it skips through `src/testing/ToolGuard.ts` without Chrome.
 
 ### Skills
 
 - Two skills, split by audience. `skills/agent-po/` is PO intake: it loads in any session asked to file a ticket and
-  as a runner product-owner job's first line, holds the whole filing procedure, files every ticket as a draft with a
-  numbered Acceptance and a `## Brief`, and readies drafts only on User's yes in User's own session (under the runner
+  as an Overseer product-owner job's first line, holds the whole filing procedure, files every ticket as a draft with a
+  numbered Acceptance and a `## Brief`, and readies drafts only on User's yes in User's own session (under the Overseer
   it closes intake instead); it loads no other skill. `skills/agent-progress-orchestrate/` is the interactive wrapper
   around a running Overseer (`run`): it reads its state, starts it on User's go, turns User's intent into verbs,
   loads `agent-po` for intake and may wait on `await`; it never drives the lifecycle or handles an incident, which
   are the Overseer's and its Assistant's.
-- No agent preloads a skill, and nothing installs a brief or worker definition: a runner's roles read their runtime
+- No agent preloads a skill, and nothing installs a brief or worker definition: an Overseer's roles read their runtime
   prompts under `resources/prompts/`, and the Assistant its installed `.agent-progress/assistant-brief.md`.
 - No skill file lists commands: `agent-progress help` is the reference. Both skills name it and
   `.agent-progress/reference.md`, installed from `resources/templates/Reference.md`, which holds only what help does
@@ -291,7 +291,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   a tracked repository, or files beside them; naming a skill the host may offer, such as `grill-me`, is no citation.
 - `skills/agent-progress-orchestrate/` repeats nothing from `skills/agent-po/`, writes rules as instructions,
   and never restates what the Overseer decides. Call budgets and the rework threshold are `DISPATCH_PROTOCOL`
-  (`src/shared/constants/DispatchProtocol.ts`), stated by the runner's job prompts and never by an installed file.
+  (`src/shared/constants/DispatchProtocol.ts`), stated by the Overseer's job prompts and never by an installed file.
   Neither skill nor the installed guidance names a by-hand lifecycle verb but `ticket deliver --by-hand`, held by
   `cli/HelpText.spec.ts`.
 - `init` and `update` copy both into the tracked repository's git-ignored `.claude/skills/`, never globally, and
@@ -302,19 +302,19 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 
 ```
 agent-progress.ts    the bin shim: runs the command line and exits with its number
-agent-host.ts        the host shim: runs one job instance's host from src/lib/agent-host/ and exits with its number
+watcher.ts        the Watcher shim: runs one job instance's Watcher from src/lib/watcher/ and exits with its number
 cli/                 feature: the command surface, its commands grouped into sets
 bridge/              feature: the Bridge, the React live UI the Overseer serves, one DOM-only project: its entry,
                      the shell under bridge/shell/, the API clients under bridge/api/ and the stylesheets
 resources/           files read at runtime: the markdown init, update and ticket add fill
 src/lib/             package-grade building blocks, one folder each
 src/adapters/        the boundary: every stored format read, written and mapped, and the wording
-src/services/        the tracker and render services, and the Overseer's: runner/ (`run`, its DrivePass and its
+src/services/        the tracker and render services, and the Overseer's: overseer/ (`run`, its DrivePass and its
                      API), lifecycle/ (gates, verification, merges, landings) and control/ (the control contract)
 src/shared/          app-specific code several parts use
 src/testing/         test-only helpers several parts use
 skills/              the two skills, one folder each, named after the skill: agent-po/, PO intake, which a
-                     session asked to file a ticket and a runner's product-owner job load, and
+                     session asked to file a ticket and an Overseer's product-owner job load, and
                      agent-progress-orchestrate/, the interactive wrapper around a running Overseer
 docs/                the CLI reference, development notes, the backlog, the migration plan, README images
 .readme-graphics/    the scripts and demo board that retake the README images; its build/ is git-ignored

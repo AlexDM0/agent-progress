@@ -70,7 +70,7 @@ test('a file with unknown keys at the top level, on rows and on phases is writte
 });
 
 // The retired Workflow dispatcher stored its state and run id here; a board it ran on keeps both keys as the owner's, unread and never rewritten.
-test('a stored dispatcherState and dispatcherRunId are unknown keys: kept in place byte for byte, also across a runner state change', () => {
+test('a stored dispatcherState and dispatcherRunId are unknown keys: kept in place byte for byte, also across an Overseer state change', () => {
   const progress = emptyProgress();
   const text     = JsonTextUtil.storedFileTextOf({
     version:         2,
@@ -79,7 +79,7 @@ test('a stored dispatcherState and dispatcherRunId are unknown keys: kept in pla
     startedAt:       progress.startedAt,
     view:            progress.view,
     nextTaskId:      progress.nextTaskId,
-    runnerState:     'running',
+    overseerState:   'running',
     dispatcherState: 'finished',
     dispatcherRunId: 'wf_example-run',
     tasks:           [],
@@ -87,7 +87,7 @@ test('a stored dispatcherState and dispatcherRunId are unknown keys: kept in pla
   const mapped = ProgressFileMappingUtil.progressOf(storedDocumentOf(text));
   expect(writtenTextOf(ProgressFileMappingUtil.storedDocumentOf(mapped))).toBe(text);
 
-  mapped.runnerState = 'paused';
+  mapped.overseerState = 'paused';
   expect(writtenTextOf(ProgressFileMappingUtil.storedDocumentOf(mapped))).toBe(text.replace('"running"', '"paused"'));
 });
 

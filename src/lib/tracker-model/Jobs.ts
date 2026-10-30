@@ -1,6 +1,6 @@
 /**
- * The runner's jobs on the board: their launch, their moves through the one legality table, their interruptions, resumes, end and
- * reopening, and the cursor, answered requests and merge slot each carries. Only a launch, an interruption, a resume, an end and a reopening
+ * The Overseer's jobs on the board: their launch, their moves through the one legality table, their interruptions, resumes, end and
+ * reopening, and the cursor, answered requests and Airlock each carries. Only a launch, an interruption, a resume, an end and a reopening
  * are logged.
  */
 import type { JobChanged, Logged } from './@types/BoardChanges.ts';
@@ -15,8 +15,8 @@ import type {
   JobOutcome,
   JobState,
   JobStopMode,
-  MergeSlot,
-  RunnerStopReason
+  Airlock,
+  OverseerStopReason
 }                                   from './@types/Job.ts';
 import type { LogRecord }                                           from './@types/LogRecord.ts';
 import type { BoardRecords }                                        from './BoardRecords.ts';
@@ -24,7 +24,7 @@ import { BoardRefusal }                                             from './Boar
 import { LEGAL_SOURCE_STATES_FOR_JOB_MOVE, PROCESSLESS_JOB_STATES } from './constants/JobMoveLegality.ts';
 import {
   CRASH_INTERRUPTION_CAUSES,
-  FIRST_HOST_INSTANCE,
+  FIRST_WATCHER_INSTANCE,
   FIRST_JOB_NUMBER,
   JOB_ID_PREFIX
 }                                   from './constants/JobStates.ts';
@@ -69,8 +69,8 @@ export class Jobs {
       attempt:            launch.attempt,
       target:             launch.target,
       state:              'launching',
-      hostInstance:       FIRST_HOST_INSTANCE,
-      eventCursor:        { instance: FIRST_HOST_INSTANCE, sequence: FIRST_EVENT_SEQUENCE },
+      watcherInstance:    FIRST_WATCHER_INSTANCE,
+      eventCursor:        { instance: FIRST_WATCHER_INSTANCE, sequence: FIRST_EVENT_SEQUENCE },
       answeredRequestIds: [],
       crashResumes:       0,
       ...(launch.intake === undefined ? {} : { intake: { ...launch.intake } }),
@@ -91,7 +91,7 @@ export class Jobs {
     return { job, logged: [logged] };
   }
 
-  /** A move into `running` from a state with no process is a resume: it spawns the next host instance and is logged. */
+  /** A move into `running` from a state with no process is a resume: it spawns the next Watcher instance and is logged. */
   moveJob(jobId: string, targetState: SteppedJobState, at: string): JobChanged {
     const job = this.requireLiveJob(jobId);
     this.refuseIllegalMove(job, targetState);
@@ -99,10 +99,10 @@ export class Jobs {
     job.state     = targetState;
     if (!resumes) return { job, logged: [] };
 
-    const cause      = job.interruption ?? 'host-lost';
-    job.hostInstance += 1;
+    const cause      = job.interruption ?? 'watcher-lost';
+    job.watcherInstance += 1;
     if (isCrash(cause)) job.crashResumes += 1;
-    return { job, logged: [this.records.logger.log({ kind: 'job-resumed', jobId, fields: { hostInstance: job.hostInstance, cause } }, at)] };
+    return { job, logged: [this.records.logger.log({ kind: 'job-resumed', jobId, fields: { watcherInstance: job.watcherInstance, cause } }, at)] };
   }
 
   interruptJob(jobId: string, cause: InterruptionCause, at: string): JobChanged {
@@ -110,7 +110,7 @@ export class Jobs {
     this.refuseIllegalMove(job, 'interrupted');
     job.state        = 'interrupted';
     job.interruption = cause;
-    return { job, logged: [this.records.logger.log({ kind: 'job-interrupted', jobId, fields: { cause, hostInstance: job.hostInstance } }, at)] };
+    return { job, logged: [this.records.logger.log({ kind: 'job-interrupted', jobId, fields: { cause, watcherInstance: job.watcherInstance } }, at)] };
   }
 
   /** The only way a job finishes: it leaves the board in this hold and lives on in the log, and every later move of it is refused. */
@@ -146,7 +146,7 @@ export class Jobs {
     return job;
   }
 
-  /** Kept on the job so the runner sends its frames from the board; a later request replaces an earlier one. */
+  /** Kept on the job so the Overseer sends its frames from the board; a later request replaces an earlier one. */
   recordStopRequest(jobId: string, mode: JobStopMode, at: string): JobChanged {
     const job       = this.requireLiveJob(jobId);
     job.stopRequest = mode;
@@ -164,17 +164,17 @@ export class Jobs {
   }
 
   /**
-   * Puts an ended job back on the board from its log records, `running` in its next host instance, so the runner launches it resuming the
+   * Puts an ended job back on the board from its log records, `running` in its next Watcher instance, so the Overseer launches it resuming the
    * same session; the caller decides which ended jobs may come back.
    */
   reopenEndedJob(jobId: string, reopening: { text: string; offeredTicketIds: readonly string[]; intake?: JobIntake }, at: string): JobChanged {
     const records  = this.logRecordsSoFar().filter((record) => 'jobId' in record && record.jobId === jobId);
     const launched = records.find((record) => record.kind === 'job-launched');
     if (launched?.kind !== 'job-launched' || this.jobById(jobId) !== undefined) return this.recordMessage(jobId, reopening.text, at);
-    const lastHostInstance = records.reduce((highest, record) => (
-      (record.kind === 'job-resumed' || record.kind === 'job-interrupted' || record.kind === 'job-reopened') ? Math.max(highest, record.fields.hostInstance) : highest
-    ), FIRST_HOST_INSTANCE);
-    const hostInstance = lastHostInstance + 1;
+    const lastWatcherInstance = records.reduce((highest, record) => (
+      (record.kind === 'job-resumed' || record.kind === 'job-interrupted' || record.kind === 'job-reopened') ? Math.max(highest, record.fields.watcherInstance) : highest
+    ), FIRST_WATCHER_INSTANCE);
+    const watcherInstance = lastWatcherInstance + 1;
     const job: Job = {
       id:                 jobId,
       kind:               launched.fields.kind,
@@ -184,14 +184,14 @@ export class Jobs {
       attempt:            launched.fields.attempt,
       target:             launched.fields.target,
       state:              'running',
-      hostInstance,
-      eventCursor:        { instance: hostInstance, sequence: FIRST_EVENT_SEQUENCE },
+      watcherInstance,
+      eventCursor:        { instance: watcherInstance, sequence: FIRST_EVENT_SEQUENCE },
       answeredRequestIds: [],
       crashResumes:       0,
       ...(reopening.intake === undefined ? {} : { intake: { ...reopening.intake } }),
     };
     this.liveJobRecords().push(job);
-    const fields = { hostInstance, text: reopening.text, offeredTicketIds: [...reopening.offeredTicketIds] };
+    const fields = { watcherInstance, text: reopening.text, offeredTicketIds: [...reopening.offeredTicketIds] };
     return { job, logged: [this.records.logger.log({ kind: 'job-reopened', jobId, fields }, at)] };
   }
 
@@ -214,7 +214,7 @@ export class Jobs {
   }
 
   /** A `null` slot frees the one the job held. */
-  setJobSlot(jobId: string, slot: MergeSlot | null): Readonly<Job> {
+  setJobSlot(jobId: string, slot: Airlock | null): Readonly<Job> {
     const job = this.requireLiveJob(jobId);
     if (slot === null) delete job.slot;
     else job.slot = {
@@ -223,32 +223,32 @@ export class Jobs {
     return job;
   }
 
-  recordRunnerStarted(versions: { codeVersion: string; installVersion: number }, at: string): Logged {
+  recordOverseerStarted(versions: { codeVersion: string; installVersion: number }, at: string): Logged {
     this.records.progress.overseerFirstStartedAt ??= at;
-    return { logged: [this.records.logger.log({ kind: 'runner-started', fields: { codeVersion: versions.codeVersion, installVersion: versions.installVersion } }, at)] };
+    return { logged: [this.records.logger.log({ kind: 'overseer-started', fields: { codeVersion: versions.codeVersion, installVersion: versions.installVersion } }, at)] };
   }
 
-  recordRunnerStopped(reason: RunnerStopReason, at: string): Logged {
-    return { logged: [this.records.logger.log({ kind: 'runner-stopped', fields: { reason } }, at)] };
+  recordOverseerStopped(reason: OverseerStopReason, at: string): Logged {
+    return { logged: [this.records.logger.log({ kind: 'overseer-stopped', fields: { reason } }, at)] };
   }
 
-  recordRunnerHandoverFailed(failure: { successorCodeVersion: string; step: string; error: string }, at: string): Logged {
+  recordBatonPassFailed(failure: { successorCodeVersion: string; step: string; error: string }, at: string): Logged {
     const fields = { successorCodeVersion: failure.successorCodeVersion, step: failure.step, error: failure.error };
-    return { logged: [this.records.logger.log({ kind: 'runner-handover-failed', fields }, at)] };
+    return { logged: [this.records.logger.log({ kind: 'baton-pass-failed', fields }, at)] };
   }
 
   recordUsageLimitHit(jobId: string, limit: { window: string; resetsAt: string }, at: string): Logged {
     return { logged: [this.records.logger.log({ kind: 'usage-limit-hit', jobId, fields: { window: limit.window, resetsAt: limit.resetsAt } }, at)] };
   }
 
-  recordRelayApplied(jobId: string, applied: { requestId: string; commandKind: string; outcome: string }, at: string): Logged {
+  recordHatchApplied(jobId: string, applied: { requestId: string; commandKind: string; outcome: string }, at: string): Logged {
     const fields = { requestId: applied.requestId, commandKind: applied.commandKind, outcome: applied.outcome };
-    return { logged: [this.records.logger.log({ kind: 'relay-applied', jobId, fields }, at)] };
+    return { logged: [this.records.logger.log({ kind: 'hatch-applied', jobId, fields }, at)] };
   }
 
   /** Read from the stored log and this hold's records alike, so a request answered in an earlier pass or earlier in this one is never applied again. */
-  relayRequestIsApplied(requestId: string): boolean {
-    const isTheRequest = (record: LogRecord): boolean => record.kind === 'relay-applied' && record.fields.requestId === requestId;
+  hatchRequestIsApplied(requestId: string): boolean {
+    const isTheRequest = (record: LogRecord): boolean => record.kind === 'hatch-applied' && record.fields.requestId === requestId;
     return this.records.storedLogRecords.some(isTheRequest) || this.records.loggedRecords.some(isTheRequest);
   }
 

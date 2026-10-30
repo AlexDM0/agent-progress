@@ -31,11 +31,11 @@ export interface MonitorRegistrationRequest {
   /** The verb that wrote the page, such as `ticket hold`. */
   command:              string;
   now:                  () => Date;
-  /** The live runner, written at its start; `removed` at its stop; absent, a stored runner key is kept as it was. */
-  runner?:              RunnerRegistration | 'removed';
+  /** The live Overseer, written at its start; `removed` at its stop; absent, a stored Overseer key is kept as it was. */
+  overseer?:            OverseerRegistration | 'removed';
 }
 
-export interface RunnerRegistration {
+export interface OverseerRegistration {
   url:       string;
   processId: number;
   startedAt: string;
@@ -52,7 +52,7 @@ export type MonitorRegistrationOutcome =
 const REGISTRY_SHAPE: RegistryShape = { supportedVersion: MONITOR_REGISTRY_FILES.SUPPORTED_VERSION, entriesKey: MONITOR_REGISTRY_FILES.ENTRIES_KEY };
 
 const REGISTERED_AT_KEY = 'registeredAt';
-const RUNNER_KEY        = 'runner';
+const OVERSEER_KEY        = 'overseer';
 
 /** A path that does not exist is resolved through its nearest existing ancestor, so `/tmp/missing` still reads as under `/private/tmp`. */
 function canonicalPathOf(path: string): string {
@@ -93,7 +93,7 @@ interface Registration {
   locationFields:   RegistryEntry;
   changedAt:        string;
   command:          string;
-  runner?:          RunnerRegistration | 'removed';
+  overseer?:        OverseerRegistration | 'removed';
 }
 
 /** Keeps the stored entry's keys, unknown ones included, in order, and its first `registeredAt`. */
@@ -106,8 +106,8 @@ function updatedEntry(storedEntry: RegistryEntry | undefined, registration: Regi
     lastChangedAt:       registration.changedAt,
     lastCommand:         registration.command,
   };
-  if (registration.runner === 'removed') delete entry[RUNNER_KEY];
-  else if (registration.runner !== undefined) entry[RUNNER_KEY] = { ...registration.runner };
+  if (registration.overseer === 'removed') delete entry[OVERSEER_KEY];
+  else if (registration.overseer !== undefined) entry[OVERSEER_KEY] = { ...registration.overseer };
   return entry;
 }
 
@@ -127,7 +127,7 @@ function registerUnderTheLock(registration: Registration): MonitorRegistrationOu
 
 export async function registerWithTheMonitor(request: MonitorRegistrationRequest): Promise<MonitorRegistrationOutcome> {
   const {
-    workspace, homeDirectory, temporaryDirectories, command, now, runner
+    workspace, homeDirectory, temporaryDirectories, command, now, overseer
   } = request;
   if (trackerLiesInATemporaryFolder(workspace.rootDirectory, temporaryDirectories)) return { verdict: 'not-registered-temporary-tracker' };
   const progressReading = new ProgressFileIngestion(workspace.progressFilePath).read();
@@ -148,7 +148,7 @@ export async function registerWithTheMonitor(request: MonitorRegistrationRequest
     },
     changedAt: LocalTimeUtil.formatLocalIso(now()),
     command,
-    ...(runner === undefined ? {} : { runner }),
+    ...(overseer === undefined ? {} : { overseer }),
   };
   try {
     // Made before the lock, which would otherwise read a home it cannot write as a lock held until its retries ran out.

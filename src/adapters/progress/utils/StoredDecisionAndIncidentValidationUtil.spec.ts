@@ -41,7 +41,7 @@ const WELL_FORMED_INCIDENT = {
 test('a well-formed decision and incident have no problem, a code-opened decision and a delivered incident included', () => {
   expect(decisionProblem(WELL_FORMED_DECISION, 0)).toBeNull();
   expect(decisionProblem({
-    ...WELL_FORMED_DECISION, kind: 'outage', jobId: null, askedBy: 'runner', requestId: null,
+    ...WELL_FORMED_DECISION, kind: 'outage', jobId: null, askedBy: 'overseer', requestId: null,
   }, 0)).toBeNull();
   expect(incidentProblem(WELL_FORMED_INCIDENT, 0)).toBeNull();
   expect(incidentProblem({ ...WELL_FORMED_INCIDENT, deliveredInTurn: { jobId: 'J4', chatSequence: 1 } }, 0)).toBeNull();

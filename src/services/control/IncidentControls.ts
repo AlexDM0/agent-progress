@@ -11,13 +11,13 @@ import type { ControlCommand }                from '../../shared/@types/ControlC
 import type { ControlCommandOf as CommandOf } from '../../shared/@types/ControlCommand.ts';
 import { OperationRefusal }                   from '../../shared/OperationRefusal.ts';
 import type { TrackerChange }                 from '../tracker/TrackerPipeline.ts';
+import { Bouncer }                            from './Bouncer.ts';
 import { ticketIdOfReference }                from './ControlTicketLookup.ts';
-import { RoleCommandPolicy }                  from './RoleCommandPolicy.ts';
 
-/** Refuses a move the named incident does not allow, as the relay refuses it; the board refuses an unknown or closed incident. */
+/** Refuses a move the named incident does not allow, as the Hatch refuses it; the board refuses an unknown or closed incident. */
 export function requireIncidentAllows(change: TrackerChange, incidentId: string, command: ControlCommand): void {
   const incident = change.board.requireOpenIncident(incidentId);
-  const reason = RoleCommandPolicy.incidentMoveVerdictOf(incident, command);
+  const reason = Bouncer.incidentMoveVerdictOf(incident, command);
   if (reason !== null) throw new OperationRefusal('refused', { kind: 'role-command-refused', reason, commandKind: command.kind });
 }
 
@@ -44,7 +44,7 @@ export function incidentForMove(
     if (!subject.concerns(named)) throw new OperationRefusal('refused', { kind: 'role-command-refused', reason: 'incident-move-not-allowed', commandKind: command.kind });
     return named;
   }
-  const allowing = change.board.incidents().filter((incident) => subject.concerns(incident) && RoleCommandPolicy.incidentMoveVerdictOf(incident, command) === null);
+  const allowing = change.board.incidents().filter((incident) => subject.concerns(incident) && Bouncer.incidentMoveVerdictOf(incident, command) === null);
   if (allowing.length > 1) {
     throw new BoardRefusal({
       reason: 'several-open-incidents', subject: subject.name, move: command.kind, incidentIds: allowing.map((incident) => incident.id)

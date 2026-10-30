@@ -104,7 +104,7 @@ const SENTENCE_FOR_RECORD: readonly (readonly [LogRecordContent, string])[] = [
     'Chart range: -2h → now',
   ],
   [{ kind: 'concurrency-limit-set', fields: { limit: 3 } }, 'Concurrency limit set to 3'],
-  [{ kind: 'runner-set', fields: { state: 'paused' } }, 'Runner set to paused'],
+  [{ kind: 'overseer-set', fields: { state: 'paused' } }, 'Overseer set to paused'],
   [{ kind: 'dispatcher-set', fields: { state: 'running', runId: 'example-run' } }, 'Dispatcher set to running (run example-run)'],
   [{ kind: 'dispatcher-set', fields: { state: 'finished', runId: null } }, 'Dispatcher set to finished'],
   [{ kind: 'check-command-set', fields: { command: 'bun run example-checks' } }, 'Check command set to bun run example-checks'],
@@ -135,11 +135,11 @@ test('every kind of record reads as the sentence the log held before there were 
 });
 
 // No earlier binary logged these, so their wording is this suite's own; a launch is claimed by its tickets, every other job record by none.
-describe('the runner and its jobs', () => {
+describe('the Overseer and its jobs', () => {
   const SENTENCE_AND_TICKET_IDS_FOR_RECORD: readonly (readonly [LogRecordContent, string, readonly string[]])[] = [
-    [{ kind: 'runner-started', fields: { codeVersion: 'a1b2c3d', installVersion: 17 } }, 'Runner started on code a1b2c3d, install version 17', []],
-    [{ kind: 'runner-stopped', fields: { reason: 'stopped' } }, 'Runner stopped', []],
-    [{ kind: 'runner-stopped', fields: { reason: 'handed-over' } }, 'Runner handed the board over to its successor', []],
+    [{ kind: 'overseer-started', fields: { codeVersion: 'a1b2c3d', installVersion: 17 } }, 'Overseer started on code a1b2c3d, install version 17', []],
+    [{ kind: 'overseer-stopped', fields: { reason: 'stopped' } }, 'Overseer stopped', []],
+    [{ kind: 'overseer-stopped', fields: { reason: 'handed-over' } }, 'Overseer handed the board over to its successor', []],
     [
       {
         kind:   'job-launched',
@@ -172,8 +172,8 @@ describe('the runner and its jobs', () => {
       'Job J5 launched: merge-agent (resolver) under job J4, attempt 1',
       [],
     ],
-    [{ kind: 'job-interrupted', jobId: 'J3', fields: { cause: 'reboot', hostInstance: 1 } }, 'Job J3 interrupted (reboot) in host instance 1', []],
-    [{ kind: 'job-resumed', jobId: 'J3', fields: { hostInstance: 2, cause: 'reboot' } }, 'Job J3 resumed in host instance 2 after reboot', []],
+    [{ kind: 'job-interrupted', jobId: 'J3', fields: { cause: 'reboot', watcherInstance: 1 } }, 'Job J3 interrupted (reboot) in Watcher instance 1', []],
+    [{ kind: 'job-resumed', jobId: 'J3', fields: { watcherInstance: 2, cause: 'reboot' } }, 'Job J3 resumed in Watcher instance 2 after reboot', []],
     [{ kind: 'job-ended', jobId: 'J3', fields: { outcome: 'built', commit: 'b2c3d4e', deniedPermissions: [] } }, 'Job J3 ended built at b2c3d4e', []],
     [
       { kind: 'job-ended', jobId: 'J4', fields: { outcome: 'failed', cause: 'no report', deniedPermissions: ['WebFetch', 'Bash(curl:*)'] } },
@@ -285,7 +285,7 @@ describe('the entry the page reads', () => {
       ],
       [{ kind: 'chart-range-set', fields: { view: { kind: 'auto' } } }, { taskIds: [], ticketIds: [] }],
       [{ kind: 'concurrency-limit-set', fields: { limit: 3 } }, { taskIds: [], ticketIds: [] }],
-      [{ kind: 'runner-set', fields: { state: 'running' } }, { taskIds: [], ticketIds: [] }],
+      [{ kind: 'overseer-set', fields: { state: 'running' } }, { taskIds: [], ticketIds: [] }],
       [{ kind: 'dispatcher-set', fields: { state: 'running', runId: 'example-run' } }, { taskIds: [], ticketIds: [] }],
       [{ kind: 'check-command-set', fields: { command: 'bun run example-checks' } }, { taskIds: [], ticketIds: [] }],
       [{ kind: 'tracker-cleared', fields: {} }, { taskIds: [], ticketIds: [] }],
@@ -404,7 +404,7 @@ describe('decisions, incidents and triage', () => {
       [],
     ],
     [
-      { kind: 'incident-defaulted', incidentId: 'I2', fields: { move: 'ticket-park', cause: 'no-orchestrator' } },
+      { kind: 'incident-defaulted', incidentId: 'I2', fields: { move: 'ticket-park', cause: 'no-assistant' } },
       'Incident I2 took its default, ticket-park, while no orchestrator could come up',
       [],
     ],

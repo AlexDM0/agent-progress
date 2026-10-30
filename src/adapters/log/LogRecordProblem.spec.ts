@@ -69,7 +69,7 @@ const EXACT_REASONS: readonly (readonly [string, Record<string, unknown>, string
   ['empty decision answer', withFields('decision-answered', { answer: {} }), 'fields.answer is not an object of at least one answer keyed by its question'],
   ['incident kind', withFields('incident-opened', { kind: 'outage' }), `fields.kind is "outage", which is not one of ${INCIDENT_KINDS.join(', ')}`],
   ['incident move', withFields('incident-handled', { move: 'ticket-waive' }), `fields.move is "ticket-waive", which is not one of ${INCIDENT_MOVES.join(', ')}`],
-  ['incident default cause', withFields('incident-defaulted', { cause: 'timeout' }), 'fields.cause is "timeout", which is not one of turn-closed, turn-budget, no-orchestrator'],
+  ['incident default cause', withFields('incident-defaulted', { cause: 'timeout' }), 'fields.cause is "timeout", which is not one of turn-closed, turn-budget, no-assistant'],
   ['decision id', withKeys('decision-answered', { decisionId: 7 }), 'decisionId is not a string'],
   ['incident id', withKeys('incident-escalated', { incidentId: null }), 'incidentId is not a string'],
   ['ticket id', withKeys('ticket-started', { ticketId: null }), 'ticketId is not a string'],

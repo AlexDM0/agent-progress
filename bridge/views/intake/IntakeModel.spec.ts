@@ -44,7 +44,7 @@ const BOARD: ConversationBoardDocument = {
     ended('J5', 'stopped'),
     launched('J7', 'product-owner'),
     ended('J7', 'closed'),
-    launched('J8', 'orchestrator'),
+    launched('J8', 'assistant'),
     ended('J8', 'closed'),
   ],
 };

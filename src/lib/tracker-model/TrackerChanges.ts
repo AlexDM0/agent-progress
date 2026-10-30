@@ -3,12 +3,12 @@ import type {
   ConcurrencyLimitSet,
   Logged,
   PipelineChanged,
-  RunnerStateSet,
+  OverseerStateSet,
   TrackerCleared
 } from './@types/BoardChanges.ts';
 import type { LogRecordFieldsOf }                    from './@types/LogRecord.ts';
 import type { Pipeline, PipelineGate, PipelineStep } from './@types/Pipeline.ts';
-import type { RunnerState, ViewRange }               from './@types/TrackerProgress.ts';
+import type { OverseerState, ViewRange }             from './@types/TrackerProgress.ts';
 import type { BoardRecords }                         from './BoardRecords.ts';
 import { BoardRefusal }                              from './BoardRefusal.ts';
 import type { DispatchQueries }                      from './DispatchQueries.ts';
@@ -33,11 +33,11 @@ export class TrackerChanges {
     return { logged, previousLimit, concurrency: this.dispatchQueries.concurrency() };
   }
 
-  setRunnerState(state: RunnerState, at: string): RunnerStateSet {
+  setOverseerState(state: OverseerState, at: string): OverseerStateSet {
     const { progress }   = this.records;
-    const previousState  = this.dispatchQueries.runnerState();
-    progress.runnerState = state;
-    return { logged: [this.records.logger.log({ kind: 'runner-set', fields: { state } }, at)], previousState };
+    const previousState  = this.dispatchQueries.overseerState();
+    progress.overseerState = state;
+    return { logged: [this.records.logger.log({ kind: 'overseer-set', fields: { state } }, at)], previousState };
   }
 
   /**

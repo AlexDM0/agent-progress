@@ -1,4 +1,4 @@
-/** The open incidents for the runner's orchestrator, in opening order, each with the moves its kind allows. Read-only, no lock. */
+/** The open incidents for the Assistant, in opening order, each with the moves its kind allows. Read-only, no lock. */
 import type { Incident }                  from '../../src/lib/tracker-model/@types/Incident.ts';
 import { ALLOWED_MOVES_BY_INCIDENT_KIND } from '../../src/services/control/constants/AllowedMovesByIncidentKind.ts';
 import { requireProgressFile }            from '../../src/services/tracker/TrackerReader.ts';

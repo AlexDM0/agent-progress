@@ -19,8 +19,8 @@ import { removeScratchDirectory }             from '../../src/testing/ScratchWor
 import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.ts';
 import { createCapturedCommandContext }       from '../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../testing/InitializedScratchRepository.ts';
+import { runCommandLineWithOverseerMoves }    from '../testing/OverseerTicketMoves.ts';
 import { fileReadyTicket }                    from '../testing/ReadyTicketFiling.ts';
-import { runCommandLineWithRunnerMoves }      from '../testing/RunnerTicketMoves.ts';
 import { storedLogEntriesOf }                 from '../testing/StoredLogEntries.ts';
 import { storedProgressOf }                   from '../testing/StoredProgress.ts';
 
@@ -38,7 +38,7 @@ function contextHere(): ReturnType<typeof createCapturedCommandContext> {
 
 async function runWithExitCode(commandLineArguments: readonly string[]): Promise<{ exitCode: number; context: ReturnType<typeof createCapturedCommandContext> }> {
   const context  = contextHere();
-  const exitCode = await runCommandLineWithRunnerMoves(commandLineArguments, context);
+  const exitCode = await runCommandLineWithOverseerMoves(commandLineArguments, context);
   return { exitCode, context };
 }
 

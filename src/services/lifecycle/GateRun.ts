@@ -1,5 +1,5 @@
 /**
- * The gate pipeline run on a tree, the code the runner's build, review and merge gates share: the prepare steps, then each gate in list
+ * The gate pipeline run on a tree, the code the Overseer's build, review and merge gates share: the prepare steps, then each gate in list
  * order, the first red one stopping the rest. Each argv arrives built and confined by the caller; a step runs in a process group of its own
  * with the job variables removed from its environment. agent-progress keeps no gate result: caching is the repository's own tooling's.
  */
@@ -11,7 +11,7 @@ import type { PipelineGate, PipelineStep } from '../../lib/tracker-model/@types/
 import {
   environmentCopy,
   JOB_ID_VARIABLE,
-  RELAY_DIRECTORY_VARIABLE,
+  HATCH_DIRECTORY_VARIABLE,
   userShell
 } from '../../shared/Environment.ts';
 
@@ -58,7 +58,7 @@ const FALLBACK_SHELL = '/bin/sh';
 // `sh` joins standard error onto standard output once, then hands the line to the user's shell, so the output keeps its order whatever shell that is.
 const OUTPUT_JOINING_SCRIPT = 'exec 2>&1; exec "$0" -c "$1"';
 
-const JOB_VARIABLES: readonly string[] = [JOB_ID_VARIABLE, RELAY_DIRECTORY_VARIABLE];
+const JOB_VARIABLES: readonly string[] = [JOB_ID_VARIABLE, HATCH_DIRECTORY_VARIABLE];
 
 const GATE_PASSED_EXIT_CODE = 0;
 
@@ -71,7 +71,7 @@ function shellLineArgvOf(line: string): string[] {
   return [FALLBACK_SHELL, '-c', OUTPUT_JOINING_SCRIPT, userShell() ?? FALLBACK_SHELL, line];
 }
 
-/** Without this, every spec of a gated tree that runs a mutating verb would relay it to the runner rather than run it. */
+/** Without this, every spec of a gated tree that runs a mutating verb would Hatch it to the Overseer rather than run it. */
 function gateEnvironmentOf(environment: Readonly<Record<string, string>>): Record<string, string> {
   return Object.fromEntries(Object.entries(environment).filter(([name]) => !JOB_VARIABLES.includes(name)));
 }

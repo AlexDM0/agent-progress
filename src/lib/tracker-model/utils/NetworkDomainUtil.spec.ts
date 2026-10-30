@@ -1,7 +1,7 @@
 /**
  * A `network` line is a grant to an agent's sandbox, so the judgement fails closed: only a public name, a public IPv4 literal or a global
  * unicast IPv6 literal passes. Each refused form is planted: loopback names, `.local` names, IPv4 and IPv6 literals in loopback or private
- * ranges, single labels and malformed text. The block edges are planted too, since an off-by-one in a CIDR test would grant a private host.
+ * ranges, single labels and malformed text. The block edges are planted too, since an off-by-one in a CIDR test would grant a private Watcher.
  */
 import { expect, test } from 'bun:test';
 

@@ -1,7 +1,7 @@
 /**
  * User's job controls and the product owner's intake, applied through the control service to a Board as a hold carries it. What matters:
- * a stop or wind-down holds the job's ticket in the same hold, before any host exists too, and logs its mode; a message to a finished job
- * is refused `job-finished`; an intake is a product-owner job with no ticket; closing it ends the job once no host is live and lists its
+ * a stop or wind-down holds the job's ticket in the same hold, before any Watcher exists too, and logs its mode; a message to a finished job
+ * is refused `job-finished`; an intake is a product-owner job with no ticket; closing it ends the job once no Watcher is live and lists its
  * drafts in a `ready-drafts` decision whose answer readies the chosen set, and no draft the decision does not list, in the answering hold;
  * a stopped product owner's questions are withdrawn; and past the crash bound a product owner waits on its open question,
  * then a fresh one takes the answers over.
@@ -9,7 +9,7 @@
 import { describe, expect, test } from 'bun:test';
 
 import { TicketAcceptanceUtil }                         from '../../adapters/tickets/utils/TicketAcceptanceUtil.ts';
-import type { DecisionDraft, DecisionWording }          from '../../lib/tracker-model/@types/LifecycleStep.ts';
+import type { DecisionDraft, DecisionWording }          from '../../lib/tracker-model/@types/PlaybookStep.ts';
 import type { Ticket }                                  from '../../lib/tracker-model/@types/Ticket.ts';
 import type { Board }                                   from '../../lib/tracker-model/Board.ts';
 import type { ControlCommand }                          from '../../shared/@types/ControlCommand.ts';
@@ -74,7 +74,7 @@ describe('job stop and wind-down', () => {
     expect(board.jobById('J1')).toMatchObject({ state: 'running', stopRequest: 'wind-down' });
   });
 
-  test('stop holds the ticket "stopped by User (J1)" and moves a running job to stopping for the runner to stop', () => {
+  test('stop holds the ticket "stopped by User (J1)" and moves a running job to stopping for the Overseer to stop', () => {
     const board = runningBuildBoard();
     apply(board, { kind: 'job-stop', jobId: 'J1', mode: 'stop' });
 
@@ -82,7 +82,7 @@ describe('job stop and wind-down', () => {
     expect(board.jobById('J1')?.state).toBe('stopping');
   });
 
-  test('stop before a host exists holds the ticket and ends the job stopped in the same hold', () => {
+  test('stop before a Watcher exists holds the ticket and ends the job stopped in the same hold', () => {
     const { board } = boardFixture({ tickets: [ticketFixture({ id: '001' })] });
     board.launchJob({
       kind: 'build', role: 'builder', ticketIds: ['001'], parentJobId: null, attempt: 1, target: 'main'
@@ -106,12 +106,12 @@ describe('job stop and wind-down', () => {
 
   test('stop --all pauses the board and stops every build, review and product-owner job', () => {
     const board = runningBuildBoard();
-    board.setRunnerState('running', AT);
+    board.setOverseerState('running', AT);
     apply(board, { kind: 'intake-start', text: 'A basket' });
     const result = apply(board, { kind: 'job-stop-all', mode: 'stop' });
 
-    expect(loggedKindsOf(result)).toEqual(['runner-set', 'job-stop-requested', 'ticket-held', 'job-stop-requested']);
-    expect(board.runnerState()).toBe('paused');
+    expect(loggedKindsOf(result)).toEqual(['overseer-set', 'job-stop-requested', 'ticket-held', 'job-stop-requested']);
+    expect(board.overseerState()).toBe('paused');
     expect(board.jobs().map((job) => job.state)).toEqual(['stopping', 'stopping']);
   });
 });
@@ -143,7 +143,7 @@ describe('job message', () => {
     }, AT);
     board.endJob('J1', { outcome: 'reviewed' }, AT);
     board.launchJob({
-      kind: 'orchestrator', role: 'orchestrator', ticketIds: [], parentJobId: null, attempt: 1, target: null
+      kind: 'assistant', role: 'assistant', ticketIds: [], parentJobId: null, attempt: 1, target: null
     }, AT);
     board.endJob('J2', { outcome: 'closed' }, AT);
     apply(board, { kind: 'intake-start', text: 'A basket' });
@@ -156,7 +156,7 @@ describe('job message', () => {
     expect(board.jobs()).toEqual([]);
   });
 
-  test('a closed product owner is reopened: back on the board running its next host instance, the reopening logged with the message', () => {
+  test('a closed product owner is reopened: back on the board running its next Watcher instance, the reopening logged with the message', () => {
     const { board } = boardFixture({ tickets: [draftFiledBy('004', 'J1')] });
     apply(board, { kind: 'intake-start', text: 'A basket' });
     board.moveJob('J1', 'running', AT);
@@ -165,10 +165,10 @@ describe('job message', () => {
     const result = apply(board, { kind: 'job-message', jobId: 'J1', text: 'Add a wishlist too.' });
 
     expect((result as { logged: unknown[] }).logged).toEqual([{
-      kind: 'job-reopened', jobId: 'J1', fields: { hostInstance: 2, text: 'Add a wishlist too.', offeredTicketIds: ['004'] }, at: AT
+      kind: 'job-reopened', jobId: 'J1', fields: { watcherInstance: 2, text: 'Add a wishlist too.', offeredTicketIds: ['004'] }, at: AT
     }]);
     expect(board.jobById('J1')).toMatchObject({
-      kind: 'product-owner', role: 'product-owner', state: 'running', hostInstance: 2, eventCursor: { instance: 2, sequence: 0 }
+      kind: 'product-owner', role: 'product-owner', state: 'running', watcherInstance: 2, eventCursor: { instance: 2, sequence: 0 }
     });
   });
 
@@ -178,7 +178,7 @@ describe('job message', () => {
     apply(board, { kind: 'job-stop', jobId: 'J1', mode: 'stop' });
     board.endIntakeJob('J1', TicketAcceptanceUtil.readinessGapsOf, wordingOf, AT);
     apply(board, { kind: 'job-message', jobId: 'J1', text: 'Carry on.' });
-    expect(board.jobById('J1')).toMatchObject({ state: 'running', hostInstance: 2 });
+    expect(board.jobById('J1')).toMatchObject({ state: 'running', watcherInstance: 2 });
   });
 });
 
@@ -208,7 +208,7 @@ describe('intake', () => {
 
     expect(ended.logged.map((record) => record.kind)).toEqual(['job-ended', 'decision-opened']);
     const [decision] = board.decisions();
-    expect(decision).toMatchObject({ kind: 'ready-drafts', ticketIds: ['004', '005', '006'], askedBy: 'runner' });
+    expect(decision).toMatchObject({ kind: 'ready-drafts', ticketIds: ['004', '005', '006'], askedBy: 'overseer' });
     expect(decision?.questions[0]?.options.map((option) => option.label)).toEqual(['Ready #004', 'Ready #004, #005', 'None']);
 
     const answered = apply(board, { kind: 'decision-answer', decisionId: 'E1', answer: { form: 'letters', choices: ['b'] } });

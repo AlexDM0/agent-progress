@@ -43,9 +43,9 @@ function repositoryPathOf(repositoryRoot: string, absolutePath: string): string 
 
 function programFilePathsOf(repositoryRoot: string): readonly string[] {
   const unreportedDiagnostic = (): void => undefined;
-  const parsingHost: ts.ParseConfigFileHost = { ...ts.sys, onUnRecoverableConfigFileDiagnostic: unreportedDiagnostic };
+  const parsingWatcher: ts.ParseConfigFileHost = { ...ts.sys, onUnRecoverableConfigFileDiagnostic: unreportedDiagnostic };
   const filePaths = PROGRAM_CONFIGURATION_PATHS.flatMap((configurationPath) => {
-    const parsedConfiguration = ts.getParsedCommandLineOfConfigFile(join(repositoryRoot, configurationPath), {}, parsingHost);
+    const parsedConfiguration = ts.getParsedCommandLineOfConfigFile(join(repositoryRoot, configurationPath), {}, parsingWatcher);
     return (parsedConfiguration?.fileNames ?? []).map((fileName) => repositoryPathOf(repositoryRoot, resolve(fileName)));
   });
   return [...new Set(filePaths)];

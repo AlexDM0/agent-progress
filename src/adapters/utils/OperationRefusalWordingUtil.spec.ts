@@ -94,10 +94,10 @@ test('a held lock is worded naming the lock directory as a path to remove, never
   expect(message).not.toContain('that file');
 });
 
-test('a board no Overseer serves is worded naming the lease folder and the command that starts one', () => {
-  const refusal = new OperationRefusal('refused', { kind: 'overseer-down', runnerDirectory: '/example/repository/.agent-progress/runner' });
+test('a board no Overseer serves is worded naming the Baton folder and the command that starts one', () => {
+  const refusal = new OperationRefusal('refused', { kind: 'overseer-down', overseerDirectory: '/example/repository/.agent-progress/overseer' });
   expect(OperationRefusalWordingUtil.messageOf(refusal)).toBe(
-    'No Overseer serves this board (/example/repository/.agent-progress/runner holds no live lease), so there is nothing to open. '
+    'No Overseer serves this board (/example/repository/.agent-progress/overseer holds no live Baton), so there is nothing to open. '
     + `Start one with \`${PRODUCT_NAMES.PROGRAM} run --detach\`.`,
   );
 });

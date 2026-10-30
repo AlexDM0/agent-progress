@@ -20,7 +20,7 @@ export type LogFieldShape =
   | 'review-round'
   | 'chart-range'
   | 'concurrency-limit'
-  | 'runner-state'
+  | 'overseer-state'
   | 'dispatcher-state'
   | 'dispatcher-run-id'
   | 'check-command'
@@ -34,9 +34,9 @@ export type LogFieldShape =
   | 'job-role'
   | 'job-outcome'
   | 'interruption-cause'
-  | 'host-instance'
+  | 'watcher-instance'
   | 'permission-names'
-  | 'runner-stop-reason'
+  | 'overseer-stop-reason'
   | 'job-stop-mode'
   | 'decision-kind'
   | 'decision-answer'
@@ -87,7 +87,7 @@ export const LOG_RECORD_SCHEMA = {
   'ticket-started':                  { subject: 'ticket', fields: NO_FIELDS },
   'ticket-finished':                 { subject: 'ticket', fields: NO_FIELDS },
   'ticket-approved':                 { subject: 'ticket', fields: NO_FIELDS },
-  // `byHand` is set only by `ticket deliver --by-hand`, which records work the runner never merged or landed.
+  // `byHand` is set only by `ticket deliver --by-hand`, which records work the Overseer never merged or landed.
   'ticket-delivered':                { subject: 'ticket', fields: { byHand: 'optional-flag' } },
   'ticket-abandoned':                { subject: 'ticket', fields: { reason: 'text' } },
   'ticket-retitled':                 { subject: 'ticket', fields: { from: 'text', to: 'text' } },
@@ -145,7 +145,7 @@ export const LOG_RECORD_SCHEMA = {
   },
   'chart-range-set':             { subject: 'board', fields: { view: 'chart-range' } },
   'concurrency-limit-set':       { subject: 'board', fields: { limit: 'concurrency-limit' } },
-  'runner-set':                  { subject: 'board', fields: { state: 'runner-state' } },
+  'overseer-set':                { subject: 'board', fields: { state: 'overseer-state' } },
   'dispatcher-set':              { subject: 'board', fields: { state: 'dispatcher-state', runId: 'dispatcher-run-id' } },
   'pipeline-prepare-step-set':   { subject: 'board', fields: { name: 'text', run: 'text' } },
   'pipeline-gate-added':         { subject: 'board', fields: { name: 'text', run: 'text' } },
@@ -162,10 +162,10 @@ export const LOG_RECORD_SCHEMA = {
   // `tree` is the gated tree's object id; a cache hit ran nothing and is always `passed`.
   'gate-ran':                    { subject: 'board', fields: { tree: 'text', outcome: 'gate-outcome', cached: 'flag' } },
   'tracker-cleared':             { subject: 'board', fields: NO_FIELDS },
-  'runner-started':              { subject: 'board', fields: { codeVersion: 'text', installVersion: 'count' } },
-  'runner-stopped':              { subject: 'board', fields: { reason: 'runner-stop-reason' } },
-  // The old runner keeps driving, or took the board back; `step` names where the successor failed, `error` what it said.
-  'runner-handover-failed':      { subject: 'board', fields: { successorCodeVersion: 'text', step: 'text', error: 'text' } },
+  'overseer-started':            { subject: 'board', fields: { codeVersion: 'text', installVersion: 'count' } },
+  'overseer-stopped':            { subject: 'board', fields: { reason: 'overseer-stop-reason' } },
+  // The old Overseer keeps driving, or took the board back; `step` names where the successor failed, `error` what it said.
+  'baton-pass-failed':           { subject: 'board', fields: { successorCodeVersion: 'text', step: 'text', error: 'text' } },
   // A job's state lives in progress.json; only its launch, its interruptions, its resumes and its end are logged.
   'job-launched':                {
     subject: 'job',
@@ -178,17 +178,17 @@ export const LOG_RECORD_SCHEMA = {
       parentJobId: 'nullable-text',
     },
   },
-  'job-interrupted':    { subject: 'job', fields: { cause: 'interruption-cause', hostInstance: 'host-instance' } },
-  'job-resumed':        { subject: 'job', fields: { hostInstance: 'host-instance', cause: 'interruption-cause' } },
+  'job-interrupted':    { subject: 'job', fields: { cause: 'interruption-cause', watcherInstance: 'watcher-instance' } },
+  'job-resumed':        { subject: 'job', fields: { watcherInstance: 'watcher-instance', cause: 'interruption-cause' } },
   // The vendor refused the job's requests: `window` as the vendor names it, `resetsAt` the ISO stamp no launch or resume precedes.
   'usage-limit-hit':    { subject: 'job', fields: { window: 'text', resetsAt: 'text' } },
-  // User's stop, wind-down or fresh agent, recorded whether or not a host is up; the runner sends the frames from the job record.
+  // User's stop, wind-down or fresh agent, recorded whether or not a Watcher is up; the Overseer sends the frames from the job record.
   'job-stop-requested': { subject: 'job', fields: { mode: 'job-stop-mode' } },
-  // A chat turn for the session, which the runner writes from the log in order.
+  // A chat turn for the session, which the Overseer writes from the log in order.
   'job-messaged':       { subject: 'job', fields: { text: 'text' } },
-  // User messaged a closed product owner: `hostInstance` resumes its session with `text` first; `offeredTicketIds` its next ready-drafts skips.
-  'job-reopened':       { subject: 'job', fields: { hostInstance: 'host-instance', text: 'text', offeredTicketIds: 'ticket-ids' } },
-  // `cause` and `commit` are set only when the runner names them.
+  // User messaged a closed product owner: `watcherInstance` resumes its session with `text` first; `offeredTicketIds` its next ready-drafts skips.
+  'job-reopened':       { subject: 'job', fields: { watcherInstance: 'watcher-instance', text: 'text', offeredTicketIds: 'ticket-ids' } },
+  // `cause` and `commit` are set only when the Overseer names them.
   'job-ended':          {
     subject: 'job',
     fields:  {
@@ -199,7 +199,7 @@ export const LOG_RECORD_SCHEMA = {
     },
   },
   'decision-opened':    { subject: 'decision', fields: { kind: 'decision-kind', ticketIds: 'ticket-ids' } },
-  // The question request it answered, so the runner delivers the answer to that request, however long after the answering hold.
+  // The question request it answered, so the Overseer delivers the answer to that request, however long after the answering hold.
   'decision-answered':  { subject: 'decision', fields: { answer: 'decision-answer', requestId: 'optional-text' } },
   'decision-withdrawn': { subject: 'decision', fields: { reason: 'text' } },
   'incident-opened':    { subject: 'incident', fields: { kind: 'incident-kind', ticketIds: 'ticket-ids' } },
@@ -208,7 +208,7 @@ export const LOG_RECORD_SCHEMA = {
   'incident-escalated': { subject: 'incident', fields: { decisionId: 'text' } },
   // A finding the orchestrator records under an open incident, which stays open.
   'incident-noted':     { subject: 'incident', fields: { text: 'text' } },
-  // The board's answer to a question incident, keyed by the question's request so the runner delivers it as it delivers a decision's.
+  // The board's answer to a question incident, keyed by the question's request so the Overseer delivers it as it delivers a decision's.
   'incident-answered':  { subject: 'incident', fields: { answer: 'decision-answer', requestId: 'optional-text' } },
   // A merge job claimed its target's slot against these recorded tips; the predicted files are empty for a clean prediction.
   'merge-started':      {
@@ -217,10 +217,10 @@ export const LOG_RECORD_SCHEMA = {
       target: 'text', targetTip: 'text', branchTip: 'text', predictedConflictFiles: 'file-paths'
     },
   },
-  // The runner moved `target` to `commit`: the list of tips it landed, which a moved target is judged against.
+  // The Overseer moved `target` to `commit`: the list of tips it landed, which a moved target is judged against.
   'merge-landed':  { subject: 'job', fields: { target: 'text', commit: 'text', kind: 'landing-kind' } },
-  // A relayed request the runner answered, so a replay of its request file never applies it twice.
-  'relay-applied': { subject: 'job', fields: { requestId: 'text', commandKind: 'text', outcome: 'text' } },
+  // A relayed request the Overseer answered, so a replay of its request file never applies it twice.
+  'hatch-applied': { subject: 'job', fields: { requestId: 'text', commandKind: 'text', outcome: 'text' } },
   // `totalInputTokens` is fresh input plus cache read plus cache creation; the run id and label are stored only for an agent a workflow run spawned.
   'agent-stopped': {
     subject: 'board',

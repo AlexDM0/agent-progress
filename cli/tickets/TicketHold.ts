@@ -5,8 +5,8 @@ import { ControlService }                        from '../../src/services/contro
 import { OperationRefusal }                      from '../../src/shared/OperationRefusal.ts';
 import { PRODUCT_NAMES }                         from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                   from '../CommandContext.ts';
+import { hatchWhenUnderJob }                     from '../HatchUnderJob.ts';
 import { openTrackerForWritingThenReadNextLine } from '../OpenTrackerForWriting.ts';
-import { relayWhenUnderJob }                     from '../RelayUnderJob.ts';
 import type { ArgumentParser }                   from '../arguments/ArgumentParser.ts';
 import { OutputUtil }                            from '../utils/OutputUtil.ts';
 import { TICKET_USAGE }                          from './constants/TicketUsage.ts';
@@ -14,13 +14,13 @@ import { TICKET_USAGE }                          from './constants/TicketUsage.t
 const HOLD_OPTION_NAMES   = ['reason', 'at', 'json'];
 const UNHOLD_OPTION_NAMES = ['at', 'json'];
 
-// The runner launches jobs and never takes over a paused row, so a paused build row is a person's, resumed by hand.
+// The Overseer launches jobs and never takes over a paused row, so a paused build row is a person's, resumed by hand.
 function resumeBuildHintFor(pausedRow: Readonly<Task>): string {
-  return `Its build row #${pausedRow.id} was left paused, which the runner never takes over: `
+  return `Its build row #${pausedRow.id} was left paused, which the Overseer never takes over: `
     + `resume it with \`${PRODUCT_NAMES.PROGRAM} task start ${pausedRow.id}\`, or settle the row by hand.`;
 }
 
-/** A hold stops the runner starting the ticket's next builder or reviewer; an agent already running is never interrupted by it. */
+/** A hold stops the Overseer starting the ticket's next builder or reviewer; an agent already running is never interrupted by it. */
 export async function holdOrUnholdTicket(holds: boolean, commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
   const verb = holds ? 'hold' : 'unhold';
   commandArguments.rejectUnknownOptions(holds ? HOLD_OPTION_NAMES : UNHOLD_OPTION_NAMES, TICKET_USAGE);
@@ -31,7 +31,7 @@ export async function holdOrUnholdTicket(holds: boolean, commandArguments: Argum
     throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} ticket ${verb} needs a ticket id.\n  Usage: ${TICKET_USAGE}`);
   }
   const reason = commandArguments.option('reason') ?? '';
-  await relayWhenUnderJob(context, holds ? { kind: 'ticket-hold', ticketReference: reference, reason } : { kind: 'ticket-unhold', ticketReference: reference });
+  await hatchWhenUnderJob(context, holds ? { kind: 'ticket-hold', ticketReference: reference, reason } : { kind: 'ticket-unhold', ticketReference: reference });
 
   const { result: changed, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
     const { board } = change;

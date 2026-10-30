@@ -48,7 +48,7 @@ beforeEach(async () => {
         change.board.moveTicket(ticketId, 'in-review', { checksLegality: false }, change.at);
         change.board.queueTicketForMerge(ticketId, 'main', change.at);
       }
-      change.board.claimMergeSlot({
+      change.board.claimAirlock({
         ticketId: '002', target: 'main', targetTip: TARGET_TIP, branchTip: BRANCH_TIP, predictedConflictFiles: [],
       }, () => 'main', change.at);
     },

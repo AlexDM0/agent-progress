@@ -109,7 +109,7 @@ export class AgentQuestions {
   }
 
   /**
-   * A job waiting on this answer alone runs again, its host taking the answer; a question that outlived its job writes the answer under
+   * A job waiting on this answer alone runs again, its Watcher taking the answer; a question that outlived its job writes the answer under
    * the ticket's `## Questions` for the next agent and lifts the ticket's `awaiting answer` hold.
    */
   afterAnswer(decision: Readonly<Decision>, answer: DecisionAnswer, at: string): LogRecord[] {
@@ -183,18 +183,18 @@ export class AgentQuestions {
     const questions = questionsOfIncident(incident);
     if (questions === null) return null;
     const job = incident.jobId === null ? undefined : this.jobRules.jobById(incident.jobId);
-    return { askedBy: job?.role ?? 'runner', questions, context: '' };
+    return { askedBy: job?.role ?? 'overseer', questions, context: '' };
   }
 
   /**
-   * The runner's first start on a board: every low `pending` ticket v16 left is held `first-run review`, and the ids are handed back for one
-   * `findings-delivered` incident; a board that stored its first Overseer start, whose log holds a `runner-started` record, or that has
+   * The Overseer's first start on a board: every low `pending` ticket v16 left is held `first-run review`, and the ids are handed back for one
+   * `findings-delivered` incident; a board that stored its first Overseer start, whose log holds a `overseer-started` record, or that has
    * no such ticket, holds nothing.
    */
   holdFirstRunLeftovers(at: string): { ticketIds: string[]; logged: LogRecord[] } {
-    const runnerStartedBefore = this.records.progress.overseerFirstStartedAt !== undefined
-      || [...this.records.storedLogRecords, ...this.records.loggedRecords].some((record) => record.kind === 'runner-started');
-    if (runnerStartedBefore) return { ticketIds: [], logged: [] };
+    const overseerStartedBefore = this.records.progress.overseerFirstStartedAt !== undefined
+      || [...this.records.storedLogRecords, ...this.records.loggedRecords].some((record) => record.kind === 'overseer-started');
+    if (overseerStartedBefore) return { ticketIds: [], logged: [] };
     const leftovers = this.records.ticketRecords.filter(({ frontmatter }) => frontmatter.status === 'pending'
       && TicketDefaultsUtil.ticketPriorityOf(frontmatter) === 'low' && frontmatter.hold === undefined);
     const logged = leftovers.flatMap(({ frontmatter }) => [...this.ticketSettings.holdTicket(frontmatter.id, FIRST_RUN_REVIEW_HOLD, at).logged]);

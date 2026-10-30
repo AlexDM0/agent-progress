@@ -1,6 +1,6 @@
 /**
  * The launcher port's Claude Code adapter: renders a job's `claude -p` command line, settings, agents, MCP and role files from a neutral
- * profile, and writes the stream-json lines a host sends the session. Pure: the host writes the files and spawns the argv.
+ * profile, and writes the stream-json lines a Watcher sends the session. Pure: the Watcher writes the files and spawns the argv.
  */
 import { createHash }    from 'node:crypto';
 import { dirname, join } from 'node:path';
@@ -40,7 +40,7 @@ const NETWORK_GUARDED_TOOLS = ['Bash', 'WebFetch'] as const;
 const SHELL_SAFE_WORD = /^[\w./,:=@%+-]+$/;
 const STANDING_DENIAL_MESSAGE = 'Permission requests are not answered for this session; work within the tools and paths already allowed.';
 
-/** The session id a job keeps across every host instance and resume: a UUID formatted from `sha256(scope + "\n" + jobId)`. */
+/** The session id a job keeps across every Watcher instance and resume: a UUID formatted from `sha256(scope + "\n" + jobId)`. */
 export function claudeSessionIdOf(scope: string, jobId: string): string {
   const digits = createHash('sha256').update(`${scope}\n${jobId}`).digest('hex').slice(0, UUID_HEXADECIMAL_DIGITS).split('');
   digits[UUID_VERSION_DIGIT_INDEX] = UUID_NAME_HASH_VERSION;
@@ -102,7 +102,7 @@ function sandboxOf(profile: WorkerProfile): Record<string, unknown> {
     autoAllowBashIfSandboxed: true,
     network:                  { allowedDomains: profile.bashNetworkDomains, strictAllowlist: true, ...signingSockets },
     filesystem:               {
-      allowWrite: [profile.relayDirectory, ...profile.writableRoots].map(rootAnchored),
+      allowWrite: [profile.hatchDirectory, ...profile.writableRoots].map(rootAnchored),
       denyWrite:  profile.deniedWritableRoots.map(rootAnchored),
       denyRead:   profile.deniedReadableRoots.map(rootAnchored),
     },
@@ -218,7 +218,7 @@ function jsonTextOf(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
 
-/** Every permission request but a question is denied at once, so no session waits on a host nobody watches. */
+/** Every permission request but a question is denied at once, so no session waits on a Watcher nobody watches. */
 const DENY_EVERY_PERMISSION_BUT_A_QUESTION: StandingReply = {
   whenAllEqual:  { 'type': 'control_request', 'request.subtype': 'can_use_tool' },
   whenNoneEqual: { 'request.tool_name': QUESTION_TOOL_NAME },

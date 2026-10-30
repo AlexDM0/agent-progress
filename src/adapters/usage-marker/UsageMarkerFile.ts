@@ -1,5 +1,5 @@
 /**
- * `usage-limit.json` in the monitor folder: the machine-wide usage-limit marker every runner reads as a `limits` input, so a limit one board
+ * `usage-limit.json` in the monitor folder: the machine-wide usage-limit marker every Overseer reads as a `limits` input, so a limit one board
  * met holds launches on all of them. Read, validate and map; written through the atomic-file package.
  */
 import { mkdirSync } from 'node:fs';
@@ -47,7 +47,7 @@ function markerOf(document: unknown): UsageMarker | string {
   };
 }
 
-/** Never throws: a marker that cannot be read or trusted whole is `malformed`, which the runner reports and treats as no marker. */
+/** Never throws: a marker that cannot be read or trusted whole is `malformed`, which the Overseer reports and treats as no marker. */
 function read(monitorFolder: string): UsageMarkerReading {
   const storedText = storedFileTextOf(pathIn(monitorFolder));
   if (storedText.verdict === 'absent') return storedText;

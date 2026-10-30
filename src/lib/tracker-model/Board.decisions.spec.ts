@@ -73,7 +73,7 @@ describe('opening a decision', () => {
   test('a code-opened decision with no request opens every time it is asked', () => {
     const { board } = boardWithAJob();
     const outage    = {
-      ...AGENT_QUESTION, kind: 'outage', jobId: null, askedBy: 'runner', requestId: null,
+      ...AGENT_QUESTION, kind: 'outage', jobId: null, askedBy: 'overseer', requestId: null,
     } as const;
     board.openDecision(outage, AT);
     board.openDecision(outage, AT);

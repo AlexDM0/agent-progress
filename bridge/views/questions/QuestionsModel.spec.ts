@@ -48,7 +48,7 @@ const BOARD: ConversationBoardDocument = {
         id: '052', title: 'Leftover', status: 'pending', priority: 'low', hold: 'first-run review', findingRoute: 'user'
       },
       {
-        id: '053', title: 'For the Assistant', status: 'draft', priority: 'low', filedByJob: 'J3', findingRoute: 'orchestrator'
+        id: '053', title: 'For the Assistant', status: 'draft', priority: 'low', filedByJob: 'J3', findingRoute: 'assistant'
       },
       {
         id: '054', title: 'Leftover readied', status: 'pending', priority: 'low', findingRoute: 'user'

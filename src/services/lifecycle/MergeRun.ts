@@ -9,9 +9,9 @@ import {
   type MergeOutcome,
   type TipRestoreOutcome
 } from '../../lib/git/BranchMerge.ts';
-import { GitProcess }          from '../../lib/git/GitProcess.ts';
-import type { Job, MergeSlot } from '../../lib/tracker-model/@types/Job.ts';
-import { VERIFICATION_CHECKS } from './JobVerification.ts';
+import { GitProcess }        from '../../lib/git/GitProcess.ts';
+import type { Job, Airlock } from '../../lib/tracker-model/@types/Job.ts';
+import { CUSTOMS_CHECKS }    from './Customs.ts';
 
 /** The commit the slot worktree starts from, its merge's first parent, and the one merged into it, its second. */
 export interface MergeSides {
@@ -23,7 +23,7 @@ const DIFF_FILE_HEADER = /^(?:\+\+\+|---) /;
 const CHANGED_LINE     = /^[+-]/;
 
 /** A ticket's merge starts from its branch and merges the target in; a group refresh starts from the group's tip and merges main's in. */
-function sidesOf(job: Readonly<Pick<Job, 'kind'>>, slot: Readonly<MergeSlot>): MergeSides {
+function sidesOf(job: Readonly<Pick<Job, 'kind'>>, slot: Readonly<Airlock>): MergeSides {
   return job.kind === 'refresh'
     ? { startTip: slot.targetTip, mergedTip: slot.branchTip }
     : { startTip: slot.branchTip, mergedTip: slot.targetTip };
@@ -55,7 +55,7 @@ function restoreBranchTip(worktreePath: string, branchTip: string): TipRestoreOu
 
 /** V10: nothing left unmerged, the conflicted files clean of whitespace errors, and a merge commit whose parents are the two recorded tips. */
 function resolutionIsSound(worktreePath: string, sides: Readonly<MergeSides>, conflictedFiles: readonly string[]): boolean {
-  return VERIFICATION_CHECKS.V10({
+  return CUSTOMS_CHECKS.V10({
     role:             'resolver',
     worktreePath,
     startCommit:      sides.startTip,

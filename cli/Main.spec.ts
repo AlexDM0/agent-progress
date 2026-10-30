@@ -22,7 +22,7 @@ import {
 }                                                         from 'bun:test';
 import { createInstallManifestWriter }                    from '../src/adapters/install/InstallManifestWriter.ts';
 import { OperationRefusalWordingUtil }                    from '../src/adapters/utils/OperationRefusalWordingUtil.ts';
-import { JOB_ID_VARIABLE, RELAY_DIRECTORY_VARIABLE }      from '../src/shared/Environment.ts';
+import { JOB_ID_VARIABLE, HATCH_DIRECTORY_VARIABLE }      from '../src/shared/Environment.ts';
 import { OperationRefusal }                               from '../src/shared/OperationRefusal.ts';
 import { PRODUCT_NAMES }                                  from '../src/shared/constants/ProductNames.ts';
 import { CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS }        from '../src/testing/ChildProcessCaseTimeout.ts';
@@ -200,17 +200,17 @@ describe('a tracker whose installed files are of another install version', () =>
     expect(existsSync(installedFilePathsIn(trackedDirectory).installManifest)).toBe(false);
   });
 
-  test('version runs and prints the code and install versions, so a runner can read the code on disk whatever was installed', async () => {
+  test('version runs and prints the code and install versions, so an Overseer can read the code on disk whatever was installed', async () => {
     const context = trackedContext();
     expect(await runCommandLine(['version', '--json'], context), context.errorText()).toBe(0);
     expect(JSON.parse(context.outputText())).toEqual({ codeVersion: expect.stringMatching(/^[0-9a-f]{12}$/), installVersion: INSTALL_VERSION });
   });
 
-  test('run status runs and reports the runner down, so a runner whose install changed can still be inspected', async () => {
+  test('run status runs and reports the Overseer down, so an Overseer whose install changed can still be inspected', async () => {
     const context = trackedContext();
     expect(await runCommandLine(['run', 'status', '--json'], context), context.errorText()).toBe(0);
     expect(JSON.parse(context.outputText())).toMatchObject({
-      state: 'down', paused: true, url: null, lease: null, codeVersionInMemory: null
+      state: 'down', paused: true, url: null, baton: null, codeVersionInMemory: null
     });
   });
 
@@ -236,32 +236,32 @@ describe('a tracker whose installed files are of another install version', () =>
   });
 
   test('under a job a mutating verb relays before the install check, writing a versioned request, and prints queued at exit 0', async () => {
-    const relayFolder = createScratchDirectory('main-relay');
+    const hatchFolder = createScratchDirectory('main-hatch');
     try {
       const result = await runAgentProgress(['ticket', 'add', 'Found beside the work', '--type', 'bug', '--priority', 'low'], {
         currentDirectory: trackedDirectory,
-        environment:      { [JOB_ID_VARIABLE]: 'J7', [RELAY_DIRECTORY_VARIABLE]: relayFolder },
+        environment:      { [JOB_ID_VARIABLE]: 'J7', [HATCH_DIRECTORY_VARIABLE]: hatchFolder },
       });
-      const [requestFileName, ...otherFileNames] = readdirSync(join(relayFolder, 'requests'));
-      const request = JSON.parse(readFileSync(join(relayFolder, 'requests', requestFileName ?? ''), 'utf8')) as { relayFormatVersion: number; requestId: string };
+      const [requestFileName, ...otherFileNames] = readdirSync(join(hatchFolder, 'requests'));
+      const request = JSON.parse(readFileSync(join(hatchFolder, 'requests', requestFileName ?? ''), 'utf8')) as { hatchFormatVersion: number; requestId: string };
 
       expect(result.exitCode, result.standardError).toBe(0);
       expect(otherFileNames).toEqual([]);
-      expect(request.relayFormatVersion).toBe(1);
+      expect(request.hatchFormatVersion).toBe(1);
       expect(result.standardOutput.trim()).toBe(`queued ${request.requestId}`);
       expect(existsSync(installedFilePathsIn(trackedDirectory).installManifest)).toBe(false);
     } finally {
-      removeScratchDirectory(relayFolder);
+      removeScratchDirectory(hatchFolder);
     }
   }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
   test('hook bash-domains skips the install check: under a job it still answers deny through its JSON at exit 0', async () => {
-    const relayFolder = createScratchDirectory('main-bash-domains');
+    const hatchFolder = createScratchDirectory('main-bash-domains');
     try {
       const webFetch = { hook_event_name: 'PreToolUse', tool_name: 'WebFetch', tool_input: { url: 'https://example.net/' } };
       const result = await runAgentProgress(['hook', 'bash-domains', '--allow', 'registry.example.com'], {
         currentDirectory: trackedDirectory,
-        environment:      { [JOB_ID_VARIABLE]: 'J7', [RELAY_DIRECTORY_VARIABLE]: relayFolder },
+        environment:      { [JOB_ID_VARIABLE]: 'J7', [HATCH_DIRECTORY_VARIABLE]: hatchFolder },
         standardInput:    JSON.stringify(webFetch),
       });
       expect(result.exitCode, result.standardError).toBe(0);
@@ -269,12 +269,12 @@ describe('a tracker whose installed files are of another install version', () =>
       expect(JSON.parse(result.standardOutput)).toMatchObject({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny' } });
       expect(existsSync(installedFilePathsIn(trackedDirectory).installManifest)).toBe(false);
     } finally {
-      removeScratchDirectory(relayFolder);
+      removeScratchDirectory(hatchFolder);
     }
   }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
   test('hook session-start skips the install check: it prints the session instructions at exit 0, and nothing under a job', async () => {
-    const relayFolder = createScratchDirectory('main-session-start');
+    const hatchFolder = createScratchDirectory('main-session-start');
     try {
       const instructions = readFileSync(installedFilePathsIn(trackedDirectory).sessionInstructions, 'utf8');
       const session = await runAgentProgress(['hook', 'session-start'], { currentDirectory: trackedDirectory, standardInput: '{}' });
@@ -284,7 +284,7 @@ describe('a tracker whose installed files are of another install version', () =>
 
       const underAJob = await runAgentProgress(['hook', 'session-start'], {
         currentDirectory: trackedDirectory,
-        environment:      { [JOB_ID_VARIABLE]: 'J7', [RELAY_DIRECTORY_VARIABLE]: relayFolder },
+        environment:      { [JOB_ID_VARIABLE]: 'J7', [HATCH_DIRECTORY_VARIABLE]: hatchFolder },
         standardInput:    '{}',
       });
       expect(underAJob.exitCode, underAJob.standardError).toBe(0);
@@ -297,7 +297,7 @@ describe('a tracker whose installed files are of another install version', () =>
       expect(unreadable.standardError).toBe('');
       expect(existsSync(installedFilePathsIn(trackedDirectory).installManifest)).toBe(false);
     } finally {
-      removeScratchDirectory(relayFolder);
+      removeScratchDirectory(hatchFolder);
     }
   }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 

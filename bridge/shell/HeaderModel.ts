@@ -36,17 +36,17 @@ export interface HeaderModel {
 const STATE_TEXT: Readonly<Record<OverseerFactsDocument['state'], string>> = {
   'serving':                'serving',
   'held-by-install-change': 'held for an install change',
-  'handing-over':           'handing over',
+  'passing-baton':          'handing over',
   'down':                   'down',
 };
 
 const DEFAULT_CAUSE_TEXT: Readonly<Record<string, string>> = {
-  'turn-closed':     'its delivery turn closed',
-  'turn-budget':     'the turn budget ran out',
-  'no-orchestrator': 'no Assistant was up',
+  'turn-closed':  'its delivery turn closed',
+  'turn-budget':  'the turn budget ran out',
+  'no-assistant': 'no Assistant was up',
 };
 
-const NO_ASSISTANT_CAUSE = 'no-orchestrator';
+const NO_ASSISTANT_CAUSE = 'no-assistant';
 
 const INCIDENT_DEFAULTED = 'incident-defaulted';
 
@@ -87,13 +87,13 @@ function noticeTextOf(notice: NoticeDocument): string {
 
 function warningsOf(notices: readonly NoticeDocument[], overseer: OverseerFactsDocument | null): string[] {
   const defaulted = notices.filter((notice) => notice.kind === INCIDENT_DEFAULTED);
-  const handover = overseer?.handoverWarning ?? null;
+  const batonPass = overseer?.batonPassWarning ?? null;
   return [
     ...defaulted.map((notice) => {
       const cause = factOf(notice, 'cause');
       return `incident ${factOf(notice, 'incidentId')} took its default, ${factOf(notice, 'move')}: ${DEFAULT_CAUSE_TEXT[cause] ?? cause}`;
     }),
-    ...(handover === null ? [] : [`the Baton pass to code ${handover.successorCodeVersion} failed at ${handover.step}: ${handover.error}`]),
+    ...(batonPass === null ? [] : [`the Baton pass to code ${batonPass.successorCodeVersion} failed at ${batonPass.step}: ${batonPass.error}`]),
     ...(defaulted.some((notice) => notice['cause'] === NO_ASSISTANT_CAUSE) ? ['no Assistant can come up: open incidents take their defaults'] : []),
   ];
 }
@@ -135,7 +135,7 @@ function calendarDateOf(moment: Date): string {
 function headerModelOf(state: BoardStateDocument | null, now: Date): HeaderModel {
   const overseer = state?.overseer ?? null;
   const notices = state?.notices ?? [];
-  const handingOver = overseer?.state === 'handing-over';
+  const handingOver = overseer?.state === 'passing-baton';
   const newCodeOnDisk = notices.some((notice) => notice.kind === NEW_CODE);
   const answers = overseer !== null && overseer.state !== 'down' && !handingOver;
   return {

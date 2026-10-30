@@ -1,6 +1,6 @@
 /**
  * `incident answer|note <I> -- <text>` and `incident escalate <I>`: the moves on an incident itself, each one control command recorded in a
- * hold with the runner up or down. An answer and an escalation close the incident; a note leaves it open.
+ * hold with the Overseer up or down. An answer and an escalation close the incident; a note leaves it open.
  */
 import { ControlService }        from '../../src/services/control/ControlService.ts';
 import type { ControlCommand }   from '../../src/shared/@types/ControlCommand.ts';
@@ -8,8 +8,8 @@ import { OperationRefusal }      from '../../src/shared/OperationRefusal.ts';
 import { PRODUCT_NAMES }         from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }   from '../CommandContext.ts';
 import type { CommandHandler }   from '../CommandHandler.ts';
+import { hatchWhenUnderJob }     from '../HatchUnderJob.ts';
 import { openTrackerForWriting } from '../OpenTrackerForWriting.ts';
-import { relayWhenUnderJob }     from '../RelayUnderJob.ts';
 import type { ArgumentParser }   from '../arguments/ArgumentParser.ts';
 import { OutputUtil }            from '../utils/OutputUtil.ts';
 
@@ -48,7 +48,7 @@ function commandOf(subcommand: IncidentSubcommand, commandArguments: ArgumentPar
 
 async function recordMove(subcommand: IncidentSubcommand, commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
   const command = commandOf(subcommand, commandArguments);
-  await relayWhenUnderJob(context, command);
+  await hatchWhenUnderJob(context, command);
   const { logged } = await openTrackerForWriting(commandArguments, context, (change) => ControlService.apply(command, change).result);
   OutputUtil.printEntity(commandArguments, context, { command, logged }, OutputUtil.loggedSentencesOf(logged));
 }

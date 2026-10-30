@@ -16,8 +16,8 @@ const CONFINED_REACHES = [
     property:  { object: 'process', property: 'env', message: 'Read the environment through src/shared/Environment.ts.' },
   },
   {
-    allowedIn: ['agent-progress.ts', 'agent-host.ts'],
-    property:  { object: 'process', property: 'exit', message: 'Only agent-progress.ts and agent-host.ts exit; return an exit code.' },
+    allowedIn: ['agent-progress.ts', 'watcher.ts'],
+    property:  { object: 'process', property: 'exit', message: 'Only agent-progress.ts and watcher.ts exit; return an exit code.' },
   },
   { allowedIn: [], property: { object: 'process', property: 'chdir', message: 'Never change the working directory; pass a directory instead.' } },
   {
@@ -78,8 +78,8 @@ export default [
   { files: TYPESCRIPT_FILES, rules: confinedReachRules(null) },
   ...CONFINED_REACH_SITES.map((site) => ({ files: [site], rules: confinedReachRules(site) })),
   {
-    files:   ['src/**/*.ts', 'cli/**/*.ts', 'agent-progress.ts', 'agent-host.ts'],
-    ignores: [...SPECS_AND_TESTING_FOLDERS, 'cli/CommandContext.ts', 'agent-host.ts'],
+    files:   ['src/**/*.ts', 'cli/**/*.ts', 'agent-progress.ts', 'watcher.ts'],
+    ignores: [...SPECS_AND_TESTING_FOLDERS, 'cli/CommandContext.ts', 'watcher.ts'],
     rules:   {
       'no-restricted-syntax': [
         'error',

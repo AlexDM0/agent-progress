@@ -102,7 +102,7 @@ function problemOf(message: DevToolsMessage): string | null {
   }
 }
 
-/** Starts a runner and Chrome, reads the Bridge, and removes both and every scratch folder again, whatever happened. */
+/** Starts an Overseer and Chrome, reads the Bridge, and removes both and every scratch folder again, whatever happened. */
 export async function readTheBridgeHeadless(chromePath: string): Promise<HeadlessBridgeReading> {
   const repositoryDirectory = await createInitializedScratchRepository('headless-bridge', ['--project', HEADLESS_CHECK_PROJECT, '--no-hooks'], FIXED_CLOCK);
   const homeDirectory = createScratchDirectory('headless-bridge-home');
@@ -110,8 +110,8 @@ export async function readTheBridgeHeadless(chromePath: string): Promise<Headles
   let chrome: Bun.Subprocess<'ignore', 'ignore', 'pipe'> | null = null;
   let devTools: ReturnType<typeof connectDevTools> | null = null;
   try {
-    const runner = startAgentProgress(['run', '--port', '0'], { currentDirectory: repositoryDirectory, homeDirectory });
-    const url = await runner.firstOutputLine ?? '';
+    const overseer = startAgentProgress(['run', '--port', '0'], { currentDirectory: repositoryDirectory, homeDirectory });
+    const url = await overseer.firstOutputLine ?? '';
     chrome = Bun.spawn([
       chromePath,
       '--headless=new',

@@ -15,12 +15,12 @@ import {
 } from 'node:fs';
 import { delimiter, dirname, join } from 'node:path';
 
-import { HostFleet }       from '../../src/services/runner/HostFleet.ts';
+import { WatcherFleet }    from '../../src/services/overseer/WatcherFleet.ts';
 import {
   environmentCopy,
   FAKE_AGENT_VARIABLE,
   JOB_ID_VARIABLE,
-  RELAY_DIRECTORY_VARIABLE,
+  HATCH_DIRECTORY_VARIABLE,
   ROOT_OVERRIDE_VARIABLE
 } from '../../src/shared/Environment.ts';
 import { PRODUCT_NAMES }                                                                   from '../../src/shared/constants/ProductNames.ts';
@@ -49,12 +49,12 @@ interface ProgramResult {
 }
 
 interface LiveJob {
-  id:           string;
-  kind:         string;
-  role:         string | null;
-  state:        string;
-  ticketIds:    string[];
-  hostInstance: number;
+  id:              string;
+  kind:            string;
+  role:            string | null;
+  state:           string;
+  ticketIds:       string[];
+  watcherInstance: number;
 }
 
 const CHECKOUT_ROOT = join(import.meta.dir, '..', '..');
@@ -150,7 +150,7 @@ function createSmoke(options: CutoverSmokeOptions, logPath: string) {
 
   const childEnvironment = (() => {
     const environment = environmentCopy();
-    for (const variable of [FAKE_AGENT_VARIABLE, JOB_ID_VARIABLE, RELAY_DIRECTORY_VARIABLE, ROOT_OVERRIDE_VARIABLE]) delete environment[variable];
+    for (const variable of [FAKE_AGENT_VARIABLE, JOB_ID_VARIABLE, HATCH_DIRECTORY_VARIABLE, ROOT_OVERRIDE_VARIABLE]) delete environment[variable];
     return { ...environment, PATH: [shimFolder, environment['PATH'] ?? ''].join(delimiter) };
   })();
 
@@ -220,19 +220,19 @@ function createSmoke(options: CutoverSmokeOptions, logPath: string) {
   const storedLogRecords = (): SmokeLogRecord[] => readFileSync(join(trackerDirectory, 'log.jsonl'), 'utf8').split('\n')
     .filter((line) => line.trim() !== '').map((line) => JSON.parse(line) as SmokeLogRecord);
 
-  const newestLease = (): { processId: number } | null => {
-    const runnerFolder = join(trackerDirectory, 'runner');
-    const leaseFiles = readdirSync(runnerFolder).filter((fileName) => /^lease-\d+\.json$/.test(fileName))
+  const newestBaton = (): { processId: number } | null => {
+    const overseerFolder = join(trackerDirectory, 'overseer');
+    const batonFiles = readdirSync(overseerFolder).filter((fileName) => /^baton-\d+\.json$/.test(fileName))
       .sort((a, b) => Number(/\d+/.exec(a)?.[0]) - Number(/\d+/.exec(b)?.[0]));
-    const newest = leaseFiles.at(-1);
-    return newest === undefined ? null : JSON.parse(readFileSync(join(runnerFolder, newest), 'utf8')) as { processId: number };
+    const newest = batonFiles.at(-1);
+    return newest === undefined ? null : JSON.parse(readFileSync(join(overseerFolder, newest), 'utf8')) as { processId: number };
   };
 
-  const hostProcessIdOf = (jobId: string, instance: number): number | null => {
-    const hostRecordPath = join(trackerDirectory, 'jobs', jobId, `host-${instance}.json`);
-    if (!existsSync(hostRecordPath)) return null;
-    const record = JSON.parse(readFileSync(hostRecordPath, 'utf8')) as { host?: { processId: number } | null };
-    return record.host?.processId ?? null;
+  const watcherProcessIdOf = (jobId: string, instance: number): number | null => {
+    const watcherRecordPath = join(trackerDirectory, 'jobs', jobId, `watcher-${instance}.json`);
+    if (!existsSync(watcherRecordPath)) return null;
+    const record = JSON.parse(readFileSync(watcherRecordPath, 'utf8')) as { watcher?: { processId: number } | null };
+    return record.watcher?.processId ?? null;
   };
 
   const buildLaunchesOf = (ticketId: string): number => storedLogRecords().filter((record) => record.kind === 'job-launched'
@@ -292,28 +292,29 @@ function createSmoke(options: CutoverSmokeOptions, logPath: string) {
       return ticketIds;
     },
 
-    /** Kills the Overseer once a build runs, starts a new one, then hands it over; answers what the agent's host did meanwhile. */
+    /** Kills the Overseer once a build runs, starts a new one, then hands it over; answers what the agent's Watcher did meanwhile. */
     async regroupAroundRunningBuild(job: LiveJob): Promise<RegroupingObservation> {
       const ticketId = job.ticketIds[0] ?? '';
-      let hostProcessId = hostProcessIdOf(job.id, job.hostInstance);
-      while (hostProcessId === null && Date.now() < deadline) {
+      let watcherProcessId = watcherProcessIdOf(job.id, job.watcherInstance);
+      while (watcherProcessId === null && Date.now() < deadline) {
         await sleep(POLL_INTERVAL_MILLISECONDS / 10);
-        hostProcessId = hostProcessIdOf(job.id, job.hostInstance);
+        watcherProcessId = watcherProcessIdOf(job.id, job.watcherInstance);
       }
       const buildLaunchesBefore = buildLaunchesOf(ticketId);
-      const lease = newestLease();
-      if (lease === null || hostProcessId === null) throw new Error('no lease or host record to regroup around');
-      log(`kill -9 of the Overseer (process ${lease.processId}) while job ${job.id} (#${ticketId}) runs on host instance ${job.hostInstance}, process ${hostProcessId}`);
+      const baton = newestBaton();
+      if (baton === null || watcherProcessId === null) throw new Error('no Baton or Watcher record to regroup around');
+      log(`kill -9 of the Overseer (process ${baton.processId}) while job ${job.id} (#${ticketId}) runs on Watcher instance ${job.watcherInstance}, process ${watcherProcessId}`);
       const killedAt = new Date().toISOString();
-      process.kill(lease.processId, 'SIGKILL');
-      while (processIsAlive(lease.processId)) await sleep(POLL_INTERVAL_MILLISECONDS / 10);
+      process.kill(baton.processId, 'SIGKILL');
+      while (processIsAlive(baton.processId)) await sleep(POLL_INTERVAL_MILLISECONDS / 10);
       const regrouped = await programJson<{ url: string }>(['run', '--detach', '--port', '0']);
       openStream(regrouped.url);
       streamGaps.push({ from: killedAt, to: new Date().toISOString() });
       await sleep(SETTLE_AFTER_REGROUPING_MILLISECONDS);
       // A build may finish inside the wait: an agent that ended its work uninterrupted kept running as far as the kill is concerned.
-      const agentKeptRunning = (): boolean => processIsAlive(hostProcessId) || !storedLogRecords().some((record) => record.kind === 'job-interrupted' && record.jobId === job.id);
-      const newestInstance = (): number => readdirSync(join(trackerDirectory, 'jobs', job.id)).filter((fileName) => /^host-\d+\.json$/.test(fileName)).length;
+      const agentKeptRunning = (): boolean => processIsAlive(watcherProcessId)
+        || !storedLogRecords().some((record) => record.kind === 'job-interrupted' && record.jobId === job.id);
+      const newestInstance = (): number => readdirSync(join(trackerDirectory, 'jobs', job.id)).filter((fileName) => /^watcher-\d+\.json$/.test(fileName)).length;
       const instanceAfterRegrouping = newestInstance();
       const keptRunningAfterRegrouping = agentKeptRunning();
       const restartedAt = new Date().toISOString();
@@ -323,14 +324,14 @@ function createSmoke(options: CutoverSmokeOptions, logPath: string) {
       streamGaps.push({ from: restartedAt, to: new Date().toISOString() });
       await sleep(SETTLE_AFTER_RESTART_MILLISECONDS);
       return {
-        jobId:                           job.id,
-        hostInstanceBeforeKill:          job.hostInstance,
-        hostInstanceAfterRegrouping:     instanceAfterRegrouping,
-        hostInstanceAfterRestart:        newestInstance(),
-        hostProcessAliveAfterRegrouping: keptRunningAfterRegrouping,
-        hostProcessAliveAfterRestart:    agentKeptRunning(),
-        restartExitCode:                 restart.exitCode,
-        buildJobsOnTheTicketAfterKill:   buildLaunchesOf(ticketId) - buildLaunchesBefore,
+        jobId:                              job.id,
+        watcherInstanceBeforeKill:          job.watcherInstance,
+        watcherInstanceAfterRegrouping:     instanceAfterRegrouping,
+        watcherInstanceAfterRestart:        newestInstance(),
+        watcherProcessAliveAfterRegrouping: keptRunningAfterRegrouping,
+        watcherProcessAliveAfterRestart:    agentKeptRunning(),
+        restartExitCode:                    restart.exitCode,
+        buildJobsOnTheTicketAfterKill:      buildLaunchesOf(ticketId) - buildLaunchesBefore,
       };
     },
 
@@ -343,7 +344,7 @@ function createSmoke(options: CutoverSmokeOptions, logPath: string) {
         const statuses = await Promise.all(ticketIds.map(async (ticketId) => (await quietJson<{ status: string }>(['ticket', 'show', ticketId]))?.status ?? '?'));
         if (statuses.every((status) => status === 'delivered')) return regrouping;
         const jobs = await liveJobs();
-        const jobLines = jobs.map((liveJob) => `${liveJob.id} ${liveJob.kind}/${liveJob.role ?? '-'} ${liveJob.state} host ${liveJob.hostInstance}`);
+        const jobLines = jobs.map((liveJob) => `${liveJob.id} ${liveJob.kind}/${liveJob.role ?? '-'} ${liveJob.state} Watcher ${liveJob.watcherInstance}`);
         const jobsText = `tickets ${ticketIds.map((ticketId, i) => `#${ticketId} ${statuses[i]}`).join(', ')}; jobs ${jobLines.join(', ')}`;
         if (jobsText !== lastJobsText) log(jobsText);
         lastJobsText = jobsText;
@@ -381,8 +382,8 @@ function createSmoke(options: CutoverSmokeOptions, logPath: string) {
     },
 
     /**
-     * Stops every job and waits, bounded, for the stopped ones to end before stopping the runner. A host of an ended job still running then
-     * is the leak this counts; a host of a job still live, such as the Assistant's, outlives the runner by design and is counted apart.
+     * Stops every job and waits, bounded, for the stopped ones to end before stopping the Overseer. A Watcher of an ended job still running then
+     * is the leak this counts; a Watcher of a job still live, such as the Assistant's, outlives the Overseer by design and is counted apart.
      */
     async stopEverything(): Promise<void> {
       streamController?.abort();
@@ -391,19 +392,19 @@ function createSmoke(options: CutoverSmokeOptions, logPath: string) {
         await sleep(STOPPING_JOB_INTERVAL_MILLISECONDS);
       }
       await program(['run', 'stop', '--now']);
-      const hostPattern = join(trackerDirectory, 'runner', 'host-');
-      const leftoverHostLines = Bun.spawnSync(['pgrep', '-lf', hostPattern]).stdout.toString().trim().split('\n').filter((line) => line !== '');
-      const endedHostLines = leftoverHostLines.filter((line) => {
-        const [hostFolder = '', instance = ''] = line.trim().split(/\s+/).slice(-2);
-        return HostFleet.hostRecordOf(hostFolder, Number(instance))?.end !== undefined;
+      const watcherPattern = join(trackerDirectory, 'overseer', 'watcher-');
+      const leftoverWatcherLines = Bun.spawnSync(['pgrep', '-lf', watcherPattern]).stdout.toString().trim().split('\n').filter((line) => line !== '');
+      const endedWatcherLines = leftoverWatcherLines.filter((line) => {
+        const [watcherFolder = '', instance = ''] = line.trim().split(/\s+/).slice(-2);
+        return WatcherFleet.watcherRecordOf(watcherFolder, Number(instance))?.end !== undefined;
       });
-      log(`${endedHostLines.length} hosts of ended jobs were still running after the stop${endedHostLines.length === 0 ? '' : `: ${endedHostLines.join('; ')}`}`);
-      log(`${leftoverHostLines.length - endedHostLines.length} hosts of jobs still live outlived the runner, as they do by design`);
-      if (leftoverHostLines.length > 0) Bun.spawnSync(['pkill', '-f', hostPattern]);
+      log(`${endedWatcherLines.length} Watchers of ended jobs were still running after the stop${endedWatcherLines.length === 0 ? '' : `: ${endedWatcherLines.join('; ')}`}`);
+      log(`${leftoverWatcherLines.length - endedWatcherLines.length} Watchers of jobs still live outlived the Overseer, as they do by design`);
+      if (leftoverWatcherLines.length > 0) Bun.spawnSync(['pkill', '-f', watcherPattern]);
     },
 
     keepBoardLog(evidenceBase: string): void {
-      for (const fileName of ['log.jsonl', 'runner.log']) {
+      for (const fileName of ['log.jsonl', 'overseer.log']) {
         const source = join(trackerDirectory, fileName);
         if (existsSync(source)) copyFileSync(source, `${evidenceBase}-${fileName}`);
       }

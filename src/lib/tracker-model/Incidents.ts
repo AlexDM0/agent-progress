@@ -1,5 +1,5 @@
 /**
- * The runner's orchestrator's incidents on the board: opened once per question request, delivered in a chat turn, and closed by a move,
+ * The Overseer's orchestrator's incidents on the board: opened once per question request, delivered in a chat turn, and closed by a move,
  * by their default or by an escalation to the user. A closed incident leaves the board in that hold and lives on in the log.
  */
 import type { IncidentClosed, IncidentEscalated, IncidentOpened } from './@types/BoardChanges.ts';
@@ -58,7 +58,7 @@ export class Incidents {
     return { incident, logged: [logged] };
   }
 
-  /** Delivery is the runner's state, not an event: it is stored and never logged. */
+  /** Delivery is the Overseer's state, not an event: it is stored and never logged. */
   markIncidentDelivered(incidentId: string, turn: IncidentDeliveryTurn): Readonly<Incident> {
     const incident           = this.requireOpenIncident(incidentId);
     incident.deliveredInTurn = { jobId: turn.jobId, chatSequence: turn.chatSequence };

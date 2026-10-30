@@ -1,4 +1,4 @@
-/** Whether a domain on a ticket's `network` line is public, so no grant reaches this machine, its local network or the runner's own API. */
+/** Whether a domain on a ticket's `network` line is public, so no grant reaches this machine, its local network or the Overseer's own API. */
 import {
   GLOBAL_UNICAST_IPV6_FIRST_GROUP,
   HEXADECIMAL_RADIX,
@@ -19,7 +19,7 @@ const IPV4_PATTERN        = /^(?:0|[1-9]\d{0,2})(?:\.(?:0|[1-9]\d{0,2})){3}$/;
 const NUMERIC_LAST_LABEL_PATTERN = /\.(?:\d+|0x[0-9a-f]*)$/;
 const IPV6_PATTERN        = /^\[?([0-9a-f]*:[0-9a-f:.]*)\]?$/;
 
-/** Lower case, as a host name is compared. */
+/** Lower case, as a Watcher name is compared. */
 function normalisedDomainOf(domain: string): string {
   return domain.trim().toLowerCase();
 }
@@ -33,8 +33,8 @@ function ipv4AddressNumberOf(address: string): number | null {
 function ipv4AddressIsInBlock(addressNumber: number, block: string): boolean {
   const [blockAddress = '', prefixLengthText = ''] = block.split('/');
   const blockNumber = ipv4AddressNumberOf(blockAddress) ?? 0;
-  const hostBits    = IPV4_ADDRESS_BITS - Number(prefixLengthText);
-  return Math.floor(addressNumber / 2 ** hostBits) === Math.floor(blockNumber / 2 ** hostBits);
+  const watcherBits    = IPV4_ADDRESS_BITS - Number(prefixLengthText);
+  return Math.floor(addressNumber / 2 ** watcherBits) === Math.floor(blockNumber / 2 ** watcherBits);
 }
 
 function ipv4AddressIsPublic(address: string): boolean {
@@ -48,7 +48,7 @@ function ipv6AddressIsPublic(address: string): boolean {
   return firstGroup.length > 0 && firstGroupNumber >= GLOBAL_UNICAST_IPV6_FIRST_GROUP.lowest && firstGroupNumber <= GLOBAL_UNICAST_IPV6_FIRST_GROUP.highest;
 }
 
-/** A public host name, a public IPv4 literal or a global unicast IPv6 literal; anything else, malformed text included, is not public. */
+/** A public Watcher name, a public IPv4 literal or a global unicast IPv6 literal; anything else, malformed text included, is not public. */
 function domainIsPublic(domain: string): boolean {
   const normalised = normalisedDomainOf(domain);
   if (IPV4_PATTERN.test(normalised)) return ipv4AddressIsPublic(normalised);

@@ -22,8 +22,8 @@ import { removeScratchDirectory }             from '../../src/testing/ScratchWor
 import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.ts';
 import { createCapturedCommandContext }       from '../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../testing/InitializedScratchRepository.ts';
+import { runCommandLineWithOverseerMoves }    from '../testing/OverseerTicketMoves.ts';
 import { fileReadyTicket }                    from '../testing/ReadyTicketFiling.ts';
-import { runCommandLineWithRunnerMoves }      from '../testing/RunnerTicketMoves.ts';
 import { storedLogTextOf }                    from '../testing/StoredLogText.ts';
 
 const FROZEN_NOW = new Date('2026-10-30T09:00:00Z');
@@ -34,7 +34,7 @@ const pipelineFilePath = (): string => workspacePathsFor(repositoryDirectory).pi
 
 async function runWithExitCode(commandLineArguments: readonly string[]): Promise<{ exitCode: number; context: ReturnType<typeof createCapturedCommandContext> }> {
   const context  = createCapturedCommandContext({ currentDirectory: repositoryDirectory, now: () => FROZEN_NOW });
-  const exitCode = await runCommandLineWithRunnerMoves(commandLineArguments, context);
+  const exitCode = await runCommandLineWithOverseerMoves(commandLineArguments, context);
   return { exitCode, context };
 }
 
@@ -139,7 +139,7 @@ describeWhenGitIsPresent('the gate pipeline verbs', () => {
       executableSearchPath: [join(repositoryDirectory, 'spec-home', '.local', 'bin'), '/opt/example-tools'],
     });
 
-    expect(await runCommandLineWithRunnerMoves(['gate', 'add', 'test', '--writes', '~/.bun/install/cache', '--writes', path, '--', 'bun test'], context)).toBe(1);
+    expect(await runCommandLineWithOverseerMoves(['gate', 'add', 'test', '--writes', '~/.bun/install/cache', '--writes', path, '--', 'bun test'], context)).toBe(1);
     expect(context.errorText()).toContain(named);
     expect(storedFiles()).toEqual(before);
   });

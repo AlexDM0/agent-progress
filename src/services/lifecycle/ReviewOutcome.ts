@@ -9,15 +9,15 @@ import { readChangeSize, readCommitsDiff }     from '../../lib/git/BranchDiffs.t
 import { GitProcess }                          from '../../lib/git/GitProcess.ts';
 import type { DecisionAnswer }                 from '../../lib/tracker-model/@types/Decision.ts';
 import type { Job }                            from '../../lib/tracker-model/@types/Job.ts';
-import type { DecisionDraft, DecisionWording } from '../../lib/tracker-model/@types/LifecycleStep.ts';
 import type { LogRecord }                      from '../../lib/tracker-model/@types/LogRecord.ts';
+import type { DecisionDraft, DecisionWording } from '../../lib/tracker-model/@types/PlaybookStep.ts';
 import type { ReviewClaim, ReviewFinding }     from '../../lib/tracker-model/@types/ReviewRecord.ts';
 import type { RoundLimits }                    from '../../lib/tracker-model/@types/ReviewRound.ts';
 import type { Board }                          from '../../lib/tracker-model/Board.ts';
 import { RoundVerdictUtil }                    from '../../lib/tracker-model/utils/RoundVerdictUtil.ts';
 import { TICKET_SECTION_PATTERNS }             from '../../shared/constants/TicketSectionPatterns.ts';
 import { ReworkCountUtil }                     from '../../shared/rework/utils/ReworkCountUtil.ts';
-import { ticketIdFiledByRequest }              from './JobVerification.ts';
+import { ticketIdFiledByRequest }              from './Customs.ts';
 
 export interface ReviewPassRequest {
   board:             Board;
@@ -27,7 +27,7 @@ export interface ReviewPassRequest {
   report:            unknown;
   worktreePath:      string;
   reviewStartCommit: string;
-  /** The runner-written folder of the job, where its waiver proposals wait for User's answer. */
+  /** The overseer-written folder of the job, where its waiver proposals wait for User's answer. */
   jobFolder:         string;
   limits:            RoundLimits;
   decisionWordingOf: (draft: DecisionDraft) => DecisionWording;
@@ -101,7 +101,7 @@ function findingsOf(report: unknown, filedTicketIdOfRequest: (requestId: string)
       evidence: finding['evidence'],
     } as Omit<ReviewFinding, 'outcome' | 'commit' | 'filedTicketId'>;
     if (finding['outcome'] === 'fixed') return { ...description, outcome: 'fixed', commit: String(finding['commit']) };
-    const filedTicketId = typeof finding['filedTicketId'] === 'string' ? finding['filedTicketId'] : filedTicketIdOfRequest(String(finding['relayRequestId']));
+    const filedTicketId = typeof finding['filedTicketId'] === 'string' ? finding['filedTicketId'] : filedTicketIdOfRequest(String(finding['hatchRequestId']));
     return { ...description, outcome: 'filed', filedTicketId };
   });
 }

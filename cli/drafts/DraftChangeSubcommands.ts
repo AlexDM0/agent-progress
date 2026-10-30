@@ -10,8 +10,8 @@ import type { ControlCommand }                  from '../../src/shared/@types/Co
 import { OperationRefusal }                     from '../../src/shared/OperationRefusal.ts';
 import { PRODUCT_NAMES }                        from '../../src/shared/constants/ProductNames.ts';
 import type { CommandContext }                  from '../CommandContext.ts';
+import { hatchWhenUnderJob }                    from '../HatchUnderJob.ts';
 import { openTrackerForWriting }                from '../OpenTrackerForWriting.ts';
-import { relayWhenUnderJob }                    from '../RelayUnderJob.ts';
 import type { ArgumentParser }                  from '../arguments/ArgumentParser.ts';
 import { OutputUtil }                           from '../utils/OutputUtil.ts';
 import { DRAFT_USAGE }                          from './constants/DraftUsage.ts';
@@ -32,7 +32,7 @@ export async function appliedDraftControl<Command extends ControlCommand>(
   context: CommandContext,
   command: Command,
 ): Promise<ControlResultOf<Command['kind']>> {
-  await relayWhenUnderJob(context, command);
+  await hatchWhenUnderJob(context, command);
   return openTrackerForWriting(commandArguments, context, (change) => ControlService.apply(command, change).result);
 }
 

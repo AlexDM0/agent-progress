@@ -1,0 +1,432 @@
+/**
+ * Verification by code, V1 to V15, on a scratch repository: each check refuses its planted case and passes a clean one, and `clearCustoms`
+ * runs only the checks of the role's column, stopping at the first refusal. The planted cases are what a session could leave behind and
+ * claim otherwise; V5 plants the data folder under the name `PRODUCT_NAMES` gives it. V11 reads its patterns from every gate's
+ * `definedBy` and the tracked instruction files the pipeline names, and V15 holds a builder's gate claims to HEAD itself, so a stale
+ * claim is refused before any gate runs.
+ */
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join }                     from 'node:path';
+
+import {
+  afterEach,
+  beforeEach,
+  expect,
+  test
+}                                    from 'bun:test';
+import type { LogRecord }             from '../../lib/tracker-model/@types/LogRecord.ts';
+import type { PipelineGate }          from '../../lib/tracker-model/@types/Pipeline.ts';
+import { TicketBodyHashUtil }         from '../../lib/tracker-model/utils/TicketBodyHashUtil.ts';
+import { PRODUCT_NAMES }              from '../../shared/constants/ProductNames.ts';
+import {
+  commitFile,
+  createScratchGitRepository,
+  currentBranchOf,
+  gitOutputIn,
+  removeScratchDirectory,
+  SCRATCH_COMMIT_IDENTITY_ARGUMENTS
+}                                    from '../../testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent } from '../../testing/ToolGuard.ts';
+import {
+  CHECKS_OF_ROLE,
+  definitionFilePatternExpressionOf,
+  launchSnapshotOf,
+  type LaunchSnapshot,
+  retriedFailedBuildJobIdOf,
+  CUSTOMS_CHECKS,
+  clearCustoms,
+  type CustomsSubject,
+  type VerificationCheck
+} from './Customs.ts';
+
+const AT = '2026-10-28T10:00:00+01:00';
+const TICKET_BODY = '## Report\nExample report.\n\n## Acceptance\nA1. The example page loads.\n';
+
+/** The definition files spread over two gates, so V11 is shown reading every gate's `definedBy`, not only the first's. */
+const BUN_GATES: readonly PipelineGate[] = [
+  { name: 'tests', run: 'bun test', definedBy: ['bun.lock', 'tsconfig*.json'] },
+  { name: 'lint', run: 'bun run lint', definedBy: ['package.json', 'eslint.config.*', 'bunfig.toml', '.githooks/'] },
+];
+
+const PYTHON_GATES: readonly PipelineGate[] = [{ name: 'tests', run: 'nox', definedBy: ['pyproject.toml', 'noxfile.py'] }];
+
+let repositoryDirectory = '';
+
+let startCommit = '';
+
+let launchSnapshot: LaunchSnapshot = { refs: {}, hooksFolderDigest: null };
+
+function headCommit(): string {
+  return gitOutputIn(repositoryDirectory, ['rev-parse', 'HEAD']);
+}
+
+function commitWithMessage(fileName: string, message: string): string {
+  writeFileSync(join(repositoryDirectory, fileName), `${message}\n`);
+  gitOutputIn(repositoryDirectory, ['add', '--', fileName]);
+  gitOutputIn(repositoryDirectory, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'commit', '-q', '-m', message]);
+  return headCommit();
+}
+
+function builderReport(): Record<string, unknown> {
+  return {
+    role:              'builder',
+    outcome:           'built',
+    headCommit:        headCommit(),
+    acceptance:        [{ item: 'A1', state: 'met', evidence: 'ExamplePage.spec.ts' }],
+    alsoFixed:         [],
+    gates:             [],
+    handoff:           'Example handoff.',
+    blockedReason:     null,
+    cannotBuildReason: null,
+  };
+}
+
+function reviewerReport(fixedCommit: string): Record<string, unknown> {
+  return {
+    role:       'reviewer',
+    headCommit: headCommit(),
+    claims:     [{
+      item: 'A1', result: 'holds', handoffContradicted: false, note: ''
+    }],
+    findings: [{
+      class: 'correctness', severity: 'quality', file: 'example.ts', summary: 'Example', evidence: 'watched-fail', outcome: 'fixed', commit: fixedCommit,
+    }],
+    reviewText: 'Example review.',
+  };
+}
+
+function builderSubject(overrides: Partial<CustomsSubject> = {}): CustomsSubject {
+  return {
+    role:             'builder',
+    worktreePath:     repositoryDirectory,
+    startCommit,
+    report:           builderReport(),
+    ticketBody:       TICKET_BODY,
+    bodyHashAtLaunch: TicketBodyHashUtil.bodyHashOf(TICKET_BODY),
+    launchSnapshot,
+    refMovesAllowed:  {
+      ownBranch: currentBranchOf(repositoryDirectory), otherJobBranches: [], loggedJobBranches: [], recordedLandings: [], removedAfterLandings: [], refreshWorktreeHeads: []
+    },
+    ...overrides,
+  };
+}
+
+function refusalOf(check: VerificationCheck, subject: CustomsSubject): string | null {
+  const verdict = CUSTOMS_CHECKS[check](subject);
+  return verdict.verdict === 'refused' ? verdict.reason : null;
+}
+
+function commitTargetFile(): void {
+  commitFile(repositoryDirectory, 'target.ts', 'export const target = true;\n');
+}
+
+/**
+ * A target branch with commits of its own merged into the branch, as a resolver leaves it: the merge's parents are [branch, target], and
+ * `resolveMerge` runs with the merge staged, before its commit.
+ */
+function mergedTarget(
+  plantOnTarget: () => void = commitTargetFile,
+  resolveMerge: () => void = () => undefined,
+  mergeMessage = 'Merge the example target'
+): { branchTip: string; targetTip: string } {
+  const branchTip = headCommit();
+  gitOutputIn(repositoryDirectory, ['checkout', '-q', '-b', 'example-target', startCommit]);
+  plantOnTarget();
+  const targetTip = headCommit();
+  gitOutputIn(repositoryDirectory, ['checkout', '-q', '-']);
+  gitOutputIn(repositoryDirectory, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'merge', '-q', '--no-ff', '--no-commit', 'example-target']);
+  resolveMerge();
+  gitOutputIn(repositoryDirectory, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'commit', '-q', '-m', mergeMessage]);
+  return { branchTip, targetTip };
+}
+
+function stagePackageJson(): void {
+  writeFileSync(join(repositoryDirectory, 'package.json'), '{ "scripts": { "verify": "true" } }\n');
+  gitOutputIn(repositoryDirectory, ['add', '--', 'package.json']);
+}
+
+/** The target's own history since the branch point: a checks-definition change, a data-folder commit, agent config and an attribution trailer. */
+function plantTargetHistory(): void {
+  commitFile(repositoryDirectory, 'package.json', '{ "name": "example-target" }\n');
+  mkdirSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER));
+  commitFile(repositoryDirectory, `${PRODUCT_NAMES.DATA_FOLDER}/progress.json`, '{}\n');
+  mkdirSync(join(repositoryDirectory, '.claude'));
+  commitFile(repositoryDirectory, '.claude/settings.json', '{}\n');
+  commitWithMessage('attributed.ts', 'Add the attributed file\n\nCo-Authored-By: Claude <noreply@example.com>');
+}
+
+function resolverSubject(merge: { branchTip: string; targetTip: string }, overrides: Partial<CustomsSubject> = {}): CustomsSubject {
+  return builderSubject({
+    role:        'resolver',
+    startCommit: merge.branchTip,
+    report:      {
+      role: 'resolver', outcome: 'resolved', headCommit: headCommit(), resolvedFiles: [], semanticChanges: [], notes: '', reportKind: null,
+    },
+    merge:          { ...merge, conflictedFiles: [] },
+    // The target branch is the Overseer's merge-in, made before the resolver's launch.
+    launchSnapshot: launchSnapshotOf(repositoryDirectory) ?? launchSnapshot,
+    ...overrides,
+  });
+}
+
+beforeEach(() => {
+  repositoryDirectory = createScratchGitRepository('customs');
+  startCommit         = commitFile(repositoryDirectory, 'base.ts', 'export const base = true;\n');
+  commitFile(repositoryDirectory, 'feature.ts', 'export const feature = true;\n');
+  launchSnapshot = launchSnapshotOf(repositoryDirectory) ?? { refs: {}, hooksFolderDigest: null };
+});
+
+afterEach(() => {
+  removeScratchDirectory(repositoryDirectory);
+});
+
+describeWhenGitIsPresent('verification by code', () => {
+  test('a clean builder pass passes every check of its column', () => {
+    for (const check of CHECKS_OF_ROLE.builder) expect([check, refusalOf(check, builderSubject())]).toEqual([check, null]);
+    expect(clearCustoms(builderSubject())).toEqual({ verdict: 'verified' });
+  });
+
+  test('V1 refuses a report its schema rejects, and one whose headCommit is not HEAD', () => {
+    expect(refusalOf('V1', builderSubject({ report: { role: 'builder' } }))).toBe('report-invalid');
+    expect(refusalOf('V1', builderSubject({ report: { ...builderReport(), headCommit: startCommit } }))).toBe('head-not-reported');
+  });
+
+  test('V2 refuses a HEAD that no longer descends from the start: history was rewritten', () => {
+    const rewrittenFrom = headCommit();
+    gitOutputIn(repositoryDirectory, ['reset', '-q', '--hard', 'HEAD~1']);
+
+    expect(refusalOf('V2', builderSubject({ startCommit: rewrittenFrom, report: builderReport() }))).toBe('history-rewritten');
+  });
+
+  test('V3 refuses a built pass with no commit since the start, and asks nothing of a reviewer', () => {
+    expect(refusalOf('V3', builderSubject({ startCommit: headCommit() }))).toBe('no-commit-since-start');
+    expect(CHECKS_OF_ROLE.reviewer).not.toContain('V3');
+  });
+
+  test('V3 passes a retry whose branch already holds the failed attempt\'s commit, measured from that attempt\'s start', () => {
+    const failedAttemptStart = builderSubject().startCommit;
+    expect(refusalOf('V3', builderSubject({ startCommit: headCommit(), workStartCommit: failedAttemptStart }))).toBeNull();
+    expect(refusalOf('V3', builderSubject({ startCommit: headCommit(), workStartCommit: headCommit() }))).toBe('no-commit-since-start');
+  });
+
+  test('a build retries the unbroken run of failed build attempts right before it on its ticket, and nothing after another ending', () => {
+    const launched = (jobId: string, ticketId: string): LogRecord => ({
+      at:     AT,
+      kind:   'job-launched',
+      jobId,
+      fields: {
+        kind: 'build', role: 'builder', ticketIds: [ticketId], attempt: 1, target: 'main', parentJobId: null
+      }
+    });
+    const ended = (jobId: string, outcome: 'failed' | 'built'): LogRecord => ({
+      at: AT, kind: 'job-ended', jobId, fields: { outcome, deniedPermissions: [] }
+    });
+    const records = [
+      launched('J1', '002'),
+      ended('J1', 'built'),
+      launched('J2', '002'),
+      launched('J3', '001'),
+      ended('J2', 'failed'),
+      launched('J4', '002'),
+      ended('J4', 'failed'),
+      launched('J5', '002'),
+    ];
+    expect(retriedFailedBuildJobIdOf(records, 'J5')).toBe('J2');
+    expect(retriedFailedBuildJobIdOf(records, 'J2')).toBeNull();
+    expect(retriedFailedBuildJobIdOf(records, 'J3')).toBeNull();
+    expect(retriedFailedBuildJobIdOf(records, 'J9')).toBeNull();
+  });
+
+  test('V4 refuses a worktree holding an untracked file', () => {
+    writeFileSync(join(repositoryDirectory, 'left-behind.txt'), 'scratch\n');
+
+    expect(refusalOf('V4', builderSubject())).toBe('worktree-dirty');
+  });
+
+  test('V5 refuses a commit in range touching the data folder, named from PRODUCT_NAMES', () => {
+    mkdirSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER));
+    commitFile(repositoryDirectory, `${PRODUCT_NAMES.DATA_FOLDER}/progress.json`, '{}\n');
+
+    const verdict = CUSTOMS_CHECKS.V5(builderSubject({ report: builderReport() }));
+
+    expect(verdict).toEqual({ verdict: 'refused', reason: 'data-folder-touched', facts: [`${PRODUCT_NAMES.DATA_FOLDER}/progress.json`] });
+  });
+
+  test('V5 and V11 judge every commit in range, so a change undone by a later commit is still refused', () => {
+    mkdirSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER));
+    commitFile(repositoryDirectory, `${PRODUCT_NAMES.DATA_FOLDER}/progress.json`, '{}\n');
+    commitFile(repositoryDirectory, 'package.json', '{ "scripts": { "verify": "true" } }\n');
+    gitOutputIn(repositoryDirectory, ['rm', '-q', '--', `${PRODUCT_NAMES.DATA_FOLDER}/progress.json`, 'package.json']);
+    gitOutputIn(repositoryDirectory, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'commit', '-q', '-m', 'Undo the planted changes']);
+
+    expect(refusalOf('V5', builderSubject({ report: builderReport() }))).toBe('data-folder-touched');
+    expect(refusalOf('V11', builderSubject({ report: builderReport(), gates: BUN_GATES }))).toBe('checks-definition-changed');
+  });
+
+  test('V6 refuses a ticket body edited since launch', () => {
+    expect(refusalOf('V6', builderSubject({ ticketBody: `${TICKET_BODY}\nA2. Added mid-job.\n` }))).toBe('ticket-body-changed');
+  });
+
+  test('V7 refuses an AI attribution trailer or a "Generated with" line in range', () => {
+    commitWithMessage('trailer.ts', 'Add the trailer file\n\nCo-Authored-By: Claude <noreply@example.com>');
+
+    expect(refusalOf('V7', builderSubject({ report: builderReport() }))).toBe('ai-attribution-in-range');
+  });
+
+  test('V8 refuses an Acceptance item the builder gave no evidence or waiver proposal for, or the reviewer no claim', () => {
+    expect(refusalOf('V8', builderSubject({ report: { ...builderReport(), acceptance: [] } }))).toBe('acceptance-without-evidence');
+    expect(refusalOf('V8', builderSubject({ report: { ...builderReport(), acceptance: [{ item: 'A1', state: 'waiver-proposed', evidence: '' }] } }))).toBeNull();
+    expect(refusalOf('V8', builderSubject({ role: 'reviewer', report: { ...reviewerReport(headCommit()), claims: [] } }))).toBe('acceptance-without-evidence');
+  });
+
+  test('V9 refuses a fixed finding naming a commit outside the range, and passes one inside it', () => {
+    const fixCommit = headCommit();
+
+    expect(refusalOf('V9', builderSubject({ role: 'reviewer', report: reviewerReport(startCommit) }))).toBe('fixed-finding-outside-range');
+    expect(refusalOf('V9', builderSubject({ role: 'reviewer', report: reviewerReport(fixCommit) }))).toBeNull();
+    expect(clearCustoms(builderSubject({ role: 'reviewer', report: reviewerReport(fixCommit) }))).toEqual({ verdict: 'verified' });
+  });
+
+  test('V10 passes a merge whose parents are [branchTip, targetTip], and refuses one made against another target tip', () => {
+    const merge = mergedTarget();
+
+    expect(clearCustoms(resolverSubject(merge))).toEqual({ verdict: 'verified' });
+    expect(refusalOf('V10', resolverSubject({ ...merge, targetTip: startCommit }))).toBe('merge-unresolved');
+  });
+
+  test('a resolver is judged on its own merge, never the target\'s history: the target\'s package.json, data, config and trailer pass', () => {
+    const merge = mergedTarget(plantTargetHistory);
+    const subject = resolverSubject(merge, { gates: BUN_GATES });
+
+    for (const check of ['V3', 'V5', 'V7', 'V11', 'V13'] as const) expect([check, refusalOf(check, subject)]).toEqual([check, null]);
+    expect(clearCustoms(subject)).toEqual({ verdict: 'verified' });
+  });
+
+  test('a resolver changing package.json or the data folder in its resolution, or a trailer on its merge, is still refused', () => {
+    const merge = mergedTarget(commitTargetFile, () => {
+      stagePackageJson();
+      mkdirSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER));
+      writeFileSync(join(repositoryDirectory, `${PRODUCT_NAMES.DATA_FOLDER}/progress.json`), '{}\n');
+      gitOutputIn(repositoryDirectory, ['add', '--', PRODUCT_NAMES.DATA_FOLDER]);
+    }, 'Merge the example target\n\nCo-Authored-By: Claude <noreply@example.com>');
+    const subject = resolverSubject(merge, { gates: BUN_GATES });
+
+    expect(CUSTOMS_CHECKS.V11(subject)).toEqual({ verdict: 'refused', reason: 'checks-definition-changed', facts: ['package.json'] });
+    expect(refusalOf('V5', subject)).toBe('data-folder-touched');
+    expect(refusalOf('V7', subject)).toBe('ai-attribution-in-range');
+  });
+
+  test('a resolver of a conflict elsewhere passes V11 beside the target\'s package.json change: the conflicted automatic merge is the base', () => {
+    commitFile(repositoryDirectory, 'target.ts', 'export const target = \'branch\';\n');
+    const branchTip = headCommit();
+    gitOutputIn(repositoryDirectory, ['checkout', '-q', '-b', 'example-target', startCommit]);
+    commitFile(repositoryDirectory, 'package.json', '{ "name": "example-target" }\n');
+    const targetTip = commitFile(repositoryDirectory, 'target.ts', 'export const target = \'target\';\n');
+    gitOutputIn(repositoryDirectory, ['checkout', '-q', '-']);
+    expect(() => gitOutputIn(repositoryDirectory, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'merge', '-q', '--no-ff', '--no-commit', 'example-target'])).toThrow();
+    commitFile(repositoryDirectory, 'target.ts', 'export const target = \'resolved\';\n');
+    const subject = resolverSubject({ branchTip, targetTip }, { gates: BUN_GATES });
+
+    expect(refusalOf('V11', subject)).toBeNull();
+    expect(refusalOf('V10', subject)).toBeNull();
+  });
+
+  test('a merge job\'s commits after its merge still count, even beside the target\'s own package.json change', () => {
+    const merge = mergedTarget(plantTargetHistory);
+    stagePackageJson();
+    gitOutputIn(repositoryDirectory, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'commit', '-q', '-m', 'Change the verify script']);
+
+    expect(refusalOf('V11', resolverSubject(merge, { gates: BUN_GATES }))).toBe('checks-definition-changed');
+  });
+
+  test('V11 refuses a change to a file the checks line resolves through, unless the ticket body names it', () => {
+    commitFile(repositoryDirectory, 'package.json', '{ "scripts": { "verify": "true" } }\n');
+
+    expect(refusalOf('V11', builderSubject({ report: builderReport(), gates: BUN_GATES }))).toBe('checks-definition-changed');
+    const namingTheFile = `${TICKET_BODY}\nScope: package.json\n`;
+
+    expect(refusalOf('V11', builderSubject({ report: builderReport(), gates: BUN_GATES, ticketBody: namingTheFile }))).toBeNull();
+  });
+
+  test('V11 reads the board\'s own list: a Python list refuses a pyproject.toml change and passes a package.json one', () => {
+    const startOfThisTest = headCommit();
+    commitFile(repositoryDirectory, 'package.json', '{}\n');
+
+    expect(refusalOf('V11', builderSubject({ report: builderReport(), gates: PYTHON_GATES }))).toBeNull();
+
+    commitFile(repositoryDirectory, 'pyproject.toml', '[project]\nname = "example"\n');
+    const verdict = CUSTOMS_CHECKS.V11(builderSubject({ startCommit: startOfThisTest, report: builderReport(), gates: PYTHON_GATES }));
+
+    expect(verdict).toEqual({ verdict: 'refused', reason: 'checks-definition-changed', facts: ['pyproject.toml'] });
+  });
+
+  test('V11 refuses a change matching a later gate\'s definedBy, and passes it once the ticket body names the file', () => {
+    commitFile(repositoryDirectory, 'eslint.config.js', 'export default [];\n');
+
+    expect(CUSTOMS_CHECKS.V11(builderSubject({ gates: BUN_GATES }))).toEqual({ verdict: 'refused', reason: 'checks-definition-changed', facts: ['eslint.config.js'] });
+    expect(refusalOf('V11', builderSubject({ gates: BUN_GATES, ticketBody: `${TICKET_BODY}\nScope: eslint.config.js\n` }))).toBeNull();
+  });
+
+  test('V11 refuses a change to a tracked instruction file the pipeline names, and passes it once the ticket body names the file', () => {
+    commitFile(repositoryDirectory, 'example-constitution.md', '# Example rules\n');
+    const instructionFiles = ['example-constitution.md', 'example-builder.md'];
+
+    expect(CUSTOMS_CHECKS.V11(builderSubject({ instructionFiles }))).toEqual({ verdict: 'refused', reason: 'instruction-file-changed', facts: ['example-constitution.md'] });
+    expect(refusalOf('V11', builderSubject({ instructionFiles: ['example-builder.md'] }))).toBeNull();
+    expect(refusalOf('V11', builderSubject({ instructionFiles, ticketBody: `${TICKET_BODY}\nScope: example-constitution.md\n` }))).toBeNull();
+  });
+
+  test('V15 refuses a gate claimed on an older commit, naming only it, and clearCustoms stops there before any gate could run', () => {
+    const gates: PipelineGate[] = [{ name: 'tests', run: 'true' }, { name: 'lint', run: 'true' }];
+    const report = { ...builderReport(), gates: [{ name: 'tests', commit: headCommit() }, { name: 'lint', commit: startCommit }] };
+
+    expect(CUSTOMS_CHECKS.V15(builderSubject({ gates, report }))).toEqual({ verdict: 'refused', reason: 'gate-unclaimed', facts: ['lint'] });
+    expect(clearCustoms(builderSubject({ gates, report }))).toEqual({
+      verdict: 'refused', check: 'V15', reason: 'gate-unclaimed', facts: ['lint']
+    });
+    expect(refusalOf('V15', builderSubject({ gates, report: { ...builderReport(), gates: [] } }))).toBe('gate-unclaimed');
+    expect(refusalOf('V15', builderSubject({ gates, report: { ...report, gates: [{ name: 'tests', commit: headCommit() }, { name: 'lint', commit: headCommit() }] } }))).toBeNull();
+  });
+
+  test('V15 asks no claim for an overseerOnly gate, and a builder report without gates is refused by V1', () => {
+    const gates: PipelineGate[] = [{ name: 'tests', run: 'true' }, { name: 'audit', run: 'true', overseerOnly: true }];
+    const report = { ...builderReport(), gates: [{ name: 'tests', commit: headCommit() }] };
+
+    expect(refusalOf('V15', builderSubject({ gates, report }))).toBeNull();
+    const { gates: _omitted, ...withoutGates } = builderReport();
+
+    expect(refusalOf('V1', builderSubject({ report: withoutGates }))).toBe('report-invalid');
+  });
+
+  test('V11 passes any change when no gate names a definedBy, or there are no gates', () => {
+    commitFile(repositoryDirectory, 'package.json', '{}\n');
+    commitFile(repositoryDirectory, 'pyproject.toml', '[project]\n');
+
+    expect(refusalOf('V11', builderSubject({ report: builderReport() }))).toBeNull();
+    expect(refusalOf('V11', builderSubject({ report: builderReport(), gates: [{ name: 'tests', run: 'true' }] }))).toBeNull();
+  });
+
+  test('a definition-file pattern reads as a git pathspec glob: a bare name at any depth, an inner / anchored, a trailing / a folder', () => {
+    const matches = (pattern: string, path: string): boolean => definitionFilePatternExpressionOf(pattern).test(path);
+
+    expect(matches('package.json', 'packages/example/package.json')).toBe(true);
+    expect(matches('package.json', 'package.json.bak')).toBe(false);
+    expect(matches('tsconfig*.json', 'page/tsconfig.spec.json')).toBe(true);
+    expect(matches('tsconfig*.json', 'tsconfig/base.json')).toBe(false);
+    expect(matches('bun.lock?', 'bun.lockb')).toBe(true);
+    expect(matches('.githooks/', '.githooks/pre-commit')).toBe(true);
+    expect(matches('.githooks/', '.githooks')).toBe(false);
+    expect(matches('ci/checks.sh', 'ci/checks.sh')).toBe(true);
+    expect(matches('ci/checks.sh', 'tools/ci/checks.sh')).toBe(false);
+    expect(matches('config/**/*.toml', 'config/a/b/lint.toml')).toBe(true);
+    expect(matches('config/**/*.toml', 'config/lint.toml')).toBe(true);
+    expect(matches('**/pyproject.toml', 'pyproject.toml')).toBe(true);
+    expect(matches('**/pyproject.toml', 'example/pyproject.toml')).toBe(true);
+  });
+
+  test('clearCustoms stops at the first refusing check of the column and names it', () => {
+    writeFileSync(join(repositoryDirectory, 'left-behind.txt'), 'scratch\n');
+
+    expect(clearCustoms(builderSubject({ ticketBody: 'changed' }))).toMatchObject({ verdict: 'refused', check: 'V4', reason: 'worktree-dirty' });
+  });
+});

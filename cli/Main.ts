@@ -6,9 +6,9 @@ import { OperationRefusalWordingUtil }                               from '../sr
 import { OperationRefusal, refusalIsOperationRefusal }               from '../src/shared/OperationRefusal.ts';
 import type { CommandContext }                                       from './CommandContext.ts';
 import { commandLoaderFor }                                          from './CommandTable.ts';
+import { refusalIsHatchConcluded }                                   from './HatchUnderJob.ts';
 import { helpText }                                                  from './HelpText.ts';
 import { requireCurrentInstall }                                     from './InstallVersionCheck.ts';
-import { refusalIsRelayConcluded }                                   from './RelayUnderJob.ts';
 import { createArgumentParser }                                      from './arguments/ArgumentParser.ts';
 import { READ_ONLY_VERBS_UNDER_A_JOB, RELAYED_VERB_OF_CONTROL_KIND } from './constants/JobVerbs.ts';
 
@@ -19,7 +19,7 @@ const HELP_ALIASES     = new Set([`--${HELP_OPTION_NAME}`, HELP_SHORT_ALIAS]);
 /** `init` and `update` repair a mismatch, `status` output is a contract that stays silent about one, and `version` reports the versions itself. */
 const COMMANDS_THE_INSTALL_CHECK_SPARES = new Set(['init', 'update', 'help', 'status', 'version']);
 /**
- * A hook prints or guards whatever the install, and `run status` and `run stop` must reach a runner whose install changed, so each runs the
+ * A hook prints or guards whatever the install, and `run status` and `run stop` must reach an Overseer whose install changed, so each runs the
  * check inside its own handling.
  */
 const COMMANDS_THAT_CHECK_THEIR_OWN_INSTALL = new Set(['hook', 'run']);
@@ -84,14 +84,14 @@ export async function runCommandLine(commandLineArguments: readonly string[], co
       throw new OperationRefusal('refused', { kind: 'verb-not-relayable', verb: commandVerb, jobId: context.job.jobId });
     }
     const runCommand = await loadCommand();
-    // A relayed verb writes nothing of this install's: the runner applies it, so it relays before any install check.
+    // A relayed verb writes nothing of this install's: the Overseer applies it, so it relays before any install check.
     if (jobRoute !== 'relayed' && !COMMANDS_THE_INSTALL_CHECK_SPARES.has(command) && !COMMANDS_THAT_CHECK_THEIR_OWN_INSTALL.has(command)) {
       requireCurrentInstall(context.currentDirectory);
     }
     await runCommand(createArgumentParser(printsTheHelp ? [] : remainingArguments), { ...context, commandVerb });
     return 0;
   } catch (error) {
-    if (refusalIsRelayConcluded(error)) return error.exitCode;
+    if (refusalIsHatchConcluded(error)) return error.exitCode;
     if (refusalIsOperationRefusal(error)) {
       context.standardError(OperationRefusalWordingUtil.messageOf(error));
       return error.status === 'refused' ? 1 : 2;
