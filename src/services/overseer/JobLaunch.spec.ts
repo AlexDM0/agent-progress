@@ -101,7 +101,7 @@ describe('a build job\'s frames to its Watcher', () => {
     expect(outcome).toEqual({ markedWhileRefusing: false, frames: [JSON.stringify({ kind: 'stop', graceMilliseconds: SESSION_STOP_GRACE_MILLISECONDS })], marked: true });
   });
 
-  test('a verifying job\'s close-input reaches a Watcher that refused the first connection on the next pass, marked only then and sent once', async () => {
+  test('an in-customs job\'s close-input reaches a Watcher that refused the first connection on the next pass, marked only then and sent once', async () => {
     const outcome = await passesAcrossARefusal(buildJob({ state: 'in-customs' }), 'input-closed');
     expect(outcome).toEqual({ markedWhileRefusing: false, frames: [JSON.stringify({ kind: 'close-input' })], marked: true });
   });

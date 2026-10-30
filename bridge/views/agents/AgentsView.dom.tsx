@@ -287,9 +287,9 @@ describe('the controls', () => {
   });
 
   test('a refusal shows its worded text beside the control', async () => {
-    renderAgents([BUILD_JOB], { selectedJobId: 'J12', outcome: { verdict: 'refused', refusal: 'Job J12 is not running: it is verifying.' } });
+    renderAgents([BUILD_JOB], { selectedJobId: 'J12', outcome: { verdict: 'refused', refusal: 'Job J12 is not running: it is in-customs.' } });
     await clicked('Fresh agent');
-    expect(screen.getByRole('status').textContent).toBe('Job J12 is not running: it is verifying.');
+    expect(screen.getByRole('status').textContent).toBe('Job J12 is not running: it is in-customs.');
   });
 
   test('a legacy Watcher shows "running on Watcher protocol N: watch only" and offers only Stop', () => {

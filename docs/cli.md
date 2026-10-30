@@ -202,7 +202,7 @@ Neither skill lists commands: `agent-progress help` is the reference, and both n
 | skill | folder | loads | holds |
 |---|---|---|---|
 | `agent-po` | `skills/agent-po/` | by itself in any session asked to file, report or track a ticket, bug or research question, or with `/agent-po`; by the wrapper for its intake; and as the first line of an Overseer's product-owner job | PO intake: fact-finding through subagents with capped reports in a resumable filing draft, filing without questions and writing each assumption into Wanted (grilling only when the user asks), the split by mechanism, merging drafts or ordering them against unclaimed tickets, a group's real dependencies, the epic check, the body with its numbered Acceptance and `## Brief`, which `ticket ready` requires, and the mechanics. Every ticket is filed as a draft. In the user's own session it ends with one question, "Ready these to build?", and runs `ticket ready <ids>` on the yes; under the Overseer it closes intake with `intake close` and never readies. |
-| `agent-progress-orchestrate` | `skills/agent-progress-orchestrate/` | only with `/agent-progress-orchestrate` or when asked to run the board | the interactive wrapper around a running Overseer, the Overseer: it reads `oversee status --json` and `status --json`, starts the Overseer on the user's go with `oversee --detach` and gives its URL, turns the user's intent into commands (ready, holds, priorities, pause and resume, `decide`, job messages, wind-downs and stops, `intake`), loads `agent-po` for intake, and may wait on `await` to put a new decision to the user. It never drives the lifecycle and never handles an incident: those are the Overseer's and its Assistant's. |
+| `agent-progress-orchestrate` | `skills/agent-progress-orchestrate/` | only with `/agent-progress-orchestrate` or when asked to run the board | the interactive wrapper around a running Overseer: it reads `oversee status --json` and `status --json`, starts the Overseer on the user's go with `oversee --detach` and gives its URL, turns the user's intent into commands (ready, holds, priorities, pause and resume, `decide`, job messages, wind-downs and stops, `intake`), loads `agent-po` for intake, and may wait on `await` to put a new decision to the user. It never drives the lifecycle and never handles an incident: those are the Overseer's and its Assistant's. |
 
 ## Commands
 
@@ -812,7 +812,7 @@ wrote them and are displayed as written, never re-parsed into a viewer's zone.
       "parentJobId": null,                       // a merge agent's merge or refresh job, else null
       "attempt": 1,                              // from 1
       "target": "main",                          // the main line or group-<name>, or null for a session
-      "state": "merging",                        // launching|preparing|running|waiting-for-answer|interrupted|awaiting-answer|verifying|gating|merging|landing|stopping
+      "state": "merging",                        // launching|preparing|running|waiting-for-answer|interrupted|awaiting-answer|in-customs|gating|merging|landing|stopping
       "interruption": "reboot",                  // optional: watcher-lost|agent-crashed|reboot|answer-delivery|usage-limit|handoff-red, why it was last interrupted
       "watcherInstance": 1,                         // the newest Watcher instance spawned or to spawn, from 1
       "eventCursor": { "instance": 1, "sequence": 12 }, // the last Watcher event applied

@@ -661,7 +661,7 @@ describeWhenGitIsPresent('the session, Watcher, Overseer and reboot rows', () =>
     expect(resumedRecordsOf(job.id).map((record) => record.fields)).toEqual([{ watcherInstance: 2, cause: 'agent-crashed' }]);
   }, ROW_TIMEOUT_MILLISECONDS);
 
-  test('agent exits with its closing result while the Overseer is down: on regroup the result is read from the event log into verifying', async () => {
+  test('agent exits with its closing result while the Overseer is down: on regroup the result is read from the event log into Customs', async () => {
     const statesAfterWatcherEvents: (string | undefined)[] = [];
     const adapter = recordingAdapter({ fresh: [STARTED, { kind: 'print', line: fakeResultLine({ outcome: 'built' }) }, { kind: 'await-line' }], resumed: WAITING_STEPS });
     const first   = await startedOverseer(adapter);
