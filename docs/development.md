@@ -195,8 +195,8 @@ fan-out produces five charts and no picture.
 
 **Every write happens under one lock hold.** Every mutating command writes in the order the CLI reference's
 [Locking](cli.md#conventions) paragraph states, all before releasing, so two commands never interleave and the
-Overseer never reads a state the store never held. The lock is a directory of numbered generation records, each carrying a
-pid, a timestamp and whether it is held or released, each created exclusively and never rewritten:
+Overseer never reads a state the store never held. The lock is a directory of numbered generation records, each
+carrying a pid, a timestamp and whether it is held or released, each created exclusively and never rewritten:
 taking the lock creates the generation after the newest once that one is released, its process is
 gone or it is stale, and holds only if no newer generation appeared meanwhile; releasing creates the
 next one as released. A takeover therefore removes or renames nothing another process may have just
