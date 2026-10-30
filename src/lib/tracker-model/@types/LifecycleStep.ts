@@ -53,6 +53,8 @@ export interface DecisionWording {
 export type LifecycleStep =
   | { kind: 'launch-build'; ticketId: string; attempt: number; base: string }
   | { kind: 'launch-review'; ticketId: string; round: number; target: string }
+  // Without a review phase, a ticket left in review and not yet queued: queued to land as a gated build is.
+  | { kind: 'queue-merge'; ticketId: string; target: string }
   | { kind: 'resume-job'; jobId: string }
   // Past `JOB_RESUMES_BEFORE_FRESH` crash resumes, or a session that went down: ended `replaced`.
   | { kind: 'replace-job'; jobId: string }

@@ -552,6 +552,8 @@ export class Board {
         return this.launchJob({
           kind: 'review', role: 'reviewer', ticketIds: [step.ticketId], parentJobId: null, attempt: step.round, target: step.target
         }, at).logged;
+      case 'queue-merge':
+        return this.queueTicketForMerge(step.ticketId, step.target, at).logged;
       case 'boot-orchestrator':
         return this.launchJob({
           kind: 'orchestrator', role: 'orchestrator', ticketIds: [], parentJobId: null, attempt: 1, target: null
