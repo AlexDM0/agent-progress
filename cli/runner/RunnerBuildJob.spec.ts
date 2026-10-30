@@ -29,7 +29,6 @@ import type { AgentLaunchRequest }                     from '../../src/lib/agent
 import type { Job, JobState }                          from '../../src/lib/tracker-model/@types/Job.ts';
 import type { PipelineReview }                         from '../../src/lib/tracker-model/@types/Pipeline.ts';
 import type { Board }                                  from '../../src/lib/tracker-model/Board.ts';
-import { createRenderState }                           from '../../src/services/render/RenderState.ts';
 import { createDrivePass, type DrivePass }             from '../../src/services/runner/DrivePass.ts';
 import { HOST_ENTRY_PATH, HostBundle }                 from '../../src/services/runner/HostBundle.ts';
 import { HostFleet }                                   from '../../src/services/runner/HostFleet.ts';
@@ -150,7 +149,6 @@ async function drivePassPlaying(steps: readonly FakeAgentStep[]): Promise<DriveP
   const hostBundlePath = await HostBundle.pinHostBundle({ runnerDirectory, codeVersion: 'code-example', entryPath: HOST_ENTRY_PATH });
   return createDrivePass({
     workspace,
-    renderState:           createRenderState(),
     now:                   SPEC_CLOCK,
     formatStamp:           () => '2026-09-18T22:11:03+02:00',
     runnerDirectory,

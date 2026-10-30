@@ -1,7 +1,6 @@
 /**
  * `reachablePathsFrom`, the walk the guards share. What matters: it follows imports through each other, keeps the entries, ignores package
- * imports and stops at a cycle; and on the real graph the page entry reaches its modules, which the template guards rely on to find the
- * modules they check.
+ * imports and stops at a cycle; and on the real graph the Bridge entry reaches its modules, which the include-list guard relies on.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -21,10 +20,10 @@ describe('reachablePathsFrom', () => {
     expect([...reachablePathsFrom(graph, ['planted/Entry.ts'])].sort()).toEqual(['planted/Entry.ts', 'planted/Middle.ts', 'planted/nested/Leaf.ts']);
   });
 
-  test('on the real graph, the tracker page reaches its Kanban markup and its page shell', () => {
-    const trackerReach = [...reachablePathsFrom(SCANNER.graph, ['page/PageStart.ts'])];
+  test('on the real graph, the Bridge entry reaches its app shell and its Kanban view', () => {
+    const bridgeReach = [...reachablePathsFrom(SCANNER.graph, ['bridge/Main.tsx'])];
 
-    expect(trackerReach).toContain('page/kanban/KanbanMarkup.ts');
-    expect(trackerReach).toContain('page/shell/PageShell.ts');
+    expect(bridgeReach).toContain('bridge/shell/BridgeApp.tsx');
+    expect(bridgeReach).toContain('bridge/views/kanban/KanbanView.tsx');
   });
 });

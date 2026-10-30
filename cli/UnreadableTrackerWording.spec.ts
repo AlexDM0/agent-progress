@@ -89,15 +89,6 @@ describeWhenGitIsPresent('a progress file that cannot be read', () => {
       expect(finished.outputText, commandLine.join(' ')).toBe('');
     }
   });
-
-  test('render exits 2 saying the dashboard could not be regenerated, with the file and its reason', async () => {
-    breakTheProgressFile();
-
-    const finished = await runWith(['render']);
-
-    expect(finished.exitCode).toBe(2);
-    expect(finished.errorText).toBe(`The dashboard could not be regenerated: ${progressFilePath} could not be read: ${BROKEN_PROGRESS_REASON}`);
-  });
 });
 
 describeWhenGitIsPresent('a log.jsonl that cannot be read', () => {
@@ -120,15 +111,6 @@ describeWhenGitIsPresent('a log.jsonl that cannot be read', () => {
     breakTheLogFile();
 
     expect(await runWith(['concurrency'])).toEqual(concurrencyBefore);
-  });
-
-  test('render exits 2 saying the dashboard could not be regenerated because the log cannot be read', async () => {
-    breakTheLogFile();
-
-    const finished = await runWith(['render']);
-
-    expect(finished.exitCode).toBe(2);
-    expect(finished.errorText).toBe(`The dashboard could not be regenerated: the log cannot be read: ${brokenLogReason()}`);
   });
 });
 

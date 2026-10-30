@@ -13,7 +13,6 @@ import {
   test
 }                                             from 'bun:test';
 import type { DecisionOpening }               from '../../src/lib/tracker-model/@types/Decision.ts';
-import { createRenderState }                  from '../../src/services/render/RenderState.ts';
 import { writeTracker }                       from '../../src/services/tracker/TrackerPipeline.ts';
 import { workspacePathsFor }                  from '../../src/services/tracker/Workspace.ts';
 import { removeScratchDirectory }             from '../../src/testing/ScratchWorkspace.ts';
@@ -59,11 +58,10 @@ async function run(commandLineArguments: readonly string[]): Promise<ReturnType<
 
 async function openTheExampleDecision(): Promise<void> {
   await writeTracker({
-    workspace:   workspacePathsFor(repositoryDirectory),
-    at:          OPENED_AT,
-    now:         () => FROZEN_NOW,
-    renderState: createRenderState(),
-    mutate:      (change) => change.board.openDecision(EXAMPLE_DECISION, change.at),
+    workspace: workspacePathsFor(repositoryDirectory),
+    at:        OPENED_AT,
+    now:       () => FROZEN_NOW,
+    mutate:    (change) => change.board.openDecision(EXAMPLE_DECISION, change.at),
   });
 }
 

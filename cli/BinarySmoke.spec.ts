@@ -157,9 +157,8 @@ describeWhenGitIsPresent('a whole session through the binary', () => {
         'Ticket #001 delivered',
       ]);
 
-      const dashboard = readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.html'), 'utf8');
-      expect(dashboard).toContain('Double-click a role to edit it');
-      expect(dashboard).toContain('Review pass');
+      const stub = readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.html'), 'utf8');
+      expect(stub).toContain('Overseer down');
     } finally {
       removeScratchDirectory(repositoryDirectory);
     }
