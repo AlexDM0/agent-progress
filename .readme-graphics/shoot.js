@@ -1,4 +1,5 @@
-// Headless Chrome screenshots driven by a JSON list of jobs: a frozen clock, a colour scheme, pre-seeded
+// Headless Chrome screenshots driven by a JSON list of jobs, each a file (`html`) or a live page (`url`, such as the
+// Bridge an Overseer serves): a frozen clock, a colour scheme, pre-seeded
 // localStorage, an optional in-page action, a clip, and element measurements written to a JSON file.
 // Usage: bun shoot.js <jobs.json> [<measurements.json>]
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -77,6 +78,15 @@ async function pageWebSocketUrlOf(port) {
   throw new Error('Chrome exposed no page target');
 }
 
+async function documentCompleted(session) {
+  for (let attempt = 0; attempt < 150; attempt++) {
+    const evaluation = await session.send('Runtime.evaluate', { expression: 'document.readyState', returnByValue: true });
+    if (evaluation.result.value === 'complete') return;
+    await Bun.sleep(100);
+  }
+  throw new Error('The live page never finished loading');
+}
+
 function clockFreezingScript(frozenNow) {
   return `(() => {
     const offsetMilliseconds = Date.parse(${JSON.stringify(frozenNow)}) - Date.now();
@@ -139,9 +149,15 @@ try {
     if (job.frozenNow) injectedScripts.push((await session.send('Page.addScriptToEvaluateOnNewDocument', { source: clockFreezingScript(job.frozenNow) })).identifier);
     if (job.localStorageEntries) injectedScripts.push((await session.send('Page.addScriptToEvaluateOnNewDocument', { source: storageSeedingScript(job.localStorageEntries) })).identifier);
 
-    const loaded = session.nextLoad();
-    await session.send('Page.navigate', { url: `http://127.0.0.1:${server.port}/files${job.html}` });
-    await loaded;
+    if (job.url) {
+      // A live page holds its event stream open, so its readiness is read rather than awaited as a load event.
+      await session.send('Page.navigate', { url: job.url });
+      await documentCompleted(session);
+    } else {
+      const loaded = session.nextLoad();
+      await session.send('Page.navigate', { url: `http://127.0.0.1:${server.port}/files${job.html}` });
+      await loaded;
+    }
     await Bun.sleep(job.waitMilliseconds ?? 400);
     if (job.actionScript) {
       const evaluation = await session.send('Runtime.evaluate', { expression: job.actionScript, awaitPromise: true, returnByValue: true });
