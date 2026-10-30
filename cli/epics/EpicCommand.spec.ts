@@ -75,7 +75,6 @@ describeWhenGitIsPresent('epic', () => {
     const before = storedFiles();
 
     await run(['status', '--json']);
-    await run(['render']);
     await run(['epic', 'list']);
     await run(['ticket', 'depends', '2', '1']);
 

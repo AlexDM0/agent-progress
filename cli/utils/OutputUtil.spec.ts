@@ -1,6 +1,6 @@
 /**
- * What `reportRenderProblems` prints after a store write, for each render outcome, byte for byte: the words are the command line's, a
- * script may match them, and none of them fails the command, so nothing goes to standard output and every line goes to standard error.
+ * What `reportIgnoredTicketFiles` prints after a store write, byte for byte: the words are the command line's, a script may match them,
+ * and none of them fails the command, so nothing goes to standard output and every line goes to standard error.
  * Beside it, the column padding every table relies on, the ignored-ticket line with and without a line number, and the logged records
  * worded one per line as every writing command prints them.
  */
@@ -22,7 +22,7 @@ const {
   padColumn,
   ignoredTicketFileText,
   loggedSentencesOf,
-  reportRenderProblems,
+  reportIgnoredTicketFiles,
 } = OutputUtil;
 
 const MALFORMED_TICKETS: MalformedTicketFile[] = [
@@ -45,51 +45,20 @@ afterEach(() => {
   removeScratchDirectory(scratchDirectory);
 });
 
-describe('OutputUtil.reportRenderProblems', () => {
-  test('an unreadable tracker is one line saying the dashboard was not regenerated, with the render reason', () => {
+describe('OutputUtil.reportIgnoredTicketFiles', () => {
+  test('prints one ignored-ticket line per malformed file, all on standard error', () => {
     const context = createCapturedCommandContext({ currentDirectory: scratchDirectory });
 
-    reportRenderProblems(context, {
-      verdict: 'unreadable',
-      reading: {
-        verdict:        'unreadable',
-        unreadableFile: 'log-file',
-        filePath:       '/example/.agent-progress/log.jsonl',
-        reason:         '/example/.agent-progress/log.jsonl, line 1: fields.text is not a string',
-      },
-    });
-
-    expect(context.outputText()).toBe('');
-    expect(context.errorText()).toBe('The dashboard was not regenerated: the log cannot be read: /example/.agent-progress/log.jsonl, line 1: fields.text is not a string');
-  });
-
-  test('a page written without its script says so first, then one ignored-ticket line per malformed file', () => {
-    const context = createCapturedCommandContext({ currentDirectory: scratchDirectory });
-
-    reportRenderProblems(context, {
-      verdict: 'rendered-without-page-script', reason: 'the page bundle produced no output file', malformedTickets: MALFORMED_TICKETS, malformedEpics: []
-    });
-
-    expect(context.outputText()).toBe('');
-    expect(context.errorText()).toBe([
-      'The dashboard was written without its page script, so the chart is not interactive: the page bundle produced no output file',
-      IGNORED_TICKET_LINES,
-    ].join('\n'));
-  });
-
-  test('a rendered page prints only the ignored-ticket lines', () => {
-    const context = createCapturedCommandContext({ currentDirectory: scratchDirectory });
-
-    reportRenderProblems(context, { verdict: 'rendered', malformedTickets: MALFORMED_TICKETS, malformedEpics: [] });
+    reportIgnoredTicketFiles(context, MALFORMED_TICKETS);
 
     expect(context.outputText()).toBe('');
     expect(context.errorText()).toBe(IGNORED_TICKET_LINES);
   });
 
-  test('a rendered page with no malformed ticket prints nothing at all', () => {
+  test('with no malformed ticket prints nothing at all', () => {
     const context = createCapturedCommandContext({ currentDirectory: scratchDirectory });
 
-    reportRenderProblems(context, { verdict: 'rendered', malformedTickets: [], malformedEpics: [] });
+    reportIgnoredTicketFiles(context, []);
 
     expect(context.outputText()).toBe('');
     expect(context.errorText()).toBe('');

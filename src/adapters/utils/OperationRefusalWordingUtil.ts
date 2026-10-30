@@ -10,13 +10,13 @@ import { LEGAL_SOURCE_STATES_FOR_JOB_MOVE }                  from '../../lib/tra
 import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS }           from '../../lib/tracker-model/constants/TicketMoveLegality.ts';
 import { TicketMoveUtil }                                    from '../../lib/tracker-model/utils/TicketMoveUtil.ts';
 import type { RoleCommandRefusalReason }                     from '../../shared/@types/RoleCommandRefusalReason.ts';
+import type { UnreadableTracker }                            from '../../shared/@types/UnreadableTracker.ts';
 import { ROOT_OVERRIDE_VARIABLE }                            from '../../shared/Environment.ts';
 import type { OperationRefusal }                             from '../../shared/OperationRefusal.ts';
 import type { OperationRefusalDetail }                       from '../../shared/OperationRefusal.ts';
 import { PRODUCT_NAMES }                                     from '../../shared/constants/ProductNames.ts';
 import { StatusWordingUtil }                                 from './StatusWordingUtil.ts';
 import { TicketPhraseUtil }                                  from './TicketPhraseUtil.ts';
-import { TrackerReadingWordingUtil }                         from './TrackerReadingWordingUtil.ts';
 
 type InstallVersionMismatchDetail = Extract<OperationRefusalDetail, { kind: 'install-version-mismatch' }>;
 
@@ -371,8 +371,11 @@ function malformedHoldJournalText(journalFilePath: string, reason: string): stri
     + 'Repair that file, or remove it to leave that write unfinished, and try again.';
 }
 
-function templateTokenNotUniqueText(templateFilePath: string, token: string, occurrenceCount: number): string {
-  return `the page template ${templateFilePath} holds ${occurrenceCount} occurrences of ${token}, not exactly one`;
+/** The reading carries only the file and the reason; the log's text names no path of its own, because the adapter's reason starts with it. */
+function unreadableTrackerText(reading: UnreadableTracker): string {
+  if (reading.verdict === 'absent') return `${reading.filePath} cannot be read: it is not there`;
+  if (reading.unreadableFile === 'log-file') return `The log cannot be read: ${reading.reason}`;
+  return `${reading.filePath} cannot be read: ${reading.reason}`;
 }
 
 function messageOf(refusal: OperationRefusal): string {
@@ -382,7 +385,7 @@ function messageOf(refusal: OperationRefusal): string {
     case 'board-refusal':
       return boardRefusalMessageOf(detail.boardRefusal);
     case 'unreadable-tracker':
-      return TrackerReadingWordingUtil.refusalMessageOf(detail.reading);
+      return unreadableTrackerText(detail.reading);
     case 'no-tracker-at-override':
       return noTrackerAtOverrideText(detail.overrideDirectory);
     case 'no-tracker-found':
@@ -393,8 +396,6 @@ function messageOf(refusal: OperationRefusal): string {
       return lockTakenOverText(detail.lockDirectoryPath);
     case 'malformed-hold-journal':
       return malformedHoldJournalText(detail.journalFilePath, detail.reason);
-    case 'template-token-not-unique':
-      return templateTokenNotUniqueText(detail.templateFilePath, detail.token, detail.occurrenceCount);
     case 'install-version-mismatch':
       return installVersionMismatchMessageOf(detail);
     case 'older-program-present':
@@ -419,6 +420,9 @@ function messageOf(refusal: OperationRefusal): string {
       return `The runner's reply ${detail.replyFilePath} cannot be read, so whether the request was applied is unknown.`;
     case 'runner-already-running':
       return `A runner already serves this board at ${detail.url} (${detail.leaseFilePath}). Stop it first with \`${PRODUCT_NAMES.PROGRAM} run stop\`.`;
+    case 'overseer-down':
+      return `No Overseer serves this board (${detail.runnerDirectory} holds no live lease), so there is nothing to open. `
+        + `Start one with \`${PRODUCT_NAMES.PROGRAM} run --detach\`.`;
     case 'runner-contended':
       return `Another runner started in ${detail.runnerDirectory} at the same moment and holds the newer lease, so this one stopped without serving.`;
     case 'lease-taken-over':

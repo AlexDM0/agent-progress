@@ -17,7 +17,6 @@ import {
   test
 }                                                                             from 'bun:test';
 import { PRODUCT_NAMES }                      from '../../../src/shared/constants/ProductNames.ts';
-import { islandContentsOf }                   from '../../../src/testing/RenderedIslandText.ts';
 import { removeScratchDirectory }             from '../../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../../src/testing/ToolGuard.ts';
 import { createCapturedCommandContext }       from '../../testing/CapturedCommandContext.ts';
@@ -159,10 +158,6 @@ describeWhenGitIsPresent('clearing a tracker with epics', () => {
     expect(JSON.parse(context.outputText())).toMatchObject({ deletedTicketCount: 1, deletedEpicCount: 2 });
     expect(epicFilesByName()).toEqual({});
     expect(JSON.parse((await run(['status', '--json'])).outputText()).epics).toEqual([]);
-    const page = readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.html'), 'utf8');
-    const pageData = JSON.stringify([islandContentsOf(page, 'ap-progress-data'), islandContentsOf(page, 'ap-tickets-data')]);
-    expect(pageData, 'the page data before any epic check').toContain('Tracker cleared');
-    for (const epicKey of EPIC_KEYS) expect(pageData).not.toContain(epicKey);
   });
 
   test('--all deletes an epic file it could not read too, as it does a malformed ticket file', async () => {

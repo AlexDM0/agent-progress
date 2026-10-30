@@ -1,6 +1,6 @@
 /**
  * The page's two islands as data: the `PagePayload` and the rendered tickets, from one progress file, its log and its tickets. The
- * static page fills its template with them and the Overseer's state document carries them; `generatedAt` is a parameter, not a clock.
+ * Overseer's state document carries them to the Bridge; `generatedAt` is a parameter, not a clock.
  */
 import { ProgressFileMappingUtil }                from '../../adapters/progress/utils/ProgressFileMappingUtil.ts';
 import { LogUtil }                                from '../../adapters/utils/LogUtil.ts';

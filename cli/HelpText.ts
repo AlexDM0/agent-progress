@@ -11,8 +11,8 @@ export function helpText(): string {
 Usage: ${PRODUCT_NAMES.PROGRAM} <command> [options]
 
 The tracker lives in \`${PRODUCT_NAMES.DATA_FOLDER}/\` at the repository root and is shared by every worktree of
-it. Every mutating command takes the lock, writes the progress file atomically and regenerates
-\`progress.html\`, which reloads itself within a minute of new data when idle. \`<when>\` is an ISO 8601 timestamp, \`now\`,
+it. Every mutating command takes the lock and writes the progress file atomically; the live
+Overseer serves the board, and \`open\` opens it. \`<when>\` is an ISO 8601 timestamp, \`now\`,
 or an offset from now: \`-5m\`, \`-2h\`, \`-1d\`, \`+30m\`. \`<n>\` on --tokens is a whole number or a
 decimal with a \`k\`/\`m\`/\`b\` suffix: \`12000\`, \`12k\`, \`12.3k\`, \`1.2m\`, \`1.20b\`.
 
@@ -20,7 +20,7 @@ decimal with a \`k\`/\`m\`/\`b\` suffix: \`12000\`, \`12k\`, \`12.3k\`, \`1.2m\`
 the command word; a \`-h\` further on is refused at exit 1, since it may be text (put text behind a
 bare \`--\`). An option taking a value, given twice, is refused at exit 1.
 ${ROOT_OVERRIDE_VARIABLE} names the repository to use instead of walking up from the current directory. --json, accepted by every
-command but init, update, render, open, hook and help, prints one JSON document on standard output
+command but init, update, open, hook and help, prints one JSON document on standard output
 in place of the human output.
 
 \`status\`, \`ticket add\`, every ticket or task move (\`task add --start\` among them), \`ticket
@@ -511,14 +511,10 @@ output never carries either.
   range --auto                Reset the axis to the automatic span; it takes no --from, --to or
                               --tick, and any of them beside it is refused at exit 1.
 
-  render                      Regenerate \`progress.html\` from the progress file, the log and the
-                              tickets, changing nothing else. For a page lost to a crash, or after a
-                              ticket body was edited by hand.
-
-  open                        Open the live runner's URL when a runner lease is live; otherwise open
-                              \`progress.html\` in the default browser, rendering it first when
-                              it is missing; a page that cannot be rendered is exit 2, as for
-                              \`render\`.
+  open                        Open the live Overseer's URL in the default browser and print it. With
+                              no live lease it is refused (overseer-down) at exit 1, advising
+                              \`run --detach\`. \`progress.html\` is only a stub naming that URL, or
+                              saying the Overseer is down, written by \`init\`, \`update\` and \`run\`.
 
   run [--port <n>] [--detach] [--json]
                               Start the board's one runner on 127.0.0.1, logging to standard error

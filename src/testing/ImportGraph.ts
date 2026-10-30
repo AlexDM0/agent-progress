@@ -35,7 +35,7 @@ export interface ImportGraph {
 }
 
 /** Each spec project holds its shipping project plus the specs, so these together name every file the type check compiles. */
-const PROGRAM_CONFIGURATION_PATHS = ['tsconfig.json', 'page/tsconfig.spec.json', 'bridge/tsconfig.spec.json'];
+const PROGRAM_CONFIGURATION_PATHS = ['tsconfig.json', 'bridge/tsconfig.spec.json'];
 
 function repositoryPathOf(repositoryRoot: string, absolutePath: string): string {
   return relative(repositoryRoot, absolutePath).split('\\').join('/');

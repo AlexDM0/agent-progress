@@ -69,7 +69,6 @@ import {
 import { describeWhenGitIsPresent }                             from '../../testing/ToolGuard.ts';
 import { EXAMPLE_TICKET_FILE_NAME, writeReadableTracker }       from '../../testing/TrackerFileFixtures.ts';
 import { ControlService }                                       from '../control/ControlService.ts';
-import { createRenderState }                                    from '../render/RenderState.ts';
 import { holdJournalFilePathOf }                                from '../tracker/HoldJournal.ts';
 import { LockGenerationSteps }                                  from '../tracker/TrackerLock.ts';
 import { writeTracker, type TrackerChange }                     from '../tracker/TrackerPipeline.ts';
@@ -93,7 +92,6 @@ const CHANGED_AT = '2026-09-18T20:05:00+02:00';
 
 const now = (): Date => new Date('2026-09-18T18:05:00Z');
 
-const renderState = createRenderState();
 
 let workspace: Workspace;
 
@@ -146,7 +144,6 @@ describe('crash between progress.json and the ticket files', () => {
       workspace,
       at:               CHANGED_AT,
       now,
-      renderState,
       mutate:           holdTheExampleTicket,
       afterFileWritten: (filePath) => { if (filePath === workspace.progressFilePath) throw crash; },
     }));
@@ -155,7 +152,7 @@ describe('crash between progress.json and the ticket files', () => {
     expect(ticketText(), 'the board is torn: the ticket was not written').toBe(ticketBefore);
 
     const written = await writeTracker({
-      workspace, at: CHANGED_AT, now, renderState, mutate: noteAnExample,
+      workspace, at: CHANGED_AT, now, mutate: noteAnExample,
     });
 
     expect(ticketText()).toContain('Waiting on Alex Example');
@@ -175,7 +172,6 @@ describe('a stale holder resumes after a lock takeover', () => {
       workspace,
       at:     CHANGED_AT,
       now,
-      renderState,
       mutate: (change) => {
         holdTheExampleTicket(change);
         takeTheLockOver();
@@ -195,7 +191,6 @@ describe('a stale holder resumes after a lock takeover', () => {
       workspace,
       at:               CHANGED_AT,
       now,
-      renderState,
       mutate:           holdTheExampleTicket,
       afterFileWritten: (filePath) => { if (filePath === workspace.progressFilePath) takeTheLockOver(); },
     }));
@@ -205,7 +200,7 @@ describe('a stale holder resumes after a lock takeover', () => {
     expect(existsSync(holdJournalFilePathOf(workspace))).toBe(true);
 
     await writeTracker({
-      workspace, at: CHANGED_AT, now, renderState, mutate: noteAnExample,
+      workspace, at: CHANGED_AT, now, mutate: noteAnExample,
     });
 
     expect(ticketText()).toContain('Waiting on Alex Example');
@@ -318,7 +313,6 @@ async function startedRunner(
   const hostBundlePath = await HostBundle.pinHostBundle({ runnerDirectory, codeVersion: 'code-example', entryPath: HOST_ENTRY_PATH });
   return createDrivePass({
     workspace:    sessionWorkspace,
-    renderState,
     now:          () => new Date(Date.parse(SESSION_STAMP)),
     formatStamp:  () => SESSION_STAMP,
     runnerDirectory,
@@ -486,7 +480,6 @@ async function decideWithTheRunnerDown(decisionId: string, choices: readonly str
     workspace: sessionWorkspace,
     at:        CHANGED_AT,
     now,
-    renderState,
     mutate:    (change) => ControlService.apply({ kind: 'decision-answer', decisionId, answer: { form: 'letters', choices } }, change),
   });
 }
@@ -494,7 +487,7 @@ async function decideWithTheRunnerDown(decisionId: string, choices: readonly str
 /** A control applied as its verb applies it with the runner down: a hold of its own. */
 async function applyControl(command: ControlCommand): Promise<void> {
   await writeTracker({
-    workspace: sessionWorkspace, at: CHANGED_AT, now, renderState, mutate: (change) => ControlService.apply(command, change),
+    workspace: sessionWorkspace, at: CHANGED_AT, now, mutate: (change) => ControlService.apply(command, change),
   });
 }
 
@@ -525,7 +518,6 @@ async function openBlockedIncident(): Promise<void> {
     workspace: sessionWorkspace,
     at:        CHANGED_AT,
     now,
-    renderState,
     mutate:    (change) => {
       change.board.openIncident({
         kind: 'blocked', ticketIds: ['001'], jobId: null, facts: {}, defaultMove: 'ticket-park'
@@ -562,7 +554,6 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
       workspace: sessionWorkspace,
       at:        CHANGED_AT,
       now,
-      renderState,
       mutate:    (change) => {
         change.board.addGate({ name: 'checks', run: 'true' }, change.at);
         change.board.setDispatcherState('running', change.at);
@@ -620,7 +611,7 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
     expect(eventLogTextOf(firstJobId, 1)).not.toContain(EARLIER_SESSION_NOTE);
 
     await writeTracker({
-      workspace: sessionWorkspace, at: CHANGED_AT, now, renderState, mutate: (change) => { change.board.defaultIncident(resumeFailed()?.id ?? '', 'turn-closed', change.at); },
+      workspace: sessionWorkspace, at: CHANGED_AT, now, mutate: (change) => { change.board.defaultIncident(resumeFailed()?.id ?? '', 'turn-closed', change.at); },
     });
     await passUntil(drivePass, () => launches.some((launch) => launch.jobId !== firstJobId), 'no fresh job was launched');
     const freshJobId = launches.find((launch) => launch.jobId !== firstJobId)?.jobId ?? '';
@@ -722,7 +713,7 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
     expect(storedRecords().find((record) => record.kind === 'job-ended' && record.jobId === firstJobId)?.fields).toMatchObject({ outcome: 'replaced', cause: 'resume-failed' });
 
     await writeTracker({
-      workspace: sessionWorkspace, at: CHANGED_AT, now, renderState, mutate: (change) => { change.board.defaultIncident(incident?.id ?? '', 'turn-closed', change.at); },
+      workspace: sessionWorkspace, at: CHANGED_AT, now, mutate: (change) => { change.board.defaultIncident(incident?.id ?? '', 'turn-closed', change.at); },
     });
     await passUntil(drivePass, () => launches.some((launch) => launch.jobId !== firstJobId), 'no fresh job was launched');
 
@@ -829,7 +820,7 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
     expect(requireBuildJob()).toMatchObject({ state: 'interrupted', hostInstance: 1 });
 
     await writeTracker({
-      workspace: sessionWorkspace, at: CHANGED_AT, now, renderState, mutate: (change) => change.board.escalateQuestionIncident('I1', change.at),
+      workspace: sessionWorkspace, at: CHANGED_AT, now, mutate: (change) => change.board.escalateQuestionIncident('I1', change.at),
     });
     expect(openDecisions()).toMatchObject([{
       kind: 'agent-question', jobId: job.id, requestId: 'request-1', questions: [{ ...EXAMPLE_QUESTION, header: 'ticket' }], context: ''
@@ -845,7 +836,6 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
       workspace: sessionWorkspace,
       at:        CHANGED_AT,
       now,
-      renderState,
       mutate:    (change) => {
         orchestratorJobId = change.board.launchJob({
           kind: 'orchestrator', role: 'orchestrator', ticketIds: [], parentJobId: null, attempt: 1, target: null
@@ -872,7 +862,7 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
 
     const jobId = orchestratorId();
     await writeTracker({
-      workspace: sessionWorkspace, at: CHANGED_AT, now, renderState, mutate: (change) => { change.board.moveJob(jobId, 'stopping', change.at); },
+      workspace: sessionWorkspace, at: CHANGED_AT, now, mutate: (change) => { change.board.moveJob(jobId, 'stopping', change.at); },
     });
     killHost(jobId, 1);
     killChildGroup(jobId, 1);
@@ -1061,7 +1051,7 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
     const drivePass = await startedRunner(recordingAdapter({ fresh: WAITING_STEPS, resumed: WAITING_STEPS }));
     const job       = await runningBuildSession(drivePass);
     await writeTracker({
-      workspace: sessionWorkspace, at: CHANGED_AT, now, renderState, mutate: (change) => { change.board.holdTicket('001', 'Waiting on Alex Example', change.at); },
+      workspace: sessionWorkspace, at: CHANGED_AT, now, mutate: (change) => { change.board.holdTicket('001', 'Waiting on Alex Example', change.at); },
     });
     await passOnce(drivePass);
     expect(requireBuildJob()).toMatchObject({ id: job.id, state: 'running', hostInstance: 1 });
@@ -1082,7 +1072,6 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
       workspace: sessionWorkspace,
       at:        CHANGED_AT,
       now,
-      renderState,
       mutate:    (change) => {
         resolverJobId = change.board.launchJob({
           kind: 'merge-agent', role: 'resolver', ticketIds: ['001'], parentJobId: null, attempt: 1, target: 'main',
@@ -1107,7 +1096,6 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
       workspace: sessionWorkspace,
       at:        CHANGED_AT,
       now,
-      renderState,
       mutate:    (change) => {
         resolverJobId = change.board.launchJob({
           kind: 'merge-agent', role: 'resolver', ticketIds: ['001'], parentJobId: null, attempt: 1, target: 'main',
@@ -1145,7 +1133,6 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
       workspace: sessionWorkspace,
       at:        CHANGED_AT,
       now,
-      renderState,
       mutate:    (change) => {
         resolverJobId = change.board.launchJob({
           kind: 'merge-agent', role: 'resolver', ticketIds: [], parentJobId: null, attempt: 1, target: groupBranch,
@@ -1166,7 +1153,6 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
       workspace: sessionWorkspace,
       at:        CHANGED_AT,
       now,
-      renderState,
       mutate:    (change) => {
         const { job } = change.board.launchJob({
           kind: 'orchestrator', role: 'orchestrator', ticketIds: [], parentJobId: null, attempt: 1, target: null
@@ -1199,7 +1185,7 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
     mkdirSync(join(worktreesRoot, 'onboard', 'J9'), { recursive: true });
     gitOutputIn(repository, ['worktree', 'add', '-q', '-b', 'example-owned', join(worktreesRoot, 'example-owned')]);
     await writeTracker({
-      workspace: sessionWorkspace, at: CHANGED_AT, now, renderState, mutate: (change) => { change.board.setDispatcherState('stopped', change.at); },
+      workspace: sessionWorkspace, at: CHANGED_AT, now, mutate: (change) => { change.board.setDispatcherState('stopped', change.at); },
     });
     const adapter = recordingAdapter({ fresh: WAITING_STEPS, resumed: WAITING_STEPS });
 
