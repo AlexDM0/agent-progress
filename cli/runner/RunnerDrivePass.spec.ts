@@ -2,7 +2,8 @@
  * The DrivePass on a scratch tracker with the fake agent, end to end through the pinned host bundle. What matters: a readied ticket gets a
  * `launching` job and a host running the fake child in one pass; a missing instruction file the pipeline names spawns nothing and is
  * noticed until it is committed, and a launch records each file's hash; a relay request and the `result` of the turn that wrote it, read in one
- * pass, are applied request first; a request in another job's folder, or naming a job, is refused and a replay is never applied twice;
+ * pass, are applied request first; a resolver the merge sweep launches after the pass spawned its hosts gets its host in one more pass of the
+ * same wake; a request in another job's folder, or naming a job, is refused and a replay is never applied twice;
  * a pass with nothing changed does not run, however late; and the notices are derived each pass, never stored. Beside the runner, a
  * written verb nudges a live lease's URL once its write is stored and is silent when nobody answers, and `ticket deliver --by-hand`
  * records only, refused while a lease is live or a job of the ticket is.
@@ -25,28 +26,36 @@ import {
   test
 } from 'bun:test';
 
-import { relayReplyFilePathOf, writeRelayRequest }                         from '../../src/adapters/relay/RelayFolder.ts';
-import { UsageMarkerFile }                                                 from '../../src/adapters/usage-marker/UsageMarkerFile.ts';
-import { hostFilesOf }                                                     from '../../src/lib/agent-host/HostFiles.ts';
-import type { HostRecord }                                                 from '../../src/lib/agent-host/HostRecord.ts';
-import type { AgentAdapter }                                               from '../../src/lib/agent-launch/AgentAdapter.ts';
-import { identityOf, sameProcess }                                         from '../../src/lib/process-identity/ProcessIdentity.ts';
-import type { Board }                                                      from '../../src/lib/tracker-model/Board.ts';
-import { createDrivePass, type DrivePass }                                 from '../../src/services/runner/DrivePass.ts';
-import { HOST_ENTRY_PATH, HostBundle }                                     from '../../src/services/runner/HostBundle.ts';
-import { HostFleet }                                                       from '../../src/services/runner/HostFleet.ts';
-import { RelayInbox }                                                      from '../../src/services/runner/RelayInbox.ts';
-import { runnerFilesIn }                                                   from '../../src/services/runner/RunnerFiles.ts';
-import { RunnerLease }                                                     from '../../src/services/runner/RunnerLease.ts';
-import { requireWorkspace }                                                from '../../src/services/tracker/Workspace.ts';
-import { fakeAgentAdapter, fakeResultLine, fakeStartedLine }               from '../../src/testing/FakeAgentAdapter.ts';
-import { createScratchDirectory, currentBranchOf, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
-import { createCapturedCommandContext }                                    from '../testing/CapturedCommandContext.ts';
-import { createInitializedScratchRepository }                              from '../testing/InitializedScratchRepository.ts';
-import { fileReadyTicket }                                                 from '../testing/ReadyTicketFiling.ts';
-import { runCommandLineWithRunnerMoves }                                   from '../testing/RunnerTicketMoves.ts';
-import { storedLogTextOf }                                                 from '../testing/StoredLogText.ts';
-import { storedProgressOf }                                                from '../testing/StoredProgress.ts';
+import { relayReplyFilePathOf, writeRelayRequest }           from '../../src/adapters/relay/RelayFolder.ts';
+import { UsageMarkerFile }                                   from '../../src/adapters/usage-marker/UsageMarkerFile.ts';
+import { hostFilesOf }                                       from '../../src/lib/agent-host/HostFiles.ts';
+import type { HostRecord }                                   from '../../src/lib/agent-host/HostRecord.ts';
+import type { AgentAdapter }                                 from '../../src/lib/agent-launch/AgentAdapter.ts';
+import { identityOf, sameProcess }                           from '../../src/lib/process-identity/ProcessIdentity.ts';
+import type { Board }                                        from '../../src/lib/tracker-model/Board.ts';
+import { createDrivePass, type DrivePass }                   from '../../src/services/runner/DrivePass.ts';
+import { HOST_ENTRY_PATH, HostBundle }                       from '../../src/services/runner/HostBundle.ts';
+import { HostFleet }                                         from '../../src/services/runner/HostFleet.ts';
+import { RelayInbox }                                        from '../../src/services/runner/RelayInbox.ts';
+import { runnerFilesIn }                                     from '../../src/services/runner/RunnerFiles.ts';
+import { RunnerLease }                                       from '../../src/services/runner/RunnerLease.ts';
+import { writeTracker }                                      from '../../src/services/tracker/TrackerPipeline.ts';
+import { requireWorkspace }                                  from '../../src/services/tracker/Workspace.ts';
+import { PRODUCT_NAMES }                                     from '../../src/shared/constants/ProductNames.ts';
+import { fakeAgentAdapter, fakeResultLine, fakeStartedLine } from '../../src/testing/FakeAgentAdapter.ts';
+import {
+  commitFile,
+  createScratchDirectory,
+  currentBranchOf,
+  gitOutputIn,
+  removeScratchDirectory
+} from '../../src/testing/ScratchWorkspace.ts';
+import { createCapturedCommandContext }       from '../testing/CapturedCommandContext.ts';
+import { createInitializedScratchRepository } from '../testing/InitializedScratchRepository.ts';
+import { fileReadyTicket }                    from '../testing/ReadyTicketFiling.ts';
+import { runCommandLineWithRunnerMoves }      from '../testing/RunnerTicketMoves.ts';
+import { storedLogTextOf }                    from '../testing/StoredLogText.ts';
+import { storedProgressOf }                   from '../testing/StoredProgress.ts';
 
 const SPEC_CLOCK = (): Date => new Date('2026-09-18T20:11:03Z');
 const HOST_WAIT_TRIES = 200;
@@ -345,6 +354,25 @@ describe('one pass', () => {
       { phase: 'lifecycle', jobState: 'launching', findingFiled: false },
     ]);
     expect(JSON.parse(readFileSync(relayReplyFilePathOf(relayDirectory(firstBuildJobId), 'request-1'), 'utf8'))).toMatchObject({ outcome: 'done' });
+  }, PASS_TEST_TIMEOUT_MILLISECONDS);
+
+  test('a resolver the merge sweep launched after the pass spawned its hosts gets one more pass in the same wake, which spawns its host', async () => {
+    await run(['ticket', 'start', '001']);
+    await run(['ticket', 'finish', '001']);
+    const mainLine = currentBranchOf(repositoryDirectory);
+    const ticketWorktree = join(repositoryDirectory, PRODUCT_NAMES.WORKTREES_FOLDER, 'ticket-001');
+    gitOutputIn(repositoryDirectory, ['worktree', 'add', '-q', '-b', 'ticket-001', ticketWorktree, mainLine]);
+    commitFile(ticketWorktree, 'roles.ts', 'export const roles = [\'builder\'];\n');
+    commitFile(repositoryDirectory, 'roles.ts', 'export const roles = [\'reviewer\'];\n');
+    const workspace = requireWorkspace(repositoryDirectory);
+    await writeTracker({
+      workspace, at: SPEC_STAMP, now: SPEC_CLOCK, mutate: (change) => change.board.queueTicketForMerge('001', mainLine, change.at)
+    });
+    const drivePass = await drivePassWith(WAITING_SESSION);
+    await passOnce(drivePass);
+    const resolverJob = (storedProgressOf(repositoryDirectory).jobs ?? []).find((job) => job.role === 'resolver');
+    expect(resolverJob, runnerLog.join('\n')).toBeDefined();
+    expect(existsSync(hostFilesOf(jobFolder(resolverJob?.id ?? ''), 1).launchPath), runnerLog.join('\n')).toBe(true);
   }, PASS_TEST_TIMEOUT_MILLISECONDS);
 });
 
