@@ -1,5 +1,6 @@
 /**
- * The review as an optional phase: without a pipeline `review` no reviewer is ever launched, whatever waits in review; and a review that
+ * The review as an optional phase: without a pipeline `review` no reviewer is ever launched, and what waits in review unqueued is queued
+ * to merge instead of waiting forever; and a review that
  * does not hold resumes the builder in the same attempt, counted against the red-handoff resumes of its cycle, so the review that goes
  * one past them parks the ticket instead. What matters is that no reviewer launches on a board that left review out, and that a review
  * resume and a red resume share the one bound.
@@ -40,6 +41,17 @@ describe('a pipeline without a review phase', () => {
   test('launches no reviewer for a ticket waiting in review', () => {
     const steps = LifecyclePolicy.nextStepsOf(factsWith({ tickets: [ticketOf('001', 'in-review')], reviewIsSet: false }), FIXTURE_LIMITS);
     expect(steps.filter((step) => step.kind === 'launch-review')).toEqual([]);
+  });
+
+  test('queues a ticket left in review and not merge-queued for merge on the next pass', () => {
+    const steps = LifecyclePolicy.nextStepsOf(factsWith({ tickets: [ticketOf('001', 'in-review')], reviewIsSet: false }), FIXTURE_LIMITS);
+    expect(steps).toEqual([{ kind: 'queue-merge', ticketId: '001', target: 'main' }]);
+  });
+
+  test('queues no ticket already merge-queued again', () => {
+    const queued = { ...ticketOf('001', 'in-review'), mergeQueued: true };
+    const steps  = LifecyclePolicy.nextStepsOf(factsWith({ tickets: [queued], reviewIsSet: false }), FIXTURE_LIMITS);
+    expect(steps).toEqual([]);
   });
 
   test('still launches the reviewer once the review phase is set', () => {

@@ -294,6 +294,12 @@ const CLAIMS: PolicyClaim[] = [
     mutant: policyLine('!ticketIdsSettledThisPass.has(ticket.id) && !ticketHasAJob', '!ticketHasAJob'),
   },
   {
+    name:   'without a review phase a ticket left in review is queued for merge',
+    facts:  factsWith({ tickets: [ticketOf('001', 'in-review')], reviewIsSet: false }),
+    holds:  (steps) => stepKindsOf(steps).join(' ') === 'queue-merge',
+    mutant: policyLine('  if (facts.reviewIsSet) return [];\n', '  return [];\n'),
+  },
+  {
     name:   'two crashed jobs on different tickets stop dispatching and open the outage decision',
     facts:  factsWith({ logRecords: CRASHES_ON_TWO_TICKETS }),
     holds:  (steps) => stepKindsOf(steps).slice(0, 2).join(' ') === 'stop-dispatching open-decision',
