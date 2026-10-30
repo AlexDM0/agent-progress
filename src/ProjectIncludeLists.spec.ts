@@ -1,10 +1,8 @@
 /**
- * The `include` lists of `page/tsconfig.json` and `bridge/tsconfig.json`, held against what each project
- * reaches: every file outside its folder that its shipping modules import, directly or through each other, and, for the page, every
- * shipping module of the tracker model,
- * which it compiles whole to prove the package DOM-safe. The comparison is exact both ways, so a missing entry
- * and one nothing needs both fail. The scan first proves it found each project's reach, and each form is planted once in memory to prove the
- * guard still names it.
+ * The `include` list of `bridge/tsconfig.json`, held against what the Bridge reaches: every file outside its folder that its shipping
+ * modules import, directly or through each other, and every shipping module of the tracker model, which it compiles whole to prove the
+ * package DOM-safe. The comparison is exact both ways, so a missing entry and one nothing needs both fail. The scan first proves it found
+ * the project's reach, and each form is planted once in memory to prove the guard still names it.
  */
 import { posix } from 'node:path';
 
@@ -23,21 +21,14 @@ interface IncludeListContract {
   readonly ownFolderGlobs:      readonly string[];
 }
 
-const PAGE_PROJECT: IncludeListContract = {
-  configurationPath:   'page/tsconfig.json',
-  projectFolder:       'page/',
-  wholePackageFolders: ['src/lib/tracker-model/'],
-  ownFolderGlobs:      ['./**/*.ts'],
-};
+const TRACKER_MODEL_FOLDER = 'src/lib/tracker-model/';
 
 const BRIDGE_PROJECT: IncludeListContract = {
   configurationPath:   'bridge/tsconfig.json',
   projectFolder:       'bridge/',
-  wholePackageFolders: [],
+  wholePackageFolders: [TRACKER_MODEL_FOLDER],
   ownFolderGlobs:      ['./**/*.ts', './**/*.tsx'],
 };
-
-const PROJECTS = [PAGE_PROJECT, BRIDGE_PROJECT];
 
 const SCANNER = createImportGraphScanner(repositoryRootOfThisCheckout());
 
@@ -75,52 +66,44 @@ function includeListSentencesOf(project: IncludeListContract, includeEntries: re
 
 describe('the scan itself', () => {
   /** Floors well under today's counts, to fail a scan that read the wrong tree or followed no import. */
-  test('it finds each project\'s reach outside its folder, beyond the tracker model the page compiles whole', () => {
-    const pageReach = [...reachedPathsOf(PAGE_PROJECT, SCANNER.graph)];
-    expect(pageReach.filter((path) => !path.startsWith('src/lib/tracker-model/')).length, 'page files reached outside the model').toBeGreaterThanOrEqual(4);
-    expect(pageReach.filter((path) => path.startsWith('src/lib/tracker-model/')).length, 'tracker model modules').toBeGreaterThanOrEqual(20);
-    expect([...reachedPathsOf(BRIDGE_PROJECT, SCANNER.graph)], 'Bridge files reached').toContain('src/shared/constants/ProductNames.ts');
+  test('it finds the Bridge\'s reach outside its folder, beyond the tracker model it compiles whole', () => {
+    const bridgeReach = [...reachedPathsOf(BRIDGE_PROJECT, SCANNER.graph)];
+    expect(bridgeReach.filter((path) => !path.startsWith(TRACKER_MODEL_FOLDER)).length, 'Bridge files reached outside the model').toBeGreaterThanOrEqual(4);
+    expect(bridgeReach.filter((path) => path.startsWith(TRACKER_MODEL_FOLDER)).length, 'tracker model modules').toBeGreaterThanOrEqual(20);
+    expect(bridgeReach, 'Bridge files reached').toContain('src/shared/constants/ProductNames.ts');
   });
 
-  test('it reads each include list, and each names its own folder by one glob per source extension', () => {
-    for (const project of PROJECTS) {
-      const includeEntries = includeEntriesOf(project.configurationPath);
-      expect(listedPathsOf(project, includeEntries).length, project.configurationPath).toBeGreaterThanOrEqual(1);
-      expect(includeEntries.filter((entry) => entry.includes('*')), project.configurationPath).toEqual([...project.ownFolderGlobs]);
-    }
+  test('it reads the include list, which names the Bridge\'s own folder by one glob per source extension', () => {
+    const includeEntries = includeEntriesOf(BRIDGE_PROJECT.configurationPath);
+    expect(listedPathsOf(BRIDGE_PROJECT, includeEntries).length).toBeGreaterThanOrEqual(1);
+    expect(includeEntries.filter((entry) => entry.includes('*'))).toEqual([...BRIDGE_PROJECT.ownFolderGlobs]);
   });
 });
 
-describe('each include list is exactly what its project reaches', () => {
-  for (const project of PROJECTS) {
-    test(`${project.configurationPath} lists every file its project reaches and nothing else`, () => {
-      expect(includeListSentencesOf(project, includeEntriesOf(project.configurationPath), SCANNER.graph)).toEqual([]);
-    });
-  }
+test('bridge/tsconfig.json lists every file the Bridge reaches and the whole tracker model, and nothing else', () => {
+  expect(includeListSentencesOf(BRIDGE_PROJECT, includeEntriesOf(BRIDGE_PROJECT.configurationPath), SCANNER.graph)).toEqual([]);
 });
 
 describe('the guard still names each form, planted in memory', () => {
-  test('a needed entry removed from the page\'s list', () => {
-    const includeEntries = includeEntriesOf(PAGE_PROJECT.configurationPath).filter((entry) => entry !== '../src/lib/html-escape/HtmlEscapeUtil.ts');
-    expect(includeListSentencesOf(PAGE_PROJECT, includeEntries, SCANNER.graph)).toEqual([
-      'page/tsconfig.json does not list src/lib/html-escape/HtmlEscapeUtil.ts, which page/ reaches: add it to the include list',
+  test('a needed entry removed from the list', () => {
+    const includeEntries = includeEntriesOf(BRIDGE_PROJECT.configurationPath).filter((entry) => entry !== '../src/lib/html-escape/HtmlEscapeUtil.ts');
+    expect(includeListSentencesOf(BRIDGE_PROJECT, includeEntries, SCANNER.graph)).toEqual([
+      'bridge/tsconfig.json does not list src/lib/html-escape/HtmlEscapeUtil.ts, which bridge/ reaches: add it to the include list',
     ]);
   });
 
-  test('a tracker model module removed from the page\'s list', () => {
-    const includeEntries = includeEntriesOf(PAGE_PROJECT.configurationPath).filter((entry) => entry !== '../src/lib/tracker-model/Logger.ts');
-    expect(includeListSentencesOf(PAGE_PROJECT, includeEntries, SCANNER.graph)).toEqual([
-      'page/tsconfig.json does not list src/lib/tracker-model/Logger.ts, which page/ reaches: add it to the include list',
+  test('a tracker model module no Bridge module imports, removed from the list', () => {
+    const includeEntries = includeEntriesOf(BRIDGE_PROJECT.configurationPath).filter((entry) => entry !== '../src/lib/tracker-model/Logger.ts');
+    expect(includeListSentencesOf(BRIDGE_PROJECT, includeEntries, SCANNER.graph)).toEqual([
+      'bridge/tsconfig.json does not list src/lib/tracker-model/Logger.ts, which bridge/ reaches: add it to the include list',
     ]);
   });
 
-  test('an entry nothing needs, added to the page\'s and the Bridge\'s list', () => {
-    for (const project of PROJECTS) {
-      const includeEntries = [...includeEntriesOf(project.configurationPath), '../src/shared/Environment.ts'];
-      expect(includeListSentencesOf(project, includeEntries, SCANNER.graph)).toEqual([
-        `${project.configurationPath} lists src/shared/Environment.ts, which nothing ${project.projectFolder} ships reaches: remove it from the include list`,
-      ]);
-    }
+  test('an entry nothing needs, added to the list', () => {
+    const includeEntries = [...includeEntriesOf(BRIDGE_PROJECT.configurationPath), '../src/shared/Environment.ts'];
+    expect(includeListSentencesOf(BRIDGE_PROJECT, includeEntries, SCANNER.graph)).toEqual([
+      'bridge/tsconfig.json lists src/shared/Environment.ts, which nothing bridge/ ships reaches: remove it from the include list',
+    ]);
   });
 
   test('a new outside file a Bridge module imports, directly or through a listed file', () => {

@@ -42,7 +42,6 @@ import {
 } from '../../shared/constants/RunnerLimits.ts';
 import { type GateConfinement, GateRun }                                    from '../lifecycle/GateRun.ts';
 import { ReviewOutcome }                                                    from '../lifecycle/ReviewOutcome.ts';
-import type { RenderState }                                                 from '../render/RenderState.ts';
 import { writeTracker, type TrackerChange }                                 from '../tracker/TrackerPipeline.ts';
 import { requireProgressFile }                                              from '../tracker/TrackerReader.ts';
 import type { Workspace }                                                   from '../tracker/Workspace.ts';
@@ -128,7 +127,6 @@ export interface AirlockFacts {
 
 export interface DrivePassRequest {
   workspace:                         Workspace;
-  renderState:                       RenderState;
   now:                               () => Date;
   formatStamp:                       (moment: Date) => string;
   runnerDirectory:                   string;
@@ -695,11 +693,10 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     limits:            MERGE_SLOT_LIMITS,
     refDeniesHold:     TARGET_REF_DENIES_HOLD,
     hold:              async (mutate) => (await writeTracker({
-      workspace:   request.workspace,
-      at:          request.formatStamp(request.now()),
-      now:         request.now,
-      renderState: request.renderState,
-      mutate:      (change) => {
+      workspace: request.workspace,
+      at:        request.formatStamp(request.now()),
+      now:       request.now,
+      mutate:    (change) => {
         RunnerLease.requireNewestGeneration(request.runnerDirectory, request.generation);
         return mutate({ board: change.board, at: change.at });
       },
@@ -776,11 +773,10 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     const at = request.formatStamp(request.now());
     const installVersionChanged = request.installVersionChanged();
     const written = await writeTracker({
-      workspace:   request.workspace,
+      workspace: request.workspace,
       at,
-      now:         request.now,
-      renderState: request.renderState,
-      mutate:      (change) => {
+      now:       request.now,
+      mutate:    (change) => {
         openLeftoverWorktreeDecisions(change, request.decisionWordingOf, leftoverWorktrees.splice(0));
         const replies = RelayInbox.applyPendingRequests(change, request.workspace.rootDirectory, observation.pendingRequests);
         request.afterHoldPhase?.('relayed-commands', change.board);

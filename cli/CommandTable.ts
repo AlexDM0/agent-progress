@@ -34,7 +34,6 @@ export const COMMAND_TABLE = {
   advise:         async () => (await import('./onboarding/AdviseCommand.ts')).adviseCommand,
   await:          async () => (await import('./tracking/await/AwaitCommand.ts')).awaitCommand,
   range:          async () => (await import('./tracking/range/RangeCommand.ts')).rangeCommand,
-  render:         async () => (await import('./tracking/render/RenderCommand.ts')).renderCommand,
   open:           async () => (await import('./tracking/open/OpenCommand.ts')).openCommand,
   clear:          async () => (await import('./tracking/clear/ClearCommand.ts')).clearCommand,
   run:            async () => (await import('./runner/RunCommand.ts')).runCommand,

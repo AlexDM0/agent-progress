@@ -10,7 +10,6 @@ import {
   expect,
   test
 }                                             from 'bun:test';
-import { createRenderState }                  from '../../src/services/render/RenderState.ts';
 import { writeTracker }                       from '../../src/services/tracker/TrackerPipeline.ts';
 import { workspacePathsFor }                  from '../../src/services/tracker/Workspace.ts';
 import { removeScratchDirectory }             from '../../src/testing/ScratchWorkspace.ts';
@@ -40,11 +39,10 @@ beforeEach(async () => {
     await fileReadyTicket(run, ['ticket', 'add', title, '--type', 'ticket', '--priority', priority]);
   }
   await writeTracker({
-    workspace:   workspacePathsFor(repositoryDirectory),
-    at:          QUEUED_AT,
-    now:         () => FROZEN_NOW,
-    renderState: createRenderState(),
-    mutate:      (change) => {
+    workspace: workspacePathsFor(repositoryDirectory),
+    at:        QUEUED_AT,
+    now:       () => FROZEN_NOW,
+    mutate:    (change) => {
       // The low ticket queues first, so only the priority order lists the normal one before it.
       for (const ticketId of ['003', '001', '002']) {
         change.board.moveTicket(ticketId, 'in-review', { checksLegality: false }, change.at);

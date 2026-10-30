@@ -89,11 +89,10 @@ afterEach(() => {
 });
 
 describeWhenGitIsPresent('draft', () => {
-  test('a tracker that never opens a draft keeps progress.json byte for byte through status, render and ticket add, and gains no folder', async () => {
+  test('a tracker that never opens a draft keeps progress.json byte for byte through status and ticket add, and gains no folder', async () => {
     const progressPath = join(trackerDirectory(), 'progress.json');
     const before       = readFileSync(progressPath, 'utf8');
     await run(['status', '--json']);
-    await run(['render']);
     await run(['draft', 'list']);
     expect(readFileSync(progressPath, 'utf8')).toBe(before);
 
@@ -104,7 +103,6 @@ describeWhenGitIsPresent('draft', () => {
     expect(JSON.stringify(withoutRows(afterTicket))).toBe(JSON.stringify(withoutRows(before)));
     expect(afterTicket).not.toContain('nextDraftId');
     await run(['status', '--json']);
-    await run(['render']);
     expect(readFileSync(progressPath, 'utf8')).toBe(afterTicket);
     expect(existsSync(draftsDirectory())).toBe(false);
   });
@@ -222,12 +220,9 @@ describeWhenGitIsPresent('draft', () => {
     ];
     expect(((await jsonOf(['status'])) as { drafts: unknown }).drafts).toEqual(expected);
     expect(((await jsonOf(['status', '--full'])) as { drafts: unknown }).drafts).toEqual(expected);
-
-    const page = readFileSync(join(trackerDirectory(), 'progress.html'), 'utf8');
-    expect(page).toContain('"drafts":[{"id":"D1","title":"Example feature","claimOwner":"opus"');
   });
 
-  test('a malformed draft file is reported by status and draft list, never thrown, and render and other commands keep working', async () => {
+  test('a malformed draft file is reported by status and draft list, never thrown, and other commands keep working', async () => {
     await run(['draft', 'open', 'Example feature', '--owner', 'opus']);
     mkdirSync(draftsDirectory(), { recursive: true });
     const malformedFiles = {
@@ -251,7 +246,6 @@ describeWhenGitIsPresent('draft', () => {
 
     const listing = await run(['draft', 'list']);
     expect(listing.errorText()).toContain(`Draft file ignored: ${draftFilePath('D5')}`);
-    await run(['render']);
     await run(['ticket', 'add', '--type', 'ticket', 'Example cart']);
     await run(['draft', 'claim', 'D1', '--owner', 'opus']);
   });

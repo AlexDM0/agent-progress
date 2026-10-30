@@ -35,12 +35,11 @@ let workspace: Workspace;
 function killedHolderSource(): string {
   return `
     const { writeTracker } = await import(${JSON.stringify(join(SOURCE_FOLDER, 'services', 'tracker', 'TrackerPipeline.ts'))});
-    const { createRenderState } = await import(${JSON.stringify(join(SOURCE_FOLDER, 'services', 'render', 'RenderState.ts'))});
     const { workspacePathsFor } = await import(${JSON.stringify(join(SOURCE_FOLDER, 'services', 'tracker', 'Workspace.ts'))});
     const workspace = workspacePathsFor(${JSON.stringify(repositoryDirectory)});
     const at = '2026-09-18T22:12:00+02:00';
     await writeTracker({
-      workspace, at, now: () => new Date(), renderState: createRenderState(),
+      workspace, at, now: () => new Date(),
       mutate: (change) => {
         change.board.addTask({ name: 'Example row of the killed holder', startsNow: false, movesTheLink: false }, at);
         change.board.setTicketPriority('001', 'high', at);

@@ -1,13 +1,11 @@
-/** Creates a new tracker's files under the lock and renders its first page; an existing progress file is never replaced. */
+/** Creates a new tracker's files under the lock; an existing progress file is never replaced. */
 import { mkdirSync } from 'node:fs';
 
-import { createLogFileWriter }                          from '../../adapters/log/LogFileWriter.ts';
-import { createProgressFileWriter }                     from '../../adapters/progress/ProgressFileWriter.ts';
-import { emptyProgressFor }                             from '../../lib/tracker-model/EmptyProgress.ts';
-import type { RenderState }                             from '../render/RenderState.ts';
-import { renderDashboard, type DashboardRenderOutcome } from './DashboardRendering.ts';
-import { withLock }                                     from './TrackerLock.ts';
-import type { Workspace }                               from './Workspace.ts';
+import { createLogFileWriter }      from '../../adapters/log/LogFileWriter.ts';
+import { createProgressFileWriter } from '../../adapters/progress/ProgressFileWriter.ts';
+import { emptyProgressFor }         from '../../lib/tracker-model/EmptyProgress.ts';
+import { withLock }                 from './TrackerLock.ts';
+import type { Workspace }           from './Workspace.ts';
 
 export interface NewTracker {
   project:   string;
@@ -16,20 +14,18 @@ export interface NewTracker {
   trackerId: string;
 }
 
-export type TrackerCreation =
-  | { verdict: 'created'; renderOutcome: DashboardRenderOutcome }
-  | { verdict: 'already-exists' };
+export type TrackerCreation = { verdict: 'created' } | { verdict: 'already-exists' };
 
-export async function createTracker(workspace: Workspace, newTracker: NewTracker, now: () => Date, renderState: RenderState): Promise<TrackerCreation> {
+export async function createTracker(workspace: Workspace, newTracker: NewTracker, now: () => Date): Promise<TrackerCreation> {
   mkdirSync(workspace.ticketsDirectory, { recursive: true });
   const progress = emptyProgressFor(newTracker);
 
-  return withLock(workspace, async (): Promise<TrackerCreation> => {
+  return withLock(workspace, (): TrackerCreation => {
     if (createProgressFileWriter(workspace.progressFilePath).create(progress) === 'already-exists') return { verdict: 'already-exists' };
 
     // A new tracker's log starts empty, so a log.jsonl left from a removed tracker is emptied, never adopted.
     // A crash between the two writes leaves that old log.jsonl beside the new progress file.
     createLogFileWriter(workspace.logFilePath).write([]);
-    return { verdict: 'created', renderOutcome: await renderDashboard(workspace, now(), renderState) };
+    return { verdict: 'created' };
   }, now);
 }
