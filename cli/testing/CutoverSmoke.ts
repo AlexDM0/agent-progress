@@ -332,8 +332,9 @@ function createSmoke(options: CutoverSmokeOptions, logPath: string) {
         for (const decision of decisions.filter((open) => open.kind === 'agent-question')) {
           await program(['decide', decision.id, ...decision.questions.map(() => 'a')]);
         }
-        if (decisions.some((open) => open.kind === 'parked')) {
-          log(`A ticket was parked (${decisions.filter((open) => open.kind === 'parked').map((open) => open.id).join(', ')}); the smoke stops here`);
+        const decisionsForUser = decisions.filter((open) => open.kind !== 'agent-question');
+        if (decisionsForUser.length > 0) {
+          log(`A decision only User may take opened (${decisionsForUser.map((open) => `${open.id} ${open.kind}`).join(', ')}); the smoke stops here`);
           return regrouping;
         }
         const incidents = (await quietJson<{ incidents: { id: string; kind: string }[] }>(['incidents']))?.incidents ?? [];
