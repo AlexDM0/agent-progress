@@ -14,17 +14,19 @@ import { dirname, join } from 'node:path';
 
 import type { HostEnd }                                                                           from '../../lib/agent-host/HostRecord.ts';
 import type { AgentAdapter }                                                                      from '../../lib/agent-launch/AgentAdapter.ts';
+import type { AgentEffort }                                                                       from '../../lib/agent-launch/AgentLaunchRequest.ts';
 import { launchEnvironmentOf }                                                                    from '../../lib/agent-launch/LaunchEnvironment.ts';
 import { GitProcess }                                                                             from '../../lib/git/GitProcess.ts';
 import type { GateOutcome, Job, JobKind }                                                         from '../../lib/tracker-model/@types/Job.ts';
 import type { DecisionDraft, DecisionWording }                                                    from '../../lib/tracker-model/@types/LifecycleStep.ts';
 import type { LogRecord }                                                                         from '../../lib/tracker-model/@types/LogRecord.ts';
-import type { Pipeline }                                                                          from '../../lib/tracker-model/@types/Pipeline.ts';
+import type { Pipeline, PipelineReview }                                                          from '../../lib/tracker-model/@types/Pipeline.ts';
 import type { Board }                                                                             from '../../lib/tracker-model/Board.ts';
 import { FRESH_AGENT_CAUSE, STOPPED_BY_USER_CAUSE }                                               from '../../lib/tracker-model/JobControls.ts';
 import { FIRST_HOST_INSTANCE, HANDOFF_RED_INTERRUPTION }                                          from '../../lib/tracker-model/constants/JobStates.ts';
 import { PipelineUtil }                                                                           from '../../lib/tracker-model/utils/PipelineUtil.ts';
 import { TicketBodyHashUtil }                                                                     from '../../lib/tracker-model/utils/TicketBodyHashUtil.ts';
+import { VocabularyUtil }                                                                         from '../../lib/tracker-model/utils/VocabularyUtil.ts';
 import { DISPATCH_PROTOCOL }                                                                      from '../../shared/constants/DispatchProtocol.ts';
 import { LIFECYCLE_LIMITS }                                                                       from '../../shared/constants/LifecycleLimits.ts';
 import { PRODUCT_NAMES }                                                                          from '../../shared/constants/ProductNames.ts';
@@ -612,6 +614,17 @@ function settleGate(hold: HoldContext, job: Readonly<Job>, observation: BuildJob
   hold.logged.push(...board.editTicket(ticketIdOf(job), { body, allowsPastPending: true }, at).logged);
   endJob(hold, job, { outcome: 'built', commit: headCommit });
   hold.logged.push(...board.moveTicket(ticketIdOf(job), 'in-review', { checksLegality: true, branch: branchOf(job), commit: headCommit }, at).logged);
+  // A pipeline without a review phase lands a gated build directly: it waits in review only for its merge slot.
+  if (board.pipeline()?.review === undefined) hold.logged.push(...board.queueTicketForMerge(ticketIdOf(job), job.target ?? hold.context.mainLine, at).logged);
+}
+
+/** A reviewer runs on the pipeline review's `model` and `effort` where set; an effort outside the vocabulary keeps the default. */
+function reviewerLaunchSettingsOf(review: Readonly<PipelineReview> | undefined, job: Readonly<Job>): { model?: string; effort?: AgentEffort } {
+  if (job.kind !== REVIEW_JOB_KIND || review === undefined) return {};
+  return {
+    ...(review.model === undefined || review.model === '' ? {} : { model: review.model }),
+    ...(review.effort !== undefined && VocabularyUtil.agentEffortIsKnown(review.effort) ? { effort: review.effort } : {}),
+  };
 }
 
 /** A job User stopped ends `stopped`; one User freshened ends `replaced`, so the next attempt starts on the same worktree. */
@@ -628,7 +641,8 @@ function applyObservation(hold: HoldContext, observation: BuildJobObservation): 
     case 'launching': {
       hold.logged.push(...board.moveJob(job.id, 'preparing', at).logged);
       if (job.kind === REVIEW_JOB_KIND) {
-        hold.logged.push(...board.startReviewBar(ticketIdOf(job), { round: job.attempt, owner: job.id }, at).logged);
+        const label = board.pipeline()?.review?.name;
+        hold.logged.push(...board.startReviewBar(ticketIdOf(job), { round: job.attempt, owner: job.id, ...(label === undefined ? {} : { label }) }, at).logged);
         return;
       }
       const ticket = board.tickets().find((candidate) => candidate.frontmatter.id === ticketIdOf(job));
@@ -880,4 +894,5 @@ export const JobLaunch = Object.freeze({
   holdAgentConfigHits,
   sessionReadingOf,
   callBudgetOf,
+  reviewerLaunchSettingsOf,
 });

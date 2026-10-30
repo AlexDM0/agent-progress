@@ -84,7 +84,7 @@ function lifecycleBoardOf(contents: { tickets: Ticket[]; progress?: Partial<Trac
     epics:            [],
     logger:           createLogger((record) => records.push(record)),
     storedLogRecords: contents.storedLogRecords ?? [],
-    pipeline:         contents.pipeline === undefined ? { prepare: [], gates: [{ name: 'verify', run: 'bun run verify' }] } : contents.pipeline,
+    pipeline:         contents.pipeline === undefined ? { prepare: [], gates: [{ name: 'verify', run: 'bun run verify' }], review: { name: 'Review' } } : contents.pipeline,
   });
   return { board, progress, records };
 }

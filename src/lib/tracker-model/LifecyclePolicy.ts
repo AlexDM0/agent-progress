@@ -46,6 +46,8 @@ export interface LifecycleFacts {
   concurrencyLimit:            number;
   dispatcherState:             DispatcherState;
   pipelineIsSet:               boolean;
+  /** The pipeline has a `review` phase; without one no reviewer is ever launched, and a gated build queues to merge. */
+  reviewIsSet:                 boolean;
   observations:                LifecycleObservations;
 }
 
@@ -159,18 +161,49 @@ function lastBuildAttemptOf(ticketId: string, facts: LifecycleFacts): number {
   return Math.max(0, ...buildAttempts);
 }
 
+interface HandoffCycle {
+  kind:      JobKind;
+  ticketIds: readonly string[];
+  attempt:   number;
+}
+
 /**
- * The red-handoff resumes of the job's handoff cycle: every job of its kind, tickets and attempt, so a fresh session that took over a
- * session the vendor could not resume carries on the same count.
+ * The resumes of a handoff cycle, every job of its kind, tickets and attempt, so a fresh session that took over a session the vendor
+ * could not resume carries on the same count: its red-handoff resumes, and for a build cycle each review of its tickets that did not
+ * hold after the cycle began, since the builder is resumed with that review's findings.
  */
-function redHandoffResumesOf(job: Readonly<Job>, facts: LifecycleFacts): number {
-  const launches = jobLaunchesByJobIdOf(facts.logRecords);
-  const ticketKey = [...job.ticketIds].sort().join(',');
+function handoffCycleResumesOf(cycle: HandoffCycle, logRecords: readonly LogRecord[]): number {
+  const launches = jobLaunchesByJobIdOf(logRecords);
+  const ticketKey = [...cycle.ticketIds].sort().join(',');
   const inTheCycle = (jobId: string): boolean => {
     const launch = launches.get(jobId);
-    return launch !== undefined && launch.kind === job.kind && launch.attempt === job.attempt && [...launch.ticketIds].sort().join(',') === ticketKey;
+    return launch !== undefined && launch.kind === cycle.kind && launch.attempt === cycle.attempt && [...launch.ticketIds].sort().join(',') === ticketKey;
   };
-  return facts.logRecords.filter((record) => record.kind === 'job-resumed' && record.fields.cause === HANDOFF_RED_INTERRUPTION && inTheCycle(record.jobId)).length;
+  let cycleBegan = false;
+  let resumes = 0;
+  for (const record of logRecords) {
+    if (record.kind === 'job-launched' && inTheCycle(record.jobId)) cycleBegan = true;
+    if (record.kind === 'job-resumed' && record.fields.cause === HANDOFF_RED_INTERRUPTION && inTheCycle(record.jobId)) resumes += 1;
+    const endedReview = record.kind === 'job-ended' && record.fields.outcome === 'does-not-hold' ? launches.get(record.jobId) : undefined;
+    if (cycleBegan && cycle.kind === 'build' && endedReview?.kind === 'review' && endedReview.ticketIds.some((ticketId) => cycle.ticketIds.includes(ticketId))) resumes += 1;
+  }
+  return resumes;
+}
+
+function redHandoffResumesOf(job: Readonly<Job>, facts: LifecycleFacts): number {
+  return handoffCycleResumesOf(job, facts.logRecords);
+}
+
+/** The ticket's newest ended build job was `built`: its review sent it back, and that builder's session is resumed with the findings. */
+function builderReturnsFromReview(ticketId: string, facts: LifecycleFacts): boolean {
+  const launches = jobLaunchesByJobIdOf(facts.logRecords);
+  let returns = false;
+  for (const record of facts.logRecords) {
+    if (record.kind !== 'job-ended') continue;
+    const launch = launches.get(record.jobId);
+    if (launch?.kind === 'build' && launch.ticketIds.includes(ticketId)) returns = record.fields.outcome === 'built';
+  }
+  return returns;
 }
 
 /** The ticket's newest ended build job was replaced while interrupted on a red handoff: its fresh successor keeps the attempt. */
@@ -272,11 +305,20 @@ function crashBoundStepsOf(facts: LifecycleFacts, limits: LifecycleLimits, resum
   })];
 }
 
+/** A builder a review sent back past its cycle's resumes is never resumed again: the review that did not hold is one past the last. */
+function reviewResumesAreSpent(ticket: LifecycleTicket, facts: LifecycleFacts, limits: LifecycleLimits): boolean {
+  if (ticket.status !== 'in-progress' || !builderReturnsFromReview(ticket.id, facts)) return false;
+  const cycle: HandoffCycle = { kind: 'build', ticketIds: [ticket.id], attempt: lastBuildAttemptOf(ticket.id, facts) };
+  return handoffCycleResumesOf(cycle, facts.logRecords) > limits.RED_HANDOFF_RESUMES_BEFORE_PARKING;
+}
+
 function parkStepsOf(facts: LifecycleFacts, limits: LifecycleLimits): LifecycleStep[] {
   return facts.tickets
     .filter((ticket) => ticket.hold === undefined && (ticket.status === 'in-progress' || ticket.status === 'in-review') && !ticketHasAJob(ticket.id, facts))
-    .filter((ticket) => FailedPassUtil.failedPassesOf(ticket.id, facts.logRecords) >= limits.FAILED_PASSES_BEFORE_PARKING)
-    .map((ticket) => ({ kind: 'park', ticketId: ticket.id, cause: 'failed-passes' }));
+    .flatMap((ticket): LifecycleStep[] => {
+      if (FailedPassUtil.failedPassesOf(ticket.id, facts.logRecords) >= limits.FAILED_PASSES_BEFORE_PARKING) return [{ kind: 'park', ticketId: ticket.id, cause: 'failed-passes' }];
+      return reviewResumesAreSpent(ticket, facts, limits) ? [{ kind: 'park', ticketId: ticket.id, cause: 'red-resumes-spent' }] : [];
+    });
 }
 
 function jobLostStepsOf(facts: LifecycleFacts, limits: LifecycleLimits): LifecycleStep[] {
@@ -294,6 +336,7 @@ function jobLostStepsOf(facts: LifecycleFacts, limits: LifecycleLimits): Lifecyc
 function candidateOf(ticket: LifecycleTicket, facts: LifecycleFacts): Candidate | null {
   const base = targetOf(ticket, facts.observations);
   if (ticket.status === 'in-review') {
+    if (!facts.reviewIsSet) return null;
     return {
       ticket,
       phase: 'review',
@@ -302,7 +345,7 @@ function candidateOf(ticket: LifecycleTicket, facts: LifecycleFacts): Candidate 
       }
     };
   }
-  const carriesOver = redHandoffCarriesOver(ticket.id, facts);
+  const carriesOver = redHandoffCarriesOver(ticket.id, facts) || (ticket.status === 'in-progress' && builderReturnsFromReview(ticket.id, facts));
   const attempt = lastBuildAttemptOf(ticket.id, facts) + (carriesOver ? 0 : 1);
   if (ticket.status === 'in-progress' && (attempt > 1 || carriesOver)) return {
     ticket,
@@ -412,4 +455,5 @@ function nextStepsOf(facts: LifecycleFacts, limits: LifecycleLimits): LifecycleS
 export const LifecyclePolicy = {
   nextStepsOf,
   outageIsDue,
+  handoffCycleResumesOf,
 } as const;

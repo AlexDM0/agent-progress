@@ -87,6 +87,33 @@ function lastEndedPredecessorOf(logRecords: readonly LogRecord[], job: Readonly<
   return predecessor;
 }
 
+/**
+ * The job whose session a build job carries on: a build after one that ended `built` was sent back by its review, and resumes that
+ * builder's session (itself perhaps carried on from an earlier one) with the review's findings. The job itself for every other job.
+ */
+function sessionOwnerJobIdOf(logRecords: readonly LogRecord[], job: Readonly<Job>): string {
+  if (job.kind !== 'build') return job.id;
+  const sessionOwnerByJobId = new Map<string, string>();
+  let newestEnded: { jobId: string; outcome: string } | null = null;
+  for (const record of logRecords) {
+    if (record.kind === 'job-launched' && record.fields.kind === 'build' && record.fields.ticketIds.some((ticketId) => job.ticketIds.includes(ticketId))) {
+      const carriesOn = newestEnded?.outcome === 'built' ? sessionOwnerByJobId.get(newestEnded.jobId) : undefined;
+      sessionOwnerByJobId.set(record.jobId, carriesOn ?? record.jobId);
+    }
+    if (record.kind === 'job-ended' && sessionOwnerByJobId.has(record.jobId)) newestEnded = { jobId: record.jobId, outcome: record.fields.outcome };
+  }
+  return sessionOwnerByJobId.get(job.id) ?? job.id;
+}
+
+/** The `## Review <round>` section a builder resumed after its review is sent: the newest one in the ticket's body. */
+function newestReviewSectionOf(ticketBody: string): string {
+  const start = [...ticketBody.matchAll(/^## Review \d+/gm)].at(-1)?.index;
+  if (start === undefined) return '';
+  const rest = ticketBody.slice(start);
+  const nextHeading = rest.slice(1).search(/^## /m);
+  return (nextHeading === -1 ? rest : rest.slice(0, nextHeading + 1)).trim();
+}
+
 /** The newest earlier job of the same kind on the job's tickets ended `replaced`, so the job inherits that session's worktree. */
 function earlierSessionWasReplaced(logRecords: readonly LogRecord[], job: Readonly<Job>): boolean {
   return lastEndedPredecessorOf(logRecords, job)?.outcome === 'replaced';
@@ -173,6 +200,8 @@ export const JobResumption = Object.freeze({
   resumeFailed,
   applyResumeFailure,
   earlierSessionWasReplaced,
+  sessionOwnerJobIdOf,
+  newestReviewSectionOf,
   redHandoffTakenOverOf,
   resumeLineOf,
   storeFirstMessage,

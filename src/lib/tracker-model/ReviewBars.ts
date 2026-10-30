@@ -30,7 +30,7 @@ export class ReviewBars {
     const ticket = this.records.requireTicket(ticketId);
     const closed = this.closeInProgressReviewBars([ticketId], at);
     const bar    = this.records.fileTask({
-      name:           TicketChartUtil.reviewBarNameOf(request.round, ticket.frontmatter),
+      name:           TicketChartUtil.reviewBarNameOf(request.round, ticket.frontmatter, request.label),
       filedAt:        at,
       reviewOf:       ticketId,
       reviewBarRound: request.round,

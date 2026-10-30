@@ -53,7 +53,7 @@ function launched(jobId: string, kind: 'build' | 'review', ticketIds: string[]):
   };
 }
 
-function ended(jobId: string, outcome: 'replaced' | 'failed'): LogRecord {
+function ended(jobId: string, outcome: 'replaced' | 'failed' | 'built' | 'does-not-hold'): LogRecord {
   return {
     at: AT, kind: 'job-ended', jobId, fields: { outcome, deniedPermissions: [] }
   };
@@ -135,6 +135,30 @@ describe('a failed resume', () => {
     expect(JobResumption.resumeFailed(buildJob(), true, false)).toBe(false);
     expect(JobResumption.resumeFailed(buildJob({ hostInstance: 2 }), true, true)).toBe(false);
     expect(JobResumption.resumeFailed(buildJob({ hostInstance: 2 }), false, false)).toBe(false);
+  });
+});
+
+// A review that did not hold resumes the builder's own session, so the build job after it carries on the session it was sent back from.
+describe('the session a build job carries on', () => {
+  const builtThenSentBack = [launched('J1', 'build', ['001']), ended('J1', 'built'), launched('R1', 'review', ['001']), ended('R1', 'does-not-hold')];
+
+  test('is the builder its review sent back, across every later round', () => {
+    expect(JobResumption.sessionOwnerJobIdOf([...builtThenSentBack, launched('J2', 'build', ['001'])], buildJob())).toBe('J1');
+    const secondRound = [...builtThenSentBack, launched('J2', 'build', ['001']), ended('J2', 'built'), launched('J3', 'build', ['001'])];
+    expect(JobResumption.sessionOwnerJobIdOf(secondRound, buildJob({ id: 'J3' }))).toBe('J1');
+  });
+
+  test('is the job itself after a replaced or failed build, and for a reviewer', () => {
+    const afterReplaced = [launched('J1', 'build', ['001']), ended('J1', 'replaced'), launched('J2', 'build', ['001'])];
+    expect(JobResumption.sessionOwnerJobIdOf(afterReplaced, buildJob())).toBe('J2');
+    const review = buildJob({ id: 'R2', kind: 'review', role: 'reviewer' });
+    expect(JobResumption.sessionOwnerJobIdOf([...builtThenSentBack, launched('R2', 'review', ['001'])], review)).toBe('R2');
+  });
+
+  test('is sent only the newest review section of the ticket', () => {
+    const body = '## Report\nx\n\n## Review 1\n\nold\n\n## Review 2\n\n- A1 does-not-hold — the example fails\n\n## Notes\nlater\n';
+    expect(JobResumption.newestReviewSectionOf(body)).toBe('## Review 2\n\n- A1 does-not-hold — the example fails');
+    expect(JobResumption.newestReviewSectionOf('## Report\nx\n')).toBe('');
   });
 });
 

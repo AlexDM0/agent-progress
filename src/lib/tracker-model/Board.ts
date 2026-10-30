@@ -530,6 +530,7 @@ export class Board {
       concurrencyLimit:            this.concurrency().limit,
       dispatcherState:             this.dispatcherState(),
       pipelineIsSet:               this.records.pipeline !== null,
+      reviewIsSet:                 this.records.pipeline?.review !== undefined,
       observations,
     };
   }

@@ -24,6 +24,7 @@ import type { InterruptionCause, Job, JobKind }                                 
 import type { DecisionDraft, DecisionWording }                                   from '../../lib/tracker-model/@types/LifecycleStep.ts';
 import type { PipelineGate }                                                     from '../../lib/tracker-model/@types/Pipeline.ts';
 import type { Board }                                                            from '../../lib/tracker-model/Board.ts';
+import { LifecyclePolicy }                                                       from '../../lib/tracker-model/LifecyclePolicy.ts';
 import { JOB_ID_VARIABLE, RELAY_DIRECTORY_VARIABLE }                             from '../../shared/Environment.ts';
 import { LIFECYCLE_LIMITS }                                                      from '../../shared/constants/LifecycleLimits.ts';
 import { MERGE_SLOT_LIMITS }                                                     from '../../shared/constants/MergeSlotLimits.ts';
@@ -83,12 +84,21 @@ export interface JobLaunchFacts {
   earlierSessionReplaced: boolean;
   /** The red handoff a fresh session takes over from the session it replaces, which could not be resumed; `null` otherwise. */
   redHandoff?:            RedHandoffFacts | null;
+  /** What a builder its review sent back is resumed with, in place of its build prompt; `null` for every other job. */
+  reviewFindings?:        ReviewFindingsFacts | null;
   /** A product owner's request, and what a fresh one takes over from the session it replaces; `null` for every other job. */
   intake:                 IntakeFacts | null;
   /** What a merge-gate fixer or a resolution reviewer is told of its Airlock; `null` for every other job. */
   airlock:                AirlockFacts | null;
   /** What a fresh Assistant boots with: the incidents of its first message, the newest incident records and the board; `null` otherwise. */
   assistant:              AssistantFacts | null;
+}
+
+/** The review that did not hold, and which resume of the builder's handoff cycle this is. */
+export interface ReviewFindingsFacts {
+  reviewSection:  string;
+  resume:         number;
+  resumesAllowed: number;
 }
 
 /** The Airlock worktree, the slot's recorded tips, and the incident's facts: the failed gate's tail, or the merge commit under review. */
@@ -468,6 +478,16 @@ function airlockFactsOf(board: Board, trackerDirectory: string, job: Readonly<Jo
   };
 }
 
+function reviewFindingsOf(board: Board, job: Readonly<Job>): ReviewFindingsFacts | null {
+  if (JobResumption.sessionOwnerJobIdOf(board.logRecordsSoFar(), job) === job.id) return null;
+  const ticketBody = board.tickets().find((ticket) => job.ticketIds.includes(ticket.frontmatter.id))?.body ?? '';
+  return {
+    reviewSection:  JobResumption.newestReviewSectionOf(ticketBody),
+    resume:         LifecyclePolicy.handoffCycleResumesOf(job, board.logRecordsSoFar()),
+    resumesAllowed: LIFECYCLE_LIMITS.RED_HANDOFF_RESUMES_BEFORE_PARKING,
+  };
+}
+
 function launchFactsOf(board: Board, trackerDirectory: string, job: Readonly<Job>, workingDirectory: string): JobLaunchFacts {
   return {
     airlock: airlockFactsOf(board, trackerDirectory, job, workingDirectory),
@@ -478,6 +498,7 @@ function launchFactsOf(board: Board, trackerDirectory: string, job: Readonly<Job
     gates:                  board.pipeline()?.gates ?? null,
     earlierSessionReplaced: JobResumption.earlierSessionWasReplaced(board.logRecordsSoFar(), job),
     redHandoff:             JobResumption.redHandoffTakenOverOf(trackerDirectory, board.logRecordsSoFar(), job),
+    reviewFindings:         reviewFindingsOf(board, job),
     intake:                 IntakeSessions.intakeFactsOf(board, job),
     assistant:              AssistantBoot.assistantFactsOf(board, trackerDirectory, job),
   };
@@ -497,13 +518,15 @@ function launchHost(request: DrivePassRequest, jobLaunchContext: JobLaunchContex
   if (!launchParts.resume && redHandoffTakenOver !== null) RedHandoff.adoptRedHandoff(jobFolder, redHandoffTakenOver);
   if (JobLaunch.isWorktreeJob(job)) JobLaunch.recordJobStart(jobLaunchContext, board, job);
   if (!launchParts.resume) JobResumption.storeFirstMessage(jobFolder, job.hostInstance, launchParts.firstMessage);
+  const sessionOwnerJobId = JobResumption.sessionOwnerJobIdOf(board.logRecordsSoFar(), job);
   const launchRequest: AgentLaunchRequest = {
-    sessionId:         agentAdapter.sessionIdOf(trackerId, job.id),
-    resume:            launchParts.resume,
+    sessionId:         agentAdapter.sessionIdOf(trackerId, sessionOwnerJobId),
+    resume:            launchParts.resume || sessionOwnerJobId !== job.id,
     workingDirectory,
     firstMessage:      launchParts.firstMessage,
     roleBrief:         text.roleBrief,
     ...AssistantBoot.launchSettingsOf(job),
+    ...JobLaunch.reviewerLaunchSettingsOf(board.pipeline()?.review, job),
     environment:       launchEnvironmentOf(request.inheritedEnvironment, { [JOB_ID_VARIABLE]: job.id, [RELAY_DIRECTORY_VARIABLE]: relayDirectory }),
     profile:           launchProfileOf(jobLaunchContext, board, job, workingDirectory, relayDirectory),
     jobFilesDirectory: jobFolder,

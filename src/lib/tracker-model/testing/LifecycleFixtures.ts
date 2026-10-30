@@ -77,6 +77,7 @@ export function factsWith(overrides: Partial<LifecycleFacts> = {}): LifecycleFac
     concurrencyLimit:            3,
     dispatcherState:             'running',
     pipelineIsSet:               true,
+    reviewIsSet:                 true,
     observations:                FIXTURE_OBSERVATIONS,
     ...overrides,
   };

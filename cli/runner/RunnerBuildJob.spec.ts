@@ -9,7 +9,8 @@ import {
   existsSync,
   readdirSync,
   readFileSync,
-  statSync
+  statSync,
+  writeFileSync
 } from 'node:fs';
 import { join } from 'node:path';
 import {
@@ -23,7 +24,10 @@ import {
 import { hostFilesOf }                                 from '../../src/lib/agent-host/HostFiles.ts';
 import type { HostLaunch }                             from '../../src/lib/agent-host/HostLaunch.ts';
 import type { HostRecord }                             from '../../src/lib/agent-host/HostRecord.ts';
+import type { AgentAdapter }                           from '../../src/lib/agent-launch/AgentAdapter.ts';
+import type { AgentLaunchRequest }                     from '../../src/lib/agent-launch/AgentLaunchRequest.ts';
 import type { Job, JobState }                          from '../../src/lib/tracker-model/@types/Job.ts';
+import type { PipelineReview }                         from '../../src/lib/tracker-model/@types/Pipeline.ts';
 import type { Board }                                  from '../../src/lib/tracker-model/Board.ts';
 import { createRenderState }                           from '../../src/services/render/RenderState.ts';
 import { createDrivePass, type DrivePass }             from '../../src/services/runner/DrivePass.ts';
@@ -33,6 +37,7 @@ import { SANDBOX_EXEC_PATH, createProcessHostSandbox } from '../../src/services/
 import { runnerFilesIn }                               from '../../src/services/runner/RunnerFiles.ts';
 import { RunnerLease }                                 from '../../src/services/runner/RunnerLease.ts';
 import { requireWorkspace }                            from '../../src/services/tracker/Workspace.ts';
+import { JOB_ID_VARIABLE }                             from '../../src/shared/Environment.ts';
 import { DISPATCH_PROTOCOL }                           from '../../src/shared/constants/DispatchProtocol.ts';
 import { WIND_DOWN_GRACE_CALLS }                       from '../../src/shared/constants/RunnerLimits.ts';
 import {
@@ -64,6 +69,7 @@ let repositoryDirectory = '';
 let monitorFolder = '';
 let runnerLog: string[] = [];
 let buildStates: string[] = [];
+let launchRequests: AgentLaunchRequest[] = [];
 let jobsNotingStateAssignments = new WeakSet<object>();
 let mainTipAtStart = '';
 
@@ -109,6 +115,23 @@ function recordBuildStateChanges(_phase: string, board: Board): void {
   }
 }
 
+function launchCapturingAdapterOf(adapter: AgentAdapter): AgentAdapter {
+  return {
+    ...adapter,
+    planOf: (request) => {
+      launchRequests.push(request);
+      return adapter.planOf(request);
+    },
+  };
+}
+
+/** No verb sets the review phase: `pipeline.json` is edited by hand, as User would. */
+function setReviewPhase(review: Readonly<PipelineReview>): void {
+  const pipelinePath = join(requireWorkspace(repositoryDirectory).trackerDirectory, 'pipeline.json');
+  const pipeline = JSON.parse(readFileSync(pipelinePath, 'utf8')) as Record<string, unknown>;
+  writeFileSync(pipelinePath, `${JSON.stringify({ ...pipeline, review }, null, 2)}\n`);
+}
+
 async function drivePassPlaying(steps: readonly FakeAgentStep[]): Promise<DrivePass> {
   const workspace = requireWorkspace(repositoryDirectory);
   const { runnerDirectory } = runnerFilesIn(workspace.trackerDirectory);
@@ -134,7 +157,7 @@ async function drivePassPlaying(steps: readonly FakeAgentStep[]): Promise<DriveP
     generation:            acquisition.generation,
     hostBundlePath,
     codeVersion:           'code-example',
-    agentAdapter:          fakeAgentAdapter(steps),
+    agentAdapter:          launchCapturingAdapterOf(fakeAgentAdapter(steps)),
     monitorFolder,
     inheritedEnvironment:  inheritedEnvironment(),
     mainLine:              currentBranchOf(repositoryDirectory),
@@ -268,6 +291,7 @@ beforeEach(async () => {
   monitorFolder = createScratchDirectory('h');
   runnerLog = [];
   buildStates = [];
+  launchRequests = [];
   jobsNotingStateAssignments = new WeakSet<object>();
   mainTipAtStart = (await Bun.$`git -C ${repositoryDirectory} rev-parse HEAD`.quiet().text()).trim();
   await run(['run', 'resume']);
@@ -281,11 +305,33 @@ afterEach(() => {
 });
 
 describe('a build job end to end', () => {
+  test('with no review phase a gated build goes straight to the merge queue, and no reviewer or review bar is ever made', async () => {
+    await run(['gate', 'none']);
+    const drivePass = await drivePassPlaying(buildingSession());
+    await passUntil(drivePass, () => loggedEntries('merge-queued').length > 0, 'the merge queuing');
+    await passUntil(drivePass, () => loggedEntries('job-ended').some((entry) => entry.fields['outcome'] === 'landed'), 'the landing');
+
+    expect(buildJobEnding()).toMatchObject({ outcome: 'built' });
+    expect(loggedEntries('job-launched').map((entry) => entry.fields['kind'])).not.toContain('review');
+    expect(loggedEntries('review-bar-started')).toEqual([]);
+    expect(storedProgressOf(repositoryDirectory).tasks.some((task) => task.reviewOf !== undefined)).toBe(false);
+    expect(loggedEntries('decision-opened')).toEqual([]);
+    expect(existsSync(join(jobFolderOf(firstBuildJobId()), 'gate-1'))).toBe(false);
+  }, BUILD_TEST_TIMEOUT_MILLISECONDS);
+
   test('prepares, installs, launches, verifies, gates, writes the Handoff, finishes the ticket and gets a review job launched', async () => {
     await run(['gate', 'add', 'checks', '--', 'true']);
     await run(['gate', 'prepare', 'install', '--', 'true']);
+    setReviewPhase({ name: 'Security pass', model: 'sonnet', effort: 'high' });
     const drivePass = await drivePassPlaying(buildingSession());
     await passUntil(drivePass, () => storedProgressOf(repositoryDirectory).jobs?.some((job) => job.kind === 'review') === true, 'the review launch');
+    const launchedKindOf = (request: AgentLaunchRequest): unknown => loggedEntries('job-launched')
+      .find((entry) => entry.jobId === request.environment[JOB_ID_VARIABLE])?.fields['kind'];
+    await passUntil(drivePass, () => launchRequests.some((request) => launchedKindOf(request) === 'review'), 'the reviewer launch');
+    const settingsOfKind = (kind: string): unknown[] => launchRequests.filter((request) => launchedKindOf(request) === kind).map((request) => [request.model, request.effort]);
+    expect(settingsOfKind('build')).toEqual([['opus', 'medium']]);
+    expect(settingsOfKind('review')).toEqual([['sonnet', 'high']]);
+    expect(loggedEntries('review-bar-started').map((entry) => entry.fields['name'])).toEqual(['Review 1 #001 — Export the example roles (Security pass)']);
 
     expect(buildStates).toEqual(['launching', 'preparing', 'running', 'verifying', 'gating', 'ended']);
     expect(buildJobEnding()).toMatchObject({ outcome: 'built' });

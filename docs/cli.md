@@ -473,6 +473,17 @@ tree it was given runs no gate. On a pass the runner replaces the ticket's `## H
 Acceptance evidence, moves the ticket `in-review` and ends the job `built`; the policy then launches the review job in
 the same hold.
 
+Review is an optional phase, set by the pipeline's `review` key. Without it no review job is ever launched: a gated
+build is queued to merge in the same hold (`merge-queued`), draws no review bar, and lands on its gates alone, the
+Acceptance check of the landing being a review's. With it, its `name` ends each review bar's name
+(`Review 1 #12 — <title> (<name>)`, logged in `review-bar-started`), and its `model` and `effort` (one of `low`,
+`medium`, `high`, `xhigh`, `max`; any other keeps the default) are the reviewer's launch settings. A review whose
+claim does not hold moves the ticket back `in-progress`, and the build job after it keeps the attempt and resumes the
+builder's own session (`--resume`, the session id of the build job the review sent back), its first line the review's
+newest `## Review <round>` section and which resume of `RED_HANDOFF_RESUMES_BEFORE_PARKING` (2) it is: each such
+review counts against the same resumes as the build cycle's red handoffs, and the one past the last parks the ticket
+`parked:red-resumes-spent`.
+
 | what happens | what the runner does |
 | --- | --- |
 | worktree creation, the install line or a gating prepare step fails | incident `setup-failed`; the job ends `stopped` |

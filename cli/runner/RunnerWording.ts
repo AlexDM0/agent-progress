@@ -19,6 +19,7 @@ import type {
   AirlockFacts,
   JobLaunchFacts,
   JobLaunchText,
+  ReviewFindingsFacts,
   RunnerNotice
 } from '../../src/services/runner/DrivePass.ts';
 import type { RedHandoffFacts }       from '../../src/services/runner/RedHandoff.ts';
@@ -193,6 +194,16 @@ function assistantTextOf(job: Readonly<Job>, assistant: AssistantFacts): JobLaun
   return { firstMessage, roleBrief };
 }
 
+/** The first line of a builder's session resumed because its review found a claim that does not hold. */
+function reviewFindingsMessageOf(ticketId: string, facts: Readonly<ReviewFindingsFacts>): string {
+  return [
+    `The review of #${ticketId} found a claim that does not hold, so your session is resumed with its findings`
+    + ` (resume ${facts.resume} of ${facts.resumesAllowed}). Fix what does not hold, commit, and end with your report again.`,
+    '',
+    facts.reviewSection,
+  ].join('\n');
+}
+
 /** A builder's first message is the whole build prompt, its ticket and checks line filled in; the other roles get theirs later in the chain. */
 function launchTextOf(job: Readonly<Job>, facts: JobLaunchFacts): JobLaunchText {
   if (facts.intake !== null) return productOwnerTextOf(job, facts.intake);
@@ -232,6 +243,8 @@ function launchTextOf(job: Readonly<Job>, facts: JobLaunchFacts): JobLaunchText 
     return { firstMessage: airlockAgentMessageOf(job.role, job, ticket, facts, facts.airlock), roleBrief };
   }
   if (job.kind !== 'build' || ticket === undefined) return { firstMessage: `Job ${job.id}: work as the ${job.role ?? job.kind} on ${subject}, attempt ${job.attempt}.`, roleBrief };
+  const reviewFindings = facts.reviewFindings ?? null;
+  if (reviewFindings !== null) return { firstMessage: reviewFindingsMessageOf(ticket.id, reviewFindings), roleBrief };
   return {
     firstMessage: filledTemplateOf(readFileSync(resourceFilePathOf('prompts', 'BuildPrompt.md'), 'utf8'), {
       ticketId:    ticket.id,

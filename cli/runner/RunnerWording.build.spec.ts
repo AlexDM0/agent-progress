@@ -74,3 +74,25 @@ describe('the build prompt\'s gates', () => {
     expect(overseerOnly).toContain('The Overseer alone runs `audit`');
   });
 });
+
+// A review that did not hold resumes the builder's session: it is handed the findings, never the whole build prompt again.
+describe('the first line of a builder resumed after its review', () => {
+  const facts: JobLaunchFacts = {
+    tickets:                [{ id: '012', title: 'Example basket total', body: '## Acceptance\nA1. Example basket adds up.\n' }],
+    checksLine:             'bun test',
+    gates:                  GATES,
+    earlierSessionReplaced: false,
+    reviewFindings:         { reviewSection: '## Review 1\n\n- A1 does-not-hold — the example total is off by one', resume: 1, resumesAllowed: 2 },
+    intake:                 null,
+    airlock:                null,
+    assistant:              null,
+  };
+  const message = RunnerWording.launchTextOf(BUILD_JOB, facts).firstMessage;
+
+  test('carries the review\'s findings and the resume count, and not the build prompt', () => {
+    expect(message).toContain('The review of #012 found a claim that does not hold');
+    expect(message).toContain('(resume 1 of 2)');
+    expect(message).toContain('- A1 does-not-hold — the example total is off by one');
+    expect(message).not.toContain('Pass every gate on your final commit');
+  });
+});
