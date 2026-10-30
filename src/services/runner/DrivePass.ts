@@ -874,6 +874,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
       answerMessageOf:           request.answerMessageOf,
     });
     const heldTargets = written.board.pipeline() === null ? [] : await mergeSlots.sweep();
+    await HostFleet.reapEndedHosts(trackerDirectory);
     jobsAtTheLastPass = written.board.jobs();
     assistantsMidTurnAtTheLastPass = AssistantSession.midTurnJobIdsOf(request.workspace.trackerDirectory, written.board, observation.assistantReadings);
     state = {
