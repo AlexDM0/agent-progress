@@ -677,105 +677,71 @@ Open it with `agent-progress open`, which is refused `overseer-down` when no Ove
 Overseer serves the board, "Overseer down" with the command that starts one otherwise. Nothing renders it from the
 store; the monitor registry's `progressHtml` names it.
 
-The tabs are **Kanban · Waves · Progress · Epics · Tickets**, in that order; the chosen one is kept in
-the browser, Epics is hidden on a board without epics, and Waves on one where no ticket waits on
-another.
+The tabs are **Kanban · Progress · Tickets · Agents · Questions · Assistant · Intake**, in that order. Each is a
+hash route, `#<tab>` or `#<tab>/<item>` (`#tickets/42`, `#agents/J12`), so a link survives an Overseer restart; a
+fragment naming no tab opens the tab last chosen, kept in the browser, or else Kanban. Until the Overseer's first
+board arrives the panel says it is waiting for it; while the event stream is down a banner says the Overseer is
+unreachable and as of when the board shown dates. Every control posts a command to the Overseer and shows its
+refusal verbatim.
 
-- **Kanban tab**: one card per ticket in six lanes — To do, In progress, Review, Awaiting merge, Done
-  and Abandoned — each card in the lane its state names. The open lanes run high → normal → low, then
-  by id, with a divider per priority when a lane holds more than one; a card shows its priority mark,
-  tokens, epic chips, waiting-on links, `held`, `no row yet` for a low ticket never started, and what it
-  is waiting for (`paused since 11:45 · 1h 51m`, `no reviewer yet · 16m`, `reviewer since 13:05`). Done
-  and Abandoned run newest first and show the latest 15, then 25 more at a time; Abandoned is collapsed
-  until clicked. The finished-work choice decides what both closed lanes hold, and each ends with how
-  many earlier cards it leaves out and a "show all". On a board with epics, the filter menu's Epic
-  section narrows the board to the epics pressed, each with its roll-up; the choice is kept in the
-  browser. On a board with dependencies, the menu's "Order To do" switches To do between filed and by wave: the
-  lane says how many of its cards are ready and how many wait, then one group per dependency wave,
-  headed with how wide the wave is (the first also with how many are ready), a one-ticket wave marked
-  "one at a time", a pending low-priority ticket in its wave like any other; the choice is kept
-  in the browser. Pointing at a card draws arrows from the cards
-  it waits on directly and marks them "needed first"; an open card's `↦ N` counts the tickets that
-  wait on it, directly or further down the chain.
-- **Progress tab**: the Gantt chart, filling the window below its head and scrolling its rows
-  inside it, one row per task, newest on top, each with its number, name, ticket badge, token count,
-  status pill and bar, one segment per phase it went through; and a now-marker. The log shows only in
-  the detail panel, per row and ticket. A ticket's review passes are drawn as segments on its own row;
-  "Review passes as rows" in the chart head's Row options menu draws each as a row of its own instead, indented
-  directly above the ticket it reviews, latest round first, a bundle's review, `Review 1 #13, #5 — …`,
-  once above the first ticket it names. A review whose ticket has no row on the chart — a low ticket
-  not started, or one hidden as long done — is always a row of its own, drawn where its filing puts
-  it. Beside it in that menu, "Wide titles" widens the name column; both are kept in the browser. On a board
-  with epics the rows are grouped under a head per epic, a ticket under its primary epic only, then
-  "No epic"; a head folds its rows away, and the folds are kept in the browser.
-- **Tickets tab**: a table of the tickets with a count above it, searched by id, title, epic,
-  branch, group and body text, narrowed by type, status and (on a board with epics) epic chips, and
-  sorted by any column; on a board with epics it can be grouped by epic, a choice kept in the
-  browser. A ticket's body shows only in the detail panel.
-- **Epics tab**: one card per epic, open ones first, with its key, its description's first paragraph,
-  a roll-up of its tickets by status, three dependency rows and the list of its tickets; the title
-  opens the epic in the detail panel and a ticket opens that ticket. The rows, by primary epic: "Waits
-  on", the other epics' tickets its own wait on; its tickets in the board's waves, Done first, a
-  pending low-priority ticket left out; and
-  "Frees", the epics waiting on it, with the tickets they wait through. The finished-work choice hides
-  a finished epic, one with tickets that are all delivered or abandoned, whose span ended before its
-  window; an open or empty epic always shows, its card whole. When it hides every epic, the tab says
-  so in one line naming the window, such as "No epic finished in the last day."
-- **Waves tab**: the open tickets' waves left to right, a Done column first holding the settled
-  tickets an open one waits on, then "Now" (nothing open in front of it), "Wave 2" and on; each
-  column says how many tickets in it can run side by side against the board's slots, and a one-ticket
-  wave is marked "one at a time". A low-priority ticket is drawn only once it has been started: a
-  pending one is left out of every wave and every count, yet a ticket waiting on it is still kept
-  out of "Now", which can then stand empty. A ticket shows its state (ready, in progress, in review or held)
-  and how many wait on it; an arrow runs from each ticket to the ones waiting on it, dashed from a
-  settled one. Pointing at a ticket fades in its whole chain, before and after, and dims the rest;
-  pointing off a ticket clears the highlight after a moment, so moving to a neighbour switches it
-  without a flash. A click opens a ticket in the detail panel.
-- **The header** above the tabs: a status line, `LIVE` while the page is under ten minutes old and
-  `SNAPSHOT` after, with how long ago it was generated, re-checked every minute so an open page turns
-  into a snapshot without a reload; the project name; the Auto · Light · Dark theme switch; and four
-  figures: agents working (running rows over the concurrency limit), tickets delivered today, the
-  tokens of rows that ended today or still run, and tickets waiting in the queue, with a fifth, the
-  paused builds, only while there are some. Each figure but the tokens opens its Kanban lane. Below
-  them, the activity banner lists every running row, longest-running first, as `BUILDING` or, for a
-  row with `--review-of`, `REVIEWING`, with its ticket and a running timer; a snapshot freezes the
-  timers at the moment the page was generated. The tab row holds the tabs and, at its right end, the
-  filter line.
-- **Embedded mode**, for a dashboard framing the page: `progress.html?embedded=dashboard` (that
-  literal value only, read once at load) hides the status line, the project name, the four figures,
-  the theme switch and the activity banner, whose job the Kanban's live cards take over, and puts one
-  summary line above the tab row: `N building`, `N reviewing`, `N waiting in queue` and `N paused`,
-  the building and reviewing dots pulsing while the page is live, then `N done today` and `N tokens
-  today`. The theme switch stays in the document, undisplayed, so a framing page can still click it.
-  Any other value, or none, is the normal page.
-- **Click any row**, in the chart or the ticket table, or press Enter or Space on it, for the whole
-  story of that task in the detail panel on the right: its facts, every phase it went through with
-  how long it sat in each, the ticket with its body, and the log lines about either (a line the tool
-  wrote by its task and ticket ids, a note by the numbers it names). A row filed before phases were
-  recorded says so and shows what can be derived from its stamps instead. **Click a Kanban card**, or
-  press Enter or Space on it, for the ticket instead: its facts, a Timeline of that ticket alone — a
-  quiet Filed bar from filing to the build's start, the build's in-progress and paused segments, one
-  row per review pass, the waits after the build, and a marker at now or at its delivery or
-  abandonment — with the time spent in each state under it, then its description. The Filed bar is
-  drawn only there, never on the Progress chart. **Click an epic** for its roll-up, description and
-  tickets. Esc, ×, a link inside the panel or a second click on the open item closes it.
-- **The range menu**, opened from the range button in the chart's head: the presets Fit · 1h · 4h ·
-  12h · 24h · 7d, then Custom… with free-text bounds that accept `start`, `now` and `-2h` as well as
-  timestamps, and a tick-step selector. Fit, the default,
-  spans the rows shown from their earliest start to now with a small margin, and re-fits whenever the
-  finished-work choice or the data changes; the default stored by `agent-progress range` takes its
-  place when there is one. Any other choice holds until Fit is pressed again, and is kept in the
-  browser. Bars outside the window are clipped and marked, never dropped.
-- **The filter line** at the end of the tab row names what is hidden (`Hiding closed > 1 day`,
-  `before 09-24`, `Showing all closed` when nothing is) and, on Kanban with an epic pressed, that
-  epic; it opens a menu of three sections, every choice applying at once and kept in the browser.
-  **Finished work** (delivered or abandoned), on every tab, is one choice shared by Kanban, Progress,
-  Tickets and Epics: the last hour, day (the default), 3 days, all, or since a day; a 6 or 12 hours
-  chosen before still applies. Unfinished work, awaiting merge included, always shows; the ticket
-  search looks through every ticket. It says how many tickets are hidden, and epics when any are
-  (`218 tickets · 1 epic hidden`), never task rows, with a "show all". **Epic** and **Order To do**
-  show only on Kanban, the latter only on a board with dependencies. "Reset filters" puts all three
-  back; Esc, a click outside or the line closes the menu.
+- **Kanban tab**: epic chips over seven lanes — Drafts, Ready, Building, In review, Merge queue, Done and Abandoned
+  — each ticket in the lane its stored status names, a ticket the merge queue holds in Merge queue, and a filing
+  draft in Drafts with its state line. Ready runs in the Board's order to take its tickets, then by priority and id;
+  Merge queue in its queue order; Done and Abandoned newest first, the latest 15, then 25 more at a time, Abandoned
+  folded until clicked. A card shows its id, size, a priority other than normal, a type other than ticket, `needed
+  first` when a ticket depends on it, `↦ N` for the open tickets waiting on it directly or further down the chain,
+  its tokens, title, epic chips, `waits on #N` and `held`. A card whose state moved since the previous board is
+  marked once, and pointing at a card draws arrows from the cards it depends on. A draft ticket's card has Ready, and
+  Ready selected readies every one checked; a Ready card has Hold or Unhold and a Priority button per other
+  priority. On a board with dependencies Ready is ordered Filed or By wave, in waves headed with their width, the
+  first also with how many are ready. The pressed epics, the Ready order, the closed lanes' pages and the fold are
+  kept in the browser. Above the lanes, Merge queue (`#kanban/merge-queue`) opens per target the Airlock holder and
+  its phase, the waiting candidates in the order the Overseer computed, git's predicted conflicts and why its
+  landings wait.
+- **Progress tab**: the Gantt chart, one row per task with its label, chip and bar, one segment per phase it went
+  through, and a now line; a row's label opens its ticket. A ticket's review passes are drawn as segments on its own
+  row; "Review passes as rows" in the chart head's Row options menu draws each as a row of its own instead, and
+  "Wide titles" widens the name column. On a board with epics the rows are grouped under a head per epic, then "No
+  epic", and a head folds its rows away. Below the chart, when any ticket depends on another, the dependencies
+  view: a Done column of the settled tickets the open ones build on, then one column per wave; pointing at a ticket
+  lights it, everything it depends on and everything waiting on it, and dims the rest, and a click opens it. Below
+  that, the finished-work choice (the last hour, day, the default, 3 days or all; a 6 or 12 hours chosen before
+  still applies) with how many tickets it hides, the Epics cards — one per shown epic, open ones first, with its
+  roll-up, facts, description and tickets, newest first — and the delivered and abandoned tickets the choice lets
+  through. The range, the name column, the folds, the review-rows choice and the finished-work choice are kept in
+  the browser.
+- **Tickets tab**: the search, the Type, Epic (on a board with epics) and Status chips with their counts, and a
+  table sortable by id, title, epic, type, status and branch. Chips are OR inside a group and AND across the groups
+  and the search; a query of digits looks for an id alone. On a board with epics the table can be grouped by epic, a
+  choice kept in the browser. A row opens its ticket's detail panel (`#tickets/<id>`).
+- **Agents tab**: every job on the board, ticking each second: its kind, tickets, state, phase, calls, tool calls,
+  tokens, last tool call, silent sweeps and Watcher, with its subagents. `#agents/<job>` adds that job's controls
+  (Send message, Send answer to its open question, Wind down, Stop, Fresh agent) and its transcript, streamed live.
+- **Questions tab**: every open decision, `agent-question` first and the ones an Assistant escalated marked, the
+  answered ones below, the open notices, and the Low-priority triage list, where a ticket is readied, edited or
+  abandoned. Browser notifications are allowed from a click here, never asked for on load.
+- **Assistant tab**: the live Assistant session's transcript, its open incidents, the handled ones with the moves
+  and escalations made under them, each applied default in the warning state, and a chat box. While no session is up
+  it says a fresh one is booting.
+- **Intake tab**: New request starts a product-owner session; each session shows its transcript, its questions
+  inline, the drafts it filed, a chat box and Close intake, which opens the `ready-drafts` decision. A closed
+  session keeps its transcript and chat, and a message resumes it.
+- **The header** above the panel: the project name; the Overseer's state (serving, held for an install change,
+  handing over, down) with Pause or Resume, Restart only while new code is on disk, and Stop Overseer behind a
+  confirmation; the new-code notice; the concurrency limit, "agents at most", which Set changes; the usage window;
+  six figures: agents working, done today, tokens today, waiting in queue, open questions and open incidents; the
+  tabs; the Auto · Light · Dark theme switch, kept in the browser; and the open warnings and notices.
+- **Embedded mode**, for agent-dashboard framing the Bridge: `?embedded=dashboard` (that literal value only, read
+  once before the first paint) hides the header. The Bridge takes the theme from, and sends Esc to, the framing
+  parent by `postMessage`, at that parent's origin only, and Esc closes an open panel first. Only the origins in
+  agent-dashboard's `server.json` may frame it (`frame-ancestors`). Any other value, or none, is the normal page.
+- **The detail panel** of a ticket (`#tickets/<id>`), opened from the Tickets table, a chart label, a wave or an
+  epic card: its head and facts, a Timeline of the phases its row recorded, the controls its status offers, its
+  Description, and the Log lines the tool wrote by its task and ticket ids. Close returns to the table.
+- **The range menu**, opened from the range button in the chart's head: the presets Fit · 1h · 4h · 12h · 24h · 7d,
+  then Custom… with free-text bounds that accept `start`, `now` and `-2h` as well as timestamps, and a tick-step
+  selector. Fit, the default, spans the rows shown, and the default stored by `agent-progress range` takes its place
+  when there is one. Any other choice holds until Fit is pressed again, and is kept in the browser.
 - **Stamps are as short as the day allows**: one from today shows only its clock (`21:56`), one from
   another day of the year its month and day too (`09-17 23:48`), one from another year the full date;
   hover a shortened one for the full stamp.
