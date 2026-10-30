@@ -75,12 +75,24 @@ describe('a review that does not hold', () => {
       endedRecord('B1', 'built'),
       ...finishedJobRecords('R2', 'review', '001', 'does-not-hold', 2),
     ];
-    const limits = { ...FIXTURE_LIMITS, FAILED_PASSES_BEFORE_PARKING: 3 };
-    const steps = LifecyclePolicy.nextStepsOf(factsWith({ tickets: [ticketOf('001', 'in-progress')], logRecords: records }), limits);
+    const steps = LifecyclePolicy.nextStepsOf(factsWith({ tickets: [ticketOf('001', 'in-progress')], logRecords: records }), FIXTURE_LIMITS);
     expect(steps).toEqual([{ kind: 'park', ticketId: '001', cause: 'red-resumes-spent' }]);
     const unheld = [...records, ticketRecord('ticket-unheld', '001')];
-    expect(LifecyclePolicy.nextStepsOf(factsWith({ tickets: [ticketOf('001', 'in-progress')], logRecords: unheld }), limits)).toEqual([{
+    expect(LifecyclePolicy.nextStepsOf(factsWith({ tickets: [ticketOf('001', 'in-progress')], logRecords: unheld }), FIXTURE_LIMITS)).toEqual([{
       kind: 'launch-build', ticketId: '001', attempt: 2, base: 'main'
     }]);
+  });
+
+  test('with the real limits each of two reviews resumes the builder, and the third parks the ticket red-resumes-spent', () => {
+    const stepsAfter = (failedReviews: number): unknown => LifecyclePolicy.nextStepsOf(
+      factsWith({ tickets: [ticketOf('001', 'in-progress')], logRecords: failedReviewsRecords(failedReviews) }),
+      FIXTURE_LIMITS
+    );
+    const resumedBuild = [{
+      kind: 'launch-build', ticketId: '001', attempt: 1, base: 'main'
+    }];
+    expect(stepsAfter(1)).toEqual(resumedBuild);
+    expect(stepsAfter(2)).toEqual(resumedBuild);
+    expect(stepsAfter(3)).toEqual([{ kind: 'park', ticketId: '001', cause: 'red-resumes-spent' }]);
   });
 });
