@@ -4,7 +4,9 @@
  * noticed until it is committed, and a launch records each file's hash; a Hatch request and the `result` of the turn that wrote it, read in one
  * pass, are applied request first; a resolver the merge sweep launches after the pass spawned its Watchers gets its Watcher in one more pass of the
  * same wake; a request in another job's folder, or naming a job, is refused and a replay is never applied twice;
- * a pass with nothing changed does not run, however late; and the notices are derived each pass, never stored. Beside the Overseer, a
+ * a pass with nothing changed does not run, however late; and the notices are derived each pass, never stored. A job the pass hold ends, and
+ * one a merge-slot hold ends, has its session's tokens on its ticket's row by the end of that same hold, each case failing without its hold's
+ * crediting call. Beside the Overseer, a
  * written verb nudges a live Baton's URL once its write is stored and is silent when nobody answers, and `ticket deliver --by-hand`
  * records only, refused while a Baton is live or a job of the ticket is.
  */
@@ -26,23 +28,29 @@ import {
   test
 } from 'bun:test';
 
-import { hatchReplyFilePathOf, writeHatchRequest }           from '../../src/adapters/hatch/HatchFolder.ts';
-import { UsageMarkerFile }                                   from '../../src/adapters/usage-marker/UsageMarkerFile.ts';
-import type { AgentAdapter }                                 from '../../src/lib/agent-launch/AgentAdapter.ts';
-import { identityOf, sameProcess }                           from '../../src/lib/process-identity/ProcessIdentity.ts';
-import type { Board }                                        from '../../src/lib/tracker-model/Board.ts';
-import { watcherFilesOf }                                    from '../../src/lib/watcher/WatcherFiles.ts';
-import type { WatcherRecord }                                from '../../src/lib/watcher/WatcherRecord.ts';
-import { Baton }                                             from '../../src/services/overseer/Baton.ts';
-import { createDrivePass, type DrivePass }                   from '../../src/services/overseer/DrivePass.ts';
-import { HatchInbox }                                        from '../../src/services/overseer/HatchInbox.ts';
-import { overseerFilesIn }                                   from '../../src/services/overseer/OverseerFiles.ts';
-import { WATCHER_ENTRY_PATH, WatcherBundle }                 from '../../src/services/overseer/WatcherBundle.ts';
-import { WatcherFleet }                                      from '../../src/services/overseer/WatcherFleet.ts';
-import { writeTracker }                                      from '../../src/services/tracker/TrackerPipeline.ts';
-import { requireWorkspace }                                  from '../../src/services/tracker/Workspace.ts';
-import { PRODUCT_NAMES }                                     from '../../src/shared/constants/ProductNames.ts';
-import { fakeAgentAdapter, fakeResultLine, fakeStartedLine } from '../../src/testing/FakeAgentAdapter.ts';
+import { hatchReplyFilePathOf, writeHatchRequest } from '../../src/adapters/hatch/HatchFolder.ts';
+import { UsageMarkerFile }                         from '../../src/adapters/usage-marker/UsageMarkerFile.ts';
+import type { AgentAdapter }                       from '../../src/lib/agent-launch/AgentAdapter.ts';
+import { identityOf, sameProcess }                 from '../../src/lib/process-identity/ProcessIdentity.ts';
+import type { Board }                              from '../../src/lib/tracker-model/Board.ts';
+import { watcherFilesOf }                          from '../../src/lib/watcher/WatcherFiles.ts';
+import type { WatcherRecord }                      from '../../src/lib/watcher/WatcherRecord.ts';
+import { Baton }                                   from '../../src/services/overseer/Baton.ts';
+import { createDrivePass, type DrivePass }         from '../../src/services/overseer/DrivePass.ts';
+import { HatchInbox }                              from '../../src/services/overseer/HatchInbox.ts';
+import { overseerFilesIn }                         from '../../src/services/overseer/OverseerFiles.ts';
+import { WATCHER_ENTRY_PATH, WatcherBundle }       from '../../src/services/overseer/WatcherBundle.ts';
+import { WatcherFleet }                            from '../../src/services/overseer/WatcherFleet.ts';
+import { writeTracker }                            from '../../src/services/tracker/TrackerPipeline.ts';
+import { requireWorkspace }                        from '../../src/services/tracker/Workspace.ts';
+import { PRODUCT_NAMES }                           from '../../src/shared/constants/ProductNames.ts';
+import {
+  type FakeAgentStep,
+  FAKE_HEAD_PLACEHOLDER,
+  fakeAgentAdapter,
+  fakeResultLine,
+  fakeStartedLine
+} from '../../src/testing/FakeAgentAdapter.ts';
 import {
   commitFile,
   createScratchDirectory,
@@ -411,6 +419,103 @@ describe('the Hatch inbox', () => {
     expect(existsSync(hatchReplyFilePathOf(hatchDirectory(jobId), 'request-newer'))).toBe(false);
     expect(existsSync(hatchReplyFilePathOf(hatchDirectory(jobId), 'request-1'))).toBe(true);
     expect(storedLogTextOf(repositoryDirectory)).not.toContain('request-newer');
+  }, PASS_TEST_TIMEOUT_MILLISECONDS);
+});
+
+const CREDITED_INPUT_TOKENS = 1000;
+const CREDITED_OUTPUT_TOKENS = 200;
+
+/** One top-level turn whose usage the Claude stream mapper reads, so the session has tokens to credit. */
+const TURN_WITH_USAGE: FakeAgentStep = {
+  kind: 'print',
+  line: JSON.stringify({
+    type:               'assistant',
+    parent_tool_use_id: null,
+    message:            {
+      id:      'message-with-usage',
+      model:   'fake-model',
+      content: [],
+      usage:   {
+        input_tokens: CREDITED_INPUT_TOKENS, output_tokens: CREDITED_OUTPUT_TOKENS, cache_creation_input_tokens: 0, cache_read_input_tokens: 0
+      },
+    },
+  }),
+};
+
+const RESOLVE_THE_ROLES_CONFLICT = 'printf "export const roles = [\'builder\', \'reviewer\'];\\n" > roles.ts && git add roles.ts '
+  + '&& git -c user.name=Example -c user.email=example@example.com commit -q --no-edit';
+
+async function ticketTaskId(): Promise<number> {
+  const shown = JSON.parse((await run(['ticket', 'show', '001', '--json'])).outputText()) as { task: number | null };
+  if (shown.task === null) throw new Error('ticket 001 has no row');
+  return shown.task;
+}
+
+function rowTokensOf(tasks: readonly { id: number; tokens: number | null }[], taskId: number): number | null {
+  return tasks.find((task) => task.id === taskId)?.tokens ?? null;
+}
+
+describe('crediting an ended job\'s tokens', () => {
+  test('a build job the pass hold ends has its session\'s tokens on its ticket\'s row once that hold is written', async () => {
+    const drivePass = await drivePassWith(fakeAgentAdapter([
+      { kind: 'print', line: fakeStartedLine('fake-session') },
+      TURN_WITH_USAGE,
+      { kind: 'print', line: fakeResultLine({ outcome: 'built' }) },
+      { kind: 'exit', code: 0 },
+    ]));
+    await passUntilBuildSessionSpawned(drivePass);
+    const firstBuildJobId = buildJobId();
+    await untilWatcherEnded(firstBuildJobId, 1);
+    const taskId = await ticketTaskId();
+    expect(rowTokensOf(storedProgressOf(repositoryDirectory).tasks, taskId)).toBeNull();
+    await passOnce(drivePass);
+    expect(storedLogTextOf(repositoryDirectory), overseerLog.join('\n')).toContain(`"kind":"job-ended","jobId":"${firstBuildJobId}"`);
+    expect(rowTokensOf(storedProgressOf(repositoryDirectory).tasks, taskId)).toBe(CREDITED_INPUT_TOKENS);
+  }, PASS_TEST_TIMEOUT_MILLISECONDS);
+
+  test('a resolver the merge-slot hold ends has its session\'s tokens on its ticket\'s row before the next pass hold credits anything', async () => {
+    await run(['ticket', 'start', '001']);
+    await run(['ticket', 'finish', '001']);
+    const mainLine = currentBranchOf(repositoryDirectory);
+    const ticketWorktree = join(repositoryDirectory, PRODUCT_NAMES.WORKTREES_FOLDER, 'ticket-001');
+    gitOutputIn(repositoryDirectory, ['worktree', 'add', '-q', '-b', 'ticket-001', ticketWorktree, mainLine]);
+    commitFile(ticketWorktree, 'roles.ts', 'export const roles = [\'builder\'];\n');
+    commitFile(repositoryDirectory, 'roles.ts', 'export const roles = [\'reviewer\'];\n');
+    const workspace = requireWorkspace(repositoryDirectory);
+    await writeTracker({
+      workspace, at: SPEC_STAMP, now: SPEC_CLOCK, mutate: (change) => change.board.queueTicketForMerge('001', mainLine, change.at)
+    });
+    const taskId = await ticketTaskId();
+    const resolverReport = {
+      role:            'resolver',
+      outcome:         'resolved',
+      headCommit:      FAKE_HEAD_PLACEHOLDER,
+      resolvedFiles:   ['roles.ts'],
+      semanticChanges: [],
+      notes:           'Example notes',
+      reportKind:      null,
+    };
+    let resolverJobId: string | null = null;
+    // The row's tokens as the first pass hold after the resolver ended opens, before that hold's own crediting runs.
+    let tokensAsTheNextHoldOpens: number | null | undefined;
+    const watchTheResolver = (phase: string, board: Board): void => {
+      if (phase !== 'relayed-commands' || tokensAsTheNextHoldOpens !== undefined) return;
+      resolverJobId ??= board.jobs().find((job) => job.role === 'resolver')?.id ?? null;
+      if (resolverJobId !== null && board.jobById(resolverJobId) === undefined) tokensAsTheNextHoldOpens = rowTokensOf(board.tasks(), taskId);
+    };
+    const drivePass = await drivePassWith(fakeAgentAdapter([
+      { kind: 'print', line: fakeStartedLine('fake-session') },
+      TURN_WITH_USAGE,
+      { kind: 'shell', command: RESOLVE_THE_ROLES_CONFLICT },
+      { kind: 'print', line: fakeResultLine(resolverReport) },
+      { kind: 'exit', code: 0 },
+    ]), watchTheResolver);
+    for (let attempt = 0; attempt < WATCHER_WAIT_TRIES && tokensAsTheNextHoldOpens === undefined; attempt += 1) {
+      await passOnce(drivePass);
+      await Bun.sleep(WATCHER_WAIT_MILLISECONDS);    }
+    expect(resolverJobId, overseerLog.join('\n')).not.toBeNull();
+    expect(storedLogTextOf(repositoryDirectory)).toContain(`"kind":"job-ended","jobId":"${resolverJobId ?? ''}"`);
+    expect(tokensAsTheNextHoldOpens).toBe(CREDITED_INPUT_TOKENS);
   }, PASS_TEST_TIMEOUT_MILLISECONDS);
 });
 

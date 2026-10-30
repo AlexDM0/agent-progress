@@ -784,8 +784,6 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
       at,
       now:       request.now,
       mutate:    (change) => {
-        // A copy: ending a job splices it out of the Board's live list.
-        const jobsAtTheHoldStart = [...change.board.jobs()];
         openLeftoverWorktreeDecisions(change, request.decisionWordingOf, leftoverWorktrees.splice(0));
         const replies = HatchInbox.applyPendingRequests(change, request.workspace.rootDirectory, observation.pendingRequests);
         request.afterHoldPhase?.('relayed-commands', change.board);
@@ -820,7 +818,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
           AssistantSession.deliverIncidentsWhenIdle(change.board, assistantReadings, request.workspace.trackerDirectory, change.at);
         }
         request.afterHoldPhase?.('lifecycle', change.board);
-        EndedJobTokens.creditJobsEndedInTheHold(change.board, endedJobTokensContext, jobsAtTheHoldStart, change.at);
+        // Also credits every job this hold ended, since its `job-ended` record is already in the log the scan reads.
         const endedJobIdsExaminedThisPass = EndedJobTokens.creditJobsEndedOutsideTheHold(change.board, endedJobTokensContext, endedJobIdsExamined, change.at);
         return {
           replies,
