@@ -50,10 +50,10 @@ function requireTicketReference(commandArguments: ArgumentParser, subcommand: st
  * landing and spawning nothing. Both refusals are judged inside the hold, so a runner starting meanwhile reads the ticket delivered or not at all.
  */
 async function deliverByHand(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
+  commandArguments.rejectUnknownOptions(BY_HAND_OPTION_NAMES, TICKET_USAGE);
   if (!commandArguments.flag(BY_HAND_FLAG)) {
     throw new OperationRefusal('refused', `"deliver" without --by-hand is not a ${PRODUCT_NAMES.PROGRAM} ticket subcommand.\n  Usage: ${TICKET_USAGE}`);
   }
-  commandArguments.rejectUnknownOptions(BY_HAND_OPTION_NAMES, TICKET_USAGE);
   const reference = requireTicketReference(commandArguments, 'deliver');
   const branch    = commandArguments.option('branch');
   const commit    = commandArguments.option('commit');
