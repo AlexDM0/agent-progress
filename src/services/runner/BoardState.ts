@@ -3,16 +3,19 @@
  * every job with its live facts, the notices, the merge queue, the Overseer and usage, all from one reading Board. agent-dashboard's
  * subset, `summaryVersion: 1`, is derived from it.
  */
-import type { Draft }                                     from '../../lib/tracker-model/@types/Draft.ts';
-import type { Epic }                                      from '../../lib/tracker-model/@types/Epic.ts';
-import type { Job }                                       from '../../lib/tracker-model/@types/Job.ts';
-import type { LogRecord }                                 from '../../lib/tracker-model/@types/LogRecord.ts';
-import type { Ticket }                                    from '../../lib/tracker-model/@types/Ticket.ts';
-import type { TrackerProgress }                           from '../../lib/tracker-model/@types/TrackerProgress.ts';
-import type { Board }                                     from '../../lib/tracker-model/Board.ts';
-import { boardFactsOf }                                   from '../render/BoardFacts.ts';
-import { assemblePagePayload, type AssembledPagePayload } from '../render/PagePayloadAssembly.ts';
-import type { JobLiveFacts }                              from './JobLiveFactsReader.ts';
+import type { Draft }                                                from '../../lib/tracker-model/@types/Draft.ts';
+import type { Epic }                                                 from '../../lib/tracker-model/@types/Epic.ts';
+import type { Job }                                                  from '../../lib/tracker-model/@types/Job.ts';
+import type { LogRecord }                                            from '../../lib/tracker-model/@types/LogRecord.ts';
+import type { Ticket }                                               from '../../lib/tracker-model/@types/Ticket.ts';
+import type { TicketPriority }                                       from '../../lib/tracker-model/@types/Ticket.ts';
+import type { TrackerProgress }                                      from '../../lib/tracker-model/@types/TrackerProgress.ts';
+import type { Board }                                                from '../../lib/tracker-model/Board.ts';
+import type { MergeTargetOf }                                        from '../../lib/tracker-model/MergeSlotClaims.ts';
+import { MergeQueueUtil, type MergeForecast, type PairwiseConflict } from '../../lib/tracker-model/utils/MergeQueueUtil.ts';
+import { boardFactsOf }                                              from '../render/BoardFacts.ts';
+import { assemblePagePayload, type AssembledPagePayload }            from '../render/PagePayloadAssembly.ts';
+import type { JobLiveFacts }                                         from './JobLiveFactsReader.ts';
 
 export type OverseerRuntimeState = 'serving' | 'held-by-install-change' | 'handing-over' | 'down';
 
@@ -33,11 +36,44 @@ export interface UsageFacts {
   window:   string | null;
 }
 
+/** One waiting candidate on a target, in the merge queue's order. */
+export interface MergeQueueEntry {
+  ticketId:        string;
+  priority:        TicketPriority;
+  againstTarget:   MergeForecast;
+  /** Empty when clean, the files git named when conflicting, `null` when the prediction failed. */
+  conflictedFiles: string[] | null;
+  /** The other clean candidates whose merge this one's would conflict with. */
+  conflictsCaused: number;
+}
+
+/** One merge target: its Airlock holder, its waiting candidates in order, and the decisions its landings wait on. */
+export interface MergeTargetFacts {
+  target:                 string;
+  holder:                 { jobId: string; ticketIds: string[]; phase: string } | null;
+  order:                  MergeQueueEntry[];
+  pairwiseConflicts:      PairwiseConflict[];
+  targetMovedDecisionIds: string[];
+}
+
+/** git's predictions for a target's waiting candidates, which the Overseer reads from the repository. */
+export interface MergeForecasts {
+  againstTarget:     Readonly<Record<string, { forecast: MergeForecast; conflictedFiles: string[] | null }>>;
+  pairwiseConflicts: PairwiseConflict[];
+}
+
+export interface MergeForecasting {
+  targetOf:    MergeTargetOf;
+  forecastsOf: (target: string, ticketIds: readonly string[]) => MergeForecasts;
+}
+
 export interface MergeQueueFacts {
   /** In-review tickets queued for a merge, in board order. */
   queuedTicketIds: string[];
   /** Each merge or refresh job holding its target's slot. */
   slots:           { jobId: string; target: string; phase: string }[];
+  /** Every target with a slot holder or a queued ticket; empty when the reading carries no forecasting. */
+  targets:         MergeTargetFacts[];
 }
 
 /** The live facts plus the DrivePass's in-memory count of quiet sweeps, which no event log holds. */
@@ -47,19 +83,21 @@ export type JobWithLiveFacts = Readonly<Job> & { live: JobLiveFactsWithSilence }
 
 export interface BoardStateReading {
   /** The `status --json --full` document, built by the command surface from the same Board. */
-  statusDocument: object;
-  board:          Board;
-  progress:       TrackerProgress;
-  tickets:        readonly Ticket[];
-  epics:          readonly Epic[];
-  drafts:         readonly Draft[];
-  logRecords:     readonly LogRecord[];
-  generatedAt:    Date;
-  renderMarkdown: (markdown: string) => string;
-  liveFactsOf:    (job: Readonly<Job>) => JobLiveFactsWithSilence;
-  notices:        readonly unknown[];
-  overseer:       OverseerFacts;
-  usage:          UsageFacts;
+  statusDocument:   object;
+  board:            Board;
+  progress:         TrackerProgress;
+  tickets:          readonly Ticket[];
+  epics:            readonly Epic[];
+  drafts:           readonly Draft[];
+  logRecords:       readonly LogRecord[];
+  generatedAt:      Date;
+  renderMarkdown:   (markdown: string) => string;
+  liveFactsOf:      (job: Readonly<Job>) => JobLiveFactsWithSilence;
+  notices:          readonly unknown[];
+  overseer:         OverseerFacts;
+  usage:            UsageFacts;
+  /** `null` leaves the merge queue's targets empty, as a reading without a repository to predict in does. */
+  mergeForecasting: MergeForecasting | null;
 }
 
 export interface BoardState {
@@ -88,11 +126,48 @@ export interface BoardSummary {
   usage:               UsageFacts;
 }
 
-function mergeQueueOf(board: Board): MergeQueueFacts {
-  return {
-    queuedTicketIds: board.tickets().map((ticket) => ticket.frontmatter.id).filter((ticketId) => board.ticketIsMergeQueued(ticketId)),
-    slots:           board.jobs().flatMap((job) => (job.slot === undefined ? [] : [{ jobId: job.id, target: job.slot.target, phase: job.slot.phase }])),
+function mergeTargetOf(board: Board, target: string, forecasting: MergeForecasting): MergeTargetFacts {
+  const candidates = board.mergeCandidatesOf(target, forecasting.targetOf);
+  const forecasts  = forecasting.forecastsOf(target, candidates.map((candidate) => candidate.ticketId));
+  const predictionOf = (ticketId: string) => (Object.hasOwn(forecasts.againstTarget, ticketId) ? forecasts.againstTarget[ticketId] : undefined);
+  const queueCandidates = candidates.map((candidate) => ({
+    ticketId:          candidate.ticketId,
+    priority:          candidate.priority,
+    againstTarget:     predictionOf(candidate.ticketId)?.forecast ?? 'prediction-failed',
+    queuedLogPosition: candidate.readiness,
+  }));
+  const holder = board.jobs().find((job) => job.slot?.target === target);
+  const ticketTargetIs = (ticketId: string): boolean => {
+    const ticket = board.ticketByReference(ticketId);
+    return ticket !== undefined && forecasting.targetOf(ticket.frontmatter) === target;
   };
+  return {
+    target,
+    holder: holder?.slot === undefined ? null : { jobId: holder.id, ticketIds: [...holder.ticketIds], phase: holder.slot.phase },
+    order:  MergeQueueUtil.orderOf(queueCandidates, forecasts.pairwiseConflicts).map((candidate) => ({
+      ticketId:        candidate.ticketId,
+      priority:        candidate.priority,
+      againstTarget:   candidate.againstTarget,
+      conflictedFiles: predictionOf(candidate.ticketId)?.conflictedFiles ?? null,
+      conflictsCaused: MergeQueueUtil.conflictsCausedBy(candidate, queueCandidates, forecasts.pairwiseConflicts),
+    })),
+    pairwiseConflicts:      [...forecasts.pairwiseConflicts],
+    targetMovedDecisionIds: board.decisions()
+      .filter((decision) => decision.kind === 'target-moved' && decision.ticketIds.some(ticketTargetIs))
+      .map((decision) => decision.id),
+  };
+}
+
+function mergeQueueOf(board: Board, forecasting: MergeForecasting | null): MergeQueueFacts {
+  const queuedTicketIds = board.tickets().map((ticket) => ticket.frontmatter.id).filter((ticketId) => board.ticketIsMergeQueued(ticketId));
+  const slots = board.jobs().flatMap((job) => (job.slot === undefined ? [] : [{ jobId: job.id, target: job.slot.target, phase: job.slot.phase }]));
+  if (forecasting === null) return { queuedTicketIds, slots, targets: [] };
+  const queuedTargets = queuedTicketIds.flatMap((ticketId) => {
+    const ticket = board.ticketByReference(ticketId);
+    return ticket === undefined ? [] : [forecasting.targetOf(ticket.frontmatter)];
+  });
+  const targets = [...new Set([...slots.map((slot) => slot.target), ...queuedTargets])].sort();
+  return { queuedTicketIds, slots, targets: targets.map((target) => mergeTargetOf(board, target, forecasting)) };
 }
 
 const SESSION_JOB_KINDS: ReadonlySet<string> = new Set(['orchestrator', 'product-owner']);
@@ -130,7 +205,7 @@ function boardStateOf(reading: BoardStateReading): BoardState {
     decisions:       [...board.decisions()],
     incidents:       [...board.incidents()],
     notices:         [...reading.notices],
-    mergeQueue:      mergeQueueOf(board),
+    mergeQueue:      mergeQueueOf(board, reading.mergeForecasting),
     overseer:        reading.overseer,
     usage:           reading.usage,
     questionHistory: questionHistoryOf(reading.logRecords),
@@ -153,4 +228,6 @@ function summaryOf(state: BoardState, project: string, readyTicketIds: readonly 
   };
 }
 
-export const BoardStateAssembly = Object.freeze({ boardStateOf, summaryOf, questionHistoryOf });
+export const BoardStateAssembly = Object.freeze({
+  boardStateOf, summaryOf, mergeQueueOf, questionHistoryOf
+});

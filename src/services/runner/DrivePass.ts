@@ -197,7 +197,7 @@ interface Observation {
   trackerId:                    string;
 }
 
-const GROUP_TARGET_PREFIX = 'group-';
+export const GROUP_TARGET_PREFIX = 'group-';
 
 // T1b-P14's finding: the per-job ref denies hold, so a target moved by someone else requeues silently (owner answer Q38).
 const TARGET_REF_DENIES_HOLD = true;

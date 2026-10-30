@@ -3,13 +3,16 @@ import { join } from 'node:path';
 
 import { UsageMarkerFile } from '../../../src/adapters/usage-marker/UsageMarkerFile.ts';
 import { LogUtil }         from '../../../src/adapters/utils/LogUtil.ts';
+import { predictMerges }   from '../../../src/lib/git/MergeTree.ts';
 import { readingBoardOf }  from '../../../src/lib/tracker-model/ReadingBoard.ts';
 import {
   BoardStateAssembly,
   type BoardState,
+  type MergeForecasting,
   type OverseerFacts,
   type UsageFacts
 } from '../../../src/services/runner/BoardState.ts';
+import { GROUP_TARGET_PREFIX } from '../../../src/services/runner/DrivePass.ts';
 import { JobLiveFactsReader }  from '../../../src/services/runner/JobLiveFactsReader.ts';
 import { requireTracker }      from '../../../src/services/tracker/TrackerReader.ts';
 import type { Workspace }      from '../../../src/services/tracker/Workspace.ts';
@@ -25,6 +28,30 @@ export interface BoardStateSource {
   overseer:        () => Omit<OverseerFacts, 'paused'>;
   /** The running DrivePass's count; absent while none runs, when every job reads 0. */
   silentSweepsOf?: (jobId: string) => number;
+  /** The branch the main checkout lands on; without it the merge queue's targets go unpredicted and empty. */
+  mainLine?:       string;
+}
+
+/** The merge slots' own target rule and git's predictions, read in the main checkout as the slots read them. */
+function mergeForecastingIn(repositoryRoot: string, mainLine: string): MergeForecasting {
+  const branchOf = (ticketId: string): string => `ticket-${ticketId}`;
+  return {
+    targetOf:    (ticket) => (ticket.group === undefined || ticket.releasesGroup === true ? mainLine : `${GROUP_TARGET_PREFIX}${ticket.group}`),
+    forecastsOf: (target, ticketIds) => {
+      const predictions = predictMerges(repositoryRoot, ticketIds.map((ticketId) => ({ target, branch: branchOf(ticketId) })));
+      const againstTarget = Object.fromEntries(ticketIds.map((ticketId, index) => {
+        const prediction = predictions[index] ?? { verdict: 'prediction-failed', reason: '' };
+        const conflictedFiles = prediction.verdict === 'clean' ? [] : prediction.verdict === 'conflicting' ? prediction.conflictedFiles : null;
+        return [ticketId, { forecast: prediction.verdict, conflictedFiles }];
+      }));
+      const cleanTicketIds = ticketIds.filter((ticketId) => againstTarget[ticketId]?.forecast === 'clean');
+      const pairs = ticketIds.flatMap((ticketId) => cleanTicketIds
+        .filter((cleanTicketId) => cleanTicketId !== ticketId && !(cleanTicketIds.includes(ticketId) && cleanTicketId < ticketId))
+        .map((cleanTicketId) => [ticketId, cleanTicketId] as const));
+      const pairPredictions = predictMerges(repositoryRoot, pairs.map(([first, second]) => ({ target: branchOf(second), branch: branchOf(first) })));
+      return { againstTarget, pairwiseConflicts: pairs.filter((_pair, index) => pairPredictions[index]?.verdict !== 'clean') };
+    },
+  };
 }
 
 function usageOf(context: CommandContext): UsageFacts {
@@ -52,9 +79,10 @@ export function readBoardState(source: BoardStateSource): { state: BoardState; p
       ...JobLiveFactsReader.liveFactsOf(workspace.trackerDirectory, job, (line) => context.agentAdapter.eventsOf(line)),
       silentSweeps: source.silentSweepsOf?.(job.id) ?? 0,
     }),
-    notices:  source.notices(),
-    overseer: { ...source.overseer(), paused: board.dispatcherState() === 'stopped' },
-    usage:    usageOf(context),
+    notices:          source.notices(),
+    overseer:         { ...source.overseer(), paused: board.dispatcherState() === 'stopped' },
+    usage:            usageOf(context),
+    mergeForecasting: source.mainLine === undefined ? null : mergeForecastingIn(workspace.rootDirectory, source.mainLine),
   });
   return { state, project: progress.project, readyTicketIds: board.readyTicketEntries().map((ready) => ready.id) };
 }

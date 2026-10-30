@@ -18,13 +18,12 @@ import {
   test
 } from 'bun:test';
 
-import type { BoardStateDocument, OverseerIdentity }   from '../@types/BoardStateDocument.ts';
-import type { CommandOutcome, ControlCommandBody }     from '../api/CommandClient.ts';
-import type { EventStreamHandlers }                    from '../api/EventStreamClient.ts';
-import { exampleProgressBoard, exampleProgressTicket } from '../testing/ProgressBoardFixture.ts';
-import { exampleTicketsBoard, exampleTicketsTicket }   from '../testing/TicketsBoardFixture.ts';
-import { BridgeApp, type BridgeServices }              from './BridgeApp.tsx';
-import { BridgeErrorBoundary }                         from './BridgeErrorBoundary.tsx';
+import type { BoardStateDocument, OverseerIdentity } from '../@types/BoardStateDocument.ts';
+import type { CommandOutcome, ControlCommandBody }   from '../api/CommandClient.ts';
+import type { EventStreamHandlers }                  from '../api/EventStreamClient.ts';
+import { exampleTicketsBoard, exampleTicketsTicket } from '../testing/TicketsBoardFixture.ts';
+import { BridgeApp, type BridgeServices }            from './BridgeApp.tsx';
+import { BridgeErrorBoundary }                       from './BridgeErrorBoundary.tsx';
 
 const IDENTITY: OverseerIdentity = { trackerId: 'example-tracker', project: 'Example Agency', codeVersion: 'code-1' };
 
@@ -101,7 +100,7 @@ function fakeBridge(): FakeBridge {
   };
 }
 
-async function renderedLive(bridge: FakeBridge, board: BoardStateDocument = BOARD): Promise<void> {
+async function renderedLive(bridge: FakeBridge, board: unknown = BOARD): Promise<void> {
   render(<BridgeApp services={bridge.services} />);
   await act(async () => {
     bridge.stream().onConnection('live');
@@ -201,15 +200,6 @@ describe('the shell\'s routing', () => {
     });
     expect(screen.getByRole('link', { name: '#002' }).getAttribute('href')).toBe('#tickets/002');
     expect(screen.getByRole('link', { name: 'Close' }).getAttribute('href')).toBe('#tickets');
-  });
-
-  test('the progress tab shows the Progress chart', async () => {
-    window.location.hash = '#progress';
-    await renderedLive(fakeBridge(), { ...BOARD, ...exampleProgressBoard({ tickets: [exampleProgressTicket('5')] }) });
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(document.querySelector('.bridge-progress-rows')).not.toBeNull();
   });
 });
 
