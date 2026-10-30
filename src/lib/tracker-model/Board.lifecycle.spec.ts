@@ -101,13 +101,14 @@ function questionOn(ticketId: string): Decision {
 
 // Unset and empty differ: no pipeline means nobody chose the gates, an empty one was chosen on purpose.
 describe('no pipeline and no gates on purpose are told apart', () => {
-  test('with no pipeline the board opens checks-not-set and launches nothing', () => {
+  test('with no pipeline the board opens checks-not-set, launches no ticket and one onboarder, and a second pass launches no other', () => {
     const { board } = lifecycleBoardOf({ tickets: [ticketWith('001')], pipeline: null });
 
     advance(board);
+    advance(board);
 
     expect(board.decisions().map((decision) => decision.kind)).toEqual(['checks-not-set']);
-    expect(board.jobs().map((job) => job.kind)).toEqual(['orchestrator']);
+    expect(board.jobs().map((job) => [job.kind, job.role, job.target, job.ticketIds])).toEqual([['orchestrator', 'orchestrator', null, []], ['onboarder', 'onboarder', null, []]]);
   });
 
   test('after gate none the board opens no checks-not-set, launches the ready ticket and logged the choice once', () => {

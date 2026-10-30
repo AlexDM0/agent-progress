@@ -11,7 +11,7 @@ import type {
   SlotPhase
 } from '../@types/Job.ts';
 
-export const JOB_KINDS = ['build', 'review', 'merge', 'merge-agent', 'refresh', 'orchestrator', 'product-owner'] as const satisfies readonly JobKind[];
+export const JOB_KINDS = ['build', 'review', 'merge', 'merge-agent', 'refresh', 'orchestrator', 'product-owner', 'onboarder'] as const satisfies readonly JobKind[];
 
 export const JOB_ROLES = [
   'builder',
@@ -21,6 +21,7 @@ export const JOB_ROLES = [
   'resolution-review',
   'orchestrator',
   'product-owner',
+  'onboarder',
 ] as const satisfies readonly JobRole[];
 
 export const JOB_STATES = [

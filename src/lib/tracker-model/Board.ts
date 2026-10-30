@@ -322,6 +322,10 @@ export class Board {
     return { logged: [...ended.logged, ...opened.logged] };
   }
 
+  startOnboarder(at: string): JobChanged {
+    return this.jobControls.startOnboarder(at);
+  }
+
   launchJob(launch: JobLaunch, at: string): JobChanged {
     return this.jobRules.launchJob(launch, at);
   }
@@ -552,6 +556,8 @@ export class Board {
         return this.launchJob({
           kind: 'orchestrator', role: 'orchestrator', ticketIds: [], parentJobId: null, attempt: 1, target: null
         }, at).logged;
+      case 'launch-onboarder':
+        return this.jobControls.startOnboarder(at).logged;
       case 'resume-job':
         return this.moveJob(step.jobId, 'running', at).logged;
       case 'replace-job':

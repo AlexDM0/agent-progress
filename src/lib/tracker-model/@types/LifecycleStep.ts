@@ -47,6 +47,8 @@ export type LifecycleStep =
   // A product owner past the bound whose questions are answered: a fresh session takes its drafts and the answers, never a resume.
   | { kind: 'refresh-intake'; jobId: string }
   | { kind: 'boot-orchestrator' }
+  // With no pipeline, the one onboarder answering `checks-not-set`.
+  | { kind: 'launch-onboarder' }
   // `jobId` names a job interrupted on a red handoff with its resumes spent, which ends `failed` as its ticket parks.
   | { kind: 'park'; ticketId: string; cause: ParkCause; jobId?: string }
   | { kind: 'open-decision'; decision: DecisionDraft }

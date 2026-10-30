@@ -422,6 +422,17 @@ function incidentDefaultStepsOf(facts: LifecycleFacts, noOrchestratorCanComeUp: 
   });
 }
 
+/** One onboarder answers each `checks-not-set`: live now, or launched since the newest one opened, which this pass may be opening. */
+function onboarderAnsweredChecksNotSet(facts: LifecycleFacts): boolean {
+  if (facts.jobs.some((job) => job.kind === 'onboarder')) return true;
+  let launchedSinceTheDecision = false;
+  for (const record of facts.logRecords) {
+    if (record.kind === 'decision-opened' && record.fields.kind === 'checks-not-set') launchedSinceTheDecision = false;
+    if (record.kind === 'job-launched' && record.fields.kind === 'onboarder') launchedSinceTheDecision = true;
+  }
+  return launchedSinceTheDecision;
+}
+
 /** A decision about the whole board, which names no ticket and no job. */
 function boardDecisionStepOf(kind: Decision['kind']): LifecycleStep {
   return { kind: 'open-decision', decision: { kind, ticketIds: [], jobId: null } };
@@ -435,7 +446,8 @@ function ticketIdsOfStep(step: LifecycleStep): readonly string[] {
 function nextStepsOf(facts: LifecycleFacts, limits: LifecycleLimits): LifecycleStep[] {
   const outageNow               = facts.dispatcherState !== 'stopped' && outageIsDue(facts, limits);
   const versionOrUsageHolds     = usageLimitHolds(limits) || facts.observations.installVersionChanged;
-  const resumesAreHeld          = versionOrUsageHolds || !facts.pipelineIsSet || outageNow || openDecisionOfKind(facts, 'outage');
+  const outageHolds             = outageNow || openDecisionOfKind(facts, 'outage');
+  const resumesAreHeld          = versionOrUsageHolds || !facts.pipelineIsSet || outageHolds;
   const newWorkIsHeld           = resumesAreHeld || facts.dispatcherState === 'stopped';
   const bootsKeepFailing        = failedOrchestratorBootsOf(facts) >= limits.FAILED_ORCHESTRATOR_BOOTS_BEFORE_DEFAULTING;
   const noOrchestratorCanComeUp = usageLimitHolds(limits) || (bootsKeepFailing && !facts.observations.orchestratorHasAnswered);
@@ -446,6 +458,8 @@ function nextStepsOf(facts: LifecycleFacts, limits: LifecycleLimits): LifecycleS
   const steps: LifecycleStep[] = [];
   if (outageNow) steps.push({ kind: 'stop-dispatching', cause: 'outage' }, boardDecisionStepOf('outage'));
   if (!facts.pipelineIsSet && !openDecisionOfKind(facts, 'checks-not-set')) steps.push(boardDecisionStepOf('checks-not-set'));
+  const onboarderIsHeld = versionOrUsageHolds || outageHolds || facts.dispatcherState === 'stopped';
+  if (!facts.pipelineIsSet && !onboarderIsHeld && !onboarderAnsweredChecksNotSet(facts)) steps.push({ kind: 'launch-onboarder' });
   steps.push(...crashBoundStepsOf(facts, limits, resumesAreHeld));
   if (!orchestratorIsLive && orchestratorMayBoot && !facts.observations.installVersionChanged) steps.push({ kind: 'boot-orchestrator' });
   const parkSteps    = parkStepsOf(facts, limits);

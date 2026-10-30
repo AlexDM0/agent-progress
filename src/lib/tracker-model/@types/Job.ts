@@ -3,9 +3,10 @@
  * runner decided is stored: a host's process identity lives in the job's own folder, never on the board.
  */
 
-export type JobKind = 'build' | 'review' | 'merge' | 'merge-agent' | 'refresh' | 'orchestrator' | 'product-owner';
+/** `onboarder` reads the repository and proposes its pipeline, or advises on the one it has; it never touches a ticket. */
+export type JobKind = 'build' | 'review' | 'merge' | 'merge-agent' | 'refresh' | 'orchestrator' | 'product-owner' | 'onboarder';
 
-export type JobRole = 'builder' | 'reviewer' | 'merge-fix' | 'resolver' | 'resolution-review' | 'orchestrator' | 'product-owner';
+export type JobRole = 'builder' | 'reviewer' | 'merge-fix' | 'resolver' | 'resolution-review' | 'orchestrator' | 'product-owner' | 'onboarder';
 
 export type JobState =
   | 'launching'

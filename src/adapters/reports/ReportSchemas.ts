@@ -101,6 +101,46 @@ export const REVIEWER_REPORT_SCHEMA: JsonSchema = {
   }),
 };
 
+const TEXT_LIST = listOf(TEXT);
+
+const ONBOARDER_GATE = closedObject({
+  name: TEXT, run: TEXT, definedBy: TEXT_LIST, network: TEXT_LIST, writes: TEXT_LIST
+});
+
+const ONBOARDER_REVIEW: JsonSchema = { oneOf: [{ type: 'null' }, closedObject({ name: TEXT, model: NULLABLE_TEXT, effort: NULLABLE_TEXT })], };
+
+/** Each optimisation `advise` makes is a draft low ticket the onboarder filed through its Hatch, named as a reviewer names a filed finding. */
+const FILED_OPTIMISATION: JsonSchema = {
+  ...closedObject({ summary: TEXT, filedTicketId: NULLABLE_TEXT, relayRequestId: NULLABLE_TEXT }),
+  anyOf: [
+    { properties: { filedTicketId: TEXT }, required: ['filedTicketId'] },
+    { properties: { relayRequestId: TEXT }, required: ['relayRequestId'] },
+  ],
+};
+
+/**
+ * The onboarder's proposal for the whole pipeline, every array starting from the defaults; `headCommit` is the main-line snapshot it read.
+ * `setup` answers `checks-not-set`; `advise` takes the gate history and files its optimisations.
+ */
+export const ONBOARDER_REPORT_SCHEMA: JsonSchema = {
+  $schema: DRAFT_07,
+  title:   'onboarder report',
+  ...closedObject({
+    role:         { const: 'onboarder' },
+    mode:         { enum: ['setup', 'advise'] },
+    headCommit:   COMMIT_SHA,
+    prepare:      listOf(closedObject({ name: TEXT, run: TEXT })),
+    gates:        listOf(ONBOARDER_GATE),
+    review:       ONBOARDER_REVIEW,
+    constitution: TEXT_LIST,
+    agents:       closedObject({
+      builder: TEXT_LIST, reviewer: TEXT_LIST, merger: TEXT_LIST, productOwner: TEXT_LIST, onboarder: TEXT_LIST, assistant: TEXT_LIST
+    }),
+    optimisations: listOf(FILED_OPTIMISATION),
+    notes:         TEXT,
+  }),
+};
+
 /** The resolver's, the merge gate fixer's and the resolution reviewer's: `reportKind` is non-null only with `cannot-resolve`. */
 export const RESOLVER_REPORT_SCHEMA: JsonSchema = {
   $schema: DRAFT_07,

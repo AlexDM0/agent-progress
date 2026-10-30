@@ -5,10 +5,22 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { BUILDER_REPORT_SCHEMA, RESOLVER_REPORT_SCHEMA, REVIEWER_REPORT_SCHEMA } from './ReportSchemas.ts';
-import { reportVerdictOf, type JsonSchema }                                      from './ReportValidation.ts';
+import {
+  BUILDER_REPORT_SCHEMA,
+  ONBOARDER_REPORT_SCHEMA,
+  RESOLVER_REPORT_SCHEMA,
+  REVIEWER_REPORT_SCHEMA
+} from './ReportSchemas.ts';
+import { reportVerdictOf, type JsonSchema } from './ReportValidation.ts';
+import { onboarderReportOf }                from './testing/OnboarderReportFixture.ts';
 
 const HEAD = 'a'.repeat(40);
+
+const ONBOARDED = onboarderReportOf(HEAD);
+
+function adviceFiling(relayRequestId: string | null): Record<string, unknown> {
+  return { ...ONBOARDED, mode: 'advise', optimisations: [{ summary: 'Cache the test gate.', filedTicketId: null, relayRequestId }] };
+}
 
 const BUILT = {
   role:              'builder',
@@ -80,6 +92,20 @@ const REPORT_TABLE: ReadonlyArray<[name: string, schema: JsonSchema, report: unk
   ['a resolution review that cannot resolve, with no kind', RESOLVER_REPORT_SCHEMA, { ...RESOLVED, role: 'resolution-review', outcome: 'cannot-resolve' }, true],
   ['a resolved report carrying a report kind', RESOLVER_REPORT_SCHEMA, { ...RESOLVED, reportKind: 'system-blocker' }, false],
   ['a resolver report of the builder role', RESOLVER_REPORT_SCHEMA, { ...RESOLVED, role: 'builder' }, false],
+  ['an onboarder setup proposal', ONBOARDER_REPORT_SCHEMA, ONBOARDED, true],
+  ['an onboarder proposing no review', ONBOARDER_REPORT_SCHEMA, { ...ONBOARDED, review: null }, true],
+  ['an onboarder advice naming a queued optimisation', ONBOARDER_REPORT_SCHEMA, adviceFiling('5f0c'), true],
+  ['an onboarder optimisation naming neither ticket nor request', ONBOARDER_REPORT_SCHEMA, adviceFiling(null), false],
+  ['an onboarder report missing its constitution', ONBOARDER_REPORT_SCHEMA, Object.fromEntries(Object.entries(ONBOARDED).filter(([field]) => field !== 'constitution')), false],
+  ['an onboarder report with an unknown field', ONBOARDER_REPORT_SCHEMA, { ...ONBOARDED, checks: 'bun test' }, false],
+  ['an onboarder gate without its writes', ONBOARDER_REPORT_SCHEMA, {
+    ...ONBOARDED,
+    gates: [{
+      name: 'tests', run: 'bun test', definedBy: [], network: []
+    }]
+  }, false],
+  ['an onboarder agents array for an unknown role', ONBOARDER_REPORT_SCHEMA, { ...ONBOARDED, agents: { ...ONBOARDED['agents'] as object, tester: [] } }, false],
+  ['an onboarder report in an unknown mode', ONBOARDER_REPORT_SCHEMA, { ...ONBOARDED, mode: 'install' }, false],
 ];
 
 describe('the report table', () => {
@@ -88,7 +114,7 @@ describe('the report table', () => {
   });
 
   test('each schema is a draft-07 document that survives JSON unchanged, as the command line receives it', () => {
-    for (const schema of [BUILDER_REPORT_SCHEMA, REVIEWER_REPORT_SCHEMA, RESOLVER_REPORT_SCHEMA]) {
+    for (const schema of [BUILDER_REPORT_SCHEMA, REVIEWER_REPORT_SCHEMA, RESOLVER_REPORT_SCHEMA, ONBOARDER_REPORT_SCHEMA]) {
       expect(schema.$schema).toBe('http://json-schema.org/draft-07/schema#');
       expect(JSON.parse(JSON.stringify(schema))).toEqual(schema);
     }
