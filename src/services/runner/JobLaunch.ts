@@ -40,6 +40,7 @@ import {
   type LaunchSnapshot,
   type RefMovesAllowed,
   refMovesAllowedOf,
+  retriedFailedBuildJobIdOf,
   VERIFICATION_CHECKS,
   verifyJob
 } from '../lifecycle/JobVerification.ts';
@@ -402,10 +403,13 @@ function verifyAndRoute(hold: HoldContext, job: Readonly<Job>, observation: Buil
     endJob(hold, job, { outcome: 'failed', cause: 'git-failed' });
     return;
   }
+  const retriedJobId = retriedFailedBuildJobIdOf(board.logRecordsSoFar(), job.id);
+  const retriedStart = retriedJobId === null ? null : readJobStart(HostFleet.jobFolderOf(hold.context.workspace.trackerDirectory, retriedJobId));
   const subject: JobVerificationSubject = {
     role:             job.kind === REVIEW_JOB_KIND ? 'reviewer' : 'builder',
     worktreePath:     worktreeOf(hold.context.workspace, job),
     startCommit:      start.startCommit,
+    ...(retriedStart === null ? {} : { workStartCommit: retriedStart.startCommit }),
     bodyHashAtLaunch: start.bodyHashAtLaunch,
     report:           observation.report,
     ticketBody:       ticket.body,

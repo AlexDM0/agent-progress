@@ -14,6 +14,7 @@ import {
   expect,
   test
 }                                    from 'bun:test';
+import type { LogRecord }             from '../../lib/tracker-model/@types/LogRecord.ts';
 import type { PipelineGate }          from '../../lib/tracker-model/@types/Pipeline.ts';
 import { TicketBodyHashUtil }         from '../../lib/tracker-model/utils/TicketBodyHashUtil.ts';
 import { PRODUCT_NAMES }              from '../../shared/constants/ProductNames.ts';
@@ -31,12 +32,14 @@ import {
   definitionFilePatternExpressionOf,
   launchSnapshotOf,
   type LaunchSnapshot,
+  retriedFailedBuildJobIdOf,
   VERIFICATION_CHECKS,
   verifyJob,
   type JobVerificationSubject,
   type VerificationCheck
 } from './JobVerification.ts';
 
+const AT = '2026-10-28T10:00:00+01:00';
 const TICKET_BODY = '## Report\nExample report.\n\n## Acceptance\nA1. The example page loads.\n';
 
 /** The definition files spread over two gates, so V11 is shown reading every gate's `definedBy`, not only the first's. */
@@ -198,6 +201,40 @@ describeWhenGitIsPresent('verification by code', () => {
   test('V3 refuses a built pass with no commit since the start, and asks nothing of a reviewer', () => {
     expect(refusalOf('V3', builderSubject({ startCommit: headCommit() }))).toBe('no-commit-since-start');
     expect(CHECKS_OF_ROLE.reviewer).not.toContain('V3');
+  });
+
+  test('V3 passes a retry whose branch already holds the failed attempt\'s commit, measured from that attempt\'s start', () => {
+    const failedAttemptStart = builderSubject().startCommit;
+    expect(refusalOf('V3', builderSubject({ startCommit: headCommit(), workStartCommit: failedAttemptStart }))).toBeNull();
+    expect(refusalOf('V3', builderSubject({ startCommit: headCommit(), workStartCommit: headCommit() }))).toBe('no-commit-since-start');
+  });
+
+  test('a build retries the unbroken run of failed build attempts right before it on its ticket, and nothing after another ending', () => {
+    const launched = (jobId: string, ticketId: string): LogRecord => ({
+      at:     AT,
+      kind:   'job-launched',
+      jobId,
+      fields: {
+        kind: 'build', role: 'builder', ticketIds: [ticketId], attempt: 1, target: 'main', parentJobId: null
+      }
+    });
+    const ended = (jobId: string, outcome: 'failed' | 'built'): LogRecord => ({
+      at: AT, kind: 'job-ended', jobId, fields: { outcome, deniedPermissions: [] }
+    });
+    const records = [
+      launched('J1', '002'),
+      ended('J1', 'built'),
+      launched('J2', '002'),
+      launched('J3', '001'),
+      ended('J2', 'failed'),
+      launched('J4', '002'),
+      ended('J4', 'failed'),
+      launched('J5', '002'),
+    ];
+    expect(retriedFailedBuildJobIdOf(records, 'J5')).toBe('J2');
+    expect(retriedFailedBuildJobIdOf(records, 'J2')).toBeNull();
+    expect(retriedFailedBuildJobIdOf(records, 'J3')).toBeNull();
+    expect(retriedFailedBuildJobIdOf(records, 'J9')).toBeNull();
   });
 
   test('V4 refuses a worktree holding an untracked file', () => {

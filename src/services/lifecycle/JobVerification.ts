@@ -104,6 +104,8 @@ export interface JobVerificationSubject {
   worktreePath:      string;
   /** The worktree's HEAD at launch, the branch tip with `MERGE_HEAD` at the target tip for a resolver, the merged commit after it. */
   startCommit:       string;
+  /** V3 measures from it when set: the start of the failed build attempts this one retries, whose commits its branch already holds. */
+  workStartCommit?:  string;
   /** The report as parsed from the session's structured output, unvalidated. */
   report:            unknown;
   ticketBody:        string;
@@ -214,9 +216,23 @@ function headDescendsFromTheStart(subject: JobVerificationSubject): CheckVerdict
 /** A builder owes a commit only when it reports `built`; a reviewer and a resolution reviewer never do. */
 function aCommitSinceTheStart(subject: JobVerificationSubject): CheckVerdict {
   if (subject.role === 'builder' && reportFieldOf(subject.report, 'outcome') !== 'built') return PASSED;
-  const commits = gitLines(subject.worktreePath, ['rev-list', ...rangeArgumentsOf(subject)]);
-  if (commits === null) return refused('git-failed', [rangeOf(subject)]);
-  return commits.length > 0 ? PASSED : refused('no-commit-since-start', [subject.startCommit]);
+  const measured = { ...subject, startCommit: subject.workStartCommit ?? subject.startCommit };
+  const commits = gitLines(subject.worktreePath, ['rev-list', ...rangeArgumentsOf(measured)]);
+  if (commits === null) return refused('git-failed', [rangeOf(measured)]);
+  return commits.length > 0 ? PASSED : refused('no-commit-since-start', [measured.startCommit]);
+}
+
+/** The first build job of the unbroken run of failed attempts right before this build job on its ticket; `null` after any other ending. */
+export function retriedFailedBuildJobIdOf(logRecords: readonly LogRecord[], jobId: string): string | null {
+  const buildLaunches = logRecords.flatMap((record) => (record.kind === 'job-launched' && record.fields.kind === 'build' ? [record] : []));
+  const ownLaunch = buildLaunches.find((launch) => launch.jobId === jobId);
+  if (ownLaunch === undefined) return null;
+  const ticketKey = [...ownLaunch.fields.ticketIds].sort().join(',');
+  const failedJobIds = new Set(logRecords.flatMap((record) => (record.kind === 'job-ended' && record.fields.outcome === 'failed' ? [record.jobId] : [])));
+  const earlier = buildLaunches.slice(0, buildLaunches.indexOf(ownLaunch)).filter((launch) => [...launch.fields.ticketIds].sort().join(',') === ticketKey);
+  let retried: string | null = null;
+  for (let i = earlier.length - 1; i >= 0 && failedJobIds.has(earlier[i]?.jobId ?? ''); i -= 1) retried = earlier[i]?.jobId ?? null;
+  return retried;
 }
 
 function worktreeIsClean(subject: JobVerificationSubject): CheckVerdict {
