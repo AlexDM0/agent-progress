@@ -87,7 +87,8 @@ describe('the lifecycle under seeded interleavings', () => {
 
   test('the world does work: its passes launch, resume and finish jobs', () => {
     const world = new LifecycleWorld(1);
-    world.run(TURNS_PER_SEED);
+    // Long enough for a ticket to land through its review resumes.
+    world.run(TURNS_PER_SEED * 2);
     const workKinds = ['job-launched', 'job-ended', 'job-interrupted', 'job-resumed', 'decision-answered', 'merge-started', 'merge-landed'];
     expect(world.loggedKinds()).toEqual(expect.arrayContaining(workKinds));
   });
