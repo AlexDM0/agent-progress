@@ -586,7 +586,8 @@ export function createMergeSlots(context: MergeSlotsContext): MergeSlots {
     const landed = await context.hold((hold) => {
       const ticket = hold.board.tickets().find((candidate) => candidate.frontmatter.id === ticketId);
       // Only a review accounts for the Acceptance: a pipeline without a review phase lands on its gates alone.
-      const acceptanceIsReviewed = hold.board.pipeline()?.review !== undefined;
+      const pipeline = hold.board.pipeline();
+      const acceptanceIsReviewed = pipeline === null || pipeline.review !== undefined;
       const ticketRefusal = ticket === undefined || !acceptanceIsReviewed ? null : Landing.ticketRefusalOf([ticket]);
       if (ticketRefusal !== null) return ticketRefusal;
       const verdict = Landing.landOnTarget({
