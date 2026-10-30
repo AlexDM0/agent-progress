@@ -94,7 +94,6 @@ const INTERRUPTED_BUILD = jobFixture({
 const TWO_FAILED_PASSES_WITH_REWORK_BETWEEN: LogRecord[] = [
   ticketRecord('ticket-started', '001'),
   ...finishedJobRecords('J1', 'build', '001', 'failed'),
-  ...finishedJobRecords('J2', 'build', '001', 'built', 2),
   ticketRecord('ticket-finished', '001'),
   ...finishedJobRecords('J3', 'review', '001', 'does-not-hold'),
   ticketRecord('ticket-started', '001'),
