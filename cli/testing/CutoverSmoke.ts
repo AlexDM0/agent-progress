@@ -105,7 +105,8 @@ const MALFORMED_TICKET_TICKET = {
 
 const GATES: readonly (readonly string[])[] = [
   ['readme', '--', 'test', '-s', 'README.md'],
-  ['palette', '--', 'grep', '-q', '^# Example palette', 'palette.txt'],
+  // A gate's words are joined into one shell line unquoted, so no word may hold a space.
+  ['palette', '--', 'grep', '-q', 'notes:', 'palette.txt'],
   ['palette-file', '--', 'test', '-f', 'palette.txt'],
 ];
 
