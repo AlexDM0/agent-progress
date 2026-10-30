@@ -67,25 +67,32 @@ function agentTranscriptsIn(directory: string, sessionIdentifier: string): Subag
     }));
 }
 
+function unsortedSessionSubagentTranscripts(transcriptFolder: string, sessionIdentifier: string): SubagentTranscript[] {
+  const subagentsDirectory = join(transcriptFolder, sessionIdentifier, SUBAGENTS_DIRECTORY_NAME);
+  const transcripts        = agentTranscriptsIn(subagentsDirectory, sessionIdentifier);
+
+  const workflowsDirectory = join(subagentsDirectory, WORKFLOWS_DIRECTORY_NAME);
+  for (const runEntry of directoryEntriesOf(workflowsDirectory)) {
+    if (!runEntry.isDirectory()) continue;
+    transcripts.push(...agentTranscriptsIn(join(workflowsDirectory, runEntry.name), sessionIdentifier));
+  }
+  return transcripts;
+}
+
+function sortedByPath(transcripts: SubagentTranscript[]): SubagentTranscript[] {
+  return transcripts.sort((a, b) => a.path.localeCompare(b.path));
+}
+
 /** Subagent transcripts only, including workflow runs, sorted by path; an absent folder is an empty list. */
 export function listSubagentTranscripts(transcriptFolder: string): SubagentTranscript[] {
-  const transcripts: SubagentTranscript[] = [];
+  return sortedByPath(directoryEntriesOf(transcriptFolder)
+    .filter((sessionEntry) => sessionEntry.isDirectory())
+    .flatMap((sessionEntry) => unsortedSessionSubagentTranscripts(transcriptFolder, sessionEntry.name)));
+}
 
-  for (const sessionEntry of directoryEntriesOf(transcriptFolder)) {
-    if (!sessionEntry.isDirectory()) continue;
-
-    const subagentsDirectory = join(transcriptFolder, sessionEntry.name, SUBAGENTS_DIRECTORY_NAME);
-    transcripts.push(...agentTranscriptsIn(subagentsDirectory, sessionEntry.name));
-
-    const workflowsDirectory = join(subagentsDirectory, WORKFLOWS_DIRECTORY_NAME);
-    for (const runEntry of directoryEntriesOf(workflowsDirectory)) {
-      if (!runEntry.isDirectory()) continue;
-      transcripts.push(...agentTranscriptsIn(join(workflowsDirectory, runEntry.name), sessionEntry.name));
-    }
-  }
-
-  transcripts.sort((a, b) => a.path.localeCompare(b.path));
-  return transcripts;
+/** One session's subagent transcripts, workflow runs' included, sorted by path, reading no other session's folder; an absent session is none. */
+export function listSessionSubagentTranscripts(transcriptFolder: string, sessionIdentifier: string): SubagentTranscript[] {
+  return sortedByPath(unsortedSessionSubagentTranscripts(transcriptFolder, sessionIdentifier));
 }
 
 /** The run folder of a transcript at `…/workflows/<runId>/agent-<id>.jsonl`; `undefined` for any other path, a plain subagent's among them. */
