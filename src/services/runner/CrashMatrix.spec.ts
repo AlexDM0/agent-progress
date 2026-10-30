@@ -79,6 +79,7 @@ import { createDrivePass, type DrivePass, type JobLaunchFacts } from './DrivePas
 import { GroupWorktrees }                                       from './GroupWorktrees.ts';
 import { HOST_ENTRY_PATH, HostBundle }                          from './HostBundle.ts';
 import { HostFleet }                                            from './HostFleet.ts';
+import { CONSTITUTION_DEFAULT_PATH, defaultInstructionPathOf }  from './InstructionFiles.ts';
 import { IntakeSessions }                                       from './IntakeSessions.ts';
 import { JobResumption }                                        from './JobResumption.ts';
 import { Reattachment }                                         from './Reattachment.ts';
@@ -552,6 +553,11 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
     runnerLog        = [];
     mkdirSync(sessionWorkspace.ticketsDirectory, { recursive: true });
     writeReadableTracker(sessionWorkspace);
+    const instructionDefaults = [CONSTITUTION_DEFAULT_PATH, ...(['builder', 'reviewer', 'merger', 'productOwner', 'assistant'] as const).map(defaultInstructionPathOf)];
+    for (const path of instructionDefaults) {
+      mkdirSync(join(repository, path, '..'), { recursive: true });
+      writeFileSync(join(repository, path), 'Example instructions.\n');
+    }
     await writeTracker({
       workspace: sessionWorkspace,
       at:        CHANGED_AT,
