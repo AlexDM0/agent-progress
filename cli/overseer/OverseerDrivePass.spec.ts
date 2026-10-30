@@ -512,7 +512,8 @@ describe('crediting an ended job\'s tokens', () => {
     ]), watchTheResolver);
     for (let attempt = 0; attempt < WATCHER_WAIT_TRIES && tokensAsTheNextHoldOpens === undefined; attempt += 1) {
       await passOnce(drivePass);
-      await Bun.sleep(WATCHER_WAIT_MILLISECONDS);    }
+      await Bun.sleep(WATCHER_WAIT_MILLISECONDS);
+    }
     expect(resolverJobId, overseerLog.join('\n')).not.toBeNull();
     expect(storedLogTextOf(repositoryDirectory)).toContain(`"kind":"job-ended","jobId":"${resolverJobId ?? ''}"`);
     expect(tokensAsTheNextHoldOpens).toBe(CREDITED_INPUT_TOKENS);
