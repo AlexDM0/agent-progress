@@ -264,6 +264,10 @@ function createSmoke(options: CutoverSmokeOptions, logPath: string) {
       git(['add', '-A']);
       git([...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'commit', '-q', '-m', 'Track the board\'s ignores']);
       for (const gate of GATES) if ((await program(['gate', 'add', ...gate])).exitCode !== 0) throw new Error(`gate add ${gate[0]} failed`);
+      // Review is an optional pipeline phase no command writes, so the scratch board's pipeline file gains it here.
+      const pipelinePath = join(repository, PRODUCT_NAMES.DATA_FOLDER, 'pipeline.json');
+      const pipeline = JSON.parse(readFileSync(pipelinePath, 'utf8')) as Record<string, unknown>;
+      writeFileSync(pipelinePath, `${JSON.stringify({ ...pipeline, review: { name: 'review' } }, null, 2)}\n`);
       await program(['concurrency', '2']);
       await program(['run', 'pause']);
     },

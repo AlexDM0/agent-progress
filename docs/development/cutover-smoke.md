@@ -33,8 +33,9 @@ scratch repository is kept for reading and named on the log's last line; remove 
 
 ## What it does
 
-1. `init --no-hooks`, commits the ignores, adds three gates (`readme`, `palette`, `palette-file`), `concurrency 2`,
-   `run pause`, then `run --detach` and an SSE client on `/api/events`.
+1. `init --no-hooks`, commits the ignores, adds three gates (`readme`, `palette`, `palette-file`), stores a `review`
+   phase in the scratch `pipeline.json` (an optional phase no command writes), `concurrency 2`, `run pause`, then
+   `run --detach` and an SSE client on `/api/events`.
 2. Files two tickets and readies both, then `run resume`. Both append a line at the end of `palette.txt`, which plants a
    textual conflict whose resolution keeps both lines (two values for one line would rightly be `cannot-resolve`):
    - #001 asks User a colour through AskUserQuestion (header `colour`): an `agent-question` decision the script
