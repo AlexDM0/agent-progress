@@ -19,13 +19,13 @@ const HELP_ALIASES     = new Set([`--${HELP_OPTION_NAME}`, HELP_SHORT_ALIAS]);
 /** `init` and `update` repair a mismatch, `status` output is a contract that stays silent about one, and `version` reports the versions itself. */
 const COMMANDS_THE_INSTALL_CHECK_SPARES = new Set(['init', 'update', 'help', 'status', 'version']);
 /**
- * A hook prints or guards whatever the install, and `run status` and `run stop` must reach an Overseer whose install changed, so each runs the
+ * A hook prints or guards whatever the install, and `oversee status` and `oversee stop` must reach an Overseer whose install changed, so each runs the
  * check inside its own handling.
  */
-const COMMANDS_THAT_CHECK_THEIR_OWN_INSTALL = new Set(['hook', 'run']);
+const COMMANDS_THAT_CHECK_THEIR_OWN_INSTALL = new Set(['hook', 'oversee']);
 
 /** The commands whose first argument names a subcommand, which the recorded verb then carries: `ticket hold`, not `ticket`. */
-const COMMANDS_WITH_A_SUBCOMMAND = new Set(['task', 'ticket', 'epic', 'draft', 'hook', 'run', 'job', 'intake', 'incident', 'merge', 'worktree', 'gate']);
+const COMMANDS_WITH_A_SUBCOMMAND = new Set(['task', 'ticket', 'epic', 'draft', 'hook', 'oversee', 'job', 'intake', 'incident', 'merge', 'worktree', 'gate']);
 
 type HelpRequest = 'reference' | 'ambiguous' | 'none';
 

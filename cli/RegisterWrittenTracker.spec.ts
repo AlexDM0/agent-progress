@@ -173,11 +173,11 @@ testWhenGitIsPresent('an Overseer key is added at the overseer\'s start, kept by
   const trackerId           = trackerIdOf(repositoryDirectory);
   const overseer              = { url: 'http://127.0.0.1:4930/', processId: 4242, startedAt: LocalTimeUtil.formatLocalIso(FIRST_NOW) };
   const registration = {
-    workspace: workspacePathsFor(repositoryDirectory), homeDirectory, temporaryDirectories: [folderOutsideEveryRepository], command: 'run', now: () => FIRST_NOW,
+    workspace: workspacePathsFor(repositoryDirectory), homeDirectory, temporaryDirectories: [folderOutsideEveryRepository], command: 'oversee', now: () => FIRST_NOW,
   };
 
   expect((await registerWithTheMonitor({ ...registration, overseer })).verdict).toBe('registered');
-  expect(registry().projects[trackerId]).toMatchObject({ overseer, lastCommand: 'run' });
+  expect(registry().projects[trackerId]).toMatchObject({ overseer, lastCommand: 'oversee' });
   await requireExitZero(['log', 'Example milestone'], registeringContext(repositoryDirectory, SECOND_NOW));
   expect(registry().projects[trackerId]).toMatchObject({ overseer, lastCommand: 'log' });
   expect((await registerWithTheMonitor({ ...registration, overseer: 'removed' })).verdict).toBe('registered');

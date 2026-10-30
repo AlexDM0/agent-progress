@@ -40,7 +40,7 @@ function mergesReportOf(board: Board, storedLog: readonly LogRecord[]): MergesRe
   });
   const queue = board.tickets()
     .filter(({ frontmatter }) => frontmatter.status === 'in-review' && board.ticketIsMergeQueued(frontmatter.id))
-    .filter(({ frontmatter }) => !board.jobs().some((job) => job.slot !== undefined && job.ticketIds.includes(frontmatter.id)))
+    .filter(({ frontmatter }) => !board.jobs().some((job) => job.airlock !== undefined && job.ticketIds.includes(frontmatter.id)))
     .map(({ frontmatter }): QueuedMerge => ({
       ticketId: frontmatter.id,
       target:   queuedById.get(frontmatter.id)?.target ?? '',
@@ -48,8 +48,8 @@ function mergesReportOf(board: Board, storedLog: readonly LogRecord[]): MergesRe
       queuedAt: queuedById.get(frontmatter.id)?.position ?? -1,
     }))
     .sort((a, b) => a.target.localeCompare(b.target) || MERGE_PRIORITY_RANK[a.priority] - MERGE_PRIORITY_RANK[b.priority] || a.queuedAt - b.queuedAt);
-  const slots = board.jobs().flatMap((job): HeldSlot[] => (job.slot === undefined ? [] : [{
-    target: job.slot.target, jobId: job.id, ticketIds: [...job.ticketIds], phase: job.slot.phase, targetTip: job.slot.targetTip, branchTip: job.slot.branchTip,
+  const slots = board.jobs().flatMap((job): HeldSlot[] => (job.airlock === undefined ? [] : [{
+    target: job.airlock.target, jobId: job.id, ticketIds: [...job.ticketIds], phase: job.airlock.phase, targetTip: job.airlock.targetTip, branchTip: job.airlock.branchTip,
   }]));
   return { slots, queue };
 }

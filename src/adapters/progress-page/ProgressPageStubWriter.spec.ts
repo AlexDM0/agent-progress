@@ -33,7 +33,7 @@ test('a live Overseer is named by its URL, escaped once', () => {
 });
 
 test('with no live Overseer the stub says it is down and names the command that starts one', () => {
-  expect(progressPageStubTextOf(null)).toContain(`Overseer down. Start one with <code>${PRODUCT_NAMES.PROGRAM} run --detach</code>.`);
+  expect(progressPageStubTextOf(null)).toContain(`Overseer down. Start one with <code>${PRODUCT_NAMES.PROGRAM} oversee --detach</code>.`);
 });
 
 test('the writer replaces the file whole, live then down', () => {

@@ -98,7 +98,7 @@ test('a board no Overseer serves is worded naming the Baton folder and the comma
   const refusal = new OperationRefusal('refused', { kind: 'overseer-down', overseerDirectory: '/example/repository/.agent-progress/overseer' });
   expect(OperationRefusalWordingUtil.messageOf(refusal)).toBe(
     'No Overseer serves this board (/example/repository/.agent-progress/overseer holds no live Baton), so there is nothing to open. '
-    + `Start one with \`${PRODUCT_NAMES.PROGRAM} run --detach\`.`,
+    + `Start one with \`${PRODUCT_NAMES.PROGRAM} oversee --detach\`.`,
   );
 });
 

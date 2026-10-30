@@ -16,7 +16,7 @@ import { INCIDENT_SUBCOMMAND_NAMES }                                            
 import { INTAKE_SUBCOMMAND_NAMES }                                                                from './intake/IntakeCommand.ts';
 import { JOB_SUBCOMMAND_NAMES }                                                                   from './jobs/JobCommand.ts';
 import { MERGE_SUBCOMMAND_NAMES }                                                                 from './merges/MergeCommand.ts';
-import { RUN_SUBCOMMAND_NAMES }                                                                   from './overseer/OverseerCommand.ts';
+import { OVERSEE_SUBCOMMAND_NAMES }                                                               from './overseer/OverseerCommand.ts';
 import { TICKET_SUBCOMMAND_NAMES }                                                                from './tickets/TicketCommand.ts';
 import { WORKTREE_SUBCOMMAND_NAMES }                                                              from './worktrees/WorktreeCommand.ts';
 
@@ -41,7 +41,7 @@ const NOT_RELAYABLE_MUTATING_VERBS = [
   'ticket deliver --by-hand',
   'init',
   'update',
-  'run',
+  'oversee',
 ];
 
 /**
@@ -72,7 +72,7 @@ function tableVerbsOf(commandNames: readonly string[]): string[] {
     if (command === 'ticket') return subcommandVerbsOf(command, TICKET_SUBCOMMAND_NAMES).map((verb) => (verb === 'ticket deliver' ? 'ticket deliver --by-hand' : verb));
     if (command === 'epic') return subcommandVerbsOf(command, EPIC_SUBCOMMAND_NAMES);
     if (command === 'draft') return subcommandVerbsOf(command, DRAFT_SUBCOMMAND_NAMES);
-    if (command === 'run') return [command, ...subcommandVerbsOf(command, RUN_SUBCOMMAND_NAMES)];
+    if (command === 'oversee') return [command, ...subcommandVerbsOf(command, OVERSEE_SUBCOMMAND_NAMES)];
     if (command === 'job') return subcommandVerbsOf(command, JOB_SUBCOMMAND_NAMES);
     if (command === 'incident') return subcommandVerbsOf(command, INCIDENT_SUBCOMMAND_NAMES);
     if (command === 'merge') return subcommandVerbsOf(command, MERGE_SUBCOMMAND_NAMES);

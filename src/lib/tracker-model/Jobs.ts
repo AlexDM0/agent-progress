@@ -216,8 +216,8 @@ export class Jobs {
   /** A `null` slot frees the one the job held. */
   setJobSlot(jobId: string, slot: Airlock | null): Readonly<Job> {
     const job = this.requireLiveJob(jobId);
-    if (slot === null) delete job.slot;
-    else job.slot = {
+    if (slot === null) delete job.airlock;
+    else job.airlock = {
       target: slot.target, targetTip: slot.targetTip, branchTip: slot.branchTip, phase: slot.phase
     };
     return job;

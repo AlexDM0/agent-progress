@@ -1,7 +1,7 @@
 /**
- * `run` in the foreground: wins the Baton, serves the board's API and lives until a stop signal, a `overseer-stop` command, a Baton pass to a
+ * `oversee` in the foreground: wins the Baton, serves the board's API and lives until a stop signal, a `overseer-stop` command, a Baton pass to a
  * successor on the code on disk after `overseer-restart`, or a newer generation taking the board over, which ends it `baton-taken`
- * (exit 2) without touching what the new Overseer holds. `run --successor-of <generation>` is that successor's side of the Baton pass.
+ * (exit 2) without touching what the new Overseer holds. `oversee --successor-of <generation>` is that successor's side of the Baton pass.
  */
 import { randomBytes } from 'node:crypto';
 import {
@@ -71,7 +71,7 @@ export interface ForegroundRunRequest {
   context:          CommandContext;
   workspace:        Workspace;
   portChoice:       OverseerPortChoice;
-  /** Set for `run --successor-of <generation>`: the generation this process takes the board over from. */
+  /** Set for `oversee --successor-of <generation>`: the generation this process takes the board over from. */
   successorOf?:     number;
 }
 
@@ -242,7 +242,7 @@ function spawnSuccessor(context: CommandContext, workspace: Workspace, files: Ov
   // Its own lines reach the log through its logger; what it prints before it has one, such as a refusal, is appended here.
   const logFileDescriptor = openSync(files.logFilePath, 'a');
   try {
-    const child = Bun.spawn([...context.programCommand, 'run', '--successor-of', String(generation), '--port', String(port)], {
+    const child = Bun.spawn([...context.programCommand, 'oversee', '--successor-of', String(generation), '--port', String(port)], {
       cwd: workspace.rootDirectory, stdin: 'ignore', stdout: 'ignore', stderr: logFileDescriptor, detached: true,
     });
     child.unref();

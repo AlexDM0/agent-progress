@@ -39,7 +39,7 @@ function storedTextWithJobs(): string {
       eventCursor:          { instance: 1, unknownCursorKey: 0, sequence: 4 },
       answeredRequestIds:   [],
       crashResumes:         0,
-      slot:                 {
+      airlock:              {
         target: 'main', targetTip: 'a1b2c3d', branchTip: 'b2c3d4e', phase: 'merge-in', unknownSlotKey: true,
       },
       unknownTrailingJobKey: { nested: true },
@@ -60,12 +60,12 @@ test('a file with jobs, the job counter and a merge-queue mark is written back b
   expect(JsonTextUtil.storedFileTextOf(ProgressFileMappingUtil.storedDocumentOf(ProgressFileMappingUtil.progressOf(storedDocumentOf(text))))).toBe(text);
 });
 
-test('a job, its cursor and its slot keep a key the tool does not know where the file had it', () => {
+test('a job, its cursor and its Airlock keep a key the tool does not know where the file had it', () => {
   const [job] = ProgressFileMappingUtil.progressOf(storedDocumentOf(storedTextWithJobs())).jobs ?? [];
   expect(Object.keys(job ?? {}).at(0)).toBe('unknownLeadingJobKey');
   expect(Object.keys(job ?? {}).at(-1)).toBe('unknownTrailingJobKey');
   expect(Object.keys(job?.eventCursor ?? {})).toEqual(['instance', 'unknownCursorKey', 'sequence']);
-  expect(Object.keys(job?.slot ?? {}).at(-1)).toBe('unknownSlotKey');
+  expect(Object.keys(job?.airlock ?? {}).at(-1)).toBe('unknownSlotKey');
 });
 
 test('an unknown key on a job survives a move and a launch the Board makes, and the counter moves on', () => {

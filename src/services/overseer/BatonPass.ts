@@ -147,7 +147,7 @@ function failureOf(report: Extract<BatonPassReport, { state: 'successor-failed' 
   return { successorCodeVersion: report.successorCodeVersion, step: report.step, error: report.error };
 }
 
-/** The old Overseer's side, its outcome also left in the file whoever failed, so `run restart` and `update` read one place. */
+/** The old Overseer's side, its outcome also left in the file whoever failed, so `oversee restart` and `update` read one place. */
 async function handOver(request: HandOverRequest): Promise<BatonPassOutcome> {
   const outcome = await handOverSteps(request);
   if (outcome.verdict !== 'handed-over') {

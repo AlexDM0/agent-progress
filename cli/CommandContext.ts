@@ -42,7 +42,7 @@ export interface CommandContext {
   renderState:             RenderState;
   /** Present only when the Overseer launched this process for a job: then a mutating verb relays rather than opening the tracker. */
   job?:                    JobContext;
-  /** The runtime and the entry point this process was started with, which `run --detach` starts again with the Overseer's arguments. */
+  /** The runtime and the entry point this process was started with, which `oversee --detach` starts again with the Overseer's arguments. */
   programCommand:          readonly string[];
   /** Calls `listener` on SIGTERM and SIGINT, which a foreground Overseer takes as a stop; returns the unsubscribe. */
   onStopSignal:            (listener: () => void) => () => void;

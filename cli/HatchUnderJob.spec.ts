@@ -43,7 +43,7 @@ import { INCIDENT_SUBCOMMAND_NAMES }                                 from './inc
 import { INTAKE_SUBCOMMAND_NAMES }                                   from './intake/IntakeCommand.ts';
 import { JOB_SUBCOMMAND_NAMES }                                      from './jobs/JobCommand.ts';
 import { MERGE_SUBCOMMAND_NAMES }                                    from './merges/MergeCommand.ts';
-import { RUN_SUBCOMMAND_NAMES }                                      from './overseer/OverseerCommand.ts';
+import { OVERSEE_SUBCOMMAND_NAMES }                                  from './overseer/OverseerCommand.ts';
 import { createCapturedCommandContext, type CapturedCommandContext } from './testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository }                        from './testing/InitializedScratchRepository.ts';
 import { TICKET_SUBCOMMAND_NAMES }                                   from './tickets/TicketCommand.ts';
@@ -91,10 +91,10 @@ const ARGUMENTS_OF_KIND: { readonly [Kind in ControlCommandKind]: readonly strin
   'intake-start':              ['intake', '--', 'Alex Example asks for a basket.'],
   'onboarder-advise':          ['advise'],
   'intake-close':              ['intake', 'close', '--set', '1'],
-  'overseer-pause':            ['run', 'pause'],
-  'overseer-resume':           ['run', 'resume'],
-  'overseer-stop':             ['run', 'stop', '--now'],
-  'overseer-restart':          ['run', 'restart'],
+  'overseer-pause':            ['oversee', 'pause'],
+  'overseer-resume':           ['oversee', 'resume'],
+  'overseer-stop':             ['oversee', 'stop', '--now'],
+  'overseer-restart':          ['oversee', 'restart'],
   'concurrency-set':           ['concurrency', '3'],
   'pipeline-prepare-step-set': ['gate', 'prepare', 'install', '--', 'bun install'],
   'pipeline-gate-add':         ['gate', 'add', 'test', '--defined-by', 'bunfig.toml', '--', 'bun test'],
@@ -116,7 +116,7 @@ const ARGUMENTS_OF_READ_ONLY_VERB: Readonly<Record<string, readonly string[]>> =
   'hook bash-domains':  ['hook', 'bash-domains', '--allow', 'registry.example.com'],
   'hook session-start': ['hook', 'session-start'],
   'version':            ['version'],
-  'run status':         ['run', 'status'],
+  'oversee status':     ['oversee', 'status'],
   'decisions':          ['decisions'],
   'incidents':          ['incidents'],
   'merges':             ['merges'],
@@ -192,7 +192,7 @@ function everyVerb(): string[] {
     if (command === 'ticket') return TICKET_SUBCOMMAND_NAMES.map((subcommand) => `ticket ${subcommand}`);
     if (command === 'epic') return EPIC_SUBCOMMAND_NAMES.map((subcommand) => `epic ${subcommand}`);
     if (command === 'draft') return DRAFT_SUBCOMMAND_NAMES.map((subcommand) => `draft ${subcommand}`);
-    if (command === 'run') return [command, ...RUN_SUBCOMMAND_NAMES.map((subcommand) => `run ${subcommand}`)];
+    if (command === 'oversee') return [command, ...OVERSEE_SUBCOMMAND_NAMES.map((subcommand) => `oversee ${subcommand}`)];
     if (command === 'hook') return [command, 'hook bash-domains', 'hook session-start'];
     if (command === 'job') return JOB_SUBCOMMAND_NAMES.map((subcommand) => `job ${subcommand}`);
     if (command === 'incident') return INCIDENT_SUBCOMMAND_NAMES.map((subcommand) => `incident ${subcommand}`);

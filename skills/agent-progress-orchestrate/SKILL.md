@@ -30,14 +30,14 @@ line, and never commit the tracker.
 
 Send the first two as separate calls in one message, never joined into one shell line, then act on them.
 
-1. `{{program}} run status --json`: whether the Overseer is up, its URL, paused or not, its notices and a failed
+1. `{{program}} oversee status --json`: whether the Overseer is up, its URL, paused or not, its notices and a failed
    Baton pass's warning.
 2. `{{program}} status --json`: the drafts, the ready tickets, the jobs, the open decisions and incidents. Exit 1
    saying there is no tracker: ask whether to `{{program}} init` here, and do not create one uninvited.
 3. Report the board in at most six lines: the Overseer's state and URL, the jobs in flight, the drafts waiting to be
    readied, the decisions waiting on the user, any notice, and the open filing drafts with their open question
    count. Then say you are ready for requests.
-4. When the Overseer is down, ask whether to start it. On the user's yes run `{{program}} run --detach` and give the
+4. When the Overseer is down, ask whether to start it. On the user's yes run `{{program}} oversee --detach` and give the
    URL it prints. Never start it unasked.
 
 ## Intake: what to do with what the user says

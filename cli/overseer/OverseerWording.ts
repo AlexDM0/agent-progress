@@ -368,7 +368,7 @@ function launchTextWithEarlierSessionNoteOf(job: Readonly<Job>, facts: JobLaunch
   return { ...text, firstMessage: `${opening}\n\n${text.firstMessage}` };
 }
 
-/** What `run status` reads of the live Overseer's state document; anything it does not recognise reads as no document. */
+/** What `oversee status` reads of the live Overseer's state document; anything it does not recognise reads as no document. */
 export interface OverseerStateReading {
   runtimeState:     string;
   notices:          OverseerNotice[];

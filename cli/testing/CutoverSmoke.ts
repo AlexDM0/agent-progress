@@ -213,7 +213,7 @@ function createSmoke(options: CutoverSmokeOptions, logPath: string) {
     })().catch(() => undefined);
   };
 
-  const liveUrl = async (): Promise<string | null> => (await quietJson<{ url?: string | null }>(['run', 'status']))?.url ?? null;
+  const liveUrl = async (): Promise<string | null> => (await quietJson<{ url?: string | null }>(['oversee', 'status']))?.url ?? null;
 
   const liveJobs = async (): Promise<LiveJob[]> => (await quietJson<{ jobs: LiveJob[] }>(['jobs']))?.jobs ?? [];
 
@@ -272,11 +272,11 @@ function createSmoke(options: CutoverSmokeOptions, logPath: string) {
       const pipeline = JSON.parse(readFileSync(pipelinePath, 'utf8')) as Record<string, unknown>;
       writeFileSync(pipelinePath, `${JSON.stringify({ ...pipeline, review: { name: 'review' } }, null, 2)}\n`);
       await program(['concurrency', '2']);
-      await program(['run', 'pause']);
+      await program(['oversee', 'pause']);
     },
 
     async startOverseer(): Promise<void> {
-      const started = await programJson<{ url: string }>(['run', '--detach', '--port', '0']);
+      const started = await programJson<{ url: string }>(['oversee', '--detach', '--port', '0']);
       openStream(started.url);
     },
 
@@ -288,7 +288,7 @@ function createSmoke(options: CutoverSmokeOptions, logPath: string) {
         ticketIds.push(filed.id);
       }
       await programJson(['ticket', 'ready', ...ticketIds]);
-      await programJson(['run', 'resume']);
+      await programJson(['oversee', 'resume']);
       return ticketIds;
     },
 
@@ -307,7 +307,7 @@ function createSmoke(options: CutoverSmokeOptions, logPath: string) {
       const killedAt = new Date().toISOString();
       process.kill(baton.processId, 'SIGKILL');
       while (processIsAlive(baton.processId)) await sleep(POLL_INTERVAL_MILLISECONDS / 10);
-      const regrouped = await programJson<{ url: string }>(['run', '--detach', '--port', '0']);
+      const regrouped = await programJson<{ url: string }>(['oversee', '--detach', '--port', '0']);
       openStream(regrouped.url);
       streamGaps.push({ from: killedAt, to: new Date().toISOString() });
       await sleep(SETTLE_AFTER_REGROUPING_MILLISECONDS);
@@ -318,7 +318,7 @@ function createSmoke(options: CutoverSmokeOptions, logPath: string) {
       const instanceAfterRegrouping = newestInstance();
       const keptRunningAfterRegrouping = agentKeptRunning();
       const restartedAt = new Date().toISOString();
-      const restart = await program(['run', 'restart', '--json']);
+      const restart = await program(['oversee', 'restart', '--json']);
       const restartedUrl = await liveUrl();
       if (restartedUrl !== null) openStream(restartedUrl);
       streamGaps.push({ from: restartedAt, to: new Date().toISOString() });
@@ -391,7 +391,7 @@ function createSmoke(options: CutoverSmokeOptions, logPath: string) {
       for (let attempt = 0; attempt < STOPPING_JOB_TRIES && (await liveJobs()).some((liveJob) => liveJob.state === 'stopping'); attempt++) {
         await sleep(STOPPING_JOB_INTERVAL_MILLISECONDS);
       }
-      await program(['run', 'stop', '--now']);
+      await program(['oversee', 'stop', '--now']);
       const watcherPattern = join(trackerDirectory, 'overseer', 'watcher-');
       const leftoverWatcherLines = Bun.spawnSync(['pgrep', '-lf', watcherPattern]).stdout.toString().trim().split('\n').filter((line) => line !== '');
       const endedWatcherLines = leftoverWatcherLines.filter((line) => {

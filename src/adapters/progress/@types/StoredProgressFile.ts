@@ -69,7 +69,7 @@ export interface StoredJob {
   eventCursor:        StoredJobEventCursor;
   answeredRequestIds: string[];
   crashResumes:       number;
-  slot?:              StoredAirlock;
+  airlock?:           StoredAirlock;
   stopRequest?:       JobStopMode;
   intake?:            JobIntake;
   outcome?:           JobOutcome;

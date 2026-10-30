@@ -27,7 +27,7 @@ export function JobRows({ job, selected, now }: JobRowsProps) {
         <td>{job.role === null ? job.kind : `${job.kind} / ${job.role}`}</td>
         <td>{job.ticketIds.map((ticketId) => `#${ticketId}`).join(' ')}</td>
         <td>{job.state}</td>
-        <td>{job.slot?.phase ?? '-'}</td>
+        <td>{job.airlock?.phase ?? '-'}</td>
         <td data-column="calls">{callsAgainstBudgetOf(job)}</td>
         <td data-column="tool-calls">{`${live.toolCalls} (${live.toolCallsWithSubagents} with subagents)`}</td>
         <td data-column="tokens">{live.tokens.toLocaleString('en-US')}</td>

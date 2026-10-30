@@ -25,10 +25,10 @@ export AGENT_PROGRESS_FAKE_AGENT_KEEPS_WORKING=1 AGENT_PROGRESS_V2_FAKE_AGENT_KE
 cd "$REPOSITORY"
 cli() { bun "$TOOL_CHECKOUT/agent-progress.ts" "$@"; }
 
-BRIDGE_URL="$(cli run --port 0 --detach --json | sed -n 's/.*"url": *"\([^"]*\)".*/\1/p')"
+BRIDGE_URL="$(cli oversee --port 0 --detach --json | sed -n 's/.*"url": *"\([^"]*\)".*/\1/p')"
 [[ -n "$BRIDGE_URL" ]] || { echo "The Overseer printed no URL" >&2; exit 1; }
-trap 'cli run stop --now > /dev/null 2>&1 || true' EXIT
-cli run resume > /dev/null
+trap 'cli oversee stop --now > /dev/null 2>&1 || true' EXIT
+cli oversee resume > /dev/null
 # The first start holds the seeded low tickets for a first-run review under incident I1; readying them settles it.
 cli ticket ready 7 13 14 --incident I1 > /dev/null
 cli intake -- "Customers want a wish list on product pages" > /dev/null
@@ -56,4 +56,4 @@ shot() {
 } > "$SHOTS/bridge-jobs.json"
 HOME="$USER_HOME" bun "$HERE/shoot.js" "$SHOTS/bridge-jobs.json"
 # What the shots' header should say: running, its agents working.
-cli run status > "$SHOTS/run-status.txt"
+cli oversee status > "$SHOTS/run-status.txt"

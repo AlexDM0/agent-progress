@@ -1288,7 +1288,7 @@ describeWhenGitIsPresent('the main-line merge rows', () => {
     await harness.slots.sweep();
     const ended = harness.board.logRecordsSoFar().find((record) => record.kind === 'job-ended' && record.jobId === orphanedJobId);
     expect(ended?.kind === 'job-ended' ? ended.fields.cause : null).toBe('orphaned');
-    expect(harness.mergeJob()?.slot?.branchTip).toBe(branchTip);
+    expect(harness.mergeJob()?.airlock?.branchTip).toBe(branchTip);
     harness.remove();
   });
 
@@ -1300,7 +1300,7 @@ describeWhenGitIsPresent('the main-line merge rows', () => {
     harness.board.interruptJob(agentId, 'reboot', HARNESS_AT);
     const restarted = harness.slots;
     await restarted.sweep();
-    expect(harness.mergeJob()?.slot?.phase).toBe('resolving');
+    expect(harness.mergeJob()?.airlock?.phase).toBe('resolving');
     harness.board.moveJob(agentId, 'running', HARNESS_AT);
     resolveAs(harness, '001', 'base.ts', 'export const base = 4;\n');
     await harness.slots.sweep();
@@ -1370,7 +1370,7 @@ describeWhenGitIsPresent('the group merge rows', () => {
     expect(ended?.kind === 'job-ended' ? ended.fields.cause : null).toBe('orphaned');
     const refreshes = harness.board.jobs().filter((job) => job.kind === 'refresh');
     expect(refreshes).toHaveLength(1);
-    expect(refreshes[0]?.slot?.phase).toBe('resolving');
+    expect(refreshes[0]?.airlock?.phase).toBe('resolving');
     expect(harness.tipOf('group-example')).toBe(groupTip);
     harness.remove();
   });

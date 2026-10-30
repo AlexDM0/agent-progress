@@ -122,7 +122,7 @@ async function handOverTheLiveOverseer(files: OverseerFiles, now: boolean): Prom
 /** The same program, detached in its own process group with its streams dropped; the Overseer logs to `overseer.log` itself. */
 async function startDetached(context: CommandContext, files: OverseerFiles, runArguments: readonly string[]): Promise<string> {
   if (context.programCommand.length === 0) throw new Error('This process has no program command to start a detached Overseer from.');
-  const child = Bun.spawn([...context.programCommand, 'run', ...runArguments], {
+  const child = Bun.spawn([...context.programCommand, 'oversee', ...runArguments], {
     cwd: context.currentDirectory, stdin: 'ignore', stdout: 'ignore', stderr: 'ignore', detached: true,
   });
   child.unref();

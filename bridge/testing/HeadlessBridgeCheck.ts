@@ -1,5 +1,5 @@
 /**
- * The Bridge loaded for real: `run --port 0` on a scratch board with the fake agent, the page opened in headless Chrome over the DevTools
+ * The Bridge loaded for real: `oversee --port 0` on a scratch board with the fake agent, the page opened in headless Chrome over the DevTools
  * protocol, every tab visited, and every console error, uncaught exception, failed request and error-level log entry (a CSP violation is
  * one) collected. Dispatched workers have no browser skill, so this is their check; `bridge/HeadlessBridge.spec.ts` runs it.
  */
@@ -110,7 +110,7 @@ export async function readTheBridgeHeadless(chromePath: string): Promise<Headles
   let chrome: Bun.Subprocess<'ignore', 'ignore', 'pipe'> | null = null;
   let devTools: ReturnType<typeof connectDevTools> | null = null;
   try {
-    const overseer = startAgentProgress(['run', '--port', '0'], { currentDirectory: repositoryDirectory, homeDirectory });
+    const overseer = startAgentProgress(['oversee', '--port', '0'], { currentDirectory: repositoryDirectory, homeDirectory });
     const url = await overseer.firstOutputLine ?? '';
     chrome = Bun.spawn([
       chromePath,
@@ -152,7 +152,7 @@ export async function readTheBridgeHeadless(chromePath: string): Promise<Headles
     devTools?.close();
     chrome?.kill();
     await chrome?.exited;
-    await runAgentProgress(['run', 'stop'], { currentDirectory: repositoryDirectory, homeDirectory });
+    await runAgentProgress(['oversee', 'stop'], { currentDirectory: repositoryDirectory, homeDirectory });
     removeScratchDirectory(chromeProfileDirectory);
     removeScratchDirectory(homeDirectory);
     removeScratchDirectory(repositoryDirectory);

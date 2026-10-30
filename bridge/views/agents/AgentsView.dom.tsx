@@ -158,7 +158,7 @@ afterEach(() => {
 describe('the job rows', () => {
   test('a job row shows its state, phase, calls against budget, tool calls, tokens, last tool, silent sweeps and Watcher protocol', () => {
     renderAgents([{
-      ...BUILD_JOB, kind: 'merge', role: null, slot: { phase: 'gating' }
+      ...BUILD_JOB, kind: 'merge', role: null, airlock: { phase: 'gating' }
     }]);
     const row = jobRow('J12');
     expect([...row.querySelectorAll('td')].map((cell) => cell.textContent)).toEqual([

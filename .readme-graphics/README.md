@@ -2,7 +2,7 @@
 
 Everything that produces the screenshots and diagrams in `docs/images/`, kept in the repository, with only its
 `build/` ignored by git. The Bridge images are **generated from this checkout's own CLI and Overseer**: a synthetic
-board ("Example Storefront") is filed through the real commands in a scratch tracker, this checkout's `run` starts an
+board ("Example Storefront") is filed through the real commands in a scratch tracker, this checkout's `oversee` starts an
 Overseer on it with the fake agent adapter, and headless Chrome photographs each view of the Bridge it serves. So
 after a change to how the Bridge looks, one command redraws them all.
 
@@ -31,7 +31,7 @@ Pillow and the `diagrams` skill's renderer at `~/.claude/skills/diagrams/scripts
 |---|---|
 | `regenerate.sh` | The one command: seed → Overseer and shots → copy the images the root README.md references into `docs/images/`; the rest stay in `build/images/`. |
 | `seed-demo.sh` | Files the board through the CLI under a pinned clock in a throwaway repository with a home of its own: two epics, sixteen tickets whose dependencies make the waves (two chains meeting in the one-ticket wave of #012), one abandoned, two left as drafts for intake, the rest readied. |
-| `bridge-demo.sh` | Starts `run --port 0 --detach` on the seeded board with the fake agent switch on, resumes it so it launches builders that keep working, records an intake, waits for the jobs to appear, shoots each view, and stops the Overseer. |
+| `bridge-demo.sh` | Starts `oversee --port 0 --detach` on the seeded board with the fake agent switch on, resumes it so it launches builders that keep working, records an intake, waits for the jobs to appear, shoots each view, and stops the Overseer. |
 | `demo-bodies/` | The mock ticket bodies, `NNN.md` filed with each ticket. |
 | `freeze-clock.js` | Preloaded into the CLI (`bun --preload`): every `Date` reads the story time in `STORY_CLOCK`. |
 | `shoot.js` | Headless Chrome over the DevTools protocol, from a JSON job list of files (`html`) or live pages (`url`): frozen clock, colour scheme, time zone, pre-seeded `localStorage`, an in-page action, clips by selector, and element measurements. |

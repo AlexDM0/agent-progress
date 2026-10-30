@@ -209,7 +209,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   `clear`.
 - Help is one screen, no per-command help; to stdout when asked, to stderr after an unknown command.
 - Every command but `init`, `update`, `help`, `status` and `version` checks the install version first
-  (`cli/Main.spec.ts`); `hook session-start` and `hook bash-domains` skip it; `run status` and `run stop` skip
+  (`cli/Main.spec.ts`); `hook session-start` and `hook bash-domains` skip it; `oversee status` and `oversee stop` skip
   it, so an Overseer whose install changed can still be inspected and stopped.
 - `src/TestFileConventions.spec.ts` holds that no spec starts an Overseer without `--port 0`.
 - A new command is an entry in `cli/CommandTable.ts`, a block in `cli/HelpText.ts` and a folder in its set, held by
@@ -245,7 +245,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   `Bun.build` for production and serves through `fetch`, never Bun's HTML route, which takes no headers: every file
   carries the page CSP's `frame-ancestors`. It reads the Overseer's API and nothing else, and keeps no copy of the
   rules: what it shows arrives as facts. Nothing renders a static page: `open` opens the live Overseer's URL or is
-  refused `overseer-down`, and `progress.html` is a stub that `init`, `update` and `run` write, naming that URL or
+  refused `overseer-down`, and `progress.html` is a stub that `init`, `update` and `oversee` write, naming that URL or
   saying the Overseer is down.
 - The render service builds the payload from the same Board queries `status --json` prints (`BoardFacts`,
   `PagePayloadAssembly`, `MarkdownRenderer`); a ticket's `bodyHtml` and an epic's `descriptionHtml` are its only HTML.
@@ -279,7 +279,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   as an Overseer product-owner job's first line, holds the whole filing procedure, files every ticket as a draft with a
   numbered Acceptance and a `## Brief`, and readies drafts only on User's yes in User's own session (under the Overseer
   it closes intake instead); it loads no other skill. `skills/agent-progress-orchestrate/` is the interactive wrapper
-  around a running Overseer (`run`): it reads its state, starts it on User's go, turns User's intent into verbs,
+  around a running Overseer (`oversee`): it reads its state, starts it on User's go, turns User's intent into verbs,
   loads `agent-po` for intake and may wait on `await`; it never drives the lifecycle or handles an incident, which
   are the Overseer's and its Assistant's.
 - No agent preloads a skill, and nothing installs a brief or worker definition: an Overseer's roles read their runtime
@@ -309,7 +309,7 @@ bridge/              feature: the Bridge, the React live UI the Overseer serves,
 resources/           files read at runtime: the markdown init, update and ticket add fill
 src/lib/             package-grade building blocks, one folder each
 src/adapters/        the boundary: every stored format read, written and mapped, and the wording
-src/services/        the tracker and render services, and the Overseer's: overseer/ (`run`, its DrivePass and its
+src/services/        the tracker and render services, and the Overseer's: overseer/ (`oversee`, its DrivePass and its
                      API), lifecycle/ (gates, verification, merges, landings) and control/ (the control contract)
 src/shared/          app-specific code several parts use
 src/testing/         test-only helpers several parts use

@@ -36,7 +36,7 @@ export interface AgentJobDocument extends IdentifiedRecord {
   readonly attempt:         number;
   readonly watcherInstance: number;
   readonly crashResumes:    number;
-  readonly slot?:           { readonly phase: string };
+  readonly airlock?:        { readonly phase: string };
   readonly stopRequest?:    string;
   readonly live:            JobLiveFactsDocument;
 }

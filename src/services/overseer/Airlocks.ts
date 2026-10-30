@@ -69,7 +69,7 @@ export interface AirlocksContext {
   jobFolderOf:           (job: Readonly<Job>) => string;
   /** How often a fixer whose fix left the merged tree red is resumed before the merge parks. */
   redHandoffResumes:     number;
-  /** `run pause` opens no new slot; a slot already open finishes. */
+  /** `oversee pause` opens no new slot; a slot already open finishes. */
   dispatchIsStopped:     () => boolean;
   /** A removal git declined after a refresh or a release: the Overseer logs it and shows it as a notice while the leftover stands. */
   reportDeclinedCleanup: (declined: DeclinedCleanup) => void;
@@ -94,7 +94,7 @@ function treeOfCommit(worktree: string, commit: string): string | null {
 
 /** The merged tree is the branch's own tree, and the newest gate run on it passed: the merge changed nothing the gates judged. */
 function mergedTreeWasLastPassed(board: Board, worktree: string, job: Readonly<Job>, treeId: string): boolean {
-  const branchTip = job.slot?.branchTip;
+  const branchTip = job.airlock?.branchTip;
   if (branchTip === undefined || treeOfCommit(worktree, branchTip) !== treeId) return false;
   const newestRunOnTheTree = board.logRecordsSoFar().findLast((record) => record.kind === 'gate-ran' && record.fields.tree === treeId);
   return newestRunOnTheTree?.kind === 'gate-ran' && newestRunOnTheTree.fields.outcome === 'passed';
@@ -154,8 +154,8 @@ function reportFieldOf(report: unknown, field: string): unknown {
 }
 
 function slotOf(job: Readonly<Job>): Readonly<Airlock> {
-  if (job.slot === undefined) throw new Error(`Merge job ${job.id} holds no slot.`);
-  return job.slot;
+  if (job.airlock === undefined) throw new Error(`Merge job ${job.id} holds no slot.`);
+  return job.airlock;
 }
 
 function ticketIdOf(job: Readonly<Job>): string {
@@ -678,7 +678,7 @@ export function createAirlocks(context: AirlocksContext): Airlocks {
       const parked = job.ticketIds.some((ticketId) => hold.board.ticketByReference(ticketId)?.frontmatter.hold?.startsWith(PARKED_HOLD_PREFIX) === true);
       return { job, parked, hasOpenIncident: hold.board.incidents().some((incident) => incident.jobId === job.id) };
     });
-    if (holding === null || holding.job.slot === undefined) return false;
+    if (holding === null || holding.job.airlock === undefined) return false;
     if (holding.parked && !holding.hasOpenIncident) return abortParkedMerge(holding.job);
     return advance(holding.job, holding.hasOpenIncident);
   }

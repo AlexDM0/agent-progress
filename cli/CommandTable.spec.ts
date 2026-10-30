@@ -67,7 +67,7 @@ describe('the command table', () => {
       'open',
       'range',
       'review-stats',
-      'run',
+      'oversee',
       'status',
       'task',
       'ticket',

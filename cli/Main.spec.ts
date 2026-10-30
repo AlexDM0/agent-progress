@@ -208,7 +208,7 @@ describe('a tracker whose installed files are of another install version', () =>
 
   test('run status runs and reports the Overseer down, so an Overseer whose install changed can still be inspected', async () => {
     const context = trackedContext();
-    expect(await runCommandLine(['run', 'status', '--json'], context), context.errorText()).toBe(0);
+    expect(await runCommandLine(['oversee', 'status', '--json'], context), context.errorText()).toBe(0);
     expect(JSON.parse(context.outputText())).toMatchObject({
       state: 'down', paused: true, url: null, baton: null, codeVersionInMemory: null
     });
@@ -216,7 +216,7 @@ describe('a tracker whose installed files are of another install version', () =>
 
   test('run pause is checked like every mutating verb', async () => {
     const context = trackedContext();
-    expect(await runCommandLine(['run', 'pause'], context)).toBe(1);
+    expect(await runCommandLine(['oversee', 'pause'], context)).toBe(1);
     expect(context.errorText()).toBe(unversionedParagraph());
   });
 

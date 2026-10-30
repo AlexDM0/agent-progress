@@ -1,9 +1,9 @@
 /**
  * The Overseer's start, Baton and stop, end to end through real child processes, since an Overseer holds its process until it is stopped.
  * What matters: two starters at once leave exactly one Overseer serving; a Baton naming a dead process is taken over as after a crash; a
- * Overseer whose generation was overtaken stops at exit 2 touching nothing; `run --detach`, `run status`, `run restart` and `run stop`
- * agree with the Baton; `run stop --now` stops a live process Watcher, which a plain stop leaves running; `run pause|resume` write the
- * drain flag with no Overseer up, which the Bridge header's board state and `run status` read alike; and a spec-spawned Overseer resolves
+ * Overseer whose generation was overtaken stops at exit 2 touching nothing; `oversee --detach`, `oversee status`, `oversee restart` and `oversee stop`
+ * agree with the Baton; `oversee stop --now` stops a live process Watcher, which a plain stop leaves running; `oversee pause|resume` write the
+ * drain flag with no Overseer up, which the Bridge header's board state and `oversee status` read alike; and a spec-spawned Overseer resolves
  * the fake agent, never the vendor's adapter. Every Overseer binds `--port 0`.
  */
 import {
@@ -92,11 +92,11 @@ function plantDeadBaton(generation: number): void {
 }
 
 function startOverseer() {
-  return startAgentProgress(['run', '--port', '0'], { currentDirectory: repositoryDirectory, homeDirectory });
+  return startAgentProgress(['oversee', '--port', '0'], { currentDirectory: repositoryDirectory, homeDirectory });
 }
 
 async function stopOverseer(): Promise<void> {
-  const stopped = await runAgentProgress(['run', 'stop'], { currentDirectory: repositoryDirectory, homeDirectory });
+  const stopped = await runAgentProgress(['oversee', 'stop'], { currentDirectory: repositoryDirectory, homeDirectory });
   expect(stopped.exitCode, stopped.standardError).toBe(0);
 }
 
@@ -106,7 +106,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await runAgentProgress(['run', 'stop'], { currentDirectory: repositoryDirectory, homeDirectory });
+  await runAgentProgress(['oversee', 'stop'], { currentDirectory: repositoryDirectory, homeDirectory });
   removeScratchDirectory(repositoryDirectory);
   removeScratchDirectory(homeDirectory);
 });
@@ -173,7 +173,7 @@ describe('the agent adapter of a spec-spawned overseer', () => {
 
     const logLength = readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'overseer.log'), 'utf8').length;
     const switchedOff = { [fakeAgentVariableOf(PRODUCT_NAMES)]: '0' };
-    const planted     = startAgentProgress(['run', '--port', '0'], { currentDirectory: repositoryDirectory, homeDirectory, environment: switchedOff });
+    const planted     = startAgentProgress(['oversee', '--port', '0'], { currentDirectory: repositoryDirectory, homeDirectory, environment: switchedOff });
     expect(await planted.firstOutputLine).toStartWith('http://127.0.0.1:');
     expect(announcedVendorSince(logLength)).toBe(FAKE_AGENT_VENDOR);
     await stopOverseer();
@@ -183,32 +183,32 @@ describe('the agent adapter of a spec-spawned overseer', () => {
 
 describe('run --detach, status, restart and stop', () => {
   test('a detached Overseer prints its URL once it answers; status reports it serving; restart keeps its port under a new process', async () => {
-    const detached = await runAgentProgress(['run', '--detach', '--port', '0', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
+    const detached = await runAgentProgress(['oversee', '--detach', '--port', '0', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
     expect(detached.exitCode, detached.standardError).toBe(0);
     const { url } = JSON.parse(detached.standardOutput) as { url: string };
 
-    const status = await runAgentProgress(['run', 'status', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
+    const status = await runAgentProgress(['oversee', 'status', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
     expect(JSON.parse(status.standardOutput)).toMatchObject({
       state: 'serving', paused: true, url, codeVersionOnDisk: CodeVersion.onDisk(), codeVersionInMemory: CodeVersion.onDisk(),
     });
 
     const processBefore = batonOf(batonFileNames()[0] ?? '')['processId'];
-    const restarted = await runAgentProgress(['run', 'restart', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
+    const restarted = await runAgentProgress(['oversee', 'restart', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
     expect(restarted.exitCode, `${restarted.standardError}\n${overseerLogText()}`).toBe(0);
     expect(JSON.parse(restarted.standardOutput)).toEqual({ outcome: 'done', url, codeVersion: CodeVersion.onDisk() });
     expect(batonFileNames()).toEqual(['baton-2.json']);
     expect(batonOf(batonFileNames()[0] ?? '')['processId']).not.toBe(processBefore);
     expect(storedLogKindsOf(repositoryDirectory).filter((kind) => kind.startsWith('overseer-'))).toEqual(['overseer-started', 'overseer-stopped', 'overseer-started']);
 
-    const stopped = await runAgentProgress(['run', 'stop', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
+    const stopped = await runAgentProgress(['oversee', 'stop', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
     expect(JSON.parse(stopped.standardOutput)).toEqual({ outcome: 'done' });
     expect(batonFileNames()).toEqual([]);
-    const statusAfter = await runAgentProgress(['run', 'status', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
+    const statusAfter = await runAgentProgress(['oversee', 'status', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
     expect(JSON.parse(statusAfter.standardOutput)).toMatchObject({ state: 'down', url: null });
   }, OVERSEER_TEST_TIMEOUT_MILLISECONDS);
 
   test('a second restart while a Baton pass runs leaves the successor\'s ready report standing, and the first Baton pass completes', async () => {
-    const detached = await runAgentProgress(['run', '--detach', '--port', '0', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
+    const detached = await runAgentProgress(['oversee', '--detach', '--port', '0', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
     expect(detached.exitCode, detached.standardError).toBe(0);
     const { url } = JSON.parse(detached.standardOutput) as { url: string };
     const batonPassFilePath = join(overseerDirectory(), 'baton-pass-1.json');
@@ -220,7 +220,7 @@ describe('run --detach, status, restart and stop', () => {
       }
     };
 
-    const restarting = runAgentProgress(['run', 'restart', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
+    const restarting = runAgentProgress(['oversee', 'restart', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
     // The old Overseer looks for `ready` only every interval, so a second command sent the moment it appears arrives before that look.
     for (let attempt = 0; attempt < 20_000 && batonPassState() !== 'ready'; attempt++) await Bun.sleep(1);
     expect(batonPassState()).toBe('ready');
@@ -237,7 +237,7 @@ describe('run --detach, status, restart and stop', () => {
   }, OVERSEER_TEST_TIMEOUT_MILLISECONDS);
 
   test('a successor that fails a step exits; restart exits 1 baton-pass-failed and the old Overseer keeps driving, logging it and warning', async () => {
-    const detached = await runAgentProgress(['run', '--detach', '--port', '0', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
+    const detached = await runAgentProgress(['oversee', '--detach', '--port', '0', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
     expect(detached.exitCode, detached.standardError).toBe(0);
     const { url } = JSON.parse(detached.standardOutput) as { url: string };
     const batonBefore = batonOf('baton-1.json');
@@ -246,16 +246,16 @@ describe('run --detach, status, restart and stop', () => {
     for (let attempt = 0; attempt < WATCHER_WAIT_TRIES && !existsSync(eventLogPath); attempt++) await Bun.sleep(WATCHER_WAIT_MILLISECONDS);
     appendFileSync(eventLogPath, 'not an event\n');
 
-    const restarted = await runAgentProgress(['run', 'restart', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
+    const restarted = await runAgentProgress(['oversee', 'restart', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
     expect(restarted.exitCode, `${restarted.standardError}\n${overseerLogText()}`).toBe(1);
     expect(`${restarted.standardOutput}${restarted.standardError}`).toContain('failed at read-watcher-files');
     expect(batonFileNames()).toEqual(['baton-1.json']);
     expect(batonOf('baton-1.json')).toEqual(batonBefore);
     expect(storedLogKindsOf(repositoryDirectory)).toContain('baton-pass-failed');
 
-    const status = await runAgentProgress(['run', 'status', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
+    const status = await runAgentProgress(['oversee', 'status', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
     expect(JSON.parse(status.standardOutput)).toMatchObject({ url, batonPassWarning: { step: 'read-watcher-files' } });
-    expect((await runAgentProgress(['run', 'status'], { currentDirectory: repositoryDirectory, homeDirectory })).standardOutput)
+    expect((await runAgentProgress(['oversee', 'status'], { currentDirectory: repositoryDirectory, homeDirectory })).standardOutput)
       .toContain('warning: the Baton pass to code');
     await stopOverseer();
   }, OVERSEER_TEST_TIMEOUT_MILLISECONDS);
@@ -265,7 +265,7 @@ describe('run --detach, status, restart and stop', () => {
     expect(withNoOverseer.exitCode, withNoOverseer.standardError).toBe(0);
     expect(withNoOverseer.standardOutput).not.toContain('Handing the overseer');
 
-    const detached = await runAgentProgress(['run', '--detach', '--port', '0', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
+    const detached = await runAgentProgress(['oversee', '--detach', '--port', '0', '--json'], { currentDirectory: repositoryDirectory, homeDirectory });
     expect(detached.exitCode, detached.standardError).toBe(0);
     const onTheSameCode = await runAgentProgress(['update'], { currentDirectory: repositoryDirectory, homeDirectory });
     expect(onTheSameCode.standardOutput).not.toContain('Handing the overseer');
@@ -314,7 +314,7 @@ describe('run --detach, status, restart and stop', () => {
       expect(WatcherFleet.livenessOf(watcherFolder, 1).verdict).toBe('live');
 
       const startOverseerDetached = async (): Promise<void> => {
-        const detached = await runAgentProgress(['run', '--detach', '--port', '0'], { currentDirectory: repositoryDirectory, homeDirectory });
+        const detached = await runAgentProgress(['oversee', '--detach', '--port', '0'], { currentDirectory: repositoryDirectory, homeDirectory });
         expect(detached.exitCode, detached.standardError).toBe(0);
       };
       await startOverseerDetached();
@@ -322,7 +322,7 @@ describe('run --detach, status, restart and stop', () => {
       expect(WatcherFleet.livenessOf(watcherFolder, 1).verdict).toBe('live');
 
       await startOverseerDetached();
-      const stoppedNow = await runAgentProgress(['run', 'stop', '--now'], { currentDirectory: repositoryDirectory, homeDirectory });
+      const stoppedNow = await runAgentProgress(['oversee', 'stop', '--now'], { currentDirectory: repositoryDirectory, homeDirectory });
       expect(stoppedNow.exitCode, stoppedNow.standardError).toBe(0);
       expect(WatcherFleet.livenessOf(watcherFolder, 1)).toMatchObject({ verdict: 'ended' });
       for (let attempt = 0; attempt < WATCHER_WAIT_TRIES && !processIsGone(watcherProcessId); attempt += 1) await Bun.sleep(WATCHER_WAIT_MILLISECONDS);
@@ -336,7 +336,7 @@ describe('run --detach, status, restart and stop', () => {
   }, OVERSEER_TEST_TIMEOUT_MILLISECONDS);
 
   test('stop with no Overseer live has nothing to do', async () => {
-    const stopped = await runAgentProgress(['run', 'stop'], { currentDirectory: repositoryDirectory, homeDirectory });
+    const stopped = await runAgentProgress(['oversee', 'stop'], { currentDirectory: repositoryDirectory, homeDirectory });
     expect(stopped.exitCode).toBe(0);
     expect(stopped.standardOutput.trim()).toBe('No Overseer is live; nothing to stop.');
   });
@@ -345,21 +345,21 @@ describe('run --detach, status, restart and stop', () => {
 describe('run pause and resume', () => {
   test('write the stored drain flag through the write pipeline with no Overseer up', async () => {
     const paused = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    expect(await runCommandLine(['run', 'resume', '--json'], paused), paused.errorText()).toBe(0);
+    expect(await runCommandLine(['oversee', 'resume', '--json'], paused), paused.errorText()).toBe(0);
     expect(JSON.parse(paused.outputText())).toEqual({ overseerState: 'running', previousState: 'paused' });
     const resumed = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    expect(await runCommandLine(['run', 'pause', '--json'], resumed), resumed.errorText()).toBe(0);
+    expect(await runCommandLine(['oversee', 'pause', '--json'], resumed), resumed.errorText()).toBe(0);
     expect(JSON.parse(resumed.outputText())).toEqual({ overseerState: 'paused', previousState: 'running' });
     const progress = JSON.parse(readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'), 'utf8')) as Record<string, unknown>;
     expect(progress['overseerState']).toBe('paused');
   });
 
-  test('the board state the Bridge header reads agrees with run status after a resume and after a pause', async () => {
+  test('the board state the Bridge header reads agrees with oversee status after a resume and after a pause', async () => {
     const pausedFlagsAfter = async (commandLine: readonly string[]): Promise<{ header: boolean; runStatus: unknown }> => {
       const moved = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
       expect(await runCommandLine([...commandLine], moved), moved.errorText()).toBe(0);
       const statusContext = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-      expect(await runCommandLine(['run', 'status', '--json'], statusContext), statusContext.errorText()).toBe(0);
+      expect(await runCommandLine(['oversee', 'status', '--json'], statusContext), statusContext.errorText()).toBe(0);
       const boardState = readBoardState({
         context:   createCapturedCommandContext({ currentDirectory: repositoryDirectory }),
         workspace: requireWorkspace(repositoryDirectory),
@@ -370,7 +370,7 @@ describe('run pause and resume', () => {
       }).state;
       return { header: boardState.overseer.paused, runStatus: (JSON.parse(statusContext.outputText()) as Record<string, unknown>)['paused'] };
     };
-    expect(await pausedFlagsAfter(['run', 'resume'])).toEqual({ header: false, runStatus: false });
-    expect(await pausedFlagsAfter(['run', 'pause'])).toEqual({ header: true, runStatus: true });
+    expect(await pausedFlagsAfter(['oversee', 'resume'])).toEqual({ header: false, runStatus: false });
+    expect(await pausedFlagsAfter(['oversee', 'pause'])).toEqual({ header: true, runStatus: true });
   });
 });

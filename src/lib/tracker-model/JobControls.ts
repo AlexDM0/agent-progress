@@ -69,7 +69,7 @@ export class JobControls {
     return { job, logged };
   }
 
-  /** `run pause` plus a stop or wind-down of every live build, review and product-owner job. */
+  /** `oversee pause` plus a stop or wind-down of every live build, review and product-owner job. */
   stopAllJobs(mode: Exclude<JobStopMode, 'fresh'>, pause: () => readonly LogRecord[], at: string): Logged {
     const jobIds = this.jobRules.jobs().filter((job) => STOPPABLE_BY_ALL_KINDS.includes(job.kind)).map((job) => job.id);
     return { logged: [...pause(), ...jobIds.flatMap((jobId) => this.requestJobStop(jobId, mode, at).logged)] };

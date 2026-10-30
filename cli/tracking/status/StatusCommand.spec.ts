@@ -443,7 +443,7 @@ describeWhenGitIsPresent('the dispatch fields both --json documents carry', () =
   });
 
   test('the ids in flight end the concurrency block', async () => {
-    await run(['run', 'resume']);
+    await run(['oversee', 'resume']);
 
     const { working, full } = await bothDocuments();
     const expectedKeys      = [

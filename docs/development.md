@@ -176,11 +176,11 @@ To see a change, start an Overseer on a scratch tracker (the one from the sessio
 open it:
 
 ```sh
-AGENT_PROGRESS_ROOT="$SCRATCH" bun agent-progress.ts run --detach
+AGENT_PROGRESS_ROOT="$SCRATCH" bun agent-progress.ts oversee --detach
 AGENT_PROGRESS_ROOT="$SCRATCH" bun agent-progress.ts open
 ```
 
-`run --detach` prints the Bridge's URL once the Overseer answers; `open` opens it in the default browser. The
+`oversee --detach` prints the Bridge's URL once the Overseer answers; `open` opens it in the default browser. The
 Bridge follows the board by itself; restart the Overseer to serve changed Bridge code.
 
 ## Architecture decisions

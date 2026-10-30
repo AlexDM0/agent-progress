@@ -50,7 +50,7 @@
 
   <!-- band 2: the single writer -->
   <rect x="40" y="268" width="600" height="56" rx="8" fill="#FAECE7" stroke="#F3D2C5"/>
-  <text x="340" y="292" font-size="14" font-weight="500" fill="#712B13" text-anchor="middle">Overseer · agent-progress run</text>
+  <text x="340" y="292" font-size="14" font-weight="500" fill="#712B13" text-anchor="middle">Overseer · agent-progress oversee</text>
   <text x="340" y="310" font-size="12" fill="#993C1D" text-anchor="middle">decides every move in code: slots, gates, review rounds, parking</text>
 
   <!-- band 3: the sessions it launches -->

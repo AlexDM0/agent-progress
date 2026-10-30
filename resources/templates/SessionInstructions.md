@@ -1,12 +1,12 @@
 ## Progress tracking with {{program}}
 
 This repository tracks its work with the `{{program}}` CLI. The tracker lives in the git-ignored `{{dataFolder}}/`
-folder at the repository root and is shared by every worktree of it. An Overseer, started with `{{program}} run`, drives
+folder at the repository root and is shared by every worktree of it. An Overseer, started with `{{program}} oversee`, drives
 every ticket through its build, review and merge; no session drives the board by hand.
 
 - Run `{{program}} status --json` at the start of a session to find out what is in flight: its `jobs`, the
   `decisions` waiting for User and the open `incidents`. The Overseer's own state adds `mergeQueue`, `overseer` and
-  `usage`; `{{program}} run status` says whether it is up.
+  `usage`; `{{program}} oversee status` says whether it is up.
 - When User asks to file, report or track a ticket, bug or research question, load the `{{productOwnerSkill}}`
   skill. Only when User asks this session to run the board, load `{{orchestrateSkill}}`; it loads
   `{{productOwnerSkill}}` itself. Filing or editing a ticket does not make a session the orchestrator.

@@ -35,7 +35,7 @@ export interface SmokeItemVerdict {
   detail: string;
 }
 
-/** What the driver saw around the Overseer's `kill -9`, its second `run` and its `run restart`. */
+/** What the driver saw around the Overseer's `kill -9`, its second `oversee` and its `oversee restart`. */
 export interface RegroupingObservation {
   jobId:                              string;
   watcherInstanceBeforeKill:          number;
@@ -168,7 +168,7 @@ export const CutoverSmokeUtil = Object.freeze({
         `the regrouped job moved to Watcher instance ${observation.watcherInstanceAfterRegrouping}`,
       ]),
       ...(observation.buildJobsOnTheTicketAfterKill === 0 ? [] : [`${observation.buildJobsOnTheTicketAfterKill} more build jobs launched on the ticket`]),
-      ...(observation.restartExitCode === 0 ? [] : [`run restart exited ${observation.restartExitCode}`]),
+      ...(observation.restartExitCode === 0 ? [] : [`oversee restart exited ${observation.restartExitCode}`]),
       ...(observation.watcherProcessAliveAfterRestart ? [] : ['the Watcher died in the Baton pass']),
       ...(observation.watcherInstanceAfterRestart === observation.watcherInstanceBeforeKill ? [] : [
         `the job moved to Watcher instance ${observation.watcherInstanceAfterRestart} in the baton-pass`,
@@ -178,7 +178,7 @@ export const CutoverSmokeUtil = Object.freeze({
       item:   2,
       passed: problems.length === 0,
       detail: problems.length === 0
-        ? `job ${observation.jobId} kept Watcher instance ${observation.watcherInstanceBeforeKill} alive through kill -9, a new run and run restart`
+        ? `job ${observation.jobId} kept Watcher instance ${observation.watcherInstanceBeforeKill} alive through kill -9, a new run and oversee restart`
         : problems.join('; '),
     };
   },

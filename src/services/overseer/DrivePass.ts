@@ -494,8 +494,8 @@ function airlockFactsOf(board: Board, trackerDirectory: string, job: Readonly<Jo
   const factOf   = (name: string): string => (Object.hasOwn(facts, name) && typeof facts[name] === 'string' ? facts[name] : '');
   return {
     worktree:    workingDirectory,
-    branchTip:   mergeJob?.slot?.branchTip ?? '',
-    targetTip:   mergeJob?.slot?.targetTip ?? '',
+    branchTip:   mergeJob?.airlock?.branchTip ?? '',
+    targetTip:   mergeJob?.airlock?.targetTip ?? '',
     mergeCommit: factOf('mergeCommit'),
     gateTail:    factOf('gateTail'),
   };

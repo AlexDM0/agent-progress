@@ -1,5 +1,5 @@
 /**
- * `run` and its subcommands. Starting, restarting, pausing and resuming check the install version; `run status` and `run stop` do not,
+ * `oversee` and its subcommands. Starting, restarting, pausing and resuming check the install version; `oversee status` and `oversee stop` do not,
  * so an Overseer whose install changed can still be inspected and stopped.
  */
 import { readingBoardOf }                                    from '../../src/lib/tracker-model/ReadingBoard.ts';
@@ -26,11 +26,11 @@ import { OverseerWording }                                   from './OverseerWor
 
 const { PROGRAM } = PRODUCT_NAMES;
 
-const START_USAGE     = `${PROGRAM} run [--port <n>] [--detach] [--json]`;
-const SUCCESSOR_USAGE = `${PROGRAM} run --successor-of <generation> [--port <n>]`;
-const STOP_USAGE    = `${PROGRAM} run stop|restart [--now] [--json]`;
-const PAUSE_USAGE   = `${PROGRAM} run pause|resume [--json]`;
-const STATUS_USAGE  = `${PROGRAM} run status [--json]`;
+const START_USAGE     = `${PROGRAM} oversee [--port <n>] [--detach] [--json]`;
+const SUCCESSOR_USAGE = `${PROGRAM} oversee --successor-of <generation> [--port <n>]`;
+const STOP_USAGE    = `${PROGRAM} oversee stop|restart [--now] [--json]`;
+const PAUSE_USAGE   = `${PROGRAM} oversee pause|resume [--json]`;
+const STATUS_USAGE  = `${PROGRAM} oversee status [--json]`;
 
 const HIGHEST_PORT          = 65535;
 const WHOLE_NUMBER_PATTERN  = /^\d+$/;
@@ -160,7 +160,7 @@ async function printOverseerStatus(commandArguments: ArgumentParser, context: Co
   OutputUtil.printEntity(commandArguments, context, entity, lines.join('\n'));
 }
 
-const RUN_SUBCOMMANDS: Readonly<Record<string, RunSubcommand>> = Object.freeze({
+const OVERSEE_SUBCOMMANDS: Readonly<Record<string, RunSubcommand>> = Object.freeze({
   stop:    stopSubcommand('overseer-stop'),
   restart: stopSubcommand('overseer-restart'),
   pause:   pauseSubcommand('overseer-pause'),
@@ -168,17 +168,20 @@ const RUN_SUBCOMMANDS: Readonly<Record<string, RunSubcommand>> = Object.freeze({
   status:  printOverseerStatus,
 });
 
-export const RUN_SUBCOMMAND_NAMES: readonly string[] = Object.freeze(Object.keys(RUN_SUBCOMMANDS));
+export const OVERSEE_SUBCOMMAND_NAMES: readonly string[] = Object.freeze(Object.keys(OVERSEE_SUBCOMMANDS));
 
-export const runCommand: CommandHandler = async (commandArguments, context) => {
+export const overseeCommand: CommandHandler = async (commandArguments, context) => {
   const subcommand = commandArguments.positionals()[0];
   if (subcommand === undefined) {
     await startOverseer(commandArguments, context);
     return;
   }
-  const handler = Object.hasOwn(RUN_SUBCOMMANDS, subcommand) ? RUN_SUBCOMMANDS[subcommand] : undefined;
+  const handler = Object.hasOwn(OVERSEE_SUBCOMMANDS, subcommand) ? OVERSEE_SUBCOMMANDS[subcommand] : undefined;
   if (handler === undefined) {
-    throw new OperationRefusal('refused', `Unknown run subcommand "${subcommand}". Write one of ${RUN_SUBCOMMAND_NAMES.join(', ')}, or none to start.\n  Usage: ${START_USAGE}`);
+    throw new OperationRefusal(
+      'refused',
+      `Unknown oversee subcommand "${subcommand}". Write one of ${OVERSEE_SUBCOMMAND_NAMES.join(', ')}, or none to start.\n  Usage: ${START_USAGE}`,
+    );
   }
   await handler(commandArguments, context);
 };

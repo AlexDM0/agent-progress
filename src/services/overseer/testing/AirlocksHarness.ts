@@ -123,7 +123,7 @@ export function createAirlocksHarness(tickets: readonly HarnessTicket[], limits:
     },
     hold: (mutate) => {
       const result = mutate({ board, at: HARNESS_AT });
-      const phase = mergeJob()?.slot?.phase;
+      const phase = mergeJob()?.airlock?.phase;
       if (phase !== undefined && phases.at(-1) !== phase) phases.push(phase);
       return Promise.resolve(result);
     },

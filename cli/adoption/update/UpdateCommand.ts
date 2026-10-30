@@ -71,6 +71,6 @@ async function handTheLiveOverseerToTheCodeOnDisk(context: CommandContext, track
     return;
   }
   if (batonPass.verdict === 'not-taken') {
-    context.standardOutput(`The Overseer at ${batonPass.record.url} did not take the Baton pass; run \`${PRODUCT_NAMES.PROGRAM} run restart\`.`);
+    context.standardOutput(`The Overseer at ${batonPass.record.url} did not take the Baton pass; run \`${PRODUCT_NAMES.PROGRAM} oversee restart\`.`);
   }
 }

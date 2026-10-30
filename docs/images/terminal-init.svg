@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="720" height="344" viewBox="0 0 720 344" role="img">
   <title>agent-progress init in a terminal</title>
-  <desc>A macOS terminal running agent-progress init in an example repository, listing the tracker, session instructions, dashboard, gitignore entry, CLAUDE.md, retired files, SessionStart hook, skills and worktrees folder it sets up, then agent-progress run --detach printing the Overseer's local URL.</desc>
+  <desc>A macOS terminal running agent-progress init in an example repository, listing the tracker, session instructions, dashboard, gitignore entry, CLAUDE.md, retired files, SessionStart hook, skills and worktrees folder it sets up, then agent-progress oversee --detach printing the Overseer's local URL.</desc>
 
   <rect x="0.5" y="0.5" width="719" height="343" rx="12" fill="#1C1C1E" stroke="#3A3A3C"/>
   <path d="M0.5,28.5 V12.5 A12,12 0 0 1 12.5,0.5 H707.5 A12,12 0 0 1 719.5,12.5 V28.5 Z" fill="#2A2A2C" stroke="#3A3A3C"/>
@@ -24,7 +24,7 @@
     <text x="30.4" y="236" fill="#8E8E93">skills:</text><text x="124" y="236"><tspan fill="#32D74B">updated</tspan> (.claude/skills/agent-po, .gitignore entry <tspan fill="#32D74B">added</tspan>);</text>
     <text x="124" y="254"><tspan fill="#32D74B">updated</tspan> (.claude/skills/agent-progress-orchestrate, .gitignore entry <tspan fill="#32D74B">added</tspan>)</text>
     <text x="30.4" y="272" fill="#8E8E93">worktrees:</text><text x="124" y="272">.agent-progress-worktrees already ignored, so nothing was added</text>
-    <text x="16" y="290" fill="#8E8E93">$</text><text x="30.4" y="290">agent-progress run --detach</text>
+    <text x="16" y="290" fill="#8E8E93">$</text><text x="30.4" y="290">agent-progress oversee --detach</text>
     <text x="16" y="308">http://127.0.0.1:4757</text>
     <text x="16" y="326" fill="#8E8E93">$</text><rect x="30.4" y="315" width="7" height="14" fill="#E6E6E6" opacity="0.75"/>
   </g>

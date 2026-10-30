@@ -29,7 +29,7 @@ function namesTheProcessContextFactory(source: RepositorySource): boolean {
   return visit(sourceFile);
 }
 
-const OVERSEER_START_WORD     = 'run';
+const OVERSEER_START_WORD     = 'oversee';
 const OVERSEER_SUBCOMMANDS    = new Set(['stop', 'restart', 'pause', 'resume', 'status']);
 const ANY_FREE_PORT_OPTION  = ['--port', '0'];
 
@@ -37,7 +37,7 @@ function stringElementOf(element: ts.Expression | undefined): string | null {
   return element !== undefined && ts.isStringLiteralLike(element) ? element.text : null;
 }
 
-/** An argument list that starts an Overseer, `['run', …]` with no subcommand, binds `--port 0`, so no spec takes a board's real port. */
+/** An argument list that starts an Overseer, `['oversee', …]` with no subcommand, binds `--port 0`, so no spec takes a board's real port. */
 function startsAOverseerOnAFixedPort(array: ts.ArrayLiteralExpression): boolean {
   const elements = [...array.elements];
   if (stringElementOf(elements[0]) !== OVERSEER_START_WORD) return false;

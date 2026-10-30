@@ -419,10 +419,10 @@ function messageOf(refusal: OperationRefusal): string {
     case 'malformed-hatch-reply':
       return `The Overseer's reply ${detail.replyFilePath} cannot be read, so whether the request was applied is unknown.`;
     case 'overseer-already-running':
-      return `An Overseer already serves this board at ${detail.url} (${detail.batonFilePath}). Stop it first with \`${PRODUCT_NAMES.PROGRAM} run stop\`.`;
+      return `An Overseer already serves this board at ${detail.url} (${detail.batonFilePath}). Stop it first with \`${PRODUCT_NAMES.PROGRAM} oversee stop\`.`;
     case 'overseer-down':
       return `No Overseer serves this board (${detail.overseerDirectory} holds no live Baton), so there is nothing to open. `
-        + `Start one with \`${PRODUCT_NAMES.PROGRAM} run --detach\`.`;
+        + `Start one with \`${PRODUCT_NAMES.PROGRAM} oversee --detach\`.`;
     case 'overseer-contended':
       return `Another Overseer started in ${detail.overseerDirectory} at the same moment and holds the newer Baton, so this one stopped without serving.`;
     case 'baton-taken':
@@ -435,20 +435,20 @@ function messageOf(refusal: OperationRefusal): string {
       return `The start and boot of process ${detail.processId} cannot be read, so it cannot hold an Overseer Baton.`;
     case 'overseer-did-not-start':
       return `The detached Overseer exited${detail.exitCode === null ? '' : ` with code ${detail.exitCode}`} before it answered. `
-        + `Its log is ${detail.logFilePath}; run \`${PRODUCT_NAMES.PROGRAM} run\` in the foreground to see why.`;
+        + `Its log is ${detail.logFilePath}; run \`${PRODUCT_NAMES.PROGRAM} oversee\` in the foreground to see why.`;
     case 'overseer-still-live':
       return `The Overseer at ${detail.url} (process ${detail.processId}) is still live after being asked to stop; its Baton was left as it is.`;
     case 'baton-pass-failed':
       return `The Baton pass to code ${detail.successorCodeVersion} failed at ${detail.step}: ${detail.error}. `
         + `The old Overseer keeps driving${detail.url === null ? '' : ` at ${detail.url}`} and shows this as a warning; `
-        + `see \`${PRODUCT_NAMES.PROGRAM} run status\` and the Overseer log.`;
+        + `see \`${PRODUCT_NAMES.PROGRAM} oversee status\` and the Overseer log.`;
     case 'overseer-control-is-runtime-only':
       return `${detail.commandKind} is sent to the live Overseer, never applied to the board. ${NOTHING_WAS_WRITTEN}`;
     case 'intake-close-without-job':
       return `Name the product-owner job whose intake to close, as J4. ${NOTHING_WAS_WRITTEN}`;
     case 'overseer-owns-the-lifecycle':
       return `An Overseer drives this board at ${detail.url} (${detail.batonFilePath}), so only it delivers tickets. `
-        + `Stop it with \`${PRODUCT_NAMES.PROGRAM} run stop\` before recording work by hand. ${NOTHING_WAS_WRITTEN}`;
+        + `Stop it with \`${PRODUCT_NAMES.PROGRAM} oversee stop\` before recording work by hand. ${NOTHING_WAS_WRITTEN}`;
     case 'watcher-bundle-failed':
       return `The Watcher entry ${detail.entryPath} did not bundle, so the Overseer cannot spawn Watchers: ${detail.reason}`;
     case 'ticket-has-live-job':

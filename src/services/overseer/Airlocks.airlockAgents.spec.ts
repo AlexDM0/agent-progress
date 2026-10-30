@@ -27,8 +27,8 @@ afterEach(() => {
 function settleIncidentBy(current: AirlocksHarness, move: 'merge-fixer' | 'merge-review'): void {
   const [incident] = current.board.incidents();
   const mergeJob = current.mergeJob();
-  if (incident === undefined || mergeJob?.slot === undefined) throw new Error('No Airlock incident is open.');
-  if (move === 'merge-fixer') current.board.setJobSlot(mergeJob.id, { ...mergeJob.slot, phase: 'fixing' });
+  if (incident === undefined || mergeJob?.airlock === undefined) throw new Error('No Airlock incident is open.');
+  if (move === 'merge-fixer') current.board.setJobSlot(mergeJob.id, { ...mergeJob.airlock, phase: 'fixing' });
   current.board.handleIncident(incident.id, move, HARNESS_AT);
 }
 
@@ -58,7 +58,7 @@ describeWhenGitIsPresent('the merge-gate fixer', () => {
 
     expect(harness.mergeAgent()).toMatchObject({ role: 'merge-fix', parentJobId: harness.mergeJob()?.id, attempt: 1 });
     expect(harness.keptAirlockFacts.get(harness.mergeJob()?.id ?? '')?.['gateTail']).toContain('expected 2, received 3');
-    expect(harness.mergeJob()?.slot?.phase).toBe('fixing');
+    expect(harness.mergeJob()?.airlock?.phase).toBe('fixing');
   });
 
   test('a fix whose merged tree stays red resumes the same fixer twice, handed the failure, opening no incident', async () => {
@@ -72,7 +72,7 @@ describeWhenGitIsPresent('the merge-gate fixer', () => {
       await harness.slots.sweep();
 
       expect(harness.mergeAgent()).toMatchObject({ id: fixerId, state: 'interrupted', interruption: 'handoff-red' });
-      expect(harness.mergeJob()?.slot?.phase).toBe('fixing');
+      expect(harness.mergeJob()?.airlock?.phase).toBe('fixing');
       expect(harness.board.incidents()).toEqual([]);
     }
   });

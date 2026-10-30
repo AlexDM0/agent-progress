@@ -151,14 +151,14 @@ function mergeTargetOf(board: Board, target: string, forecasting: MergeForecasti
     againstTarget:     predictionOf(candidate.ticketId)?.forecast ?? 'prediction-failed',
     queuedLogPosition: candidate.readiness,
   }));
-  const holder = board.jobs().find((job) => job.slot?.target === target);
+  const holder = board.jobs().find((job) => job.airlock?.target === target);
   const ticketTargetIs = (ticketId: string): boolean => {
     const ticket = board.ticketByReference(ticketId);
     return ticket !== undefined && forecasting.targetOf(ticket.frontmatter) === target;
   };
   return {
     target,
-    holder: holder?.slot === undefined ? null : { jobId: holder.id, ticketIds: [...holder.ticketIds], phase: holder.slot.phase },
+    holder: holder?.airlock === undefined ? null : { jobId: holder.id, ticketIds: [...holder.ticketIds], phase: holder.airlock.phase },
     order:  MergeQueueUtil.orderOf(queueCandidates, forecasts.pairwiseConflicts).map((candidate) => ({
       ticketId:        candidate.ticketId,
       priority:        candidate.priority,
@@ -175,7 +175,7 @@ function mergeTargetOf(board: Board, target: string, forecasting: MergeForecasti
 
 function mergeQueueOf(board: Board, forecasting: MergeForecasting | null): MergeQueueFacts {
   const queuedTicketIds = board.tickets().map((ticket) => ticket.frontmatter.id).filter((ticketId) => board.ticketIsMergeQueued(ticketId));
-  const slots = board.jobs().flatMap((job) => (job.slot === undefined ? [] : [{ jobId: job.id, target: job.slot.target, phase: job.slot.phase }]));
+  const slots = board.jobs().flatMap((job) => (job.airlock === undefined ? [] : [{ jobId: job.id, target: job.airlock.target, phase: job.airlock.phase }]));
   if (forecasting === null) return { queuedTicketIds, slots, targets: [] };
   const queuedTargets = queuedTicketIds.flatMap((ticketId) => {
     const ticket = board.ticketByReference(ticketId);

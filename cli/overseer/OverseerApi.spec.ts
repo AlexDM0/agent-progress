@@ -94,14 +94,14 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await run(['run', 'stop']);
+  await run(['oversee', 'stop']);
   removeScratchDirectory(repositoryDirectory);
   removeScratchDirectory(homeDirectory);
 });
 
 describe('the Overseer API on a scratch board', () => {
   test('the Baton names the token file and holds no token; that token is what an Origin-less command needs, answered 200, 409 or 400', async () => {
-    const overseer = startAgentProgress(['run', '--port', '0'], { currentDirectory: repositoryDirectory, homeDirectory });
+    const overseer = startAgentProgress(['oversee', '--port', '0'], { currentDirectory: repositoryDirectory, homeDirectory });
     const url = await overseer.firstOutputLine ?? '';
     const batonFile = readdirSync(overseerDirectory()).find((fileName) => fileName.startsWith('baton-')) ?? '';
     const batonText = readFileSync(join(overseerDirectory(), batonFile), 'utf8');
@@ -135,7 +135,7 @@ describe('the Overseer API on a scratch board', () => {
   }, API_TEST_TIMEOUT_MILLISECONDS);
 
   test('GET / serves the Bridge from its HTML import, its bundled script and stylesheet served beside it', async () => {
-    const overseer = startAgentProgress(['run', '--port', '0'], { currentDirectory: repositoryDirectory, homeDirectory });
+    const overseer = startAgentProgress(['oversee', '--port', '0'], { currentDirectory: repositoryDirectory, homeDirectory });
     const url = await overseer.firstOutputLine ?? '';
     const page = await fetch(url);
     expect(page.status).toBe(200);
@@ -154,7 +154,7 @@ describe('the Overseer API on a scratch board', () => {
     const dashboardRecordDirectory = join(homeDirectory, '.agent-progress-monitor', 'agent-dashboard');
     mkdirSync(dashboardRecordDirectory, { recursive: true });
     writeFileSync(join(dashboardRecordDirectory, 'server.json'), JSON.stringify({ url: 'http://127.0.0.1:4411/', boardOrigin: 'http://localhost:4412' }));
-    const overseer = startAgentProgress(['run', '--port', '0'], { currentDirectory: repositoryDirectory, homeDirectory });
+    const overseer = startAgentProgress(['oversee', '--port', '0'], { currentDirectory: repositoryDirectory, homeDirectory });
     const url = await overseer.firstOutputLine ?? '';
     const page = await fetch(url);
     expect(page.status).toBe(200);
@@ -165,13 +165,13 @@ describe('the Overseer API on a scratch board', () => {
   }, API_TEST_TIMEOUT_MILLISECONDS);
 
   test('an event-stream client sees a board event for a ticket move and a job event for each state the build job is published in', async () => {
-    const overseer = startAgentProgress(['run', '--port', '0'], { currentDirectory: repositoryDirectory, homeDirectory });
+    const overseer = startAgentProgress(['oversee', '--port', '0'], { currentDirectory: repositoryDirectory, homeDirectory });
     const url = await overseer.firstOutputLine ?? '';
     const stream = collectEvents(url);
     try {
       await waitFor(() => stream.events.some((event) => event.kind === 'board'), 'the first board event');
       await run(['gate', 'add', 'checks', '--', 'true']);
-      await run(['run', 'resume']);
+      await run(['oversee', 'resume']);
       await fileReadyTicketThrough(run, (result) => result.standardOutput, ['ticket', 'add', '--type', 'ticket', 'Export the example roles']);
       const ticketStatusesOf = (event: StreamedEvent) => (event.data['tickets'] as { id: string; status: string }[] | undefined) ?? [];
       await waitFor(() => stream.events.some((event) => event.kind === 'board' && ticketStatusesOf(event).some((ticket) => ticket.id === '001')), 'the filed ticket');

@@ -293,7 +293,7 @@ beforeEach(async () => {
   launchRequests = [];
   jobsNotingStateAssignments = new WeakSet<object>();
   mainTipAtStart = (await Bun.$`git -C ${repositoryDirectory} rev-parse HEAD`.quiet().text()).trim();
-  await run(['run', 'resume']);
+  await run(['oversee', 'resume']);
   await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Export the example roles']);
 });
 

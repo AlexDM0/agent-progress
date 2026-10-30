@@ -2,7 +2,7 @@
  * The checked Baton pass decides whether a board keeps an Overseer through an update, so each way a successor can fail is planted here, and
  * what matters is which side drives afterwards: a failure before `released` leaves the old Overseer driving and never releases it, one after
  * it hands the board back for generation n+2, a silent successor is killed (only while it is still that process), and every failure is
- * recorded before the final `failed` is left in the file, which is what `run restart` and `update` read. The crash rows "the old Overseer
+ * recorded before the final `failed` is left in the file, which is what `oversee restart` and `update` read. The crash rows "the old Overseer
  * dies during a baton-pass" and "a Baton pass's successor fails" are held here; the whole Baton pass between two real Overseers is held by
  * `cli/overseer/OverseerCommand.spec.ts`, and the agent that keeps running across it by `src/services/overseer/CrashMatrix.spec.ts`.
  */

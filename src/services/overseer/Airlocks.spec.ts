@@ -83,7 +83,7 @@ describeWhenGitIsPresent('a conflicting candidate', () => {
     expect(agent).toMatchObject({
       kind: 'merge-agent', role: 'resolver', parentJobId: harness.mergeJob()?.id, ticketIds: ['001']
     });
-    expect(harness.mergeJob()?.slot?.phase).toBe('resolving');
+    expect(harness.mergeJob()?.airlock?.phase).toBe('resolving');
 
     resolveAs(harness, '001', 'base.ts', 'export const base = 4;\n');
     await harness.slots.sweep();
@@ -147,7 +147,7 @@ describeWhenGitIsPresent('a conflicting candidate', () => {
     resolveAs(harness, '001', 'base.ts', 'export const base = 4;\nexport const extra = 5;\n');
     await harness.slots.sweep();
     expect(harness.board.incidents().map((incident) => incident.kind)).toEqual(['resolution-over-threshold']);
-    expect(harness.mergeJob()?.slot?.phase).toBe('reviewing-resolution');
+    expect(harness.mergeJob()?.airlock?.phase).toBe('reviewing-resolution');
 
     harness.remove();
     harness = conflictingHarness({ RESOLUTION_REVIEW_THRESHOLD_LINES: 6 });
@@ -267,7 +267,7 @@ describeWhenGitIsPresent('a target that moved under the slot', () => {
     await harness.slots.sweep();
 
     expect(harness.board.decisions().map((decision) => [decision.kind, decision.context])).toEqual([['target-moved', harness.tipOf('main')]]);
-    expect(harness.mergeJob()?.slot?.phase).toBe('landing');
+    expect(harness.mergeJob()?.airlock?.phase).toBe('landing');
   });
 });
 

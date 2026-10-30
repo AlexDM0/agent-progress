@@ -21,7 +21,7 @@ afterAll(() => {
   for (const directory of scratchDirectories) removeScratchDirectory(directory);
 });
 
-/** A progress whose settings were set after the log, as a tracker that ran `run resume` after `init` stores them. */
+/** A progress whose settings were set after the log, as a tracker that ran `oversee resume` after `init` stores them. */
 function progressWithSettingsAfterTheLog(): TrackerProgress {
   const progress = emptyProgress();
   fileRow(progress, { name: 'Example build' });

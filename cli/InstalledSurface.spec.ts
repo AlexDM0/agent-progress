@@ -170,7 +170,7 @@ async function statusDocumentKeysOfAFullBoard(repositoryDirectory: string): Prom
   await run(['ticket', 'finish', '7']);
   await run(['ticket', 'approve', '7']);
   await run(['ticket', 'deliver', '7']);
-  await run(['run', 'resume']);
+  await run(['oversee', 'resume']);
   await run(['log', 'Example milestone']);
   const documents = [await run(['status', '--json']), await run(['status', '--json', '--full'])].map((text) => JSON.parse(text) as unknown);
   const overseerState = readBoardState({

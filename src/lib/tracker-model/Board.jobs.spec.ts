@@ -264,7 +264,7 @@ describe('what a job carries', () => {
       },
     });
     board.setJobSlot(job.id, null);
-    expect(Object.hasOwn(board.jobById(job.id) ?? {}, 'slot')).toBe(false);
+    expect(Object.hasOwn(board.jobById(job.id) ?? {}, 'airlock')).toBe(false);
   });
 });
 

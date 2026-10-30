@@ -63,7 +63,7 @@ describe('merge land', () => {
     const result = apply(board, { kind: 'merge-land', jobId: 'J1', incidentId: 'I1' });
 
     expect(result.logged.map((record) => record.kind)).toEqual(['incident-handled']);
-    expect(board.jobById('J1')?.slot?.phase).toBe('landing');
+    expect(board.jobById('J1')?.airlock?.phase).toBe('landing');
     expect(board.incidents()).toEqual([]);
   });
 
@@ -72,7 +72,7 @@ describe('merge land', () => {
     board.recordGateRan({ tree: MERGED_TREE, outcome: 'failed', cached: false }, AT);
 
     expect(refusalDetailOf(() => apply(board, { kind: 'merge-land', jobId: 'J1', incidentId: 'I1' }))).toMatchObject({ reason: 'merge-gate-not-passed', tree: MERGED_TREE });
-    expect(board.jobById('J1')?.slot?.phase).toBe('reviewing-resolution');
+    expect(board.jobById('J1')?.airlock?.phase).toBe('reviewing-resolution');
   });
 
   test('is never legal under merge-gate-failed, even with a passing stamp: landing a failed tree would be a waiver', () => {
@@ -88,7 +88,7 @@ describe('merge fixer, review and abort', () => {
     const board = mergeBoard('gating', 'merge-gate-failed');
     apply(board, { kind: 'merge-fixer', jobId: 'J1', incidentId: 'I1' });
 
-    expect(board.jobById('J1')?.slot?.phase).toBe('fixing');
+    expect(board.jobById('J1')?.airlock?.phase).toBe('fixing');
     expect(board.incidents()).toEqual([]);
   });
 
@@ -97,7 +97,7 @@ describe('merge fixer, review and abort', () => {
     const result = apply(board, { kind: 'merge-review', jobId: 'J1', incidentId: 'I1' });
 
     expect(result.logged).toMatchObject([{ kind: 'incident-handled', fields: { move: 'merge-review' } }]);
-    expect(board.jobById('J1')?.slot?.phase).toBe('reviewing-resolution');
+    expect(board.jobById('J1')?.airlock?.phase).toBe('reviewing-resolution');
   });
 
   test('abort parks the ticket parked:<kind> with a parked decision, so the Airlock aborts the merge of a parked ticket', () => {
@@ -115,7 +115,7 @@ describe('a move naming no incident', () => {
     const board = mergeBoard('gating', 'merge-gate-failed');
     apply(board, { kind: 'merge-fixer', jobId: 'J1' });
 
-    expect(board.jobById('J1')?.slot?.phase).toBe('fixing');
+    expect(board.jobById('J1')?.airlock?.phase).toBe('fixing');
     expect(board.incidents()).toEqual([]);
   });
 

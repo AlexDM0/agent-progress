@@ -225,7 +225,7 @@ function runLoginOverseer(loginArguments: readonly string[]): FinishedSetupRun {
   return { exitCode: finished.exitCode, output: `${finished.stdout.toString()}\n${finished.stderr.toString()}` };
 }
 
-testWhenBashIsPresent('setup.sh --login-overseer writes a LaunchAgent labelled LAUNCH_AGENT_LABEL running run --detach at load, every path absolute', () => {
+testWhenBashIsPresent('setup.sh --login-overseer writes a LaunchAgent labelled LAUNCH_AGENT_LABEL running oversee --detach at load, every path absolute', () => {
   const repositoryDirectory = join(scratchDirectory, 'tracked-repository');
   mkdirSync(repositoryDirectory);
   const { exitCode, output } = runLoginOverseer([repositoryDirectory]);
@@ -233,7 +233,7 @@ testWhenBashIsPresent('setup.sh --login-overseer writes a LaunchAgent labelled L
 
   const plist = readFileSync(launchAgentPathOf(PRODUCT_NAMES.LAUNCH_AGENT_LABEL), 'utf8');
   expect(plist).toContain(`<key>Label</key>\n  <string>${PRODUCT_NAMES.LAUNCH_AGENT_LABEL}</string>`);
-  const programArguments = [join(fakeBunDirectory, 'bun'), join(CHECKOUT_DIRECTORY, 'agent-progress.ts'), 'run', '--detach'];
+  const programArguments = [join(fakeBunDirectory, 'bun'), join(CHECKOUT_DIRECTORY, 'agent-progress.ts'), 'oversee', '--detach'];
   expect(plist).toContain(programArguments.map((argument) => `<string>${argument}</string>`).join('\n    '));
   expect(plist).toContain(`<key>WorkingDirectory</key>\n  <string>${repositoryDirectory}</string>`);
   expect(plist).toContain('<key>RunAtLoad</key>\n  <true/>');

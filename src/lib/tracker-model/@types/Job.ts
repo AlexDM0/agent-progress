@@ -98,8 +98,8 @@ export interface Job {
   answeredRequestIds: string[];
   /** Resumes after a `watcher-lost` or `agent-crashed` interruption only. */
   crashResumes:       number;
-  /** On the merge or refresh job holding its target's slot, while it holds it. */
-  slot?:              Airlock;
+  /** On the merge or refresh job holding its target's Airlock, while it holds it. */
+  airlock?:           Airlock;
   /** Set once User stopped, wound down or freshened the job; the Overseer sends its frames from it. */
   stopRequest?:       JobStopMode;
   /** On a product-owner job only. */

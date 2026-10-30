@@ -508,10 +508,10 @@ never carries it.
 
   open                        Open the live Overseer's URL in the default browser and print it. With
                               no live Baton it is refused (overseer-down) at exit 1, advising
-                              \`run --detach\`. \`progress.html\` is only a stub naming that URL, or
-                              saying the Overseer is down, written by \`init\`, \`update\` and \`run\`.
+                              \`oversee --detach\`. \`progress.html\` is only a stub naming that URL, or
+                              saying the Overseer is down, written by \`init\`, \`update\` and \`oversee\`.
 
-  run [--port <n>] [--detach] [--json]
+  oversee [--port <n>] [--detach] [--json]
                               Start the board's one Overseer on 127.0.0.1, logging to standard error
                               and \`overseer.log\`: it creates the Baton \`overseer/baton-<n>.json\`, writes
                               the API token to \`overseer/token\` (mode 0600), prints its URL and serves
@@ -521,20 +521,22 @@ never carries it.
                               does a starter that lost the race (overseer-contended); an Overseer whose
                               Baton a newer one overtook stops baton-taken at exit 2.
                               --detach starts it in the background and prints the URL once it answers.
-  run --successor-of <generation> [--port <n>]
-                              The successor's side of \`run restart\`'s Baton pass, which only the
+  oversee --successor-of <generation> [--port <n>]
+                              The successor's side of \`oversee restart\`'s Baton pass, which only the
                               live Overseer starts.
-  run stop [--now] [--json]   Stop the live Overseer, through its API or else SIGTERM to the process
+  oversee stop [--now] [--json]
+                              Stop the live Overseer, through its API or else SIGTERM to the process
                               its Baton names; Watchers are never touched. --now also stops
                               process Watchers.
-  run restart [--now] [--json]
+  oversee restart [--now] [--json]
                               Hand the board to the code on disk: a successor proves it, then takes
                               over and regroups every Watcher; no agent is touched. A failed
                               Baton pass leaves the old Overseer driving with a warning and exits 1
                               (baton-pass-failed).
-  run pause|resume [--json]   Store \`overseerState\` \`paused\` or \`running\`: no new jobs while
+  oversee pause|resume [--json]
+                              Store \`overseerState\` \`paused\` or \`running\`: no new jobs while
                               paused. Works with the Overseer up or down.
-  run status [--json]         The Baton, the URL, the runtime state, paused or not, and the code
+  oversee status [--json]     The Baton, the URL, the runtime state, paused or not, and the code
                               version on disk against the live Overseer's. Read-only, no lock.
 
   version [--json]            Print the code version on disk and the install version:
@@ -617,7 +619,7 @@ never carries it.
                               finished and its open decisions withdrawn. fresh stops the job so the
                               next attempt starts on its worktree (job-has-no-ticket otherwise).
   job stop --all [--wind-down] [--json]
-                              run pause, then stop or wind down every build, review and
+                              oversee pause, then stop or wind down every build, review and
                               product-owner job.
 
   intake -- <text> [--json]   Record a product-owner job (no ticket, no build slot) the Overseer

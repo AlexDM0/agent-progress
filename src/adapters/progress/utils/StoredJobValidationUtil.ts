@@ -72,8 +72,8 @@ function jobOptionalFieldsProblem(job: Record<string, unknown>, path: string): s
     const problem = vocabularyProblem(job['interruption'], `${path}.interruption`, INTERRUPTION_CAUSES);
     if (problem !== null) return problem;
   }
-  if (job['slot'] !== undefined) {
-    const problem = airlockProblem(job['slot'], `${path}.slot`);
+  if (job['airlock'] !== undefined) {
+    const problem = airlockProblem(job['airlock'], `${path}.airlock`);
     if (problem !== null) return problem;
   }
   if (job['stopRequest'] !== undefined) {

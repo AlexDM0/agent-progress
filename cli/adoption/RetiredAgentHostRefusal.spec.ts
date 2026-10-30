@@ -26,7 +26,7 @@ afterEach(() => {
 });
 
 async function trackedRepositoryWithManifest(manifestText: string): Promise<string> {
-  const repositoryDirectory = createScratchGitRepository('retired-agent-host');
+  const repositoryDirectory = createScratchGitRepository('retired-copilot-install');
   scratchDirectories.push(repositoryDirectory);
   const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
   const exitCode = await runCommandLine(['init', '--project', 'Example Agency'], context);

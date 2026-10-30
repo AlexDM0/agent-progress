@@ -202,9 +202,9 @@ describe('the two skills stay split by audience', () => {
   });
 
   test('the orchestrator skill wraps a running Overseer: it reads its state, starts it on the go and never drives it', () => {
-    expect(ORCHESTRATE_TEXT).toContain('`{{program}} run status --json`');
+    expect(ORCHESTRATE_TEXT).toContain('`{{program}} oversee status --json`');
     expect(ORCHESTRATE_TEXT).toContain('`{{program}} status --json`');
-    expect(ORCHESTRATE_TEXT).toContain('`{{program}} run --detach`');
+    expect(ORCHESTRATE_TEXT).toContain('`{{program}} oversee --detach`');
     expect(ORCHESTRATE_TEXT).toContain('`{{program}} await --json`');
     expect(ORCHESTRATE_TEXT).toContain('never drive the\nlifecycle yourself and never handle an incident');
     for (const retired of ['dispatcher', 'Workflow', '`ask`', 'Watcher mechanics']) expect(ORCHESTRATE_TEXT, retired).not.toContain(retired);

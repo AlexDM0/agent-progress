@@ -66,7 +66,7 @@ const KNOWN_JOB_KEYS = {
   eventCursor:        true,
   answeredRequestIds: true,
   crashResumes:       true,
-  slot:               true,
+  airlock:            true,
   stopRequest:        true,
   intake:             true,
   outcome:            true,
@@ -272,7 +272,7 @@ function jobOf(stored: StoredJob): Job {
     eventCursor:        eventCursorOf(stored.eventCursor),
     answeredRequestIds: [...stored.answeredRequestIds],
     crashResumes:       stored.crashResumes,
-    ...(stored.slot === undefined ? {} : { slot: airlockOf(stored.slot) }),
+    ...(stored.airlock === undefined ? {} : { airlock: airlockOf(stored.airlock) }),
     ...(stored.stopRequest === undefined ? {} : { stopRequest: stored.stopRequest }),
     ...(stored.intake === undefined ? {} : { intake: intakeCopyOf(stored.intake) }),
     ...(stored.outcome === undefined ? {} : { outcome: stored.outcome }),
@@ -330,12 +330,12 @@ function storedEventCursorOf(cursor: JobEventCursor): StoredJobEventCursor {
   return writtenInModelOrder(cursor, [], { instance: cursor.instance, sequence: cursor.sequence });
 }
 
-function storedAirlockOf(slot: Airlock): StoredAirlock {
-  return writtenInModelOrder(slot, [], {
-    target:    slot.target,
-    targetTip: slot.targetTip,
-    branchTip: slot.branchTip,
-    phase:     slot.phase,
+function storedAirlockOf(airlock: Airlock): StoredAirlock {
+  return writtenInModelOrder(airlock, [], {
+    target:    airlock.target,
+    targetTip: airlock.targetTip,
+    branchTip: airlock.branchTip,
+    phase:     airlock.phase,
   });
 }
 
@@ -391,7 +391,7 @@ function storedJobOf(job: Job): StoredJob {
     eventCursor:        storedEventCursorOf(job.eventCursor),
     answeredRequestIds: [...job.answeredRequestIds],
     crashResumes:       job.crashResumes,
-    ...(job.slot === undefined ? {} : { slot: storedAirlockOf(job.slot) }),
+    ...(job.airlock === undefined ? {} : { airlock: storedAirlockOf(job.airlock) }),
     ...(job.stopRequest === undefined ? {} : { stopRequest: job.stopRequest }),
     ...(job.intake === undefined ? {} : { intake: intakeCopyOf(job.intake) }),
     ...(job.outcome === undefined ? {} : { outcome: job.outcome }),

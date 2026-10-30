@@ -45,7 +45,7 @@ export const REGROUP_HELLO_TIMEOUT_MILLISECONDS = 2000;
 /** How many ports above `OVERSEER_PORT_FIRST` a board's preferred Overseer port is spread over, and how far a busy port moves upward. */
 export const OVERSEER_PORT_COUNT = 100;
 
-/** How many times `run --detach` and `run restart` look for the Overseer they started to answer; a schedule only, never a decision. */
+/** How many times `oversee --detach` and `oversee restart` look for the Overseer they started to answer; a schedule only, never a decision. */
 export const OVERSEER_READY_TRIES = 40;
 
 export const OVERSEER_READY_INTERVAL_MILLISECONDS = 250;
@@ -61,10 +61,10 @@ export const BATON_PASS_RELEASE_TRIES = 240;
 /** How many times, at the same interval, an old Overseer taking a Baton pass back waits for its killed successor to be gone and binds its port. */
 export const BATON_PASS_REBIND_TRIES = 40;
 
-/** How many times, at the same interval, `run restart` and `update` look for a Baton pass's outcome: every wait of it end to end. */
+/** How many times, at the same interval, `oversee restart` and `update` look for a Baton pass's outcome: every wait of it end to end. */
 export const BATON_PASS_OUTCOME_TRIES = BATON_PASS_READY_TRIES + BATON_PASS_RELEASE_TRIES + BATON_PASS_RELEASE_TRIES;
 
-/** How many times `run stop` looks for the stopped Overseer's Baton to be gone or dead before it reports the Overseer still live. */
+/** How many times `oversee stop` looks for the stopped Overseer's Baton to be gone or dead before it reports the Overseer still live. */
 export const OVERSEER_STOP_TRIES = 40;
 
 export const OVERSEER_STOP_INTERVAL_MILLISECONDS = 250;

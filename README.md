@@ -72,7 +72,7 @@ Running one coding agent is easy to follow. Running five is not: which one is on
 safe to merge, who checked the work, and what did it all cost? The answers end up scattered across
 terminal tabs and a context window that gets compacted halfway through the afternoon.
 
-agent-progress puts the answers on a board, and one Overseer, the **Overseer** (`agent-progress run`), works
+agent-progress puts the answers on a board, and one Overseer, the **Overseer** (`agent-progress oversee`), works
 it. You describe a request in the Bridge's Intake view or in a Claude Code session; a product owner files
 it as a draft ticket with a testable Acceptance. Once you ready it, the Overseer launches a builder agent
 per ready ticket in its own worktree, gates the result, hands every finished build to a reviewer agent
@@ -115,7 +115,7 @@ the transcripts.
 | Role | Runs as | Does |
 |---|---|---|
 | **You** | yourself, in the Bridge or a Claude Code session | Describe the work, ready drafts, answer decisions, pause and stop. |
-| **Overseer** | `agent-progress run`, one Overseer per board | Launches every job below, gates each build, decides rounds and parking, serves the Bridge, reads each session's calls and tokens live. |
+| **Overseer** | `agent-progress oversee`, one Overseer per board | Launches every job below, gates each build, decides rounds and parking, serves the Bridge, reads each session's calls and tokens live. |
 | **Bridge** | the page the Overseer serves on `127.0.0.1`, opened with `agent-progress open` | Shows the board and takes your moves: Kanban, Progress, Tickets, Agents, Questions, Assistant and Intake. |
 | **Product owner** | a job the Overseer launches for an Intake request, or any Claude Code session with the `agent-po` skill | Files draft tickets with a brief and a numbered Acceptance, its fact-finding in subagents. Builds nothing. |
 | **Assistant** | the Overseer's own orchestrating session | Handles the incidents the Overseer delivers and chats with you in the Assistant view. Writes no code. |
@@ -129,7 +129,7 @@ the transcripts.
 </p>
 
 You can keep filing tickets while the Overseer runs; it picks each one up as soon as it is ready and a slot
-is free, and a high-priority one goes first. `agent-progress run pause` starts no new job while the jobs in
+is free, and a high-priority one goes first. `agent-progress oversee pause` starts no new job while the jobs in
 flight carry on, and `agent-progress job wind-down <job>` or `job stop <job>` ends one. Every job and its state live
 on the board, so a restarted Overseer picks up where the last one left off.
 
@@ -137,7 +137,7 @@ on the board, so a restarted Overseer picks up where the last one left off.
 <summary><b>Where everything goes</b> — the architecture</summary>
 <br>
 <p align="center">
-  <img src="docs/images/architecture.png" width="680" alt="One Overseer owns the board: you work through the Bridge in your browser or an optional orchestrator session; both reach the Overseer, agent-progress run, which launches product-owner, builder, reviewer and Assistant sessions, keeps .agent-progress/, and passes reviewed tickets through the merge queue to the Airlock, which lands them on main one at a time">
+  <img src="docs/images/architecture.png" width="680" alt="One Overseer owns the board: you work through the Bridge in your browser or an optional orchestrator session; both reach the Overseer, agent-progress oversee, which launches product-owner, builder, reviewer and Assistant sessions, keeps .agent-progress/, and passes reviewed tickets through the merge queue to the Airlock, which lands them on main one at a time">
 </p>
 </details>
 
@@ -174,7 +174,7 @@ agent-progress init --project "Example Storefront"
 ```
 
 <p align="center">
-  <img src="docs/images/terminal-init.png" width="720" alt="Terminal output of agent-progress init for Example Storefront, listing tracker, session instructions, dashboard, .gitignore entry, CLAUDE.md, retired files, SessionStart hook, skills and worktrees folder, followed by agent-progress run --detach printing the Overseer's local URL">
+  <img src="docs/images/terminal-init.png" width="720" alt="Terminal output of agent-progress init for Example Storefront, listing tracker, session instructions, dashboard, .gitignore entry, CLAUDE.md, retired files, SessionStart hook, skills and worktrees folder, followed by agent-progress oversee --detach printing the Overseer's local URL">
 </p>
 
 `init` writes seven things:
@@ -202,7 +202,7 @@ agent-progress init --project "Example Storefront"
 Start the Overseer and open the Bridge:
 
 ```sh
-agent-progress run --detach
+agent-progress oversee --detach
 agent-progress open
 ```
 
@@ -237,7 +237,7 @@ offers its official installer.
   </tr>
   <tr>
     <td width="190"><b>Runs in</b></td>
-    <td>your terminal: the Overseer, <code>agent-progress run</code>, launches every agent as a Claude Code session of its own</td>
+    <td>your terminal: the Overseer, <code>agent-progress oversee</code>, launches every agent as a Claude Code session of its own</td>
   </tr>
   <tr>
     <td width="190"><b>Runtime dependency</b></td>

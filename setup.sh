@@ -10,7 +10,7 @@
 # Usage: ./setup.sh [--instruct-only]
 #        ./setup.sh --login-overseer <repository> [--label <label>] [--instruct-only]
 #   --instruct-only  changes nothing: every offer declines and every write is reported as "would".
-#   --login-overseer   only writes ~/Library/LaunchAgents/<label>.plist, which runs `run --detach` in that repository at
+#   --login-overseer   only writes ~/Library/LaunchAgents/<label>.plist, which runs `oversee --detach` in that repository at
 #                    login, so its Overseer is back after a reboot. A second repository needs a --label of its own.
 set -euo pipefail
 
@@ -66,7 +66,7 @@ write_login_overseer() {
     exit 1
   fi
   if [[ "$INSTRUCT_ONLY" == "1" ]]; then
-    warn "Would write $plist_path, running $bun_path $HERE/agent-progress.ts run --detach in $repository at login"
+    warn "Would write $plist_path, running $bun_path $HERE/agent-progress.ts oversee --detach in $repository at login"
     return
   fi
   mkdir -p "$plist_directory"
