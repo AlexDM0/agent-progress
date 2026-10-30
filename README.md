@@ -16,7 +16,7 @@
     <td align="center"><sub>SKILLS</sub><br><b>2</b><br><sub>for Claude Code</sub></td>
     <td align="center"><sub>CLI</sub><br><b>Bun</b><br><sub>+ TypeScript</sub></td>
     <td align="center"><sub>RUNTIME DEPENDENCY</sub><br><b>1</b><br><sub>marked</sub></td>
-    <td align="center"><sub>DASHBOARD</sub><br><b>1 file</b><br><sub>no server</sub></td>
+    <td align="center"><sub>DASHBOARD</sub><br><b>Bridge</b><br><sub>local only</sub></td>
     <td align="center"><sub>AGENTS AT ONCE</sub><br><b>up to 10</b><br><sub>2 by default</sub></td>
   </tr>
 </table>
@@ -72,18 +72,19 @@ Running one coding agent is easy to follow. Running five is not: which one is on
 safe to merge, who checked the work, and what did it all cost? The answers end up scattered across
 terminal tabs and a context window that gets compacted halfway through the afternoon.
 
-agent-progress puts the answers on a board. You talk to one **orchestrator** session in Claude Code. It
-questions you until each request is testable, then files it as a ticket. When you say go, a
-**dispatcher** runs a builder agent per ready ticket, hands every finished build to a reviewer agent that
-never saw it being written, and releases the result onto main. Every one of those steps is an
-`agent-progress` command, and every command redraws `progress.html`. You keep that tab open and watch.
+agent-progress puts the answers on a board, and one runner, the **Overseer** (`agent-progress run`), works
+it. You describe a request in the Bridge's Intake view or in a Claude Code session; a product owner files
+it as a draft ticket with a testable Acceptance. Once you ready it, the Overseer launches a builder agent
+per ready ticket in its own worktree, gates the result, hands every finished build to a reviewer agent
+that never saw it being written, and queues it for the **Airlock**, which merges one ticket at a time onto
+main. The **Bridge**, the page the Overseer serves on your machine, shows every step as it happens.
 Nothing on the board is edited by hand.
 
 ## Highlights
 
-**The board draws itself.** Each command takes the tracker's lock, writes its state atomically and
-re-renders the page before letting go. The page can never show a state the files did not hold, and it
-reloads itself within a minute of new data when idle, keeping your place.
+**The board draws itself.** Each command takes the tracker's lock and writes its state atomically before
+letting go, and the Bridge follows the Overseer's event stream, so it never shows a state the files did
+not hold. Every view is a link, `#tickets/42` or `#agents/J12`, that survives an Overseer restart.
 
 **Every ticket gets its own worktree.** Builders work on a `ticket-<id>` branch in `.claude/worktrees/`,
 never in your checkout. All worktrees write to one tracker, found through git's common directory, so
@@ -93,40 +94,44 @@ five agents still make one chart.
 Handoff and the diff, is told to show the ticket does *not* hold, and re-runs every claim itself. It
 fixes what is in scope and files everything else as a low-priority ticket.
 
-**The rules live in code, not in prompts.** Slots, review rounds and parking are decided by the
-dispatcher script. Another review round happens only when a pass reworked more lines of code than the
-dispatcher's rework threshold (comments and docs do not count). Two failed passes park a ticket for you; two agents in a row returning
-nothing stop the run as an outage instead of blaming the tickets.
+**The rules live in code, not in prompts.** Slots, gates, review rounds and parking are decided by the
+Overseer. Another review round happens only when a pass reworked more lines of code than the rework
+threshold (comments and docs do not count). A red gate resumes the same builder with the failure in hand;
+two failed passes park a ticket for you, and two agents in a row dying stop launching as an outage instead
+of blaming the tickets. What only you can answer becomes a decision in the Questions view.
 
-**Releases cannot collide.** `release` checks the ticket, fast-forwards main and closes the review bar in
-one lock hold. A branch that fell behind is told `main-moved`, rebases and tries again. Store the repository's
-check line once with `agent-progress checks "<line>"`, and every release first runs it on the exact commit it
-would merge, in the branch's worktree; a failure is refused as `checks-failed` and changes nothing. On this board
-a row's *done* pill means merged.
+**Merges cannot collide.** Store the repository's gates once with `agent-progress gate add`, and every
+build runs them on its final commit. The Airlock holds one merge slot per target: it merges the target's
+tip into the reviewed branch, gates the merged tree, and lands it by a compare-and-swap fast-forward, so a
+main line that moved meanwhile only requeues the ticket. On this board a row's *done* pill means merged.
 
-**You see what every agent cost.** The `SubagentStop` hook that `init` installs adds everything an agent processed,
-cache reads included, to its row. `agent-progress usage` audits the same figures from the transcripts.
+**You see what every agent cost.** The Agents view shows each job's calls and tokens live, read from its
+own session. When a job working tickets ends, the Overseer adds everything it processed, its subagents and
+cache reads included, to the row of each ticket it worked. `agent-progress usage` audits the figures from
+the transcripts.
 
 ## How it works
 
 | Role | Runs as | Does |
 |---|---|---|
-| **You** | yourself | Describe the work, answer questions, say go, say stop. |
-| **Product owner** | any other Claude Code session, with the `agent-po` skill it loads when asked to file | Files tickets with a brief, its fact-finding in subagents, so grilling and research stay out of the orchestrator's context. Dispatches nothing. |
-| **Orchestrator** | your Claude Code session, with `/agent-progress-orchestrate` | Files tickets with a brief, launches the dispatcher, triages what comes back. Writes no code, reads no diffs. |
-| **Dispatcher** | a Workflow script in `.agent-progress/` | Starts a builder per free slot, a reviewer per built ticket, decides rounds and parking. |
-| **Builder** | a subagent, Opus at medium effort unless the ticket names another | Claims the ticket, builds in its worktree, leaves green checks and a Handoff. |
-| **Reviewer** | a fresh subagent, the ticket's same model and effort | Tries to prove the build wrong, fixes, rebases, releases. |
-| **CLI and hook** | `agent-progress` | Holds the state, draws the page, records tokens when an agent stops. |
+| **You** | yourself, in the Bridge or a Claude Code session | Describe the work, ready drafts, answer decisions, pause and stop. |
+| **Overseer** | `agent-progress run`, one runner per board | Launches every job below, gates each build, decides rounds and parking, serves the Bridge, reads each session's calls and tokens live. |
+| **Bridge** | the page the Overseer serves on `127.0.0.1`, opened with `agent-progress open` | Shows the board and takes your moves: Kanban, Progress, Tickets, Agents, Questions, Assistant and Intake. |
+| **Product owner** | a job the Overseer launches for an Intake request, or any Claude Code session with the `agent-po` skill | Files draft tickets with a brief and a numbered Acceptance, its fact-finding in subagents. Builds nothing. |
+| **Assistant** | the Overseer's own orchestrating session | Handles the incidents the Overseer delivers and chats with you in the Assistant view. Writes no code. |
+| **Orchestrator** | optionally, your Claude Code session with `/agent-progress-orchestrate` | Starts the Overseer on your go and turns what you say into board commands. Drives nothing itself. |
+| **Builder** | a job in the ticket's worktree, Opus at medium effort unless the ticket names another | Builds the ticket and reports its gates and a Handoff on its final commit. |
+| **Reviewer** | a fresh job in the same worktree | Tries to prove the build wrong, fixes what is in scope, files the rest as low-priority tickets. |
+| **Airlock** | the Overseer's merge queue | Merges each reviewed ticket onto its target one at a time, a resolver agent taking a conflict, and gates the merged tree before it lands. |
 
 <p align="center">
   <img src="docs/images/lifecycle.png" width="560" alt="One ticket, start to merge: you describe the work, a product owner files a draft, once you ready it the Overseer starts a builder in a worktree, a fresh agent reviews it, a large rework loops to another round, otherwise the Airlock merges it into main and done means merged; findings outside scope become low-priority tickets and the Overseer reads each session's calls and tokens live">
 </p>
 
-You can keep filing tickets while a run is going; it picks them up when its next agent returns, and a
-high-priority one goes first. Say stop and the agents in flight finish, unfinished builds pause, and the
-next run resumes them. The dispatcher's state and run id live on the board, so a compacted or restarted
-orchestrator picks up where it left off.
+You can keep filing tickets while the Overseer runs; it picks each one up as soon as it is ready and a slot
+is free, and a high-priority one goes first. `agent-progress run pause` starts no new job while the jobs in
+flight carry on, and `agent-progress job wind-down <job>` or `job stop <job>` ends one. Every job and its state live
+on the board, so a restarted Overseer picks up where the last one left off.
 
 <details>
 <summary><b>Where everything goes</b> — the architecture</summary>
@@ -154,8 +159,9 @@ skill globally: `agent-progress init` copies both skills into each repository it
 walks through each step.
 
 **Updating.** A `git pull` in this checkout updates the CLI and the skills' source. Then run
-`agent-progress update` in every repository it tracks: it regenerates the dispatcher, the brief, the
-skill copies and the other files it installed, and records their install version in `.agent-progress/version.json`. When the
+`agent-progress update` in every repository it tracks: it rewrites the session instructions, the default
+briefs, the skill copies and the other files it installed, and records their install version in
+`.agent-progress/version.json`. When the
 pull changed the install version, most commands in that repository refuse at exit 1 until it has run
 there, and say to run it; see
 [Install version](docs/cli.md#install-version).
@@ -171,37 +177,40 @@ agent-progress init --project "Example Storefront"
   <img src="docs/images/terminal-init.png" width="720" alt="Terminal output of agent-progress init for Example Storefront, listing tracker, session instructions, dashboard, .gitignore entry, CLAUDE.md, retired files, SessionStart hook, skills and worktrees folder, followed by agent-progress run --detach printing the Overseer's local URL">
 </p>
 
-`init` writes nine things:
+`init` writes seven things:
 
-- **`.agent-progress/`**, the tracker: the state file, the log (`log.jsonl`), a `tickets/` folder, the dashboard and its lock.
-- **The briefs**: `.agent-progress/agent-brief.md`, the orchestrator's, and `builder-brief.md` and
-  `review-brief.md` beside it, each agent's own.
-- **`.agent-progress/version.json`**, the install version of everything the tool installs.
-- **A `.gitignore` entry** for `.agent-progress/`, unless git already ignores it.
-- **A managed block in `CLAUDE.md`** telling every session in the repository to track its work here.
-- **A `SubagentStop` hook** in `.claude/settings.local.json`, which records each agent's tokens.
-- **The dispatcher**, `.agent-progress/agent-progress-dispatch.js`, generated by `init` and `update`.
-- **The worker agent definition**, `.claude/agents/agent-progress-worker.md`, set to Opus at medium effort.
+- **`.agent-progress/`**, the tracker: the state file, the log (`log.jsonl`), a `tickets/` folder, the
+  `progress.html` stub that points at the live Bridge, and the lock.
+- **`.gitignore` entries** for `.agent-progress/` and the worktrees folder, unless git already ignores them.
+- **The files beside the tracker**: the session instructions, the reference (the ticket format, the moves and
+  the exit codes) and the default briefs under `.agent-progress/briefs/defaults/`, which each job reads when
+  the board's pipeline names no other.
+- **A `SessionStart` hook** in `.claude/settings.local.json`, which tells every session you open in the
+  repository how it tracks its work. `--no-hooks` leaves it out.
 - **The two skills**, copied into `.claude/skills/agent-po/` and `.claude/skills/agent-progress-orchestrate/`
   and git-ignored there, so Claude Code loads them in this repository only: `agent-po` whenever a session is asked to
-  file a ticket, bug or research question (or on `/agent-po`), and `agent-progress-orchestrate` for the session that
-  runs the board, which loads `agent-po` for its intake.
-- **The reference**, `.agent-progress/reference.md`: the ticket format, the moves and the exit codes, which the
-  briefs cite for an agent to read on demand.
+  file a ticket, bug or research question (or on `/agent-po`), and `agent-progress-orchestrate` for a session
+  working alongside the Overseer, which loads `agent-po` for its intake.
+- **Removed once**: whatever an older install wrote that the Overseer replaced, a managed `CLAUDE.md` block
+  among it, so commit `CLAUDE.md` when `init` says it changed.
+- **`.agent-progress/version.json`**, the install version of everything the tool installs, written last.
 
-The managed block, the hook, the dispatcher and the agent definition each have an opt-out flag, and `agent-progress update` refreshes the tool's files later,
-never touching your tickets and log. `agent-progress open` shows the board.
+`agent-progress update` refreshes the tool's files later, never touching your tickets and log.
 
 ### 3. Run the board
 
-Open Claude Code in the repository and type:
+Start the Overseer and open the Bridge:
 
-```text
-/agent-progress-orchestrate
+```sh
+agent-progress run --detach
+agent-progress open
 ```
 
-Then describe what you want, one request or ten. Answer the questions until each ticket is testable, and
-say **go**. The board fills in from there.
+On a board with no gates yet it first starts an onboarder that proposes them, and asks you in the Questions
+view. Then
+describe what you want in Intake, one request or ten, ready the drafts the product owner files, and the board
+fills in from there. To work from Claude Code instead, open it in the repository and type
+`/agent-progress-orchestrate`.
 
 > [!TIP]
 > The board allows two agents at once by default. `agent-progress concurrency <n>` raises it, up to ten.
@@ -210,7 +219,7 @@ say **go**. The board fills in from there.
 
 <table>
   <tr>
-    <td width="33%" valign="top"><b>No network</b><br><sub>agent-progress itself makes no network request: no server, no telemetry, no CDN, no web fonts.</sub></td>
+    <td width="33%" valign="top"><b>No network</b><br><sub>agent-progress itself makes no network request: the Bridge listens on 127.0.0.1 only; no telemetry, no CDN, no web fonts.</sub></td>
     <td width="33%" valign="top"><b>Plain files</b><br><sub>All state is JSON and markdown in <code>.agent-progress/</code> at the repository root, git-ignored.</sub></td>
     <td width="33%" valign="top"><b>Your own agents</b><br><sub>The agents it tracks are your own Claude Code sessions. The page's view choices stay in your browser.</sub></td>
   </tr>
@@ -228,7 +237,7 @@ offers its official installer.
   </tr>
   <tr>
     <td width="190"><b>Runs in</b></td>
-    <td>your terminal and your Claude Code sessions; the dispatcher runs as a Claude Code Workflow script</td>
+    <td>your terminal: the Overseer, <code>agent-progress run</code>, launches every agent as a Claude Code session of its own</td>
   </tr>
   <tr>
     <td width="190"><b>Runtime dependency</b></td>
@@ -240,11 +249,11 @@ offers its official installer.
   </tr>
   <tr>
     <td width="190"><b>Dashboard</b></td>
-    <td>one self-contained <code>progress.html</code>: Kanban · Progress · Tickets tabs, the Kanban board beside the Tickets tab rather than in place of it, an Epics tab once the board has epics and a Waves tab once a ticket waits on another; light, dark or auto.</td>
+    <td>the Bridge, served by the Overseer on <code>127.0.0.1</code>: Kanban · Progress · Tickets · Agents · Questions · Assistant · Intake; light, dark or auto.</td>
   </tr>
   <tr>
     <td width="190"><b>Agents</b></td>
-    <td>builders and reviewers on Opus at medium effort, per ticket overridable; 2 at once by default, 10 at most</td>
+    <td>builders and reviewers on Opus at medium effort, per ticket overridable, the Assistant on Sonnet; 2 at once by default, 10 at most</td>
   </tr>
   <tr>
     <td width="190"><b>Source</b></td>
