@@ -7,28 +7,33 @@ import { createHash }                          from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { basename, join }                      from 'node:path';
 
-import { PipelineFile }                                                          from '../../adapters/pipeline/PipelineFile.ts';
-import { BUILDER_REPORT_SCHEMA, RESOLVER_REPORT_SCHEMA, REVIEWER_REPORT_SCHEMA } from '../../adapters/reports/ReportSchemas.ts';
-import type { JsonSchema }                                                       from '../../adapters/reports/ReportValidation.ts';
-import { type UsageMarkerReading, UsageMarkerFile }                              from '../../adapters/usage-marker/UsageMarkerFile.ts';
-import type { EventLogEntry }                                                    from '../../lib/agent-host/EventLog.ts';
-import type { AgentAdapter }                                                     from '../../lib/agent-launch/AgentAdapter.ts';
-import type { AgentLaunchRequest }                                               from '../../lib/agent-launch/AgentLaunchRequest.ts';
-import { launchEnvironmentOf }                                                   from '../../lib/agent-launch/LaunchEnvironment.ts';
-import type { WorkerProfile }                                                    from '../../lib/agent-launch/WorkerProfile.ts';
-import { writeFileAtomically }                                                   from '../../lib/atomic-file/AtomicFile.ts';
-import { GitProcess }                                                            from '../../lib/git/GitProcess.ts';
-import type { DecisionAnswer }                                                   from '../../lib/tracker-model/@types/Decision.ts';
-import type { IncidentDefaultCause, IncidentMove }                               from '../../lib/tracker-model/@types/Incident.ts';
-import type { InterruptionCause, Job, JobKind }                                  from '../../lib/tracker-model/@types/Job.ts';
-import type { DecisionDraft, DecisionWording }                                   from '../../lib/tracker-model/@types/LifecycleStep.ts';
-import type { PipelineGate }                                                     from '../../lib/tracker-model/@types/Pipeline.ts';
-import type { Board }                                                            from '../../lib/tracker-model/Board.ts';
-import { LifecyclePolicy }                                                       from '../../lib/tracker-model/LifecyclePolicy.ts';
-import { JOB_ID_VARIABLE, RELAY_DIRECTORY_VARIABLE }                             from '../../shared/Environment.ts';
-import { LIFECYCLE_LIMITS }                                                      from '../../shared/constants/LifecycleLimits.ts';
-import { MERGE_SLOT_LIMITS }                                                     from '../../shared/constants/MergeSlotLimits.ts';
-import { PRODUCT_NAMES }                                                         from '../../shared/constants/ProductNames.ts';
+import { PipelineFile }    from '../../adapters/pipeline/PipelineFile.ts';
+import {
+  BUILDER_REPORT_SCHEMA,
+  ONBOARDER_REPORT_SCHEMA,
+  RESOLVER_REPORT_SCHEMA,
+  REVIEWER_REPORT_SCHEMA
+} from '../../adapters/reports/ReportSchemas.ts';
+import type { JsonSchema }                           from '../../adapters/reports/ReportValidation.ts';
+import { type UsageMarkerReading, UsageMarkerFile }  from '../../adapters/usage-marker/UsageMarkerFile.ts';
+import type { EventLogEntry }                        from '../../lib/agent-host/EventLog.ts';
+import type { AgentAdapter }                         from '../../lib/agent-launch/AgentAdapter.ts';
+import type { AgentLaunchRequest }                   from '../../lib/agent-launch/AgentLaunchRequest.ts';
+import { launchEnvironmentOf }                       from '../../lib/agent-launch/LaunchEnvironment.ts';
+import type { WorkerProfile }                        from '../../lib/agent-launch/WorkerProfile.ts';
+import { writeFileAtomically }                       from '../../lib/atomic-file/AtomicFile.ts';
+import { GitProcess }                                from '../../lib/git/GitProcess.ts';
+import type { DecisionAnswer }                       from '../../lib/tracker-model/@types/Decision.ts';
+import type { IncidentDefaultCause, IncidentMove }   from '../../lib/tracker-model/@types/Incident.ts';
+import type { InterruptionCause, Job, JobKind }      from '../../lib/tracker-model/@types/Job.ts';
+import type { DecisionDraft, DecisionWording }       from '../../lib/tracker-model/@types/LifecycleStep.ts';
+import type { PipelineGate }                         from '../../lib/tracker-model/@types/Pipeline.ts';
+import type { Board }                                from '../../lib/tracker-model/Board.ts';
+import { LifecyclePolicy }                           from '../../lib/tracker-model/LifecyclePolicy.ts';
+import { JOB_ID_VARIABLE, RELAY_DIRECTORY_VARIABLE } from '../../shared/Environment.ts';
+import { LIFECYCLE_LIMITS }                          from '../../shared/constants/LifecycleLimits.ts';
+import { MERGE_SLOT_LIMITS }                         from '../../shared/constants/MergeSlotLimits.ts';
+import { PRODUCT_NAMES }                             from '../../shared/constants/ProductNames.ts';
 import {
   GATE_RUNS_AT_ONCE,
   GATE_SLOT_RETRY_MILLISECONDS,
@@ -60,6 +65,7 @@ import {
 import { JobResumption }                                           from './JobResumption.ts';
 import { LegacyHostReader }                                        from './LegacyHostReader.ts';
 import { createMergeSlots, type DeclinedCleanup, type HeldTarget } from './MergeSlots.ts';
+import { Onboarding, type OnboardingFacts }                        from './Onboarding.ts';
 import { createProcessHostSandbox }                                from './ProcessHostSandbox.ts';
 import { QuestionRouting }                                         from './QuestionRouting.ts';
 import { Reattachment, type ReattachmentReport }                   from './Reattachment.ts';
@@ -93,6 +99,8 @@ export interface JobLaunchFacts {
   airlock:                AirlockFacts | null;
   /** What a fresh Assistant boots with: the incidents of its first message, the newest incident records and the board; `null` otherwise. */
   assistant:              AssistantFacts | null;
+  /** An onboarder's mode and the gate history `advise` reads; `null` for every other job. */
+  onboarding?:            OnboardingFacts | null;
   /** The role's instruction files as the pipeline names them, joined in order and unfilled; empty for a job no array speaks for. */
   instructions:           string;
 }
@@ -254,6 +262,7 @@ const REPORT_SCHEMA_OF_JOB_KIND: Partial<Record<JobKind, JsonSchema>> = {
   'build':       BUILDER_REPORT_SCHEMA,
   'review':      REVIEWER_REPORT_SCHEMA,
   'merge-agent': RESOLVER_REPORT_SCHEMA,
+  'onboarder':   ONBOARDER_REPORT_SCHEMA,
 };
 
 function fileTextOrEmpty(filePath: string): string {
@@ -408,8 +417,12 @@ function openLeftoverWorktreeDecisions(change: TrackerChange, decisionWordingOf:
   }
 }
 
+function worktreesRootOf(workspace: Workspace): string {
+  return join(workspace.rootDirectory, PRODUCT_NAMES.WORKTREES_FOLDER);
+}
+
 function workingDirectoryOf(workspace: Workspace, job: Readonly<Job>): string {
-  const worktreesRoot = join(workspace.rootDirectory, PRODUCT_NAMES.WORKTREES_FOLDER);
+  const worktreesRoot = worktreesRootOf(workspace);
   const [ticketId] = job.ticketIds;
   const ticketWorktree = ticketId === undefined ? null : join(worktreesRoot, `ticket-${ticketId}`);
   if (ticketWorktree !== null && existsSync(ticketWorktree)) return ticketWorktree;
@@ -449,6 +462,7 @@ function profileOf(workspace: Workspace, job: Readonly<Job>, workingDirectory: s
  */
 function launchProfileOf(jobLaunchContext: JobLaunchContext, board: Board, job: Readonly<Job>, workingDirectory: string, relayDirectory: string): WorkerProfile {
   if (IntakeSessions.isIntakeJob(job)) return IntakeSessions.productOwnerProfileOf(profileOf(jobLaunchContext.workspace, job, workingDirectory, relayDirectory));
+  if (Onboarding.isOnboarderJob(job)) return Onboarding.onboarderProfileOf(profileOf(jobLaunchContext.workspace, job, workingDirectory, relayDirectory), relayDirectory);
   if (job.kind === 'merge-agent') return WorkerProfiles.profileOf('resolver', JobLaunch.sandboxFactsFor(jobLaunchContext, job, workingDirectory), NO_TOOLCHAIN);
   if (!JobLaunch.isWorktreeJob(job)) return profileOf(jobLaunchContext.workspace, job, workingDirectory, relayDirectory);
   const ticket = board.tickets().find((candidate) => candidate.frontmatter.id === job.ticketIds[0]);
@@ -512,6 +526,7 @@ function launchFactsOf(board: Board, trackerDirectory: string, job: Readonly<Job
     reviewFindings:         reviewFindingsOf(board, job),
     intake:                 IntakeSessions.intakeFactsOf(board, job),
     assistant:              AssistantBoot.assistantFactsOf(board, job),
+    onboarding:             Onboarding.onboardingFactsOf(board, job),
   };
 }
 
@@ -523,7 +538,9 @@ function launchHost(request: DrivePassRequest, jobLaunchContext: JobLaunchContex
   const jobFolder        = HostFleet.jobFolderOf(workspace.trackerDirectory, job.id);
   const relayDirectory   = RelayInbox.relayDirectoryOf(workspace.rootDirectory, job.id);
   mkdirSync(join(relayDirectory, 'requests'), { recursive: true });
-  const workingDirectory = workingDirectoryOf(workspace, job);
+  const workingDirectory = Onboarding.isOnboarderJob(job)
+    ? Onboarding.prepareSnapshot({ workspace, worktreesRoot: worktreesRootOf(workspace), mainLine: request.mainLine }, job)
+    : workingDirectoryOf(workspace, job);
   const launchFacts      = launchFactsOf(board, workspace.trackerDirectory, job, workingDirectory, instructions.text);
   const text             = request.launchTextOf(job, launchFacts);
   const resumeLine       = JobResumption.resumeLineOf(workspace.trackerDirectory, board, job, request);
@@ -771,6 +788,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
         const livenessOf = (job: Readonly<Job>): HostLiveness => observation.hosts.find((host) => host.jobId === job.id && host.instance === job.hostInstance)?.liveness
           ?? HostFleet.livenessOf(HostFleet.jobFolderOf(request.workspace.trackerDirectory, job.id), job.hostInstance);
         IntakeSessions.endClosedIntakes(change.board, livenessOf, request.decisionWordingOf, change.at);
+        Onboarding.applySettledOnboarders(change, worktreesRootOf(request.workspace), request.decisionWordingOf);
         request.afterHoldPhase?.('host-events', change.board);
         IncidentRouter.openQuietJobIncidents(change.board, quietJobIdsDue.splice(0), QUIET_JOB_SWEEPS, change.at);
         const { assistantReadings } = observation;
@@ -818,6 +836,15 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     await stopLimitedJobs(written.board, observation.trackerId, written.result.usageLimitHits);
     scheduleThePassAtTheReset(written.result.usageResetsAt);
     await JobLaunch.runBuildJobEffects(jobLaunchContext, written.board, observation.trackerId, observation.buildJobs);
+    const settledOnboarders = await Onboarding.settleEndedOnboarders({
+      workspace:             request.workspace,
+      worktreesRoot:         worktreesRootOf(request.workspace),
+      mainLine:              request.mainLine,
+      agentAdapter:          request.agentAdapter,
+      millisecondsNow:       () => request.now().getTime(),
+      stopGraceMilliseconds: SESSION_STOP_GRACE_MILLISECONDS,
+    }, written.board);
+    if (settledOnboarders > 0) wake(true);
     for (const ended of written.result.endedAssistantJobs) {
       await HostFleet.sendFrames(HostFleet.jobFolderOf(request.workspace.trackerDirectory, ended.id), ended.hostInstance, [
         { kind: 'stop', graceMilliseconds: SESSION_STOP_GRACE_MILLISECONDS },

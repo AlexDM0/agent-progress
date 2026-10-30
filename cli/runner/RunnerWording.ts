@@ -8,10 +8,12 @@ import type { Job }      from '../../src/lib/tracker-model/@types/Job.ts';
 import type {
   DecisionDraft,
   DecisionWording,
+  PipelineProposalFacts,
   ReadyDraftFact,
   ReadyDraftsFacts
 } from '../../src/lib/tracker-model/@types/LifecycleStep.ts';
 import type { PipelineGate }              from '../../src/lib/tracker-model/@types/Pipeline.ts';
+import { ACCEPT_PROPOSAL_LABEL }          from '../../src/services/control/DecisionControls.ts';
 import { ALLOWED_MOVES_BY_INCIDENT_KIND } from '../../src/services/control/constants/AllowedMovesByIncidentKind.ts';
 import type { AssistantFacts }            from '../../src/services/runner/AssistantBoot.ts';
 import type { AssistantChatFacts }        from '../../src/services/runner/AssistantSession.ts';
@@ -61,8 +63,47 @@ function readyDraftsWordingOf(facts: ReadyDraftsFacts): DecisionWording {
   };
 }
 
+const SUGGESTION_WORDING: Readonly<Record<string, string>> = {
+  'no-caching-tool':        'No caching tool while these gates are slow',
+  'per-worktree-cache':     'The cache lives in each worktree; use one absolute cache folder for every worktree instead of',
+  'task-inputs-unseen':     'A task\'s inputs miss what its import graph cannot see (task, then folders)',
+  'gate-not-through-turbo': 'A gate runs past the cache; run it through `turbo run <task>`',
+};
+
+function proposedGateLineOf(gate: PipelineProposalFacts['gates'][number]): string {
+  const times = gate.durationsMilliseconds.map((milliseconds) => `${milliseconds} ms`).join(', ');
+  return `gate ${gate.name}: ${gate.run} — ${gate.verdict} (${gate.outcomes.join(', ')}; ${times})`;
+}
+
+/** The proposal with what each gate did on both runs of the snapshot; accepting writes the prepare steps and gates, declining nothing. */
+function pipelineProposalWordingOf(proposal: PipelineProposalFacts): DecisionWording {
+  const failedPrepare = proposal.failedPrepareSteps.filter((step) => step !== null);
+  return {
+    questions: [{
+      question:    'The onboarder proposed this pipeline and its gates ran twice on the main line. Accept it?',
+      header:      'pipeline-proposal',
+      multiSelect: false,
+      options:     [
+        { label: `${ACCEPT_PROPOSAL_LABEL} the prepare steps and gates`, description: 'Written through gate prepare and gate add in one hold.' },
+        { label: 'Decline', description: 'Nothing changes; the board still holds new work until a pipeline is set.' },
+      ],
+    }],
+    context: [
+      `Snapshot ${proposal.snapshotCommit}`,
+      ...proposal.prepare.map((step) => `prepare ${step.name}: ${step.run}`),
+      ...failedPrepare.length === 0 ? [] : [`prepare failed in a run at: ${failedPrepare.join(', ')}`],
+      ...proposal.gates.map(proposedGateLineOf),
+      `review: ${proposal.review ?? 'none'} (not written by accepting)`,
+      `constitution: ${proposal.constitution.join(', ')} (not written by accepting)`,
+      ...Object.entries(proposal.agents).map(([role, paths]) => `agents.${role}: ${paths.join(', ')} (not written by accepting)`),
+      ...proposal.suggestions.map((suggestion) => `suggestion: ${SUGGESTION_WORDING[suggestion.kind] ?? suggestion.kind}: ${suggestion.values.join(', ')}`),
+    ].join('\n'),
+  };
+}
+
 function decisionWordingOf(draft: DecisionDraft): DecisionWording {
   if (draft.readyDrafts !== undefined) return readyDraftsWordingOf(draft.readyDrafts);
+  if (draft.pipelineProposal !== undefined) return pipelineProposalWordingOf(draft.pipelineProposal);
   return {
     questions: [{
       question:    `The runner needs a decision (${draft.kind}) about ${ticketsPhraseOf(draft.ticketIds)}.`,
@@ -208,8 +249,28 @@ function reviewFindingsMessageOf(ticketId: string, facts: Readonly<ReviewFinding
  * A builder's and a reviewer's first message is its role's instruction files, the constitution first, filled with its ticket and checks
  * line; a merge-slot role's instruction files are its role brief, beside the first message its merge prompt gives it.
  */
+const ONBOARDER_MODE_INSTRUCTIONS = {
+  setup:  'No pipeline is stored (checks-not-set): your report is its proposal, and `optimisations` stays empty.',
+  advise: `A pipeline is stored: propose it as it should stand, and file each optimisation the gate history shows as a draft low ticket
+through your Hatch (\`${PRODUCT_NAMES.PROGRAM} ticket add "<title>" --status draft --priority low\`), naming it in \`optimisations\`.`,
+} as const;
+
+function onboarderTextOf(job: Readonly<Job>, onboarding: NonNullable<JobLaunchFacts['onboarding']>, instructions: string): JobLaunchText {
+  const fills = { jobId: job.id, program: PRODUCT_NAMES.PROGRAM, dataFolder: PRODUCT_NAMES.DATA_FOLDER };
+  return {
+    firstMessage: filledTemplateOf(readFileSync(resourceFilePathOf('prompts', 'OnboarderPrompt.md'), 'utf8'), {
+      ...fills,
+      mode:             onboarding.mode,
+      modeInstructions: ONBOARDER_MODE_INSTRUCTIONS[onboarding.mode],
+      gateHistory:      onboarding.gateHistory.length === 0 ? 'None recorded.' : onboarding.gateHistory.join('\n'),
+    }),
+    roleBrief: filledTemplateOf(instructions, fills),
+  };
+}
+
 function launchTextOf(job: Readonly<Job>, facts: JobLaunchFacts): JobLaunchText {
   if (facts.intake !== null) return productOwnerTextOf(job, facts.intake, facts.instructions);
+  if (facts.onboarding !== undefined && facts.onboarding !== null) return onboarderTextOf(job, facts.onboarding, facts.instructions);
   if (facts.assistant !== null) return assistantTextOf(job, facts.assistant, facts.instructions);
   const subject = ticketsPhraseOf(job.ticketIds);
   const mergeSlotRole = job.role === 'resolver' || job.role === 'merge-fix' || job.role === 'resolution-review';

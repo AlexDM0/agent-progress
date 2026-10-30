@@ -14,6 +14,7 @@ export const DECISION_KINDS = [
   'outage',
   'quiet-job',
   'leftover-worktree',
+  'pipeline-proposal',
 ] as const satisfies readonly DecisionKind[];
 
 /** Who opens a decision beside an agent of a job role. */
