@@ -55,6 +55,12 @@ export const DEFAULT_FAKE_AGENT_STEPS: readonly FakeAgentStep[] = Object.freeze(
   { kind: 'exit', code: 0 },
 ]);
 
+/** A session that starts and keeps working until its stdin closes, so a board shown with it has its agents running. */
+export const WORKING_FAKE_AGENT_STEPS: readonly FakeAgentStep[] = Object.freeze([
+  { kind: 'print', line: fakeStartedLine('fake-session') },
+  { kind: 'await-line' },
+]);
+
 export function fakeAgentAdapter(steps: readonly FakeAgentStep[] = DEFAULT_FAKE_AGENT_STEPS): AgentAdapter {
   return {
     vendor:       FAKE_AGENT_VENDOR,

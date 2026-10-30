@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Starts this checkout's Overseer on the seeded demo board with the fake agent adapter, lets it launch jobs and raise
-# an incident, records an intake, then shoots each view of the Bridge it serves and stops it again.
+# Starts this checkout's Overseer on the seeded demo board with the fake agent adapter, lets it launch jobs that keep
+# working, records an intake, then shoots each view of the Bridge it serves and stops it again.
 set -euo pipefail
 
 # Usage: bridge-demo.sh <work folder seed-demo.sh filled> <shots folder>
@@ -16,8 +16,10 @@ unset AGENT_PROGRESS_ROOT AGENT_PROGRESS_V2_ROOT
 # Chrome keeps the user's home: under a fresh one, headless Chrome stalled before its first screenshot.
 USER_HOME="$HOME"
 export HOME="$WORK/home"
-# Every session the Overseer launches is the scripted fake agent, never a vendor's CLI.
+# Every session the Overseer launches is the scripted fake agent, never a vendor's CLI, and it keeps working rather than ending
+# unreported, which the Overseer would count as a crash and answer with an outage that pauses the board.
 export AGENT_PROGRESS_FAKE_AGENT=1 AGENT_PROGRESS_V2_FAKE_AGENT=1
+export AGENT_PROGRESS_FAKE_AGENT_KEEPS_WORKING=1 AGENT_PROGRESS_V2_FAKE_AGENT_KEEPS_WORKING=1
 [[ -d "$HOME" && -d "$REPOSITORY" ]] || { echo "Run seed-demo.sh $WORK first" >&2; exit 1; }
 
 cd "$REPOSITORY"
@@ -27,6 +29,8 @@ BRIDGE_URL="$(cli run --port 0 --detach --json | sed -n 's/.*"url": *"\([^"]*\)"
 [[ -n "$BRIDGE_URL" ]] || { echo "The Overseer printed no URL" >&2; exit 1; }
 trap 'cli run stop --now > /dev/null 2>&1 || true' EXIT
 cli run resume > /dev/null
+# The first start holds the seeded low tickets for a first-run review under incident I1; readying them settles it.
+cli ticket ready 7 13 14 --incident I1 > /dev/null
 cli intake -- "Customers want a wish list on product pages" > /dev/null
 sleep "$SETTLE_SECONDS"
 
@@ -51,5 +55,5 @@ shot() {
   shot bridge-intake intake light; printf '\n]\n'
 } > "$SHOTS/bridge-jobs.json"
 HOME="$USER_HOME" bun "$HERE/shoot.js" "$SHOTS/bridge-jobs.json"
-# What the shots' header should say: the scripted crashes open an outage, which pauses the board again after the resume.
+# What the shots' header should say: running, its agents working.
 cli run status > "$SHOTS/run-status.txt"
