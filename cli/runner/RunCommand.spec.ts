@@ -293,8 +293,9 @@ describe('run --detach, status, restart and stop', () => {
 
   test('stop --now stops a live install host before the runner exits; a plain stop leaves it running', async () => {
     const monitorFolder = createScratchDirectory('h');
+    const trackerDirectory = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER);
     try {
-      const hostFolder = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'jobs', 'J-example', 'install-1');
+      const hostFolder = join(trackerDirectory, 'jobs', 'J-example', 'install-1');
       HostFleet.writeProcessLaunchFile({
         hostFolder,
         instance:         1,
@@ -327,6 +328,9 @@ describe('run --detach, status, restart and stop', () => {
       for (let attempt = 0; attempt < HOST_WAIT_TRIES && !processIsGone(hostProcessId); attempt += 1) await Bun.sleep(HOST_WAIT_MILLISECONDS);
       expect(processIsGone(hostProcessId), runnerLogText()).toBe(true);
     } finally {
+      // A failed assertion would otherwise leave the host and its child running past the scratch repository.
+      await HostFleet.stopLiveProcessHosts(trackerDirectory);
+      await HostFleet.reapEndedHosts(trackerDirectory);
       removeScratchDirectory(monitorFolder);
     }
   }, RUNNER_TEST_TIMEOUT_MILLISECONDS);
