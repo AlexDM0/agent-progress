@@ -357,9 +357,8 @@ const MESSAGE_FOR_REFUSAL: readonly (readonly [BoardRefusalDetail, string])[] = 
     + '`agent-progress ticket epic <id> --remove checkout-redesign` takes it off a ticket.',
   ],
   [
-    { reason: 'check-command-change-with-tickets-in-flight', ticketIds: ['003', '005'] },
-    'The check command was not changed: #003, #005 are in progress or in review under the one stored, and a release refuses a ticket '
-    + 'whose stamp differs from the command it runs. Nothing was written; add --restamp to stamp every ticket in flight with the new command.',
+    { reason: 'unknown-gate', gateName: 'lint', gateNames: ['test', 'types'] },
+    'There is no gate lint: the gates are test, types. Nothing was written.',
   ],
 ];
 

@@ -45,7 +45,6 @@ describe('the command table', () => {
   test('the table holds exactly the commands the plan names', () => {
     expect([...COMMAND_NAMES].sort()).toEqual([
       'await',
-      'checks',
       'clear',
       'concurrency',
       'decide',

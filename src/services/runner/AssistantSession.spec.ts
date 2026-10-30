@@ -92,15 +92,15 @@ function assistantBoard(storedLogRecords: LogRecord[] = [], jobs: Job[] = [{ ...
       nextTaskId:       1,
       concurrencyLimit: 4,
       dispatcherState:  'stopped',
-      checkCommand:     'bun run verify',
       nextJobId:        901,
       jobs,
       tasks:            [],
     },
-    tickets: [ticketFixture({ id: '001', status: 'in-progress' }), ticketFixture({ id: '002', status: 'in-progress' })],
-    epics:   [],
-    logger:  createLogger((record) => records.push(record)),
+    tickets:  [ticketFixture({ id: '001', status: 'in-progress' }), ticketFixture({ id: '002', status: 'in-progress' })],
+    epics:    [],
+    logger:   createLogger((record) => records.push(record)),
     storedLogRecords,
+    pipeline: { prepare: [], gates: [{ name: 'verify', run: 'bun run verify' }] },
   });
   return { board, records };
 }
@@ -260,7 +260,7 @@ describe('the Hatch refuses the Assistant everything but its incident moves (A8)
       kind: 'ticket-edit', ticketReference: '11', bodyText: 'Waived: A1', appendsBody: true, allowsPastPending: false
     }],
     ['a setting', { kind: 'concurrency-set', limit: 2 }],
-    ['the checks line', { kind: 'checks-set', command: 'true', restamps: false }],
+    ['a gate', { kind: 'pipeline-gate-add', gate: { name: 'verify', run: 'true' } }],
     ['pausing the runner', { kind: 'runner-pause' }],
     ['an answer to User\'s decision', { kind: 'decision-answer', decisionId: 'E1', answer: { form: 'letters', choices: ['A'] } }],
   ];

@@ -145,6 +145,11 @@ export const LOG_RECORD_SCHEMA = {
   'chart-range-set':             { subject: 'board', fields: { view: 'chart-range' } },
   'concurrency-limit-set':       { subject: 'board', fields: { limit: 'concurrency-limit' } },
   'dispatcher-set':              { subject: 'board', fields: { state: 'dispatcher-state', runId: 'dispatcher-run-id' } },
+  'pipeline-prepare-step-set':   { subject: 'board', fields: { name: 'text', run: 'text' } },
+  'pipeline-gate-added':         { subject: 'board', fields: { name: 'text', run: 'text' } },
+  'pipeline-gates-none':         { subject: 'board', fields: NO_FIELDS },
+  'pipeline-gate-removed':       { subject: 'board', fields: { name: 'text' } },
+  // This kind and the four after it are in `RETIRED_LOG_RECORD_KINDS`: read, never logged.
   'check-command-set':           { subject: 'board', fields: { command: 'check-command' } },
   'install-command-set':         { subject: 'board', fields: { command: 'text' } },
   // An empty `patterns` is the list cleared.
@@ -230,3 +235,13 @@ export const LOG_RECORD_SCHEMA = {
     },
   },
 } as const satisfies Readonly<Record<string, LogRecordKindSchema>>;
+
+/** The kinds the retired `checks` verb logged: a log holding them still reads, and nothing logs them any more. */
+export const RETIRED_LOG_RECORD_KINDS = [
+  'check-command-set',
+  'ticket-check-command-restamped',
+  'install-command-set',
+  'checks-definition-files-set',
+  'gate-key-command-set',
+  'gate-cache-paths-set',
+] as const satisfies readonly (keyof typeof LOG_RECORD_SCHEMA)[];

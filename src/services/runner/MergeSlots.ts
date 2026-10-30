@@ -506,7 +506,7 @@ export function createMergeSlots(context: MergeSlotsContext): MergeSlots {
     let releasedGroup: string | undefined = undefined;
     const landed = await context.hold((hold) => {
       const ticket = hold.board.tickets().find((candidate) => candidate.frontmatter.id === ticketId);
-      const ticketRefusal = ticket === undefined ? null : Landing.ticketRefusalOf(hold.board, [ticket]);
+      const ticketRefusal = ticket === undefined ? null : Landing.ticketRefusalOf([ticket]);
       if (ticketRefusal !== null) return ticketRefusal;
       const verdict = Landing.landOnTarget({
         target:            { branch: slot.target, directory },

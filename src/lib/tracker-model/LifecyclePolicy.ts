@@ -45,7 +45,7 @@ export interface LifecycleFacts {
   readinessPositionByTicketId: ReadonlyMap<string, number>;
   concurrencyLimit:            number;
   dispatcherState:             DispatcherState;
-  checkCommandIsSet:           boolean;
+  pipelineIsSet:               boolean;
   observations:                LifecycleObservations;
 }
 
@@ -342,7 +342,7 @@ function ticketIdsOfStep(step: LifecycleStep): readonly string[] {
 function nextStepsOf(facts: LifecycleFacts, limits: LifecycleLimits): LifecycleStep[] {
   const outageNow               = facts.dispatcherState !== 'stopped' && outageIsDue(facts, limits);
   const versionOrUsageHolds     = usageLimitHolds(limits) || facts.observations.installVersionChanged;
-  const resumesAreHeld          = versionOrUsageHolds || !facts.checkCommandIsSet || outageNow || openDecisionOfKind(facts, 'outage');
+  const resumesAreHeld          = versionOrUsageHolds || !facts.pipelineIsSet || outageNow || openDecisionOfKind(facts, 'outage');
   const newWorkIsHeld           = resumesAreHeld || facts.dispatcherState === 'stopped';
   const bootsKeepFailing        = failedOrchestratorBootsOf(facts) >= limits.FAILED_ORCHESTRATOR_BOOTS_BEFORE_DEFAULTING;
   const noOrchestratorCanComeUp = usageLimitHolds(limits) || (bootsKeepFailing && !facts.observations.orchestratorHasAnswered);
@@ -352,7 +352,7 @@ function nextStepsOf(facts: LifecycleFacts, limits: LifecycleLimits): LifecycleS
 
   const steps: LifecycleStep[] = [];
   if (outageNow) steps.push({ kind: 'stop-dispatching', cause: 'outage' }, boardDecisionStepOf('outage'));
-  if (!facts.checkCommandIsSet && !openDecisionOfKind(facts, 'checks-not-set')) steps.push(boardDecisionStepOf('checks-not-set'));
+  if (!facts.pipelineIsSet && !openDecisionOfKind(facts, 'checks-not-set')) steps.push(boardDecisionStepOf('checks-not-set'));
   steps.push(...crashBoundStepsOf(facts, limits, resumesAreHeld));
   if (!orchestratorIsLive && orchestratorMayBoot && !facts.observations.installVersionChanged) steps.push({ kind: 'boot-orchestrator' });
   const parkSteps    = parkStepsOf(facts, limits);

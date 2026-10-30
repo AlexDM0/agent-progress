@@ -75,7 +75,7 @@ export function factsWith(overrides: Partial<LifecycleFacts> = {}): LifecycleFac
     readinessPositionByTicketId: new Map(),
     concurrencyLimit:            3,
     dispatcherState:             'running',
-    checkCommandIsSet:           true,
+    pipelineIsSet:               true,
     observations:                FIXTURE_OBSERVATIONS,
     ...overrides,
   };

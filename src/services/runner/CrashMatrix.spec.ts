@@ -557,7 +557,7 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
       now,
       renderState,
       mutate:    (change) => {
-        change.board.setCheckCommand('true', false, change.at);
+        change.board.addGate({ name: 'checks', run: 'true' }, change.at);
         change.board.setDispatcherState('running', change.at);
       },
     });

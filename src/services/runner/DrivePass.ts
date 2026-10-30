@@ -7,6 +7,7 @@ import { createHash }                          from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join }                                from 'node:path';
 
+import { PipelineFile }                                                          from '../../adapters/pipeline/PipelineFile.ts';
 import { BUILDER_REPORT_SCHEMA, RESOLVER_REPORT_SCHEMA, REVIEWER_REPORT_SCHEMA } from '../../adapters/reports/ReportSchemas.ts';
 import type { JsonSchema }                                                       from '../../adapters/reports/ReportValidation.ts';
 import { type UsageMarkerReading, UsageMarkerFile }                              from '../../adapters/usage-marker/UsageMarkerFile.ts';
@@ -22,6 +23,7 @@ import type { IncidentDefaultCause, IncidentMove }                              
 import type { InterruptionCause, Job, JobKind }                                  from '../../lib/tracker-model/@types/Job.ts';
 import type { DecisionDraft, DecisionWording }                                   from '../../lib/tracker-model/@types/LifecycleStep.ts';
 import type { Board }                                                            from '../../lib/tracker-model/Board.ts';
+import { PipelineUtil }                                                          from '../../lib/tracker-model/utils/PipelineUtil.ts';
 import { JOB_ID_VARIABLE, RELAY_DIRECTORY_VARIABLE }                             from '../../shared/Environment.ts';
 import { LIFECYCLE_LIMITS }                                                      from '../../shared/constants/LifecycleLimits.ts';
 import { MERGE_SLOT_LIMITS }                                                     from '../../shared/constants/MergeSlotLimits.ts';
@@ -282,7 +284,13 @@ function observe(request: DrivePassRequest, jobLaunchContext: JobLaunchContext):
   const targets         = [...new Set([request.mainLine, ...jobs.flatMap((job) => (job.target === null ? [] : [job.target]))])].sort();
   const targetTips      = Object.fromEntries(targets.map((target) => [target, targetTipOf(workspace.rootDirectory, target)]));
   const targetsHoldingManagedBlock = targets.filter((target) => targetHoldsManagedBlock(workspace.rootDirectory, target, request.managedBlockMarker));
-  const gateLines = { checksLine: progress.checkCommand ?? null, installLine: progress.installCommand ?? null, keyCommand: progress.gateKeyCommand ?? null };
+  const pipelineReading = PipelineFile.read(workspace.pipelineFilePath);
+  const pipeline        = pipelineReading.verdict === 'readable' ? pipelineReading.pipeline : null;
+  const gateLines       = {
+    checksLine:  pipeline === null ? null : PipelineUtil.checksLineOf(pipeline),
+    installLine: pipeline === null ? null : PipelineUtil.installLineOf(pipeline),
+    keyCommand:  null,
+  };
   const buildJobs = JobLaunch.observeBuildJobs(jobLaunchContext, jobs, gateLines);
   const ticketIdsTouchingAgentConfig = JobLaunch.ticketIdsTouchingAgentConfigOf(jobLaunchContext, jobs);
   const usageMarker = UsageMarkerFile.read(request.monitorFolder);
@@ -410,7 +418,7 @@ function launchProfileOf(jobLaunchContext: JobLaunchContext, board: Board, job: 
   if (!JobLaunch.isWorktreeJob(job)) return profileOf(jobLaunchContext.workspace, job, workingDirectory, relayDirectory);
   const ticket = board.tickets().find((candidate) => candidate.frontmatter.id === job.ticketIds[0]);
   const role = job.kind === 'review' ? 'reviewer' : 'builder';
-  const toolchainLines = [board.checkCommand(), board.installCommand()].flatMap((line) => line ?? []);
+  const toolchainLines = [board.checksLine(), board.installLine()].flatMap((line) => line ?? []);
   return WorkerProfiles.profileOf(role, JobLaunch.sandboxFactsFor(jobLaunchContext, job), ticket?.frontmatter.network ?? [], toolchainLines);
 }
 
@@ -452,7 +460,7 @@ function launchFactsOf(board: Board, trackerDirectory: string, job: Readonly<Job
     tickets: board.tickets()
       .filter((ticket) => job.ticketIds.includes(ticket.frontmatter.id))
       .map((ticket) => ({ id: ticket.frontmatter.id, title: ticket.frontmatter.title, body: ticket.body })),
-    checksLine:             board.checkCommand() ?? null,
+    checksLine:             board.checksLine(),
     earlierSessionReplaced: JobResumption.earlierSessionWasReplaced(board.logRecordsSoFar(), job),
     intake:                 IntakeSessions.intakeFactsOf(board, job),
     assistant:              AssistantBoot.assistantFactsOf(board, trackerDirectory, job),
@@ -597,15 +605,17 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
       },
     })).result,
     gateMergedTree: async (worktreePath, treeId) => {
-      const progress   = requireProgressFile(request.workspace);
-      const checksLine = progress.checkCommand ?? '';
+      // Read afresh at every gate run, so a pipeline changed by hand or by a `gate` verb gates the next tree without a restart.
+      const reading    = PipelineFile.read(request.workspace.pipelineFilePath);
+      const pipeline   = reading.verdict === 'readable' ? reading.pipeline : null;
+      const checksLine = pipeline === null ? '' : PipelineUtil.checksLineOf(pipeline);
       const verdict    = await GateRun.gateTree({
         argv:        GateRun.checksLineArgvOf(checksLine),
         directory:   worktreePath,
         treeId,
         checksLine,
-        installLine: progress.installCommand ?? null,
-        keyArgv:     progress.gateKeyCommand === undefined ? null : GateRun.keyCommandArgvOf(progress.gateKeyCommand),
+        installLine: pipeline === null ? null : PipelineUtil.installLineOf(pipeline),
+        keyArgv:     null,
         cache:       jobLaunchContext.gateCache,
       });
       return { outcome: verdict.outcome, output: verdict.run?.output ?? '' };
@@ -754,7 +764,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
       deliversByControlResponse: request.deliversAnswersByControlResponse ?? CONTROL_RESPONSE_DELIVERS_ANSWERS,
       answerMessageOf:           request.answerMessageOf,
     });
-    const heldTargets = written.board.checkCommand() === undefined ? [] : await mergeSlots.sweep();
+    const heldTargets = written.board.pipeline() === null ? [] : await mergeSlots.sweep();
     jobsAtTheLastPass = written.board.jobs();
     assistantsMidTurnAtTheLastPass = AssistantSession.midTurnJobIdsOf(request.workspace.trackerDirectory, written.board, observation.assistantReadings);
     state = {

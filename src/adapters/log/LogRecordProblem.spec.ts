@@ -14,7 +14,19 @@ import { logRecordProblemOf }                             from './LogRecordProbl
 
 const RECORDED_AT = '2026-09-18T21:30:54+02:00';
 
-const RECORDS_THE_BOARD_LOGS = everyRecordKindTheBoardLogs(RECORDED_AT);
+// The retired kinds nothing logs any more, as the retired `checks` verb stored them, so a log holding them is held to still read.
+const RETIRED_RECORDS: readonly LogRecord[] = [
+  { at: RECORDED_AT, kind: 'check-command-set', fields: { command: 'bun run example-checks' } },
+  {
+    at: RECORDED_AT, kind: 'ticket-check-command-restamped', ticketId: '001', fields: { command: 'bun run example-checks' }
+  },
+  { at: RECORDED_AT, kind: 'install-command-set', fields: { command: 'bun install --frozen-lockfile' } },
+  { at: RECORDED_AT, kind: 'checks-definition-files-set', fields: { patterns: ['pyproject.toml'] } },
+  { at: RECORDED_AT, kind: 'gate-key-command-set', fields: { command: 'bun --version' } },
+  { at: RECORDED_AT, kind: 'gate-cache-paths-set', fields: { paths: ['~/.bun/install/cache'] } },
+];
+
+const RECORDS_THE_BOARD_LOGS = [...everyRecordKindTheBoardLogs(RECORDED_AT), ...RETIRED_RECORDS];
 
 // No field shape accepts an empty object, and an agent pair names its missing model.
 const MALFORMED_VALUE = {};

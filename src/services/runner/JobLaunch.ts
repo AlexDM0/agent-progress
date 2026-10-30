@@ -309,19 +309,18 @@ function verifyAndRoute(hold: HoldContext, job: Readonly<Job>, observation: Buil
     endJob(hold, job, { outcome: 'failed', cause: 'git-failed' });
     return;
   }
-  const checksDefinitionFiles = board.checksDefinitionFiles();
   const subject: JobVerificationSubject = {
-    role:             job.kind === REVIEW_JOB_KIND ? 'reviewer' : 'builder',
-    worktreePath:     worktreeOf(hold.context.workspace, job),
-    startCommit:      start.startCommit,
-    bodyHashAtLaunch: start.bodyHashAtLaunch,
-    report:           observation.report,
-    ticketBody:       ticket.body,
-    jobId:            job.id,
-    logRecords:       board.logRecordsSoFar(),
-    launchSnapshot:   start.launchSnapshot,
-    refMovesAllowed:  refMovesAllowedFor(hold.context, board, job),
-    ...(checksDefinitionFiles === undefined ? {} : { checksDefinitionFiles }),
+    role:                  job.kind === REVIEW_JOB_KIND ? 'reviewer' : 'builder',
+    worktreePath:          worktreeOf(hold.context.workspace, job),
+    startCommit:           start.startCommit,
+    bodyHashAtLaunch:      start.bodyHashAtLaunch,
+    report:                observation.report,
+    ticketBody:            ticket.body,
+    jobId:                 job.id,
+    logRecords:            board.logRecordsSoFar(),
+    launchSnapshot:        start.launchSnapshot,
+    refMovesAllowed:       refMovesAllowedFor(hold.context, board, job),
+    checksDefinitionFiles: board.checksDefinitionFiles(),
   };
   const reportVerdict = VERIFICATION_CHECKS.V1(subject);
   if (reportVerdict.verdict === 'refused') {
@@ -428,6 +427,7 @@ function settleGate(hold: HoldContext, job: Readonly<Job>, observation: BuildJob
   if (gate.verdict !== 'judged' || hold.checksLine === null) return;
   const { board, at } = hold.change;
   hold.logged.push(...board.recordGateRan({ tree: gate.treeId, outcome: gate.outcome, cached: gate.cached }, at).logged);
+  board.recordPipelineJudgedBy(ticketIdOf(job));
   if (gate.outcome === 'cannot-run') {
     openIncidentFor(hold, job, 'gate-cannot-run', { tree: gate.treeId });
     endJob(hold, job, { outcome: 'stopped', cause: BUILD_JOB_CAUSES.gateCannotRun });
@@ -517,7 +517,7 @@ function applyObservation(hold: HoldContext, observation: BuildJobObservation): 
 /** In the hold, after the relayed requests and host events, before the policy: so a ticket finished here gets its review job in this hold. */
 function applyBuildJobObservations(change: TrackerChange, context: JobLaunchContext, observations: readonly BuildJobObservation[]): LogRecord[] {
   const hold: HoldContext = {
-    change, context, checksLine: change.board.checkCommand() ?? null, installLine: change.board.installCommand() ?? null, logged: []
+    change, context, checksLine: change.board.checksLine(), installLine: change.board.installLine(), logged: []
   };
   for (const observation of observations) applyObservation(hold, observation);
   return hold.logged;
@@ -653,10 +653,10 @@ async function deliverBuildJobFrames(request: BuildJobFrameRequest, job: Readonl
 
 /** After the hold and the lease check: what each build job's new state asks of git and the hosts. */
 async function runBuildJobEffects(context: JobLaunchContext, board: Board, trackerId: string, observations: readonly BuildJobObservation[]): Promise<void> {
-  const checksLine = board.checkCommand() ?? null;
-  const installLine = board.installCommand() ?? null;
-  const keyCommand = board.gateKeyCommand() ?? null;
-  const cachePaths = board.gateCachePaths() ?? [];
+  const checksLine = board.checksLine();
+  const installLine = board.installLine();
+  const keyCommand = null;
+  const cachePaths = board.gateWritablePaths();
   for (const job of board.jobs().filter(isWorktreeJob)) {
     const ticket = board.tickets().find((candidate) => candidate.frontmatter.id === ticketIdOf(job));
     const gateConfinement = { network: (ticket?.frontmatter.network ?? []).length > 0, cachePaths };
