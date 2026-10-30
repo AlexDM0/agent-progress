@@ -478,8 +478,9 @@ Acceptance check of the landing being a review's. With it, its `name` ends each 
 claim does not hold moves the ticket back `in-progress`, and the build job after it keeps the attempt and resumes the
 builder's own session (`--resume`, the session id of the build job the review sent back), its first line the review's
 newest `## Review <round>` section and which resume of `RED_HANDOFF_RESUMES_BEFORE_PARKING` (2) it is: each such
-review counts against the same resumes as the build cycle's red handoffs, and the one past the last parks the ticket
-`parked:red-resumes-spent`.
+review counts against the same resumes as the build cycle's red handoffs, never as a failed pass, and the one past the
+last parks the ticket `parked:red-resumes-spent`. A review that does not hold and resumes no builder, its ticket's
+newest build not `built`, is a failed pass.
 
 | what happens | what the runner does |
 | --- | --- |
@@ -574,10 +575,10 @@ and gated, the runner counts the rework from the review's start to its HEAD in c
 
 | the review | what the runner does |
 | --- | --- |
-| claims an item `does-not-hold` | a failed pass back to a fixer: the job ends `does-not-hold`, the ticket goes `in-progress` |
+| claims an item `does-not-hold` | back to a fixer: the job ends `does-not-hold`, the ticket goes `in-progress`; a resume of the builder when its build was `built`, otherwise a failed pass |
 | reworked over `REWORK_ROUND_THRESHOLD_LINES` (750) and the round verdict grants another round | the job ends `round-granted`; the policy launches a fresh reviewer one round on |
 | reworked over the threshold and was refused another round | it passes on; the ticket shows the `rounds-not-converging` notice until it is delivered or reviewed again |
-| claims an item `waiver-proposed` | the `waiver` decision opens and the job waits `awaiting-answer`, the ticket out of the merge queue and held; granting it writes `A<n>. Waived: <reason>` (the reviewer's note) in the answering hold and queues the ticket; any answer starting `refuse` is a failed pass back to a fixer |
+| claims an item `waiver-proposed` | the `waiver` decision opens and the job waits `awaiting-answer`, the ticket out of the merge queue and held; granting it writes `A<n>. Waived: <reason>` (the reviewer's note) in the answering hold and queues the ticket; any answer starting `refuse` ends the job `does-not-hold`, back to a fixer as above |
 | otherwise | the job ends `reviewed`, the ticket is marked `mergeQueued` and `merge-queued` is logged with its target; a queued ticket gets no further review |
 
 ### The Assistant
