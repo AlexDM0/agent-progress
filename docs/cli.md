@@ -1165,7 +1165,8 @@ project registers, its entry added or updated, exactly when the call wrote its t
 though nothing renders, `init`, and the Overseer at its start. `update` never writes the tracker, so it never
 registers; neither does a read-only call or `open`. A tracker whose root lies under a temp folder is never
 registered: the system temp folder (`os.tmpdir()`, on macOS `$TMPDIR` under `/var/folders`), `/tmp` and
-`/var/tmp`, each compared after resolving symlinks (`/tmp` to `/private/tmp` on macOS). An entry already in the registry stays.
+`/var/tmp`, each compared after resolving symlinks (`/tmp` to `/private/tmp` on macOS). An entry already in the
+registry stays.
 
 An entry is keyed by the tracker's `trackerId`, so a moved or renamed folder updates its one entry. It holds the
 page's `project` name, the `root` folder, the absolute paths of `progressHtml` and `progressJson`, `gitOrigin` (the
