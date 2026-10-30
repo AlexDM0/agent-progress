@@ -665,6 +665,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     log:                  request.log,
   };
   const endedJobTokensContext = { trackerDirectory: request.workspace.trackerDirectory, agentAdapter: request.agentAdapter };
+  const endedJobIdsExamined = new Set<string>();
 
   /** A merge gate step under the profile a gate Watcher gets, its own network and `writes`, in the slot's worktree; one profile file per worktree. */
   function mergeGateArgvOf(worktreePath: string, argv: readonly string[], confinement: GateConfinement): readonly string[] {
@@ -700,7 +701,8 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
       now:       request.now,
       mutate:    (change) => {
         Baton.requireNewestGeneration(request.overseerDirectory, request.generation);
-        const jobsAtTheHoldStart = change.board.jobs();
+        // A copy: ending a job splices it out of the Board's live list.
+        const jobsAtTheHoldStart = [...change.board.jobs()];
         const result = mutate({ board: change.board, at: change.at });
         EndedJobTokens.creditJobsEndedInTheHold(change.board, endedJobTokensContext, jobsAtTheHoldStart, change.at);
         return result;
@@ -782,7 +784,8 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
       at,
       now:       request.now,
       mutate:    (change) => {
-        const jobsAtTheHoldStart = change.board.jobs();
+        // A copy: ending a job splices it out of the Board's live list.
+        const jobsAtTheHoldStart = [...change.board.jobs()];
         openLeftoverWorktreeDecisions(change, request.decisionWordingOf, leftoverWorktrees.splice(0));
         const replies = HatchInbox.applyPendingRequests(change, request.workspace.rootDirectory, observation.pendingRequests);
         request.afterHoldPhase?.('relayed-commands', change.board);
@@ -818,8 +821,10 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
         }
         request.afterHoldPhase?.('lifecycle', change.board);
         EndedJobTokens.creditJobsEndedInTheHold(change.board, endedJobTokensContext, jobsAtTheHoldStart, change.at);
+        const endedJobIdsExaminedThisPass = EndedJobTokens.creditJobsEndedOutsideTheHold(change.board, endedJobTokensContext, endedJobIdsExamined, change.at);
         return {
           replies,
+          endedJobIdsExaminedThisPass,
           endedAssistantJobs:       downAssistants.endedJobs,
           usageLimitHits,
           usageResetsAt,
@@ -836,6 +841,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
       request.onBatonTakenOver(refusal);
       return;
     }
+    for (const jobId of written.result.endedJobIdsExaminedThisPass) endedJobIdsExamined.add(jobId);
     HatchInbox.writeReplies(written.result.replies);
     await stopLimitedJobs(written.board, observation.trackerId, written.result.usageLimitHits);
     scheduleThePassAtTheReset(written.result.usageResetsAt);
