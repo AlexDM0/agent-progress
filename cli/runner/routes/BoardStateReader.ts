@@ -36,7 +36,7 @@ export interface BoardStateSource {
   mergeForecastCache?: MergeForecastCache;
 }
 
-/** One target's last forecasts, kept while its tip and every candidate's tip stay where they were. */
+/** One target's last forecasts, kept while its tip and every candidate's tip stay where they were; a failed prediction is never kept. */
 export interface MergeForecastCache {
   forecastsOf: (target: string, tipSet: string, forecast: () => MergeForecasts) => MergeForecasts;
 }
@@ -48,7 +48,9 @@ export function createMergeForecastCache(): MergeForecastCache {
       const last = lastForecastsByTarget.get(target);
       if (last?.tipSet === tipSet) return last.forecasts;
       const forecasts = forecast();
-      lastForecastsByTarget.set(target, { tipSet, forecasts });
+      const anyPredictionFailed = Object.values(forecasts.againstTarget).some((entry) => entry.forecast === 'prediction-failed');
+      if (anyPredictionFailed) lastForecastsByTarget.delete(target);
+      else lastForecastsByTarget.set(target, { tipSet, forecasts });
       return forecasts;
     },
   };

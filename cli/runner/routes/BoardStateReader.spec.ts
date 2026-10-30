@@ -1,7 +1,7 @@
 /**
  * The merge forecasting a board read runs, counted through a predictor wrapping real git. What matters is that a publish over an unmoved
  * tip set runs no second merge-tree, that moving the target or any candidate predicts afresh, and that a candidate whose branch does not
- * resolve is never cached, so its failed prediction is retried on the next read.
+ * resolve, or a prediction that failed, is never cached, so it is retried on the next read.
  */
 import { afterAll, expect, test } from 'bun:test';
 
@@ -81,6 +81,20 @@ describeWhenGitMergeTreeStdinIsPresent('caching the merge forecasts across board
     const runsAfterFirstRead = predictor.runCount();
     forecasting.forecastsOf('main', ['1', '3']);
     expect(predictor.runCount()).toBe(runsAfterFirstRead * 2);
+  });
+
+  test('a prediction that failed over a resolvable tip set is never cached, so the next read retries it', () => {
+    const repositoryDirectory = plantedQueueRepository();
+    let failNextRun = true;
+    const predictor = countingPredictor();
+    const failingOncePredictor: typeof predictMerges = (directory, pairs) => {
+      if (!failNextRun) return predictor.predict(directory, pairs);
+      failNextRun = false;
+      return pairs.map(() => ({ verdict: 'prediction-failed' as const, reason: 'planted failure' }));
+    };
+    const forecasting = mergeForecastingIn(repositoryDirectory, 'main', createMergeForecastCache(), failingOncePredictor);
+    expect(forecasting.forecastsOf('main', ['1', '2']).againstTarget['1']?.forecast).toBe('prediction-failed');
+    expect(forecasting.forecastsOf('main', ['1', '2']).againstTarget['1']?.forecast).toBe('clean');
   });
 
   test('without a cache every read predicts afresh', () => {
