@@ -1,7 +1,7 @@
 /**
  * The Gantt axis and bar geometry as pure arithmetic over epoch milliseconds: no DOM, no clock. Its bounds arrive as a parameter instead of
- * from `src/shared/constants/Limits.ts`, so the ticket timeline can ask for fewer ticks; the page passes what
- * `src/services/render/PageTemplateFill.ts` put in the progress island.
+ * from `src/shared/constants/Limits.ts`, so the ticket timeline can ask for fewer ticks; the Bridge passes the limits
+ * `src/services/render/PagePayloadAssembly.ts` puts in the board state's payload.
  */
 
 import { MILLISECONDS_PER_MINUTE } from '../../src/lib/local-time/LocalTimeUtil.ts';

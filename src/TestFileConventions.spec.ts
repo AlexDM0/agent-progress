@@ -91,7 +91,7 @@ describe('suites are spec files that never create the real process context', () 
   test.each([
     ['a `.test.ts` suite', { path: 'cli/Example.test.ts', text: 'export {};\n' }],
     ['a `.spec.tsx` suite', { path: 'bridge/shell/Example.spec.tsx', text: 'export {};\n' }],
-    ['a DOM spec outside bridge/', { path: 'page/Example.dom.tsx', text: 'export {};\n' }],
+    ['a DOM spec outside bridge/', { path: 'cli/Example.dom.tsx', text: 'export {};\n' }],
     ['a spec creating the context', { path: 'cli/Example.spec.ts', text: importingTheFactory }],
     ['a test helper creating the context', { path: 'cli/testing/ExampleHelper.ts', text: importingTheFactory }],
   ])('a planted %s is named', (_form, plantedSource) => {

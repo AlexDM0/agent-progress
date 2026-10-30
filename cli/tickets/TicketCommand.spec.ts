@@ -147,9 +147,6 @@ describeWhenGitIsPresent('filing a ticket', () => {
     }
     const status = JSON.parse((await run(['status', '--json'])).outputText()) as { tickets: Array<{ type: string }> };
     expect(status.tickets.map((ticket) => ticket.type)).toEqual(['ticket', 'ticket']);
-    const page = readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.html'), 'utf8');
-    expect(page).not.toMatch(/"type":"(change|feature)"/);
-    expect(page).toMatch(/"type":"ticket"/);
   });
 
   test('each of the three types files a ticket of that type', async () => {

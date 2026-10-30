@@ -6,7 +6,6 @@ export const TRACKER_FILES = {
   PIPELINE_FILE_NAME:        'pipeline.json',
   LOG_FILE_NAME:             'log.jsonl',
   HTML_FILE_NAME:            'progress.html',
-  STAMP_FILE_NAME:           'progress.stamp.js',
   TRACKER_DIRECTORY_NAME:    PRODUCT_NAMES.DATA_FOLDER,
   TICKETS_DIRECTORY_NAME:    'tickets',
   EPICS_DIRECTORY_NAME:      'epics',

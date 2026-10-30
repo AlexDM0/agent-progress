@@ -1,8 +1,8 @@
 /**
  * One claim per kind of refusal: a refusal built from words is printed verbatim, and a refusal built from a detail is printed exactly as
  * the util that owns that kind words it. The delegates pin their own texts, so the claims compare with their answers. The texts worded here
- * are pinned byte for byte, frozen from the services that wrote them at 6fb290d; retake them with `git show 6fb290d:src/services/tracker/Workspace.ts`,
- * `git show 6fb290d:src/services/tracker/TrackerLock.ts` and `git show 6fb290d:src/services/render/Template.ts`.
+ * are pinned byte for byte, frozen from the services that wrote them at 6fb290d; retake them with `git show 6fb290d:src/services/tracker/Workspace.ts`
+ * and `git show 6fb290d:src/services/tracker/TrackerLock.ts`.
  */
 import { expect, test } from 'bun:test';
 
@@ -12,7 +12,6 @@ import { ROOT_OVERRIDE_VARIABLE }      from '../../shared/Environment.ts';
 import { OperationRefusal }            from '../../shared/OperationRefusal.ts';
 import { PRODUCT_NAMES }               from '../../shared/constants/ProductNames.ts';
 import { OperationRefusalWordingUtil } from './OperationRefusalWordingUtil.ts';
-import { TrackerReadingWordingUtil }   from './TrackerReadingWordingUtil.ts';
 
 test('a refusal built from words is printed with those words, unchanged', () => {
   const refusal = new OperationRefusal('refused', 'No tracker here. Run `agent-progress init` in /example/repository.');
@@ -25,10 +24,32 @@ test('a Board refusal is printed as the Board refusal wording words its detail',
   expect(OperationRefusalWordingUtil.messageOf(refusal)).toBe(OperationRefusalWordingUtil.boardRefusalMessageOf(boardRefusal));
 });
 
-test('an unreadable tracker is printed as the tracker reading wording words the reading', () => {
-  const reading: UnreadableTracker = { verdict: 'absent', filePath: '/example/.agent-progress/progress.json' };
-  const refusal = new OperationRefusal('unrepaired', { kind: 'unreadable-tracker', reading });
-  expect(OperationRefusalWordingUtil.messageOf(refusal)).toBe(TrackerReadingWordingUtil.refusalMessageOf(reading));
+/** What `status` and every mutating command print for a tracker they cannot read; a script may match them, so they are pinned as literals. */
+function unreadableTrackerMessageOf(reading: UnreadableTracker): string {
+  return OperationRefusalWordingUtil.messageOf(new OperationRefusal('unrepaired', { kind: 'unreadable-tracker', reading }));
+}
+
+test('an absent progress file is named by its path and said to be missing', () => {
+  expect(unreadableTrackerMessageOf({ verdict: 'absent', filePath: '/example/.agent-progress/progress.json' }))
+    .toBe('/example/.agent-progress/progress.json cannot be read: it is not there');
+});
+
+test('an unreadable progress file is named by its path, followed by the adapter reason verbatim', () => {
+  expect(unreadableTrackerMessageOf({
+    verdict:        'unreadable',
+    unreadableFile: 'progress-file',
+    filePath:       '/example/.agent-progress/progress.json',
+    reason:         'it is not valid JSON (Unexpected end of JSON input)',
+  })).toBe('/example/.agent-progress/progress.json cannot be read: it is not valid JSON (Unexpected end of JSON input)');
+});
+
+test('an unreadable log is called the log, followed by the adapter reason verbatim', () => {
+  expect(unreadableTrackerMessageOf({
+    verdict:        'unreadable',
+    unreadableFile: 'log-file',
+    filePath:       '/example/.agent-progress/log.jsonl',
+    reason:         '/example/.agent-progress/log.jsonl, line 1: fields.text is not a string',
+  })).toBe('The log cannot be read: /example/.agent-progress/log.jsonl, line 1: fields.text is not a string');
 });
 
 test('no tracker at the AGENT_PROGRESS_ROOT directory is worded naming the variable and how to search upwards instead', () => {
@@ -73,14 +94,12 @@ test('a held lock is worded naming the lock directory as a path to remove, never
   expect(message).not.toContain('that file');
 });
 
-test('a template token that is not unique is worded with the template path, the count and the token', () => {
-  const refusal = new OperationRefusal('unrepaired', {
-    kind:             'template-token-not-unique',
-    templateFilePath: 'resources/template.html',
-    token:            '__TICKETS__',
-    occurrenceCount:  2,
-  });
-  expect(OperationRefusalWordingUtil.messageOf(refusal)).toBe('the page template resources/template.html holds 2 occurrences of __TICKETS__, not exactly one');
+test('a board no Overseer serves is worded naming the lease folder and the command that starts one', () => {
+  const refusal = new OperationRefusal('refused', { kind: 'overseer-down', runnerDirectory: '/example/repository/.agent-progress/runner' });
+  expect(OperationRefusalWordingUtil.messageOf(refusal)).toBe(
+    'No Overseer serves this board (/example/repository/.agent-progress/runner holds no live lease), so there is nothing to open. '
+    + `Start one with \`${PRODUCT_NAMES.PROGRAM} run --detach\`.`,
+  );
 });
 
 test('an install version mismatch is printed as the install version wording words its detail', () => {

@@ -37,7 +37,7 @@ guard spec holds is one line naming the guard: the spec is the full statement.
 ### Imports
 
 ```
-src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → tracker → lifecycle → control → runner)  →  features (cli/, page/, bridge/)
+src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → tracker → lifecycle → control → runner)  →  features (cli/, bridge/)
 ```
 
 - `src/ImportDirection.spec.ts` holds the direction, cycles, barrels, feature and sibling-command isolation, the bin
@@ -46,7 +46,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   structurally typed parameter.
 - A `src/lib/` package knows nothing about its callers: no agent-progress names, file names, wording or exit codes.
   App values arrive as parameters; a refusal leaves as a verdict (except the `Board`, see Deviations).
-- `src/lib/tracker-model/` stays DOM-safe: the page project compiles it.
+- `src/lib/tracker-model/` stays DOM-safe: the Bridge project compiles it.
 
 ### Values and wording
 
@@ -64,7 +64,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - Only the current stored format and command surface are read or answered. An older file is refused with
   `OLDER_FORMAT_ADVICE` (`src/adapters/constants/OlderFormatAdvice.ts`), held by `cli/OlderTrackerRefusal.spec.ts`.
   Nothing migrates; a retired verb, word or flag is unknown.
-- A malformed stored file is a verdict and a report, never a throw that takes down `status` or `render`.
+- A malformed stored file is a verdict and a report, never a throw that takes down `status`.
 - `progress.json` keeps unknown keys, top level and on rows, in order. An optional key is written only once set, and
   a read never adds or rewrites one, so a file stays byte-identical.
 - An epic is `.agent-progress/epics/<key>.md`, known by its file name, its description kept byte for byte like a
@@ -96,8 +96,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   in `src/` and `cli/` to `cli/CommandContext.ts`, and `process.chdir` to nowhere. The environment is read through
   documented getters; specs set it in a child process (one exception, Deviations). The product's own variables are
   named from `PRODUCT_NAMES.ENVIRONMENT_PREFIX`, never as literals.
-- No work at module load (entry points excepted, Deviations). The render service keeps no module state: the page
-  bundle and configured Marked live in the render state the command context carries.
+- No work at module load (entry points excepted, Deviations). The render service keeps no module state: the
+  configured Marked lives in the render state the command context carries.
 - Factories of closures over classes, except for state carried across calls, domain and ingestion classes. A
   constructor does no work.
 - A record keyed by outside text is indexed through `Object.hasOwn`.
@@ -139,10 +139,9 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - Bun runs the TypeScript; `tsc` only type-checks, under `tsconfig.json`'s strict options. Write for them:
   `process.env['NAME']`, a written fallback, conditional objects instead of spreading `undefined`.
 - `eslint.config.js` holds no `!` non-null assertion and type-only imports as `type`.
-- The page is its own DOM-only project (`page/tsconfig.json`, specs under `page/tsconfig.spec.json`). Its `include`
-  list is held both ways by `src/ProjectIncludeLists.spec.ts`; everything the page reaches stays DOM-safe.
-  `bridge/` is its own DOM-only React project (`bridge/tsconfig.json` with `jsx: react-jsx` and `types: []`, specs
-  under `bridge/tsconfig.spec.json`), held the same way.
+- `bridge/` is its own DOM-only React project (`bridge/tsconfig.json` with `jsx: react-jsx` and `types: []`, specs
+  under `bridge/tsconfig.spec.json`). Its `include` list, the whole tracker model among it, is held both ways by
+  `src/ProjectIncludeLists.spec.ts`; everything the Bridge reaches stays DOM-safe.
 - ESLint 9 through `@reliquary/eslint-config`, extended in `eslint.config.js`; `bun run lint` is its statement. The
   testing folders may import devDependencies.
 
@@ -182,7 +181,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 | Rule | Done instead | Why |
 | --- | --- | --- |
 | Ingestion reads, validates and maps in separate steps. | The ticket parse is one line-oriented pass. | A second walk would risk the unowned lines kept byte for byte. |
-| No work at module load. | `agent-progress.ts` runs the command on import, `agent-host.ts` runs its host, `page/PageStart.ts` starts the page, the preload `src/testing/TestRunReport.ts` registers its report, the preload `src/testing/ClaudeLaunchGuard.ts` installs its `claude` trap, the preload `cli/testing/OtherProductNamesPreload.ts` registers its name swap, the fake agent `src/testing/fake-agent/FakeAgentChild.ts` plays its scenario, `bridge/Main.tsx` mounts the Bridge, `bridge/testing/RunDomSpecs.ts` runs the DOM specs, the preload `bridge/testing/HappyDom.ts` registers the DOM. | They are entry points. |
+| No work at module load. | `agent-progress.ts` runs the command on import, `agent-host.ts` runs its host, the preload `src/testing/TestRunReport.ts` registers its report, the preload `src/testing/ClaudeLaunchGuard.ts` installs its `claude` trap, the preload `cli/testing/OtherProductNamesPreload.ts` registers its name swap, the fake agent `src/testing/fake-agent/FakeAgentChild.ts` plays its scenario, `bridge/Main.tsx` mounts the Bridge, `bridge/testing/RunDomSpecs.ts` runs the DOM specs, the preload `bridge/testing/HappyDom.ts` registers the DOM. | They are entry points. |
 | Specs never set the environment in-process. | `src/shared/Environment.spec.ts` does, once; the preload `src/testing/ClaudeLaunchGuard.ts` prepends its trap to `PATH`. | It tests the getters themselves; the trap must lead every spawn's `PATH`. |
 | A frozen table comes from the previous implementation. | `cli/FrozenInstalledSurface.json` is taken from the installed files. | No previous implementation holds them. |
 | Only the current stored format is read. | A ticket stored with `type` `change` or `feature` reads as `ticket` everywhere, and every write keeps its stored `type` line. | Stored tickets are never rewritten; both are older names for `ticket`. |
@@ -192,9 +191,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 | Every write of a file a reader may hold open goes through the atomic-file package. | A host appends its `events-<instance>.ndjson` in place, fsynced before its `end` is written. | An append-only log is never replaced; a reader ignores an unterminated last line. |
 | Every write of a file a reader may hold open goes through the atomic-file package. | The runner appends `runner.log` in place, one line per write. | A log someone tails is never replaced; an atomic rewrite would break the tail. |
 | A `src/lib/` package leaves a refusal as a verdict. | The tracker model's `Board` throws `BoardRefusal`. | A domain class throws a typed domain error. |
-| A feature never reaches another. | The render service reaches `page/` by path, to bundle it; `cli/runner/routes/OverseerRoutes.ts` imports `bridge/index.html`, the one entry of `FEATURE_REACHES_BY_PATH` in `src/ImportDirection.spec.ts`. | Bundled, never imported: Bun bundles the HTML import. |
+| A feature never reaches another. | `cli/runner/routes/OverseerRoutes.ts` imports `bridge/index.html`, the one entry of `FEATURE_REACHES_BY_PATH` in `src/ImportDirection.spec.ts`. | Bundled, never imported: Bun bundles the HTML import. |
 | One reference per fact. | `resources/templates/Reference.md`, installed as `.agent-progress/reference.md`, copies three `docs/cli.md` sections verbatim (ticket format, ticket moves, exit codes); a change to either changes both, held by `cli/ReferenceCopies.spec.ts`. | Agents elsewhere cannot read `docs/cli.md`. |
-| A failure exits non-zero. | Exit 0 for a store write whose render failed (reported on stderr). | The store holds the change. |
 | A failure exits non-zero. | `hook session-start` exits 0 whatever happens, printing nothing on failure and skipping the install check. | A failing SessionStart hook would reach every session in the repository. |
 | A failure exits non-zero. | `hook bash-domains` exits 0 whatever happens, skipping the install check and answering deny through its JSON on any failure. | A hook that errors lets the call through; the deny is what keeps the network inside the ticket's line. |
 | A clock decides nothing. | No launch, resume or orchestrator delivery happens before the usage marker's `resetsAt`, and the runner wakes a DrivePass at it (`src/lib/tracker-model/LifecyclePolicy.ts`, `src/services/runner/DrivePass.ts`). | The vendor names its reset as a time, and only a clock can honour it. |
@@ -217,8 +215,9 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - A new command is an entry in `cli/CommandTable.ts`, a block in `cli/HelpText.ts` and a folder in its set, held by
   `cli/CommandTable.spec.ts` and `cli/HelpText.spec.ts`.
 - Every mutating command writes through `writeTracker` in `src/services/tracker/TrackerPipeline.ts` (lock, read into
-  a Board, change, writes in `docs/cli.md`'s order, render from disk, one lock hold). `init` creates a tracker;
-  `update`, and `init` on an existing one, never touch its files. `status` takes no lock and renders nothing.
+  a Board, change, writes in `docs/cli.md`'s order, one lock hold; nothing renders), and `cli/RegisterWrittenTracker.ts`
+  registers the tracker with the monitor after every write and at the Overseer's start. `init` creates a tracker;
+  `update`, and `init` on an existing one, never touch its files. `status` takes no lock.
 
 ### Tickets
 
@@ -235,52 +234,34 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - A row's `history` holds only what the tool watched.
 - A runner build job's `## Handoff` is code's: written from the builder's verified report only after its gate passes,
   replacing the section the filing template left; a builder never edits its ticket file (`docs/cli.md`, "A build job").
-- A review row belongs to its ticket by `reviewOf` alone. The page reads which rows are bars from the Board facts,
+- A review row belongs to its ticket by `reviewOf` alone. The Bridge reads which rows are bars from the Board facts,
   and a bar's name only to order a ticket's bars.
-
-### The page
-
-- `resources/template.html` is designer-owned, never generated. Its placeholder markup is the contract with the page
-  modules: a one-sided change is a bug, a new mark reuses a styled class, and its header comment (tokens, containers,
-  axis box) stays in step.
-- The page script clears every container it owns before filling it; a failed bundle renders an error banner.
-- The template's bootstrap owns theme and tab selection, reached only through `window.agentProgressTemplate`. No ticket
-  open state is kept: `agent-progress:open-tickets` is retired, and a ticket body shows only in the detail panel.
-- A view module generalised for reuse reads a structural type of exactly the fields it uses, or a view model; tracker
-  types satisfy it unchanged. Its tracker concepts arrive as parameters (lane sets, card anatomy, detail target kinds,
-  opener attributes, header statistics, the preference prefix), which the page passes; a change to one keeps the
-  page's output byte for byte, proved by the existing specs passing unchanged and by a frozen table taken before it.
-- A module stays in its view's folder; what the entry starts with lives in `page/shell/`, types several views use in
-  `page/@types/`, chip parts in `page/chips/`, and a mapper sits beside the module it feeds.
-- `eslint.config.js` holds browser storage to `page/preferences/PreferenceStore.ts`. Keys stay under
-  `<STORAGE_PREFIX>:<trackerId>`, and a key string never changes but with the prefix.
-- The render service writes `boardFacts` from the same Board queries `status --json` prints; the page keeps no copy
-  of the rules.
-- The detail panel claims a log line by its `taskIds` or `ticketIds`, never a number in free text; a note is matched
-  by its sentence.
-- Every value passes `escapeHtml` once; a ticket's `bodyHtml` and an epic's `descriptionHtml`, both from the Markdown
-  renderer, are the two unescaped strings. Stamps are sliced, never re-parsed, and shortened only through the page's
-  `TimeUtil`.
-- A visual change leaves the README screenshots stale: once it lands, run `.readme-graphics/regenerate.sh` in the
-  main checkout.
 
 ### The Bridge
 
-- The Bridge is the React live UI the Overseer serves at `GET /` from `bridge/index.html`, an HTML import in
-  `cli/runner/routes/OverseerRoutes.ts` that `src/services/runner/RunnerServer.ts` builds with `Bun.build` for
-  production and serves through `fetch`, never Bun's HTML route, which takes no headers: every file carries the page
-  CSP's `frame-ancestors`. It reads the Overseer's API and nothing else, and keeps no copy of the rules: what it shows
-  arrives as facts.
+- The Bridge is the board's one page: the React live UI the Overseer serves at `GET /` from `bridge/index.html`, an
+  HTML import in `cli/runner/routes/OverseerRoutes.ts` that `src/services/runner/RunnerServer.ts` builds with
+  `Bun.build` for production and serves through `fetch`, never Bun's HTML route, which takes no headers: every file
+  carries the page CSP's `frame-ancestors`. It reads the Overseer's API and nothing else, and keeps no copy of the
+  rules: what it shows arrives as facts. Nothing renders a static page: `open` opens the live Overseer's URL or is refused `overseer-down`, and `progress.html` is a stub that
+  `init`, `update` and `run` write, naming that URL or saying the Overseer is down.
+- The render service builds the payload from the same Board queries `status --json` prints (`BoardFacts`,
+  `PagePayloadAssembly`, `MarkdownRenderer`); a ticket's `bodyHtml` and an epic's `descriptionHtml` are its only HTML.
+- The detail panel claims a log line by its `taskIds` or `ticketIds`, never a number in free text; a note is matched
+  by its sentence. Stamps are sliced, never re-parsed.
+- A view model reads a structural type of exactly the fields it uses; tracker types satisfy it unchanged.
+- A visual change leaves the README screenshots stale: once it lands, run `.readme-graphics/regenerate.sh` in the
+  main checkout.
 - `bridge/styles/tokens.css` holds every colour, state token and theme value; `bridge/styles/board.css` holds every
   class. Both are designer-owned. `bridge/StyleContract.spec.ts` holds both ways that every class a component emits is
   styled and every styled class is emitted; a `className` is a literal the scan can read.
-- React's escaping is the one escape for a value, so the static page's `escapeHtml` rule does not reach `bridge/`: no
-  value is escaped by hand, and a pre-escaped one would show its entities. `eslint.config.js` bans
+- React's escaping is the one escape for a value: no value is escaped by hand, and a pre-escaped one would show its
+  entities. `eslint.config.js` bans
   `dangerouslySetInnerHTML` and assigning `innerHTML` or `outerHTML` in `bridge/`; agent-written HTML reaches the DOM
   only as a sandboxed iframe's `srcdoc`, whose fixed markup is the one place `escapeHtml` is used, for its title.
 - A view is `bridge/views/<view>/`: its component, and its logic in a pure `<View>Model.ts` beside it, specced as a
   plain `.spec.ts` in the main run; its behaviour is held by `.dom.tsx` specs, never a frozen markup table. A pure
-  page util a view uses moves to `bridge/utils/` (chip parts to `bridge/chips/`) unchanged, with its spec.
+  util several views use lives in `bridge/utils/` (chip parts in `bridge/chips/`), with its spec.
 - `bridge/shell/` holds what the entry starts with: the hash router, the theme bootstrap, the embedded channel (theme in
   and Esc out by `postMessage`, only with the framing parent's origin), the banners and the error boundary.
   `bridge/api/` holds the clients of the Overseer's API. Every control is a `CommandButton` posting a
@@ -321,12 +302,9 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 agent-progress.ts    the bin shim: runs the command line and exits with its number
 agent-host.ts        the host shim: runs one job instance's host from src/lib/agent-host/ and exits with its number
 cli/                 feature: the command surface, its commands grouped into sets
-page/                feature: the browser page, one DOM-only project: its entry and views, the shell it starts
-                     with under page/shell/, and the chip parts under page/chips/
 bridge/              feature: the Bridge, the React live UI the Overseer serves, one DOM-only project: its entry,
                      the shell under bridge/shell/, the API clients under bridge/api/ and the stylesheets
-resources/           files read at runtime: the page template, template.html, and the markdown init, update and
-                     ticket add fill
+resources/           files read at runtime: the markdown init, update and ticket add fill
 src/lib/             package-grade building blocks, one folder each
 src/adapters/        the boundary: every stored format read, written and mapped, and the wording
 src/services/        the tracker and render services, and the Overseer's: runner/ (`run`, its DrivePass and its

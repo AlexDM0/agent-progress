@@ -64,7 +64,6 @@ test('every path a tracker owns is derived from one root and lands inside it', (
   expect(workspace.progressFilePath).toBe('/example/repository/' + PRODUCT_NAMES.DATA_FOLDER + '/progress.json');
   expect(workspace.logFilePath).toBe('/example/repository/' + PRODUCT_NAMES.DATA_FOLDER + '/log.jsonl');
   expect(workspace.htmlFilePath).toBe('/example/repository/' + PRODUCT_NAMES.DATA_FOLDER + '/progress.html');
-  expect(workspace.stampFilePath).toBe('/example/repository/' + PRODUCT_NAMES.DATA_FOLDER + '/progress.stamp.js');
   expect(workspace.ticketsDirectory).toBe('/example/repository/' + PRODUCT_NAMES.DATA_FOLDER + '/tickets');
   expect(workspace.lockDirectoryPath).toBe('/example/repository/' + PRODUCT_NAMES.DATA_FOLDER + '/.lock');
 });

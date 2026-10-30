@@ -25,7 +25,7 @@ ticket file format, the ticket moves and the exit codes, and follows it everywhe
 | `<when>` | An ISO 8601 timestamp, `now`, or an offset from now: `-5m`, `-2h`, `-1d`, `+30m`. `--at <when>` backfills: a stamp already recorded is kept, so a row nobody registered at the time can be dated afterwards. |
 | `<n>` | The figure on `--tokens`: a whole number or a decimal with a `k`/`m`/`b` suffix — `12000`, `12k`, `12.3k`, `1.2m`, `1.20b`, so a figure `status` or the page prints reads back. A bare decimal and a negative are refused. It is a figure the orchestrator reports, never one this tool measures, and it replaces the row's figure rather than adding to it. |
 | `<id>` | A task id is a number (`17`); a ticket id is its padded number (`003`), and `3` or `#3` name the same ticket. |
-| `--json` | Accepted by every command but `init`, `update`, `render`, `open`, `hook` and `help`, and prints one JSON document on standard output in place of the human output. A reading command prints the document its row describes. A command that writes prints what it wrote: the row for a `task` verb, the ticket for a `ticket` verb or setting (a list for a claim of several), the epic for `epic add` and `epic edit` (`{ key, removed: true, filePath }` for `epic remove`), the log entry for `log`, the stored axis for `range`, the new state for `concurrency <n>`, `dispatcher <state>` and `checks <command>`, and the counts for `clear`; `release` prints its own document. Nothing follows the document on standard output — no Next line, running-dispatcher notice or resume line — while a warning still goes to standard error. |
+| `--json` | Accepted by every command but `init`, `update`, `open`, `hook` and `help`, and prints one JSON document on standard output in place of the human output. A reading command prints the document its row describes. A command that writes prints what it wrote: the row for a `task` verb, the ticket for a `ticket` verb or setting (a list for a claim of several), the epic for `epic add` and `epic edit` (`{ key, removed: true, filePath }` for `epic remove`), the log entry for `log`, the stored axis for `range`, the new state for `concurrency <n>`, `dispatcher <state>` and `checks <command>`, and the counts for `clear`; `release` prints its own document. Nothing follows the document on standard output — no Next line, running-dispatcher notice or resume line — while a warning still goes to standard error. |
 | `AGENT_PROGRESS_ROOT` | Names the repository to use instead of walking up from the current directory, for a command run from somewhere else entirely. It does not create a tracker: a value naming a directory that has none is refused with a message saying the variable is set. `init` does not choose its directory by it, and refuses at exit 1 when it names a directory other than the one `init` targets. Every variable the CLI reads is named from the build's environment prefix: the `agent-progress-v2` build reads `AGENT_PROGRESS_V2_ROOT` and `AGENT_PROGRESS_V2_REQUIRE_EVERY_TOOL`, and never the released program's. |
 | product names | Every name the build goes by is `PRODUCT_NAMES` in `src/shared/constants/ProductNames.ts`. The work-in-progress build is `agent-progress-v2`, linked beside the released `agent-progress`: its data folder is `.agent-progress-v2/`, its monitor folder `~/.agent-progress-v2-monitor/`, its skills `agent-po-v2` and `agent-progress-orchestrate-v2`, its managed block `agent-progress-v2:managed`, its hooks `agent-progress-v2 hook …`, its worker agent `agent-progress-v2-worker` and its page keys `agent-progress-v2:…`. The paths below name the released program's. |
 
@@ -36,10 +36,9 @@ chart.
 **Locking.** Every mutating command (`init`, `task`, `ticket`, `epic`, `log`, `concurrency`,
 `gate`, `range`, `clear`) takes the tracker's
 lock, reads, changes, writes `progress.json` atomically, writes any ticket file after it, then `log.jsonl` when it
-logged something, and regenerates `progress.html` from disk, then its `progress.stamp.js` — all before releasing
-the lock, so the page never describes a state the store did not hold, a ticket file is never ahead of the progress
-file, and a log line never describes a change that was not stored.
-`render` and `open` take the lock only to render. `status`, `ticket list`, `ticket show`, `epic list`, `epic show`,
+logged something — all before releasing the lock, so a ticket file is never ahead of the progress file and a log
+line never describes a change that was not stored. Nothing renders: the Overseer serves the Bridge from the store.
+`status`, `ticket list`, `ticket show`, `epic list`, `epic show`,
 `concurrency` without an argument, `gate list`, `usage` and `review-stats` take none: every file
 they read is written atomically. `update`, and `init` on an existing tracker, never touch the tracker's
 own files and take no lock.
@@ -85,7 +84,7 @@ own conventions only.
 
 | # | what | path | written by | opt-out |
 |---|---|---|---|---|
-| 1 | The tracker: `progress.json`, `log.jsonl`, a `tickets/` folder, the generated `progress.html` and its `progress.stamp.js`, and the `.lock` directory | `.agent-progress/` | `init` only | — |
+| 1 | The tracker: `progress.json`, `log.jsonl`, a `tickets/` folder, the `progress.html` stub, and the `.lock` directory | `.agent-progress/` | `init` only | — |
 | 2 | `.gitignore` entries for the tracker (`init` only) and for the worktrees folder | `.gitignore` | `init`, `update` | — |
 | 3 | The session instructions, from `resources/templates/SessionInstructions.md`, the reference, from `Reference.md`, and the Assistant brief, from `AssistantBrief.md` | `.agent-progress/session-instructions.md`, `reference.md`, `assistant-brief.md` | `init`, `update` | — |
 | 4 | The `SessionStart` hook running `agent-progress hook session-start`, kept current in `.claude/settings.json` when that file already holds it | `.claude/settings.local.json` | `init`, `update` | `--no-hooks` |
@@ -413,8 +412,7 @@ pause loses its key, so a reopened bundle ticket is a new agent.
 |---|---|
 | `range --from <when> --to <when> [--tick <15m\|1h\|1d>]` | Store the default axis of the chart, with one log line. `--tick` takes any positive whole number of minutes, hours or days (`15m`, `2h`, `1d`), or a bare number of minutes. Besides a `<when>`, a bound may be `start`, the earliest visible row. A relative bound is stored as written, so `--from -2h` keeps meaning "the last two hours" on every refresh. A pair that is not in order is refused at exit 1 when both are timestamps or both are relative to now; a pair naming `start` or mixing the two is not judged. The page's own range menu overrides it per browser. |
 | `range --auto` | Reset the axis to the automatic span. It takes no `--from`, `--to` or `--tick`; any of them beside it is refused at exit 1. |
-| `render` | Regenerate `progress.html` from the progress file, `log.jsonl` and the tickets, changing nothing else — for a page lost to a crash, or after a ticket body was edited by hand. An unreadable tracker is exit 2. |
-| `open` | Open the live runner's URL when the newest lease in `.agent-progress/runner/` names a live process; otherwise open `progress.html` in the default browser (`open` on macOS, `xdg-open` elsewhere), rendering it first when it is missing; a page that cannot be rendered is exit 2, as for `render`. |
+| `open` | Open the live Overseer's URL in the default browser (`open` on macOS, `xdg-open` elsewhere) and print it, when the newest lease in `.agent-progress/runner/` names a live process; otherwise refused `overseer-down` at exit 1, advising `run --detach`. It takes no lock and writes nothing. |
 | `run [--port <n>] [--detach] [--json]` | Start the board's one runner, in the foreground, logging to standard error and appending to `.agent-progress/runner.log`. It binds `127.0.0.1` with `reusePort: false` on the port `RUNNER_PORT_FIRST` plus the first four bytes of `sha256(trackerId)` modulo `RUNNER_PORT_COUNT` (100), moving upward past a port in use, so a board keeps its port across restarts; `--port` binds the one given, `0` any free one. It then creates `.agent-progress/runner/lease-<n>.json` exclusively — `{processId, processStartEpochSeconds, bootIdentity, port, url, tokenFile, codeVersion, installVersion, hostProtocolVersion}` — writes a fresh API token to `.agent-progress/runner/token` (mode 0600, the folder 0700), logs `runner-started`, adds `runner: {url, processId, startedAt}` to its monitor registry entry, and prints the URL (`--json`: `{url, generation}`). The newest lease naming a live process (its pid, start and boot all matching) refuses `runner-already-running` with its URL at exit 1; one naming a dead process lets the starter create the next generation, as after a crash, and a starter that then finds a newer generation refuses `runner-contended` at exit 1. The holder removes older generations; nobody unlinks a lease it does not hold. Before each effect batch the runner checks that its generation is still the newest and otherwise stops `lease-taken-over` at exit 2, touching nothing. `GET /api/identity` answers `{application, trackerId, project, codeVersion, installVersion, hostProtocolVersion, processId}`. `GET /api/state` answers the board state: the `status --json --full` document plus `page` (`{payload, tickets}`, the page's islands), `jobs` (each with `live`: `{calls, callBudget, tokens, toolCalls, lastToolCall: {toolName, startedAt, running}, subagents: [{parentToolUseId, toolCalls, lastToolCall}], toolCallsWithSubagents}`, where tool calls count the `tool-call` events whose `parentToolUseId` is null and a subagent's are grouped by it), `decisions`, `incidents`, `notices`, `mergeQueue` (`{queuedTicketIds, slots}`), `overseer` (`{state, paused, url, generation, codeVersion, installVersion, handoverWarning}`) and `usage` (`{resetsAt, window}`). `GET /api/summary` answers agent-dashboard's `summaryVersion: 1` subset. `GET /api/events` is a server-sent event stream of `board`, `job`, `decision`, `incident`, `overseer` and `usage` events with ids `<generation>-<n>`: a reconnect whose `Last-Event-ID` is still buffered gets what it missed, any other a whole `board` first, and a `: ping` comes every `SSE_HEARTBEAT_SECONDS` (5). `GET /api/jobs/<J>/stream?after=<instance>.<sequence>` streams the job's transcript, read from its event logs, as `history` then `message` events of vendor-neutral entries; `GET /api/jobs/<J>/files/<name>` serves only `report.json` and `gate.log`, as `text/plain` under `Content-Security-Policy: sandbox`. `POST /api/commands` takes a control command (`{kind, …}`) with the bearer token from the lease's `tokenFile` and answers 200 `{outcome, result}`, 409 `{refusal}` worded, 400 for a malformed body, 401 without the token, and 423 while launches are held for an install change (`runner-stop` and `runner-restart`, `{kind, now}`, are taken even then); the body-less `POST /api/nudge` only schedules a pass. Every request needs the Host `127.0.0.1:<port>` or `localhost:<port>`; any Origin but the API's own, agent-dashboard's included, and every preflight `OPTIONS` get 403, and no answer carries a CORS header. `GET /api/session-token` answers `{token}` only to a same-origin fetch (`Sec-Fetch-Site: same-origin`). Every answer carries the page CSP, `frame-ancestors` naming the origins of agent-dashboard's `~/.agent-progress-monitor/agent-dashboard/server.json`, or `'none'`. A stop logs `runner-stopped`, removes the registry key and then the lease. `--detach` starts the same command detached and prints the URL once `/api/identity` answers, within a bounded number of tries, or refuses `runner-did-not-start` at exit 1. |
 | `run --successor-of <generation> [--port <n>]` | The successor's side of `run restart`'s handover, which only the live runner starts; see `run restart`. |
 | `run stop [--now] [--json]` | Stop the live runner: the command goes to its API with the token from the file the lease names, or, when the API does not answer, SIGTERM goes to the process the lease names, its identity checked first. It waits a bounded number of tries for the lease to be gone or to name a dead process, else refuses `runner-still-live` at exit 1. Agent hosts are never touched; `--now` also stops process hosts. With no live runner it has nothing to do (exit 0). It checks no install version. |
@@ -610,7 +608,7 @@ it.
 
 | code | meaning | examples |
 |---|---|---|
-| **0** | done, or there was nothing to do | also a store write whose page could not be rebuilt (reported on standard error, with an error banner on the page when only its script failed; `render` rebuilds it), a command under a job that printed `done`, `nothing-to-do` or `queued` with its request id, `run stop` with no live runner, every `hook session-start` run, and every `hook bash-domains` run, a deny answered through its JSON |
+| **0** | done, or there was nothing to do | also a command under a job that printed `done`, `nothing-to-do` or `queued` with its request id, `run stop` with no live runner, every `hook session-start` run, and every `hook bash-domains` run, a deny answered through its JSON |
 | **1** | a refusal the caller can act on | no tracker here (run `{{program}} init`), no such task or ticket, a missing `--reason`, a move the matrix refuses, readying a ticket that is not a draft or lacks a numbered Acceptance or a Brief (`incomplete-tickets`), lowering a ticket that is not a draft or pending, a `network` domain that is not public, `ticket deliver --by-hand` while a runner is live (`runner-owns-the-lifecycle`), an answer to a decision already answered, a move its incident does not allow, a command under a job that its role may not run or that the runner refused, a second runner (`runner-already-running`), installed files of another install version (every command but `init`, `update`, `help`, `status`, `version`, `run status` and `run stop`; run `{{program}} update`), `init` or `update` over files a newer {{program}} installed or a `version.json` naming a retired agent host, `hook` given a wrong event word, an extra argument or an option, and an unknown command |
 | **2** | a state the tool will not repair on its own | an unreadable or malformed progress file, an unreadable or malformed log.jsonl, a malformed ticket file a command names, a lock it could not take, a runner whose lease a newer generation took (`lease-taken-over`), and any error the tool did not expect |
 
@@ -641,15 +639,11 @@ a row nobody measured.
 
 ## The dashboard
 
-`.agent-progress/progress.html` is one file with no CDN and no server, regenerated by every
-mutating command and reloading itself when idle, keeping the viewer's place. Open it with `agent-progress open`.
-Every render also writes `.agent-progress/progress.stamp.js` after the page, one line,
-`window.apStamp = <generatedAtEpochMilliseconds>;`. The page loads it as a script every 60 s, which
-works from `file://` where `fetch` does not, and reloads only once the stamp differs from its own
-render; while the stamp is missing or unreadable it falls back to reloading every 5 minutes. A
-missing stamp, as a render from an older CLI, a hand deletion or a failed stamp write leaves, shows
-as one browser network line (`404` or `ERR_FILE_NOT_FOUND`) per page load, not a script error; no
-script can suppress that line, and the next render ends it.
+The dashboard is the Bridge, which the live Overseer serves at its URL and keeps current over its event stream.
+Open it with `agent-progress open`, which is refused `overseer-down` when no Overseer serves the board.
+`.agent-progress/progress.html` is only a stub, written by `init`, `update` and `run`: "Live at <url>" while an
+Overseer serves the board, "Overseer down" with the command that starts one otherwise. Nothing renders it from the
+store; the monitor registry's `progressHtml` names it.
 
 The tabs are **Kanban · Waves · Progress · Epics · Tickets**, in that order; the chosen one is kept in
 the browser, Epics is hidden on a board without epics, and Waves on one where no ticket waits on
@@ -755,7 +749,6 @@ another.
   hover a shortened one for the full stamp.
 - **A ✓ beside a delivered pill** when that task was reviewed before it was delivered; hover it for
   the review time. A delivered task without it went straight from in-review to delivered.
-- **An error banner** when a command wrote the store but could not rebuild the page script.
 
 **The pill names the state the row is actually in, and `Done` means merged.** The stored status and
 the word on the pill are different vocabularies, and the same word labels the state on every tab:
@@ -783,8 +776,7 @@ nobody closed.
 .agent-progress/
   progress.json          the rows, the view, the limits
   log.jsonl              the log, one record per line
-  progress.html          the generated dashboard
-  progress.stamp.js      the render stamp the open dashboard polls, written after it
+  progress.html          the stub naming the live Overseer's URL, or saying it is down
   agent-brief.md         the orchestrator's brief, rewritten by init and update
   builder-brief.md       the builder's brief, rewritten by init and update
   review-brief.md        the reviewer's brief, rewritten by init and update
@@ -1123,12 +1115,11 @@ absent file while `agent-brief.md` is installed; an absent file with no brief is
 
 The machine-wide registry of every project whose dashboard this machine's agent-progress wrote, in the home folder,
 for a monitor to find each project's page and data; a folder, so the monitor can keep its own files beside it. A
-project registers, its entry added or updated, exactly when the call wrote its `progress.html`: a mutating command
-whose render succeeded, `render`, `open` when it renders a missing page, and `init`. `update` never renders the page,
-so it never registers; neither does a read-only call or a store write
-whose render failed. A tracker whose root lies under a temp folder is never registered: the system temp folder
-(`os.tmpdir()`, on macOS `$TMPDIR` under `/var/folders`), `/tmp` and `/var/tmp`, each compared after resolving
-symlinks (`/tmp` to `/private/tmp` on macOS). An entry already in the registry stays.
+project registers, its entry added or updated, exactly when the call wrote its tracker: every mutating command,
+though nothing renders, `init`, and the Overseer at its start. `update` never writes the tracker, so it never
+registers; neither does a read-only call or `open`. A tracker whose root lies under a temp folder is never
+registered: the system temp folder (`os.tmpdir()`, on macOS `$TMPDIR` under `/var/folders`), `/tmp` and
+`/var/tmp`, each compared after resolving symlinks (`/tmp` to `/private/tmp` on macOS). An entry already in the registry stays.
 
 An entry is keyed by the tracker's `trackerId`, so a moved or renamed folder updates its one entry. It holds the
 page's `project` name, the `root` folder, the absolute paths of `progressHtml` and `progressJson`, `gitOrigin` (the
@@ -1225,7 +1216,7 @@ The body is preserved byte for byte from the ticket template (Report, Wanted, Ac
 appends to it and leaves the frontmatter's bytes as they are, a hand-written layout included; `ticket edit --title`
 rewrites only the `title` line, and a first body line still reading `# <id> — <old title>`, never the file name; on a
 started ticket whose body is unchanged since its build started it moves `claimedBodyHash` along. Past `pending`,
-`ticket edit` needs `--force`. A malformed ticket file is listed as ignored rather than failing `status` or `render`.
+`ticket edit` needs `--force`. A malformed ticket file is listed as ignored rather than failing `status`.
 A new ticket id is one past the highest of every file name, every parsed id and every ticket a row names;
 gaps are tolerated, never filled.
 
@@ -1267,7 +1258,7 @@ kept as text, and unknown keys, comments and blank lines are kept and written ba
 three. Unlike a ticket's, every line starting with `#` is a comment, two or more hashes included. The
 closing fence is the first later `---` line, and a description edit leaves the frontmatter's bytes as
 they are. A malformed epic file is listed as ignored on
-standard error rather than failing `status` or `render`, and `epic add` refuses to overwrite it. A
+standard error rather than failing `status`, and `epic add` refuses to overwrite it. A
 tracker that never added an epic has no `epics/` folder.
 
 ### `.agent-progress/filing-cabinet/D1.json`
@@ -1306,7 +1297,7 @@ as ignored. Only the `draft` commands write it, through the lock, atomically:
 Keys the CLI does not know are kept, in their stored order, after its own. A draft file that is not
 JSON, lacks a field, holds one of the wrong shape, or has another `version` (older or newer, refused
 with the advice to run `agent-progress update` with a release that still reads it) is listed as ignored
-on standard error by `status` and `draft list`, rather than failing them or `render`, and `draft open`
+on standard error by `status` and `draft list`, rather than failing them, and `draft open`
 refuses to overwrite it. A closed or abandoned draft's file is removed; the log keeps what it became. A
 tracker that never opened a draft has no `filing-cabinet/` folder and no `nextDraftId`.
 

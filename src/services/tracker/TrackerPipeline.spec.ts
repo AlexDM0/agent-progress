@@ -27,7 +27,6 @@ import {
   storedFileContentsOf,
   writeReadableTracker
 } from '../../testing/TrackerFileFixtures.ts';
-import { createRenderState }                 from '../render/RenderState.ts';
 import { LockGenerationSteps }               from './TrackerLock.ts';
 import { writeTracker, type TrackerChange }  from './TrackerPipeline.ts';
 import { workspacePathsFor, type Workspace } from './Workspace.ts';
@@ -37,7 +36,6 @@ const CHANGED_AT = '2026-09-18T20:05:00+02:00';
 
 const now = (): Date => new Date('2026-09-18T18:05:00Z');
 
-const renderState = createRenderState();
 
 let workspace: Workspace;
 
@@ -72,27 +70,26 @@ describe('writeTracker', () => {
       workspace,
       at:     CHANGED_AT,
       now,
-      renderState,
       mutate: () => newestLockRecord(),
     });
 
     expect(written.result).toMatchObject({ processId: process.pid, state: 'held' });
   });
 
-  test('the returned Board carries the mutation, and the rendered page shows the row it added', async () => {
+  test('the returned Board carries the mutation, and nothing is rendered: no progress.html is written', async () => {
     writeReadableTracker(workspace);
 
     const written = await writeTracker({
       workspace,
       at:     CHANGED_AT,
       now,
-      renderState,
       mutate: (change) => addExampleRow(change),
     });
 
     expect(written.board.tasks().map((task) => task.name)).toEqual(['Example rendered row']);
-    expect(written.renderOutcome).toEqual({ verdict: 'rendered', malformedTickets: [], malformedEpics: [] });
-    expect(readFileSync(workspace.htmlFilePath, 'utf8')).toContain('Example rendered row');
+    expect(written.malformedTickets).toEqual([]);
+    expect(written.malformedEpics).toEqual([]);
+    expect(existsSync(workspace.htmlFilePath)).toBe(false);
   });
 
   test('a Board refusal arrives as a refused OperationRefusal carrying its detail, and every file stays byte for byte', async () => {
@@ -103,7 +100,6 @@ describe('writeTracker', () => {
       workspace,
       at:     CHANGED_AT,
       now,
-      renderState,
       mutate: (change) => {
         addExampleRow(change);
         change.board.holdTicket('001', 'Waiting on Alex Example', change.at);
@@ -128,7 +124,6 @@ describe('writeTracker', () => {
       workspace,
       at:     CHANGED_AT,
       now,
-      renderState,
       mutate: (change) => {
         addExampleRow(change);
         throw thrownFailure;
@@ -148,7 +143,6 @@ describe('writeTracker', () => {
       workspace,
       at:     CHANGED_AT,
       now,
-      renderState,
       mutate: () => { throw thrownRefusal; },
     }));
 
@@ -164,7 +158,6 @@ describe('writeTracker', () => {
       workspace,
       at:     CHANGED_AT,
       now,
-      renderState,
       mutate: () => { mutationWasCalled = true; },
     }));
 
@@ -181,7 +174,6 @@ describe('writeTracker', () => {
       workspace,
       at:     CHANGED_AT,
       now,
-      renderState,
       mutate: (change) => {
         addExampleRow(change);
         change.board.holdTicket('001', 'Waiting on Alex Example', change.at);
@@ -204,7 +196,6 @@ describe('writeTracker', () => {
       workspace,
       at:     CHANGED_AT,
       now,
-      renderState,
       mutate: (change) => {
         addExampleRow(change);
         change.deleteAllTicketFilesAfterwards((deletedTicketCount) => {
@@ -225,7 +216,6 @@ describe('writeTracker', () => {
       workspace,
       at:     CHANGED_AT,
       now,
-      renderState,
       mutate: (change) => {
         change.board.recordNote('Example note', change.at);
         return change.storedLogEntryCount;

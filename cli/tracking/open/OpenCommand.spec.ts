@@ -1,23 +1,14 @@
 /**
- * `open` with no page and a progress file it cannot render from: it fails at exit 2 like `render` does, rather than handing the desktop a path that
- * does not exist and exiting 0. The happy path is not driven here, since it launches a browser.
+ * `open` on a board no Overseer serves: refused `overseer-down` at exit 1 with the advice to start one, rather than opening the stub
+ * `progress.html`, which only says the Overseer is down. The live path is not driven here, since it launches a browser.
  */
-import { existsSync, rmSync, writeFileSync } from 'node:fs';
-import { join }                              from 'node:path';
+import { afterEach, beforeEach, expect } from 'bun:test';
 
-import {
-  afterEach,
-  beforeEach,
-  expect,
-  test
-}                                                                             from 'bun:test';
 import { PRODUCT_NAMES }                                      from '../../../src/shared/constants/ProductNames.ts';
 import { createScratchGitRepository, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
-import { describeWhenGitIsPresent }                           from '../../../src/testing/ToolGuard.ts';
+import { testWhenGitIsPresent }                               from '../../../src/testing/ToolGuard.ts';
 import { runCommandLine }                                     from '../../Main.ts';
 import { createCapturedCommandContext }                       from '../../testing/CapturedCommandContext.ts';
-
-const UNREADABLE_PROGRESS_TEXT = '{ not json';
 
 let repositoryDirectory = '';
 
@@ -30,18 +21,11 @@ afterEach(() => {
   removeScratchDirectory(repositoryDirectory);
 });
 
-describeWhenGitIsPresent('no page and an unreadable progress file', () => {
-  test('is refused at exit 2, reported once, and no path is printed', async () => {
-    const pagePath = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.html');
-    rmSync(pagePath);
-    writeFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'), UNREADABLE_PROGRESS_TEXT);
+testWhenGitIsPresent('A3: with no live lease, open is refused overseer-down at exit 1, advising run --detach, and prints no path', async () => {
+  const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+  expect(await runCommandLine(['open'], context)).toBe(1);
 
-    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    expect(await runCommandLine(['open'], context)).toBe(2);
-
-    const errorLines = context.errorText().split('\n').filter((line) => line.includes('progress.json'));
-    expect(errorLines, context.errorText()).toHaveLength(1);
-    expect(context.outputText()).toBe('');
-    expect(existsSync(pagePath)).toBe(false);
-  });
+  expect(context.errorText()).toContain('No Overseer serves this board');
+  expect(context.errorText()).toContain(`\`${PRODUCT_NAMES.PROGRAM} run --detach\``);
+  expect(context.outputText()).toBe('');
 });

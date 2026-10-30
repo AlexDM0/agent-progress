@@ -1,8 +1,8 @@
 /**
  * The sequence every mutating command follows, written once and all inside the lock: read the tracker into a Board, mutate, write the progress
  * file, then the pipeline when a `gate` verb changed it, then the tickets the Board changed, then the epics it changed or removed, then the
- * drafts, then log.jsonl, then render from disk, so no older render lands last and the progress file is never behind the tickets. The
- * writes commit through the hold journal, fenced against a takeover of the lock.
+ * drafts, then log.jsonl, so the progress file is never behind the tickets. The writes commit through the hold journal, fenced against a
+ * takeover of the lock.
  */
 import { createDraftFileWriter }                           from '../../adapters/drafts/DraftFileWriter.ts';
 import { createEpicFileWriter }                            from '../../adapters/epics/EpicFileWriter.ts';
@@ -17,8 +17,6 @@ import { Board }                                           from '../../lib/track
 import { refusalIsBoardRefusal }                           from '../../lib/tracker-model/BoardRefusal.ts';
 import { createLogger }                                    from '../../lib/tracker-model/Logger.ts';
 import { OperationRefusal }                                from '../../shared/OperationRefusal.ts';
-import type { RenderState }                                from '../render/RenderState.ts';
-import { renderDashboard, type DashboardRenderOutcome }    from './DashboardRendering.ts';
 import { draftFilePathOf, type MalformedDraftFile }        from './DraftStore.ts';
 import { everyEpicFilePathIn, type MalformedEpicFile }     from './EpicStore.ts';
 import { commitHold }                                      from './HoldJournal.ts';
@@ -40,7 +38,7 @@ export interface TrackerChange {
   storedLogEntryCount:            number;
   /** The log as it was read, before anything this invocation logged. */
   storedLogRecords:               readonly LogRecord[];
-  /** `clear --all`: after the progress file and the changed tickets, before the render, epic files too; the callback gets the ticket file count. */
+  /** `clear --all`: after the progress file and the changed tickets, epic files too; the callback gets the ticket file count. */
   deleteAllTicketFilesAfterwards: (onDeleted: (deletedTicketCount: number) => void) => void;
 }
 
@@ -48,19 +46,20 @@ export interface TrackerWriteRequest<MutationResult> {
   workspace:         Workspace;
   /** Already resolved by the caller; the Board stamps and logs with it. */
   at:                string;
-  /** The caller's clock: the lock's records and the page's generated stamp. */
+  /** The caller's clock, for the lock's records. */
   now:               () => Date;
-  renderState:       RenderState;
   mutate:            (change: TrackerChange) => MutationResult | Promise<MutationResult>;
   /** Called after each file the hold writes; the step a spec interrupts to cut the hold short. */
   afterFileWritten?: (filePath: string) => void;
 }
 
 export interface TrackerWritten<MutationResult> {
-  result:        MutationResult;
+  result:           MutationResult;
   /** The Board just written; only this invocation holds it, so reading it after the lock is released reads what was written. */
-  board:         Board;
-  renderOutcome: DashboardRenderOutcome;
+  board:            Board;
+  /** The ticket and epic files the read skipped, for the caller to report. */
+  malformedTickets: readonly MalformedTicketFile[];
+  malformedEpics:   readonly MalformedEpicFile[];
 }
 
 interface OpenBoard {
@@ -129,7 +128,7 @@ async function mutateWrappingBoardRefusals<MutationResult>(
 
 export function writeTracker<MutationResult>(request: TrackerWriteRequest<MutationResult>): Promise<TrackerWritten<MutationResult>> {
   const {
-    workspace, at, now, renderState, mutate, afterFileWritten
+    workspace, at, now, mutate, afterFileWritten
   } = request;
 
   return withLock(workspace, async (hold) => {
@@ -152,7 +151,11 @@ export function writeTracker<MutationResult>(request: TrackerWriteRequest<Mutati
     const plannedHold = plannedHoldOf(workspace, openedBoard, deletionCallbacks.length > 0);
     commitHold(workspace, plannedHold.files, hold, afterFileWritten);
     for (const onDeleted of deletionCallbacks) onDeleted(plannedHold.deletedTicketCount);
-    const renderOutcome = await renderDashboard(workspace, now(), renderState);
-    return { result, board: openedBoard.board, renderOutcome };
+    return {
+      result,
+      board:            openedBoard.board,
+      malformedTickets: openedBoard.contents.listing.malformed,
+      malformedEpics:   openedBoard.contents.epicListing.malformed,
+    };
   }, now);
 }

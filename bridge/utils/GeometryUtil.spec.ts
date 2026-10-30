@@ -1,5 +1,5 @@
 /**
- * The contract of `page/utils/GeometryUtil.ts`, tested against the numbers rather than through the page.
+ * The contract of `bridge/utils/GeometryUtil.ts`, tested against the numbers rather than through the Bridge.
  */
 
 import { describe, expect, test }          from 'bun:test';

@@ -26,7 +26,6 @@ import { OperationRefusalWordingUtil }                               from '../sr
 import type { Job }                                                  from '../src/lib/tracker-model/@types/Job.ts';
 import { ControlService }                                            from '../src/services/control/ControlService.ts';
 import { RoleCommandPolicy }                                         from '../src/services/control/RoleCommandPolicy.ts';
-import { createRenderState }                                         from '../src/services/render/RenderState.ts';
 import { writeTracker }                                              from '../src/services/tracker/TrackerPipeline.ts';
 import { requireWorkspace }                                          from '../src/services/tracker/Workspace.ts';
 import type { ControlCommandKind }                                   from '../src/shared/@types/ControlCommand.ts';
@@ -309,11 +308,10 @@ describe('the runner applying an admitted filing', () => {
     if (verdict.verdict !== 'admitted') throw new Error(`the filing was refused: ${verdict.reason}`);
 
     const written = await writeTracker({
-      workspace:   requireWorkspace(repositoryDirectory),
-      at:          '2026-09-18T22:11:03+02:00',
-      now:         SPEC_CLOCK,
-      renderState: createRenderState(),
-      mutate:      (change) => ControlService.apply(verdict.command, change).result,
+      workspace: requireWorkspace(repositoryDirectory),
+      at:        '2026-09-18T22:11:03+02:00',
+      now:       SPEC_CLOCK,
+      mutate:    (change) => ControlService.apply(verdict.command, change).result,
     });
     const filed = written.result as { ticket: { filePath: string } };
     const text  = readFileSync(filed.ticket.filePath, 'utf8');

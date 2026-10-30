@@ -18,7 +18,6 @@ export type OperationRefusalDetail =
   | { kind: 'tracker-lock-held'; lockDirectoryPath: string }
   | { kind: 'lock-taken-over'; lockDirectoryPath: string }
   | { kind: 'malformed-hold-journal'; journalFilePath: string; reason: string }
-  | { kind: 'template-token-not-unique'; templateFilePath: string; token: string; occurrenceCount: number }
   | { kind: 'install-version-mismatch'; rootDirectory: string; manifestFilePath: string; installVersion: number; mismatch: InstallVersionMismatch }
   | { kind: 'older-program-present'; rootDirectory: string; olderDataFolderPath: string; program: string; olderProgram: string }
   | { kind: 'no-readable-ticket'; reference: string }
@@ -29,6 +28,7 @@ export type OperationRefusalDetail =
   | { kind: 'verb-not-relayable'; verb: string; jobId: string }
   | { kind: 'malformed-relay-reply'; replyFilePath: string }
   | { kind: 'runner-already-running'; url: string; leaseFilePath: string }
+  | { kind: 'overseer-down'; runnerDirectory: string }
   | { kind: 'runner-contended'; runnerDirectory: string }
   | { kind: 'lease-taken-over'; leaseFilePath: string }
   | { kind: 'runner-port-in-use'; firstPort: number; lastPort: number }
