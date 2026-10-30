@@ -108,9 +108,6 @@ function documentHeaderProblemOf(candidate: unknown): string | null {
   if (candidate['dispatcherState'] !== undefined && !BoardSettingsUtil.dispatcherStateIsKnown(candidate['dispatcherState'])) {
     return `dispatcherState is ${JSON.stringify(candidate['dispatcherState'])}, and when present it has to be one of ${DISPATCHER_STATES.join(', ')}`;
   }
-  if (candidate['dispatcherRunId'] !== undefined && !BoardSettingsUtil.dispatcherRunIdIsWellFormed(candidate['dispatcherRunId'])) {
-    return `dispatcherRunId is ${JSON.stringify(candidate['dispatcherRunId'])}, and when present it has to be a Workflow run id`;
-  }
   if (candidate['checkCommand'] !== undefined && !BoardSettingsUtil.checkCommandIsWellFormed(candidate['checkCommand'])) {
     return `checkCommand is ${JSON.stringify(candidate['checkCommand'])}, and when present it has to be a shell line that is not blank`;
   }

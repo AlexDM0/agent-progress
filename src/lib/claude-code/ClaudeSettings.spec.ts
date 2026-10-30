@@ -22,6 +22,7 @@ import {
   claudeSettingsFilePathFor,
   commandHookIsPresent,
   refreshCommandHook,
+  removeCommandHook,
   writeCommandHook
 } from './ClaudeSettings.ts';
 
@@ -245,5 +246,42 @@ describe('asking whether the hook is present', () => {
     ]) {
       expect(commandHookIsPresent(writeSettings(scratchRoot('claude-settings-absent'), settingsText), THE_HOOK), settingsText).toBe(false);
     }
+  });
+});
+
+describe('removing the hook', () => {
+  test('takes the command out under every matcher, drops a group and an event it empties, and keeps every other hook and key', () => {
+    const rootDirectory = scratchRoot('claude-settings-remove');
+    const otherHook = { type: 'command', command: 'example-tool other' };
+    writeSettings(rootDirectory, JSON.stringify({
+      model: 'example-model',
+      hooks: {
+        SubagentStop: [
+          { matcher: '', hooks: [{ type: 'command', command: THE_HOOK.command }] },
+          { matcher: 'Example', hooks: [{ type: 'command', command: THE_HOOK.command }, otherHook] },
+        ],
+        PreToolUse: [{ matcher: '', hooks: [otherHook] }],
+      },
+    }));
+
+    expect(removeCommandHook(claudeSettingsFilePathFor(rootDirectory), THE_HOOK)).toBe('removed');
+    expect(settingsIn(rootDirectory)).toEqual({
+      model: 'example-model',
+      hooks: { SubagentStop: [{ matcher: 'Example', hooks: [otherHook] }], PreToolUse: [{ matcher: '', hooks: [otherHook] }] },
+    });
+    expect(removeCommandHook(claudeSettingsFilePathFor(rootDirectory), { event: 'PreToolUse', command: 'example-tool other' })).toBe('removed');
+    expect(settingsIn(rootDirectory)).toEqual({ model: 'example-model', hooks: { SubagentStop: [{ matcher: 'Example', hooks: [otherHook] }] } });
+  });
+
+  test('is absent with no file or no such command, writing nothing, and refuses a document it cannot read, leaving it untouched', () => {
+    expect(removeCommandHook(claudeSettingsFilePathFor(scratchRoot('claude-settings-remove-none')), THE_HOOK)).toBe('absent');
+    const otherText = '{"hooks":{"SubagentStop":[{"matcher":"","hooks":[{"type":"command","command":"example-tool other"}]}]}}';
+    const otherFilePath = writeSettings(scratchRoot('claude-settings-remove-other'), otherText);
+    expect(removeCommandHook(otherFilePath, THE_HOOK)).toBe('absent');
+    expect(readFileSync(otherFilePath, 'utf8')).toBe(otherText);
+    const malformed = '{ "hooks": { "SubagentStop": [ ';
+    const malformedFilePath = writeSettings(scratchRoot('claude-settings-remove-malformed'), malformed);
+    expect(removeCommandHook(malformedFilePath, THE_HOOK)).toBe('refused-unreadable');
+    expect(readFileSync(malformedFilePath, 'utf8')).toBe(malformed);
   });
 });

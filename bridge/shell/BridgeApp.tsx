@@ -15,17 +15,25 @@ import type { BoardStateDocument, OverseerIdentity }                            
 import type { ConversationBoardDocument }                                                from '../@types/ConversationDocuments.ts';
 import type { KanbanBoardState }                                                         from '../@types/KanbanBoardState.ts';
 import type { PreferenceStorage }                                                        from '../@types/PreferenceStorage.ts';
+import type { ProgressBoardState }                                                       from '../@types/ProgressBoardState.ts';
+import type { TicketsBoardState }                                                        from '../@types/TicketsBoardState.ts';
 import type { CommandClient }                                                            from '../api/CommandClient.ts';
 import type { ConnectionState, EventStreamHandlers }                                     from '../api/EventStreamClient.ts';
 import { boardPreferenceStoreOf, sharedPreferenceStoreOf, type PreferenceStore }         from '../preferences/PreferenceStore.ts';
+import { TimeUtil }                                                                      from '../utils/TimeUtil.ts';
 import { AgentsView, BROWSER_AGENTS_CLOCK, type AgentsClock }                            from '../views/agents/AgentsView.tsx';
 import { AssistantView }                                                                 from '../views/assistant/AssistantView.tsx';
 import type { TranscriptFollower }                                                       from '../views/assistant/TranscriptLog.tsx';
+import { DetailPanel }                                                                   from '../views/detail-panel/DetailPanel.tsx';
 import { IntakeView }                                                                    from '../views/intake/IntakeView.tsx';
 import { KanbanModel }                                                                   from '../views/kanban/KanbanModel.ts';
 import { KanbanView }                                                                    from '../views/kanban/KanbanView.tsx';
+import { ProgressModel }                                                                 from '../views/progress/ProgressModel.ts';
+import { ProgressView }                                                                  from '../views/progress/ProgressView.tsx';
 import { QuestionAlerts, type QuestionNotifier }                                         from '../views/questions/QuestionAlerts.ts';
 import { QuestionsView }                                                                 from '../views/questions/QuestionsView.tsx';
+import { TicketsModel }                                                                  from '../views/tickets/TicketsModel.ts';
+import { TicketsView }                                                                   from '../views/tickets/TicketsView.tsx';
 import { BoardStateUpdate }                                                              from './BoardStateUpdate.ts';
 import { BridgeHeader }                                                                  from './BridgeHeader.tsx';
 import { ConnectionBanners }                                                             from './ConnectionBanners.tsx';
@@ -53,25 +61,43 @@ export interface BridgeServices {
 }
 
 interface SelectedViewProps {
-  readonly tab:              BridgeTab;
-  readonly selectedJobId:    string | null;
-  readonly boardState:       BoardStateDocument;
-  readonly services:         BridgeServices;
-  readonly agentsClock:      AgentsClock;
+  readonly tab:                BridgeTab;
+  readonly selectedItem:       string | null;
+  readonly boardState:         BoardStateDocument;
+  readonly services:           BridgeServices;
+  readonly agentsClock:        AgentsClock;
   /** `null` when the board carries no page payload the Kanban can read: the tab then shows the counts. */
-  readonly kanbanBoardState: KanbanBoardState | null;
-  readonly boardStore:       PreferenceStore | null;
+  readonly kanbanBoardState:   KanbanBoardState | null;
+  readonly ticketsBoardState:  TicketsBoardState | null;
+  readonly progressBoardState: ProgressBoardState | null;
+  readonly progressNow:        number;
+  readonly boardStore:         PreferenceStore | null;
 }
 
 function SelectedView({
-  tab, selectedJobId, boardState, services, agentsClock, kanbanBoardState, boardStore
+  tab, selectedItem, boardState, services, agentsClock, kanbanBoardState, ticketsBoardState, progressBoardState, progressNow, boardStore
 }: SelectedViewProps) {
   const conversationBoard = boardState as unknown as ConversationBoardDocument;
   switch (tab) {
     case 'agents':
-      return <AgentsView jobs={boardState.jobs} decisions={boardState.decisions} selectedJobId={selectedJobId} clock={agentsClock} />;
+      return <AgentsView jobs={boardState.jobs} decisions={boardState.decisions} selectedJobId={selectedItem} clock={agentsClock} />;
     case 'kanban':
       if (kanbanBoardState !== null) return <KanbanView boardState={kanbanBoardState} boardStore={boardStore} />;
+      break;
+    case 'tickets':
+      if (ticketsBoardState === null) break;
+      return (
+        <>
+          {selectedItem === null
+            ? null
+            : <DetailPanel boardState={ticketsBoardState} ticketId={selectedItem} todayCalendarDate={TimeUtil.calendarDateOf(services.now().getTime())} tab={tab} />}
+          <TicketsView boardState={ticketsBoardState} boardStore={boardStore} />
+        </>
+      );
+    case 'progress':
+      if (progressBoardState !== null) {
+        return <ProgressView boardState={progressBoardState} boardStore={boardStore} nowEpochMilliseconds={progressNow} todayCalendarDate={TimeUtil.calendarDateOf(progressNow)} />;
+      }
       break;
     case 'questions':
       return <QuestionsView board={conversationBoard} notifier={services.questionNotifier} />;
@@ -170,6 +196,10 @@ export function BridgeApp({ services }: BridgeAppProps) {
 
   const agentsClock = useMemo((): AgentsClock => ({ now: services.now, everySecond: BROWSER_AGENTS_CLOCK.everySecond }), [services]);
   const kanbanBoardState = useMemo(() => KanbanModel.kanbanBoardStateOf(boardState), [boardState]);
+  const ticketsBoardState = useMemo(() => TicketsModel.ticketsBoardStateOf(boardState), [boardState]);
+  const progressBoardState = useMemo(() => ProgressModel.progressBoardStateOf(boardState), [boardState]);
+  // The chart reads the clock once per board: its now line and Fit range move on with the next board, and are only shown.
+  const progressNow = useMemo(() => (boardState === null ? 0 : services.now().getTime()), [boardState, services]);
 
   const chooseTheme = (choice: ThemeChoice): void => {
     ThemeBootstrap.chooseTheme(sharedStore, choice);
@@ -197,11 +227,14 @@ export function BridgeApp({ services }: BridgeAppProps) {
             : (
               <SelectedView
                 tab={route.tab}
-                selectedJobId={route.item}
+                selectedItem={route.item}
                 boardState={boardState}
                 services={services}
                 agentsClock={agentsClock}
                 kanbanBoardState={kanbanBoardState}
+                ticketsBoardState={ticketsBoardState}
+                progressBoardState={progressBoardState}
+                progressNow={progressNow}
                 boardStore={boardStore}
               />
             )}

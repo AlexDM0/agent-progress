@@ -69,7 +69,7 @@ describe('the command reference', () => {
 
   test('the delivered state is offered on both the task and the ticket side', () => {
     expect(HELP_TEXT).toContain('task start|pause|finish|approve|rereview|deliver <id>');
-    expect(HELP_TEXT).toContain('ticket start|finish|approve|deliver|abandon|reopen <id>');
+    expect(HELP_TEXT).toContain('ticket abandon|reopen <id>');
     expect(HELP_TEXT).toContain('in-review, reviewed, delivered or abandoned');
   });
 
@@ -95,7 +95,7 @@ describe('the command reference', () => {
   test('refreshing an adopted repository is offered as its own command, and the init entry points at it', () => {
     expect(HELP_TEXT).toContain('  update ');
     expect(HELP_TEXT).toContain('`update` is the command to reach for there');
-    expect(HELP_TEXT, 'the one line that says what is refreshed').toContain('managed CLAUDE.md block, `agent-brief.md`');
+    expect(HELP_TEXT, 'the one line that says what is refreshed').toContain('three files beside the tracker, guidance shipped with the tool');
     expect(HELP_TEXT.replaceAll(/\s+/g, ' '), 'a tracker in an older format is sent to an earlier release\'s update')
       .toContain('saying to run `update` with a release that still reads it');
   });
@@ -184,8 +184,64 @@ describe('the two skills stay split by audience', () => {
     expect(FILING_SKILL_TEXT).not.toContain('dispatcher running');
   });
 
-  test('the orchestrator skill is the one that tells its reader to record what an agent cost', () => {
-    expect(ORCHESTRATE_TEXT).toContain('--tokens');
-    expect(ORCHESTRATE_TEXT).toContain('`{{dataFolder}}/agent-brief.md`\'s Orchestrator checklist');
+  /** The runner credits every job's tokens and the brief carrying the Orchestrator checklist is no longer installed. */
+  test('neither skill tells its reader to record what an agent cost or reads the retired agent brief', () => {
+    for (const text of [FILING_SKILL_TEXT, ORCHESTRATE_TEXT]) {
+      expect(text).not.toContain('--tokens');
+      expect(text).not.toContain('agent-brief.md');
+    }
+  });
+
+  test('the filing skill files drafts, each with a Brief, and readies them only on the user\'s yes in their own session', () => {
+    expect(FILING_SKILL_TEXT).toContain('"Ready these to build?"');
+    expect(FILING_SKILL_TEXT).toContain('`{{program}} ticket ready <ids>`');
+    expect(FILING_SKILL_TEXT).toContain('**Under the runner** (your prompt names your job), never ready');
+    expect(FILING_SKILL_TEXT).toContain('Every ticket carries a numbered Acceptance and a non-empty `## Brief`');
+    expect(FILING_SKILL_TEXT).toContain('never a chain built to order them');
+    for (const retired of ['--hold', 'build-when-filed', 'starts now or is queued']) expect(FILING_SKILL_TEXT, retired).not.toContain(retired);
+  });
+
+  test('the orchestrator skill wraps a running runner: it reads its state, starts it on the go and never drives it', () => {
+    expect(ORCHESTRATE_TEXT).toContain('`{{program}} run status --json`');
+    expect(ORCHESTRATE_TEXT).toContain('`{{program}} status --json`');
+    expect(ORCHESTRATE_TEXT).toContain('`{{program}} run --detach`');
+    expect(ORCHESTRATE_TEXT).toContain('`{{program}} await --json`');
+    expect(ORCHESTRATE_TEXT).toContain('never drive the\nlifecycle yourself and never handle an incident');
+    for (const retired of ['dispatcher', 'Workflow', '`ask`', 'Host mechanics']) expect(ORCHESTRATE_TEXT, retired).not.toContain(retired);
+  });
+});
+
+const SESSION_INSTRUCTIONS_TEXT = readFileSync(join(import.meta.dir, '..', 'resources', 'templates', 'SessionInstructions.md'), 'utf8');
+
+/** The runner owns the lifecycle, so the guidance a session reads names only `ticket deliver --by-hand` for work done outside it. */
+const BY_HAND_LIFECYCLE_VERB_PATTERNS = [
+  /`release[ `]/,
+  /\brelease <id>/,
+  /ticket (?:start|finish|approve|claim)\b/,
+  /review record/,
+  /\brework\b/,
+] as const;
+
+describe('the installed guidance names no by-hand lifecycle verb', () => {
+  const guidanceFiles = [
+    ...BUNDLED_SKILL_FILES,
+    { path: 'resources/templates/SessionInstructions.md', text: SESSION_INSTRUCTIONS_TEXT },
+  ];
+
+  test('each pattern finds the verb it means, so a clean scan is a finding', () => {
+    const plantedLines = ['run `release 5 --branch b`', 'release <id> --branch', 'ticket finish 5', 'review record 5', 'rework --since x'];
+    for (const [i, pattern] of BY_HAND_LIFECYCLE_VERB_PATTERNS.entries()) expect(pattern.test(plantedLines[i] ?? ''), String(pattern)).toBe(true);
+    expect(SESSION_INSTRUCTIONS_TEXT).toContain('ticket deliver <id> --by-hand');
+  });
+
+  test('none of the files names one', () => {
+    const namings = guidanceFiles.flatMap(({ path, text }) =>
+      BY_HAND_LIFECYCLE_VERB_PATTERNS.filter((pattern) => pattern.test(text)).map((pattern) => `${path} ${String(pattern)}`));
+    expect(namings).toEqual([]);
+  });
+
+  test('a planted by-hand verb is caught', () => {
+    const planted = `${SESSION_INSTRUCTIONS_TEXT}\nRun \`ticket approve 5\` by hand.`;
+    expect(BY_HAND_LIFECYCLE_VERB_PATTERNS.some((pattern) => pattern.test(planted))).toBe(true);
   });
 });

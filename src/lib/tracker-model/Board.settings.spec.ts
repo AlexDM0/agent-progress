@@ -23,26 +23,15 @@ test('a tracker that never set a dispatcher state reads the default one', () => 
   expect(board.dispatcherState()).toBe(DEFAULT_DISPATCHER_STATE);
 });
 
-test('setting the dispatcher state hands back the state before, stores the run id given and logs one record', () => {
+// The record keeps its run id field, null, so a log holding one written by the retired Workflow dispatcher reads beside it.
+test('setting the dispatcher state hands back the state before and logs one record with no run id', () => {
   const { board, progress, records } = boardFixture();
-  const changed                      = board.setDispatcherState('running', 'example-run', CHANGED_AT);
+  const changed                      = board.setDispatcherState('running', CHANGED_AT);
 
   expect(changed.previousState).toBe(DEFAULT_DISPATCHER_STATE);
   expect(progress.dispatcherState).toBe('running');
-  expect(progress.dispatcherRunId).toBe('example-run');
-  expect(records).toEqual([{ at: CHANGED_AT, kind: 'dispatcher-set', fields: { state: 'running', runId: 'example-run' } }]);
+  expect(records).toEqual([{ at: CHANGED_AT, kind: 'dispatcher-set', fields: { state: 'running', runId: null } }]);
   expect(changed.logged).toEqual(records);
-});
-
-// A stored run id outliving the run it named would be resumed by the next orchestrator, so no write may leave it behind.
-test('a state written without a run id deletes the stored one', () => {
-  const { board, progress } = boardFixture();
-  board.setDispatcherState('running', 'example-run', CHANGED_AT);
-  const changed = board.setDispatcherState('finished', null, CHANGED_AT);
-
-  expect(changed.previousState).toBe('running');
-  expect(progress.dispatcherState).toBe('finished');
-  expect('dispatcherRunId' in progress).toBe(false);
 });
 
 test('a tracker that never set a check command reads none', () => {

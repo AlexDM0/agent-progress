@@ -21,10 +21,10 @@ import {
 import { PRODUCT_NAMES }                      from '../../src/shared/constants/ProductNames.ts';
 import { removeScratchDirectory }             from '../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.ts';
-import { runCommandLine }                     from '../Main.ts';
 import { createCapturedCommandContext }       from '../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../testing/InitializedScratchRepository.ts';
 import { fileReadyTicket }                    from '../testing/ReadyTicketFiling.ts';
+import { runCommandLineWithRunnerMoves }      from '../testing/RunnerTicketMoves.ts';
 
 const FROZEN_NOW = new Date('2026-10-01T09:25:00Z');
 
@@ -34,7 +34,7 @@ let repositoryDirectory = '';
 
 async function runExpectingExit(expectedExitCode: number, commandLineArguments: readonly string[]): Promise<CapturedContext> {
   const context  = createCapturedCommandContext({ currentDirectory: repositoryDirectory, now: () => FROZEN_NOW });
-  const exitCode = await runCommandLine(commandLineArguments, context);
+  const exitCode = await runCommandLineWithRunnerMoves(commandLineArguments, context);
   expect(exitCode, `\`agent-progress ${commandLineArguments.join(' ')}\`: ${context.errorText()}`).toBe(expectedExitCode);
   return context;
 }

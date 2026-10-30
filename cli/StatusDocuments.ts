@@ -16,10 +16,8 @@ const WORKING_VIEW_LOG_ENTRY_COUNT = 10;
  * state, and the ids in flight end the block; `readyTickets` is read from the Board's ready tickets, as `readyTicketIds` is.
  */
 function derivedDocumentOf(board: Board): { concurrency: object; readyTickets: ReadyTicket[] } {
-  const concurrency     = board.dispatchCapacity();
-  const dispatcherRunId = board.dispatcherRunId();
   return {
-    concurrency:  { ...(dispatcherRunId === undefined ? concurrency : { ...concurrency, dispatcherRunId }), ...StatusDocumentUtil.inProgressIdsOf(board) },
+    concurrency:  { ...board.dispatchCapacity(), ...StatusDocumentUtil.inProgressIdsOf(board) },
     readyTickets: board.readyTicketEntries(),
   };
 }

@@ -36,13 +36,6 @@ test('the concurrency counts the in-progress rows by agent against the stored li
   expect(board.concurrency()).toEqual({ limit: 3, agentsInFlight: 2, freeSlots: 1 });
 });
 
-test('the dispatcher run id is read as stored, and a tracker that stored none has none', () => {
-  const { board, progress } = boardFixture();
-  expect(board.dispatcherRunId()).toBeUndefined();
-  progress.dispatcherRunId = 'example-run';
-  expect(board.dispatcherRunId()).toBe('example-run');
-});
-
 // A dependency whose file is gone or unreadable is not finished work, so the ticket waiting on it must still be told it waits.
 test('a ticket waits on every dependency not yet reviewed or delivered, and on one the board does not hold', () => {
   const { board } = boardFixture({

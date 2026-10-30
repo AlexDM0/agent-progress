@@ -51,7 +51,7 @@ test('building a Board leaves the records as they were read, logs nothing and ma
 const CALLS_THAT_CHANGE_NO_TICKET: readonly (readonly [string, (board: Board) => unknown])[] = [
   ['setChartRange', (board) => board.setChartRange({ kind: 'auto' }, CHANGED_AT)],
   ['setConcurrencyLimit', (board) => board.setConcurrencyLimit(4, CHANGED_AT)],
-  ['setDispatcherState', (board) => board.setDispatcherState('running', 'example-run', CHANGED_AT)],
+  ['setDispatcherState', (board) => board.setDispatcherState('running', CHANGED_AT)],
   ['setCheckCommand', (board) => board.setCheckCommand('bun run example-checks', true, CHANGED_AT)],
   ['recordNote', (board) => board.recordNote('Example note from the orchestrator', CHANGED_AT)],
   ['moveTask', (board) => board.moveTask(1, 'paused', { movesAnyway: false }, CHANGED_AT)],
@@ -93,7 +93,6 @@ const CALLS_THAT_CHANGE_NO_TICKET: readonly (readonly [string, (board: Board) =>
   ['ticketByReference', (board) => board.ticketByReference('1')],
   ['concurrency', (board) => board.concurrency()],
   ['dispatcherState', (board) => board.dispatcherState()],
-  ['dispatcherRunId', (board) => board.dispatcherRunId()],
   ['changedTickets', (board) => board.changedTickets()],
 ];
 

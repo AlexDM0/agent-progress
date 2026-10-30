@@ -38,16 +38,9 @@ const NOT_RELAYABLE_MUTATING_VERBS = [
   'ticket reopen',
   'epic edit',
   'epic remove',
-  'release',
-  'ticket start',
-  'ticket finish',
-  'ticket approve',
-  'ticket deliver',
-  'review record',
-  'rework',
+  'ticket deliver --by-hand',
   'init',
   'update',
-  'dispatcher',
   'run',
 ];
 
@@ -57,8 +50,8 @@ const NOT_RELAYABLE_MUTATING_VERBS = [
  */
 const READ_ONLY_VERBS = [...READ_ONLY_VERBS_UNDER_A_JOB, 'open', 'await'];
 
-/** Verbs design section 9.2 retires, which no command replaces; they leave the table with T26. */
-const RETIRING_VERBS = ['hook', 'render', 'ticket claim'];
+/** Verbs design section 9.2 retires, which no command replaces; T26 retired `ticket claim` and the measurement hook events. */
+const RETIRING_VERBS = ['hook', 'render'];
 
 interface ControlContract {
   readonly verbOfKind:                Readonly<Record<string, string>>;
@@ -75,10 +68,10 @@ function subcommandVerbsOf(command: string, subcommandNames: readonly string[]):
 /** Every verb `agent-progress` answers: a command, or a command and its subcommand where the command has several. */
 function tableVerbsOf(commandNames: readonly string[]): string[] {
   return commandNames.flatMap((command) => {
-    if (command === 'ticket') return subcommandVerbsOf(command, TICKET_SUBCOMMAND_NAMES);
+    // `ticket deliver` answers only with --by-hand, the one record-only lifecycle verb (owner answer Q41).
+    if (command === 'ticket') return subcommandVerbsOf(command, TICKET_SUBCOMMAND_NAMES).map((verb) => (verb === 'ticket deliver' ? 'ticket deliver --by-hand' : verb));
     if (command === 'epic') return subcommandVerbsOf(command, EPIC_SUBCOMMAND_NAMES);
     if (command === 'draft') return subcommandVerbsOf(command, DRAFT_SUBCOMMAND_NAMES);
-    if (command === 'review') return ['review record'];
     if (command === 'run') return [command, ...subcommandVerbsOf(command, RUN_SUBCOMMAND_NAMES)];
     if (command === 'job') return subcommandVerbsOf(command, JOB_SUBCOMMAND_NAMES);
     if (command === 'incident') return subcommandVerbsOf(command, INCIDENT_SUBCOMMAND_NAMES);
@@ -87,7 +80,7 @@ function tableVerbsOf(commandNames: readonly string[]): string[] {
     if (command === 'gate') return subcommandVerbsOf(command, GATE_SUBCOMMAND_NAMES);
     if (command === 'intake') return [command, ...subcommandVerbsOf(command, INTAKE_SUBCOMMAND_NAMES)];
     // The measurement events retire as `hook`; the network guard a runner renders into a job's settings stays.
-    if (command === 'hook') return [command, 'hook bash-domains'];
+    if (command === 'hook') return [command, 'hook bash-domains', 'hook session-start'];
     return [command];
   });
 }
@@ -128,6 +121,13 @@ const CONTRACT: ControlContract = {
 };
 
 describe('the control contract', () => {
+  // Owner answer Q41: the runner makes every lifecycle move, and User records only a ticket landed outside it.
+  test('the not-relayable list names `ticket deliver --by-hand` as the only lifecycle verb', () => {
+    const LIFECYCLE_VERB_PATTERN = /^(?:release|rework|review record|dispatcher|ticket (?:claim|start|finish|approve|deliver))\b/;
+    expect(LIFECYCLE_VERB_PATTERN.test('ticket finish'), 'the pattern finds a lifecycle verb').toBe(true);
+    expect(NOT_RELAYABLE_MUTATING_VERBS.filter((verb) => LIFECYCLE_VERB_PATTERN.test(verb))).toEqual(['ticket deliver --by-hand']);
+  });
+
   test('the scan saw the table: ticket, epic and draft verbs and the top-level commands are all there', () => {
     expect(CONTRACT.tableVerbs).toContain('ticket add');
     expect(CONTRACT.tableVerbs).toContain('epic add');

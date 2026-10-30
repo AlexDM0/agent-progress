@@ -12,9 +12,9 @@ import {
 import { TASK_STATUSES }                      from '../../../src/lib/tracker-model/constants/Statuses.ts';
 import { removeScratchDirectory }             from '../../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../../src/testing/ToolGuard.ts';
-import { runCommandLine }                     from '../../Main.ts';
 import { createCapturedCommandContext }       from '../../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../../testing/InitializedScratchRepository.ts';
+import { runCommandLineWithRunnerMoves }      from '../../testing/RunnerTicketMoves.ts';
 import { storedProgressOf }                   from '../../testing/StoredProgress.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
@@ -23,7 +23,7 @@ let repositoryDirectory = '';
 
 async function run(commandLineArguments: readonly string[]): Promise<ReturnType<typeof createCapturedCommandContext>> {
   const context  = createCapturedCommandContext({ currentDirectory: repositoryDirectory, now: () => FROZEN_NOW });
-  const exitCode = await runCommandLine(commandLineArguments, context);
+  const exitCode = await runCommandLineWithRunnerMoves(commandLineArguments, context);
   expect(exitCode, `\`agent-progress ${commandLineArguments.join(' ')}\` failed: ${context.errorText()}`).toBe(0);
   return context;
 }

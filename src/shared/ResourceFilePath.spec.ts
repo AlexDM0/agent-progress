@@ -15,7 +15,7 @@ describe('resourceFilePathOf', () => {
 
   test('the page template and a markdown template are found through it', () => {
     expect(existsSync(resourceFilePathOf('template.html'))).toBe(true);
-    expect(existsSync(resourceFilePathOf('templates', 'AgentBrief.md'))).toBe(true);
+    expect(existsSync(resourceFilePathOf('templates', 'SessionInstructions.md'))).toBe(true);
   });
 
   test('the path is the package\'s resources folder, whatever the working directory', () => {

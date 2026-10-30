@@ -82,7 +82,7 @@ async function waitFor(isDone: () => boolean, what: string): Promise<void> {
 }
 
 beforeEach(async () => {
-  repositoryDirectory = await createInitializedScratchRepository('overseer-api', ['--project', 'Example Agency', '--no-claude-md', '--no-hooks'], SPEC_CLOCK);
+  repositoryDirectory = await createInitializedScratchRepository('overseer-api', ['--project', 'Example Agency', '--no-hooks'], SPEC_CLOCK);
   homeDirectory       = createScratchDirectory('overseer-api-home');
 });
 

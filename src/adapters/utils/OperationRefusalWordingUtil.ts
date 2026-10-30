@@ -3,6 +3,7 @@
  * code and facts, and the install-version mismatch is worded as one paragraph, so the SubagentStop hook's one-report rule holds.
  */
 import type { JobMoveTarget }                                from '../../lib/tracker-model/@types/Job.ts';
+import type { TaskStatus }                                   from '../../lib/tracker-model/@types/Task.ts';
 import type { IncompleteTicket, ReadinessGap, TicketStatus } from '../../lib/tracker-model/@types/Ticket.ts';
 import type { BoardRefusalDetail }                           from '../../lib/tracker-model/BoardRefusal.ts';
 import { LEGAL_SOURCE_STATES_FOR_JOB_MOVE }                  from '../../lib/tracker-model/constants/JobMoveLegality.ts';
@@ -41,13 +42,20 @@ function incompleteTicketText(incompleteTicket: IncompleteTicket): string {
   return `ticket #${incompleteTicket.ticketId} is incomplete: ${incompleteTicket.gaps.map((gap) => READINESS_GAP_TEXT[gap]).join(', and ')}`;
 }
 
+/** The statuses a ticket verb still reaches; the runner makes every other lifecycle move, so those are named as `ticket status`. */
+const STATUSES_A_TICKET_VERB_REACHES: ReadonlySet<TaskStatus> = new Set(['pending', 're-review', 'abandoned']);
+
+function ticketMoveArgumentsFor(ticketId: string, targetStatus: TaskStatus): string {
+  return STATUSES_A_TICKET_VERB_REACHES.has(targetStatus) ? `${StatusWordingUtil.verbFor(targetStatus)} ${ticketId}` : `status ${ticketId} ${targetStatus}`;
+}
+
 function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
   switch (detail.reason) {
     case 'unknown-task':
       return `There is no task #${detail.taskId}. Run \`${PRODUCT_NAMES.PROGRAM} status\` to see the rows this tracker holds.`;
     case 'ticket-owned-row':
       return `Task #${detail.taskId} belongs to ticket #${detail.ticketId}, so moving it here would leave the row and the ticket disagreeing. `
-        + `Run \`${PRODUCT_NAMES.PROGRAM} ticket ${StatusWordingUtil.verbFor(detail.targetStatus)} ${detail.ticketId}\` instead, which moves both, `
+        + `Run \`${PRODUCT_NAMES.PROGRAM} ticket ${ticketMoveArgumentsFor(detail.ticketId, detail.targetStatus)}\` instead, which moves both, `
         + 'or pass --force to move only the row.';
     case 'ticket-already-has-row':
       return `Ticket #${detail.ticketId} already has task #${detail.taskId} ("${detail.taskName}"). `
@@ -58,7 +66,7 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
       return `Ticket #${detail.ticketId} is already ${detail.status}, so nothing was changed and nothing was logged.`;
     case 'illegal-ticket-move':
       return `Ticket #${detail.ticketId} is ${StatusWordingUtil.statusTextFor(detail.status)}, `
-        + `and \`${PRODUCT_NAMES.PROGRAM} ticket ${StatusWordingUtil.verbFor(detail.targetStatus)}\` moves a ticket that is ${legalSourcesText(detail.targetStatus)}. `
+        + `and a move to ${detail.targetStatus} takes a ticket that is ${legalSourcesText(detail.targetStatus)}. `
         + `Run \`${PRODUCT_NAMES.PROGRAM} ticket status ${detail.ticketId} ${detail.targetStatus}\` if you mean to set it directly.`;
     case 'move-to-draft':
       return `Ticket #${detail.ticketId} is ${StatusWordingUtil.statusTextFor(detail.status)}, and no move returns a ticket to draft: `
@@ -80,7 +88,7 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
         + 'a low-priority ticket gets its row when it is started. Drop --tokens.';
     case 'rereview-outside-review': {
       const firstReviewAdvice = TicketMoveUtil.ticketMoveIsLegal(detail.status, 'in-review')
-        ? ` Run \`${PRODUCT_NAMES.PROGRAM} ticket finish ${detail.ticketId}\` to send it to its first reviewer.`
+        ? ` Run \`${PRODUCT_NAMES.PROGRAM} ticket status ${detail.ticketId} in-review\` to send it to its first reviewer.`
         : '';
       return `Ticket #${detail.ticketId} is ${StatusWordingUtil.statusTextFor(detail.status)}, `
         + `and another review pass needs a ticket that is in-review.${firstReviewAdvice}`;
@@ -99,7 +107,7 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
         + 'so the review cannot be recorded on it and nothing was logged. Pass --bar the review bar of the bundle holding the ticket.';
     case 'unclaimable-status':
       return `Ticket #${detail.ticketId} is ${StatusWordingUtil.statusTextFor(detail.status)}, `
-        + `and \`${PRODUCT_NAMES.PROGRAM} ticket claim\` takes a ticket that is ${legalSourcesText('in-progress')}. `
+        + `and a claim takes a ticket that is ${legalSourcesText('in-progress')}. `
         + NOTHING_WAS_WRITTEN;
     case 'claim-waits-on-dependencies':
       return `Ticket #${detail.ticketId} is ${TicketPhraseUtil.waitingOnText(detail.unsettledTicketIds)}, `

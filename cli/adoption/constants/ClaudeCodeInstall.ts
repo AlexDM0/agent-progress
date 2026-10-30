@@ -1,25 +1,20 @@
 /**
- * What `init` and `update` install for Claude Code: the parts, in report order, each with the files it writes, how their text is
- * produced, the flag that opts out of it and its report label; and the Claude Code sentences, filled into the shared templates.
+ * What `init` and `update` install for Claude Code: the parts, in report order, each with the files it writes or removes, the flag that
+ * opts out of it and its report label. What install version 16 wrote and 17 removes is in `cli/adoption/constants/RetiredClaudeInstall.ts`.
  */
 import type { CommandHook }                 from '../../../src/lib/claude-code/ClaudeSettings.ts';
-import { DISPATCH_PROTOCOL }                from '../../../src/shared/constants/DispatchProtocol.ts';
 import { PRODUCT_NAMES, type ProductNames } from '../../../src/shared/constants/ProductNames.ts';
 import type { InstalledFilePaths }          from '../../InstalledFiles.ts';
 
-export const INSTALL_OPT_OUT_FLAGS = ['no-claude-md', 'no-hooks', 'no-workflow', 'no-agent-definition'] as const;
+export const INSTALL_OPT_OUT_FLAGS = ['no-hooks'] as const;
 
 export type InstallOptOutFlag = typeof INSTALL_OPT_OUT_FLAGS[number];
 
 export type InstalledFileName = Exclude<keyof InstalledFilePaths, 'installManifest'>;
 
-export type InstalledTextSource =
-  | { kind: 'template'; templateFileName: string }
-  | { kind: 'dispatcher-bundle' };
-
 export interface InstalledFile {
-  name: InstalledFileName;
-  text: InstalledTextSource;
+  name:             InstalledFileName;
+  templateFileName: string;
 }
 
 /** A folder of this checkout's `skills/`, copied into the repository's `.claude/skills/` under the name the product gives that skill. */
@@ -45,15 +40,15 @@ export const INSTALLED_SKILL_NAMES = installedSkillNamesFor(PRODUCT_NAMES);
 const RETIRED_SKILL_FOLDERS: readonly RetiredSkillFolder[] = [{ skillName: PRODUCT_NAMES.PROGRAM, installedFileNames: ['SKILL.md', 'Reference.md'] }];
 
 /**
- * `managed-block` keeps the rest of the file; `rewritten-files` replaces each file whole, and `briefs` does too but asks the reader to
- * re-read the last one, whose presence marks the files installed; `claude-settings-hooks` writes no file text, only Claude Code settings
- * entries; `skill-folders` rewrites every file of each skill folder, leaves any other file in it alone, and git-ignores the folder, and
- * removes each retired folder's installed files and its `.gitignore` entry.
+ * `briefs` replaces each file whole and asks the reader to re-read the last one, whose presence marks the files installed;
+ * `claude-settings-hooks` writes no file text, only Claude Code settings entries, and takes out the retired ones; `skill-folders` rewrites
+ * every file of each skill folder, leaves any other file in it alone, git-ignores the folder, and removes each retired folder's installed
+ * files and its `.gitignore` entry; `ignored-folders` git-ignores folders the product makes later; `retired-managed-block` removes, once,
+ * the managed CLAUDE.md block, and `retired-install` the hooks (unless `--no-hooks`) and files `cli/adoption/constants/RetiredClaudeInstall.ts`
+ * names: what install version 16 wrote that 17 does not.
  */
 export type InstalledPart =
-  | { writing: 'managed-block'; reportLabel: string; optOutFlag: InstallOptOutFlag | null; file: InstalledFile }
   | { writing: 'briefs'; reportLabel: string; optOutFlag: null; files: readonly InstalledFile[] }
-  | { writing: 'rewritten-files'; reportLabel: string; optOutFlag: InstallOptOutFlag | null; files: readonly InstalledFile[] }
   | { writing: 'claude-settings-hooks'; reportLabel: string; optOutFlag: InstallOptOutFlag | null; hooks: readonly CommandHook[] }
   | {
     writing:             'skill-folders';
@@ -61,117 +56,38 @@ export type InstalledPart =
     optOutFlag:          null;
     installedSkillNames: Readonly<Record<SkillSourceFolderName, string>>;
     retiredSkillFolders: readonly RetiredSkillFolder[];
-  };
+  }
+  | { writing: 'ignored-folders'; reportLabel: string; optOutFlag: null; folderNames: readonly string[] }
+  | { writing: 'retired-managed-block'; reportLabel: string; optOutFlag: null }
+  | { writing: 'retired-install'; reportLabel: string; optOutFlag: null };
 
-export interface ClaudeCodeInstall {
-  parts:     readonly InstalledPart[];
-  sentences: Readonly<Record<string, string>>;
-}
-
-/** The matcher is empty so every subagent is recorded, matching the cohort `usage` reads; the timeout covers waiting on a held lock. */
-const SUBAGENT_STOP_HOOK: CommandHook = {
-  event:          'SubagentStop',
+/** Prints `session-instructions.md` to every session User opens, which is how a session learns how this repository tracks its work. */
+const SESSION_START_HOOK: CommandHook = {
+  event:          'SessionStart',
   matcher:        '',
-  command:        `${PRODUCT_NAMES.PROGRAM} hook subagent-stop`,
-  timeoutSeconds: 20,
-};
-
-/** Only a Bash call can change the check command, and the hook reads nothing but its input, so it needs no lock time. */
-const PRE_TOOL_USE_HOOK: CommandHook = {
-  event:          'PreToolUse',
-  matcher:        'Bash',
-  command:        `${PRODUCT_NAMES.PROGRAM} hook pre-tool-use`,
+  command:        `${PRODUCT_NAMES.PROGRAM} hook session-start`,
   timeoutSeconds: 10,
 };
 
-/** Every tool call of every agent, so the page stays live while any works; the hook never waits on the lock, so it needs no lock time. */
-const POST_TOOL_USE_HOOK: CommandHook = {
-  event:          'PostToolUse',
-  matcher:        '',
-  command:        `${PRODUCT_NAMES.PROGRAM} hook post-tool-use`,
-  timeoutSeconds: 10,
-};
-
-const DISPATCHER_PATH_IN_REPOSITORY = `${PRODUCT_NAMES.DATA_FOLDER}/agent-progress-dispatch.js`;
-
-const CLAUDE_CODE_SENTENCES: Readonly<Record<string, string>> = {
-  tokenHookClause: 'and the\n'
-    + '  `SubagentStop` hook adds every token the agent processed to that row when it stops, so where the\n'
-    + '  hook is installed pass no `--tokens`: it would replace the sum.',
-  tokenHookPassage: 'the `SubagentStop` hook reads that line from the brief alone and adds the agent\'s `input` —\n'
-    + 'every token it processed, the figure its log line names just before `output`,\n'
-    + '`input 3.8M (cache read 3.6M)` — to the row when the agent stops. It adds rather than sets, so a row\n'
-    + 'several agents worked on carries all of them, and a workflow script\'s agents reach their row the same\n'
-    + 'way. A bundle, and a ticket without a row yet — a low one, whose row the builder\'s own claim creates —\n'
-    + 'is named by ticket instead, `agent-progress ticket: 22, 20`, the same ids as the builder\'s one\n'
-    + '`ticket claim 22 20`, and the hook divides evenly over their rows, looking each up when the agent\n'
-    + 'stops; keep one of the two lines, since a brief with both is read by its row line alone. A workflow\n'
-    + 'agent\'s first message is the harness relaying the session user\'s request, beginning\n'
-    + '`[Workflow harness — user request]`; its brief is then the message right after it, the one beginning\n'
-    + '`[Workflow harness — computed task]`, and a relay followed by anything else has no brief at all. The review\n'
-    + 'brief always names the review bar\'s own row. **Where the hook is installed, pass no `--tokens`**: it\n'
-    + 'would replace the sum. The harness\'s own `subagent_tokens` is roughly the end context, far below what\n'
-    + 'the agent processed and not by a constant factor, so it is the fallback for a repository without the\n'
-    + 'hook only, recorded with `--tokens` as the understatement it is.',
-  finishTokensNote:       '`--tokens <subagent_tokens>` only without the hook; ',
-  dispatcherWorkflowName: `\`${DISPATCHER_PATH_IN_REPOSITORY}\``,
-  installCheck:           'read `.claude/settings.local.json` and `.claude/settings.json` for\n'
-    + `  \`${SUBAGENT_STOP_HOOK.command}\` and \`${POST_TOOL_USE_HOOK.command}\`. \`init\` and \`update\` write both into\n`
-    + '  the local file by default, so each is normally in one of them and there is nothing to say. If either is in\n'
-    + '  neither — the repository was adopted before the hook existed, or somebody ran `--no-hooks` — say so once and offer\n'
-    + `  \`${PRODUCT_NAMES.PROGRAM} update\`: it is what puts every agent's cost on its row, without which a workflow's agents reach\n`
-    + '  no row at all, and what keeps the page live while agents work. Then check\n'
-    + `  \`${DISPATCHER_PATH_IN_REPOSITORY}\` exists. If not — adopted before the dispatcher, or \`--no-workflow\` —\n`
-    + `  say so once and offer \`${PRODUCT_NAMES.PROGRAM} update\` the same way; until then only the manual path is open.`,
-  askingTheUser:    'the AskUserQuestion tool, up to four questions per call.',
-  dispatcherLaunch: `\`Workflow({ scriptPath: '<mainCheckout>/${DISPATCHER_PATH_IN_REPOSITORY}',\n`
-    + '  args: <the args> })`, by this path only: it has no name to launch it by. The result names the run\'s `runId`.\n'
-    + '  The session\'s guideline of 10 agents per workflow does not bound this one.',
-  dispatcherRunEnd: 'the Workflow call runs as a background task; a task notification says when it\n'
-    + '  returns, with its summary, or that it was stopped or died.',
-  dispatcherResume: `\`Workflow({ scriptPath: '<mainCheckout>/${DISPATCHER_PATH_IN_REPOSITORY}',\n`
-    + '  resumeFromRunId: \'<the stored run id>\', args: <the launch\'s args> })`, its result naming the new `runId`.',
-  dispatcherStop: 'stop the Workflow task itself.',
-  agentByHand:    `the Agent tool with \`subagent_type: '${DISPATCH_PROTOCOL.WORKER_AGENT_TYPE}'\`, the installed definition\n`
-    + `  \`.claude/agents/${DISPATCH_PROTOCOL.WORKER_AGENT_TYPE}.md\` that carries the default model and effort.`,
-};
-
-export const CLAUDE_CODE_INSTALL: ClaudeCodeInstall = {
+export const CLAUDE_CODE_INSTALL: { parts: readonly InstalledPart[] } = {
   parts: [
-    {
-      writing:     'managed-block',
-      reportLabel: 'CLAUDE.md',
-      optOutFlag:  'no-claude-md',
-      file:        { name: 'claudeInstructions', text: { kind: 'template', templateFileName: 'ClaudeInstructionsBlock.md' } },
-    },
+    { writing: 'retired-managed-block', reportLabel: 'CLAUDE.md', optOutFlag: null },
+    { writing: 'retired-install', reportLabel: 'retired', optOutFlag: null },
     {
       writing:     'briefs',
       reportLabel: 'brief',
       optOutFlag:  null,
       files:       [
-        { name: 'builderBrief', text: { kind: 'template', templateFileName: 'BuilderBrief.md' } },
-        { name: 'reviewBrief', text: { kind: 'template', templateFileName: 'ReviewBrief.md' } },
-        { name: 'reference', text: { kind: 'template', templateFileName: 'Reference.md' } },
-        { name: 'agentBrief', text: { kind: 'template', templateFileName: 'AgentBrief.md' } },
+        { name: 'reference', templateFileName: 'Reference.md' },
+        { name: 'assistantBrief', templateFileName: 'AssistantBrief.md' },
+        { name: 'sessionInstructions', templateFileName: 'SessionInstructions.md' },
       ],
     },
     {
       writing:     'claude-settings-hooks',
       reportLabel: 'hooks',
       optOutFlag:  'no-hooks',
-      hooks:       [SUBAGENT_STOP_HOOK, PRE_TOOL_USE_HOOK, POST_TOOL_USE_HOOK],
-    },
-    {
-      writing:     'rewritten-files',
-      reportLabel: 'workflow',
-      optOutFlag:  'no-workflow',
-      files:       [{ name: 'dispatcherScript', text: { kind: 'dispatcher-bundle' } }],
-    },
-    {
-      writing:     'rewritten-files',
-      reportLabel: 'agent',
-      optOutFlag:  'no-agent-definition',
-      files:       [{ name: 'agentDefinition', text: { kind: 'template', templateFileName: 'AgentProgressWorker.md' } }],
+      hooks:       [SESSION_START_HOOK],
     },
     {
       writing:             'skill-folders',
@@ -180,6 +96,8 @@ export const CLAUDE_CODE_INSTALL: ClaudeCodeInstall = {
       installedSkillNames: INSTALLED_SKILL_NAMES,
       retiredSkillFolders: RETIRED_SKILL_FOLDERS,
     },
+    {
+      writing: 'ignored-folders', reportLabel: 'worktrees', optOutFlag: null, folderNames: [PRODUCT_NAMES.WORKTREES_FOLDER]
+    },
   ],
-  sentences: CLAUDE_CODE_SENTENCES,
 };

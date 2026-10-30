@@ -5,26 +5,17 @@ import type { Board }           from '../../src/lib/tracker-model/Board.ts';
 const READY_TICKETS_LISTED_AT_MOST = 5;
 
 interface BoardCapacity {
-  limit:                     number;
-  agentsInFlight:            number;
-  freeSlots:                 number;
-  readyTicketIds:            readonly string[];
-  lowPriorityReadyTicketIds: readonly string[];
-  heldTicketIds:             readonly string[];
-  dispatcherState:           DispatcherState;
+  limit:           number;
+  agentsInFlight:  number;
+  freeSlots:       number;
+  readyTicketIds:  readonly string[];
+  heldTicketIds:   readonly string[];
+  dispatcherState: DispatcherState;
 }
 
-/**
- * A running dispatcher needs no advice, and one that finished by itself needs relaunching only when a normal or high ticket is there for it to
- * take: low tickets alone are the orchestrator's to triage before any run is launched for them, and a held ticket is none it could take.
- */
-function dispatcherAdviceOf(capacity: BoardCapacity, startableTicketIds: readonly string[]): string {
-  if (capacity.dispatcherState === 'stopped') return '; dispatcher stopped: wait for the user\'s go';
-  if (capacity.dispatcherState !== 'finished' || startableTicketIds.length === 0) return '';
-  const normalOrHighTicketIsReady = startableTicketIds.some((ticketId) => !capacity.lowPriorityReadyTicketIds.includes(ticketId));
-  return normalOrHighTicketIsReady
-    ? '; dispatcher finished: work ready for the orchestrator'
-    : '; dispatcher finished: only low priority ready, for the orchestrator to triage';
+/** A running dispatcher needs no advice; a Board reads a stored `finished` as `stopped`, so a stop is the only state that advises. */
+function dispatcherAdviceOf(capacity: BoardCapacity): string {
+  return capacity.dispatcherState === 'stopped' ? '; dispatcher stopped: wait for the user\'s go' : '';
 }
 
 function slotsTextOf(capacity: BoardCapacity): string {
@@ -52,13 +43,12 @@ function heldTextOf(heldReadyTicketIds: readonly string[]): string {
 function composeNextLine(capacity: BoardCapacity): string {
   const startableTicketIds = capacity.readyTicketIds.filter((ticketId) => !capacity.heldTicketIds.includes(ticketId));
   const heldReadyTicketIds = capacity.readyTicketIds.filter((ticketId) => capacity.heldTicketIds.includes(ticketId));
-  return `Next: ${slotsTextOf(capacity)}; ${readyTextOf(startableTicketIds)}${heldTextOf(heldReadyTicketIds)}${dispatcherAdviceOf(capacity, startableTicketIds)}`;
+  return `Next: ${slotsTextOf(capacity)}; ${readyTextOf(startableTicketIds)}${heldTextOf(heldReadyTicketIds)}${dispatcherAdviceOf(capacity)}`;
 }
 
 /** Read from the Board's own dispatch capacity and ready entries, so the line and `status --json` cannot disagree on a slot or a ticket. */
 function nextLineOf(board: Board): string {
-  const lowPriorityReadyTicketIds = board.readyTicketEntries().filter((entry) => entry.priority === 'low').map((entry) => entry.id);
-  return composeNextLine({ ...board.dispatchCapacity(), lowPriorityReadyTicketIds });
+  return composeNextLine(board.dispatchCapacity());
 }
 
 /** For the moves that change what a dispatcher picks up: an orchestrator that stopped a run to add work lost the agents in flight. */

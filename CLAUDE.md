@@ -2,7 +2,7 @@
 
 A Bun + TypeScript CLI that tracks an AI orchestrator's work per repository (Gantt rows, stateful markdown tickets,
 a log, and a self-contained `progress.html` regenerated on every command), and installs into each tracked repository
-the skills, brief and dispatcher its sessions run on.
+the skills and briefs its sessions run on.
 
 ## Verify
 
@@ -37,7 +37,7 @@ guard spec holds is one line naming the guard: the spec is the full statement.
 ### Imports
 
 ```
-src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → tracker → lifecycle → control → runner)  →  features (cli/, page/, dispatcher/, bridge/)
+src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → tracker → lifecycle → control → runner)  →  features (cli/, page/, bridge/)
 ```
 
 - `src/ImportDirection.spec.ts` holds the direction, cycles, barrels, feature and sibling-command isolation, the bin
@@ -108,18 +108,22 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 
 ### Generated and installed files
 
-- Generated files stay out of the repository: `init` and `update` build the dispatcher from `dispatcher/` into
-  `.agent-progress/agent-progress-dispatch.js`.
+- Generated files stay out of the repository; `init` and `update` install no generated file, only filled templates
+  and the skills.
 - One manifest, `.agent-progress/version.json` holding `INSTALL_VERSION`, versions everything installed; no file
-  carries a stamp. It is written last, so a cut-short run leaves the old version; a fresh `init` writes the brief
-  first, so a cut-short one reads as unversioned.
+  carries a stamp. It is written last, so a cut-short run leaves the old version; a fresh `init` writes
+  `session-instructions.md` first, so a cut-short one reads as unversioned.
 - Bump `INSTALL_VERSION` by hand, in the same commit, when an installed file becomes wrong against the new CLI: a
-  command, flag, JSON field, stored state or exit code it names changes meaning or goes, the dispatcher's launch
-  arguments change, or an installed file moves or is added. Wording and `DISPATCH_PROTOCOL` numbers do not bump it.
+  command, flag, JSON field, stored state or exit code it names changes meaning or goes, the SessionStart hook's
+  command changes, or an installed file moves or is added; worker command lines are runtime and never installed.
+  Wording and `DISPATCH_PROTOCOL` numbers do not bump it.
   `cli/InstalledSurface.spec.ts` holds the surface side against `cli/FrozenInstalledSurface.json`.
 - The version check reads only the manifest; `update` and `init` refuse a newer one. `cli/InstallVersionVerdict.spec.ts`
-  holds the verdicts: equal is current; anything else, a missing manifest beside an installed brief, or an unreadable
-  one is a mismatch; missing with no brief is current.
+  holds the verdicts: equal is current; anything else, a missing manifest beside `session-instructions.md` or a version
+  16 board's `agent-brief.md`, or an unreadable one is a mismatch; missing with neither is current.
+- `init` and `update` never write CLAUDE.md: it holds a repository's conventions only. They remove install version 16's
+  managed block once, through `removeManagedBlock`, and the hook entries, files and briefs it installed, whose names
+  live in the unscanned `cli/adoption/constants/RetiredClaudeInstall.ts`.
 
 ### Comments
 
@@ -135,14 +139,10 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - Bun runs the TypeScript; `tsc` only type-checks, under `tsconfig.json`'s strict options. Write for them:
   `process.env['NAME']`, a written fallback, conditional objects instead of spreading `undefined`.
 - `eslint.config.js` holds no `!` non-null assertion and type-only imports as `type`.
-- The page is its own DOM-only project (`page/tsconfig.json`, specs under `page/tsconfig.spec.json`); `dispatcher/`
-  is the Workflow-runtime project (`dispatcher/tsconfig.json`, specs under `dispatcher/tsconfig.spec.json`), and only
-  `dispatcher/DispatchFromWorkflowGlobals.ts` names the Workflow globals. Their `include` lists are held both ways by
-  `src/ProjectIncludeLists.spec.ts`; everything the page reaches stays DOM-safe. `bridge/` is its own DOM-only React
-  project (`bridge/tsconfig.json` with `jsx: react-jsx` and `types: []`, specs under `bridge/tsconfig.spec.json`),
-  held the same way.
-- `init`, `update` and the specs build the dispatcher from the one shared build request, never importing
-  `dispatcher/`.
+- The page is its own DOM-only project (`page/tsconfig.json`, specs under `page/tsconfig.spec.json`). Its `include`
+  list is held both ways by `src/ProjectIncludeLists.spec.ts`; everything the page reaches stays DOM-safe.
+  `bridge/` is its own DOM-only React project (`bridge/tsconfig.json` with `jsx: react-jsx` and `types: []`, specs
+  under `bridge/tsconfig.spec.json`), held the same way.
 - ESLint 9 through `@reliquary/eslint-config`, extended in `eslint.config.js`; `bun run lint` is its statement. The
   testing folders may import devDependencies.
 
@@ -164,14 +164,13 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   `<Component>.dom.tsx` under `bridge/` alone, and no spec or test helper creates the real process context.
 - `bun test` never runs a DOM spec: `bridge/testing/RunDomSpecs.ts` runs each `.dom.tsx` with the skip report and the
   happy-dom preload, `bun run verify` runs it after `bun test`, and it fails when it finds none.
-- Each dispatcher decision in the `dispatcher/Dispatcher.*.spec.ts` suites must hold on the built bundle and fail on
-  a SourceMutant of its module; a mutant whose text is not in its module exactly once fails the build.
 
 ### Documentation and commits
 
 - One CLAUDE.md, holding only rules, boundaries and decisions; a change that invalidates a rule updates it in the
-  same change. Its `agent-progress:managed` block comes from `resources/templates/ClaudeInstructionsBlock.md`:
-  change the template, never the block.
+  same change. agent-progress's instructions are not in it: they are `.agent-progress/session-instructions.md`,
+  installed from `resources/templates/SessionInstructions.md` and printed by the SessionStart hook. The
+  `agent-progress:managed` block below is this checkout's own install of the released program, never edited by hand.
 - `docs/backlog.md` is agreed and not started, with why it waits. `docs/cli.md` is the one reference for commands,
   flags, exit codes and file formats.
 - `src/ProseWrap.spec.ts` holds the 120-column wrap of this file, `docs/cli.md`, `docs/backlog.md`, the skills and the
@@ -185,7 +184,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 | Ingestion reads, validates and maps in separate steps. | The ticket parse is one line-oriented pass. | A second walk would risk the unowned lines kept byte for byte. |
 | No work at module load. | `agent-progress.ts` runs the command on import, `agent-host.ts` runs its host, `page/PageStart.ts` starts the page, the preload `src/testing/TestRunReport.ts` registers its report, the preload `src/testing/ClaudeLaunchGuard.ts` installs its `claude` trap, the preload `cli/testing/OtherProductNamesPreload.ts` registers its name swap, the fake agent `src/testing/fake-agent/FakeAgentChild.ts` plays its scenario, `bridge/Main.tsx` mounts the Bridge, `bridge/testing/RunDomSpecs.ts` runs the DOM specs, the preload `bridge/testing/HappyDom.ts` registers the DOM. | They are entry points. |
 | Specs never set the environment in-process. | `src/shared/Environment.spec.ts` does, once; the preload `src/testing/ClaudeLaunchGuard.ts` prepends its trap to `PATH`. | It tests the getters themselves; the trap must lead every spawn's `PATH`. |
-| A frozen table comes from the previous implementation. | `dispatcher/testing/FrozenDispatchTraces.json` is retaken from the bundle, only in a commit meant to change what agents are told, its diff showing prompt text or wire names and no decision; `cli/FrozenInstalledSurface.json` is taken from the installed files. | No previous implementation holds them. |
+| A frozen table comes from the previous implementation. | `cli/FrozenInstalledSurface.json` is taken from the installed files. | No previous implementation holds them. |
 | Only the current stored format is read. | A ticket stored with `type` `change` or `feature` reads as `ticket` everywhere, and every write keeps its stored `type` line. | Stored tickets are never rewritten; both are older names for `ticket`. |
 | Only the current stored format is read. | A stored `dispatcherState` `finished` reads as `stopped`. | Stored files are never rewritten; reading it as stopped fails closed. |
 | Only the current stored format is read. | A host's `host-<instance>.json` and event log are read in that host's own `EVENT_LOG_FORMAT_VERSION` until it ends, one below `HOST_PROTOCOL_OLDEST_SUPPORTED` as a watch-only legacy host (`src/services/runner/LegacyHostReader.spec.ts`, a fixture per version). | A runner update must never kill or strand a running agent. |
@@ -193,10 +192,10 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 | Every write of a file a reader may hold open goes through the atomic-file package. | A host appends its `events-<instance>.ndjson` in place, fsynced before its `end` is written. | An append-only log is never replaced; a reader ignores an unterminated last line. |
 | Every write of a file a reader may hold open goes through the atomic-file package. | The runner appends `runner.log` in place, one line per write. | A log someone tails is never replaced; an atomic rewrite would break the tail. |
 | A `src/lib/` package leaves a refusal as a verdict. | The tracker model's `Board` throws `BoardRefusal`. | A domain class throws a typed domain error. |
-| A feature never reaches another. | `cli/` reaches `dispatcher/`, the render service `page/`, by path, to bundle them; `cli/runner/routes/OverseerRoutes.ts` imports `bridge/index.html`, the one entry of `FEATURE_REACHES_BY_PATH` in `src/ImportDirection.spec.ts`. | Bundled, never imported: Bun bundles the HTML import. |
+| A feature never reaches another. | The render service reaches `page/` by path, to bundle it; `cli/runner/routes/OverseerRoutes.ts` imports `bridge/index.html`, the one entry of `FEATURE_REACHES_BY_PATH` in `src/ImportDirection.spec.ts`. | Bundled, never imported: Bun bundles the HTML import. |
 | One reference per fact. | `resources/templates/Reference.md`, installed as `.agent-progress/reference.md`, copies three `docs/cli.md` sections verbatim (ticket format, ticket moves, exit codes); a change to either changes both, held by `cli/ReferenceCopies.spec.ts`. | Agents elsewhere cannot read `docs/cli.md`. |
-| A failure exits non-zero. | Exit 0 for: `hook subagent-stop` after its arguments are read; a store write whose render failed (reported on stderr); `release` when git declined the worktree removal or `branch -d` after the merge (reported). | The agent finished; the store holds the change; the release happened. |
-| A failure exits non-zero. | `hook post-tool-use` exits 0 silently whatever goes wrong: no tracker, another install version, an unreadable store, a held lock. | It runs after every tool call, and a failing hook would reach the agent's call; `render` reports what is wrong. |
+| A failure exits non-zero. | Exit 0 for a store write whose render failed (reported on stderr). | The store holds the change. |
+| A failure exits non-zero. | `hook session-start` exits 0 whatever happens, printing nothing on failure and skipping the install check. | A failing SessionStart hook would reach every session in the repository. |
 | A failure exits non-zero. | `hook bash-domains` exits 0 whatever happens, skipping the install check and answering deny through its JSON on any failure. | A hook that errors lets the call through; the deny is what keeps the network inside the ticket's line. |
 | A clock decides nothing. | No launch, resume or orchestrator delivery happens before the usage marker's `resetsAt`, and the runner wakes a DrivePass at it (`src/lib/tracker-model/LifecyclePolicy.ts`, `src/services/runner/DrivePass.ts`). | The vendor names its reset as a time, and only a clock can honour it. |
 | A failure exits non-zero. | A verb relayed under a job whose reply does not come within `RELAY_REPLY_TRIES` × `RELAY_REPLY_INTERVAL_MILLISECONDS` prints `queued <requestId>` and exits 0. | The request is written; the runner applies it later, and the id is what a filed finding cites. |
@@ -212,9 +211,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   `clear`.
 - Help is one screen, no per-command help; to stdout when asked, to stderr after an unknown command.
 - Every command but `init`, `update`, `help`, `status` and `version` checks the install version first
-  (`cli/Main.spec.ts`); `release` reports a mismatch as its `--json` refusal, `hook subagent-stop` at exit 0,
-  `hook post-tool-use` by rendering nothing, silently, at exit 0; `run status` and `run stop` skip it, so a runner
-  whose install changed can still be inspected and stopped.
+  (`cli/Main.spec.ts`); `hook session-start` and `hook bash-domains` skip it; `run status` and `run stop` skip
+  it, so a runner whose install changed can still be inspected and stopped.
 - `src/TestFileConventions.spec.ts` holds that no spec starts a runner without `--port 0`.
 - A new command is an entry in `cli/CommandTable.ts`, a block in `cli/HelpText.ts` and a folder in its set, held by
   `cli/CommandTable.spec.ts` and `cli/HelpText.spec.ts`.
@@ -229,7 +227,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - A ticket is its frontmatter `id`, never its file name. Ticket and task ids are never reused or gap-filled.
 - Only a transition stamps `updated`. The named verbs enforce the legality matrix; `ticket status` skips it on purpose.
 - `ticket add` files a draft ticket, `draft`, with no row at any priority; only `ticket ready`, after the readiness
-  reading `release` shares (`TicketAcceptanceUtil`), moves it to `pending` and files its row, and no move returns a
+  reading the landing shares (`TicketAcceptanceUtil`), moves it to `pending` and files its row, and no move returns a
   ticket to `draft`, not even `ticket status`. The filing cabinet's drafts are "filing drafts" in help and wording.
 - A ticket's `epics` is an ordered list, the first its primary epic, written only when non-empty. An epic has no
   lifecycle: its progress is a Board roll-up over its tickets, and it never touches dispatch, claiming, concurrency or
@@ -277,7 +275,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - React's escaping is the one escape for a value, so the static page's `escapeHtml` rule does not reach `bridge/`: no
   value is escaped by hand, and a pre-escaped one would show its entities. `eslint.config.js` bans
   `dangerouslySetInnerHTML` and assigning `innerHTML` or `outerHTML` in `bridge/`; agent-written HTML reaches the DOM
-  only as a sandboxed iframe's `srcdoc`.
+  only as a sandboxed iframe's `srcdoc`, whose fixed markup is the one place `escapeHtml` is used, for its title.
 - A view is `bridge/views/<view>/`: its component, and its logic in a pure `<View>Model.ts` beside it, specced as a
   plain `.spec.ts` in the main run; its behaviour is held by `.dom.tsx` specs, never a frozen markup table. A pure
   page util a view uses moves to `bridge/utils/` (chip parts to `bridge/chips/`) unchanged, with its spec.
@@ -292,19 +290,25 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 
 ### Skills
 
-- Two skills, split by audience. `skills/agent-po/` loads in any session asked to file a ticket and holds the whole
-  filing procedure; it loads no other skill and never dispatches. `skills/agent-progress-orchestrate/` is the one
-  session running the board, loads `agent-po` for intake, and holds only what is the orchestrator's.
-- No agent preloads a skill. What a builder or reviewer needs lives in `resources/templates/BuilderBrief.md`,
-  `ReviewBrief.md` and the worker definitions, each rule stated once in whichever the agent reads.
+- Two skills, split by audience. `skills/agent-po/` is PO intake: it loads in any session asked to file a ticket and
+  as a runner product-owner job's first line, holds the whole filing procedure, files every ticket as a draft with a
+  numbered Acceptance and a `## Brief`, and readies drafts only on User's yes in User's own session (under the runner
+  it closes intake instead); it loads no other skill. `skills/agent-progress-orchestrate/` is the interactive wrapper
+  around a running Overseer (`run`): it reads its state, starts it on User's go, turns User's intent into verbs,
+  loads `agent-po` for intake and may wait on `await`; it never drives the lifecycle or handles an incident, which
+  are the Overseer's and its Assistant's.
+- No agent preloads a skill, and nothing installs a brief or worker definition: a runner's roles read their runtime
+  prompts under `resources/prompts/`, and the Assistant its installed `.agent-progress/assistant-brief.md`.
 - No skill file lists commands: `agent-progress help` is the reference. Both skills name it and
   `.agent-progress/reference.md`, installed from `resources/templates/Reference.md`, which holds only what help does
-  not print and follows `docs/cli.md`; both briefs cite it.
+  not print and follows `docs/cli.md`.
 - A `SKILL.md` `description` is its trigger, naming the words a user says. Skill files cite only commands, paths in
   a tracked repository, or files beside them; naming a skill the host may offer, such as `grill-me`, is no citation.
 - `skills/agent-progress-orchestrate/` repeats nothing from `skills/agent-po/`, writes rules as instructions,
-  and never restates what the dispatcher decides. Call budgets and the rework threshold are `DISPATCH_PROTOCOL`
-  (`src/shared/constants/DispatchProtocol.ts`), filled into the brief and block by `init` and `update`.
+  and never restates what the Overseer decides. Call budgets and the rework threshold are `DISPATCH_PROTOCOL`
+  (`src/shared/constants/DispatchProtocol.ts`), stated by the runner's job prompts and never by an installed file.
+  Neither skill nor the installed guidance names a by-hand lifecycle verb but `ticket deliver --by-hand`, held by
+  `cli/HelpText.spec.ts`.
 - `init` and `update` copy both into the tracked repository's git-ignored `.claude/skills/`, never globally, and
   remove the files a retired skill folder installed there with its `.gitignore` entry; `setup.sh` only removes the
   `~/.claude/skills/` symlinks into this checkout that earlier versions made.
@@ -317,19 +321,19 @@ agent-host.ts        the host shim: runs one job instance's host from src/lib/ag
 cli/                 feature: the command surface, its commands grouped into sets
 page/                feature: the browser page, one DOM-only project: its entry and views, the shell it starts
                      with under page/shell/, and the chip parts under page/chips/
-dispatcher/          feature: the dispatcher policy, which init and update bundle into a Workflow script
 bridge/              feature: the Bridge, the React live UI the Overseer serves, one DOM-only project: its entry,
                      the shell under bridge/shell/, the API clients under bridge/api/ and the stylesheets
 resources/           files read at runtime: the page template, template.html, and the markdown init, update and
                      ticket add fill
 src/lib/             package-grade building blocks, one folder each
 src/adapters/        the boundary: every stored format read, written and mapped, and the wording
-src/services/        the tracker and render services
+src/services/        the tracker and render services, and the Overseer's: runner/ (`run`, its DrivePass and its
+                     API), lifecycle/ (gates, verification, merges, landings) and control/ (the control contract)
 src/shared/          app-specific code several parts use
 src/testing/         test-only helpers several parts use
-skills/              the two skills, one folder each, named after the skill: agent-po/, which a session asked
-                     to file a ticket loads, and agent-progress-orchestrate/, for the one session running the
-                     board
+skills/              the two skills, one folder each, named after the skill: agent-po/, PO intake, which a
+                     session asked to file a ticket and a runner's product-owner job load, and
+                     agent-progress-orchestrate/, the interactive wrapper around a running Overseer
 docs/                the CLI reference, development notes, the backlog, the migration plan, README images
 .readme-graphics/    the scripts and demo board that retake the README images; its build/ is git-ignored
 ```

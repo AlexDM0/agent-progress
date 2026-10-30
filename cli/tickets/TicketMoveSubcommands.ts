@@ -28,15 +28,10 @@ import { TicketArgumentUtil }                                                 fr
 import { TicketLookupUtil }                                                   from './utils/TicketLookupUtil.ts';
 
 const TRANSITION_VERBS: readonly (readonly [string, TicketStatus])[] = [
-  ['start', 'in-progress'],
-  ['finish', 'in-review'],
-  ['approve', 'reviewed'],
-  ['deliver', 'delivered'],
   ['abandon', 'abandoned'],
   ['reopen', 'pending'],
 ];
 
-const REVIEW_OPTION_NAMES   = [...TRANSITION_OPTION_NAMES, ...REVIEW_BAR_OPTION_NAMES];
 const REREVIEW_OPTION_NAMES = ['at', 'json', ...REVIEW_BAR_OPTION_NAMES];
 const READY_OPTION_NAMES    = ['at', 'json', 'incident'];
 const BY_HAND_FLAG          = 'by-hand';
@@ -55,6 +50,9 @@ function requireTicketReference(commandArguments: ArgumentParser, subcommand: st
  */
 async function deliverByHand(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
   commandArguments.rejectUnknownOptions(BY_HAND_OPTION_NAMES, TICKET_USAGE);
+  if (!commandArguments.flag(BY_HAND_FLAG)) {
+    throw new OperationRefusal('refused', `"deliver" without --by-hand is not a ${PRODUCT_NAMES.PROGRAM} ticket subcommand.\n  Usage: ${TICKET_USAGE}`);
+  }
   const reference = requireTicketReference(commandArguments, 'deliver');
   const branch    = commandArguments.option('branch');
   const commit    = commandArguments.option('commit');
@@ -80,13 +78,9 @@ async function deliverByHand(commandArguments: ArgumentParser, context: CommandC
 
 function transitionHandlerFor(targetStatus: TicketStatus): TicketSubcommandHandler {
   return async (commandArguments, context, subcommand) => {
-    if (targetStatus === 'delivered' && commandArguments.flag(BY_HAND_FLAG)) return deliverByHand(commandArguments, context);
-    const sendsToReview = targetStatus === 'in-review';
-    const transitionOptionNames = targetStatus === 'delivered' ? [...TRANSITION_OPTION_NAMES, BY_HAND_FLAG] : TRANSITION_OPTION_NAMES;
-    commandArguments.rejectUnknownOptions(sendsToReview ? REVIEW_OPTION_NAMES : transitionOptionNames, TICKET_USAGE);
-    const reference        = requireTicketReference(commandArguments, subcommand);
-    const reviewBarRequest = sendsToReview ? reviewBarRequestFrom(commandArguments, subcommand) : null;
-    return transitionOneTicket(targetStatus, reference, commandArguments, context, true, reviewBarRequest);
+    commandArguments.rejectUnknownOptions(TRANSITION_OPTION_NAMES, TICKET_USAGE);
+    const reference = requireTicketReference(commandArguments, subcommand);
+    return transitionOneTicket(targetStatus, reference, commandArguments, context, true);
   };
 }
 
@@ -145,6 +139,7 @@ async function readyTheNamedTickets(commandArguments: ArgumentParser, context: C
 
 export const TICKET_MOVE_SUBCOMMANDS: Readonly<Record<string, TicketSubcommandHandler>> = {
   ...Object.fromEntries(TRANSITION_VERBS.map(([verb, targetStatus]) => [verb, transitionHandlerFor(targetStatus)])),
+  deliver:  deliverByHand,
   status:   setTicketStatus,
   rereview: rereviewOneTicket,
   ready:    readyTheNamedTickets,

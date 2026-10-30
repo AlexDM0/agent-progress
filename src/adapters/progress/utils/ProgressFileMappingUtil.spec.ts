@@ -69,6 +69,27 @@ test('a file with unknown keys at the top level, on rows and on phases is writte
   expect(writtenTextOf(stored)).toBe(text);
 });
 
+// The retired Workflow dispatcher stored its run id here; a board it ran on keeps the key as the owner's, unread and never rewritten.
+test('a stored dispatcherRunId is an unknown key: kept in its place byte for byte, also across a dispatcher state change', () => {
+  const progress = emptyProgress();
+  const text     = JsonTextUtil.storedFileTextOf({
+    version:         2,
+    trackerId:       progress.trackerId,
+    project:         progress.project,
+    startedAt:       progress.startedAt,
+    view:            progress.view,
+    nextTaskId:      progress.nextTaskId,
+    dispatcherState: 'running',
+    dispatcherRunId: 'wf_example-run',
+    tasks:           [],
+  });
+  const mapped = ProgressFileMappingUtil.progressOf(storedDocumentOf(text));
+  expect(writtenTextOf(ProgressFileMappingUtil.storedDocumentOf(mapped))).toBe(text);
+
+  mapped.dispatcherState = 'stopped';
+  expect(writtenTextOf(ProgressFileMappingUtil.storedDocumentOf(mapped))).toBe(text.replace('"running"', '"stopped"'));
+});
+
 test('an unknown key survives a change the Board makes to its row in place', () => {
   const progress = ProgressFileMappingUtil.progressOf(storedDocumentOf(storedTextWithUnknownKeys()));
   const [row]    = progress.tasks;

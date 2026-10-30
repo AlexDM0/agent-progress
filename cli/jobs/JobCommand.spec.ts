@@ -60,7 +60,7 @@ describeWhenGitIsPresent('job attach following a job to its end', () => {
   }
 
   beforeEach(async () => {
-    repositoryDirectory = await createInitializedScratchRepository('job-attach', ['--project', 'Example Agency', '--no-claude-md', '--no-hooks'], SPEC_CLOCK);
+    repositoryDirectory = await createInitializedScratchRepository('job-attach', ['--project', 'Example Agency', '--no-hooks'], SPEC_CLOCK);
     const { trackerDirectory } = requireWorkspace(repositoryDirectory);
     progressFilePath = join(trackerDirectory, 'progress.json');
     const jobFolder  = HostFleet.jobFolderOf(trackerDirectory, JOB_ID);
