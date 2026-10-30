@@ -53,17 +53,17 @@ import {
   HANDOVER_REBIND_TRIES,
   HANDOVER_RELEASE_TRIES
 } from '../../src/shared/constants/RunnerLimits.ts';
-import type { CommandContext }          from '../CommandContext.ts';
-import { requireCurrentInstall }        from '../InstallVersionCheck.ts';
-import { openTrackerForWriting }        from '../OpenTrackerForWriting.ts';
-import { CLAUDE_MANAGED_BLOCK_MARKERS } from '../adoption/constants/ClaudeManagedBlockMarkers.ts';
-import type { ArgumentParser }          from '../arguments/ArgumentParser.ts';
-import { INSTALL_VERSION }              from '../constants/InstallVersion.ts';
-import { OutputUtil }                   from '../utils/OutputUtil.ts';
-import { RunnerWording }                from './RunnerWording.ts';
-import { readBoardState }               from './routes/BoardStateReader.ts';
-import type { RuntimeRunnerCommand }    from './routes/CommandRoute.ts';
-import { overseerRoutesOf }             from './routes/OverseerRoutes.ts';
+import type { CommandContext }                      from '../CommandContext.ts';
+import { requireCurrentInstall }                    from '../InstallVersionCheck.ts';
+import { openTrackerForWriting }                    from '../OpenTrackerForWriting.ts';
+import { CLAUDE_MANAGED_BLOCK_MARKERS }             from '../adoption/constants/ClaudeManagedBlockMarkers.ts';
+import type { ArgumentParser }                      from '../arguments/ArgumentParser.ts';
+import { INSTALL_VERSION }                          from '../constants/InstallVersion.ts';
+import { OutputUtil }                               from '../utils/OutputUtil.ts';
+import { RunnerWording }                            from './RunnerWording.ts';
+import { createMergeForecastCache, readBoardState } from './routes/BoardStateReader.ts';
+import type { RuntimeRunnerCommand }                from './routes/CommandRoute.ts';
+import { overseerRoutesOf }                         from './routes/OverseerRoutes.ts';
 
 export interface ForegroundRunRequest {
   commandArguments: ArgumentParser;
@@ -262,6 +262,7 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
   const codeVersion = CodeVersion.onDisk();
   const log         = runnerLoggerOf(context, files);
   const mainLine    = mainLineOf(workspace.rootDirectory);
+  const mergeForecastCache = createMergeForecastCache();
   const installWatch = createInstallChangeWatch({
     inMemory:        { codeVersion, installVersion: INSTALL_VERSION },
     versionsOnDisk:  () => versionsFromTheBinary(context.programCommand, workspace.rootDirectory),
@@ -326,6 +327,7 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
         notices:          () => runnerState()?.notices ?? [],
         overseer:         overseerFactsNow,
         mainLine,
+        mergeForecastCache,
         silentSweepsOf:   (jobId: string) => current?.drivePass.silentSweepsOf(jobId) ?? 0,
         onRuntimeCommand: (command: RuntimeRunnerCommand) => {
           log(`${command.kind} received${command.now ? ' (now)' : ''}.`);
@@ -371,6 +373,7 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
           overseer:       overseerFactsNow,
           silentSweepsOf: (jobId) => current?.drivePass.silentSweepsOf(jobId) ?? 0,
           mainLine,
+          mergeForecastCache,
         }).state);
       } catch (thrown) {
         log(`The board state could not be read for the event stream: ${thrown instanceof Error ? thrown.message : String(thrown)}`);
