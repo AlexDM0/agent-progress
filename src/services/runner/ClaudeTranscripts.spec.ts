@@ -3,8 +3,8 @@
  * counts once and runs until its result, a half-written last line costs nothing, a subagent is keyed by its `.meta.json` parent call or
  * else its agent id, and only this session's transcripts are read, a workflow run's among them, under a scratch home.
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { join }                     from 'node:path';
+import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
+import { join }                                from 'node:path';
 
 import {
   afterEach,
@@ -24,6 +24,12 @@ afterEach(() => {
 });
 
 const WORKING_DIRECTORY = '/example/worktrees/ticket-1';
+
+const NO_ACCESS_MODE = 0o000;
+
+const SEARCH_ONLY_MODE = 0o100;
+
+const OWNER_FULL_ACCESS_MODE = 0o700;
 
 function transcriptLines(...lines: readonly object[]): string {
   return lines.map((line) => JSON.stringify(line)).join('\n');
@@ -82,6 +88,24 @@ describe('ClaudeTranscripts.subagentFactsOf', () => {
     writeAgent(join(subagentsFolder, '..', '..', 'session-2', 'subagents'), 'epsilon', 'call-6');
     const facts = ClaudeTranscripts.subagentFactsOf({ homeDirectory, workingDirectory: WORKING_DIRECTORY, sessionId: 'session-1' }, new Set(['call-4']));
     expect(facts.map((subagent) => subagent.parentToolUseId)).toEqual(['call-2', 'beta', 'call-5']);
+  });
+
+  /** Both folders a scan would list refuse listing, so the session's own subagents still showing proves no other session was read. */
+  test('reads only the job\'s own session folder, never listing the project folder or another session\'s', () => {
+    const { homeDirectory, subagentsFolder } = sessionFolderUnderScratchHome('session-1');
+    writeAgent(subagentsFolder, 'alpha', 'call-2');
+    const otherSessionSubagentsFolder = join(subagentsFolder, '..', '..', 'session-2', 'subagents');
+    writeAgent(otherSessionSubagentsFolder, 'epsilon', 'call-6');
+    const projectFolder = transcriptFolderFor(WORKING_DIRECTORY, homeDirectory);
+    chmodSync(otherSessionSubagentsFolder, NO_ACCESS_MODE);
+    chmodSync(projectFolder, SEARCH_ONLY_MODE);
+    try {
+      const facts = ClaudeTranscripts.subagentFactsOf({ homeDirectory, workingDirectory: WORKING_DIRECTORY, sessionId: 'session-1' }, new Set());
+      expect(facts.map((subagent) => subagent.parentToolUseId)).toEqual(['call-2']);
+    } finally {
+      chmodSync(projectFolder, OWNER_FULL_ACCESS_MODE);
+      chmodSync(otherSessionSubagentsFolder, OWNER_FULL_ACCESS_MODE);
+    }
   });
 
   test('a session that left no transcripts has no subagents', () => {

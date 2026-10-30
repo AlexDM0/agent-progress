@@ -4,9 +4,9 @@
  * subagent is keyed by the `toolUseId` its `.meta.json` names, the parent call the event log groups it under.
  */
 
-import { listSubagentTranscripts, transcriptFolderFor, transcriptTextAt } from '../../lib/claude-code/ClaudeTranscripts.ts';
-import { TranscriptUsageUtil }                                            from '../../lib/claude-code/utils/TranscriptUsageUtil.ts';
-import { JsonRecordUtil }                                                 from '../../lib/json-record/JsonRecordUtil.ts';
+import { listSessionSubagentTranscripts, transcriptFolderFor, transcriptTextAt } from '../../lib/claude-code/ClaudeTranscripts.ts';
+import { TranscriptUsageUtil }                                                   from '../../lib/claude-code/utils/TranscriptUsageUtil.ts';
+import { JsonRecordUtil }                                                        from '../../lib/json-record/JsonRecordUtil.ts';
 
 export interface SessionTranscriptSource {
   homeDirectory:    string;
@@ -86,8 +86,7 @@ function subagentFactsOfTranscript(parentToolUseId: string, transcriptText: stri
 function subagentFactsOf(source: SessionTranscriptSource, skippedParentToolUseIds: ReadonlySet<string>): TranscriptSubagentFacts[] {
   const transcriptFolder = transcriptFolderFor(source.workingDirectory, source.homeDirectory);
   const facts: TranscriptSubagentFacts[] = [];
-  for (const transcript of listSubagentTranscripts(transcriptFolder)) {
-    if (transcript.sessionIdentifier !== source.sessionId) continue;
+  for (const transcript of listSessionSubagentTranscripts(transcriptFolder, source.sessionId)) {
     const parentToolUseId = parentToolUseIdBeside(transcript.path) ?? transcript.agentIdentifier;
     if (skippedParentToolUseIds.has(parentToolUseId)) continue;
     const transcriptText = transcriptTextAt(transcript.path);
