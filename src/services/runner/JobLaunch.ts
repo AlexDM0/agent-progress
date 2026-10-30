@@ -18,6 +18,7 @@ import type { AgentEffort }                                                     
 import { launchEnvironmentOf }                                                                    from '../../lib/agent-launch/LaunchEnvironment.ts';
 import { writeFileAtomically }                                                                    from '../../lib/atomic-file/AtomicFile.ts';
 import { GitProcess }                                                                             from '../../lib/git/GitProcess.ts';
+import { identityOf }                                                                             from '../../lib/process-identity/ProcessIdentity.ts';
 import type { GateOutcome, Job, JobKind }                                                         from '../../lib/tracker-model/@types/Job.ts';
 import type { DecisionDraft, DecisionWording }                                                    from '../../lib/tracker-model/@types/LifecycleStep.ts';
 import type { LogRecord }                                                                         from '../../lib/tracker-model/@types/LogRecord.ts';
@@ -769,11 +770,14 @@ interface ProcessHostStep {
   subfolder:   string | null;
 }
 
-function spawnProcessHost(context: JobLaunchContext, trackerId: string, job: Readonly<Job>, folderName: string, step: ProcessHostStep): void {
+/** A host already claimed is left alone; a spawn the system refused has no process id. */
+type ProcessHostSpawn = { verdict: 'already-claimed' } | { verdict: 'spawned'; processId: number | undefined };
+
+function spawnProcessHost(context: JobLaunchContext, trackerId: string, job: Readonly<Job>, folderName: string, step: ProcessHostStep): ProcessHostSpawn {
   const { argv: childArgv, confinement, subfolder } = step;
   const jobFolder = jobFolderOf(context.workspace, job);
   const hostFolder = join(jobFolder, folderName);
-  if (HostFleet.livenessOf(hostFolder, PROCESS_HOST_INSTANCE).verdict !== 'unclaimed') return;
+  if (HostFleet.livenessOf(hostFolder, PROCESS_HOST_INSTANCE).verdict !== 'unclaimed') return { verdict: 'already-claimed' };
   const worktree = worktreeOf(context.workspace, job);
   const profilePath = join(hostFolder, JOB_FILES.profile);
   const environment = GateRun.gateEnvironmentOf(launchEnvironmentOf(context.inheritedEnvironment, {}));
@@ -790,8 +794,9 @@ function spawnProcessHost(context: JobLaunchContext, trackerId: string, job: Rea
     environment,
   });
   writeFileSync(profilePath, context.sandbox.profileTextOf(processSandboxRequestOf(context, sandboxFactsFor(context, job), confinement)));
-  HostFleet.spawnHost({ bundlePath: context.hostBundlePath, jobFolder: hostFolder, instance: PROCESS_HOST_INSTANCE });
+  const processId = HostFleet.spawnHost({ bundlePath: context.hostBundlePath, jobFolder: hostFolder, instance: PROCESS_HOST_INSTANCE });
   context.log(`Spawned the ${folderName} host of job ${job.id} (#${ticketIdOf(job)})${context.sandbox.isUsable() ? ' under sandbox-exec' : ', unsandboxed'}.`);
+  return { verdict: 'spawned', processId };
 }
 
 /** A group ticket's branch forks off the group's tip, so the group's worktree is created from the main line's tip at its first launch. */
@@ -861,8 +866,22 @@ function spawnNextGateStep(context: JobLaunchContext, trackerId: string, job: Re
   const step = gateStepsOf(pipeline, job.hostInstance)[progress.stepIndex];
   if (step === undefined) return;
   const hostFolder = join(jobFolderOf(context.workspace, job), step.folder);
-  if (step.kind === 'gate' && !context.gateSlots.tryAcquire(hostFolder)) return;
-  spawnProcessHost(context, trackerId, job, step.folder, { argv: GateRun.shellLineArgvOf(step.line), confinement: step.confinement, subfolder: step.in });
+  const processHostStep: ProcessHostStep = { argv: GateRun.shellLineArgvOf(step.line), confinement: step.confinement, subfolder: step.in };
+  if (step.kind !== 'gate') {
+    spawnProcessHost(context, trackerId, job, step.folder, processHostStep);
+    return;
+  }
+  if (!context.gateSlots.tryAcquire(hostFolder)) return;
+  let spawn: ProcessHostSpawn;
+  try {
+    spawn = spawnProcessHost(context, trackerId, job, step.folder, processHostStep);
+  } catch (error) {
+    context.gateSlots.release(hostFolder);
+    throw error;
+  }
+  if (spawn.verdict === 'spawned') {
+    context.gateSlots.recordSpawnedProcess(hostFolder, spawn.processId === undefined ? null : identityOf(spawn.processId));
+  }
 }
 
 /**
