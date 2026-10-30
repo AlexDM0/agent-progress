@@ -145,6 +145,7 @@ async function drivePassPlaying(steps: readonly FakeAgentStep[]): Promise<DriveP
     assistantChatTextOf:   (facts) => `Example chat ${facts.sequence}`,
     windDownMessage:       'Example wind-down message',
     resumeMessage:         'Example resume message',
+    redHandoffMessageOf:   RunnerWording.redHandoffMessageOf,
     answerMessageOf:       (answer) => `Example answers ${JSON.stringify(answer)}`,
     homeDirectory:         monitorFolder,
     log:                   (line) => runnerLog.push(line),
@@ -316,9 +317,10 @@ describe('a build job end to end', () => {
     const drivePass = await drivePassPlaying(buildingSession());
     await passUntil(drivePass, () => buildJobEnding() !== undefined, 'the build job ending');
 
-    expect(buildJobEnding()).toMatchObject({ outcome: 'failed', cause: 'gate-failed' });
+    expect(buildJobEnding()).toMatchObject({ outcome: 'failed', cause: 'red-resumes-spent' });
     const jobFolder = jobFolderOf(firstBuildJobId());
     expect(readFileSync(join(jobFolder, 'gate.log'), 'utf8')).toBe('tests\nexpected 2, received 3\n');
+    expect(readFileSync(join(jobFolder, 'gate-failure.md'), 'utf8')).toContain('expected 2, received 3');
     expect(existsSync(join(jobFolder, 'gate-3'))).toBe(false);
     const typesProfile = readFileSync(join(jobFolder, 'gate-1', 'process-sandbox.sb'), 'utf8');
     expect(typesProfile.includes('(deny network-outbound')).toBe(false);
@@ -333,10 +335,27 @@ describe('a build job end to end', () => {
     const drivePass = await drivePassPlaying(buildingSession('Build the example', builderReport({ gates: staleClaims })));
     await passUntil(drivePass, () => buildJobEnding() !== undefined, 'the build job ending');
 
-    expect(buildJobEnding()).toMatchObject({ outcome: 'failed', cause: 'gate-unclaimed' });
+    expect(buildJobEnding()).toMatchObject({ outcome: 'failed', cause: 'red-resumes-spent' });
+    expect(readFileSync(join(jobFolderOf(firstBuildJobId()), 'gate-failure.md'), 'utf8')).toContain('V15');
     expect(buildStates).not.toContain('gating');
     expect(loggedEntries('gate-ran')).toEqual([]);
     expect(existsSync(join(jobFolderOf(firstBuildJobId()), 'gate-1'))).toBe(false);
+  }, BUILD_TEST_TIMEOUT_MILLISECONDS);
+
+  test('a red gate resumes the builder\'s own session by its id twice, told of the handover, and the third red parks the ticket for User', async () => {
+    await run(['gate', 'add', 'tests', '--', 'echo expected 2, received 3; exit 1']);
+    const drivePass = await drivePassPlaying(buildingSession());
+    await passUntil(drivePass, () => buildJobEnding() !== undefined, 'the build job ending');
+
+    const jobId = firstBuildJobId();
+    const jobFolder = jobFolderOf(jobId);
+    // The same job's next host instances are its resumes: the adapter resumes a job's own session id (ClaudeCodeAdapter.spec.ts).
+    expect([1, 2, 3, 4].map((instance) => existsSync(hostFilesOf(jobFolder, instance).launchPath))).toEqual([true, true, true, false]);
+    expect(loggedEntries('job-launched').filter((entry) => entry.fields['kind'] === 'build')).toHaveLength(1);
+    expect(loggedEntries('job-resumed').map((entry) => entry.fields['cause'])).toEqual(['handoff-red', 'handoff-red']);
+    expect(buildJobEnding()).toMatchObject({ outcome: 'failed', cause: 'red-resumes-spent' });
+    expect(ticketText()).toContain('parked:red-resumes-spent');
+    expect(readFileSync(join(jobFolder, 'red-handoff.json'), 'utf8')).toContain('"resume": 3');
   }, BUILD_TEST_TIMEOUT_MILLISECONDS);
 
   test('a changed pipeline is gated without a restart, and the row records the hash of the pipeline it was judged by', async () => {

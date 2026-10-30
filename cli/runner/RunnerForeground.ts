@@ -418,6 +418,7 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
         assistantChatTextOf:   RunnerWording.assistantChatTextOf,
         windDownMessage:       RunnerWording.windDownMessage(),
         resumeMessage:         RunnerWording.resumeMessage(),
+        redHandoffMessageOf:   RunnerWording.redHandoffMessageOf,
         answerMessageOf:       RunnerWording.answerMessageOf,
         homeDirectory:         context.homeDirectory,
         log,

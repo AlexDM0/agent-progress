@@ -61,6 +61,7 @@ import { createMergeSlots, type DeclinedCleanup, type HeldTarget } from './Merge
 import { createProcessHostSandbox }                                from './ProcessHostSandbox.ts';
 import { QuestionRouting }                                         from './QuestionRouting.ts';
 import { Reattachment, type ReattachmentReport }                   from './Reattachment.ts';
+import { RedHandoff, type RedHandoffFacts }                        from './RedHandoff.ts';
 import { RelayInbox, type PendingRelayRequest }                    from './RelayInbox.ts';
 import { RunnerLease }                                             from './RunnerLease.ts';
 import { type UsageLimitHit, UsageLimits }                         from './UsageLimits.ts';
@@ -80,6 +81,8 @@ export interface JobLaunchFacts {
   gates:                  readonly Readonly<PipelineGate>[] | null;
   /** The job's work was last held by a session ended `replaced`, whose uncommitted changes are in the worktree it inherits. */
   earlierSessionReplaced: boolean;
+  /** The red handoff a fresh session takes over from the session it replaces, which could not be resumed; `null` otherwise. */
+  redHandoff?:            RedHandoffFacts | null;
   /** A product owner's request, and what a fresh one takes over from the session it replaces; `null` for every other job. */
   intake:                 IntakeFacts | null;
   /** What a merge-gate fixer or a resolution reviewer is told of its Airlock; `null` for every other job. */
@@ -125,6 +128,8 @@ export interface DrivePassRequest {
   windDownMessage:                   string;
   /** The first line of every resumed session. */
   resumeMessage:                     string;
+  /** The first line of a session resumed to fix its red handoff, and the opening of a fresh one taking the handoff over. */
+  redHandoffMessageOf:               (facts: Readonly<RedHandoffFacts>) => string;
   /** An answer worded as a plain user message, for a resumed session that no longer holds the question's request. */
   answerMessageOf:                   (answer: DecisionAnswer) => string;
   /** Overridden by specs of the fallback T1-P1 would need: the runner stops the host and resumes with the answer. */
@@ -472,6 +477,7 @@ function launchFactsOf(board: Board, trackerDirectory: string, job: Readonly<Job
     checksLine:             board.checksLine(),
     gates:                  board.pipeline()?.gates ?? null,
     earlierSessionReplaced: JobResumption.earlierSessionWasReplaced(board.logRecordsSoFar(), job),
+    redHandoff:             JobResumption.redHandoffTakenOverOf(trackerDirectory, board.logRecordsSoFar(), job),
     intake:                 IntakeSessions.intakeFactsOf(board, job),
     assistant:              AssistantBoot.assistantFactsOf(board, trackerDirectory, job),
   };
@@ -483,8 +489,12 @@ function launchHost(request: DrivePassRequest, jobLaunchContext: JobLaunchContex
   const relayDirectory   = RelayInbox.relayDirectoryOf(workspace.rootDirectory, job.id);
   mkdirSync(join(relayDirectory, 'requests'), { recursive: true });
   const workingDirectory = workingDirectoryOf(workspace, job);
-  const text             = request.launchTextOf(job, launchFactsOf(board, workspace.trackerDirectory, job, workingDirectory));
-  const launchParts      = JobResumption.launchPartsOf(job, text.firstMessage, request.resumeMessage, JobResumption.reopenTextOf(board.logRecordsSoFar(), job));
+  const launchFacts      = launchFactsOf(board, workspace.trackerDirectory, job, workingDirectory);
+  const text             = request.launchTextOf(job, launchFacts);
+  const resumeLine       = JobResumption.resumeLineOf(workspace.trackerDirectory, board, job, request);
+  const launchParts      = JobResumption.launchPartsOf(job, text.firstMessage, resumeLine);
+  const redHandoffTakenOver = launchFacts.redHandoff ?? null;
+  if (!launchParts.resume && redHandoffTakenOver !== null) RedHandoff.adoptRedHandoff(jobFolder, redHandoffTakenOver);
   if (JobLaunch.isWorktreeJob(job)) JobLaunch.recordJobStart(jobLaunchContext, board, job);
   if (!launchParts.resume) JobResumption.storeFirstMessage(jobFolder, job.hostInstance, launchParts.firstMessage);
   const launchRequest: AgentLaunchRequest = {
@@ -660,6 +670,8 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     },
     decisionWordingOf:     request.decisionWordingOf,
     keepAirlockFacts:      (mergeJob, facts) => keepAirlockFacts(request.workspace.trackerDirectory, mergeJob, facts),
+    jobFolderOf:           (job) => HostFleet.jobFolderOf(request.workspace.trackerDirectory, job.id),
+    redHandoffResumes:     LIFECYCLE_LIMITS.RED_HANDOFF_RESUMES_BEFORE_PARKING,
     dispatchIsStopped:     () => requireProgressFile(request.workspace).dispatcherState === 'stopped',
     reportDeclinedCleanup: (declined) => {
       request.log(`Git declined the ${declined.cleanup} cleanup of ${declined.groupBranch}: ${declined.reason}`);
@@ -787,7 +799,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     }
     const { trackerDirectory } = request.workspace;
     const answerAwaitsDelivery = (job: Readonly<Job>): boolean => AnswerDelivery.answerAwaitsDelivery(trackerDirectory, job);
-    await JobResumption.deliverResumeMessages(trackerDirectory, written.board, request.agentAdapter, request.resumeMessage, answerAwaitsDelivery);
+    await JobResumption.deliverResumeMessages(trackerDirectory, written.board, request.agentAdapter, request, answerAwaitsDelivery);
     await AnswerDelivery.deliverAnswers({
       trackerDirectory,
       board:                     written.board,

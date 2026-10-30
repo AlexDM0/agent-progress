@@ -561,6 +561,7 @@ export class Board {
         return this.jobControls.refreshIntake(step.jobId, at).logged;
       case 'park':
         return [
+          ...step.jobId === undefined ? [] : this.endJob(step.jobId, { outcome: 'failed', cause: step.cause }, at).logged,
           ...this.holdTicket(step.ticketId, `${PARKED_HOLD_PREFIX}${step.cause}`, at).logged,
           ...openDecision({ kind: 'parked', ticketIds: [step.ticketId], jobId: null }),
         ];

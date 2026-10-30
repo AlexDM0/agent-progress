@@ -12,23 +12,24 @@ import {
 } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-import type { HostEnd }                                           from '../../lib/agent-host/HostRecord.ts';
-import type { AgentAdapter }                                      from '../../lib/agent-launch/AgentAdapter.ts';
-import { launchEnvironmentOf }                                    from '../../lib/agent-launch/LaunchEnvironment.ts';
-import { GitProcess }                                             from '../../lib/git/GitProcess.ts';
-import type { GateOutcome, Job, JobKind }                         from '../../lib/tracker-model/@types/Job.ts';
-import type { DecisionDraft, DecisionWording }                    from '../../lib/tracker-model/@types/LifecycleStep.ts';
-import type { LogRecord }                                         from '../../lib/tracker-model/@types/LogRecord.ts';
-import type { Pipeline }                                          from '../../lib/tracker-model/@types/Pipeline.ts';
-import type { Board }                                             from '../../lib/tracker-model/Board.ts';
-import { FRESH_AGENT_CAUSE, STOPPED_BY_USER_CAUSE }               from '../../lib/tracker-model/JobControls.ts';
-import { PipelineUtil }                                           from '../../lib/tracker-model/utils/PipelineUtil.ts';
-import { TicketBodyHashUtil }                                     from '../../lib/tracker-model/utils/TicketBodyHashUtil.ts';
-import { DISPATCH_PROTOCOL }                                      from '../../shared/constants/DispatchProtocol.ts';
-import { LIFECYCLE_LIMITS }                                       from '../../shared/constants/LifecycleLimits.ts';
-import { PRODUCT_NAMES }                                          from '../../shared/constants/ProductNames.ts';
-import { SESSION_STOP_GRACE_MILLISECONDS, WIND_DOWN_GRACE_CALLS } from '../../shared/constants/RunnerLimits.ts';
-import { type GateConfinement, GateRun }                          from '../lifecycle/GateRun.ts';
+import type { HostEnd }                                                                           from '../../lib/agent-host/HostRecord.ts';
+import type { AgentAdapter }                                                                      from '../../lib/agent-launch/AgentAdapter.ts';
+import { launchEnvironmentOf }                                                                    from '../../lib/agent-launch/LaunchEnvironment.ts';
+import { GitProcess }                                                                             from '../../lib/git/GitProcess.ts';
+import type { GateOutcome, Job, JobKind }                                                         from '../../lib/tracker-model/@types/Job.ts';
+import type { DecisionDraft, DecisionWording }                                                    from '../../lib/tracker-model/@types/LifecycleStep.ts';
+import type { LogRecord }                                                                         from '../../lib/tracker-model/@types/LogRecord.ts';
+import type { Pipeline }                                                                          from '../../lib/tracker-model/@types/Pipeline.ts';
+import type { Board }                                                                             from '../../lib/tracker-model/Board.ts';
+import { FRESH_AGENT_CAUSE, STOPPED_BY_USER_CAUSE }                                               from '../../lib/tracker-model/JobControls.ts';
+import { FIRST_HOST_INSTANCE, HANDOFF_RED_INTERRUPTION }                                          from '../../lib/tracker-model/constants/JobStates.ts';
+import { PipelineUtil }                                                                           from '../../lib/tracker-model/utils/PipelineUtil.ts';
+import { TicketBodyHashUtil }                                                                     from '../../lib/tracker-model/utils/TicketBodyHashUtil.ts';
+import { DISPATCH_PROTOCOL }                                                                      from '../../shared/constants/DispatchProtocol.ts';
+import { LIFECYCLE_LIMITS }                                                                       from '../../shared/constants/LifecycleLimits.ts';
+import { PRODUCT_NAMES }                                                                          from '../../shared/constants/ProductNames.ts';
+import { RED_HANDOFF_RESUME_CALL_BUDGET, SESSION_STOP_GRACE_MILLISECONDS, WIND_DOWN_GRACE_CALLS } from '../../shared/constants/RunnerLimits.ts';
+import { type GateConfinement, GateRun }                                                          from '../lifecycle/GateRun.ts';
 import {
   agentConfigTouchedBeforeLaunch,
   type JobVerificationSubject,
@@ -46,6 +47,7 @@ import type { GateRunSlots }                              from './GateRunSlots.t
 import { GroupWorktrees }                                 from './GroupWorktrees.ts';
 import { HostFleet }                                      from './HostFleet.ts';
 import type { ProcessHostSandbox, ProcessSandboxRequest } from './ProcessHostSandbox.ts';
+import { RedHandoff, type RedHandoffFacts }               from './RedHandoff.ts';
 import { RelayInbox }                                     from './RelayInbox.ts';
 import { WorkerProfiles, type SandboxFacts }              from './WorkerProfiles.ts';
 
@@ -75,7 +77,7 @@ export type GateProgress =
   /** The step at `stepIndex` of the job's steps has yet to end, or to start while every gate slot of the machine is held. */
   | { verdict: 'running'; treeId: string; stepIndex: number }
   /** `step` names the red step, `null` on a pass; `ran` is false when a review left the tree the build's gates passed. */
-  | { verdict: 'judged'; treeId: string; outcome: GateStepOutcome; step: string | null; output: string; ran: boolean };
+  | { verdict: 'judged'; treeId: string; outcome: GateStepOutcome; step: string | null; output: string; ran: boolean; exitCode?: number | null };
 
 /** One host of a job's gate run: the joined prepare steps, or one gate. */
 interface GateStep {
@@ -88,9 +90,10 @@ interface GateStep {
 }
 
 interface StepVerdict {
-  treeId:  string;
-  outcome: GateStepOutcome;
-  output:  string;
+  treeId:    string;
+  outcome:   GateStepOutcome;
+  output:    string;
+  exitCode?: number | null;
 }
 
 export interface BuildJobObservation {
@@ -187,8 +190,10 @@ function setupProgressOf(context: JobLaunchContext, job: Readonly<Job>, installL
   return end !== 'lost' && end.reason === 'exited' && end.exitCode === 0 ? 'installed' : 'install-failed';
 }
 
+/** `calls` counts the current attempt's turns: since the last red handoff's resume, or every instance's when none went red. */
 function sessionReadingOf(context: JobLaunchContext, job: Readonly<Job>): { calls: number; report: unknown } {
   const jobFolder = jobFolderOf(context.workspace, job);
+  const attemptStartInstance = attemptStartInstanceOf(jobFolder);
   const topLevelMessageIds = new Set<string>();
   let report: unknown = undefined;
   for (let instance = 1; instance <= job.hostInstance; instance += 1) {
@@ -196,7 +201,7 @@ function sessionReadingOf(context: JobLaunchContext, job: Readonly<Job>): { call
     if (entries === 'malformed') continue;
     for (const entry of entries.filter((logged) => logged.origin === 'agent')) {
       for (const event of context.agentAdapter.eventsOf(entry.line)) {
-        if (event.kind === 'assistant-turn' && event.parentToolUseId === null) topLevelMessageIds.add(event.messageId);
+        if (event.kind === 'assistant-turn' && event.parentToolUseId === null && instance >= attemptStartInstance) topLevelMessageIds.add(event.messageId);
         if (event.kind === 'result') report = event.structuredReport;
       }
     }
@@ -214,15 +219,40 @@ function treeOfCommit(worktree: string, commit: string): string | null {
   return GitProcess.succeeded(run) ? run.standardOutput.trim() : null;
 }
 
-/** The prepare steps, joined into one host, then each gate in list order, each in a host folder of its own. */
-function gateStepsOf(pipeline: Readonly<Pipeline>): GateStep[] {
+/**
+ * The prepare steps, joined into one host, then each gate in list order, each in a host folder of its own. A session resumed after a red
+ * handoff gates again in fresh folders, suffixed with its host instance, since a host folder runs once.
+ */
+function gateStepsOf(pipeline: Readonly<Pipeline>, hostInstance: number = FIRST_HOST_INSTANCE): GateStep[] {
   const installLine = PipelineUtil.installLineOf(pipeline);
+  const suffix = hostInstance === FIRST_HOST_INSTANCE ? '' : `-${hostInstance}`;
   const prepare: GateStep[] = installLine === null ? [] : [{
-    kind: 'prepare', name: PREPARE_STEP_NAME, line: installLine, folder: GATE_PREPARE_HOST_FOLDER, in: null, confinement: GateRun.prepareConfinementOf(pipeline.gates),
+    kind:        'prepare',
+    name:        PREPARE_STEP_NAME,
+    line:        installLine,
+    folder:      `${GATE_PREPARE_HOST_FOLDER}${suffix}`,
+    in:          null,
+    confinement: GateRun.prepareConfinementOf(pipeline.gates),
   }];
   return [...prepare, ...pipeline.gates.map((gate, index): GateStep => ({
-    kind: 'gate', name: gate.name, line: gate.run, folder: `${GATE_HOST_FOLDER_PREFIX}${index + 1}`, in: gate.in ?? null, confinement: GateRun.gateConfinementOf(gate),
+    kind: 'gate', name: gate.name, line: gate.run, folder: `${GATE_HOST_FOLDER_PREFIX}${index + 1}${suffix}`, in: gate.in ?? null, confinement: GateRun.gateConfinementOf(gate),
   }))];
+}
+
+/** A per-instance marker, so a session resumed after a red handoff gets its own wind-down, closed input and stop. */
+function instanceMarkerOf(marker: string, hostInstance: number): string {
+  return hostInstance === FIRST_HOST_INSTANCE ? marker : `${marker}-${hostInstance}`;
+}
+
+/** The host instance the job's current attempt began in: the one after its last red handoff, the first otherwise. */
+function attemptStartInstanceOf(jobFolder: string): number {
+  const facts = RedHandoff.redHandoffFactsOf(jobFolder);
+  return facts === null ? FIRST_HOST_INSTANCE : facts.interruptedInstance + 1;
+}
+
+/** A session working off a red handoff has the short resume budget; the first attempt its role's. */
+function attemptCallBudgetOf(trackerDirectory: string, job: Readonly<Job>): number {
+  return RedHandoff.redHandoffFactsOf(HostFleet.jobFolderOf(trackerDirectory, job.id)) === null ? callBudgetOf(job) : RED_HANDOFF_RESUME_CALL_BUDGET;
 }
 
 function hostOutputOf(hostFolder: string): string {
@@ -253,10 +283,14 @@ function stepVerdictOf(context: JobLaunchContext, job: Readonly<Job>, treeId: st
   const run = { exitCode: end !== 'lost' && end.reason === 'exited' ? end.exitCode : null, signalCode: end === 'lost' ? null : end.signal, output: hostOutputOf(hostFolder) };
   let verdict: StepVerdict;
   if (step.kind === 'prepare') {
-    verdict = { treeId, outcome: run.exitCode === 0 ? 'passed' : 'setup-failed', output: run.output };
+    verdict = {
+      treeId, outcome: run.exitCode === 0 ? 'passed' : 'setup-failed', output: run.output, exitCode: run.exitCode
+    };
   } else {
     const trackedChanges = GateRun.trackedChangesOf(worktreeOf(context.workspace, job));
-    verdict = { treeId, outcome: GateRun.gateOutcomeOf(run, trackedChanges), output: GateRun.gateErrorOutputOf(run, trackedChanges) };
+    verdict = {
+      treeId, outcome: GateRun.gateOutcomeOf(run, trackedChanges), output: GateRun.gateErrorOutputOf(run, trackedChanges), exitCode: run.exitCode
+    };
   }
   writeFileSync(verdictPath, `${JSON.stringify(verdict)}\n`);
   if (verdict.outcome !== 'passed') writeFileSync(join(jobFolder, GATE_LOG_FILE), `${step.name}\n${verdict.output}`);
@@ -276,11 +310,11 @@ function gateProgressOf(context: JobLaunchContext, job: Readonly<Job>, pipeline:
   if (reviewLeftTheTreeAsItWas(context, job, treeId)) return {
     verdict: 'judged', treeId, outcome: 'passed', step: null, output: '', ran: false
   };
-  for (const [stepIndex, step] of gateStepsOf(pipeline).entries()) {
+  for (const [stepIndex, step] of gateStepsOf(pipeline, job.hostInstance).entries()) {
     const verdict = stepVerdictOf(context, job, treeId, step);
     if (verdict === null) return { verdict: 'running', treeId, stepIndex };
     if (verdict.outcome !== 'passed') return {
-      verdict: 'judged', treeId, outcome: verdict.outcome, step: step.name, output: verdict.output, ran: true
+      verdict: 'judged', treeId, outcome: verdict.outcome, step: step.name, output: verdict.output, ran: true, exitCode: verdict.exitCode ?? null
     };
   }
   return {
@@ -398,6 +432,12 @@ function verifyAndRoute(hold: HoldContext, job: Readonly<Job>, observation: Buil
   }
   const verdict = verifyJob(subject);
   if (verdict.verdict === 'refused') {
+    if (RESUMABLE_CUSTOMS_CHECKS.includes(verdict.check)) {
+      interruptOnRedHandoff(hold, job, {
+        kind: 'customs', name: verdict.check, command: null, fixCommand: null, exitCode: null, fullLogPath: null, output: verdict.reason
+      });
+      return;
+    }
     if (verdict.check === 'V13') openAgentConfigDecision(hold, job);
     endJob(hold, job, { outcome: 'failed', cause: verdict.check === 'V7' ? BUILD_JOB_CAUSES.attribution : verdict.reason });
     return;
@@ -476,6 +516,51 @@ function holdAgentConfigHits(change: TrackerChange, context: JobLaunchContext, t
   return { held: [...held].sort(), logged: hold.logged };
 }
 
+interface RedHandoffCause extends Pick<RedHandoffFacts, 'kind' | 'name' | 'command' | 'fixCommand' | 'exitCode' | 'fullLogPath'> {
+  output: string;
+}
+
+/**
+ * A red gate or Customs check never ends the job: the handover is written in its folder and the job interrupted `handoff-red`, which the
+ * lifecycle resumes in the same session while its cycle has resumes left and parks after.
+ */
+function interruptOnRedHandoff(hold: HoldContext, job: Readonly<Job>, cause: RedHandoffCause): void {
+  const jobFolder = jobFolderOf(hold.context.workspace, job);
+  const earlier = RedHandoff.redHandoffFactsOf(jobFolder);
+  const { output, ...named } = cause;
+  mkdirSync(jobFolder, { recursive: true });
+  RedHandoff.writeRedHandoff(jobFolder, {
+    ...named,
+    commit:              GitProcess.resolvedCommitOf(worktreeOf(hold.context.workspace, job), 'HEAD') ?? '',
+    handoverPath:        RedHandoff.handoverPathOf(jobFolder),
+    resume:              (earlier?.resume ?? 0) + 1,
+    resumesAllowed:      LIFECYCLE_LIMITS.RED_HANDOFF_RESUMES_BEFORE_PARKING,
+    callBudget:          RED_HANDOFF_RESUME_CALL_BUDGET,
+    interruptedInstance: job.hostInstance,
+  }, output);
+  hold.logged.push(...hold.change.board.interruptJob(job.id, HANDOFF_RED_INTERRUPTION, hold.change.at).logged);
+}
+
+function workingOffARedHandoff(context: Pick<JobLaunchContext, 'workspace'>, job: Readonly<Job>): boolean {
+  return RedHandoff.redHandoffFactsOf(jobFolderOf(context.workspace, job)) !== null;
+}
+
+/** What the last red handoff named, carried into the next one when a resumed session runs past its grace. */
+function redHandoffCauseOf(context: Pick<JobLaunchContext, 'workspace'>, job: Readonly<Job>): Omit<RedHandoffCause, 'output'> {
+  const facts = RedHandoff.redHandoffFactsOf(jobFolderOf(context.workspace, job));
+  return {
+    kind:        facts?.kind ?? 'gate',
+    name:        facts?.name ?? '',
+    command:     facts?.command ?? null,
+    fixCommand:  facts?.fixCommand ?? null,
+    exitCode:    facts?.exitCode ?? null,
+    fullLogPath: facts?.fullLogPath ?? null,
+  };
+}
+
+/** The Customs checks a resumed session can put right in its own worktree: a dirty worktree, no commit, missing or stale gate claims. */
+const RESUMABLE_CUSTOMS_CHECKS: readonly string[] = ['V3', 'V4', 'V15'];
+
 function settleGate(hold: HoldContext, job: Readonly<Job>, observation: BuildJobObservation): void {
   const { gate } = observation;
   if (gate.verdict !== 'judged' || hold.checksLine === null) return;
@@ -494,7 +579,16 @@ function settleGate(hold: HoldContext, job: Readonly<Job>, observation: BuildJob
   }
   if (gate.outcome === 'failed') {
     hold.context.log(`The ${gate.step ?? ''} gate of job ${job.id} (#${ticketIdOf(job)}) is red on ${gate.treeId}; its output is in ${GATE_LOG_FILE}.`);
-    endJob(hold, job, { outcome: 'failed', cause: BUILD_JOB_CAUSES.gateFailed });
+    const pipelineGate = board.pipeline()?.gates.find((candidate) => candidate.name === gate.step);
+    interruptOnRedHandoff(hold, job, {
+      kind:        'gate',
+      name:        gate.step ?? '',
+      command:     pipelineGate?.run ?? null,
+      fixCommand:  pipelineGate?.fix ?? null,
+      exitCode:    gate.exitCode ?? null,
+      fullLogPath: join(jobFolderOf(hold.context.workspace, job), GATE_LOG_FILE),
+      output:      gate.output,
+    });
     return;
   }
   const headCommit = String(reportFieldOf(observation.report, 'headCommit'));
@@ -551,13 +645,20 @@ function applyObservation(hold: HoldContext, observation: BuildJobObservation): 
       }
       return;
     case 'running':
-      if (observation.calls >= callBudgetOf(job) + WIND_DOWN_GRACE_CALLS) {
-        openIncidentFor(hold, job, 'out-of-calls', { calls: String(observation.calls) });
+      if (observation.calls >= attemptCallBudgetOf(hold.context.workspace.trackerDirectory, job) + WIND_DOWN_GRACE_CALLS) {
+        // A resumed session past its grace counts as red again; only a first attempt opens `out-of-calls`.
+        if (!workingOffARedHandoff(hold.context, job)) openIncidentFor(hold, job, 'out-of-calls', { calls: String(observation.calls) });
         hold.logged.push(...board.moveJob(job.id, 'stopping', at).logged);
       }
       return;
     case 'stopping':
-      if (observation.agentEnd !== null) endJob(hold, job, userStopEndingOf(job) ?? { outcome: 'stopped', cause: BUILD_JOB_CAUSES.outOfCalls });
+      if (observation.agentEnd === null) return;
+      if (job.stopRequest === undefined && workingOffARedHandoff(hold.context, job)) {
+        const output = `The resumed session passed its ${RED_HANDOFF_RESUME_CALL_BUDGET} calls and the ${WIND_DOWN_GRACE_CALLS}-call grace without a report.`;
+        interruptOnRedHandoff(hold, job, { ...redHandoffCauseOf(hold.context, job), output });
+        return;
+      }
+      endJob(hold, job, userStopEndingOf(job) ?? { outcome: 'stopped', cause: BUILD_JOB_CAUSES.outOfCalls });
       return;
     case 'verifying':
       verifyAndRoute(hold, job, observation);
@@ -708,11 +809,12 @@ async function sendOnce(request: BuildJobFrameRequest, job: Readonly<Job>, marke
 
 /** What a build job's state asks of its live Watcher, each frame once: the wind-down turn over its call budget, closed input, a stop. */
 async function deliverBuildJobFrames(request: BuildJobFrameRequest, job: Readonly<Job>, calls: number): Promise<void> {
-  if (job.state === 'running' && calls >= callBudgetOf(job)) {
-    await sendOnce(request, job, JOB_FILES.windDownSent, [{ kind: 'write', line: request.agentAdapter.chatLineOf(request.windDownMessage) }]);
+  const markerOf = (marker: string): string => instanceMarkerOf(marker, job.hostInstance);
+  if (job.state === 'running' && calls >= attemptCallBudgetOf(request.trackerDirectory, job)) {
+    await sendOnce(request, job, markerOf(JOB_FILES.windDownSent), [{ kind: 'write', line: request.agentAdapter.chatLineOf(request.windDownMessage) }]);
   }
-  if (job.state === 'verifying' || job.state === 'gating') await sendOnce(request, job, JOB_FILES.inputClosed, [{ kind: 'close-input' }]);
-  if (job.state === 'stopping') await sendOnce(request, job, JOB_FILES.stopSent, [{ kind: 'stop', graceMilliseconds: SESSION_STOP_GRACE_MILLISECONDS }]);
+  if (job.state === 'verifying' || job.state === 'gating') await sendOnce(request, job, markerOf(JOB_FILES.inputClosed), [{ kind: 'close-input' }]);
+  if (job.state === 'stopping') await sendOnce(request, job, markerOf(JOB_FILES.stopSent), [{ kind: 'stop', graceMilliseconds: SESSION_STOP_GRACE_MILLISECONDS }]);
 }
 
 /** After the hold and the lease check: what each build job's new state asks of git and the hosts. */
@@ -738,7 +840,7 @@ async function runBuildJobEffects(context: JobLaunchContext, board: Board, track
 function spawnNextGateStep(context: JobLaunchContext, trackerId: string, job: Readonly<Job>, pipeline: Readonly<Pipeline>): void {
   const progress = gateProgressOf(context, job, pipeline);
   if (progress.verdict !== 'running') return;
-  const step = gateStepsOf(pipeline)[progress.stepIndex];
+  const step = gateStepsOf(pipeline, job.hostInstance)[progress.stepIndex];
   if (step === undefined) return;
   const hostFolder = join(jobFolderOf(context.workspace, job), step.folder);
   if (step.kind === 'gate' && !context.gateSlots.tryAcquire(hostFolder)) return;

@@ -5,6 +5,7 @@ export interface LifecycleThresholds extends RoundLimits {
   FAILED_PASSES_BEFORE_PARKING:                number;
   CONSECUTIVE_DEAD_AGENTS_BEFORE_STOPPING:     number;
   JOB_RESUMES_BEFORE_FRESH:                    number;
+  RED_HANDOFF_RESUMES_BEFORE_PARKING:          number;
   REPLACED_JOBS_BEFORE_JOB_LOST:               number;
   FAILED_ORCHESTRATOR_BOOTS_BEFORE_DEFAULTING: number;
 }

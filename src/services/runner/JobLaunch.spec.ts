@@ -1,7 +1,8 @@
 /**
  * A build job's wind-down, close-input and stop frames against a planted Watcher. What matters: a Watcher refusing the first connection is
  * sent the frame on a later pass, its marker written only then; a frame taken once is never sent again, a restarted Overseer included, since
- * the marker is all that carries over; and a Watcher no longer live is sent nothing and leaves no marker.
+ * the marker is all that carries over; a Watcher no longer live is sent nothing and leaves no marker; and a session resumed after a red
+ * handoff gets its own wind-down at the resume budget, counted from the resume.
  */
 import { existsSync, writeFileSync } from 'node:fs';
 import { join }                      from 'node:path';
@@ -13,16 +14,17 @@ import {
   test
 } from 'bun:test';
 
-import { hostFilesOf }                                     from '../../lib/agent-host/HostFiles.ts';
-import { type HostRecord, hostRecordTextOf }               from '../../lib/agent-host/HostRecord.ts';
-import { EVENT_LOG_FORMAT_VERSION, HOST_PROTOCOL_VERSION } from '../../lib/agent-host/constants/HostProtocol.ts';
-import type { Job }                                        from '../../lib/tracker-model/@types/Job.ts';
-import { DISPATCH_PROTOCOL }                               from '../../shared/constants/DispatchProtocol.ts';
-import { SESSION_STOP_GRACE_MILLISECONDS }                 from '../../shared/constants/RunnerLimits.ts';
-import { createScratchDirectory, removeScratchDirectory }  from '../../testing/ScratchWorkspace.ts';
-import { HostFleet }                                       from './HostFleet.ts';
-import { type BuildJobFrameRequest, JobLaunch }            from './JobLaunch.ts';
-import { PlantedWatcher }                                  from './testing/PlantedWatcher.ts';
+import { hostFilesOf }                                                     from '../../lib/agent-host/HostFiles.ts';
+import { type HostRecord, hostRecordTextOf }                               from '../../lib/agent-host/HostRecord.ts';
+import { EVENT_LOG_FORMAT_VERSION, HOST_PROTOCOL_VERSION }                 from '../../lib/agent-host/constants/HostProtocol.ts';
+import type { Job }                                                        from '../../lib/tracker-model/@types/Job.ts';
+import { DISPATCH_PROTOCOL }                                               from '../../shared/constants/DispatchProtocol.ts';
+import { RED_HANDOFF_RESUME_CALL_BUDGET, SESSION_STOP_GRACE_MILLISECONDS } from '../../shared/constants/RunnerLimits.ts';
+import { createScratchDirectory, removeScratchDirectory }                  from '../../testing/ScratchWorkspace.ts';
+import { HostFleet }                                                       from './HostFleet.ts';
+import { type BuildJobFrameRequest, JobLaunch }                            from './JobLaunch.ts';
+import { RedHandoff, type RedHandoffFacts }                                from './RedHandoff.ts';
+import { PlantedWatcher }                                                  from './testing/PlantedWatcher.ts';
 
 function buildJob(overrides: Partial<Job> = {}): Job {
   return {
@@ -39,6 +41,23 @@ function buildJob(overrides: Partial<Job> = {}): Job {
     answeredRequestIds: [],
     crashResumes:       0,
     ...overrides,
+  };
+}
+
+function redHandoffFactsIn(jobFolder: string): RedHandoffFacts {
+  return {
+    kind:                'gate',
+    name:                'tests',
+    command:             'bun test',
+    fixCommand:          null,
+    commit:              'example-commit',
+    exitCode:            1,
+    handoverPath:        RedHandoff.handoverPathOf(jobFolder),
+    fullLogPath:         join(jobFolder, 'gate.log'),
+    resume:              1,
+    resumesAllowed:      2,
+    callBudget:          RED_HANDOFF_RESUME_CALL_BUDGET,
+    interruptedInstance: 1,
   };
 }
 
@@ -98,6 +117,22 @@ describe('a build job\'s frames to its Watcher', () => {
       await JobLaunch.deliverBuildJobFrames(request, job, calls);
     });
     expect(actingFramesOf(frames)).toEqual([JSON.stringify({ kind: 'write', line: 'chat:Example wind-down' })]);
+  });
+
+  test('a session resumed after a red handoff is sent its own wind-down at the resume budget, counted from the resume', async () => {
+    const job = buildJob({ hostInstance: 2 });
+    const jobFolder = HostFleet.jobFolderOf(trackerDirectory, job.id);
+    RedHandoff.writeRedHandoff(jobFolder, redHandoffFactsIn(jobFolder), 'expected 2, received 3');
+    writeFileSync(join(jobFolder, 'wind-down-sent'), '');
+    const socketPath = PlantedWatcher.plantLiveWatcher({
+      trackerDirectory, monitorFolder, jobId: job.id, instance: 2
+    });
+    const frames = await PlantedWatcher.framesReceivedWhile(socketPath, async () => {
+      await JobLaunch.deliverBuildJobFrames(request, job, RED_HANDOFF_RESUME_CALL_BUDGET - 1);
+      await JobLaunch.deliverBuildJobFrames(request, job, RED_HANDOFF_RESUME_CALL_BUDGET);
+    });
+    expect(actingFramesOf(frames)).toEqual([JSON.stringify({ kind: 'write', line: 'chat:Example wind-down' })]);
+    expect(existsSync(join(jobFolder, 'wind-down-sent-2'))).toBe(true);
   });
 
   test('a frame taken before an Overseer restart is not sent again by the restarted one', async () => {

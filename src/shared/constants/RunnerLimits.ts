@@ -11,6 +11,9 @@ export const WORKER_FILINGS_PER_JOB = 10;
 /** The calls a session may make past its role's call budget after the wind-down message, before the runner stops it `out-of-calls`. */
 export const WIND_DOWN_GRACE_CALLS = 10;
 
+/** The calls a session resumed after a red handoff may make before its wind-down message, counted from the resume. */
+export const RED_HANDOFF_RESUME_CALL_BUDGET = 30;
+
 /** Consecutive runner sweeps a running build or review job's event log may stand still before it opens `quiet-job`: a count, never a clock. */
 export const QUIET_JOB_SWEEPS = 6;
 

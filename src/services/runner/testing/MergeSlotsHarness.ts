@@ -145,6 +145,8 @@ export function createMergeSlotsHarness(tickets: readonly HarnessTicket[], limit
       context: ''
     }),
     keepAirlockFacts:      (mergeJob, facts) => keptAirlockFacts.set(mergeJob.id, facts),
+    jobFolderOf:           (job) => join(repository, '.example-tracker', 'jobs', job.id),
+    redHandoffResumes:     2,
     dispatchIsStopped:     () => false,
     reportDeclinedCleanup: (declined) => declinedCleanups.push(declined),
   });
@@ -187,7 +189,8 @@ export function commitResolution(worktree: string, file: string, content: string
 export function finishMergeAgent(harness: MergeSlotsHarness, report: Record<string, unknown>): void {
   const agent = harness.mergeAgent();
   if (agent === undefined) throw new Error('No merge agent is live.');
-  if (agent.state === 'launching') harness.board.moveJob(agent.id, 'running', HARNESS_AT);
+  // A fixer interrupted on its red merged tree is resumed first, as the lifecycle's `resume-job` step does.
+  if (agent.state === 'launching' || agent.state === 'interrupted') harness.board.moveJob(agent.id, 'running', HARNESS_AT);
   harness.board.moveJob(agent.id, 'verifying', HARNESS_AT);
   harness.settings.reading = { calls: 3, report };
 }

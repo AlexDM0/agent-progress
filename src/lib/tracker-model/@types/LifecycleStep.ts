@@ -5,7 +5,7 @@
 import type { DecisionKind, DecisionQuestion }                              from './Decision.ts';
 import type { IncidentDefaultCause, IncidentDeliveryTurn, IncidentOpening } from './Incident.ts';
 
-export type ParkCause = 'failed-passes';
+export type ParkCause = 'failed-passes' | 'red-resumes-spent';
 
 /** A decision code opens from the facts; its questions are worded by the caller, never by the policy. */
 export interface DecisionDraft {
@@ -47,7 +47,8 @@ export type LifecycleStep =
   // A product owner past the bound whose questions are answered: a fresh session takes its drafts and the answers, never a resume.
   | { kind: 'refresh-intake'; jobId: string }
   | { kind: 'boot-orchestrator' }
-  | { kind: 'park'; ticketId: string; cause: ParkCause }
+  // `jobId` names a job interrupted on a red handoff with its resumes spent, which ends `failed` as its ticket parks.
+  | { kind: 'park'; ticketId: string; cause: ParkCause; jobId?: string }
   | { kind: 'open-decision'; decision: DecisionDraft }
   | { kind: 'open-incident'; incident: IncidentOpening }
   | { kind: 'default-incident'; incidentId: string; cause: IncidentDefaultCause }

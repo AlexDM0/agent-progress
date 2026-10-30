@@ -21,6 +21,7 @@ import type {
   JobLaunchText,
   RunnerNotice
 } from '../../src/services/runner/DrivePass.ts';
+import type { RedHandoffFacts }       from '../../src/services/runner/RedHandoff.ts';
 import type { HandoverFailure }       from '../../src/services/runner/RunnerHandover.ts';
 import { filledTemplateOf }           from '../../src/shared/FilledTemplate.ts';
 import { resourceFilePathOf }         from '../../src/shared/ResourceFilePath.ts';
@@ -260,12 +261,31 @@ function answerMessageOf(answer: Readonly<Record<string, string>>): string {
   return `You were interrupted while waiting for the answer to your question; carry on with it.\n\n${answerLines.join('\n\n')}`;
 }
 
+/** The first line of a session resumed to fix its red gate or Customs check, which points it to the handover. */
+function redHandoffMessageOf(facts: Readonly<RedHandoffFacts>): string {
+  return filledTemplateOf(readFileSync(resourceFilePathOf('prompts', 'RedHandoffMessage.md'), 'utf8'), {
+    what:           facts.kind === 'gate' ? `the \`${facts.name}\` gate` : `Customs check ${facts.name}`,
+    commit:         facts.commit,
+    exitCode:       facts.exitCode === null ? '' : ` with exit code ${facts.exitCode}`,
+    handoverPath:   facts.handoverPath,
+    resume:         String(facts.resume),
+    resumesAllowed: String(facts.resumesAllowed),
+    callBudget:     String(facts.callBudget),
+  }).trim().replaceAll('\n', ' ');
+}
+
 const EARLIER_SESSION_NOTE = 'An earlier session was interrupted; uncommitted changes are its work.';
 
-/** A fresh job after a `replaced` one inherits its worktree, and is told so before anything else. */
+/**
+ * A fresh job after a `replaced` one inherits its worktree, and is told so before anything else; one taking over a red handoff the
+ * replaced session could not be resumed for opens with that handoff's message.
+ */
 function launchTextWithEarlierSessionNoteOf(job: Readonly<Job>, facts: JobLaunchFacts): JobLaunchText {
   const text = launchTextOf(job, facts);
-  return facts.earlierSessionReplaced ? { ...text, firstMessage: `${EARLIER_SESSION_NOTE}\n\n${text.firstMessage}` } : text;
+  if (!facts.earlierSessionReplaced) return text;
+  const redHandoff = facts.redHandoff ?? null;
+  const opening = redHandoff === null ? EARLIER_SESSION_NOTE : `${EARLIER_SESSION_NOTE} ${redHandoffMessageOf(redHandoff)}`;
+  return { ...text, firstMessage: `${opening}\n\n${text.firstMessage}` };
 }
 
 /** What `run status` reads of the live runner's state document; anything it does not recognise reads as no document. */
@@ -317,6 +337,7 @@ export const RunnerWording = Object.freeze({
   assistantChatTextOf,
   windDownMessage,
   resumeMessage,
+  redHandoffMessageOf,
   answerMessageOf,
   runnerStateOf,
   noticeTextOf,

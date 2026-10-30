@@ -40,8 +40,11 @@ export type JobOutcome =
   | 'stopped'
   | 'closed';
 
-/** `host-lost` and `agent-crashed` are the crashes a resume counts; the others never count. */
-export type InterruptionCause = 'host-lost' | 'agent-crashed' | 'reboot' | 'answer-delivery' | 'usage-limit';
+/**
+ * `host-lost` and `agent-crashed` are the crashes a resume counts; the others never count. `handoff-red` is a handoff whose gate or Customs
+ * check went red: the same session is resumed to fix it, counted on its own bound.
+ */
+export type InterruptionCause = 'host-lost' | 'agent-crashed' | 'reboot' | 'answer-delivery' | 'usage-limit' | 'handoff-red';
 
 export type SlotPhase = 'merge-in' | 'resolving' | 'reviewing-resolution' | 'gating' | 'fixing' | 'landing';
 

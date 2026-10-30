@@ -11,15 +11,15 @@ import type {
   JobKind,
   JobOutcome
 } from './@types/Job.ts';
-import type { LifecycleLimits }                      from './@types/LifecycleLimits.ts';
-import type { LifecycleObservations, LifecycleStep } from './@types/LifecycleStep.ts';
-import type { LogRecord }                            from './@types/LogRecord.ts';
-import type { TicketPriority, TicketStatus }         from './@types/Ticket.ts';
-import type { DispatcherState }                      from './@types/TrackerProgress.ts';
-import { CRASH_INTERRUPTION_CAUSES }                 from './constants/JobStates.ts';
-import { FailedPassUtil }                            from './utils/FailedPassUtil.ts';
-import { TicketDefaultsUtil }                        from './utils/TicketDefaultsUtil.ts';
-import { TicketDependencyUtil }                      from './utils/TicketDependencyUtil.ts';
+import type { LifecycleLimits }                                from './@types/LifecycleLimits.ts';
+import type { LifecycleObservations, LifecycleStep }           from './@types/LifecycleStep.ts';
+import type { LogRecord }                                      from './@types/LogRecord.ts';
+import type { TicketPriority, TicketStatus }                   from './@types/Ticket.ts';
+import type { DispatcherState }                                from './@types/TrackerProgress.ts';
+import { CRASH_INTERRUPTION_CAUSES, HANDOFF_RED_INTERRUPTION } from './constants/JobStates.ts';
+import { FailedPassUtil }                                      from './utils/FailedPassUtil.ts';
+import { TicketDefaultsUtil }                                  from './utils/TicketDefaultsUtil.ts';
+import { TicketDependencyUtil }                                from './utils/TicketDependencyUtil.ts';
 
 export interface LifecycleTicket {
   id:           string;
@@ -54,6 +54,9 @@ const SLOT_TAKING_JOB_KINDS: readonly JobKind[] = ['build', 'review'];
 
 /** Incidents holding a target's Airlock, which never wait for an orchestrator to boot. */
 const AIRLOCK_HOLDING_INCIDENT_KINDS: readonly IncidentKind[] = ['merge-gate-failed', 'resolution-over-threshold'];
+
+/** The jobs whose spent red resumes park their ticket; a merge-gate fixer's Airlock parks its own, aborting the merge. */
+const TICKET_WORK_JOB_KINDS: readonly JobKind[] = ['review', 'build'];
 
 /** Sessions, which are never resumed once down: a fresh one boots instead. */
 const SESSION_JOB_KINDS: readonly JobKind[] = ['orchestrator', 'product-owner'];
@@ -156,6 +159,35 @@ function lastBuildAttemptOf(ticketId: string, facts: LifecycleFacts): number {
   return Math.max(0, ...buildAttempts);
 }
 
+/**
+ * The red-handoff resumes of the job's handoff cycle: every job of its kind, tickets and attempt, so a fresh session that took over a
+ * session the vendor could not resume carries on the same count.
+ */
+function redHandoffResumesOf(job: Readonly<Job>, facts: LifecycleFacts): number {
+  const launches = jobLaunchesByJobIdOf(facts.logRecords);
+  const ticketKey = [...job.ticketIds].sort().join(',');
+  const inTheCycle = (jobId: string): boolean => {
+    const launch = launches.get(jobId);
+    return launch !== undefined && launch.kind === job.kind && launch.attempt === job.attempt && [...launch.ticketIds].sort().join(',') === ticketKey;
+  };
+  return facts.logRecords.filter((record) => record.kind === 'job-resumed' && record.fields.cause === HANDOFF_RED_INTERRUPTION && inTheCycle(record.jobId)).length;
+}
+
+/** The ticket's newest ended build job was replaced while interrupted on a red handoff: its fresh successor keeps the attempt. */
+function redHandoffCarriesOver(ticketId: string, facts: LifecycleFacts): boolean {
+  const launches = jobLaunchesByJobIdOf(facts.logRecords);
+  const lastInterruptionByJobId = new Map<string, InterruptionCause>();
+  let carriesOver = false;
+  for (const record of facts.logRecords) {
+    if (record.kind === 'job-interrupted') lastInterruptionByJobId.set(record.jobId, record.fields.cause);
+    if (record.kind !== 'job-ended') continue;
+    const launch = launches.get(record.jobId);
+    if (launch?.kind !== 'build' || !launch.ticketIds.includes(ticketId)) continue;
+    carriesOver = record.fields.outcome === 'replaced' && lastInterruptionByJobId.get(record.jobId) === HANDOFF_RED_INTERRUPTION;
+  }
+  return carriesOver;
+}
+
 function targetOf(ticket: LifecycleTicket, observations: LifecycleObservations): string {
   return ticket.group === undefined ? observations.mainLine : `${observations.groupTargetPrefix}${ticket.group}`;
 }
@@ -215,11 +247,24 @@ function productOwnerStepsOf(job: Readonly<Job>, facts: LifecycleFacts, limits: 
   return resumesAreHeld || awaitsAnAnswer ? [] : [{ kind: 'resume-job', jobId: job.id }];
 }
 
+/** A red handoff resumes the same session while its cycle has resumes left; the next red ends it and parks its ticket for User. */
+function redHandoffStepsOf(job: Readonly<Job>, facts: LifecycleFacts, limits: LifecycleLimits, resumesAreHeld: boolean): LifecycleStep[] {
+  const ticketId = job.ticketIds[0];
+  if (redHandoffResumesOf(job, facts) >= limits.RED_HANDOFF_RESUMES_BEFORE_PARKING && ticketId !== undefined && TICKET_WORK_JOB_KINDS.includes(job.kind)) {
+    return [{
+      kind: 'park', ticketId, cause: 'red-resumes-spent', jobId: job.id
+    }];
+  }
+  const resumeIsHeld = resumesAreHeld || jobResumeIsHeld(job, facts) || jobAwaitsAnAnswer(job, facts);
+  return resumeIsHeld ? [] : [{ kind: 'resume-job', jobId: job.id }];
+}
+
 function crashBoundStepsOf(facts: LifecycleFacts, limits: LifecycleLimits, resumesAreHeld: boolean): LifecycleStep[] {
   const productOwnerSteps = facts.jobs
     .filter((job) => job.kind === 'product-owner' && (job.state === 'interrupted' || job.state === 'awaiting-answer'))
     .flatMap((job) => productOwnerStepsOf(job, facts, limits, resumesAreHeld));
   return [...productOwnerSteps, ...facts.jobs.filter((job) => job.state === 'interrupted' && job.kind !== 'product-owner').flatMap((job): LifecycleStep[] => {
+    if (job.interruption === HANDOFF_RED_INTERRUPTION) return redHandoffStepsOf(job, facts, limits, resumesAreHeld);
     if (SESSION_JOB_KINDS.includes(job.kind)) return [{ kind: 'replace-job', jobId: job.id }];
     if (crashResumesAreSpent(job, limits)) return [{ kind: 'replace-job', jobId: job.id }];
     if (resumesAreHeld || jobResumeIsHeld(job, facts) || jobAwaitsAnAnswer(job, facts)) return [];
@@ -257,8 +302,9 @@ function candidateOf(ticket: LifecycleTicket, facts: LifecycleFacts): Candidate 
       }
     };
   }
-  const attempt = lastBuildAttemptOf(ticket.id, facts) + 1;
-  if (ticket.status === 'in-progress' && attempt > 1) return {
+  const carriesOver = redHandoffCarriesOver(ticket.id, facts);
+  const attempt = lastBuildAttemptOf(ticket.id, facts) + (carriesOver ? 0 : 1);
+  if (ticket.status === 'in-progress' && (attempt > 1 || carriesOver)) return {
     ticket,
     phase: 'rebuild',
     step:  {

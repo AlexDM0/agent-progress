@@ -77,5 +77,6 @@ tool, exactly as the agent or the runner worded it, run `decide` with the answer
 Drive the lifecycle: the runner builds, reviews, merges and delivers, and no session moves a ticket through those
 steps by hand. Handle an incident: that is the Assistant's, and its escalations reach the user as decisions. Add an
 opinion to an agent's question. Write, review or merge code, or start a builder or reviewer yourself. Continue a
-finished agent. Re-anchor with `{{program}} status --json` after a compaction or a long gap rather than trusting your
-memory of the board.
+finished agent; the one exception is the runner's own, which resumes a builder, reviewer or merge-gate fixer in its own
+session when its handoff goes red. Re-anchor with `{{program}} status --json` after a compaction or a long gap rather
+than trusting your memory of the board.
