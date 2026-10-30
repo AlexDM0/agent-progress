@@ -31,11 +31,15 @@
  *                           Timeline (.bridge-detail-phases), Description (iframe.bridge-ticket-body, sandboxed), Log
  *                           (.bridge-detail-log)
  * Progress (bridge/views/progress/)
- *   .bridge-progress-view   the toolbar (range chips, .bridge-progress-choice, .bridge-progress-range-note) over
+ *   .bridge-progress-view[data-name-column]  .bridge-progress-head (the range and row options .bridge-head-menu, each a
+ *                           .bridge-head-menu-button over a .bridge-head-menu-popover of .bridge-menu-item buttons, the range
+ *                           menu led by .bridge-progress-range-note; Custom… opens .bridge-range-popover) over
  *                           .bridge-progress-chart and, when a ticket depends on another, .bridge-dependencies
  *   .bridge-progress-row[data-state]  a name cell and a .bridge-progress-track of .bridge-progress-bar[data-state] stretches
  *                           placed by style; [data-review-of] a review row drawn above its ticket's; the axis row holds the ticks,
- *                           .bridge-progress-overlay the grid lines and the now line
+ *                           [data-label-side="left"] near the right edge, .bridge-progress-overlay the grid lines and the now line;
+ *                           on a board with epics a .bridge-progress-epic-head[data-epic-key] row, [data-collapsed] when folded,
+ *                           leads each group, its .bridge-progress-epic-span on the track
  * Dependencies (bridge/views/dependencies/)
  *   .bridge-dependency-canvas  bands, edges, heads and .bridge-dependency-node[data-state] placed in pixels by style;
  *                           [data-lineage-shown] dims all but the [data-lit] lineage
@@ -934,23 +938,84 @@ body {
   gap: var(--space-4);
 }
 
-.bridge-progress-toolbar {
+.bridge-progress-head {
+  position: relative;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
-.bridge-progress-choice {
-  display: inline-flex;
-  align-items: center;
+.bridge-head-menu {
+  position: relative;
+}
+
+.bridge-head-menu-button,
+.bridge-menu-item {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-small);
+  cursor: pointer;
+}
+
+.bridge-head-menu-popover,
+.bridge-range-popover {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 12rem;
+  padding: var(--space-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+}
+
+.bridge-head-menu-popover[hidden] {
+  display: none;
+}
+
+.bridge-menu-item {
+  border-color: transparent;
+  text-align: left;
+}
+
+.bridge-menu-item[aria-pressed="true"] {
+  border-color: var(--link);
+  background: var(--link-tint);
+}
+
+.bridge-progress-range-note {
+  margin: 0 0 var(--space-1);
+  font-size: var(--fs-small);
+  color: var(--ink-muted);
+}
+
+.bridge-range-field {
+  display: flex;
+  flex-direction: column;
   gap: var(--space-1);
   font-size: var(--fs-small);
 }
 
-.bridge-progress-range-note {
-  font-size: var(--fs-small);
+.bridge-range-resolved {
   color: var(--ink-muted);
+}
+
+.bridge-range-resolved[data-invalid] {
+  color: var(--err-ink);
+}
+
+.bridge-range-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-1);
 }
 
 .bridge-progress-chart {
@@ -958,7 +1023,44 @@ body {
   border: 1px solid var(--line);
   border-radius: var(--radius-panel);
   background: var(--surface);
-  overflow: hidden;
+  overflow-x: auto;
+}
+
+.bridge-progress-view[data-name-column="wide"] .bridge-progress-chart {
+  --progress-name-width: 560px;
+}
+
+.bridge-progress-epic-head {
+  background: var(--bg);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.bridge-progress-epic-caret {
+  display: inline-block;
+  transition: transform 120ms var(--ease-out);
+}
+
+.bridge-progress-epic-head[data-collapsed] .bridge-progress-epic-caret {
+  transform: rotate(-90deg);
+}
+
+.bridge-progress-epic-count {
+  color: var(--ink-muted);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.bridge-progress-epic-span {
+  position: absolute;
+  top: 11px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line-strong);
+}
+
+.bridge-progress-epic-span[data-open] {
+  background: var(--state-in-progress-edge);
 }
 
 .bridge-progress-rows {
@@ -967,7 +1069,7 @@ body {
 
 .bridge-progress-row {
   display: grid;
-  grid-template-columns: var(--progress-name-width) 1fr;
+  grid-template-columns: var(--progress-name-width) minmax(var(--progress-timeline-min-width, 0px), 1fr);
   min-height: 28px;
   border-bottom: 1px solid var(--line);
 }
@@ -1016,6 +1118,12 @@ body {
   white-space: nowrap;
 }
 
+.bridge-progress-tick[data-label-side="left"] {
+  padding-right: 5px;
+  padding-left: 0;
+  transform: translateX(-100%);
+}
+
 .bridge-progress-overlay {
   position: absolute;
   inset: 0 0 0 var(--progress-name-width);
@@ -1034,6 +1142,19 @@ body {
   top: 0;
   bottom: 0;
   border-left: 2px solid var(--status-live);
+}
+
+.bridge-progress-now-label {
+  position: absolute;
+  top: 0;
+  left: 4px;
+  font-size: var(--fs-micro);
+  color: var(--status-live);
+}
+
+.bridge-progress-now[data-label-side="left"] .bridge-progress-now-label {
+  right: 4px;
+  left: auto;
 }
 
 .bridge-progress-bar {

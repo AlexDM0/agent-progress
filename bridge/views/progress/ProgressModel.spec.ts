@@ -8,11 +8,13 @@ import { describe, expect, test } from 'bun:test';
 
 import { exampleProgressBoard, exampleProgressTask, exampleProgressTicket } from '../../testing/ProgressBoardFixture.ts';
 import { ProgressModel, type ProgressChartChoices }                         from './ProgressModel.ts';
+import { EMPTY_VIEW_OVERRIDE }                                              from './utils/ChartPreferenceUtil.ts';
+import { RangePresetUtil }                                                  from './utils/RangePresetUtil.ts';
 
 const NOW_EPOCH_MILLISECONDS = Date.parse('2026-09-18T13:00:00+02:00');
 
 const CHOICES: ProgressChartChoices = {
-  presetKey:            'fit',
+  override:             EMPTY_VIEW_OVERRIDE,
   reviewRowsAreShown:   false,
   nowEpochMilliseconds: NOW_EPOCH_MILLISECONDS,
   todayCalendarDate:    '2026-09-18',
@@ -88,8 +90,41 @@ describe('bar placement', () => {
   test('a preset holds its own span, so a row older than it runs off its left edge where Fit shows it whole', () => {
     const board = exampleProgressBoard({ tasks: [BUILD_ROW] });
 
-    expect(ProgressModel.progressChartOf(board, { ...CHOICES, presetKey: '1h' }).rows[0]?.clippedLeft).toBe(true);
+    expect(ProgressModel.progressChartOf(board, { ...CHOICES, override: RangePresetUtil.overrideOfPreset('1h', EMPTY_VIEW_OVERRIDE) }).rows[0]?.clippedLeft).toBe(true);
     expect(ProgressModel.progressChartOf(board, CHOICES).rows[0]?.clippedLeft).toBe(false);
+  });
+
+  test('typed bounds are drawn with the chosen tick size, and Custom is pressed', () => {
+    const board = exampleProgressBoard({ tasks: [BUILD_ROW] });
+    const chart = ProgressModel.progressChartOf(board, {
+      ...CHOICES,
+      override: {
+        presetKey: null, fromText: '2026-09-18T10:00:00+02:00', toText: 'now', tickMinutes: 15
+      },
+    });
+
+    expect(chart.fromEpochMilliseconds).toBe(Date.parse('2026-09-18T10:00:00+02:00'));
+    expect(chart.toEpochMilliseconds).toBe(NOW_EPOCH_MILLISECONDS);
+    expect(chart.rangeNoteText).toContain('15m ticks');
+    expect(chart.pressedPreset).toBe('custom');
+    expect(chart.modeLabel).toBe('Custom');
+  });
+
+  test('a tick size alone keeps the tracker\'s own range and draws it with that size', () => {
+    const board = exampleProgressBoard({ tasks: [BUILD_ROW], view: ABSOLUTE_VIEW });
+    const chart = ProgressModel.progressChartOf(board, { ...CHOICES, override: { ...EMPTY_VIEW_OVERRIDE, tickMinutes: 60 } });
+
+    expect(chart.fromEpochMilliseconds).toBe(Date.parse(ABSOLUTE_VIEW.from));
+    expect(chart.rangeNoteText).toContain('1h ticks');
+    expect(chart.pressedPreset).toBe('fit');
+  });
+
+  test('resolves a typed bound as the axis reads it, and an unreadable one as null', () => {
+    const board = exampleProgressBoard({ tasks: [BUILD_ROW] });
+
+    expect(ProgressModel.rangeBoundOf(board, 'start', NOW_EPOCH_MILLISECONDS)).toBe(Date.parse('2026-09-18T09:00:00+02:00'));
+    expect(ProgressModel.rangeBoundOf(board, '-2h', NOW_EPOCH_MILLISECONDS)).toBe(NOW_EPOCH_MILLISECONDS - 2 * 60 * 60 * 1000);
+    expect(ProgressModel.rangeBoundOf(board, '-2x', NOW_EPOCH_MILLISECONDS)).toBeNull();
   });
 });
 

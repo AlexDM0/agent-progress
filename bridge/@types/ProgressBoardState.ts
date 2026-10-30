@@ -53,6 +53,17 @@ export interface ProgressTicketDocument {
   readonly epics?:     readonly string[];
 }
 
+/** An epic's roll-up, as the Board's facts carry it; the chart groups its rows by it. */
+export interface ProgressEpicFacts {
+  readonly key:                 string;
+  readonly title:               string;
+  readonly slot:                number;
+  readonly ticketIds:           readonly string[];
+  readonly ticketCountByStatus: Readonly<Record<string, number>>;
+  /** From the epic's first start to its last end, the end null while any of its work is open; null when none of it started. */
+  readonly span:                { readonly start: string; readonly end: string | null } | null;
+}
+
 export interface ProgressBoardState {
   readonly page: {
     readonly tickets: readonly ProgressTicketDocument[];
@@ -69,6 +80,8 @@ export interface ProgressBoardState {
         readonly rows:         readonly ProgressRowFacts[];
         readonly tickets:      readonly ProgressTicketFacts[];
         readonly readyTickets: readonly { readonly id: string; readonly held?: boolean }[];
+        /** Absent on a board whose facts carry no epics, whose rows are drawn ungrouped. */
+        readonly epics?:       readonly ProgressEpicFacts[];
       };
     };
   };

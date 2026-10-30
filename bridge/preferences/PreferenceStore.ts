@@ -1,6 +1,7 @@
 /**
  * The one Bridge module that touches browser storage. Keys keep the static page's form: `<STORAGE_PREFIX>:theme` for the theme, which
- * every board shares, and `<STORAGE_PREFIX>:<trackerId>:<choice>` for a board's own choices.
+ * every board shares, `<STORAGE_PREFIX>:<trackerId>:<choice>` for a board's own choices, and the bare `<STORAGE_PREFIX>:<trackerId>`
+ * for the Progress chart's range, where the static page stored it.
  */
 import { PRODUCT_NAMES }          from '../../src/shared/constants/ProductNames.ts';
 import type { PreferenceStorage } from '../@types/PreferenceStorage.ts';
@@ -13,6 +14,10 @@ export interface PreferenceStore {
   readonly readTextList:  (choiceName: string) => string[];
   /** An empty list removes the key. */
   readonly writeTextList: (choiceName: string, texts: readonly string[]) => void;
+  /** The text stored under the prefix itself, no choice name after it. */
+  readonly readText:      () => string | null;
+  /** Null removes the key. */
+  readonly writeText:     (text: string | null) => void;
 }
 
 function textListOf(storedText: string | null): string[] {
@@ -29,26 +34,30 @@ export const BROWSER_STORAGE_AREAS = Object.freeze({ local: (): PreferenceStorag
 /** `storageOf` is called inside each read and write, so blocked storage reads as nothing and drops every write, never throwing. */
 export function createPreferenceStore(keyPrefix: string, storageOf: () => PreferenceStorage): PreferenceStore {
   const keyOf = (choiceName: string): string => `${keyPrefix}:${choiceName}`;
-  const readStoredText = (choiceName: string): string | null => {
+  const readKey = (key: string): string | null => {
     try {
-      return storageOf().getItem(keyOf(choiceName));
+      return storageOf().getItem(key);
     } catch {
       return null;
     }
   };
-  const writeStoredText = (choiceName: string, text: string | null): void => {
+  const writeKey = (key: string, text: string | null): void => {
     try {
-      if (text === null) storageOf().removeItem(keyOf(choiceName));
-      else storageOf().setItem(keyOf(choiceName), text);
+      if (text === null) storageOf().removeItem(key);
+      else storageOf().setItem(key, text);
     } catch {
       // The Bridge works without persistence.
     }
   };
+  const readStoredText = (choiceName: string): string | null => readKey(keyOf(choiceName));
+  const writeStoredText = (choiceName: string, text: string | null): void => writeKey(keyOf(choiceName), text);
   return {
     readChoice:    readStoredText,
     writeChoice:   (choiceName, choice, defaultChoice) => writeStoredText(choiceName, choice === defaultChoice ? null : choice),
     readTextList:  (choiceName) => textListOf(readStoredText(choiceName)),
     writeTextList: (choiceName, texts) => writeStoredText(choiceName, texts.length === 0 ? null : JSON.stringify(texts)),
+    readText:      () => readKey(keyPrefix),
+    writeText:     (text) => writeKey(keyPrefix, text),
   };
 }
 
