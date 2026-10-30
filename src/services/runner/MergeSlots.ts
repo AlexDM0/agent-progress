@@ -70,8 +70,27 @@ export interface MergeSlotsContext {
 
 /** The merged tree's gate: its outcome and what the checks line printed, whose tail a merge-gate fixer is given. */
 export interface MergedTreeGate {
-  outcome: GateOutcome;
+  /** `setup-failed` when a prepare step did not exit 0: no gate judged the tree. */
+  outcome: GateOutcome | 'setup-failed';
+  /** The red gate or the failed prepare step; `null` on a pass. */
+  step:    string | null;
   output:  string;
+}
+
+/** A red gate is the Airlock's own incident; a gate that could not run and a failed prepare step are the ones a build job opens too. */
+const MERGE_GATE_INCIDENT_KINDS = { 'failed': 'merge-gate-failed', 'cannot-run': 'gate-cannot-run', 'setup-failed': 'setup-failed' } as const;
+
+function treeOfCommit(worktree: string, commit: string): string | null {
+  const run = GitProcess.run(worktree, ['rev-parse', '--verify', '--quiet', `${commit}^{tree}`]);
+  return GitProcess.succeeded(run) ? run.standardOutput.trim() : null;
+}
+
+/** The merged tree is the branch's own tree, and the newest gate run on it passed: the merge changed nothing the gates judged. */
+function mergedTreeWasLastPassed(board: Board, worktree: string, job: Readonly<Job>, treeId: string): boolean {
+  const branchTip = job.slot?.branchTip;
+  if (branchTip === undefined || treeOfCommit(worktree, branchTip) !== treeId) return false;
+  const newestRunOnTheTree = board.logRecordsSoFar().findLast((record) => record.kind === 'gate-ran' && record.fields.tree === treeId);
+  return newestRunOnTheTree?.kind === 'gate-ran' && newestRunOnTheTree.fields.outcome === 'passed';
 }
 
 /** The Airlock agents a slot launches on an incident's move or default, each bounded by its own launches and call budget. */
@@ -360,18 +379,24 @@ export function createMergeSlots(context: MergeSlotsContext): MergeSlots {
       await refuseMerge(job, MERGE_REFUSED_CAUSES.gitFailed, 'The merged tree cannot be read.');
       return true;
     }
-    const { outcome, output } = await context.gateMergedTree(worktree, treeId);
+    const landsUngated = await context.hold((hold) => {
+      if (!mergedTreeWasLastPassed(hold.board, worktree, job, treeId)) return false;
+      setPhase(hold, job, 'landing');
+      return true;
+    });
+    if (landsUngated) return true;
+    const { outcome, step, output } = await context.gateMergedTree(worktree, treeId);
     const fixersSpent = await context.hold((hold) => {
-      hold.board.recordGateRan({ tree: treeId, outcome, cached: false }, hold.at);
+      if (outcome !== 'setup-failed') hold.board.recordGateRan({ tree: treeId, outcome, cached: false }, hold.at);
       if (outcome === 'passed') {
         setPhase(hold, job, 'landing');
         return false;
       }
       if (outcome === 'failed' && launchesUnder(hold.board, job, 'merge-fix') >= context.limits.MERGE_FIX_ATTEMPTS) return true;
-      const facts = { tree: treeId, gateTail: tailOf(output, context.limits.CHECK_OUTPUT_TAIL_LINES) };
+      const facts = { tree: treeId, gate: step ?? '', gateTail: tailOf(output, context.limits.CHECK_OUTPUT_TAIL_LINES) };
       if (outcome === 'failed') context.keepAirlockFacts(job, facts);
       hold.board.openIncident({
-        kind:        outcome === 'failed' ? 'merge-gate-failed' : 'gate-cannot-run',
+        kind:        MERGE_GATE_INCIDENT_KINDS[outcome],
         ticketIds:   job.ticketIds,
         jobId:       job.id,
         facts,

@@ -1,17 +1,19 @@
 /**
- * A gate: one run of the stored checks line on a tree, the code the runner and the by-hand `release` share. The argv arrives built, so the
- * runner can wrap it in a sandboxed process host; it runs in a process group of its own with the job variables removed from its
- * environment, and a pass is cached by content, never by time.
+ * The gate pipeline run on a tree, the code the runner's build, review and merge gates share: the prepare steps, then each gate in list
+ * order, the first red one stopping the rest. Each argv arrives built and confined by the caller; a step runs in a process group of its own
+ * with the job variables removed from its environment. agent-progress keeps no gate result: caching is the repository's own tooling's.
  */
-import type { GateOutcome }       from '../../lib/tracker-model/@types/Job.ts';
-import type { LogRecordFieldsOf } from '../../lib/tracker-model/@types/LogRecord.ts';
+import { join } from 'node:path';
+
+import { GitProcess }                      from '../../lib/git/GitProcess.ts';
+import type { GateOutcome }                from '../../lib/tracker-model/@types/Job.ts';
+import type { PipelineGate, PipelineStep } from '../../lib/tracker-model/@types/Pipeline.ts';
 import {
   environmentCopy,
   JOB_ID_VARIABLE,
   RELAY_DIRECTORY_VARIABLE,
   userShell
 } from '../../shared/Environment.ts';
-import { gateCacheKeyOf, type GatePass, type GateResultCache } from './GateResultCache.ts';
 
 export interface GateRequest {
   argv:         readonly string[];
@@ -27,17 +29,29 @@ export interface GateProcessRun {
   output:     string;
 }
 
-export interface TreeGateRequest extends GateRequest {
-  treeId:      string;
-  checksLine:  string;
-  installLine: string | null;
-  /** The stored key command's argv, run as the gate is, in its directory and environment, before the cache is asked; `null` with none stored. */
-  keyArgv:     readonly string[] | null;
-  cache:       GateResultCache;
+/** What one step may reach besides its tree and temp: the network when it names domains (a prepare step always), and the folders it writes. */
+export interface GateConfinement {
+  network:        boolean;
+  networkDomains: readonly string[];
+  writes:         readonly string[];
 }
 
-/** What a `gate-ran` record stores, and the run itself when one happened: a cache hit runs nothing. */
-export type TreeGateVerdict = LogRecordFieldsOf<'gate-ran'> & { run: GateProcessRun | null };
+export interface PipelineRunRequest {
+  prepare:          readonly PipelineStep[];
+  gates:            readonly PipelineGate[];
+  /** The checkout of the tree the pipeline judges; a gate's `in` is relative to it. */
+  directory:        string;
+  environment?:     Readonly<Record<string, string>>;
+  /** Wraps a step's argv in its confinement; the argv itself when absent. */
+  confinedArgvOf?:  (argv: readonly string[], confinement: GateConfinement) => readonly string[];
+  /** Waits for one of the machine's gate run slots and answers its release; prepare steps take none. */
+  acquireGateSlot?: () => Promise<() => void>;
+}
+
+export type PipelineVerdict =
+  | { outcome: 'setup-failed'; step: string; output: string; gatesRun: string[] }
+  | { outcome: 'passed'; gatesRun: string[] }
+  | { outcome: Exclude<GateOutcome, 'passed'>; gate: string; output: string; gatesRun: string[] };
 
 const FALLBACK_SHELL = '/bin/sh';
 
@@ -53,20 +67,8 @@ const COMMAND_NOT_EXECUTABLE_EXIT_CODE = 126;
 const COMMAND_NOT_FOUND_EXIT_CODE      = 127;
 const SHELL_CANNOT_RUN_EXIT_CODES: readonly number[] = [COMMAND_NOT_EXECUTABLE_EXIT_CODE, COMMAND_NOT_FOUND_EXIT_CODE];
 
-// Only standard output keys the cache: a warning on standard error must not split one toolchain into two keys.
-const STANDARD_OUTPUT_ONLY_SCRIPT = 'exec 2>/dev/null; exec "$0" -c "$1"';
-
-function checksLineArgvOf(checksLine: string): string[] {
-  return [FALLBACK_SHELL, '-c', OUTPUT_JOINING_SCRIPT, userShell() ?? FALLBACK_SHELL, checksLine];
-}
-
-function keyCommandArgvOf(keyCommand: string): string[] {
-  return [FALLBACK_SHELL, '-c', STANDARD_OUTPUT_ONLY_SCRIPT, userShell() ?? FALLBACK_SHELL, keyCommand];
-}
-
-/** Trailing newlines dropped, so the output read whole and the same output read back as a host's logged lines key alike. */
-function keyOutputOf(standardOutput: string): string {
-  return standardOutput.replace(/\n+$/, '');
+function shellLineArgvOf(line: string): string[] {
+  return [FALLBACK_SHELL, '-c', OUTPUT_JOINING_SCRIPT, userShell() ?? FALLBACK_SHELL, line];
 }
 
 /** Without this, every spec of a gated tree that runs a mutating verb would relay it to the runner rather than run it. */
@@ -98,49 +100,76 @@ async function runGate({ argv, directory, environment }: GateRequest): Promise<G
   }
 }
 
-function gateOutcomeOf(run: GateProcessRun): GateOutcome {
-  if (run.exitCode === GATE_PASSED_EXIT_CODE) return 'passed';
-  if (run.exitCode === null || SHELL_CANNOT_RUN_EXIT_CODES.includes(run.exitCode)) return 'cannot-run';
-  return 'failed';
+/** The diff of every tracked file a step changed against HEAD; empty when the tree is as it was. */
+function trackedChangesOf(directory: string): string {
+  const run = GitProcess.run(directory, ['diff', '--no-ext-diff', 'HEAD', '--']);
+  return GitProcess.succeeded(run) ? run.standardOutput : '';
 }
 
-/**
- * Only a pass is cached: a failure or a gate that could not run is judged again on the next attempt. A key command that does not exit 0
- * leaves the cache unknowable, so the gate cannot run.
- */
-async function gateTree(request: TreeGateRequest): Promise<TreeGateVerdict> {
-  const {
-    treeId, checksLine, installLine, keyArgv, cache
-  } = request;
-  let keyOutput: string | null = null;
-  if (keyArgv !== null) {
-    const keyRun = await runGate({ ...request, argv: keyArgv });
-    if (keyRun.exitCode !== GATE_PASSED_EXIT_CODE) return {
-      tree: treeId, outcome: 'cannot-run', cached: false, run: keyRun
+/** A gate passes only when it exits 0 and leaves the tree unchanged. */
+function gateOutcomeOf(run: GateProcessRun, trackedChanges = ''): GateOutcome {
+  if (run.exitCode === null || SHELL_CANNOT_RUN_EXIT_CODES.includes(run.exitCode)) return 'cannot-run';
+  return run.exitCode === GATE_PASSED_EXIT_CODE && trackedChanges === '' ? 'passed' : 'failed';
+}
+
+/** A gate that exited 0 but changed the tree reports the diff; any other run its own output. */
+function gateErrorOutputOf(run: GateProcessRun, trackedChanges: string): string {
+  return run.exitCode === GATE_PASSED_EXIT_CODE && trackedChanges !== '' ? trackedChanges : run.output;
+}
+
+function gateDirectoryOf(directory: string, gate: Readonly<PipelineGate>): string {
+  return gate.in === undefined ? directory : join(directory, gate.in);
+}
+
+function gateConfinementOf(gate: Readonly<PipelineGate>): GateConfinement {
+  const networkDomains = gate.network ?? [];
+  return { network: networkDomains.length > 0, networkDomains, writes: gate.writes ?? [] };
+}
+
+/** A prepare step installs, so it reaches the network and writes every folder a gate may. */
+function prepareConfinementOf(gates: readonly PipelineGate[]): GateConfinement {
+  return { network: true, networkDomains: [], writes: [...new Set(gates.flatMap((gate) => gate.writes ?? []))] };
+}
+
+/** A prepare step that does not exit 0 is a setup failure, never a red gate; the Overseer never runs a gate's `fix`. */
+async function runPipeline(request: PipelineRunRequest): Promise<PipelineVerdict> {
+  const confinedArgvOf = request.confinedArgvOf ?? ((argv: readonly string[]) => argv);
+  const environment = request.environment === undefined ? {} : { environment: request.environment };
+  const prepareConfinement = prepareConfinementOf(request.gates);
+  for (const step of request.prepare) {
+    const run = await runGate({ argv: confinedArgvOf(shellLineArgvOf(step.run), prepareConfinement), directory: request.directory, ...environment });
+    if (run.exitCode !== GATE_PASSED_EXIT_CODE) return {
+      outcome: 'setup-failed', step: step.name, output: run.output, gatesRun: []
     };
-    keyOutput = keyOutputOf(keyRun.output);
   }
-  const pass: GatePass = {
-    treeId, checksLine, installLine, keyOutput
-  };
-  const key = gateCacheKeyOf(pass);
-  if (cache.holdsPassOf(key)) return {
-    tree: treeId, outcome: 'passed', cached: true, run: null
-  };
-  const run     = await runGate(request);
-  const outcome = gateOutcomeOf(run);
-  if (outcome === 'passed') cache.recordPass(key, pass);
-  return {
-    tree: treeId, outcome, cached: false, run
-  };
+  const gatesRun: string[] = [];
+  for (const gate of request.gates) {
+    const releaseGateSlot = request.acquireGateSlot === undefined ? null : await request.acquireGateSlot();
+    let run: GateProcessRun;
+    try {
+      gatesRun.push(gate.name);
+      run = await runGate({ argv: confinedArgvOf(shellLineArgvOf(gate.run), gateConfinementOf(gate)), directory: gateDirectoryOf(request.directory, gate), ...environment });
+    } finally {
+      releaseGateSlot?.();
+    }
+    const trackedChanges = trackedChangesOf(request.directory);
+    const outcome = gateOutcomeOf(run, trackedChanges);
+    if (outcome !== 'passed') return {
+      outcome, gate: gate.name, output: gateErrorOutputOf(run, trackedChanges), gatesRun
+    };
+  }
+  return { outcome: 'passed', gatesRun };
 }
 
 export const GateRun = Object.freeze({
-  checksLineArgvOf,
+  shellLineArgvOf,
   gateEnvironmentOf,
   gateOutcomeOf,
-  gateTree,
-  keyCommandArgvOf,
-  keyOutputOf,
+  gateErrorOutputOf,
+  gateDirectoryOf,
+  gateConfinementOf,
+  prepareConfinementOf,
+  trackedChangesOf,
   runGate,
+  runPipeline,
 });

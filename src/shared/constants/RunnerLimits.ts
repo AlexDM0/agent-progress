@@ -72,6 +72,12 @@ export const RUNNER_REQUEST_TIMEOUT_MILLISECONDS = 2000;
 /** How often the runner re-reads the board as a backstop for watch events the platform dropped; a schedule only, never a decision. */
 export const RUNNER_SWEEP_SECONDS = 30;
 
+/** How many gates the Overseers of this machine run at once, the rest queued; only the Overseers' own gate runs count. */
+export const GATE_RUNS_AT_ONCE = 2;
+
+/** How often an Overseer's in-process gate run looks for a free gate slot; a schedule only, never a decision. */
+export const GATE_SLOT_RETRY_MILLISECONDS = 500;
+
 /** How long the runner lets a burst of file events settle before it wakes a pass. */
 export const RUNNER_WATCH_DEBOUNCE_MILLISECONDS = 150;
 

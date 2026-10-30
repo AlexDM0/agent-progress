@@ -372,15 +372,20 @@ there is none. The page's `boardFacts.drafts` carries the same list from the sam
 ### Concurrency and gates
 
 The limits and states here survive a compaction of the orchestrator's context, because they are
-stored in the tracker. The runner gates a tree with the checks line, the stored gates joined in order (`true` for
-none on purpose), and prepares a worktree with the install line, the prepare steps joined in order.
+stored in the tracker. The runner gates a tree by running the prepare steps, then each stored gate in list order, the
+first red gate stopping the rest (none on purpose passes). A prepare step reaches the network and a failed one is a
+setup failure, never a red gate. A gate runs in its `in` folder with only its own `network` and `writes`, and passes
+only when it exits 0 and leaves every tracked file as it was; one that changes a tracked file is red, the diff its
+output. Exit 126 or 127, or a signal, is `gate-cannot-run`. The runner never runs a gate's `fix`, and keeps no gate
+result: caching belongs to the repository's own tooling. At most `GATE_RUNS_AT_ONCE` (2) gates run at once on the
+machine, across every runner, each holding a slot file under `<monitor>/gate-slots/`; the rest wait for one to end.
 
 | command | what it does |
 |---|---|
 | `concurrency [<n>] [--json]` | Print how many agents may be in flight at once, or store a new limit for every worktree: a whole number from 1 to 10. A higher one is refused at exit 1 with nothing written, and one an older tracker stored above 10 reads as 10. A tracker that never set one reads 2. A limit below the agents already in flight is accepted and simply leaves no free slot. A slot is an agent: the in-progress rows one claim started count once, and every other in-progress row, such as a review bar, counts on its own. `--json` prints `{ limit, agentsInFlight, freeSlots }`, after a change as well. |
 | `gate list [--json]` | Print the board's gate pipeline, stored in `.agent-progress/pipeline.json` beside `progress.json`, never tracked and never inside a branch. Read-only, no lock. `--json` prints `{ pipelineIsSet, pipelineHash, prepare, gates }`, with `review`, `constitution` and `agents` when stored; with no pipeline `pipelineIsSet` is `false`, `pipelineHash` `null` and both lists empty. A malformed file is refused at exit 1 with its reason. |
-| `gate prepare <name> [--json] -- <command>` | Set the prepare step `<name>`, which prepares a fresh worktree before a gate, with one log line (`Prepare step <name> set to <command>`, kind `pipeline-prepare-step-set`); a step of the same name is replaced where it stands. The steps run in order, and their lines are part of a gate's cache key. |
-| `gate add <name> [--fix "<command>"] [--in <folder>] [--defined-by <pattern>]… [--network <domain>]… [--writes <path>]… [--overseer-only] [--json] -- <command>` | Add the gate `<name>`, run after the others, or replace a gate of the same name where it stands, with one log line (`Gate <name> set to <command>`, kind `pipeline-gate-added`). The gates run in order through the user's shell in the worktree, `--in` a folder of it; their lines are part of a gate's cache key, so a changed gate runs again. `--defined-by` names the files that define the gate, as git pathspec-style globs: `*` and `?` stay inside one folder, `**` crosses folders, a pattern without an inner `/` matches its name at any depth, one with an inner `/` is anchored at the repository root, and a trailing `/` takes a folder's whole content; the runner's check V11 refuses a job (`checks-definition-changed`) when a commit in its range changes a matching path its ticket body does not name. `--writes` names a folder a gate and a prepare step may write besides the worktree, its git admin folder and temp, absolute or `~/`; a relative one, or one that is, sits in or holds a `bin` folder or a folder on the runner's `PATH`, is refused at exit 1 with nothing written, one that became so after it was stored is left out of the gate's profile, and whatever is stored, the `bin` beside each of its ancestors is not writable. A builder or reviewer may run unasked the first word of each command in the gate and prepare lines (split outside quotes on `&&`, `\|\|`, `;`, `\|` and parentheses, past a leading `NAME=value`), beside the git verbs it reads and commits with. `--fix`, `--network` and `--overseer-only` are stored for the gate runs that act on them. |
+| `gate prepare <name> [--json] -- <command>` | Set the prepare step `<name>`, which prepares a fresh worktree before a gate, with one log line (`Prepare step <name> set to <command>`, kind `pipeline-prepare-step-set`); a step of the same name is replaced where it stands. The steps run in order, with the network, before the gates. |
+| `gate add <name> [--fix "<command>"] [--in <folder>] [--defined-by <pattern>]… [--network <domain>]… [--writes <path>]… [--overseer-only] [--json] -- <command>` | Add the gate `<name>`, run after the others, or replace a gate of the same name where it stands, with one log line (`Gate <name> set to <command>`, kind `pipeline-gate-added`). The gates run in order through the user's shell in the worktree, `--in` a folder of it, each sandboxed with its own `--network` domains and `--writes` folders. `--defined-by` names the files that define the gate, as git pathspec-style globs: `*` and `?` stay inside one folder, `**` crosses folders, a pattern without an inner `/` matches its name at any depth, one with an inner `/` is anchored at the repository root, and a trailing `/` takes a folder's whole content; the runner's check V11 refuses a job (`checks-definition-changed`) when a commit in its range changes a matching path its ticket body does not name. `--writes` names a folder a gate and a prepare step may write besides the worktree, its git admin folder and temp, absolute or `~/`; a relative one, or one that is, sits in or holds a `bin` folder or a folder on the runner's `PATH`, is refused at exit 1 with nothing written, one that became so after it was stored is left out of the gate's profile, and whatever is stored, the `bin` beside each of its ancestors is not writable. A builder or reviewer gets every gate's `--network` and `--writes` in its own sandbox, and may run unasked the first word of each command in the gate and prepare lines (split outside quotes on `&&`, `\|\|`, `;`, `\|` and parentheses, past a leading `NAME=value`), beside the git verbs it reads and commits with; an `--overseer-only` gate gives it none of these, since only the runner runs it. `--fix` is stored for the later gate runs that act on it; the runner never runs it. |
 | `gate none [--json]` | Store an empty gate list on purpose, with one log line (`No gates, on purpose`, kind `pipeline-gates-none`). Unlike no `pipeline.json` at all, which opens the `checks-not-set` decision and holds new work, it counts as set, and a landing runs no gate. |
 | `gate remove <name> [--json]` | Remove the gate `<name>`, with one log line (`Gate <name> removed`, kind `pipeline-gate-removed`); an unknown name is refused at exit 1 with nothing written (`unknown-gate`). |
 | | Every `gate` write takes the lock, writes `pipeline.json` atomically after `progress.json`, is accepted with tickets in flight and refuses a malformed `pipeline.json` at exit 1 rather than overwrite it. A ticket's row records the content hash of the pipeline it was gated by (`pipelineHash`) at its next gate run, which reads the pipeline afresh. `--json` prints `{ pipeline, pipelineHash }`. |
@@ -454,15 +459,18 @@ holding the ticket and the checks line, confined by the per-job settings: writes
 monitor folder, the worktree's `.claude/`, `packed-refs`, the target refs, every other ticket branch and every other
 worktree's admin folder; reads denied of the runner token, the launch files, the host sockets, `~/.ssh`, `~/.aws` and
 `~/.gnupg` (only its private keys when the gpg-agent socket signs); writes outside the worktree only to its own relay
-folder; a ticket's `network` line its only network. Its closing `result` moves it to `verifying`, the runner closes
-its input and verifies; a verified `built` report is `gating`, the checks line run in a second sandboxed process host,
-network on only for a ticket with a `network` line. On a pass the runner writes the gate cache entry
-`<data>/gates/<key>.json`, replaces the ticket's `## Handoff` with the report's handoff and Acceptance evidence, moves
-the ticket `in-review` and ends the job `built`; the policy then launches the review job in the same hold.
+folder and the gates' `writes`; its ticket's `network` line and the gates' `network` its only network (an
+`overseerOnly` gate's never). Its closing `result` moves it to `verifying`, the runner closes
+its input and verifies; a verified `built` report is `gating`: the prepare steps run again in a process host of
+their own (`gate-prepare`), then each gate in one (`gate-1`, `gate-2`, …), each sandboxed with its own network and
+`writes`, a red one writing its name and output to the job folder's `gate.log`. A review job whose reviewer left the
+tree it was given runs no gate. On a pass the runner replaces the ticket's `## Handoff` with the report's handoff and
+Acceptance evidence, moves the ticket `in-review` and ends the job `built`; the policy then launches the review job in
+the same hold.
 
 | what happens | what the runner does |
 | --- | --- |
-| worktree creation or the install line fails | incident `setup-failed`; the job ends `stopped` |
+| worktree creation, the install line or a gating prepare step fails | incident `setup-failed`; the job ends `stopped` |
 | the session exits without a valid report | a failed pass: `job-ended` `failed`, cause `no-report` |
 | a commit in range carries an attribution trailer | a failed pass, cause `attribution`; the ticket shows the `attribution-found` notice until its next job ends |
 | any other verification refusal, or the gate fails | a failed pass, its cause the refusal reason or `gate-failed` |
@@ -494,7 +502,9 @@ hold, refuses while a merge job holds the slot, when either tip moved since the 
 carries `slot: {target, targetTip, branchTip, phase}` and logs `merge-started`. Each phase is written on the slot in
 its own hold. The merge-in merges the recorded `targetTip`, never the moving name, once, in the ticket's worktree; a
 conflict launches a `merge-agent` job, role `resolver`, which cannot ask and has `RESOLVER_API_CALL_BUDGET` calls. The
-merged tree is gated, then landed by a compare-and-swap fast-forward in the main checkout, logging `merge-landed` and
+merged tree is gated (the prepare steps and gates, each sandboxed as a build's are; not at all when it is the branch's
+own tree and the newest `gate-ran` on it passed, and a failed prepare step opens `setup-failed`), then landed by a
+compare-and-swap fast-forward in the main checkout, logging `merge-landed` and
 delivering the ticket. `git log --first-parent` of the main line therefore runs through ticket branches; the
 `merge-landed` records keep the per-ticket view.
 
@@ -1006,7 +1016,7 @@ record as a sentence; a note's sentence is its text.
 | `checks-definition-files-set` | — | `patterns` (empty when cleared); retired: still read, never logged |
 | `gate-key-command-set` | — | `command` (or `null` when cleared); retired: still read, never logged |
 | `gate-cache-paths-set` | — | `paths` (empty when cleared); retired: still read, never logged |
-| `gate-ran` | — | `tree` (the gated tree's object id), `outcome` (`passed`, `failed`, `cannot-run`), `cached` (true for a cache hit, which ran nothing) |
+| `gate-ran` | — | `tree` (the gated tree's object id), `outcome` (`passed`, `failed`, `cannot-run`), `cached` (always false now that no gate result is kept; true only in older logs) |
 | `dispatcher-set` | — | `state`, `runId` (a run id or `null`) |
 | `tracker-cleared` | — | none |
 | `agent-stopped` | — | below |

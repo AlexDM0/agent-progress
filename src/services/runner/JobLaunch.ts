@@ -19,15 +19,16 @@ import { GitProcess }                                             from '../../li
 import type { GateOutcome, Job, JobKind }                         from '../../lib/tracker-model/@types/Job.ts';
 import type { DecisionDraft, DecisionWording }                    from '../../lib/tracker-model/@types/LifecycleStep.ts';
 import type { LogRecord }                                         from '../../lib/tracker-model/@types/LogRecord.ts';
+import type { Pipeline }                                          from '../../lib/tracker-model/@types/Pipeline.ts';
 import type { Board }                                             from '../../lib/tracker-model/Board.ts';
 import { FRESH_AGENT_CAUSE, STOPPED_BY_USER_CAUSE }               from '../../lib/tracker-model/JobControls.ts';
+import { PipelineUtil }                                           from '../../lib/tracker-model/utils/PipelineUtil.ts';
 import { TicketBodyHashUtil }                                     from '../../lib/tracker-model/utils/TicketBodyHashUtil.ts';
 import { DISPATCH_PROTOCOL }                                      from '../../shared/constants/DispatchProtocol.ts';
 import { LIFECYCLE_LIMITS }                                       from '../../shared/constants/LifecycleLimits.ts';
 import { PRODUCT_NAMES }                                          from '../../shared/constants/ProductNames.ts';
 import { SESSION_STOP_GRACE_MILLISECONDS, WIND_DOWN_GRACE_CALLS } from '../../shared/constants/RunnerLimits.ts';
-import { gateCacheKeyOf, type GateResultCache }                   from '../lifecycle/GateResultCache.ts';
-import { GateRun }                                                from '../lifecycle/GateRun.ts';
+import { type GateConfinement, GateRun }                          from '../lifecycle/GateRun.ts';
 import {
   agentConfigTouchedBeforeLaunch,
   type JobVerificationSubject,
@@ -38,14 +39,15 @@ import {
   VERIFICATION_CHECKS,
   verifyJob
 } from '../lifecycle/JobVerification.ts';
-import { ReviewOutcome }                     from '../lifecycle/ReviewOutcome.ts';
-import type { TrackerChange }                from '../tracker/TrackerPipeline.ts';
-import type { Workspace }                    from '../tracker/Workspace.ts';
-import { GroupWorktrees }                    from './GroupWorktrees.ts';
-import { HostFleet }                         from './HostFleet.ts';
-import type { ProcessHostSandbox }           from './ProcessHostSandbox.ts';
-import { RelayInbox }                        from './RelayInbox.ts';
-import { WorkerProfiles, type SandboxFacts } from './WorkerProfiles.ts';
+import { ReviewOutcome }                                  from '../lifecycle/ReviewOutcome.ts';
+import type { TrackerChange }                             from '../tracker/TrackerPipeline.ts';
+import type { Workspace }                                 from '../tracker/Workspace.ts';
+import type { GateRunSlots }                              from './GateRunSlots.ts';
+import { GroupWorktrees }                                 from './GroupWorktrees.ts';
+import { HostFleet }                                      from './HostFleet.ts';
+import type { ProcessHostSandbox, ProcessSandboxRequest } from './ProcessHostSandbox.ts';
+import { RelayInbox }                                     from './RelayInbox.ts';
+import { WorkerProfiles, type SandboxFacts }              from './WorkerProfiles.ts';
 
 export interface JobLaunchContext {
   workspace:            Workspace;
@@ -58,7 +60,7 @@ export interface JobLaunchContext {
   hostBundlePath:       string;
   codeVersion:          string;
   sandbox:              ProcessHostSandbox;
-  gateCache:            GateResultCache;
+  gateSlots:            GateRunSlots;
   windDownMessage:      string;
   decisionWordingOf:    (draft: DecisionDraft) => DecisionWording;
   log:                  (line: string) => void;
@@ -66,20 +68,30 @@ export interface JobLaunchContext {
 
 export type SetupProgress = 'creating-worktree' | 'worktree-failed' | 'installing' | 'install-failed' | 'installed';
 
-/** The stored lines a gate is run and cached by, each `null` when none is stored. */
-export interface GateLines {
-  checksLine:  string | null;
-  installLine: string | null;
-  keyCommand:  string | null;
-}
+export type GateStepOutcome = GateOutcome | 'setup-failed';
 
 export type GateProgress =
   | { verdict: 'pending' }
-  /** The key command exited 0 and the gate host has yet to end: a verdict of its own, so the pass that spawns the gate host is not skipped. */
-  | { verdict: 'keyed'; treeId: string; keyOutput: string }
-  | { verdict: 'judged'; treeId: string; outcome: GateOutcome; cached: boolean; keyOutput: string | null };
+  /** The step at `stepIndex` of the job's steps has yet to end, or to start while every gate slot of the machine is held. */
+  | { verdict: 'running'; treeId: string; stepIndex: number }
+  /** `step` names the red step, `null` on a pass; `ran` is false when a review left the tree the build's gates passed. */
+  | { verdict: 'judged'; treeId: string; outcome: GateStepOutcome; step: string | null; output: string; ran: boolean };
 
-type GateKeyReading = { verdict: 'pending' } | { verdict: 'cannot-run' } | { verdict: 'read'; keyOutput: string | null };
+/** One host of a job's gate run: the joined prepare steps, or one gate. */
+interface GateStep {
+  kind:        'prepare' | 'gate';
+  name:        string;
+  line:        string;
+  folder:      string;
+  in:          string | null;
+  confinement: GateConfinement;
+}
+
+interface StepVerdict {
+  treeId:  string;
+  outcome: GateStepOutcome;
+  output:  string;
+}
 
 export interface BuildJobObservation {
   jobId:    string;
@@ -103,8 +115,11 @@ const JOB_FILES = {
 } as const;
 
 const INSTALL_HOST_FOLDER = 'install';
-const GATE_HOST_FOLDER = 'gate';
-const GATE_KEY_HOST_FOLDER = 'gate-key';
+const GATE_PREPARE_HOST_FOLDER = 'gate-prepare';
+const GATE_HOST_FOLDER_PREFIX = 'gate-';
+const PREPARE_STEP_NAME = 'prepare';
+const STEP_VERDICT_SUFFIX = '-verdict.json';
+const GATE_LOG_FILE = 'gate.log';
 const PROCESS_HOST_INSTANCE = 1;
 const REVIEW_JOB_KIND = 'review';
 
@@ -194,48 +209,88 @@ function treeOf(worktree: string): string | null {
   return run !== null && GitProcess.succeeded(run) ? run.standardOutput.trim() : null;
 }
 
-/** A key host that did not exit 0, or was lost, leaves the cache key unknowable: the gate cannot run, and nothing is cached. */
-function gateKeyReadingOf(context: JobLaunchContext, job: Readonly<Job>, keyCommand: string | null): GateKeyReading {
-  if (keyCommand === null) return { verdict: 'read', keyOutput: null };
-  const keyHostFolder = join(jobFolderOf(context.workspace, job), GATE_KEY_HOST_FOLDER);
-  const end = processHostEnd(keyHostFolder);
-  if (end === 'pending') return { verdict: 'pending' };
-  if (end === 'lost' || end.reason !== 'exited' || end.exitCode !== 0) return { verdict: 'cannot-run' };
-  const entries = HostFleet.eventsAfter(keyHostFolder, PROCESS_HOST_INSTANCE, 0);
-  if (entries === 'malformed') return { verdict: 'cannot-run' };
-  return { verdict: 'read', keyOutput: GateRun.keyOutputOf(entries.filter((entry) => entry.origin === 'agent').map((entry) => entry.line).join('\n')) };
+function treeOfCommit(worktree: string, commit: string): string | null {
+  const run = GitProcess.run(worktree, ['rev-parse', '--verify', '--quiet', `${commit}^{tree}`]);
+  return GitProcess.succeeded(run) ? run.standardOutput.trim() : null;
 }
 
-function gateProgressOf(context: JobLaunchContext, job: Readonly<Job>, checksLine: string, lines: GateLines): GateProgress {
+/** The prepare steps, joined into one host, then each gate in list order, each in a host folder of its own. */
+function gateStepsOf(pipeline: Readonly<Pipeline>): GateStep[] {
+  const installLine = PipelineUtil.installLineOf(pipeline);
+  const prepare: GateStep[] = installLine === null ? [] : [{
+    kind: 'prepare', name: PREPARE_STEP_NAME, line: installLine, folder: GATE_PREPARE_HOST_FOLDER, in: null, confinement: GateRun.prepareConfinementOf(pipeline.gates),
+  }];
+  return [...prepare, ...pipeline.gates.map((gate, index): GateStep => ({
+    kind: 'gate', name: gate.name, line: gate.run, folder: `${GATE_HOST_FOLDER_PREFIX}${index + 1}`, in: gate.in ?? null, confinement: GateRun.gateConfinementOf(gate),
+  }))];
+}
+
+function hostOutputOf(hostFolder: string): string {
+  const entries = HostFleet.eventsAfter(hostFolder, PROCESS_HOST_INSTANCE, 0);
+  return entries === 'malformed' ? '' : entries.filter((entry) => entry.origin === 'agent').map((entry) => `${entry.line}\n`).join('');
+}
+
+function readStepVerdict(verdictPath: string): StepVerdict | null {
+  try {
+    return JSON.parse(readFileSync(verdictPath, 'utf8')) as StepVerdict;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The step's verdict once its host ended, `null` before. Kept in the job folder as it is first read, so a later gate that changes the tree
+ * never turns an earlier pass red; it is this job's record of its own run, never a result another job reads.
+ */
+function stepVerdictOf(context: JobLaunchContext, job: Readonly<Job>, treeId: string, step: GateStep): StepVerdict | null {
+  const jobFolder   = jobFolderOf(context.workspace, job);
+  const verdictPath = join(jobFolder, `${step.folder}${STEP_VERDICT_SUFFIX}`);
+  const kept        = readStepVerdict(verdictPath);
+  if (kept !== null && kept.treeId === treeId) return kept;
+  const hostFolder = join(jobFolder, step.folder);
+  const end = processHostEnd(hostFolder);
+  if (end === 'pending') return null;
+  const run = { exitCode: end !== 'lost' && end.reason === 'exited' ? end.exitCode : null, signalCode: end === 'lost' ? null : end.signal, output: hostOutputOf(hostFolder) };
+  let verdict: StepVerdict;
+  if (step.kind === 'prepare') {
+    verdict = { treeId, outcome: run.exitCode === 0 ? 'passed' : 'setup-failed', output: run.output };
+  } else {
+    const trackedChanges = GateRun.trackedChangesOf(worktreeOf(context.workspace, job));
+    verdict = { treeId, outcome: GateRun.gateOutcomeOf(run, trackedChanges), output: GateRun.gateErrorOutputOf(run, trackedChanges) };
+  }
+  writeFileSync(verdictPath, `${JSON.stringify(verdict)}\n`);
+  if (verdict.outcome !== 'passed') writeFileSync(join(jobFolder, GATE_LOG_FILE), `${step.name}\n${verdict.output}`);
+  return verdict;
+}
+
+/** A reviewer that committed nothing, or only commits back to the tree it was given, leaves the tree the build's gates passed. */
+function reviewLeftTheTreeAsItWas(context: JobLaunchContext, job: Readonly<Job>, treeId: string): boolean {
+  if (job.kind !== REVIEW_JOB_KIND) return false;
+  const start = readJobStart(jobFolderOf(context.workspace, job));
+  return start !== null && treeOfCommit(worktreeOf(context.workspace, job), start.startCommit) === treeId;
+}
+
+function gateProgressOf(context: JobLaunchContext, job: Readonly<Job>, pipeline: Readonly<Pipeline>): GateProgress {
   const treeId = treeOf(worktreeOf(context.workspace, job));
   if (treeId === null) return { verdict: 'pending' };
-  const keyReading = gateKeyReadingOf(context, job, lines.keyCommand);
-  if (keyReading.verdict === 'pending') return { verdict: 'pending' };
-  if (keyReading.verdict === 'cannot-run') return {
-    verdict: 'judged', treeId, outcome: 'cannot-run', cached: false, keyOutput: null
+  if (reviewLeftTheTreeAsItWas(context, job, treeId)) return {
+    verdict: 'judged', treeId, outcome: 'passed', step: null, output: '', ran: false
   };
-  const { keyOutput } = keyReading;
-  const gateHostFolder = join(jobFolderOf(context.workspace, job), GATE_HOST_FOLDER);
-  const end = processHostEnd(gateHostFolder);
-  if (end === 'pending' || end === 'lost') {
-    const cached = HostFleet.livenessOf(gateHostFolder, PROCESS_HOST_INSTANCE).verdict === 'unclaimed'
-      && context.gateCache.holdsPassOf(gateCacheKeyOf({
-        treeId, checksLine, installLine: lines.installLine, keyOutput
-      }));
-    if (cached) return {
-      verdict: 'judged', treeId, outcome: 'passed', cached: true, keyOutput
+  for (const [stepIndex, step] of gateStepsOf(pipeline).entries()) {
+    const verdict = stepVerdictOf(context, job, treeId, step);
+    if (verdict === null) return { verdict: 'running', treeId, stepIndex };
+    if (verdict.outcome !== 'passed') return {
+      verdict: 'judged', treeId, outcome: verdict.outcome, step: step.name, output: verdict.output, ran: true
     };
-    return keyOutput === null ? { verdict: 'pending' } : { verdict: 'keyed', treeId, keyOutput };
   }
-  const outcome = GateRun.gateOutcomeOf({ exitCode: end.reason === 'exited' ? end.exitCode : null, signalCode: end.signal, output: '' });
   return {
-    verdict: 'judged', treeId, outcome, cached: false, keyOutput
+    verdict: 'judged', treeId, outcome: 'passed', step: null, output: '', ran: true
   };
 }
 
 /** Read outside the lock, for every live build job. */
-function observeBuildJobs(context: JobLaunchContext, jobs: readonly Readonly<Job>[], lines: GateLines): BuildJobObservation[] {
-  const { checksLine, installLine } = lines;
+function observeBuildJobs(context: JobLaunchContext, jobs: readonly Readonly<Job>[], pipeline: Readonly<Pipeline> | null): BuildJobObservation[] {
+  const installLine = pipeline === null ? null : PipelineUtil.installLineOf(pipeline);
   return jobs.filter(isWorktreeJob).map((job) => {
     const liveness = HostFleet.livenessOf(jobFolderOf(context.workspace, job), job.hostInstance);
     return {
@@ -243,7 +298,7 @@ function observeBuildJobs(context: JobLaunchContext, jobs: readonly Readonly<Job
       setup:    job.state === 'preparing' ? setupProgressOf(context, job, installLine) : 'installed',
       ...sessionReadingOf(context, job),
       agentEnd: liveness.verdict === 'ended' ? liveness.end : liveness.verdict === 'lost' ? 'lost' : null,
-      gate:     job.state === 'gating' && checksLine !== null ? gateProgressOf(context, job, checksLine, lines) : { verdict: 'pending' },
+      gate:     job.state === 'gating' && pipeline !== null ? gateProgressOf(context, job, pipeline) : { verdict: 'pending' },
     };
   });
 }
@@ -281,11 +336,10 @@ function bodyWithHandoffOf(body: string, handoffSection: string): string {
 }
 
 interface HoldContext {
-  change:      TrackerChange;
-  context:     JobLaunchContext;
-  checksLine:  string | null;
-  installLine: string | null;
-  logged:      LogRecord[];
+  change:     TrackerChange;
+  context:    JobLaunchContext;
+  checksLine: string | null;
+  logged:     LogRecord[];
 }
 
 function openIncidentFor(hold: HoldContext, job: Readonly<Job>, kind: 'setup-failed' | 'out-of-calls' | 'blocked' | 'gate-cannot-run', facts: Record<string, string>): void {
@@ -408,7 +462,7 @@ function ticketIdsTouchingAgentConfigOf(context: JobLaunchContext, jobs: readonl
 /** In the hold: each observed hit opens its decision once, and holds the ticket until User answered it. */
 function holdAgentConfigHits(change: TrackerChange, context: JobLaunchContext, touchingTicketIds: readonly string[]): { held: string[]; logged: LogRecord[] } {
   const hold: HoldContext = {
-    change, context, checksLine: null, installLine: null, logged: []
+    change, context, checksLine: null, logged: []
   };
   const held = new Set<string>();
   for (const ticketId of touchingTicketIds) {
@@ -426,22 +480,23 @@ function settleGate(hold: HoldContext, job: Readonly<Job>, observation: BuildJob
   const { gate } = observation;
   if (gate.verdict !== 'judged' || hold.checksLine === null) return;
   const { board, at } = hold.change;
-  hold.logged.push(...board.recordGateRan({ tree: gate.treeId, outcome: gate.outcome, cached: gate.cached }, at).logged);
   board.recordPipelineJudgedBy(ticketIdOf(job));
+  if (gate.outcome === 'setup-failed') {
+    openIncidentFor(hold, job, 'setup-failed', { step: PREPARE_STEP_NAME });
+    endJob(hold, job, { outcome: 'stopped', cause: BUILD_JOB_CAUSES.setupFailed });
+    return;
+  }
+  if (gate.ran) hold.logged.push(...board.recordGateRan({ tree: gate.treeId, outcome: gate.outcome, cached: false }, at).logged);
   if (gate.outcome === 'cannot-run') {
-    openIncidentFor(hold, job, 'gate-cannot-run', { tree: gate.treeId });
+    openIncidentFor(hold, job, 'gate-cannot-run', { tree: gate.treeId, gate: gate.step ?? '' });
     endJob(hold, job, { outcome: 'stopped', cause: BUILD_JOB_CAUSES.gateCannotRun });
     return;
   }
   if (gate.outcome === 'failed') {
+    hold.context.log(`The ${gate.step ?? ''} gate of job ${job.id} (#${ticketIdOf(job)}) is red on ${gate.treeId}; its output is in ${GATE_LOG_FILE}.`);
     endJob(hold, job, { outcome: 'failed', cause: BUILD_JOB_CAUSES.gateFailed });
     return;
   }
-  // The runner, never the gate, records the pass, and only once the gate host's `end` is read.
-  const pass = {
-    treeId: gate.treeId, checksLine: hold.checksLine, installLine: hold.installLine, keyOutput: gate.keyOutput
-  };
-  if (!gate.cached) hold.context.gateCache.recordPass(gateCacheKeyOf(pass), pass);
   const headCommit = String(reportFieldOf(observation.report, 'headCommit'));
   if (job.kind === REVIEW_JOB_KIND) {
     const start = readJobStart(jobFolderOf(hold.context.workspace, job));
@@ -517,7 +572,7 @@ function applyObservation(hold: HoldContext, observation: BuildJobObservation): 
 /** In the hold, after the relayed requests and host events, before the policy: so a ticket finished here gets its review job in this hold. */
 function applyBuildJobObservations(change: TrackerChange, context: JobLaunchContext, observations: readonly BuildJobObservation[]): LogRecord[] {
   const hold: HoldContext = {
-    change, context, checksLine: change.board.checksLine(), installLine: change.board.installLine(), logged: []
+    change, context, checksLine: change.board.checksLine(), logged: []
   };
   for (const observation of observations) applyObservation(hold, observation);
   return hold.logged;
@@ -567,21 +622,40 @@ function sandboxFactsFor(context: JobLaunchContext, job: Readonly<Job>, worktree
   });
 }
 
-/** What a process host's profile takes from the board: whether its ticket names a network, and the stored cache paths. */
-interface HostConfinement {
-  network:    boolean;
-  cachePaths: readonly string[];
-}
-
 const PATH_SEPARATOR = ':';
 
-function spawnProcessHost(context: JobLaunchContext, trackerId: string, job: Readonly<Job>, folderName: string, childArgv: readonly string[], confinement: HostConfinement): void {
+/** The profile a gate or prepare step runs under in `worktree`: the step's own network and `writes`, and the job's denies. */
+type SandboxContext = Pick<JobLaunchContext, 'homeDirectory' | 'inheritedEnvironment'>;
+
+function processSandboxRequestOf(context: SandboxContext, facts: SandboxFacts, confinement: GateConfinement): ProcessSandboxRequest {
+  const adminFolder = GitProcess.run(facts.worktree, ['rev-parse', '--absolute-git-dir']);
+  const environment = GateRun.gateEnvironmentOf(launchEnvironmentOf(context.inheritedEnvironment, {}));
+  return {
+    worktree:             facts.worktree,
+    worktreeAdminFolder:  GitProcess.succeeded(adminFolder) ? adminFolder.standardOutput.trim() : null,
+    homeDirectory:        context.homeDirectory,
+    temporaryDirectory:   Object.hasOwn(environment, 'TMPDIR') ? environment['TMPDIR'] ?? null : null,
+    cachePaths:           confinement.writes,
+    executableSearchPath: (context.inheritedEnvironment['PATH'] ?? '').split(PATH_SEPARATOR).filter((folder) => folder !== ''),
+    deniedWritableRoots:  WorkerProfiles.deniedWritableRootsOf(facts),
+    deniedReadableRoots:  WorkerProfiles.deniedReadableRootsOf(facts),
+    network:              confinement.network,
+  };
+}
+
+/** What a process host runs: its argv, its confinement, and a gate's `in` folder, relative to the worktree. */
+interface ProcessHostStep {
+  argv:        readonly string[];
+  confinement: GateConfinement;
+  subfolder:   string | null;
+}
+
+function spawnProcessHost(context: JobLaunchContext, trackerId: string, job: Readonly<Job>, folderName: string, step: ProcessHostStep): void {
+  const { argv: childArgv, confinement, subfolder } = step;
   const jobFolder = jobFolderOf(context.workspace, job);
   const hostFolder = join(jobFolder, folderName);
   if (HostFleet.livenessOf(hostFolder, PROCESS_HOST_INSTANCE).verdict !== 'unclaimed') return;
   const worktree = worktreeOf(context.workspace, job);
-  const facts = sandboxFactsFor(context, job);
-  const adminFolder = GitProcess.run(worktree, ['rev-parse', '--absolute-git-dir']);
   const profilePath = join(hostFolder, JOB_FILES.profile);
   const environment = GateRun.gateEnvironmentOf(launchEnvironmentOf(context.inheritedEnvironment, {}));
   HostFleet.writeProcessLaunchFile({
@@ -592,21 +666,11 @@ function spawnProcessHost(context: JobLaunchContext, trackerId: string, job: Rea
     trackerId,
     monitorFolder:    context.monitorFolder,
     hostCodeVersion:  context.codeVersion,
-    workingDirectory: worktree,
+    workingDirectory: subfolder === null ? worktree : join(worktree, subfolder),
     argv:             context.sandbox.sandboxedArgvOf(profilePath, childArgv),
     environment,
   });
-  writeFileSync(profilePath, context.sandbox.profileTextOf({
-    worktree,
-    worktreeAdminFolder:  GitProcess.succeeded(adminFolder) ? adminFolder.standardOutput.trim() : null,
-    homeDirectory:        context.homeDirectory,
-    temporaryDirectory:   Object.hasOwn(environment, 'TMPDIR') ? environment['TMPDIR'] ?? null : null,
-    cachePaths:           confinement.cachePaths,
-    executableSearchPath: (context.inheritedEnvironment['PATH'] ?? '').split(PATH_SEPARATOR).filter((folder) => folder !== ''),
-    deniedWritableRoots:  WorkerProfiles.deniedWritableRootsOf(facts),
-    deniedReadableRoots:  WorkerProfiles.deniedReadableRootsOf(facts),
-    network:              confinement.network,
-  }));
+  writeFileSync(profilePath, context.sandbox.profileTextOf(processSandboxRequestOf(context, sandboxFactsFor(context, job), confinement)));
   HostFleet.spawnHost({ bundlePath: context.hostBundlePath, jobFolder: hostFolder, instance: PROCESS_HOST_INSTANCE });
   context.log(`Spawned the ${folderName} host of job ${job.id} (#${ticketIdOf(job)})${context.sandbox.isUsable() ? ' under sandbox-exec' : ', unsandboxed'}.`);
 }
@@ -653,34 +717,32 @@ async function deliverBuildJobFrames(request: BuildJobFrameRequest, job: Readonl
 
 /** After the hold and the lease check: what each build job's new state asks of git and the hosts. */
 async function runBuildJobEffects(context: JobLaunchContext, board: Board, trackerId: string, observations: readonly BuildJobObservation[]): Promise<void> {
-  const checksLine = board.checksLine();
-  const installLine = board.installLine();
-  const keyCommand = null;
-  const cachePaths = board.gateWritablePaths();
+  const pipeline = board.pipeline();
+  const installLine = pipeline === null ? null : PipelineUtil.installLineOf(pipeline);
   for (const job of board.jobs().filter(isWorktreeJob)) {
-    const ticket = board.tickets().find((candidate) => candidate.frontmatter.id === ticketIdOf(job));
-    const gateConfinement = { network: (ticket?.frontmatter.network ?? []).length > 0, cachePaths };
     if (job.state === 'preparing') {
       const jobFolder = jobFolderOf(context.workspace, job);
       if (!existsSync(worktreeOf(context.workspace, job)) && !existsSync(join(jobFolder, JOB_FILES.worktreeFailure))) createWorktree(context, job);
-      if (existsSync(worktreeOf(context.workspace, job)) && installLine !== null) {
-        spawnProcessHost(context, trackerId, job, INSTALL_HOST_FOLDER, GateRun.checksLineArgvOf(installLine), { network: true, cachePaths });
+      if (existsSync(worktreeOf(context.workspace, job)) && pipeline !== null && installLine !== null) {
+        const confinement = GateRun.prepareConfinementOf(pipeline.gates);
+        spawnProcessHost(context, trackerId, job, INSTALL_HOST_FOLDER, { argv: GateRun.shellLineArgvOf(installLine), confinement, subfolder: null });
       }
     }
     const calls = observations.find((observation) => observation.jobId === job.id)?.calls ?? 0;
     await deliverBuildJobFrames({ trackerDirectory: context.workspace.trackerDirectory, agentAdapter: context.agentAdapter, windDownMessage: context.windDownMessage }, job, calls);
-    if (job.state === 'gating' && checksLine !== null) {
-      // The key command runs in a host of its own under the gate's profile, never in the runner, and the gate waits for its output.
-      if (keyCommand !== null) spawnProcessHost(context, trackerId, job, GATE_KEY_HOST_FOLDER, GateRun.keyCommandArgvOf(keyCommand), gateConfinement);
-      const keyReading = gateKeyReadingOf(context, job, keyCommand);
-      if (keyReading.verdict !== 'read') continue;
-      const treeId = treeOf(worktreeOf(context.workspace, job));
-      const cached = treeId !== null && context.gateCache.holdsPassOf(gateCacheKeyOf({
-        treeId, checksLine, installLine, keyOutput: keyReading.keyOutput
-      }));
-      if (!cached) spawnProcessHost(context, trackerId, job, GATE_HOST_FOLDER, GateRun.checksLineArgvOf(checksLine), gateConfinement);
-    }
+    if (job.state === 'gating' && pipeline !== null) spawnNextGateStep(context, trackerId, job, pipeline);
   }
+}
+
+/** Read afresh, since the hold may have moved the job into gating this pass; a gate waits for a free slot of the machine, a prepare step never. */
+function spawnNextGateStep(context: JobLaunchContext, trackerId: string, job: Readonly<Job>, pipeline: Readonly<Pipeline>): void {
+  const progress = gateProgressOf(context, job, pipeline);
+  if (progress.verdict !== 'running') return;
+  const step = gateStepsOf(pipeline)[progress.stepIndex];
+  if (step === undefined) return;
+  const hostFolder = join(jobFolderOf(context.workspace, job), step.folder);
+  if (step.kind === 'gate' && !context.gateSlots.tryAcquire(hostFolder)) return;
+  spawnProcessHost(context, trackerId, job, step.folder, { argv: GateRun.shellLineArgvOf(step.line), confinement: step.confinement, subfolder: step.in });
 }
 
 /**
@@ -709,6 +771,7 @@ export const JobLaunch = Object.freeze({
   attributionTicketIdsOf,
   someBuildJobAwaitsAPass,
   sandboxFactsFor,
+  processSandboxRequestOf,
   worktreeOf,
   isWorktreeJob,
   ticketIdsTouchingAgentConfigOf,
