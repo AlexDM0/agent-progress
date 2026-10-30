@@ -1,5 +1,5 @@
 /**
- * One row of filter chips, as `page/chips/` draws and drives it: each chip leads with its lane dot or epic swatch, shows whether it is
+ * One row of filter chips, as the static page drew and drove it: each chip leads with its lane dot or epic swatch, shows whether it is
  * pressed and its count, is marked empty at a count of zero, and hands its value on when clicked. Which chips are pressed and what they
  * count is the caller's, from `ChipFilterUtil`.
  */

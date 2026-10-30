@@ -1,5 +1,5 @@
 /**
- * The Tickets view in a happy-dom document, holding what `page/tickets/` does as behaviour: the table newest first, each id linking to its
+ * The Tickets view in a happy-dom document, holding what the static page's view did as behaviour: the table newest first, each id linking to its
  * detail panel; typing a search narrows the table and marks the match, an id query marking nothing; the type, epic and status chips narrow
  * as OR inside a group and AND across, with their counts; the empty table says what was asked and its Clear restores every row; a header
  * sorts and reverses; grouping by epic is stored under the static page's key; a planted title stays text.

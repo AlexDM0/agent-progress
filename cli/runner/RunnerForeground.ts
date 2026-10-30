@@ -75,7 +75,7 @@ export interface ForegroundRunRequest {
   successorOf?:     number;
 }
 
-type RunnerEnd = { kind: 'stopped'; how: string } | { kind: 'restart' } | { kind: 'taken-over'; refusal: unknown };
+type RunnerEnd = { kind: 'stopped'; how: string; now: boolean } | { kind: 'restart' } | { kind: 'taken-over'; refusal: unknown };
 
 /** One serving period under one lease generation; a handover that failed after the release starts another in the same process. */
 interface Serving {
@@ -156,11 +156,11 @@ function runnerLifetime(request: ForegroundRunRequest, files: RunnerFiles, gener
   const watcher     = watch(files.runnerDirectory, beforeEffectBatch);
   const unsubscribe = request.context.onStopSignal(() => {
     log('Stop signal received.');
-    finish({ kind: 'stopped', how: 'signal' });
+    finish({ kind: 'stopped', how: 'signal', now: false });
   });
   return {
     ended,
-    stopFor:       (how: string) => finish({ kind: 'stopped', how }),
+    stopFor:       (how: string, now: boolean) => finish({ kind: 'stopped', how, now }),
     restart:       () => finish({ kind: 'restart' }),
     takenOver:     (refusal: unknown) => finish({ kind: 'taken-over', refusal }),
     stopWatching:  () => watcher.close(),
@@ -337,7 +337,7 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
             current.lifetime.restart();
             return;
           }
-          current.lifetime.stopFor(command.kind);
+          current.lifetime.stopFor(command.kind, command.now);
         },
       }),
     });
@@ -577,6 +577,10 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
     serving.lifetime.stopWatching();
     serving.watcher.stop();
     await serving.drivePass.idle();
+    if (end.kind === 'stopped' && end.now) {
+      const stoppedHosts = await HostFleet.stopLiveProcessHosts(workspace.trackerDirectory);
+      log(`Stopped ${stoppedHosts} live process host${stoppedHosts === 1 ? '' : 's'}.`);
+    }
     // A host ending after the last pass would otherwise wait for an acknowledgement until the next runner.
     await HostFleet.reapEndedHosts(workspace.trackerDirectory);
     try {
