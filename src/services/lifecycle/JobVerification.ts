@@ -16,20 +16,25 @@ import {
   resolve
 } from 'node:path';
 
-import { BUILDER_REPORT_SCHEMA, RESOLVER_REPORT_SCHEMA, REVIEWER_REPORT_SCHEMA } from '../../adapters/reports/ReportSchemas.ts';
-import { reportVerdictOf, type JsonSchema }                                      from '../../adapters/reports/ReportValidation.ts';
-import { TicketAcceptanceUtil }                                                  from '../../adapters/tickets/utils/TicketAcceptanceUtil.ts';
-import { GitProcess }                                                            from '../../lib/git/GitProcess.ts';
-import type { JobOutcome }                                                       from '../../lib/tracker-model/@types/Job.ts';
-import type { LogRecord }                                                        from '../../lib/tracker-model/@types/LogRecord.ts';
-import type { PipelineGate }                                                     from '../../lib/tracker-model/@types/Pipeline.ts';
-import { TicketBodyHashUtil }                                                    from '../../lib/tracker-model/utils/TicketBodyHashUtil.ts';
-import { PRODUCT_NAMES }                                                         from '../../shared/constants/ProductNames.ts';
+import {
+  BUILDER_REPORT_SCHEMA,
+  ONBOARDER_REPORT_SCHEMA,
+  RESOLVER_REPORT_SCHEMA,
+  REVIEWER_REPORT_SCHEMA
+} from '../../adapters/reports/ReportSchemas.ts';
+import { reportVerdictOf, type JsonSchema } from '../../adapters/reports/ReportValidation.ts';
+import { TicketAcceptanceUtil }             from '../../adapters/tickets/utils/TicketAcceptanceUtil.ts';
+import { GitProcess }                       from '../../lib/git/GitProcess.ts';
+import type { JobOutcome }                  from '../../lib/tracker-model/@types/Job.ts';
+import type { LogRecord }                   from '../../lib/tracker-model/@types/LogRecord.ts';
+import type { PipelineGate }                from '../../lib/tracker-model/@types/Pipeline.ts';
+import { TicketBodyHashUtil }               from '../../lib/tracker-model/utils/TicketBodyHashUtil.ts';
+import { PRODUCT_NAMES }                    from '../../shared/constants/ProductNames.ts';
 
 /** A fixer is a builder one attempt on, and is verified as one. */
-export type VerifiedRole = 'builder' | 'reviewer' | 'resolver' | 'merge-fix' | 'resolution-review';
+export type VerifiedRole = 'builder' | 'reviewer' | 'resolver' | 'merge-fix' | 'resolution-review' | 'onboarder';
 
-export type VerificationCheck = 'V1' | 'V2' | 'V3' | 'V4' | 'V5' | 'V6' | 'V7' | 'V8' | 'V9' | 'V10' | 'V11' | 'V12' | 'V13' | 'V14' | 'V15';
+export type VerificationCheck = 'V1' | 'V2' | 'V3' | 'V4' | 'V5' | 'V6' | 'V7' | 'V8' | 'V9' | 'V10' | 'V11' | 'V12' | 'V13' | 'V14' | 'V15' | 'V16';
 
 export type VerificationRefusalReason =
   | 'report-invalid'
@@ -49,6 +54,7 @@ export type VerificationRefusalReason =
   | 'branch-touches-agent-config'
   | 'foreign-ref-moved'
   | 'gate-unclaimed'
+  | 'head-moved'
   | 'git-failed';
 
 export interface MergeUnderVerification {
@@ -131,6 +137,7 @@ const REPORT_SCHEMA_OF_ROLE: Readonly<Record<VerifiedRole, JsonSchema>> = {
   'resolver':          RESOLVER_REPORT_SCHEMA,
   'merge-fix':         RESOLVER_REPORT_SCHEMA,
   'resolution-review': RESOLVER_REPORT_SCHEMA,
+  'onboarder':         ONBOARDER_REPORT_SCHEMA,
 };
 
 function refused(reason: VerificationRefusalReason, facts: readonly string[] = []): CheckVerdict {
@@ -348,10 +355,12 @@ function filingIsThisJobsLowFinding(records: readonly LogRecord[], jobId: string
     && (record.fields.findingRoute === 'orchestrator' || record.fields.findingRoute === 'user'));
 }
 
+/** A reviewer's filed findings and an onboarder's optimisations, each a draft low ticket this job filed through its Hatch. */
 function filedFindingsWereFiledByThisJob(subject: JobVerificationSubject): CheckVerdict {
   const records = subject.logRecords ?? [];
   const jobId = subject.jobId ?? '';
-  const unproven = reportListOf(subject.report, 'findings').filter((finding) => finding['outcome'] === 'filed').flatMap((finding) => {
+  const filed = [...reportListOf(subject.report, 'findings').filter((finding) => finding['outcome'] === 'filed'), ...reportListOf(subject.report, 'optimisations')];
+  const unproven = filed.flatMap((finding) => {
     const namedTicketId = typeof finding['filedTicketId'] === 'string' ? finding['filedTicketId'] : null;
     const requestId = typeof finding['relayRequestId'] === 'string' ? finding['relayRequestId'] : null;
     const ticketId = namedTicketId ?? (requestId === null ? null : ticketIdFiledByRequest(records, jobId, requestId));
@@ -485,6 +494,13 @@ export function refMovesAllowedOf(logRecords: readonly LogRecord[], naming: Over
   };
 }
 
+/** The onboarder reads a snapshot and changes nothing in it: a commit, even one on top of the start, moved its HEAD. */
+function headUnmoved(subject: JobVerificationSubject): CheckVerdict {
+  const headCommit = GitProcess.resolvedCommitOf(subject.worktreePath, 'HEAD');
+  if (headCommit === null) return refused('git-failed', ['HEAD']);
+  return headCommit === subject.startCommit ? PASSED : refused('head-moved', [subject.startCommit, headCommit]);
+}
+
 export const VERIFICATION_CHECKS: Readonly<Record<VerificationCheck, VerificationCheckRun>> = {
   V1:  reportIsValidWithItsHead,
   V2:  headDescendsFromTheStart,
@@ -501,6 +517,7 @@ export const VERIFICATION_CHECKS: Readonly<Record<VerificationCheck, Verificatio
   V13: agentConfigUntouched,
   V14: onlyOwnRefsMoved,
   V15: everyAgentGateClaimedOnHead,
+  V16: headUnmoved,
 };
 
 /** The design's table, column by column, in check order. */
@@ -510,6 +527,7 @@ export const CHECKS_OF_ROLE: Readonly<Record<VerifiedRole, readonly Verification
   'resolver':          ['V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V10', 'V11', 'V13', 'V14'],
   'merge-fix':         ['V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V10', 'V11', 'V13', 'V14'],
   'resolution-review': ['V1', 'V2', 'V4', 'V5', 'V6', 'V7', 'V10', 'V11', 'V13', 'V14'],
+  'onboarder':         ['V1', 'V16', 'V4', 'V5', 'V12', 'V13', 'V14'],
 };
 
 /** V13 before a launch on the branch, resumes included: the branch's own commits past its target, and the worktree as it stands. */
