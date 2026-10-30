@@ -15,6 +15,7 @@ import {
   finishedJobRecords,
   interruptedRecord,
   launchedRecord,
+  ticketRecord,
   endedRecord,
   ticketOf
 } from './testing/LifecycleFixtures.ts';
@@ -64,7 +65,7 @@ describe('a review that does not hold', () => {
     expect(LifecyclePolicy.handoffCycleResumesOf({ kind: 'build', ticketIds: ['001'], attempt: 1 }, withRed)).toBe(2);
   });
 
-  test('parks the ticket once the review goes one past the resumes left, launching nothing', () => {
+  test('parks the ticket once the review goes one past the resumes left, and an unhold starts a fresh attempt', () => {
     const records = [
       ...finishedJobRecords('J1', 'build', '001', 'built'),
       ...finishedJobRecords('R1', 'review', '001', 'does-not-hold'),
@@ -77,5 +78,9 @@ describe('a review that does not hold', () => {
     const limits = { ...FIXTURE_LIMITS, FAILED_PASSES_BEFORE_PARKING: 3 };
     const steps = LifecyclePolicy.nextStepsOf(factsWith({ tickets: [ticketOf('001', 'in-progress')], logRecords: records }), limits);
     expect(steps).toEqual([{ kind: 'park', ticketId: '001', cause: 'red-resumes-spent' }]);
+    const unheld = [...records, ticketRecord('ticket-unheld', '001')];
+    expect(LifecyclePolicy.nextStepsOf(factsWith({ tickets: [ticketOf('001', 'in-progress')], logRecords: unheld }), limits)).toEqual([{
+      kind: 'launch-build', ticketId: '001', attempt: 2, base: 'main'
+    }]);
   });
 });

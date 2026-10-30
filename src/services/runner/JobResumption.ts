@@ -88,17 +88,20 @@ function lastEndedPredecessorOf(logRecords: readonly LogRecord[], job: Readonly<
 }
 
 /**
- * The job whose session a build job carries on: a build after one that ended `built` was sent back by its review, and resumes that
+ * The job whose session a build job carries on: a build of the same attempt after one that ended `built` was sent back by its review, and resumes that
  * builder's session (itself perhaps carried on from an earlier one) with the review's findings. The job itself for every other job.
  */
 function sessionOwnerJobIdOf(logRecords: readonly LogRecord[], job: Readonly<Job>): string {
   if (job.kind !== 'build') return job.id;
   const sessionOwnerByJobId = new Map<string, string>();
+  const attemptByJobId = new Map<string, number>();
   let newestEnded: { jobId: string; outcome: string } | null = null;
   for (const record of logRecords) {
     if (record.kind === 'job-launched' && record.fields.kind === 'build' && record.fields.ticketIds.some((ticketId) => job.ticketIds.includes(ticketId))) {
-      const carriesOn = newestEnded?.outcome === 'built' ? sessionOwnerByJobId.get(newestEnded.jobId) : undefined;
+      const sameAttempt = newestEnded !== null && attemptByJobId.get(newestEnded.jobId) === record.fields.attempt;
+      const carriesOn = sameAttempt && newestEnded?.outcome === 'built' ? sessionOwnerByJobId.get(newestEnded.jobId) : undefined;
       sessionOwnerByJobId.set(record.jobId, carriesOn ?? record.jobId);
+      attemptByJobId.set(record.jobId, record.fields.attempt);
     }
     if (record.kind === 'job-ended' && sessionOwnerByJobId.has(record.jobId)) newestEnded = { jobId: record.jobId, outcome: record.fields.outcome };
   }

@@ -148,6 +148,11 @@ describe('the session a build job carries on', () => {
     expect(JobResumption.sessionOwnerJobIdOf(secondRound, buildJob({ id: 'J3' }))).toBe('J1');
   });
 
+  test('is the job itself when it starts a new attempt, as after an unhold', () => {
+    const nextAttempt: LogRecord = { ...launched('J2', 'build', ['001']), fields: { ...launched('J2', 'build', ['001']).fields, attempt: 2 } } as LogRecord;
+    expect(JobResumption.sessionOwnerJobIdOf([...builtThenSentBack, nextAttempt], buildJob({ id: 'J2', attempt: 2 }))).toBe('J2');
+  });
+
   test('is the job itself after a replaced or failed build, and for a reviewer', () => {
     const afterReplaced = [launched('J1', 'build', ['001']), ended('J1', 'replaced'), launched('J2', 'build', ['001'])];
     expect(JobResumption.sessionOwnerJobIdOf(afterReplaced, buildJob())).toBe('J2');

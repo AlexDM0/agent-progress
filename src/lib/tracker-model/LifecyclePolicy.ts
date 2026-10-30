@@ -194,11 +194,15 @@ function redHandoffResumesOf(job: Readonly<Job>, facts: LifecycleFacts): number 
   return handoffCycleResumesOf(job, facts.logRecords);
 }
 
-/** The ticket's newest ended build job was `built`: its review sent it back, and that builder's session is resumed with the findings. */
+/**
+ * The ticket's newest ended build job was `built`: its review sent it back, and that builder's session is resumed with the findings.
+ * An unhold since then starts a fresh attempt instead, so a ticket parked past its resumes does not park again.
+ */
 function builderReturnsFromReview(ticketId: string, facts: LifecycleFacts): boolean {
   const launches = jobLaunchesByJobIdOf(facts.logRecords);
   let returns = false;
   for (const record of facts.logRecords) {
+    if (record.kind === 'ticket-unheld' && record.ticketId === ticketId) returns = false;
     if (record.kind !== 'job-ended') continue;
     const launch = launches.get(record.jobId);
     if (launch?.kind === 'build' && launch.ticketIds.includes(ticketId)) returns = record.fields.outcome === 'built';
