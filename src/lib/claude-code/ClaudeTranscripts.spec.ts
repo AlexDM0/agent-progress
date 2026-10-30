@@ -2,8 +2,8 @@
  * The slug rule and the workflow layout decide which paths are found, and the listing refuses what is not a subagent transcript. Every
  * listed transcript is a constructed empty file, as the claim is about paths only. Reading one gives its text, or nothing when it is gone.
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { join }                     from 'node:path';
+import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
+import { join }                                from 'node:path';
 
 import {
   afterEach,
@@ -16,11 +16,16 @@ import {
 import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
 import {
   agentDescriptionBeside,
+  listSessionSubagentTranscripts,
   listSubagentTranscripts,
   transcriptFolderFor,
   transcriptTextAt,
   workflowRunIdentifierOf
 }                                                         from './ClaudeTranscripts.ts';
+
+const WRITE_AND_SEARCH_ONLY_MODE = 0o300;
+
+const OWNER_FULL_ACCESS_MODE = 0o700;
 
 let scratchDirectory = '';
 
@@ -122,6 +127,36 @@ describe('the subagent transcripts under a folder', () => {
     createTranscript(join('session-one', 'other', 'agent-alpha.jsonl'));
 
     expect(listSubagentTranscripts(scratchDirectory)).toEqual([]);
+  });
+});
+
+describe('one session\'s subagent transcripts', () => {
+  test('are its plain and workflow agents sorted by path, and no other session\'s', () => {
+    createTranscript(join('session-one', 'subagents', 'workflows', 'run-one', 'agent-beta.jsonl'));
+    createTranscript(join('session-one', 'subagents', 'agent-alpha.jsonl'));
+    createTranscript(join('session-one', 'subagents', 'workflows', 'run-one', 'journal.jsonl'));
+    createTranscript(join('session-two', 'subagents', 'agent-gamma.jsonl'));
+
+    const found = listSessionSubagentTranscripts(scratchDirectory, 'session-one');
+
+    expect(found.map((transcript) => transcript.agentIdentifier)).toEqual(['alpha', 'beta']);
+    expect(found.map((transcript) => transcript.sessionIdentifier)).toEqual(['session-one', 'session-one']);
+  });
+
+  /** A transcript folder that refuses listing but allows passing through proves the session folder is reached by name, never by scanning siblings. */
+  test('never list the transcript folder itself, so no sibling session is read', () => {
+    createTranscript(join('session-one', 'subagents', 'agent-alpha.jsonl'));
+    chmodSync(scratchDirectory, WRITE_AND_SEARCH_ONLY_MODE);
+    try {
+      expect(listSubagentTranscripts(scratchDirectory), 'the whole-folder listing needs the folder read').toEqual([]);
+      expect(listSessionSubagentTranscripts(scratchDirectory, 'session-one').map((transcript) => transcript.agentIdentifier)).toEqual(['alpha']);
+    } finally {
+      chmodSync(scratchDirectory, OWNER_FULL_ACCESS_MODE);
+    }
+  });
+
+  test('a session that is not there is an empty list', () => {
+    expect(listSessionSubagentTranscripts(scratchDirectory, 'never-created')).toEqual([]);
   });
 });
 

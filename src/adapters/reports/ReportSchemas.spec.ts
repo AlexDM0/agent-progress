@@ -54,6 +54,8 @@ const RESOLVED = {
   role: 'resolver', outcome: 'resolved', headCommit: HEAD, resolvedFiles: ['cli/Main.ts'], semanticChanges: [], notes: '', reportKind: null
 };
 
+const ITEM_NAMED_BY_ITS_TEXT = { ...BUILT, acceptance: [{ item: 'A1. The palette names a colour.', state: 'met', evidence: 'palette.txt line 1' }] };
+
 const REPORT_TABLE: ReadonlyArray<[name: string, schema: JsonSchema, report: unknown, valid: boolean]> = [
   ['a built builder report', BUILDER_REPORT_SCHEMA, BUILT, true],
   ['a blocked builder report with its reason', BUILDER_REPORT_SCHEMA, { ...BUILT, outcome: 'blocked', blockedReason: 'The worktree is gone.' }, true],
@@ -64,7 +66,14 @@ const REPORT_TABLE: ReadonlyArray<[name: string, schema: JsonSchema, report: unk
   ['a builder report without gate claims', BUILDER_REPORT_SCHEMA, Object.fromEntries(Object.entries(BUILT).filter(([field]) => field !== 'gates')), false],
   ['a builder report claiming a gate on a short commit', BUILDER_REPORT_SCHEMA, { ...BUILT, gates: [{ name: 'tests', commit: 'abc123' }] }, false],
   ['an acceptance evidence over 300 characters', BUILDER_REPORT_SCHEMA, { ...BUILT, acceptance: [{ item: 'A1', state: 'met', evidence: 'x'.repeat(301) }] }, false],
+  ['an acceptance item named by its text rather than its label', BUILDER_REPORT_SCHEMA, ITEM_NAMED_BY_ITS_TEXT, false],
   ['a reviewer report with a fixed and a queued filed finding', REVIEWER_REPORT_SCHEMA, REVIEWED, true],
+  ['a claim naming its item by its text rather than its label', REVIEWER_REPORT_SCHEMA, {
+    ...REVIEWED,
+    claims: [{
+      item: 'A1. The palette names a colour.', result: 'holds', handoffContradicted: false, note: ''
+    }]
+  }, false],
   ['a filed finding naming its ticket', REVIEWER_REPORT_SCHEMA, {
     ...REVIEWED,
     findings: [{

@@ -1,8 +1,8 @@
 /**
  * The Overseer's live events for `GET /api/events`: each id is `<generation>-<n>`, kept in a bounded replay buffer, so a reconnect whose
  * `Last-Event-ID` is of this generation and still buffered gets the events after it, and any other gets a fresh `board` first. A state
- * published after a pass is diffed against the last one: `board` when anything changed, and one event per changed job, decision or
- * incident, and for the Overseer and usage.
+ * published after a pass is diffed against the last one: `board` when anything changed, and one event per changed job, newly ended job,
+ * decision or incident, and for the Overseer and usage.
  */
 import type { BoardState } from './BoardState.ts';
 
@@ -59,6 +59,7 @@ export function createEventBroker(generation: number): EventBroker {
     lastStateText = stateText;
     if (previous !== null) {
       for (const job of changedItemsOf(previous.jobs, state.jobs)) send('job', job);
+      for (const endedJob of changedItemsOf(previous.endedJobs, state.endedJobs)) send('job', endedJob);
       for (const decision of changedItemsOf(previous.decisions, state.decisions)) send('decision', decision);
       for (const incident of changedItemsOf(previous.incidents, state.incidents)) send('incident', incident);
       if (JSON.stringify(previous.overseer) !== JSON.stringify(state.overseer)) send('overseer', state.overseer);

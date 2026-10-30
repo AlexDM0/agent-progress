@@ -396,6 +396,22 @@ function launchStepsOf(facts: LifecycleFacts, ticketIdsSettledThisPass: Readonly
     .map((candidate) => candidate.step);
 }
 
+function mergeRefusalAwaitsUser(ticketId: string, facts: LifecycleFacts): boolean {
+  return facts.decisions.some((decision) => decision.kind === 'merge-refused' && decision.ticketIds.includes(ticketId));
+}
+
+/**
+ * Without a review phase only a gate's settling queues a build to land, so a ticket already in review when the phase went is queued here;
+ * a refused merge took it out of the queue for User, so it waits for the answer.
+ */
+function mergeQueueStepsOf(facts: LifecycleFacts, ticketIdsSettledThisPass: ReadonlySet<string>): LifecycleStep[] {
+  if (facts.reviewIsSet) return [];
+  return facts.tickets
+    .filter((ticket) => ticket.status === 'in-review' && !ticketIsHeld(ticket, facts) && !ticketHasAJob(ticket.id, facts) && !ticketIdsSettledThisPass.has(ticket.id))
+    .filter((ticket) => !mergeRefusalAwaitsUser(ticket.id, facts))
+    .map((ticket): LifecycleStep => ({ kind: 'queue-merge', ticketId: ticket.id, target: targetOf(ticket, facts.observations) }));
+}
+
 function turnIsClosed(incident: Readonly<Incident>, facts: LifecycleFacts): boolean {
   const turn = incident.deliveredInTurn;
   if (turn === null) return false;
@@ -465,7 +481,8 @@ function nextStepsOf(facts: LifecycleFacts, limits: LifecycleLimits): LifecycleS
   const parkSteps    = parkStepsOf(facts, limits);
   const jobLostSteps = jobLostStepsOf(facts, limits);
   steps.push(...parkSteps, ...jobLostSteps);
-  if (!newWorkIsHeld) steps.push(...launchStepsOf(facts, new Set([...parkSteps, ...jobLostSteps].flatMap(ticketIdsOfStep))));
+  const ticketIdsSettledThisPass = new Set([...parkSteps, ...jobLostSteps].flatMap(ticketIdsOfStep));
+  if (!newWorkIsHeld) steps.push(...mergeQueueStepsOf(facts, ticketIdsSettledThisPass), ...launchStepsOf(facts, ticketIdsSettledThisPass));
   steps.push(...incidentDefaultStepsOf(facts, noOrchestratorCanComeUp, orchestratorIsRunning));
   return steps;
 }

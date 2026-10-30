@@ -895,7 +895,9 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     const settled = observe(request, jobLaunchContext);
     // An event a Watcher logged after this pass read its events is unapplied work, never a settled state an unforced wake may skip.
     lastFingerprint = settled.hosts.some((host) => host.events.length > 0) ? null : settled.fingerprint;
-    if (JobLaunch.someBuildJobAwaitsAPass(written.board, settled.buildJobs)) {
+    // A job the merge sweep launched after this pass spawned hosts needs one more pass, which its settled fingerprint would skip.
+    const jobIdsThisPassSaw = new Set(written.board.jobs().map((job) => job.id));
+    if (JobLaunch.someBuildJobAwaitsAPass(written.board, settled.buildJobs) || settled.hosts.some((host) => !jobIdsThisPassSaw.has(host.jobId))) {
       forcedNext = true;
       wokenAgain = true;
     }

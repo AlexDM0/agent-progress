@@ -28,6 +28,9 @@ const TEXT: JsonSchema = { type: 'string' };
 
 const NULLABLE_TEXT: JsonSchema = { type: ['string', 'null'] };
 
+/** An Acceptance item's label, `A1`, never its text: verification matches a report's items to the ticket's labels exactly. */
+const ACCEPTANCE_LABEL: JsonSchema = { type: 'string', pattern: '^A\\d+$' };
+
 function closedObject(properties: Readonly<Record<string, JsonSchema>>, required: readonly string[] = Object.keys(properties)): JsonSchema {
   return {
     type: 'object', properties, required, additionalProperties: false
@@ -50,7 +53,7 @@ export const BUILDER_REPORT_SCHEMA: JsonSchema = {
     outcome:    { enum: ['built', 'blocked', 'cannot-build', 'wound-down'] },
     headCommit: COMMIT_SHA,
     acceptance: listOf(closedObject({
-      item:         TEXT,
+      item:         ACCEPTANCE_LABEL,
       state:        { enum: ['met', 'waiver-proposed'] },
       evidence:     SHORT_NOTE,
       waiverReason: TEXT,
@@ -94,7 +97,7 @@ export const REVIEWER_REPORT_SCHEMA: JsonSchema = {
     role:       { const: 'reviewer' },
     headCommit: COMMIT_SHA,
     claims:     listOf(closedObject({
-      item: TEXT, result: { enum: REVIEW_CLAIM_RESULTS }, handoffContradicted: { type: 'boolean' }, note: SHORT_NOTE
+      item: ACCEPTANCE_LABEL, result: { enum: REVIEW_CLAIM_RESULTS }, handoffContradicted: { type: 'boolean' }, note: SHORT_NOTE
     })),
     findings:   listOf({ oneOf: [FIXED_FINDING, FILED_FINDING] }),
     reviewText: TEXT,

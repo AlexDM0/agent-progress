@@ -72,6 +72,55 @@ describe('BoardStateAssembly.questionHistoryOf', () => {
   });
 });
 
+describe('BoardStateAssembly.endedJobsOf', () => {
+  test('answers each ended job with its launch and newest ending, oldest first, a reopened job once in its newest ending\'s place', () => {
+    const records = [
+      {
+        kind:   'job-launched',
+        at:     '2026-10-29T20:00:00+01:00',
+        jobId:  'J1',
+        fields: {
+          kind: 'orchestrator', role: 'orchestrator', ticketIds: [], attempt: 1, target: null, parentJobId: null
+        }
+      },
+      {
+        kind:   'job-launched',
+        at:     '2026-10-29T20:00:01+01:00',
+        jobId:  'J5',
+        fields: {
+          kind: 'merge', role: null, ticketIds: ['001'], attempt: 1, target: 'main', parentJobId: null
+        }
+      },
+      {
+        kind: 'job-ended', at: '2026-10-29T20:00:02+01:00', jobId: 'J1', fields: { outcome: 'stopped', cause: 'runner-stopped' }
+      },
+      {
+        kind: 'job-ended', at: '2026-10-29T20:00:03+01:00', jobId: 'J5', fields: { outcome: 'landed', commit: 'c0ffee' }
+      },
+      {
+        kind: 'job-ended', at: '2026-10-29T20:00:04+01:00', jobId: 'J1', fields: { outcome: 'stopped' }
+      },
+    ] as unknown as Parameters<typeof BoardStateAssembly.endedJobsOf>[0];
+    expect(BoardStateAssembly.endedJobsOf(records)).toEqual([
+      {
+        id: 'J5', kind: 'merge', role: null, ticketIds: ['001'], target: 'main', attempt: 1, state: 'ended', outcome: 'landed', cause: null, endedAt: '2026-10-29T20:00:03+01:00'
+      },
+      {
+        id:        'J1',
+        kind:      'orchestrator',
+        role:      'orchestrator',
+        ticketIds: [],
+        target:    null,
+        attempt:   1,
+        state:     'ended',
+        outcome:   'stopped',
+        cause:     null,
+        endedAt:   '2026-10-29T20:00:04+01:00'
+      },
+    ]);
+  });
+});
+
 describe('BoardStateAssembly.summaryOf', () => {
   test('answers summaryVersion 1 exactly as the fixture holds it', () => {
     const fixture: unknown = JSON.parse(readFileSync(SUMMARY_FIXTURE_PATH, 'utf8'));
