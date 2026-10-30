@@ -40,6 +40,11 @@ function textIsPresent(value: unknown): value is string {
   return typeof value === 'string' && value.trim() !== '';
 }
 
+/** A gate's writable folder is absolute or home-relative: a relative one would resolve against wherever the runner runs. */
+function writablePathIsWellFormed(path: string): boolean {
+  return path.startsWith('/') || path.startsWith('~/');
+}
+
 function textListOf(value: unknown, path: string): Mapped<string[] | undefined> {
   if (value === undefined) return { value: undefined };
   if (!Array.isArray(value) || !value.every(textIsPresent)) return problemOf(`${path} is not a list of non-blank texts`);
@@ -85,6 +90,7 @@ function gateOf(value: unknown, path: string): Mapped<PipelineGate> {
     if ('problem' in texts) return texts;
     if (texts.value !== undefined) gate[key] = texts.value;
   }
+  if (gate.writes !== undefined && !gate.writes.every(writablePathIsWellFormed)) return problemOf(`${path}.writes holds a folder that is not absolute or ~/`);
   if (overseerOnly === true) gate.overseerOnly = true;
   return { value: gate };
 }
@@ -178,4 +184,4 @@ function contentsOf(pipeline: Readonly<Pipeline>): string {
   return JsonTextUtil.storedFileTextOf('value' in mapped ? mapped.value : pipeline);
 }
 
-export const PipelineFile = Object.freeze({ read, contentsOf });
+export const PipelineFile = Object.freeze({ read, contentsOf, writablePathIsWellFormed });

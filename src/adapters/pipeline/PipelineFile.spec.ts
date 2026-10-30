@@ -86,4 +86,5 @@ test('a name given twice, or a field of the wrong shape, is refused with a reaso
   expect(reasonOf({ gates: [{ name: 'test', run: 'bun test', definedBy: 'package.json' }] })).toBe('gates[0].definedBy is not a list of non-blank texts');
   expect(reasonOf({ gates: [{ name: 'test', run: 'bun test', overseerOnly: false }] })).toBe('gates[0].overseerOnly is present and is not true');
   expect(reasonOf([])).toBe('the document is not a JSON object');
+  expect(reasonOf({ gates: [{ name: 'test', run: 'bun test', writes: ['~/.cache/example', 'cache'] }] })).toBe('gates[0].writes holds a folder that is not absolute or ~/');
 });

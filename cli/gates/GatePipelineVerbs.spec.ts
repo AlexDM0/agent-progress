@@ -3,7 +3,13 @@
  * log; the verbs are the file's writers, through the lock, accepted with a ticket in flight; a malformed file is refused, never overwritten,
  * and a refused write leaves the progress file, the pipeline and the log as they were.
  */
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync
+} from 'node:fs';
+import { join } from 'node:path';
 
 import {
   afterEach,
@@ -116,6 +122,26 @@ describeWhenGitIsPresent('the gate pipeline verbs', () => {
       expect(refused.context.errorText()).toContain('gates[0] has no name');
     }
     expect(storedFiles()).toEqual(malformedBefore);
+  });
+
+  test.each([
+    ['~/.bun, which holds a bin folder', '~/.bun', 'holds a bin folder'],
+    ['~/.bun/bin, a bin folder', '~/.bun/bin', 'holds a bin folder'],
+    ['a folder holding one on PATH', '~/.local', 'folder on PATH'],
+    ['a folder inside one on PATH', '/opt/example-tools/bin-cache', 'folder on PATH'],
+    ['a relative path', 'cache', 'absolute or ~/ folder'],
+  ])('gate add --writes refuses %s at exit 1 and writes nothing', async (_case, path, named) => {
+    mkdirSync(join(repositoryDirectory, 'spec-home', '.bun', 'bin'), { recursive: true });
+    const before  = storedFiles();
+    const context = createCapturedCommandContext({
+      currentDirectory:     repositoryDirectory,
+      now:                  () => FROZEN_NOW,
+      executableSearchPath: [join(repositoryDirectory, 'spec-home', '.local', 'bin'), '/opt/example-tools'],
+    });
+
+    expect(await runCommandLineWithRunnerMoves(['gate', 'add', 'test', '--writes', '~/.bun/install/cache', '--writes', path, '--', 'bun test'], context)).toBe(1);
+    expect(context.errorText()).toContain(named);
+    expect(storedFiles()).toEqual(before);
   });
 
   test('a command missing after -- is refused with the usage', async () => {
