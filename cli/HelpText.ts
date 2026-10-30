@@ -23,8 +23,8 @@ ${ROOT_OVERRIDE_VARIABLE} names the repository to use instead of walking up from
 command but init, update, render, open, hook and help, prints one JSON document on standard output
 in place of the human output.
 
-\`status\`, \`ticket add\`, every ticket or task move (\`ticket claim\` and \`task add --start\` among
-them), \`ticket depends\`, \`priority\`, \`agent\`, \`hold\` and \`unhold\`, and \`release\` end their
+\`status\`, \`ticket add\`, every ticket or task move (\`task add --start\` among them), \`ticket
+depends\`, \`priority\`, \`agent\`, \`hold\` and \`unhold\` end their
 output with one line read from the board after the change: \`Next: 1 of 2 slots free; ready: #003, #005\`, \`Next: no slot
 free (2 agents in flight); ready: #003\` or \`Next: 2 of 2 slots free; nothing ready\` — at most five
 ready ids, then \`and N more\`; a held ready ticket is left out and named apart, \`; held: #002\` —
@@ -36,54 +36,46 @@ picks the change up at its next agent's return and is never stopped or relaunche
 output never carries either.
 
   init                        Create the tracker here: \`${PRODUCT_NAMES.DATA_FOLDER}/\` with an empty progress
-      [--project <name>]      file and log, a \`tickets/\` folder and \`agent-brief.md\` — the brief to fill in
-      [--root <path>]         before spawning an implementing agent — a \`.gitignore\` entry for it,
-      [--no-claude-md]        a managed block in the repository's CLAUDE.md telling an agent to track
-      [--no-hooks]            its work through this tool, the three hooks below, and the
-      [--no-workflow]         dispatcher workflow at \`${PRODUCT_NAMES.DATA_FOLDER}/agent-progress-dispatch.js\`,
-      [--no-agent-definition] generated from this tool's dispatcher, and the Claude Code agent
-                              definition \`.claude/agents/agent-progress-worker.md\`, whose
-                              frontmatter sets the default model and effort for builders and
-                              reviewers (opus, medium). Beside the brief go the builder and review
-                              briefs and \`reference.md\` (the ticket format, the moves and the exit
-                              codes, which the briefs cite), and two skills go into
-                              \`.claude/skills/\`: ${PRODUCT_NAMES.PRODUCT_OWNER_SKILL}, which a session asked to file a ticket
-                              loads, and ${PRODUCT_NAMES.ORCHESTRATE_SKILL}, for the session running the
-                              board, which loads ${PRODUCT_NAMES.PRODUCT_OWNER_SKILL} for intake. Refused when an ancestor
-                              already holds a tracker, when --root is not an existing directory,
-                              and inside a bare repository, which has no working tree to track.
-                              Re-running only refreshes what \`update\` refreshes, and
-                              \`update\` is the command to reach for there. --project names the
-                              project shown on the page, --root tracks that directory instead of the
-                              discovered repository root, --no-claude-md leaves CLAUDE.md alone,
-                              --no-hooks writes no hook, --no-workflow no workflow and
-                              --no-agent-definition no agent definition; it is refused with exit
-                              1, writing nothing, unless --no-workflow is given too, since the
-                              dispatcher starts every builder and reviewer as that agent; and
-                              both together are refused the same way while a dispatcher is
-                              installed without its definition, which --no-workflow would keep.
+      [--project <name>]      file and log and a \`tickets/\` folder, and \`.gitignore\` entries for it
+      [--root <path>]         and for \`${PRODUCT_NAMES.WORKTREES_FOLDER}/\`, before any worktree can exist. Beside the
+      [--no-hooks]            tracker go \`session-instructions.md\` (written first, its presence marking
+                              the install), \`reference.md\` (the ticket format, the moves and the exit
+                              codes) and \`assistant-brief.md\`, the role prompt the runner fills for
+                              its Assistant; the SessionStart hook \`hook session-start\` goes into
+                              \`.claude/settings.local.json\`, and two skills into \`.claude/skills/\`:
+                              ${PRODUCT_NAMES.PRODUCT_OWNER_SKILL}, which a session asked to file a ticket loads, and
+                              ${PRODUCT_NAMES.ORCHESTRATE_SKILL}, for the session running the board, which loads
+                              ${PRODUCT_NAMES.PRODUCT_OWNER_SKILL} for intake. It never writes CLAUDE.md. Refused when an
+                              ancestor already holds a tracker, when --root is not an existing
+                              directory, and inside a bare repository, which has no working tree to
+                              track. Re-running only refreshes what \`update\` refreshes, and
+                              \`update\` is the command to reach for there. --project names the project shown
+                              on the page, --root tracks that directory instead of the discovered
+                              repository root, and --no-hooks touches no settings file.
 
-  update                      Refresh what the tool wrote into a repository it already tracks: the
-      [--no-claude-md]        managed CLAUDE.md block, \`agent-brief.md\` — guidance shipped with the
-      [--no-hooks]            tool rather than a file a project edits — the three hooks and the
-      [--no-workflow]         dispatcher workflow, generated anew, and the agent definition, a hand
-      [--no-agent-definition] edit to either of which is undone, the other briefs, \`reference.md\` and
-                              the two skills, removing what an earlier version installed in a
-                              skill folder this one retired. The tracker itself is left alone:
-                              a tracker an earlier ${PRODUCT_NAMES.PROGRAM} wrote in a format this one no
-                              longer reads is refused at exit 2 by every command that reads it,
-                              saying to run \`update\` with a release that still reads it. It creates no tracker, so it takes no
+  update [--no-hooks]         Refresh what the tool wrote into a repository it already tracks: the
+                              three files beside the tracker, guidance shipped with the tool rather
+                              than files a project edits, the SessionStart hook, the two skills and
+                              the worktrees folder's \`.gitignore\` entry, removing what an earlier
+                              version installed in a skill folder this one retired. It removes,
+                              once, what install version 16 wrote: the managed CLAUDE.md block,
+                              reported "removed; commit CLAUDE.md" since the runner launches
+                              nothing onto a branch whose committed CLAUDE.md still holds it, the
+                              SubagentStop, PreToolUse and PostToolUse hook entries (unless
+                              --no-hooks), the worker agent definition, the dispatcher script and the
+                              three briefs. The tracker itself is left alone: a tracker an earlier
+                              ${PRODUCT_NAMES.PROGRAM} wrote in a format this one no longer reads is refused at
+                              exit 2 by every command that reads it, saying to run \`update\` with a
+                              release that still reads it. It creates no tracker, so it takes no
                               --project and no --root, and it is refused with exit 1 where there
                               is none — \`${PRODUCT_NAMES.PROGRAM} init\` makes one.
                               Each line says whether that file changed, so a session that read the
-                              brief at its start learns that its copy is now stale. It takes the same
-                              --no-claude-md, --no-hooks, --no-workflow and --no-agent-definition
-                              as \`init\`, and refuses --no-agent-definition without --no-workflow,
-                              or with it over a dispatcher lacking its definition, the same way.
+                              instructions at its start learns that its copy is now stale.
                               Every command but init, update, help and status refuses, with exit
                               1, while the files installed here are of another install version
-                              than this ${PRODUCT_NAMES.PROGRAM} (the SubagentStop hook reports it and exits
-                              0); update rewrites them, and it and \`init\` refuse files a newer
+                              than this ${PRODUCT_NAMES.PROGRAM} (the SessionStart hook prints its
+                              instructions regardless);
+                              update rewrites them, and it and \`init\` refuse files a newer
                               ${PRODUCT_NAMES.PROGRAM} installed.
 
   status [--json] [--full]    The project, the counts, the rows that are not delivered or
@@ -142,42 +134,11 @@ output never carries either.
 
   log "<text>" [--at <when>]  Append one line to the log. --at backfills it.
 
-  hook subagent-stop          Record what a finished subagent cost, as one log line: the hook JSON
-                              arrives on standard input, and the agent's transcript is summed per
-                              API call rather than per line. When the agent's first message — its
-                              brief — holds a line \`agent-progress row: <id>\`, or several ids
-                              separated by commas, the log line's \`input\` total is also added to
-                              those rows' tokens, divided evenly. A line \`agent-progress ticket:
-                              <id>\` names tickets instead, each resolved to the row it holds when
-                              the hook runs. A line \`agent-progress review: <id>\` names one
-                              ticket whose review row the reviewer creates itself: the input goes
-                              to the most recently added row reviewing that ticket (its
-                              --review-of), whatever its status; a row a ticket
-                              owns is never a review row. A brief with
-                              several is read by one alone: row over ticket over review.
-                              This is the command \`init\` and \`update\` wire into
-                              \`.claude/settings.local.json\`; nobody types it. Given exactly the
-                              event word, it exits 0 whatever goes wrong — no input, an unreadable
-                              transcript, no tracker at the hook's own working directory, installed
-                              files of another install version, a row or a ticket's row that does
-                              not exist — and writes the reason to standard error. Its exit code
-                              prevents nothing, since the agent has already finished; exiting 0 is
-                              what keeps a failure here from becoming an error the orchestrator must
-                              read, or a delay before it is told.
-
-  hook pre-tool-use           Keep the check command the orchestrator's: wired with
-                              \`hook subagent-stop\` for Bash calls, it blocks at exit 2, the reason
-                              on standard error, a subagent's call (its hook JSON carries
-                              \`agent_id\`, which Claude Code sets only on a subagent's call) that
-                              runs \`${PRODUCT_NAMES.PROGRAM} checks\` with a line, --clear or --restamp.
-                              A read (\`checks\`, \`checks --json\`), every other call, and every
-                              call from the main session pass at exit 0, unreadable input too.
-
-  hook post-tool-use          Keep the page live while agents work: wired with
-                              \`hook subagent-stop\` for every tool call, it regenerates the page as
-                              \`render\` does only when the page is more than 5 minutes old. It
-                              never waits on the lock (a held one skips the render), never prints
-                              and always exits 0.
+  hook session-start          Print \`session-instructions.md\` for the session Claude Code is
+                              starting: \`init\` and \`update\` wire it as the SessionStart hook in
+                              \`.claude/settings.local.json\`, which a job's sessions never load. It
+                              prints nothing under a job, skips the install version check, and
+                              exits 0 whatever happens, printing nothing on failure.
 
   hook bash-domains           Keep a job's network inside its ticket's \`network\` line: the
       --allow <domains>       PreToolUse guard a runner renders into a job's settings. It denies,
@@ -208,51 +169,6 @@ output never carries either.
                               takes no lock and regenerates no page, and a repository with no
                               transcripts is one sentence at exit 0.
 
-  rework [--since <commit>]   How many lines of code a review reworked on a branch: added plus
-      [--rebased-from <old tip>]
-      [--main <branch>]       removed lines, never blank lines, comments or documentation (*.md,
-      [--merge <commit>]      *.mdx, *.rst, *.txt and anything under the repository's docs/). It
-      [--worktree <path>]     counts; no threshold is built in. --since counts every commit in
-      [--files] [--json]      <commit>..HEAD, and is refused when <commit> is not an ancestor of HEAD
-                              or a merge lies in between: count a merge with --merge. --rebased-from
-                              counts what a rebase changed in the branch's own work — the hand
-                              resolution — as the added lines in which the branch's patch against
-                              --main (default \`main\`) differs before and after, so a line resolved
-                              by hand counts 2 and main's own change none; a rebase without
-                              conflicts counts 0. It is measured up to HEAD, so run it right after the rebase.
-                              A rebase rewrites the commits after <commit>, so either count --since
-                              before rebasing and --rebased-from ORIG_HEAD after it, or rebase first
-                              and take <commit> from the rebased tip: both in one call then measure
-                              the rebase up to <commit> and print one total and the two parts,
-                              counting nothing twice. --merge counts what a merge commit's
-                              resolution changed against git's automatic merge of its two parents
-                              (git merge-tree --write-tree), leaving out the conflict markers git
-                              wrote: a merge git made by itself counts 0. Comments are read per file
-                              type (// and /* */, #, <!-- -->, docstrings, a <script> or <style> in
-                              HTML); a line of code with a trailing comment is code, and a file type
-                              it does not know counts every non-blank line. --worktree names the
-                              working tree to read instead of the current directory; --files adds
-                              the per-file breakdown. It needs no tracker and writes nothing.
-
-  review record <id>          Record one review pass as a review-recorded line in the log, on the
-      --worktree <path>       ticket's in-progress review bar, whose stored round it takes. A
-      --since <review start>  reviewer runs it once per pass, on every outcome. It counts the rework
-      --findings-file <file>  itself, as \`rework\` does: the commits since <review start> up to the
-      [--rebased-from <tip>]  first --rebased-from (HEAD without one), and each rebase from its
-      [--main <line>]         pre-rebase tip, given once per rebase, up to the next one's (HEAD for
-      [--bar <row>]           the last), and prints the total to report as reworkedLines. It takes
-      [--json]                the builder's change size, \`git diff --shortstat <main>...<review
-                              start>\`. One --main names every rebase's main line (default \`main\`),
-                              or one per --rebased-from. A bundle's review runs on one bar: --bar
-                              names it, run once per ticket of the bundle, and is refused unless it
-                              is an in-progress review bar of a ticket claimed with <id>. The
-                              findings file (\`-\` reads standard input) is a JSON object: verdict,
-                              claims (item, result, handoffContradicted) and findings (class,
-                              severity, file, summary, evidence, outcome, then commit or
-                              filedTicketId); docs/cli.md lists the words each takes. A word
-                              outside them, a missing field, or a ticket with no in-progress
-                              review bar is refused, recording nothing.
-
   review-stats [--json]       What the recorded reviews catch, miss and cost: every ticket with a
                               review-recorded line, summed over all of them and split by ticket
                               type, by the builder's change size (insertions plus deletions its
@@ -267,65 +183,6 @@ output never carries either.
                               Handoff, and fix and rebase lines per ticket; docs/cli.md defines
                               each. Tickets with no recorded review are counted on one line. It
                               takes no lock and writes and renders nothing, as \`status\` does.
-
-  release <id> --branch <b>   Release a reviewed branch: fast-forward the main checkout — the
-      [--worktree <path>]     tracker's root, wherever this runs from — to <b>, then approve the
-      [--main <line>]         ticket and deliver it with --branch <b> and --commit set
-      [--json]                to the merged tip. More ids after <id> release every ticket of a
-                              bundle, which share <b>. A ticket of a group's release bundle that
-                              is already reviewed is released beside that group's release ticket,
-                              delivered without a second approval. Every in-progress review row whose
-                              --review-of names a released ticket is finished and delivered at the release
-                              time, and named.
-                              All of it happens in one lock hold, so two releases never race.
-                              With a check command stored (see \`checks\`) it first runs it, outside
-                              the lock, through the user's shell in --worktree, which it then needs:
-                              refused, before the command runs, when that worktree's HEAD is not
-                              <b>'s tip (\`worktree-not-at-tip\`) or it holds an uncommitted or
-                              untracked file (\`worktree-dirty\`); when the command exits non-zero
-                              (\`checks-failed\`, its last 20 lines in the detail: fix, commit and
-                              release again) or changes a tracked file (\`worktree-dirty\`); and,
-                              in the lock, when <b> moved since (\`branch-moved\`) or the stored
-                              command changed (\`check-command-changed\`). With or without one, a
-                              ticket whose row was stamped at its start with another line than the
-                              stored one, none counting as a line, is refused
-                              (\`check-command-differs-from-start\`); the orchestrator settles it
-                              with \`checks "<line>" --restamp\`. Each ticket's latest \`## Review\`
-                              must hold or waive every numbered \`A<n>.\` item of its Acceptance:
-                              refused \`acceptance-unnumbered\` with none numbered,
-                              \`acceptance-unaccounted\` naming an item without such a line, and
-                              \`acceptance-waived\` naming a waiver its Acceptance does not mark
-                              \`Waived:\`, before the checks and again in the lock.
-                              Refused at exit 1, with nothing changed (no review row either), when a ticket
-                              is not in-progress or in-review (or such a reviewed bundle ticket),
-                              when the main checkout is not on
-                              --main (default \`main\`), when <b> is not a local branch, when <b>
-                              does not descend from --main — reason \`main-moved\`: rebase <b> onto
-                              it, re-run the checks and release again — and when git will not
-                              fast-forward. Refused at exit 2, also with nothing changed, when git
-                              or the tracker could not be read — reason \`git-failed\` or
-                              \`tracker-failed\`. Afterwards \`git worktree remove\` on --worktree,
-                              never forced, and \`git branch -d <b>\`; what git declines is named
-                              with its reason, the files a worktree still holds among it, at exit
-                              0. --json prints, on success, {released: true, tickets, branch,
-                              mainLine, commit, checkCommand, closedReviewRows, cleanup} —
-                              checkCommand the command that passed (a tracker storing none is
-                              refused checks-not-set), closedReviewRows the ids of the review rows it delivered — and on a
-                              refusal {released: false, reason, detail, blockingFiles, cleanup: []};
-                              reason is one of invalid-request, unknown-ticket,
-                              ticket-not-releasable, unknown-branch, not-on-main-line,
-                              checks-not-set, worktree-not-at-tip, worktree-dirty, checks-failed,
-                              check-command-changed, check-command-differs-from-start,
-                              acceptance-unnumbered, acceptance-unaccounted, acceptance-waived,
-                              branch-moved, main-moved, merge-refused,
-                              git-failed and tracker-failed, and blockingFiles, on merge-refused,
-                              the main checkout's own uncommitted files the merge would overwrite,
-                              empty otherwise. A cleanup step is one of {target: worktree, path,
-                              outcome: removed}, {target: worktree, path, outcome: left, reason,
-                              untrackedFiles, changedFiles}, {target: branch, name, outcome:
-                              deleted} and {target: branch, name, outcome: left, reason}.
-                              Allowing this command is the release permission: a reviewer never
-                              runs \`git merge\` itself.
 
   ticket add "<title>"        File a ticket: a markdown file under \`${PRODUCT_NAMES.DATA_FOLDER}/tickets/\` with
       --type ticket|bug|research
@@ -391,8 +248,8 @@ output never carries either.
 
   ticket hold <id> [--reason <text>] [--at <when>]
                               Pause a ticket between steps without stopping the run: the
-                              dispatcher starts no builder or reviewer for it while it is held, and
-                              \`ticket claim\` refuses it. One log line; \`status --json\` lists it in
+                              runner starts no builder or reviewer for it while it is held, and
+                              a claim refuses it. One log line; \`status --json\` lists it in
                               \`heldTicketIds\`. An agent already running is never interrupted, so
                               a hold set after a builder's final status read is too late for the
                               reviewer it starts. Refused at exit 1 on a delivered or abandoned
@@ -420,7 +277,7 @@ output never carries either.
                               its row: priority only orders the ready tickets. A draft ticket has
                               none at any priority; raising a low ticket that has no row gives it
                               one at once. A low ticket with no row gets
-                              its row when \`ticket start\` or \`ticket claim\` starts it, and keeps
+                              its row when its build starts, and keeps
                               it; abandoning a low ticket that has none creates none.
 
   ticket size <id> XS|S|M|L|XL|XXL [--at <when>]
@@ -457,20 +314,18 @@ output never carries either.
                               open a parked decision to User; under a question incident it stops
                               the waiting job (outcome stopped) and carries the agent's questions.
 
-  ticket start|finish|approve|deliver|abandon|reopen <id> [--branch <b>] [--commit <sha>]
+  ticket abandon|reopen <id> [--branch <b>] [--commit <sha>]
       [--reason <text>] [--tokens <n>] [--at <when>]
-                              Move a ticket and its Gantt row together, stamping both. Each verb
-                              moves a ticket that is in a status it makes sense from: start from
-                              pending or in-review, finish from in-progress, approve from
-                              in-progress or in-review, deliver from reviewed, abandon from
-                              anything not already delivered or abandoned, reopen from anything
-                              but a draft ticket or pending. A draft ticket moves only through
-                              \`ticket ready\` or \`abandon\`.
+                              Move a ticket and its Gantt row together, stamping both: abandon
+                              from anything not already delivered or abandoned, reopen from
+                              anything but a draft ticket or pending. The runner makes every other
+                              lifecycle move. A draft ticket moves only through \`ticket ready\` or
+                              \`abandon\`.
                               Moving a ticket to the status it already has is refused and logs
                               nothing — \`ticket rereview\` below is the one exception. Every
                               move out of in-review finishes and delivers the ticket's in-progress
-                              review bar, with one log line each. \`start\` warns on standard error, and still
-                              moves it, when the ticket is held.
+                              review bar, with one log line each. A move to in-progress warns on
+                              standard error, and still moves it, when the ticket is held.
                               \`abandon\` requires --reason; \`reopen\` clears the stamps and returns
                               the row to pending. --branch and --commit record where the work
                               landed, and --tokens what it cost; --tokens on a ticket with no
@@ -484,8 +339,8 @@ output never carries either.
                               (runner-owns-the-lifecycle) and while a job of the ticket is live
                               (ticket-has-live-job).
 
-  ticket finish|rereview <id> --start-review [--owner <who>] [--note <text>] [--at <when>]
-                              The move to review, or the next round, and the reviewer's in-progress bar
+  ticket rereview <id> --start-review [--owner <who>] [--note <text>] [--at <when>]
+                              The next review round and the reviewer's in-progress bar
                               (\`Review <N> #<id> — <title>\`, its \`reviewOf\` the ticket, N the
                               \`## Review\` sections plus one) in one lock hold, closing any bar of
                               the round before: the builder's slot passes to its reviewer, and one
@@ -493,27 +348,6 @@ output never carries either.
                               A bundle's bar carries its claim's agent key while other rows of the
                               bundle still run, so it takes no second slot.
                               --owner and --note name the bar, and are refused without the flag.
-
-  ticket claim <id> [<id>...]
-      [--owner <who>]         \`ticket start\` and the row's --owner and --note in one write, for
-      [--note <text>]         every ticket named, as ONE agent: a bundle's builder claims all its
-      [--after <id>]          tickets in the one call, and their rows share one agent key. Refused
-      [--at <when>]           at exit 1 with nothing written, all or nothing, when any ticket is not
-                              pending or in-review, when one is held, when one waits on a ticket
-                              outside the claim that is not reviewed or delivered (one inside it is
-                              settled: the bundle is worked in dependency order), when one is low
-                              and an unheld normal or high ticket is not yet delivered or
-                              abandoned — \`ticket start\` only warns
-                              about that — when a review bar of one is in progress, or when the agents
-                              in flight already number the concurrency limit. The count and the
-                              moves share one lock hold, so
-                              two claims racing for the last slot cannot both succeed. --json
-                              prints the ticket, or with several ids the list of them. The first
-                              command an implementing agent runs.
-                              --after <predecessor> claims one pipelined successor while its
-                              predecessor is still in review: accepted only when the predecessor
-                              is in-review, in the same release bundle, and the one unsettled
-                              ticket it waits on; the slot limit applies as for any claim.
 
   ticket rereview <id>        Send a ticket already in review round again, for a fresh reviewer: the
       [--at <when>]           ticket stays in-review and only its \`updated\` moves, while its row
@@ -543,7 +377,8 @@ output never carries either.
                               and for a list that would make tickets wait on each other in a
                               circle. Until every one of them is reviewed or delivered, the
                               ticket's row, table entry and card read "waiting on #003", \`ticket list\`
-                              says so too, and \`ticket start\` warns on standard error but still moves it.
+                              says so too, and a move to in-progress warns on standard error but
+                              still moves it.
 
   ticket epic <id> [<key>...] | --add <keys> | --remove <keys> [--at <when>] [--json]
                               Set the epics a ticket belongs to, the first its primary epic. Bare
@@ -630,7 +465,7 @@ output never carries either.
                               error and skipped.
 
   concurrency [<n>] [--json]  Print the concurrency limit: how many agents may be in flight at once.
-                              A slot is an agent: the in-progress rows one \`ticket claim\` started
+                              A slot is an agent: the in-progress rows one claim started
                               count once, and every other in-progress row, such as a review bar,
                               counts on its own. With <n>, store a new one (a whole number, 1 or more) for
                               every worktree, from 1 to 10: a higher one is refused at exit 1 with
@@ -640,34 +475,16 @@ output never carries either.
                               carries it beside \`agentsInFlight\`, the free slots and the ready
                               tickets.
 
-  dispatcher [running|finished|stopped] [--run <runId>] [--json]
-                              Print where the dispatcher was left, or store a new state with one
-                              log line, so it survives a compaction of the orchestrator's context.
-                              \`running --run <runId>\` stores the Workflow run beside it, the one a
-                              killed run is resumed by; \`--run\` goes with \`running\` alone, and
-                              every write without it clears the stored id. The read and
-                              \`status --json\` (\`concurrency.dispatcherRunId\`) print it.
-                              \`running\`: a dispatcher is at work. \`finished\`: it ended by itself,
-                              and the Next line says "work ready for the orchestrator" while a
-                              normal or high ticket is ready, or "only low priority ready, for the
-                              orchestrator to triage" while only low ones are. \`stopped\`: never
-                              started, or ended by the user, and the Next line says "dispatcher
-                              stopped: wait for the user's go" however many tickets are filed
-                              meanwhile. A tracker that
-                              never set one reads \`stopped\`, and the read writes nothing; any
-                              other word is refused at exit 1 with nothing written.
-                              \`status --json\` carries it as \`concurrency.dispatcherState\`.
-
   checks ["<command>" | --clear] [--restamp] [--json]
-                              Print the check command \`release\` runs on a branch's tip before it
+                              Print the check command a landing runs on a branch's tip before it
                               changes anything, or store one for every worktree with one log line:
                               the repository's full check line, quoted as one argument. It lives in
                               the tracker, never in the branch being released, and runs through the
                               user's shell (\`$SHELL\`, else /bin/sh) in the branch's worktree.
                               A new line is first run in the main checkout: when it exits non-zero
                               nothing is stored or logged, and it is refused at exit 1 with its last
-                              20 lines. --clear removes it; release refuses a tracker that never
-                              set one (checks-not-set), and the read writes nothing. Every ticket start and claim stamps the
+                              20 lines. --clear removes it, and the read writes nothing. Every
+                              claim stamps the
                               stored line on the ticket's row, so a change while a ticket is in
                               progress or in review is refused at exit 1 unless --restamp is given,
                               which stamps every such row with the new line in the same write and

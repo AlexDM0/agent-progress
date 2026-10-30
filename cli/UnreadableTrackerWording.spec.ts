@@ -66,23 +66,6 @@ function brokenLogReason(): string {
   return `${logFilePath}, line 1: fields.text is not a string`;
 }
 
-function transcriptHoldingOneApiCall(): string {
-  const transcriptPath = join(repositoryDirectory, 'agent-example.jsonl');
-  const assistantLine  = JSON.stringify({
-    type:    'assistant',
-    message: {
-      id:    'msg_one',
-      usage: {
-        input_tokens:            10,
-        cache_read_input_tokens: 90_000,
-        output_tokens:           400,
-      },
-    },
-  });
-  writeFileSync(transcriptPath, `${assistantLine}\n`);
-  return transcriptPath;
-}
-
 beforeEach(async () => {
   repositoryDirectory = realpathSync(createScratchGitRepository('unreadable-tracker-wording'));
   progressFilePath    = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json');
@@ -95,10 +78,10 @@ afterEach(() => {
 });
 
 describeWhenGitIsPresent('a progress file that cannot be read', () => {
-  test('status, concurrency, dispatcher and log exit 2 naming the file and its reason, and print nothing on standard output', async () => {
+  test('status, concurrency and log exit 2 naming the file and its reason, and print nothing on standard output', async () => {
     breakTheProgressFile();
 
-    for (const commandLine of [['status'], ['concurrency'], ['dispatcher'], ['log', 'Example note']]) {
+    for (const commandLine of [['status'], ['concurrency'], ['log', 'Example note']]) {
       const finished = await runWith(commandLine);
 
       expect(finished.exitCode, commandLine.join(' ')).toBe(2);
@@ -114,34 +97,6 @@ describeWhenGitIsPresent('a progress file that cannot be read', () => {
 
     expect(finished.exitCode).toBe(2);
     expect(finished.errorText).toBe(`The dashboard could not be regenerated: ${progressFilePath} could not be read: ${BROKEN_PROGRESS_REASON}`);
-  });
-
-  test('release --json exits 2 with a tracker-failed document whose detail is the words printed on standard error', async () => {
-    breakTheProgressFile();
-
-    const finished = await runWith(['release', '1', '--branch', 'example-branch', '--json']);
-
-    expect(finished.exitCode).toBe(2);
-    expect(JSON.parse(finished.outputText)).toEqual({
-      released:      false,
-      reason:        'tracker-failed',
-      detail:        `${progressFilePath} cannot be read: ${BROKEN_PROGRESS_REASON}`,
-      blockingFiles: [],
-      cleanup:       [],
-    });
-    expect(finished.errorText).toBe(`${progressFilePath} cannot be read: ${BROKEN_PROGRESS_REASON}`);
-  });
-
-  test('hook subagent-stop exits 0 and says in one sentence that the line could not be recorded, and why', async () => {
-    const hookInput = JSON.stringify({ cwd: repositoryDirectory, agent_transcript_path: transcriptHoldingOneApiCall() });
-    breakTheProgressFile();
-
-    const finished = await runWith(['hook', 'subagent-stop'], hookInput);
-
-    expect(finished.exitCode).toBe(0);
-    expect(finished.errorText).toBe(
-      `${PRODUCT_NAMES.PROGRAM} hook subagent-stop: the line could not be recorded in ${repositoryDirectory}: ${progressFilePath} cannot be read: ${BROKEN_PROGRESS_REASON}`,
-    );
   });
 });
 
@@ -160,13 +115,11 @@ describeWhenGitIsPresent('a log.jsonl that cannot be read', () => {
     expect(readFileSync(logFilePath, 'utf8')).toBe(BROKEN_LOG_TEXT);
   });
 
-  test('concurrency and dispatcher with no argument read progress.json alone, so they exit 0 with their usual output', async () => {
+  test('concurrency with no argument reads progress.json alone, so it exits 0 with their usual output', async () => {
     const concurrencyBefore = await runSucceeding(['concurrency']);
-    const dispatcherBefore  = await runSucceeding(['dispatcher']);
     breakTheLogFile();
 
     expect(await runWith(['concurrency'])).toEqual(concurrencyBefore);
-    expect(await runWith(['dispatcher'])).toEqual(dispatcherBefore);
   });
 
   test('render exits 2 saying the dashboard could not be regenerated because the log cannot be read', async () => {

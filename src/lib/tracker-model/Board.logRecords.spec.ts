@@ -86,7 +86,7 @@ const FROZEN_STORED_LINES = [
   '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-abandoned","ticketId":"003","fields":{"reason":"superseded by #001"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"chart-range-set","fields":{"view":{"kind":"relative","from":"-2h","to":"now","tickMinutes":15}}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"concurrency-limit-set","fields":{"limit":3}}',
-  '{"at":"2026-09-26T10:15:00+02:00","kind":"dispatcher-set","fields":{"state":"running","runId":"example-run"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"dispatcher-set","fields":{"state":"running","runId":null}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"agent-stopped","fields":{"agentId":"example-agent","agentType":"agent-progress-worker",'
     + '"apiCallCount":12,"endContextTokens":48000,"totalInputTokens":310000,"cacheReadInputTokens":250000,"outputTokens":9000}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"runner-started","fields":{"codeVersion":"a1b2c3d","installVersion":17}}',

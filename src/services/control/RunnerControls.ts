@@ -11,8 +11,8 @@ function refuseRuntimeOnly(command: ControlCommand): never {
 }
 
 export const RUNNER_CONTROLS = {
-  'runner-pause':   (_command: ControlCommand, change: TrackerChange) => change.board.setDispatcherState('stopped', null, change.at),
-  'runner-resume':  (_command: ControlCommand, change: TrackerChange) => change.board.setDispatcherState('running', null, change.at),
+  'runner-pause':   (_command: ControlCommand, change: TrackerChange) => change.board.setDispatcherState('stopped', change.at),
+  'runner-resume':  (_command: ControlCommand, change: TrackerChange) => change.board.setDispatcherState('running', change.at),
   'runner-stop':    refuseRuntimeOnly,
   'runner-restart': refuseRuntimeOnly,
 } as const;

@@ -40,10 +40,10 @@ import { RunnerLease }                                                     from 
 import { requireWorkspace }                                                from '../../src/services/tracker/Workspace.ts';
 import { fakeAgentAdapter, fakeResultLine, fakeStartedLine }               from '../../src/testing/FakeAgentAdapter.ts';
 import { createScratchDirectory, currentBranchOf, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
-import { runCommandLine }                                                  from '../Main.ts';
 import { createCapturedCommandContext }                                    from '../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository }                              from '../testing/InitializedScratchRepository.ts';
 import { fileReadyTicket }                                                 from '../testing/ReadyTicketFiling.ts';
+import { runCommandLineWithRunnerMoves }                                   from '../testing/RunnerTicketMoves.ts';
 import { storedLogTextOf }                                                 from '../testing/StoredLogText.ts';
 import { storedProgressOf }                                                from '../testing/StoredProgress.ts';
 
@@ -64,7 +64,7 @@ const LAUNCH_FILE_PATTERN = /^launch-(\d+)\.json$/;
 
 async function run(commandLineArguments: readonly string[]) {
   const context  = createCapturedCommandContext({ currentDirectory: repositoryDirectory, now: SPEC_CLOCK });
-  const exitCode = await runCommandLine(commandLineArguments, context);
+  const exitCode = await runCommandLineWithRunnerMoves(commandLineArguments, context);
   expect(exitCode, `\`${commandLineArguments.join(' ')}\` failed: ${context.errorText()}`).toBe(0);
   return context;
 }
@@ -392,12 +392,19 @@ describe('waking', () => {
     await passOnce(drivePass);
     expect(drivePass.state().notices).toEqual([{ kind: 'claude-md-block-committed', target: currentBranchOf(repositoryDirectory) }]);
     expect(readFileSync(join(repositoryDirectory, '.agent-progress-v2', 'progress.json'), 'utf8')).not.toContain('claude-md-block-committed');
+
+    writeFileSync(join(repositoryDirectory, 'CLAUDE.md'), '# Example conventions\n');
+    await passOnce(drivePass, true);
+    expect(drivePass.state().notices, 'the block is removed but not yet committed: launches still wait').toHaveLength(1);
+    await Bun.$`git -C ${repositoryDirectory} -c user.name=Example -c user.email=example@example.com commit -q -am Example`.quiet();
+    await passOnce(drivePass, true);
+    expect(drivePass.state().notices, 'the notice clears once the removal is committed').toEqual([]);
   }, PASS_TEST_TIMEOUT_MILLISECONDS);
 });
 
 async function runRefused(commandLineArguments: readonly string[]): Promise<string> {
   const context  = createCapturedCommandContext({ currentDirectory: repositoryDirectory, now: SPEC_CLOCK });
-  const exitCode = await runCommandLine(commandLineArguments, context);
+  const exitCode = await runCommandLineWithRunnerMoves(commandLineArguments, context);
   expect(exitCode, `\`${commandLineArguments.join(' ')}\` was not refused: ${context.outputText()}`).toBe(1);
   return `${context.outputText()}\n${context.errorText()}`;
 }

@@ -9,7 +9,6 @@ import {
   test
 }                                                                             from 'bun:test';
 import { workspacePathsFor }                                  from '../../../src/services/tracker/Workspace.ts';
-import { DISPATCH_PROTOCOL }                                  from '../../../src/shared/constants/DispatchProtocol.ts';
 import { PRODUCT_NAMES }                                      from '../../../src/shared/constants/ProductNames.ts';
 import { createScratchGitRepository, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }                           from '../../../src/testing/ToolGuard.ts';
@@ -20,11 +19,11 @@ import { createCapturedCommandContext }                       from '../../testin
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
 const REFRESH_LINE_PATTERNS = [
-  /^ {2}CLAUDE\.md: {3}unchanged$/m,
-  new RegExp(`^ {2}brief: {7}unchanged \\(\\S+/${RegExp.escape(PRODUCT_NAMES.DATA_FOLDER)}/agent-brief\\.md\\)$`, 'm'),
+  /^ {2}CLAUDE\.md: {3}no managed block$/m,
+  /^ {2}retired: {5}nothing to remove$/m,
+  new RegExp(`^ {2}brief: {7}unchanged \\(\\S+/${RegExp.escape(PRODUCT_NAMES.DATA_FOLDER)}/session-instructions\\.md\\)$`, 'm'),
   /^ {2}hooks: {7}\S+\/\.claude\/settings\.local\.json \(unchanged\)$/m,
-  new RegExp(`^ {2}workflow: {4}unchanged \\(\\S+/${RegExp.escape(PRODUCT_NAMES.DATA_FOLDER)}/agent-progress-dispatch\\.js\\)$`, 'm'),
-  new RegExp(`^ {2}agent: {7}unchanged \\(\\S+/\\.claude/agents/${RegExp.escape(DISPATCH_PROTOCOL.WORKER_AGENT_TYPE)}\\.md\\)$`, 'm'),
+  new RegExp(`^ {2}worktrees: {3}${RegExp.escape(PRODUCT_NAMES.WORKTREES_FOLDER)} already ignored, so nothing was added$`, 'm'),
   new RegExp(`^ {2}dashboard: {3}\\S+/${RegExp.escape(PRODUCT_NAMES.DATA_FOLDER)}/progress\\.html$`, 'm'),
 ];
 
@@ -65,10 +64,7 @@ describeWhenGitIsPresent('update on a tracker', () => {
   test('takes every current option, each leaving its own file alone and the tracker byte for byte', async () => {
     const filesBefore = storedFileContentsOf(workspacePathsFor(repositoryDirectory));
     const optionsWithTheirLines: Array<[optionArguments: string[], line: string]> = [
-      [['--no-claude-md'], '  CLAUDE.md:   left alone (--no-claude-md)'],
       [['--no-hooks'], '  hooks:       left alone (--no-hooks)'],
-      [['--no-workflow'], '  workflow:    left alone (--no-workflow)'],
-      [['--no-agent-definition', '--no-workflow'], '  agent:       left alone (--no-agent-definition)'],
     ];
 
     for (const [optionArguments, line] of optionsWithTheirLines) {

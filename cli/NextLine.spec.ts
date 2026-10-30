@@ -13,10 +13,10 @@ import {
 }                                                                             from 'bun:test';
 import { removeScratchDirectory }             from '../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../src/testing/ToolGuard.ts';
-import { runCommandLine }                     from './Main.ts';
 import { createCapturedCommandContext }       from './testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from './testing/InitializedScratchRepository.ts';
 import { fileReadyTicket }                    from './testing/ReadyTicketFiling.ts';
+import { runCommandLineWithRunnerMoves }      from './testing/RunnerTicketMoves.ts';
 
 const FROZEN_NOW = new Date('2026-09-23T10:00:00Z');
 
@@ -43,17 +43,7 @@ const NEXT_LINE_CASES: NextLineCase[] = [
     expectedNextLine: 'Next: 2 of 2 slots free; ready: #001, #002, #003',
   },
   {
-    command:          ['ticket', 'claim', '1'],
-    setup:            [['task', 'start', '4']],
-    expectedNextLine: 'Next: no slot free (2 agents in flight); ready: #002, #003',
-  },
-  {
-    command:          ['ticket', 'finish', '1'],
-    setup:            [['ticket', 'claim', '1']],
-    expectedNextLine: 'Next: 2 of 2 slots free; ready: #002, #003',
-  },
-  {
-    command:          ['ticket', 'deliver', '1'],
+    command:          ['ticket', 'deliver', '1', '--by-hand'],
     setup:            [['ticket', 'claim', '1'], ['ticket', 'finish', '1'], ['ticket', 'approve', '1']],
     expectedNextLine: 'Next: 2 of 2 slots free; ready: #002, #003',
   },
@@ -91,7 +81,7 @@ let repositoryDirectory = '';
 
 async function run(commandLineArguments: readonly string[]): Promise<ReturnType<typeof createCapturedCommandContext>> {
   const context  = createCapturedCommandContext({ currentDirectory: repositoryDirectory, now: () => FROZEN_NOW });
-  const exitCode = await runCommandLine(commandLineArguments, context);
+  const exitCode = await runCommandLineWithRunnerMoves(commandLineArguments, context);
   expect(exitCode, `\`agent-progress ${commandLineArguments.join(' ')}\` failed: ${context.errorText()}`).toBe(0);
   return context;
 }
@@ -106,7 +96,7 @@ beforeEach(async () => {
   await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Show the role history']);
   await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Export the roles']);
   await run(['task', 'add', 'Review pass']);
-  // A running dispatcher adds no advice, so these lines pin slots and queue alone; `cli/dispatch/dispatcher/DispatcherCommand.spec.ts` pins the advice.
+  // A running dispatcher adds no advice, so these lines pin slots and queue alone.
   await run(['dispatcher', 'running']);
 });
 
@@ -115,8 +105,8 @@ afterEach(() => {
 });
 
 describeWhenGitIsPresent('the line the human output ends with', () => {
-  test('every case names a different command, so the table covers all ten', () => {
-    expect(new Set(NEXT_LINE_CASES.map((nextLineCase) => nextLineCase.command.slice(0, 2).join(' '))).size).toBe(10);
+  test('every case names a different command, so the table covers all eight', () => {
+    expect(new Set(NEXT_LINE_CASES.map((nextLineCase) => nextLineCase.command.slice(0, 2).join(' '))).size).toBe(8);
   });
 
   for (const nextLineCase of NEXT_LINE_CASES) {

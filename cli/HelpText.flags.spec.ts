@@ -39,10 +39,11 @@ const SIGNATURE_ENDING = /(?:[\]>"]|^[a-z |-]+)$/;
 const REFERENCE_COMMAND_TABLE_HEADER = '| command | what it does |';
 
 /** `ticket status` documents its options as "the same options" as the named moves rather than listing them. */
-const ENTRIES_DOCUMENTED_AS_ANOTHER = new Map([['ticket status', 'ticket start']]);
+const ENTRIES_DOCUMENTED_AS_ANOTHER = new Map([['ticket status', 'ticket abandon']]);
 
 /** The one command whose handler never checks its options: it prints the reference whatever follows it. */
-const COMMAND_IGNORING_ITS_OPTIONS = 'help';
+/** `hook session-start` exits 0 whatever it is given, since a failing SessionStart hook would reach every session. */
+const ENTRIES_IGNORING_THEIR_OPTIONS = ['help', 'hook session-start'];
 
 type OptionNamesByEntry = Map<string, Set<string>>;
 
@@ -205,13 +206,13 @@ describe('the scans', () => {
   });
 
   test('a signature line run into its prose is caught', () => {
-    const planted = HELP_TEXT.replace('      [--rebased-from <old tip>]\n', '      [--rebased-from <old tip>] removed lines, never blank lines\n');
+    const planted = HELP_TEXT.replace('      [--transcripts <folder>]\n', '      [--transcripts <folder>] read out of the transcripts\n');
     expect(planted).not.toBe(HELP_TEXT);
     expect(signatureLinePartsOf(planted).filter((part) => !SIGNATURE_ENDING.test(part))).not.toEqual([]);
   });
 
-  test('every handler but help checks its options before it does anything', () => {
-    expect(entriesNeverCheckingOptions).toEqual([COMMAND_IGNORING_ITS_OPTIONS]);
+  test('every handler but help and hook session-start checks its options before it does anything', () => {
+    expect([...entriesNeverCheckingOptions].sort()).toEqual(ENTRIES_IGNORING_THEIR_OPTIONS);
   });
 });
 

@@ -29,7 +29,7 @@ async function trackedRepositoryWithManifest(manifestText: string): Promise<stri
   const repositoryDirectory = createScratchGitRepository('retired-agent-host');
   scratchDirectories.push(repositoryDirectory);
   const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-  const exitCode = await runCommandLine(['init', '--project', 'Example Agency', '--no-workflow', '--no-agent-definition'], context);
+  const exitCode = await runCommandLine(['init', '--project', 'Example Agency'], context);
   if (exitCode !== 0) throw new Error(`init exited ${exitCode}: ${context.errorText()}`);
   writeFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'version.json'), manifestText);
   return repositoryDirectory;
@@ -54,7 +54,7 @@ testWhenGitIsPresent('a manifest naming another agent host, or none, is no refus
     const repositoryDirectory = await trackedRepositoryWithManifest(manifestText);
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
 
-    expect(await runCommandLine(['update', '--no-workflow', '--no-agent-definition'], context), manifestText).toBe(0);
+    expect(await runCommandLine(['update'], context), manifestText).toBe(0);
     expect(repositoryFileContentsOf(repositoryDirectory).get(join(PRODUCT_NAMES.DATA_FOLDER, 'version.json')), manifestText).not.toContain('agentHost');
   }
 }, 60_000);
