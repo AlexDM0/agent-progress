@@ -2,7 +2,8 @@
  * The runner's start, lease and stop, end to end through real child processes, since a runner holds its process until it is stopped.
  * What matters: two starters at once leave exactly one runner serving; a lease naming a dead process is taken over as after a crash; a
  * runner whose generation was overtaken stops at exit 2 touching nothing; `run --detach`, `run status`, `run restart` and `run stop`
- * agree with the lease; `run pause|resume` write the drain flag with no runner up; and a spec-spawned runner resolves the fake agent,
+ * agree with the lease; `run pause|resume` write the drain flag with no runner up, which the Bridge header's board state and `run status`
+ * read alike; and a spec-spawned runner resolves the fake agent,
  * never the vendor's adapter. Every runner binds `--port 0`.
  */
 import {
@@ -26,14 +27,17 @@ import {
 
 import { hostFilesOf }                                    from '../../src/lib/agent-host/HostFiles.ts';
 import { CodeVersion }                                    from '../../src/services/runner/CodeVersion.ts';
+import { requireWorkspace }                               from '../../src/services/tracker/Workspace.ts';
 import { fakeAgentVariableOf }                            from '../../src/shared/Environment.ts';
 import { PRODUCT_NAMES }                                  from '../../src/shared/constants/ProductNames.ts';
 import { FAKE_AGENT_VENDOR }                              from '../../src/testing/FakeAgentAdapter.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
 import { runCommandLine }                                 from '../Main.ts';
+import { INSTALL_VERSION }                                from '../constants/InstallVersion.ts';
 import { createCapturedCommandContext }                   from '../testing/CapturedCommandContext.ts';
 import { runAgentProgress, startAgentProgress }           from '../testing/CliProcess.ts';
 import { createInitializedScratchRepository }             from '../testing/InitializedScratchRepository.ts';
+import { readBoardState }                                 from './routes/BoardStateReader.ts';
 
 const SPEC_CLOCK = (): Date => new Date('2026-09-18T20:11:03Z');
 
@@ -301,5 +305,25 @@ describe('run pause and resume', () => {
     expect(JSON.parse(resumed.outputText())).toEqual({ dispatcherState: 'stopped', previousState: 'running' });
     const progress = JSON.parse(readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'), 'utf8')) as Record<string, unknown>;
     expect(progress['dispatcherState']).toBe('stopped');
+  });
+
+  test('the board state the Bridge header reads agrees with run status after a resume and after a pause', async () => {
+    const pausedFlagsAfter = async (subcommand: 'resume' | 'pause'): Promise<{ header: boolean; runStatus: unknown }> => {
+      const moved = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+      expect(await runCommandLine(['run', subcommand], moved), moved.errorText()).toBe(0);
+      const statusContext = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+      expect(await runCommandLine(['run', 'status', '--json'], statusContext), statusContext.errorText()).toBe(0);
+      const boardState = readBoardState({
+        context:   createCapturedCommandContext({ currentDirectory: repositoryDirectory }),
+        workspace: requireWorkspace(repositoryDirectory),
+        notices:   () => [],
+        overseer:  () => ({
+          state: 'serving', url: null, generation: null, codeVersion: 'example', installVersion: INSTALL_VERSION, handoverWarning: null
+        }),
+      }).state;
+      return { header: boardState.overseer.paused, runStatus: (JSON.parse(statusContext.outputText()) as Record<string, unknown>)['paused'] };
+    };
+    expect(await pausedFlagsAfter('resume')).toEqual({ header: false, runStatus: false });
+    expect(await pausedFlagsAfter('pause')).toEqual({ header: true, runStatus: true });
   });
 });

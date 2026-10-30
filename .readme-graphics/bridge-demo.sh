@@ -51,3 +51,5 @@ shot() {
   shot bridge-intake intake light; printf '\n]\n'
 } > "$SHOTS/bridge-jobs.json"
 HOME="$USER_HOME" bun "$HERE/shoot.js" "$SHOTS/bridge-jobs.json"
+# What the shots' header should say: the scripted crashes open an outage, which pauses the board again after the resume.
+cli run status > "$SHOTS/run-status.txt"
