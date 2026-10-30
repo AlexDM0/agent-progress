@@ -584,7 +584,7 @@ and gated, the runner counts the rework from the review's start to its HEAD in c
 | claims an item `does-not-hold` | back to a fixer: the job ends `does-not-hold`, the ticket goes `in-progress`; a resume of the builder when its build was `built`, otherwise a failed pass |
 | reworked over `REWORK_ROUND_THRESHOLD_LINES` (750) and the round verdict grants another round | the job ends `round-granted`; the policy launches a fresh reviewer one round on |
 | reworked over the threshold and was refused another round | it passes on; the ticket shows the `rounds-not-converging` notice until it is delivered or reviewed again |
-| claims an item `waiver-proposed` | the `waiver` decision opens and the job waits `awaiting-answer`, the ticket out of the merge queue and held; granting it writes `A<n>. Waived: <reason>` (the reviewer's note) in the answering hold and queues the ticket; any answer starting `refuse` is a failed pass back to a fixer |
+| claims an item `waiver-proposed` | the `waiver` decision opens and the job waits `awaiting-answer`, the ticket out of the merge queue and held; granting it writes `A<n>. Waived: <reason>` (the reviewer's note) in the answering hold and queues the ticket; any answer starting `refuse` ends the job `does-not-hold`, back to a fixer as above |
 | otherwise | the job ends `reviewed`, the ticket is marked `mergeQueued` and `merge-queued` is logged with its target; a queued ticket gets no further review |
 
 ### The Assistant
