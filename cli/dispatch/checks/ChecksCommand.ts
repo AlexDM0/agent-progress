@@ -35,7 +35,7 @@ const CACHE_FOLDER_REFUSAL_WORDING: Readonly<Record<CacheFolderRefusal, string>>
   'search-path-folder': 'is, sits in or holds a folder on PATH',
 };
 
-const NO_CHECK_COMMAND_TEXT = `No check command is set, so \`${PRODUCT_NAMES.PROGRAM} release\` runs none. `
+const NO_CHECK_COMMAND_TEXT = 'No check command is set, so a landing runs none. '
   + `Set one with \`${PRODUCT_NAMES.PROGRAM} checks "<command>"\`.`;
 
 /** The read takes no lock and writes nothing, so a tracker that never set one keeps its file as it was. */
