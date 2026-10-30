@@ -243,8 +243,9 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   HTML import in `cli/runner/routes/OverseerRoutes.ts` that `src/services/runner/RunnerServer.ts` builds with
   `Bun.build` for production and serves through `fetch`, never Bun's HTML route, which takes no headers: every file
   carries the page CSP's `frame-ancestors`. It reads the Overseer's API and nothing else, and keeps no copy of the
-  rules: what it shows arrives as facts. Nothing renders a static page: `open` opens the live Overseer's URL or is refused `overseer-down`, and `progress.html` is a stub that
-  `init`, `update` and `run` write, naming that URL or saying the Overseer is down.
+  rules: what it shows arrives as facts. Nothing renders a static page: `open` opens the live Overseer's URL or is
+  refused `overseer-down`, and `progress.html` is a stub that `init`, `update` and `run` write, naming that URL or
+  saying the Overseer is down.
 - The render service builds the payload from the same Board queries `status --json` prints (`BoardFacts`,
   `PagePayloadAssembly`, `MarkdownRenderer`); a ticket's `bodyHtml` and an epic's `descriptionHtml` are its only HTML.
 - The detail panel claims a log line by its `taskIds` or `ticketIds`, never a number in free text; a note is matched
