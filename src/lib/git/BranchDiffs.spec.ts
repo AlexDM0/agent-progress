@@ -1,27 +1,19 @@
 /**
  * Every diff carries its own options whatever the user's configuration says, and a range holding a merge or an unknown revision is a
- * verdict naming its role. 'git-unavailable' is untested: one process cannot take git off its own spawns' PATH without changing it for
- * every spec.
+ * verdict of its own.
  */
-import { join }                   from 'node:path';
 import { afterAll, expect, test } from 'bun:test';
 
 import {
   commitFile,
-  createScratchDirectory,
   createScratchGitRepository,
   currentBranchOf,
   gitOutputIn,
   removeScratchDirectory,
   SCRATCH_COMMIT_IDENTITY_ARGUMENTS
 } from '../../testing/ScratchWorkspace.ts';
-import { describeWhenGitIsPresent } from '../../testing/ToolGuard.ts';
-import {
-  readCommitsDiff,
-  readMergeResolutionDiff,
-  readRebaseDiffs,
-  readWorktreeHead
-} from './BranchDiffs.ts';
+import { describeWhenGitIsPresent }                 from '../../testing/ToolGuard.ts';
+import { readCommitsDiff, readMergeResolutionDiff } from './BranchDiffs.ts';
 
 const CONTEXT_FILE_LINE_COUNT = 60;
 
@@ -33,12 +25,6 @@ function scratchGitRepository(prefix: string): string {
   const repositoryDirectory = createScratchGitRepository(prefix);
   scratchDirectories.push(repositoryDirectory, `${repositoryDirectory}-worktrees`);
   return repositoryDirectory;
-}
-
-function scratchDirectory(prefix: string): string {
-  const directory = createScratchDirectory(prefix);
-  scratchDirectories.push(directory);
-  return directory;
 }
 
 function headCommitOf(repositoryDirectory: string): string {
@@ -53,28 +39,6 @@ function numberedLines(changedLine: number | null): string {
 
 afterAll(() => {
   for (const directory of scratchDirectories) removeScratchDirectory(directory);
-});
-
-describeWhenGitIsPresent('the commit a worktree is at', () => {
-  test('a worktree with commits reads its HEAD commit', () => {
-    const repositoryDirectory = scratchGitRepository('branch-diffs-head');
-    expect(readWorktreeHead(repositoryDirectory)).toEqual({ verdict: 'read', headCommit: headCommitOf(repositoryDirectory) });
-  });
-
-  test('a directory that does not exist is not a repository, and git is never started in it', () => {
-    const plainDirectory = scratchDirectory('branch-diffs-missing');
-    expect(readWorktreeHead(join(plainDirectory, 'missing'))).toEqual({ verdict: 'not-a-repository' });
-  });
-
-  test('a directory outside any repository is not a repository', () => {
-    expect(readWorktreeHead(scratchDirectory('branch-diffs-plain'))).toEqual({ verdict: 'not-a-repository' });
-  });
-
-  test('a repository with no commit yet reads no-commits', () => {
-    const emptyRepository = scratchDirectory('branch-diffs-no-commits');
-    gitOutputIn(emptyRepository, ['init', '-q']);
-    expect(readWorktreeHead(emptyRepository)).toEqual({ verdict: 'no-commits' });
-  });
 });
 
 describeWhenGitIsPresent('the commits made since a commit', () => {
@@ -138,69 +102,6 @@ describeWhenGitIsPresent('the commits made since a commit', () => {
     gitOutputIn(repositoryDirectory, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'merge', '-q', '--no-ff', '-m', 'Merge side', 'side']);
 
     expect(readCommitsDiff(repositoryDirectory, sinceCommit)).toEqual({ verdict: 'merge-found', mergeCommits: [headCommitOf(repositoryDirectory)] });
-  });
-});
-
-describeWhenGitIsPresent('what a rebase changed in a branch\'s own work', () => {
-  // A commit after the rebase belongs to the review that --since counts, so reading up to HEAD would count that work twice.
-  test('takes each net patch against its own merge base and stops at the rebased tip the caller gave, not HEAD', () => {
-    const repositoryDirectory = scratchGitRepository('branch-diffs-rebase');
-    const mainLine            = currentBranchOf(repositoryDirectory);
-    const oldBaseCommit       = headCommitOf(repositoryDirectory);
-    gitOutputIn(repositoryDirectory, ['checkout', '-q', '-b', 'feature']);
-    const oldTipCommit = commitFile(repositoryDirectory, 'feature.txt', 'feature line\n');
-    gitOutputIn(repositoryDirectory, ['checkout', '-q', mainLine]);
-    const newBaseCommit = commitFile(repositoryDirectory, 'main.txt', 'main line\n');
-    gitOutputIn(repositoryDirectory, ['checkout', '-q', 'feature']);
-    gitOutputIn(repositoryDirectory, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'rebase', '-q', mainLine]);
-    const rebasedTipCommit = headCommitOf(repositoryDirectory);
-    commitFile(repositoryDirectory, 'after-rebase.txt', 'after rebase line\n');
-
-    const reading = readRebaseDiffs(repositoryDirectory, oldTipCommit, mainLine, rebasedTipCommit);
-    expect(reading.verdict).toBe('read');
-    if (reading.verdict !== 'read') return;
-    expect(reading.oldTipCommit).toBe(oldTipCommit);
-    expect(reading.oldBaseCommit).toBe(oldBaseCommit);
-    expect(reading.newBaseCommit).toBe(newBaseCommit);
-    expect(reading.beforeDiffText).toContain('+feature line');
-    expect(reading.afterDiffText).toContain('+feature line');
-    expect(reading.beforeDiffText).not.toContain('main.txt');
-    expect(reading.afterDiffText).not.toContain('main.txt');
-    expect(reading.afterDiffText).not.toContain('after-rebase.txt');
-  });
-
-  test('an old tip that names no commit reads unknown-commit in the old-tip role', () => {
-    const repositoryDirectory = scratchGitRepository('branch-diffs-unknown-old-tip');
-    const headCommit          = headCommitOf(repositoryDirectory);
-    expect(readRebaseDiffs(repositoryDirectory, 'no-such-revision', currentBranchOf(repositoryDirectory), headCommit))
-      .toEqual({ verdict: 'unknown-commit', role: 'old-tip' });
-  });
-
-  test('a main line that names no commit reads unknown-commit in the main-line role', () => {
-    const repositoryDirectory = scratchGitRepository('branch-diffs-unknown-main-line');
-    const headCommit          = headCommitOf(repositoryDirectory);
-    expect(readRebaseDiffs(repositoryDirectory, headCommit, 'no-such-main-line', headCommit)).toEqual({ verdict: 'unknown-commit', role: 'main-line' });
-  });
-
-  test('an old tip sharing no history with the main line reads no-common-base in the old-tip role', () => {
-    const repositoryDirectory = scratchGitRepository('branch-diffs-orphan');
-    const mainLine            = currentBranchOf(repositoryDirectory);
-    const mainLineCommit      = headCommitOf(repositoryDirectory);
-    gitOutputIn(repositoryDirectory, ['checkout', '-q', '--orphan', 'orphan']);
-    const orphanCommit = commitFile(repositoryDirectory, 'orphan.txt', 'orphan\n');
-
-    expect(readRebaseDiffs(repositoryDirectory, orphanCommit, mainLine, mainLineCommit)).toEqual({ verdict: 'no-common-base', role: 'old-tip' });
-  });
-
-  // The old tip is the main line's own commit, so its merge base exists and only the rebased-tip check can fail.
-  test('a rebased tip sharing no history with the main line reads no-common-base in the rebased-tip role', () => {
-    const repositoryDirectory = scratchGitRepository('branch-diffs-orphan-rebased-tip');
-    const mainLine            = currentBranchOf(repositoryDirectory);
-    const oldTipCommit        = headCommitOf(repositoryDirectory);
-    gitOutputIn(repositoryDirectory, ['checkout', '-q', '--orphan', 'orphan']);
-    const orphanCommit = commitFile(repositoryDirectory, 'orphan.txt', 'orphan\n');
-
-    expect(readRebaseDiffs(repositoryDirectory, oldTipCommit, mainLine, orphanCommit)).toEqual({ verdict: 'no-common-base', role: 'rebased-tip' });
   });
 });
 
