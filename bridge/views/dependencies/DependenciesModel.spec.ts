@@ -2,13 +2,13 @@
  * The dependencies view's model, laid out as `page/dependencies/` lays out its waves. The cases that matter: a diamond lays out a Done
  * column of what the open tickets build on and one column per wave, the pace path first; Ready comes only from the Board's ready list and a
  * held ticket wears Held; edges mark the pace path and a settled dependency; nodes and heads are placed in pixels on one canvas; a ticket's
- * lineage is itself, everything upstream and everything waiting on it; no forecast is asked while the dispatcher is not running; and a
+ * lineage is itself, everything upstream and everything waiting on it; a forecast is asked only while the runner is running; and a
  * board where nothing depends on anything draws no view.
  */
 import { describe, expect, test } from 'bun:test';
 
-import { exampleProgressBoard, exampleProgressTicket } from '../../testing/ProgressBoardFixture.ts';
-import { DependenciesModel, NODE_WIDTH_PIXELS }        from './DependenciesModel.ts';
+import { exampleProgressBoard, exampleProgressTask, exampleProgressTicket } from '../../testing/ProgressBoardFixture.ts';
+import { DependenciesModel, NODE_WIDTH_PIXELS }                             from './DependenciesModel.ts';
 
 const NOW_EPOCH_MILLISECONDS = Date.parse('2026-09-18T13:00:00+02:00');
 
@@ -73,8 +73,31 @@ describe('the waves', () => {
     expect(edges.toSorted()).toEqual([['1>2', false, true], ['1>3', false, true], ['2>4', true, false], ['3>4', false, false]]);
   });
 
-  test('asks for no forecast while the dispatcher is not running', () => {
+  test('asks for no forecast while the runner is not running', () => {
     expect(diamondCanvas().columns.map((column) => column.forecastText)).toEqual([null, null, null]);
+  });
+
+  test('forecasts each open wave from the delivered history while the runner is running, and none while it is paused', () => {
+    const deliveredBuildRow = exampleProgressTask(1, {
+      status:  'delivered',
+      history: [{ status: 'in-progress', at: '2026-09-18T10:00:00+02:00' }, { status: 'in-review', at: '2026-09-18T10:30:00+02:00' }],
+    });
+    const boardWhileRunner = (runnerState: string) => exampleProgressBoard({
+      tasks:   [deliveredBuildRow],
+      tickets: [
+        exampleProgressTicket('1', { status: 'delivered' }),
+        exampleProgressTicket('2', { dependsOn: ['1'] }),
+        exampleProgressTicket('3', { dependsOn: ['2'] }),
+      ],
+      ticketRows:     { 1: { ownTaskId: 1 } },
+      readyTicketIds: ['2'],
+      runnerState,
+    });
+    const forecastTextsWhile = (runnerState: string) => DependenciesModel.dependenciesModelOf(boardWhileRunner(runnerState), NOW_EPOCH_MILLISECONDS)
+      ?.columns.map((column) => column.forecastText);
+
+    expect(forecastTextsWhile('running')?.slice(1)).toEqual([expect.stringMatching(/^ETA /), expect.stringMatching(/^ETA /)]);
+    expect(forecastTextsWhile('paused')).toEqual([null, null, null]);
   });
 });
 
