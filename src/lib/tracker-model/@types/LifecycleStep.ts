@@ -5,15 +5,29 @@
 import type { DecisionKind, DecisionQuestion }                              from './Decision.ts';
 import type { IncidentDefaultCause, IncidentDeliveryTurn, IncidentOpening } from './Incident.ts';
 
-export type ParkCause = 'failed-passes';
+export type ParkCause = 'failed-passes' | 'red-resumes-spent';
 
 /** A decision code opens from the facts; its questions are worded by the caller, never by the policy. */
 export interface DecisionDraft {
-  kind:         DecisionKind;
-  ticketIds:    readonly string[];
-  jobId:        string | null;
+  kind:              DecisionKind;
+  ticketIds:         readonly string[];
+  jobId:             string | null;
   /** Only on a `ready-drafts` decision: what its options are worded from. */
-  readyDrafts?: ReadyDraftsFacts;
+  readyDrafts?:      ReadyDraftsFacts;
+  /** Only on a `pipeline-proposal` decision: the proposal with its twice-run record, which its options accept or decline. */
+  pipelineProposal?: PipelineProposalFacts;
+}
+
+/** An onboarder's verified proposal as User sees it: each gate with what its two runs did, and the caching suggestions by kind and values. */
+export interface PipelineProposalFacts {
+  snapshotCommit:     string;
+  prepare:            readonly { name: string; run: string }[];
+  failedPrepareSteps: readonly (string | null)[];
+  gates:              readonly { name: string; run: string; verdict: string; outcomes: readonly string[]; durationsMilliseconds: readonly number[] }[];
+  review:             string | null;
+  constitution:       readonly string[];
+  agents:             Readonly<Record<string, readonly string[]>>;
+  suggestions:        readonly { kind: string; values: readonly string[] }[];
 }
 
 export interface ReadyDraftFact {
@@ -47,7 +61,10 @@ export type LifecycleStep =
   // A product owner past the bound whose questions are answered: a fresh session takes its drafts and the answers, never a resume.
   | { kind: 'refresh-intake'; jobId: string }
   | { kind: 'boot-orchestrator' }
-  | { kind: 'park'; ticketId: string; cause: ParkCause }
+  // With no pipeline, the one onboarder answering `checks-not-set`.
+  | { kind: 'launch-onboarder' }
+  // `jobId` names a job interrupted on a red handoff with its resumes spent, which ends `failed` as its ticket parks.
+  | { kind: 'park'; ticketId: string; cause: ParkCause; jobId?: string }
   | { kind: 'open-decision'; decision: DecisionDraft }
   | { kind: 'open-incident'; incident: IncidentOpening }
   | { kind: 'default-incident'; incidentId: string; cause: IncidentDefaultCause }

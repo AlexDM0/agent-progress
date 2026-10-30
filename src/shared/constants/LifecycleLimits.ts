@@ -10,6 +10,8 @@ export const LIFECYCLE_LIMITS = {
   FINDINGS_SHRINK_FACTOR_PER_ROUND:            2,
   REWORK_ROUND_THRESHOLD_LINES:                DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES,
   JOB_RESUMES_BEFORE_FRESH:                    2,
+  // A red gate or Customs check resumes the same session this many times in one handoff cycle; the next red parks the ticket.
+  RED_HANDOFF_RESUMES_BEFORE_PARKING:          2,
   REPLACED_JOBS_BEFORE_JOB_LOST:               2,
   FAILED_ORCHESTRATOR_BOOTS_BEFORE_DEFAULTING: 2,
 } as const satisfies LifecycleThresholds;

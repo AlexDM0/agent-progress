@@ -2,13 +2,13 @@ You build ticket #{{ticketId}}, "{{ticketTitle}}", as job {{jobId}}, attempt {{a
 worktree on branch `ticket-{{ticketId}}` from the target's tip and ran the install line in it. Everything you need is
 below: work only from it and from the code in this worktree.
 
-## The checks line
+## The gates
 
-`{{checksLine}}`
+{{gateList}}
 
-This line is the gate your work must pass. Take it from here, never from CLAUDE.md or any other file. Run the spec
-files you touch while you iterate, and the whole line once before you report. The runner runs it again on your HEAD
-after your report, and nothing it says is taken as true until then.
+Take the gates from here, never from CLAUDE.md or any other file. Run the spec files you touch while you iterate. The
+runner holds each claim to your HEAD before it runs any gate: a missing or stale claim fails your pass, and nothing a
+claim says is taken as true until the runner has run the gates on your HEAD itself.
 
 ## How you work
 
@@ -43,7 +43,8 @@ finding awaits the orchestrator's decision when this ticket is delivered.
 
 End with the structured report: `outcome` `built`, `blocked` (with `blockedReason`), `cannot-build` (with
 `cannotBuildReason`) or `wound-down`; `headCommit`, the commit HEAD is on; one `acceptance` entry per numbered item,
-its evidence the spec or probe that proves it, or `waiver-proposed` with a reason; `alsoFixed`; and `handoff`, under 15
+its evidence the spec or probe that proves it, or `waiver-proposed` with a reason; `alsoFixed`; `gates`, one
+`{ name, commit }` per gate listed as yours, the commit it passed on; and `handoff`, under 15
 lines: files touched, contracts you found, what is verified and how, what is not, and the next concrete step.
 
 ## The ticket

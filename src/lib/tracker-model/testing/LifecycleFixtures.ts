@@ -33,6 +33,7 @@ export const FIXTURE_LIMITS: LifecycleLimits = {
   FINDINGS_SHRINK_FACTOR_PER_ROUND:            2,
   REWORK_ROUND_THRESHOLD_LINES:                750,
   JOB_RESUMES_BEFORE_FRESH:                    2,
+  RED_HANDOFF_RESUMES_BEFORE_PARKING:          2,
   REPLACED_JOBS_BEFORE_JOB_LOST:               2,
   FAILED_ORCHESTRATOR_BOOTS_BEFORE_DEFAULTING: 2,
   now:                                         FIXTURE_AT,
@@ -76,6 +77,7 @@ export function factsWith(overrides: Partial<LifecycleFacts> = {}): LifecycleFac
     concurrencyLimit:            3,
     runnerState:                 'running',
     pipelineIsSet:               true,
+    reviewIsSet:                 true,
     observations:                FIXTURE_OBSERVATIONS,
     ...overrides,
   };

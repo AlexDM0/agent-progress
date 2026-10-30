@@ -5,8 +5,14 @@
  * operational failure opens its own incident or decision rather than a failed pass, while a missing report or an attribution trailer is
  * a failed pass with its cause.
  */
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join }                                  from 'node:path';
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync
+} from 'node:fs';
+import { join } from 'node:path';
 import {
   afterEach,
   beforeEach,
@@ -18,7 +24,10 @@ import {
 import { hostFilesOf }                                 from '../../src/lib/agent-host/HostFiles.ts';
 import type { HostLaunch }                             from '../../src/lib/agent-host/HostLaunch.ts';
 import type { HostRecord }                             from '../../src/lib/agent-host/HostRecord.ts';
+import type { AgentAdapter }                           from '../../src/lib/agent-launch/AgentAdapter.ts';
+import type { AgentLaunchRequest }                     from '../../src/lib/agent-launch/AgentLaunchRequest.ts';
 import type { Job, JobState }                          from '../../src/lib/tracker-model/@types/Job.ts';
+import type { PipelineReview }                         from '../../src/lib/tracker-model/@types/Pipeline.ts';
 import type { Board }                                  from '../../src/lib/tracker-model/Board.ts';
 import { createDrivePass, type DrivePass }             from '../../src/services/runner/DrivePass.ts';
 import { HOST_ENTRY_PATH, HostBundle }                 from '../../src/services/runner/HostBundle.ts';
@@ -27,6 +36,7 @@ import { SANDBOX_EXEC_PATH, createProcessHostSandbox } from '../../src/services/
 import { runnerFilesIn }                               from '../../src/services/runner/RunnerFiles.ts';
 import { RunnerLease }                                 from '../../src/services/runner/RunnerLease.ts';
 import { requireWorkspace }                            from '../../src/services/tracker/Workspace.ts';
+import { JOB_ID_VARIABLE }                             from '../../src/shared/Environment.ts';
 import { DISPATCH_PROTOCOL }                           from '../../src/shared/constants/DispatchProtocol.ts';
 import { WIND_DOWN_GRACE_CALLS }                       from '../../src/shared/constants/RunnerLimits.ts';
 import {
@@ -58,6 +68,7 @@ let repositoryDirectory = '';
 let monitorFolder = '';
 let runnerLog: string[] = [];
 let buildStates: string[] = [];
+let launchRequests: AgentLaunchRequest[] = [];
 let jobsNotingStateAssignments = new WeakSet<object>();
 let mainTipAtStart = '';
 
@@ -103,6 +114,23 @@ function recordBuildStateChanges(_phase: string, board: Board): void {
   }
 }
 
+function launchCapturingAdapterOf(adapter: AgentAdapter): AgentAdapter {
+  return {
+    ...adapter,
+    planOf: (request) => {
+      launchRequests.push(request);
+      return adapter.planOf(request);
+    },
+  };
+}
+
+/** No verb sets the review phase: `pipeline.json` is edited by hand, as User would. */
+function setReviewPhase(review: Readonly<PipelineReview>): void {
+  const pipelinePath = join(requireWorkspace(repositoryDirectory).trackerDirectory, 'pipeline.json');
+  const pipeline = JSON.parse(readFileSync(pipelinePath, 'utf8')) as Record<string, unknown>;
+  writeFileSync(pipelinePath, `${JSON.stringify({ ...pipeline, review }, null, 2)}\n`);
+}
+
 async function drivePassPlaying(steps: readonly FakeAgentStep[]): Promise<DrivePass> {
   const workspace = requireWorkspace(repositoryDirectory);
   const { runnerDirectory } = runnerFilesIn(workspace.trackerDirectory);
@@ -127,7 +155,7 @@ async function drivePassPlaying(steps: readonly FakeAgentStep[]): Promise<DriveP
     generation:            acquisition.generation,
     hostBundlePath,
     codeVersion:           'code-example',
-    agentAdapter:          fakeAgentAdapter(steps),
+    agentAdapter:          launchCapturingAdapterOf(fakeAgentAdapter(steps)),
     monitorFolder,
     inheritedEnvironment:  inheritedEnvironment(),
     mainLine:              currentBranchOf(repositoryDirectory),
@@ -138,6 +166,7 @@ async function drivePassPlaying(steps: readonly FakeAgentStep[]): Promise<DriveP
     assistantChatTextOf:   (facts) => `Example chat ${facts.sequence}`,
     windDownMessage:       'Example wind-down message',
     resumeMessage:         'Example resume message',
+    redHandoffMessageOf:   RunnerWording.redHandoffMessageOf,
     answerMessageOf:       (answer) => `Example answers ${JSON.stringify(answer)}`,
     homeDirectory:         monitorFolder,
     log:                   (line) => runnerLog.push(line),
@@ -191,6 +220,9 @@ function ticketText(): string {
   return readFileSync(join(ticketsFolder, fileName), 'utf8');
 }
 
+/** Every gate name a spec here adds, claimed on HEAD by default: a claim for a gate the board lacks is ignored. */
+const CLAIMED_GATE_NAMES = ['checks', 'types', 'tests', 'lint'];
+
 function builderReport(fields: Record<string, unknown> = {}): string {
   return fakeResultLine({
     role:              'builder',
@@ -198,6 +230,7 @@ function builderReport(fields: Record<string, unknown> = {}): string {
     headCommit:        FAKE_HEAD_PLACEHOLDER,
     acceptance:        [{ item: 'A1', state: 'met', evidence: 'Example spec proves it' }, { item: 'A2', state: 'met', evidence: 'Example probe' }],
     alsoFixed:         [],
+    gates:             CLAIMED_GATE_NAMES.map((name) => ({ name, commit: FAKE_HEAD_PLACEHOLDER })),
     handoff:           'Example handoff by Alex Example: the example holds.',
     blockedReason:     null,
     cannotBuildReason: null,
@@ -233,7 +266,10 @@ function hostLaunchIn(hostFolder: string): HostLaunch {
 function endEveryHost(): void {
   const jobsFolder = join(requireWorkspace(repositoryDirectory).trackerDirectory, 'jobs');
   if (!existsSync(jobsFolder)) return;
-  const hostFolders = readdirSync(jobsFolder).flatMap((jobId) => ['', 'install', 'gate', 'gate-key'].map((folderName) => join(jobsFolder, jobId, folderName)));
+  const hostFolders = readdirSync(jobsFolder).flatMap((jobId) => {
+    const jobFolder = join(jobsFolder, jobId);
+    return [jobFolder, ...readdirSync(jobFolder).map((name) => join(jobFolder, name)).filter((path) => statSync(path).isDirectory())];
+  });
   for (const hostFolder of hostFolders.filter((folder) => existsSync(folder))) {
     for (const fileName of readdirSync(hostFolder).filter((name) => /^host-\d+\.json$/.test(name))) {
       const record = JSON.parse(readFileSync(join(hostFolder, fileName), 'utf8')) as HostRecord;
@@ -253,6 +289,7 @@ beforeEach(async () => {
   monitorFolder = createScratchDirectory('h');
   runnerLog = [];
   buildStates = [];
+  launchRequests = [];
   jobsNotingStateAssignments = new WeakSet<object>();
   mainTipAtStart = (await Bun.$`git -C ${repositoryDirectory} rev-parse HEAD`.quiet().text()).trim();
   await run(['run', 'resume']);
@@ -266,11 +303,33 @@ afterEach(() => {
 });
 
 describe('a build job end to end', () => {
+  test('with no review phase a gated build goes straight to the merge queue, and no reviewer or review bar is ever made', async () => {
+    await run(['gate', 'none']);
+    const drivePass = await drivePassPlaying(buildingSession());
+    await passUntil(drivePass, () => loggedEntries('merge-queued').length > 0, 'the merge queuing');
+    await passUntil(drivePass, () => loggedEntries('job-ended').some((entry) => entry.fields['outcome'] === 'landed'), 'the landing');
+
+    expect(buildJobEnding()).toMatchObject({ outcome: 'built' });
+    expect(loggedEntries('job-launched').map((entry) => entry.fields['kind'])).not.toContain('review');
+    expect(loggedEntries('review-bar-started')).toEqual([]);
+    expect(storedProgressOf(repositoryDirectory).tasks.some((task) => task.reviewOf !== undefined)).toBe(false);
+    expect(loggedEntries('decision-opened')).toEqual([]);
+    expect(existsSync(join(jobFolderOf(firstBuildJobId()), 'gate-1'))).toBe(false);
+  }, BUILD_TEST_TIMEOUT_MILLISECONDS);
+
   test('prepares, installs, launches, verifies, gates, writes the Handoff, finishes the ticket and gets a review job launched', async () => {
     await run(['gate', 'add', 'checks', '--', 'true']);
     await run(['gate', 'prepare', 'install', '--', 'true']);
+    setReviewPhase({ name: 'Security pass', model: 'sonnet', effort: 'high' });
     const drivePass = await drivePassPlaying(buildingSession());
     await passUntil(drivePass, () => storedProgressOf(repositoryDirectory).jobs?.some((job) => job.kind === 'review') === true, 'the review launch');
+    const launchedKindOf = (request: AgentLaunchRequest): unknown => loggedEntries('job-launched')
+      .find((entry) => entry.jobId === request.environment[JOB_ID_VARIABLE])?.fields['kind'];
+    await passUntil(drivePass, () => launchRequests.some((request) => launchedKindOf(request) === 'review'), 'the reviewer launch');
+    const settingsOfKind = (kind: string): unknown[] => launchRequests.filter((request) => launchedKindOf(request) === kind).map((request) => [request.model, request.effort]);
+    expect(settingsOfKind('build')).toEqual([['opus', 'medium']]);
+    expect(settingsOfKind('review')).toEqual([['sonnet', 'high']]);
+    expect(loggedEntries('review-bar-started').map((entry) => entry.fields['name'])).toEqual(['Review 1 #001 — Export the example roles (Security pass)']);
 
     expect(buildStates).toEqual(['launching', 'preparing', 'running', 'verifying', 'gating', 'ended']);
     expect(buildJobEnding()).toMatchObject({ outcome: 'built' });
@@ -284,7 +343,7 @@ describe('a build job end to end', () => {
     expect((await Bun.$`git -C ${worktree} rev-parse HEAD~1`.quiet().text()).trim()).toBe(mainTipAtStart);
     const jobFolder = jobFolderOf(firstBuildJobId());
     const sandboxApplies = createProcessHostSandbox().isUsable();
-    for (const [folder, networkDenied] of [['install', false], ['gate', true]] as const) {
+    for (const [folder, networkDenied] of [['install', false], ['gate-prepare', false], ['gate-1', true]] as const) {
       const launch = hostLaunchIn(join(jobFolder, folder));
       expect(launch.kind).toBe('process');
       expect(launch.argv[0] === SANDBOX_EXEC_PATH).toBe(sandboxApplies);
@@ -292,8 +351,55 @@ describe('a build job end to end', () => {
     }
     expect(HostFleet.livenessOf(jobFolder, 1)).toMatchObject({ verdict: 'ended', end: { reason: 'exited', exitCode: 0 } });
     expect(loggedEntries('gate-ran').map((entry) => entry.fields)).toEqual([expect.objectContaining({ outcome: 'passed', cached: false })]);
-    const gatesFolder = join(requireWorkspace(repositoryDirectory).trackerDirectory, 'gates');
-    expect(existsSync(gatesFolder) && readdirSync(gatesFolder).length === 1).toBe(sandboxApplies);
+    expect(existsSync(join(requireWorkspace(repositoryDirectory).trackerDirectory, 'gates'))).toBe(false);
+  }, BUILD_TEST_TIMEOUT_MILLISECONDS);
+
+  test('runs the gates in order, the first red one stopping the rest, each in its in folder with its own network and writes', async () => {
+    await run(['gate', 'add', 'types', '--network', 'registry.example.com', '--writes', '~/.cache/example-types', '--', 'true']);
+    await run(['gate', 'add', 'tests', '--', 'echo expected 2, received 3; exit 1']);
+    await run(['gate', 'add', 'lint', '--', 'true']);
+    const drivePass = await drivePassPlaying(buildingSession());
+    await passUntil(drivePass, () => buildJobEnding() !== undefined, 'the build job ending');
+
+    expect(buildJobEnding()).toMatchObject({ outcome: 'failed', cause: 'red-resumes-spent' });
+    const jobFolder = jobFolderOf(firstBuildJobId());
+    expect(readFileSync(join(jobFolder, 'gate.log'), 'utf8')).toBe('tests\nexpected 2, received 3\n');
+    expect(readFileSync(join(jobFolder, 'gate-failure.md'), 'utf8')).toContain('expected 2, received 3');
+    expect(existsSync(join(jobFolder, 'gate-3'))).toBe(false);
+    const typesProfile = readFileSync(join(jobFolder, 'gate-1', 'process-sandbox.sb'), 'utf8');
+    expect(typesProfile.includes('(deny network-outbound')).toBe(false);
+    expect(typesProfile).toContain('.cache/example-types');
+    expect(readFileSync(join(jobFolder, 'gate-2', 'process-sandbox.sb'), 'utf8').includes('(deny network-outbound')).toBe(true);
+  }, BUILD_TEST_TIMEOUT_MILLISECONDS);
+
+  test('a report claiming one gate on HEAD and another on an older commit fails Customs naming the stale one, and no gate runs', async () => {
+    await run(['gate', 'add', 'checks', '--', 'true']);
+    await run(['gate', 'add', 'types', '--', 'true']);
+    const staleClaims = [{ name: 'checks', commit: FAKE_HEAD_PLACEHOLDER }, { name: 'types', commit: mainTipAtStart }];
+    const drivePass = await drivePassPlaying(buildingSession('Build the example', builderReport({ gates: staleClaims })));
+    await passUntil(drivePass, () => buildJobEnding() !== undefined, 'the build job ending');
+
+    expect(buildJobEnding()).toMatchObject({ outcome: 'failed', cause: 'red-resumes-spent' });
+    expect(readFileSync(join(jobFolderOf(firstBuildJobId()), 'gate-failure.md'), 'utf8')).toContain('V15');
+    expect(buildStates).not.toContain('gating');
+    expect(loggedEntries('gate-ran')).toEqual([]);
+    expect(existsSync(join(jobFolderOf(firstBuildJobId()), 'gate-1'))).toBe(false);
+  }, BUILD_TEST_TIMEOUT_MILLISECONDS);
+
+  test('a red gate resumes the builder\'s own session by its id twice, told of the handover, and the third red parks the ticket for User', async () => {
+    await run(['gate', 'add', 'tests', '--', 'echo expected 2, received 3; exit 1']);
+    const drivePass = await drivePassPlaying(buildingSession());
+    await passUntil(drivePass, () => buildJobEnding() !== undefined, 'the build job ending');
+
+    const jobId = firstBuildJobId();
+    const jobFolder = jobFolderOf(jobId);
+    // The same job's next host instances are its resumes: the adapter resumes a job's own session id (ClaudeCodeAdapter.spec.ts).
+    expect([1, 2, 3, 4].map((instance) => existsSync(hostFilesOf(jobFolder, instance).launchPath))).toEqual([true, true, true, false]);
+    expect(loggedEntries('job-launched').filter((entry) => entry.fields['kind'] === 'build')).toHaveLength(1);
+    expect(loggedEntries('job-resumed').map((entry) => entry.fields['cause'])).toEqual(['handoff-red', 'handoff-red']);
+    expect(buildJobEnding()).toMatchObject({ outcome: 'failed', cause: 'red-resumes-spent' });
+    expect(ticketText()).toContain('parked:red-resumes-spent');
+    expect(readFileSync(join(jobFolder, 'red-handoff.json'), 'utf8')).toContain('"resume": 3');
   }, BUILD_TEST_TIMEOUT_MILLISECONDS);
 
   test('a changed pipeline is gated without a restart, and the row records the hash of the pipeline it was judged by', async () => {

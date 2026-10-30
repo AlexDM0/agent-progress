@@ -129,8 +129,9 @@ describe('the legality table', () => {
       'waiting-for-answer': ['running', 'interrupted', 'stopping', 'ended'],
       'interrupted':        ['running', 'awaiting-answer', 'stopping', 'ended'],
       'awaiting-answer':    ['running', 'stopping', 'ended'],
-      'verifying':          ['gating', 'stopping', 'ended'],
-      'gating':             ['awaiting-answer', 'landing', 'stopping', 'ended'],
+      // A red Customs check or gate interrupts the job, so the same session is resumed to fix it.
+      'verifying':          ['gating', 'interrupted', 'stopping', 'ended'],
+      'gating':             ['awaiting-answer', 'interrupted', 'landing', 'stopping', 'ended'],
       'merging':            ['gating', 'stopping', 'ended'],
       'landing':            ['stopping', 'ended'],
       'stopping':           ['interrupted', 'ended'],

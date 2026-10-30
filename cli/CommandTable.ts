@@ -31,6 +31,7 @@ export const COMMAND_TABLE = {
   jobs:           async () => (await import('./jobs/JobsCommand.ts')).jobsCommand,
   job:            async () => (await import('./jobs/JobCommand.ts')).jobCommand,
   intake:         async () => (await import('./intake/IntakeCommand.ts')).intakeCommand,
+  advise:         async () => (await import('./onboarding/AdviseCommand.ts')).adviseCommand,
   await:          async () => (await import('./tracking/await/AwaitCommand.ts')).awaitCommand,
   range:          async () => (await import('./tracking/range/RangeCommand.ts')).rangeCommand,
   open:           async () => (await import('./tracking/open/OpenCommand.ts')).openCommand,

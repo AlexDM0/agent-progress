@@ -9,7 +9,8 @@ export const LEGAL_SOURCE_STATES_FOR_JOB_MOVE: Readonly<Record<JobMoveTarget, re
   'preparing':          ['launching'],
   'running':            ['launching', 'preparing', 'waiting-for-answer', 'interrupted', 'awaiting-answer'],
   'waiting-for-answer': ['running'],
-  'interrupted':        ['preparing', 'running', 'waiting-for-answer', 'stopping'],
+  // From `verifying` or `gating`: a handoff whose Customs check or gate went red waits there for its session's resume.
+  'interrupted':        ['preparing', 'running', 'waiting-for-answer', 'stopping', 'verifying', 'gating'],
   // From `gating`: a review whose gate passed waits there, with no process, for User's answer to its waiver proposals.
   'awaiting-answer':    ['interrupted', 'gating'],
   'verifying':          ['running'],

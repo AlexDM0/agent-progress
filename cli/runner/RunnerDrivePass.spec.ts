@@ -1,11 +1,13 @@
 /**
  * The DrivePass on a scratch tracker with the fake agent, end to end through the pinned host bundle. What matters: a readied ticket gets a
- * `launching` job and a host running the fake child in one pass; a relay request and the `result` of the turn that wrote it, read in one
+ * `launching` job and a host running the fake child in one pass; a missing instruction file the pipeline names spawns nothing and is
+ * noticed until it is committed, and a launch records each file's hash; a relay request and the `result` of the turn that wrote it, read in one
  * pass, are applied request first; a request in another job's folder, or naming a job, is refused and a replay is never applied twice;
  * a pass with nothing changed does not run, however late; and the notices are derived each pass, never stored. Beside the runner, a
  * written verb nudges a live lease's URL once its write is stored and is silent when nobody answers, and `ticket deliver --by-hand`
  * records only, refused while a lease is live or a job of the ticket is.
  */
+import { createHash } from 'node:crypto';
 import {
   existsSync,
   mkdirSync,
@@ -111,6 +113,7 @@ async function drivePassWith(
     assistantChatTextOf:   (facts) => `Example chat ${facts.sequence}`,
     windDownMessage:       'Example wind-down message',
     resumeMessage:         'Example resume message',
+    redHandoffMessageOf:   () => 'Example red handoff message',
     answerMessageOf:       (answer) => `Example answers ${JSON.stringify(answer)}`,
     homeDirectory:         monitorFolder,
     log:                   (line) => runnerLog.push(line),
@@ -292,6 +295,28 @@ describe('one pass', () => {
     await untilHostEnded(buildJobId(), 1);
     expect(readFileSync(hostFilesOf(jobFolder(buildJobId()), 1).eventLogPath, 'utf8')).toContain(JSON.stringify(fakeStartedLine('fake-session')));
     expect(existsSync(join(relayDirectory(buildJobId()), 'requests'))).toBe(true);
+  }, PASS_TEST_TIMEOUT_MILLISECONDS);
+
+  test('a builder file the pipeline names that is missing launches no session and is noticed; committed, the next pass launches it and records its hash', async () => {
+    const pipelinePath = join(requireWorkspace(repositoryDirectory).trackerDirectory, 'pipeline.json');
+    const pipeline = JSON.parse(readFileSync(pipelinePath, 'utf8')) as Record<string, unknown>;
+    writeFileSync(pipelinePath, `${JSON.stringify({ ...pipeline, constitution: [], agents: { builder: ['example-builder.md'] } }, null, 2)}\n`);
+    const drivePass = await drivePassWith(fakeAgentAdapter());
+    await passOnce(drivePass);
+    await passOnce(drivePass);
+
+    expect(drivePass.state().notices).toContainEqual({ kind: 'instructions-missing', jobId: buildJobId(), path: 'example-builder.md' });
+    expect(HostFleet.livenessOf(jobFolder(buildJobId()), 1).verdict).toBe('unclaimed');
+    expect(existsSync(join(jobFolder(buildJobId()), 'instructions-1.json'))).toBe(false);
+
+    writeFileSync(join(repositoryDirectory, 'example-builder.md'), 'Build ticket #{{ticketId}}.\n');
+    await Bun.$`git -C ${repositoryDirectory} add example-builder.md`.quiet();
+    await Bun.$`git -C ${repositoryDirectory} -c user.name=Example -c user.email=example@example.com commit -q -m Example`.quiet();
+    await passUntilBuildSessionSpawned(drivePass);
+
+    expect(drivePass.state().notices).not.toContainEqual(expect.objectContaining({ kind: 'instructions-missing' }));
+    const contentHash = createHash('sha256').update('Build ticket #{{ticketId}}.\n').digest('hex').slice(0, 16);
+    expect(JSON.parse(readFileSync(join(jobFolder(buildJobId()), 'instructions-1.json'), 'utf8'))).toEqual({ files: [{ path: 'example-builder.md', contentHash }] });
   }, PASS_TEST_TIMEOUT_MILLISECONDS);
 
   test('a relay request and the result of the turn that wrote it, read in one pass, are applied request first', async () => {

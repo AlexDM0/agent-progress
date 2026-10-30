@@ -28,7 +28,9 @@ export interface TicketClaim extends AgentAssignment {
 }
 
 export interface ReviewBarRequest extends AgentAssignment {
-  round: number;
+  round:  number;
+  /** The pipeline review's `name`, which the bar's name ends with. */
+  label?: string;
 }
 
 export interface ReviewBarLink {

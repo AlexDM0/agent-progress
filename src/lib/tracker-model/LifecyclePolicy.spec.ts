@@ -8,6 +8,7 @@ import { describe, expect, test } from 'bun:test';
 import { mutatedModuleOf, type SourceMutant } from '../../testing/SourceMutant.ts';
 import type { Decision }                      from './@types/Decision.ts';
 import type { Incident }                      from './@types/Incident.ts';
+import type { Job }                           from './@types/Job.ts';
 import type { LifecycleLimits }               from './@types/LifecycleLimits.ts';
 import type { LifecycleStep }                 from './@types/LifecycleStep.ts';
 import type { LogRecord }                     from './@types/LogRecord.ts';
@@ -44,6 +45,22 @@ interface PolicyClaim {
 
 function policyLine(find: string, replace: string): SourceMutant {
   return { modulePath: POLICY_MODULE, find, replace };
+}
+
+function onboarderJob(): Job {
+  return jobFixture({
+    id: 'J7', kind: 'onboarder', role: 'onboarder', target: null
+  });
+}
+
+function checksNotSetOpenedRecord(): LogRecord {
+  return {
+    at: FIXTURE_AT, kind: 'decision-opened', decisionId: 'E1', fields: { kind: 'checks-not-set', ticketIds: [] }
+  };
+}
+
+function finishedOnboarderRecords(): LogRecord[] {
+  return [launchedRecord('J7', 'onboarder', []), endedRecord('J7', 'failed')];
 }
 
 function decisionOf(kind: Decision['kind']): Decision {
@@ -346,14 +363,42 @@ const CLAIMS: PolicyClaim[] = [
   {
     name:   'with no checks line nothing launches and one checks-not-set decision opens',
     facts:  factsWith({ tickets: [ticketOf('001', 'pending')], pipelineIsSet: false }),
-    holds:  (steps) => stepKindsOf(steps).join(' ') === 'open-decision',
+    holds:  (steps) => stepKindsOf(steps).join(' ') === 'open-decision launch-onboarder',
     mutant: policyLine(' || !facts.pipelineIsSet', ''),
   },
   {
     name:   'an open checks-not-set decision is not opened again',
-    facts:  factsWith({ pipelineIsSet: false, decisions: [decisionOf('checks-not-set')] }),
+    facts:  factsWith({ pipelineIsSet: false, decisions: [decisionOf('checks-not-set')], jobs: [LIVE_ORCHESTRATOR, onboarderJob()] }),
     holds:  (steps) => steps.length === 0,
     mutant: policyLine(' && !openDecisionOfKind(facts, \'checks-not-set\')', ''),
+  },
+  {
+    name:   'a live onboarder answers checks-not-set, so no second one launches',
+    facts:  factsWith({ pipelineIsSet: false, decisions: [decisionOf('checks-not-set')], jobs: [LIVE_ORCHESTRATOR, onboarderJob()] }),
+    holds:  (steps) => !stepKindsOf(steps).includes('launch-onboarder'),
+    mutant: policyLine('  if (facts.jobs.some((job) => job.kind === \'onboarder\')) return true;\n', ''),
+  },
+  {
+    name:  'an onboarder launched since checks-not-set opened answered it, though it ended',
+    facts: factsWith({
+      pipelineIsSet: false,
+      decisions:     [decisionOf('checks-not-set')],
+      logRecords:    [checksNotSetOpenedRecord(), ...finishedOnboarderRecords()],
+    }),
+    holds:  (steps) => !stepKindsOf(steps).includes('launch-onboarder'),
+    mutant: policyLine('launchedSinceTheDecision = true;', 'launchedSinceTheDecision = false;'),
+  },
+  {
+    name:   'a checks-not-set opened again after the onboarder ended launches a fresh one',
+    facts:  factsWith({ pipelineIsSet: false, logRecords: [...finishedOnboarderRecords(), checksNotSetOpenedRecord()] }),
+    holds:  (steps) => stepKindsOf(steps).includes('launch-onboarder'),
+    mutant: policyLine('\'checks-not-set\') launchedSinceTheDecision = false;', '\'checks-not-set\') launchedSinceTheDecision = true;'),
+  },
+  {
+    name:   'a paused board launches no onboarder',
+    facts:  factsWith({ pipelineIsSet: false, runnerState: 'paused' }),
+    holds:  (steps) => !stepKindsOf(steps).includes('launch-onboarder'),
+    mutant: policyLine('outageHolds || facts.runnerState === \'paused\'', 'outageHolds'),
   },
   {
     name:   'a usage limit holds launches and resumes until its reset',

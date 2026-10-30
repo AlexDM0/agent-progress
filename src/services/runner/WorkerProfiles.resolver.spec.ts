@@ -15,9 +15,9 @@ import {
   gitOutputIn,
   removeScratchDirectory
 } from '../../testing/ScratchWorkspace.ts';
-import { testWhenSandboxExecApplies } from '../../testing/ToolGuard.ts';
-import { createProcessHostSandbox }   from './ProcessHostSandbox.ts';
-import { WorkerProfiles }             from './WorkerProfiles.ts';
+import { testWhenSandboxExecApplies }   from '../../testing/ToolGuard.ts';
+import { createProcessHostSandbox }     from './ProcessHostSandbox.ts';
+import { NO_TOOLCHAIN, WorkerProfiles } from './WorkerProfiles.ts';
 
 const CONFLICTED_FILE = 'example.txt';
 
@@ -59,7 +59,7 @@ testWhenSandboxExecApplies('a sandboxed resolver commits its merge in a linked w
     groupPrefix:    'group-',
     relayDirectory: join(repository, 'relay'),
   });
-  const profile = WorkerProfiles.profileOf('resolver', facts, [], []);
+  const profile = WorkerProfiles.profileOf('resolver', facts, NO_TOOLCHAIN);
   const sandbox = createProcessHostSandbox();
   const profilePath = join(repository, 'resolver.sb');
   writeFileSync(profilePath, sandbox.profileTextOf({

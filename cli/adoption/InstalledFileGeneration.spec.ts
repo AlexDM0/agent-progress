@@ -1,6 +1,6 @@
 /**
  * The texts `init` and `update` install, computed before anything is written. The cases that matter: the product's names are filled and
- * only the Assistant brief keeps placeholders, the ones the Overseer fills at each launch; the session instructions and the Assistant
+ * only the instruction defaults keep placeholders, the ones the Overseer fills at each launch; the session instructions and the Assistant
  * brief name no retired verb, hook or file; the brief whose presence marks the install is the session instructions; and neither skill
  * names a Claude-only tool.
  */
@@ -25,18 +25,32 @@ const RETIRED_NAMES = ['dispatcher', 'agent-brief.md', 'builder-brief.md', 'revi
 const PLACEHOLDERS_THE_OVERSEER_FILLS = ['{{callBudget}}', '{{jobId}}'];
 
 describe('the installed texts', () => {
-  test('every brief is generated, and only the Assistant brief keeps placeholders, the ones its launch fills', () => {
-    expect(Object.keys(TEXTS).sort()).toEqual(['assistantBrief', 'reference', 'sessionInstructions']);
+  test('every brief is generated, and only the instruction defaults keep placeholders, the ones their launch fills', () => {
+    expect(Object.keys(TEXTS).sort()).toEqual([
+      'assistantDefault',
+      'builderDefault',
+      'constitutionDefault',
+      'mergerDefault',
+      'onboarderDefault',
+      'productOwnerDefault',
+      'reference',
+      'reviewerDefault',
+      'sessionInstructions',
+    ]);
     expect(TEXTS.reference).not.toContain('{{');
     expect(TEXTS.sessionInstructions).not.toContain('{{');
-    expect([...(TEXTS.assistantBrief ?? '').matchAll(/\{\{\w+\}\}/g)].map(([placeholder]) => placeholder).sort())
+    expect(TEXTS.constitutionDefault).not.toContain('{{');
+    expect(TEXTS.onboarderDefault).not.toContain('{{');
+    expect([...(TEXTS.assistantDefault ?? '').matchAll(/\{\{\w+\}\}/g)].map(([placeholder]) => placeholder).sort())
       .toEqual(PLACEHOLDERS_THE_OVERSEER_FILLS);
+    expect(TEXTS.builderDefault).toContain('{{ticketBody}}');
+    expect(TEXTS.builderDefault).not.toContain('{{program}}');
     expect(TEXTS.sessionInstructions).toContain(`\`${PRODUCT_NAMES.PROGRAM} status --json\``);
     expect(TEXTS.sessionInstructions).toContain(`\`${PRODUCT_NAMES.DATA_FOLDER}/reference.md\``);
   });
 
   test('neither the session instructions nor the Assistant brief name a retired verb, hook or file', () => {
-    for (const text of [TEXTS.sessionInstructions ?? '', TEXTS.assistantBrief ?? '']) {
+    for (const text of [TEXTS.sessionInstructions ?? '', TEXTS.assistantDefault ?? '']) {
       for (const retiredName of RETIRED_NAMES) expect(text, retiredName).not.toContain(retiredName);
     }
   });

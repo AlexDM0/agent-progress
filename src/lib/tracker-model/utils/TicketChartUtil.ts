@@ -35,8 +35,10 @@ function seededFilingOf(frontmatter: Readonly<TicketFrontmatter>): TaskFiling {
   };
 }
 
-function reviewBarNameOf(round: number, frontmatter: Pick<TicketFrontmatter, 'id' | 'title'>): string {
-  return `Review ${round} #${frontmatter.id} — ${frontmatter.title}`;
+/** The label goes last, so the page still reads the round from the name's opening. */
+function reviewBarNameOf(round: number, frontmatter: Pick<TicketFrontmatter, 'id' | 'title'>, label?: string): string {
+  const name = `Review ${round} #${frontmatter.id} — ${frontmatter.title}`;
+  return label === undefined || label === '' ? name : `${name} (${label})`;
 }
 
 export const TicketChartUtil = {

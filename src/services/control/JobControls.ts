@@ -32,10 +32,11 @@ function messageJob(command: ControlCommandOf<'job-message'>, change: TrackerCha
 }
 
 export const JOB_CONTROLS = {
-  'job-stop':     (command: ControlCommandOf<'job-stop'>, change: TrackerChange) => change.board.requestJobStop(command.jobId, command.mode, change.at),
-  'job-fresh':    freshAgent,
-  'job-stop-all': (command: ControlCommandOf<'job-stop-all'>, change: TrackerChange) => change.board.stopAllJobs(command.mode, change.at),
-  'job-message':  messageJob,
-  'intake-start': (command: ControlCommandOf<'intake-start'>, change: TrackerChange) => change.board.startIntake(command.text, change.at),
-  'intake-close': closeIntake,
+  'job-stop':         (command: ControlCommandOf<'job-stop'>, change: TrackerChange) => change.board.requestJobStop(command.jobId, command.mode, change.at),
+  'job-fresh':        freshAgent,
+  'job-stop-all':     (command: ControlCommandOf<'job-stop-all'>, change: TrackerChange) => change.board.stopAllJobs(command.mode, change.at),
+  'job-message':      messageJob,
+  'intake-start':     (command: ControlCommandOf<'intake-start'>, change: TrackerChange) => change.board.startIntake(command.text, change.at),
+  'onboarder-advise': (_command: ControlCommandOf<'onboarder-advise'>, change: TrackerChange) => change.board.startOnboarder(change.at),
+  'intake-close':     closeIntake,
 } as const;

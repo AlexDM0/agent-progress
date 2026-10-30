@@ -86,7 +86,7 @@ function newBoard(storedLogRecords: readonly LogRecord[] = []): Board {
     epics:    [],
     logger:   createLogger((record) => logRecords.push(record)),
     storedLogRecords,
-    pipeline: { prepare: [], gates: [{ name: 'verify', run: 'bun run verify' }] },
+    pipeline: { prepare: [], gates: [{ name: 'verify', run: 'bun run verify' }], review: { name: 'Review' } },
   });
 }
 

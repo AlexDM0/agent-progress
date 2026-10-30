@@ -217,7 +217,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - Every mutating command writes through `writeTracker` in `src/services/tracker/TrackerPipeline.ts` (lock, read into
   a Board, change, writes in `docs/cli.md`'s order, one lock hold; nothing renders), and `cli/RegisterWrittenTracker.ts`
   registers the tracker with the monitor after every write and at the Overseer's start. `init` creates a tracker;
-  `update`, and `init` on an existing one, never touch its files. `status` takes no lock.
+  `update`, and `init` on an existing one, never touch its files but the `progress.html` stub. `status` takes no
+  lock.
 
 ### Tickets
 
