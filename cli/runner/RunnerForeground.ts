@@ -577,6 +577,8 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
     serving.lifetime.stopWatching();
     serving.watcher.stop();
     await serving.drivePass.idle();
+    // A host ending after the last pass would otherwise wait for an acknowledgement until the next runner.
+    await HostFleet.reapEndedHosts(workspace.trackerDirectory);
     try {
       await serving.server.stop();
       if (end.kind === 'taken-over') {

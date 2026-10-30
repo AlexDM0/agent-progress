@@ -46,7 +46,9 @@ scratch repository is kept for reading and named on the log's last line; remove 
    `run restart`, a wait; the agent's host process and host instance are read before and after each.
 4. Polls every ten seconds until both tickets are `delivered`, a decision only User may take opens (a park, a refused
    landing or merge), or the timeout, logging every change of the tickets and jobs; then `job stop --all`,
-   `run stop --now`, and kills the agent hosts still running in the scratch board, logging how many there were.
+   a bounded wait for the stopped jobs to end, `run stop --now`, and kills the hosts still running in the scratch board,
+   logging apart how many belonged to ended jobs (the runner reaps those, so 0) and to jobs still live, such as the
+   Assistant's, which outlive the runner by design.
 
 ## Reading the log
 
