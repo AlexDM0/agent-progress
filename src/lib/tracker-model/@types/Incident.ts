@@ -39,10 +39,10 @@ export type IncidentMove =
   | 'ticket-triage'
   | 'open-quiet-job-decision';
 
-/** Why an incident took its default: its delivery turn closed, the turn reached its call budget, or no orchestrator can come up. */
+/** Why an incident took its default: its delivery turn closed, the turn reached its call budget, or no Assistant can come up. */
 export type IncidentDefaultCause = 'turn-closed' | 'turn-budget' | 'no-assistant';
 
-/** The orchestrator's chat turn an incident went out in: the n-th `result` after chat `chatSequence` closes it. */
+/** The Assistant's chat turn an incident went out in: the n-th `result` after chat `chatSequence` closes it. */
 export interface IncidentDeliveryTurn {
   jobId:        string;
   chatSequence: number;

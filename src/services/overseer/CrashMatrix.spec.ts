@@ -219,7 +219,7 @@ interface RecordedLaunch {
 interface SessionScenario {
   fresh:         readonly FakeAgentStep[];
   resumed:       readonly FakeAgentStep[];
-  orchestrator?: readonly FakeAgentStep[];
+  Assistant?:    readonly FakeAgentStep[];
   /** The product owner, told apart as the one session launched with skills on. */
   productOwner?: { fresh: readonly FakeAgentStep[]; resumed: readonly FakeAgentStep[] };
 }
@@ -265,7 +265,7 @@ let launchFacts: { jobId: string; facts: JobLaunchFacts }[] = [];
 let assistantLaunches: AgentLaunchRequest[] = [];
 let overseerLog: string[] = [];
 
-/** The fake session, recording each worker launch; the orchestrator the policy boots beside the build only waits. */
+/** The fake session, recording each worker launch; the Assistant the policy boots beside the build only waits. */
 function recordingAdapter(scenario: SessionScenario): AgentAdapter {
   return {
     ...fakeAgentAdapter(),
@@ -282,7 +282,7 @@ function recordingAdapter(scenario: SessionScenario): AgentAdapter {
       }
       const productOwnerSteps = request.resume ? scenario.productOwner?.resumed : scenario.productOwner?.fresh;
       if (!isWorker && !request.profile.skills) assistantLaunches.push(request);
-      const sessionSteps = request.profile.skills ? productOwnerSteps ?? WAITING_STEPS : scenario.orchestrator ?? WAITING_STEPS;
+      const sessionSteps = request.profile.skills ? productOwnerSteps ?? WAITING_STEPS : scenario.Assistant ?? WAITING_STEPS;
       const steps = isWorker ? (request.resume ? scenario.resumed : scenario.fresh) : sessionSteps;
       return fakeAgentAdapter(steps).planOf(request);
     },
@@ -831,13 +831,13 @@ describeWhenGitIsPresent('the session, Watcher, Overseer and reboot rows', () =>
   }, ROW_TIMEOUT_MILLISECONDS);
 
   test('overseer dies after the hold that launched a job, before the spawn: regroup re-spawns the same instance', async () => {
-    let orchestratorJobId = '';
+    let assistantJobId = '';
     await writeTracker({
       workspace: sessionWorkspace,
       at:        CHANGED_AT,
       now,
       mutate:    (change) => {
-        orchestratorJobId = change.board.launchJob({
+        assistantJobId = change.board.launchJob({
           kind: 'assistant', role: 'assistant', ticketIds: [], parentJobId: null, attempt: 1, target: null
         }, change.at).job.id;
       },
@@ -845,29 +845,29 @@ describeWhenGitIsPresent('the session, Watcher, Overseer and reboot rows', () =>
 
     const report = await (await startedOverseer(recordingAdapter({ fresh: WAITING_STEPS, resumed: WAITING_STEPS }))).regroup();
 
-    expect(report.respawnJobIds).toContain(orchestratorJobId);
-    await until(() => WatcherFleet.livenessOf(sessionJobFolder(orchestratorJobId), 1).verdict === 'live', 'the same instance was never claimed');
-    expect(storedJobs().find((job) => job.id === orchestratorJobId)?.watcherInstance).toBe(1);
+    expect(report.respawnJobIds).toContain(assistantJobId);
+    await until(() => WatcherFleet.livenessOf(sessionJobFolder(assistantJobId), 1).verdict === 'live', 'the same instance was never claimed');
+    expect(storedJobs().find((job) => job.id === assistantJobId)?.watcherInstance).toBe(1);
   }, ROW_TIMEOUT_MILLISECONDS);
 
-  test('an orchestrator session finishes only once the Overseer closed its input: a turn\'s result keeps it running, its Watcher gone while stopping ends it closed', async () => {
-    const orchestratorSteps: readonly FakeAgentStep[] = [STARTED, { kind: 'print', line: fakeResultLine({ outcome: 'built' }) }, { kind: 'await-line' }];
-    const adapter = recordingAdapter({ fresh: WAITING_STEPS, resumed: WAITING_STEPS, orchestrator: orchestratorSteps });
+  test('an Assistant session finishes only once the Overseer closed its input: a turn\'s result keeps it running, its Watcher gone while stopping ends it closed', async () => {
+    const assistantSteps: readonly FakeAgentStep[] = [STARTED, { kind: 'print', line: fakeResultLine({ outcome: 'built' }) }, { kind: 'await-line' }];
+    const adapter = recordingAdapter({ fresh: WAITING_STEPS, resumed: WAITING_STEPS, Assistant: assistantSteps });
     const drivePass        = await startedOverseer(adapter);
-    const orchestratorJob  = (): Readonly<Job> | undefined => storedJobs().find((job) => job.kind === 'assistant');
-    const orchestratorId   = (): string => orchestratorJob()?.id ?? '';
-    await passUntil(drivePass, () => orchestratorJob() !== undefined && eventLogTextOf(orchestratorId(), 1).includes('"result"'), 'the orchestrator never ended a turn');
+    const assistantJob  = (): Readonly<Job> | undefined => storedJobs().find((job) => job.kind === 'assistant');
+    const assistantId   = (): string => assistantJob()?.id ?? '';
+    await passUntil(drivePass, () => assistantJob() !== undefined && eventLogTextOf(assistantId(), 1).includes('"result"'), 'the Assistant never ended a turn');
     await passOnce(drivePass);
-    expect(orchestratorJob()).toMatchObject({ state: 'running', watcherInstance: 1 });
+    expect(assistantJob()).toMatchObject({ state: 'running', watcherInstance: 1 });
 
-    const jobId = orchestratorId();
+    const jobId = assistantId();
     await writeTracker({
       workspace: sessionWorkspace, at: CHANGED_AT, now, mutate: (change) => { change.board.moveJob(jobId, 'stopping', change.at); },
     });
     killWatcher(jobId, 1);
     killChildGroup(jobId, 1);
-    await until(() => WatcherFleet.livenessOf(sessionJobFolder(jobId), 1).verdict === 'lost', 'the orchestrator Watcher never read as lost');
-    await passUntil(drivePass, () => storedRecords().some((record) => record.kind === 'job-ended' && record.jobId === jobId), 'the stopped orchestrator never ended');
+    await until(() => WatcherFleet.livenessOf(sessionJobFolder(jobId), 1).verdict === 'lost', 'the Assistant Watcher never read as lost');
+    await passUntil(drivePass, () => storedRecords().some((record) => record.kind === 'job-ended' && record.jobId === jobId), 'the stopped Assistant never ended');
 
     expect(storedRecords().find((record) => record.kind === 'job-ended' && record.jobId === jobId)?.fields).toMatchObject({ outcome: 'closed' });
     expect(storedRecords().filter((record) => record.kind === 'job-interrupted' && record.jobId === jobId)).toEqual([]);
@@ -875,7 +875,7 @@ describeWhenGitIsPresent('the session, Watcher, Overseer and reboot rows', () =>
 
   test('Assistant mid-turn, Overseer restarted: the session continues, its turn\'s result is read from history and closes the delivery turn', async () => {
     const assistantSteps: readonly FakeAgentStep[] = [STARTED, FIRST_TURN_RESULT, { kind: 'await-line' }, FIRST_TURN_RESULT, { kind: 'await-line' }];
-    const adapter   = recordingAdapter({ fresh: WAITING_STEPS, resumed: WAITING_STEPS, orchestrator: assistantSteps });
+    const adapter   = recordingAdapter({ fresh: WAITING_STEPS, resumed: WAITING_STEPS, Assistant: assistantSteps });
     const drivePass = await startedOverseer(adapter);
     await passUntil(drivePass, () => assistantAnswered(1), 'the Assistant never answered its first message');
     const assistantId = requireAssistant().id;
@@ -919,7 +919,7 @@ describeWhenGitIsPresent('the session, Watcher, Overseer and reboot rows', () =>
       writeFileSync(releaseFile, '');
       for (let attempt = 0; attempt < WAIT_TRIES && !assistantAnswered(2); attempt += 1) Bun.sleepSync(WAIT_MILLISECONDS);
     };
-    const adapter   = recordingAdapter({ fresh: WAITING_STEPS, resumed: WAITING_STEPS, orchestrator: assistantSteps });
+    const adapter   = recordingAdapter({ fresh: WAITING_STEPS, resumed: WAITING_STEPS, Assistant: assistantSteps });
     const drivePass = await startedOverseer(adapter, undefined, undefined, queueTheMoveThenAnswer);
     await passUntil(drivePass, () => assistantAnswered(1), 'the Assistant never answered its first message');
     await openBlockedIncident();
@@ -933,7 +933,7 @@ describeWhenGitIsPresent('the session, Watcher, Overseer and reboot rows', () =>
 
   test('Assistant down during a delivery turn: ended replaced, cause assistant-down, never resumed, and a fresh one\'s first message carries the incident', async () => {
     const assistantSteps: readonly FakeAgentStep[] = [STARTED, FIRST_TURN_RESULT, { kind: 'await-line' }, { kind: 'crash' }];
-    const drivePass = await startedOverseer(recordingAdapter({ fresh: WAITING_STEPS, resumed: WAITING_STEPS, orchestrator: assistantSteps }));
+    const drivePass = await startedOverseer(recordingAdapter({ fresh: WAITING_STEPS, resumed: WAITING_STEPS, Assistant: assistantSteps }));
     await passUntil(drivePass, () => assistantAnswered(1), 'the Assistant never answered its first message');
     const downId = requireAssistant().id;
     await openBlockedIncident();
@@ -954,7 +954,7 @@ describeWhenGitIsPresent('the session, Watcher, Overseer and reboot rows', () =>
   }, ROW_TIMEOUT_MILLISECONDS);
 
   test('no Assistant can come up: two boots failing before a result default every incident, and the next boot waits for a sweep', async () => {
-    const drivePass = await startedOverseer(recordingAdapter({ fresh: WAITING_STEPS, resumed: WAITING_STEPS, orchestrator: CRASHING_STEPS }));
+    const drivePass = await startedOverseer(recordingAdapter({ fresh: WAITING_STEPS, resumed: WAITING_STEPS, Assistant: CRASHING_STEPS }));
     await openBlockedIncident();
     await passUntil(drivePass, () => failedAssistantBoots() === 2, 'two Assistant boots never failed');
     await passUntil(drivePass, () => openIncidents().length === 0, 'the open incident never took its default');
@@ -1230,7 +1230,7 @@ describeWhenGitIsPresent('the session, Watcher, Overseer and reboot rows', () =>
       })(),
     ]);
 
-    expect(outcome.verdict).toBe('handed-over');
+    expect(outcome.verdict).toBe('baton-passed');
     expect(child !== null && child !== undefined && processIsAlive(child)).toBe(true);
     expect(successorReports[0]?.attached.map((watcher) => [watcher.jobId, watcher.instance])).toContainEqual([job.id, 1]);
     expect(successorReports[0]?.lost).toEqual([]);
@@ -1250,7 +1250,7 @@ describeWhenGitIsPresent('the session, Watcher, Overseer and reboot rows', () =>
     const report        = await updatedOverseer.regroup();
 
     expect(report.attached.map((watcher) => watcher.jobId)).not.toContain(job.id);
-    expect(report.legacyHosts).toEqual([{ jobId: job.id, instance: 1, protocolVersion: WATCHER_PROTOCOL_OLDEST_SUPPORTED - 1 }]);
+    expect(report.legacyWatchers).toEqual([{ jobId: job.id, instance: 1, protocolVersion: WATCHER_PROTOCOL_OLDEST_SUPPORTED - 1 }]);
     expect(updatedOverseer.state().legacyWatcherJobIds).toEqual([job.id]);
     expect(WatcherFleet.eventsAfter(sessionJobFolder(job.id), 1, 0)).not.toBe('malformed');
     expect(requireBuildJob()).toMatchObject({ id: job.id, state: 'running', watcherInstance: 1 });
@@ -1386,8 +1386,8 @@ describe('the product-owner bound row', () => {
     ticketIdsTouchingAgentConfig: [],
     closedDeliveryTurns:          [],
     budgetSpentDeliveryTurns:     [],
-    orchestratorHasAnswered:      false,
-    orchestratorBootRetryDue:     false,
+    assistantHasAnswered:         false,
+    assistantBootRetryDue:        false,
   } as const;
   const wordingOf = (): { questions: { question: string; header: string; multiSelect: boolean; options: { label: string; description: string }[] }[]; context: string } => ({
     questions: [{

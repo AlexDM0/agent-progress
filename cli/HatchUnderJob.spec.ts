@@ -280,7 +280,7 @@ describe('the overseer\'s reply', () => {
   test('a done reply prints the request id and the filed ticket at exit 0', async () => {
     const { exitCode, context } = await runAnswering(() => ({ outcome: 'done', ticketIds: ['014'] }));
     expect(exitCode).toBe(0);
-    expect(context.outputText()).toMatch(/^done [0-9a-f-]+ \(#014\): the overseer applied the request\.$/);
+    expect(context.outputText()).toMatch(/^done [0-9a-f-]+ \(#014\): the Overseer applied the request\.$/);
   });
 
   test('a refused reply is worded by the refusal-wording util and exits 1', async () => {

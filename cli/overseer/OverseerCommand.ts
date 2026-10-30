@@ -102,7 +102,7 @@ function stopSubcommand(kind: RuntimeStopKind): RunSubcommand {
  */
 async function restartTheOverseer(commandArguments: ArgumentParser, context: CommandContext, files: ReturnType<typeof overseerFilesIn>, now: boolean): Promise<void> {
   const batonPass = await OverseerRemote.handOverTheLiveOverseer(files, now);
-  if (batonPass.verdict === 'handed-over') {
+  if (batonPass.verdict === 'baton-passed') {
     OutputUtil.printEntity(commandArguments, context, { outcome: 'done', url: batonPass.url, codeVersion: batonPass.successorCodeVersion },
       `Overseer handed over to code ${batonPass.successorCodeVersion} at ${batonPass.url}`);
     return;

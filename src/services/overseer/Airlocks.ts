@@ -2,7 +2,7 @@
  * The Airlocks, one per target, run by the Overseer after each pass (design section 6): allocation, the one merge-in against the recorded
  * tip, a resolver for a conflict git cannot settle, the gate on the merged tree and the compare-and-swap landing. The main line lands in the
  * main checkout; a group's tickets and its refreshes land in the group's own worktree, and its release ticket lands the bundle on the main
- * line. Every phase is written on the merge job's slot in its own hold, and every outcome ends the job or opens what User or the orchestrator
+ * line. Every phase is written on the merge job's slot in its own hold, and every outcome ends the job or opens what User or the Assistant
  * answers, so nothing loops.
  */
 import { readCurrentBranch }           from '../../lib/git/BranchIntegration.ts';
@@ -255,7 +255,7 @@ export function createAirlocks(context: AirlocksContext): Airlocks {
     });
   }
 
-  /** The merge aborts, the slot frees and User is asked; a `reportKind` also opens the orchestrator's incident, with no job waiting. */
+  /** The merge aborts, the slot frees and User is asked; a `reportKind` also opens the Assistant's incident, with no job waiting. */
   async function refuseMerge(job: Readonly<Job>, cause: string, notes: string, reportKind: unknown = null): Promise<void> {
     const ticketIds = isRefresh(job) ? [] : [ticketIdOf(job)];
     await freeSlot(job, { outcome: 'failed', cause }, (hold) => {

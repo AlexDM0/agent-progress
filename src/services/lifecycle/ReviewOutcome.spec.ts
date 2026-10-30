@@ -232,8 +232,8 @@ describeWhenGitIsPresent('a review pass settled by code', () => {
       ticketIdsTouchingAgentConfig: [],
       closedDeliveryTurns:          [],
       budgetSpentDeliveryTurns:     [],
-      orchestratorHasAnswered:      false,
-      orchestratorBootRetryDue:     false,
+      assistantHasAnswered:         false,
+      assistantBootRetryDue:        false,
     }, () => WORDING);
     expect(advanced.steps.filter((step) => step.kind === 'launch-review')).toEqual([{
       kind: 'launch-review', ticketId: '001', round: 2, target
@@ -281,8 +281,8 @@ describeWhenGitIsPresent('a review pass settled by code', () => {
       ticketIdsTouchingAgentConfig: [],
       closedDeliveryTurns:          [],
       budgetSpentDeliveryTurns:     [],
-      orchestratorHasAnswered:      false,
-      orchestratorBootRetryDue:     false,
+      assistantHasAnswered:         false,
+      assistantBootRetryDue:        false,
     }, () => WORDING);
     expect(advanced.steps.filter((step) => step.kind === 'launch-review')).toEqual([]);
   });

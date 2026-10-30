@@ -104,17 +104,17 @@ describe('suites are spec files that never create the real process context', () 
   });
 
   test.each([
-    ['a bare start', 'runAgentProgress([\'run\'], options);'],
-    ['a detached start', 'runAgentProgress([\'run\', \'--detach\'], options);'],
-    ['a start on a board\'s own port', 'startAgentProgress([\'run\', \'--port\', \'4930\'], options);'],
+    ['a bare start', 'runAgentProgress([\'oversee\'], options);'],
+    ['a detached start', 'runAgentProgress([\'oversee\', \'--detach\'], options);'],
+    ['a start on a board\'s own port', 'startAgentProgress([\'oversee\', \'--port\', \'4930\'], options);'],
   ])('a spec planting %s is named', (_form, plantedLine) => {
     expect(testFileViolationsOf([{ path: 'cli/Example.spec.ts', text: plantedLine }])).toEqual(['cli/Example.spec.ts starts an Overseer without --port 0']);
   });
 
-  test('an Overseer on --port 0, a run subcommand, and a shipping module starting an Overseer pass', () => {
+  test('an Overseer on --port 0, an oversee subcommand, and a shipping module starting an Overseer pass', () => {
     expect(testFileViolationsOf([
-      { path: 'cli/Example.spec.ts', text: 'startAgentProgress([\'run\', \'--detach\', \'--port\', \'0\'], options);\nrunAgentProgress([\'run\', \'stop\'], options);\n' },
-      { path: 'cli/Shipping.ts', text: 'spawn([\'run\']);\n' },
+      { path: 'cli/Example.spec.ts', text: 'startAgentProgress([\'oversee\', \'--detach\', \'--port\', \'0\'], options);\nrunAgentProgress([\'oversee\', \'stop\'], options);\n' },
+      { path: 'cli/Shipping.ts', text: 'spawn([\'oversee\']);\n' },
     ])).toEqual([]);
   });
 

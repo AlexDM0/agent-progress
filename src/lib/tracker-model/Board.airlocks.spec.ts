@@ -42,7 +42,7 @@ describe('claiming the main line\'s Airlock', () => {
       kind:      'merge',
       state:     'merging',
       ticketIds: ['002'],
-      slot:      {
+      airlock:   {
         target: 'main', targetTip: 'a'.repeat(40), branchTip: 'b'.repeat(40), phase: 'merge-in'
       }
     });
@@ -111,7 +111,7 @@ describe('a group\'s release and refresh on the board', () => {
       kind:      'refresh',
       ticketIds: [],
       state:     'merging',
-      slot:      {
+      airlock:   {
         target: 'group-example', targetTip: 'a'.repeat(40), branchTip: 'c'.repeat(40), phase: 'merge-in'
       }
     });

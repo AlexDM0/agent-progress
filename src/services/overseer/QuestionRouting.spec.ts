@@ -1,6 +1,6 @@
 /**
  * An agent's question request routed by its headers. What matters: only a request whose every question is headed `system` or every one
- * `ticket` reaches the orchestrator, as a `system-question` or `malformed-ticket` incident carrying the request and exactly the agent's
+ * `ticket` reaches the Assistant, as a `system-question` or `malformed-ticket` incident carrying the request and exactly the agent's
  * questions; anything else, a mix of reserved and other headers included, is User's `agent-question` with the agent's questions and
  * options; either way the job waits keeping its build slot, and a replayed or answered request opens nothing twice.
  */
@@ -57,7 +57,7 @@ describe('opening a question in the hold that reads it', () => {
     expect(board.jobs().map((job) => [job.id, job.state])).toEqual([['J1', 'waiting-for-answer']]);
   });
 
-  test.each([['system', 'system-question'], ['ticket', 'malformed-ticket']] as const)('every question headed %s opens a %s incident for the orchestrator', (header, kind) => {
+  test.each([['system', 'system-question'], ['ticket', 'malformed-ticket']] as const)('every question headed %s opens a %s incident for the Assistant', (header, kind) => {
     const { board } = runningBuild();
     const questions = [questionHeaded(header), questionHeaded(header)];
     QuestionRouting.openQuestion(board, 'J1', 'request-1', questions, AT);

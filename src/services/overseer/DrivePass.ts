@@ -796,7 +796,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
         IncidentRouter.openQuietJobIncidents(change.board, quietJobIdsDue.splice(0), QUIET_JOB_SWEEPS, change.at);
         const { assistantReadings } = observation;
         const downAssistants = AssistantSession.endDownAssistants(change.board, assistantReadings, quietAssistantIdsDue.splice(0), change.at);
-        const orchestratorBootRetryDue = assistantBootRetryRequested && !downAssistants.bootFailed;
+        const assistantBootRetryDue = assistantBootRetryRequested && !downAssistants.bootFailed;
         assistantBootRetryRequested = false;
         const buildJobRecords = JobLaunch.applyBuildJobObservations(change, jobLaunchContext, observation.buildJobs);
         const usageResetsAt = UsageLimits.usageResetsAtOf(observation.usageMarker, usageLimitHits);
@@ -808,7 +808,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
           targetsHoldingManagedBlock:   observation.targetsHoldingManagedBlock,
           ticketIdsTouchingAgentConfig: agentConfigHold.held,
           ...AssistantSession.turnObservationsOf(change.board, assistantReadings),
-          orchestratorBootRetryDue,
+          assistantBootRetryDue,
         };
         const jobIdsBeforeTheLifecycle = new Set(change.board.jobs().map((job) => job.id));
         change.board.followPlaybook({ ...LIFECYCLE_LIMITS, now: at, usageResetsAt }, observations, request.decisionWordingOf);
@@ -882,7 +882,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
       answerMessageOf:           request.answerMessageOf,
     });
     const heldTargets = written.board.pipeline() === null ? [] : await airlocks.sweep();
-    await WatcherFleet.reapEndedHosts(trackerDirectory);
+    await WatcherFleet.reapEndedWatchers(trackerDirectory);
     jobsAtTheLastPass = written.board.jobs();
     assistantsMidTurnAtTheLastPass = AssistantSession.midTurnJobIdsOf(request.workspace.trackerDirectory, written.board, observation.assistantReadings);
     state = {

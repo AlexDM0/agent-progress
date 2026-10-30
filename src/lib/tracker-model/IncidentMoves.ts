@@ -114,7 +114,7 @@ export class IncidentMoves {
 
   /**
    * In the hold that delivers or abandons a ticket: an abandoned finding is struck off its listing incident, and one `findings-delivered`
-   * incident lists every draft the ticket's jobs filed for the orchestrator.
+   * incident lists every draft the ticket's jobs filed for the Assistant.
    */
   afterTicketSettled(ticketId: string, abandoned: boolean, at: string): LogRecord[] {
     const struck  = abandoned ? this.input.incidentRules.settleListedFindings([ticketId], 'ticket-abandon', at) : [];

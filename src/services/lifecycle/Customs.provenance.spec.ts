@@ -150,7 +150,7 @@ afterEach(() => {
 });
 
 describeWhenGitIsPresent('V12: every filed finding is this job\'s own low draft', () => {
-  test('a finding naming its ticket, filed on the orchestrator route, passes', () => {
+  test('a finding naming its ticket, filed on the Assistant route, passes', () => {
     expect(refusal('V12', reviewerSubject([filedFinding({ filedTicketId: '012' })], [filingRecord('012')]))).toBeNull();
   });
 

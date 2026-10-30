@@ -146,7 +146,7 @@ export class LifecycleWorld {
     for (let i = 0; i < turns; i += 1) {
       this.advance(i);
       this.act();
-      this.syncHosts(i);
+      this.syncWatchers(i);
     }
     return this.violations;
   }
@@ -169,14 +169,14 @@ export class LifecycleWorld {
       const resumed = jobsBefore.find((job) => job.id === step.jobId);
       if (resumed?.state !== 'interrupted' || resumed.kind === 'assistant') this.violations.push(`turn ${turn}: resumed ${step.jobId}, which was no interrupted agent job`);
     }
-    this.syncHosts(turn);
+    this.syncWatchers(turn);
     this.checkInvariants(turn);
     this.checkMergeInvariants(turn);
     this.checkResumes(turn);
   }
 
   /** A job running on an instance the world has not spawned gets that Watcher; a job interrupted, ended or gone has none left. */
-  private syncHosts(turn: number): void {
+  private syncWatchers(turn: number): void {
     const liveJobs = new Map(this.board.jobs().map((job) => [job.id, job]));
     for (const [jobId, instances] of this.liveWatcherInstances) {
       const job = liveJobs.get(jobId);

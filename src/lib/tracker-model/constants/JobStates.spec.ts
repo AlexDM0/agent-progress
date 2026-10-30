@@ -22,7 +22,7 @@ import {
   JOB_ROLES,
   JOB_STATES,
   OVERSEER_STOP_REASONS,
-  SLOT_PHASES
+  AIRLOCK_PHASES
 }                                  from './JobStates.ts';
 
 const EVERY_TUPLE_COVERS_ITS_UNION: readonly true[] = [
@@ -31,13 +31,13 @@ const EVERY_TUPLE_COVERS_ITS_UNION: readonly true[] = [
   true satisfies TupleCoversTheUnion<JobState, typeof JOB_STATES>,
   true satisfies TupleCoversTheUnion<JobOutcome, typeof JOB_OUTCOMES>,
   true satisfies TupleCoversTheUnion<InterruptionCause, typeof INTERRUPTION_CAUSES>,
-  true satisfies TupleCoversTheUnion<AirlockPhase, typeof SLOT_PHASES>,
+  true satisfies TupleCoversTheUnion<AirlockPhase, typeof AIRLOCK_PHASES>,
   true satisfies TupleCoversTheUnion<OverseerStopReason, typeof OVERSEER_STOP_REASONS>,
 ];
 
 test('every job vocabulary tuple covers its union, and none names a member twice', () => {
   expect(EVERY_TUPLE_COVERS_ITS_UNION.every(Boolean)).toBe(true);
-  for (const tuple of [JOB_KINDS, JOB_ROLES, JOB_STATES, JOB_OUTCOMES, INTERRUPTION_CAUSES, SLOT_PHASES, OVERSEER_STOP_REASONS]) {
+  for (const tuple of [JOB_KINDS, JOB_ROLES, JOB_STATES, JOB_OUTCOMES, INTERRUPTION_CAUSES, AIRLOCK_PHASES, OVERSEER_STOP_REASONS]) {
     expect(new Set<string>(tuple).size).toBe(tuple.length);
   }
 });

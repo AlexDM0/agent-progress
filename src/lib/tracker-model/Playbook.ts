@@ -54,7 +54,7 @@ export interface PlaybookFacts {
 /** The jobs a concurrency slot bounds: merge, refresh and merge-agent jobs never wait behind builds, and sessions have no ticket. */
 const SLOT_TAKING_JOB_KINDS: readonly JobKind[] = ['build', 'review'];
 
-/** Incidents holding a target's Airlock, which never wait for an orchestrator to boot. */
+/** Incidents holding a target's Airlock, which never wait for an Assistant to boot. */
 const AIRLOCK_HOLDING_INCIDENT_KINDS: readonly IncidentKind[] = ['merge-gate-failed', 'resolution-over-threshold'];
 
 /** The jobs whose spent red resumes park their ticket; a merge-gate fixer's Airlock parks its own, aborting the merge. */
@@ -130,8 +130,8 @@ function replacedInARowOf(ticketId: string, facts: PlaybookFacts): number {
   return replacedInARow;
 }
 
-/** Back-to-back failed orchestrator jobs since the Overseer last started. */
-function failedOrchestratorBootsOf(facts: PlaybookFacts): number {
+/** Back-to-back failed Assistant jobs since the Overseer last started. */
+function failedAssistantBootsOf(facts: PlaybookFacts): number {
   const launches = jobLaunchesByJobIdOf(facts.logRecords);
   let failedBoots = 0;
   for (const record of facts.logRecords) {
@@ -242,7 +242,7 @@ function ticketHasAnOpenJobLostIncident(ticketId: string, facts: PlaybookFacts):
 }
 
 /**
- * A held ticket never launches: a hold of any reason, or an incident naming it that the orchestrator has not settled (a `job-lost`, or a
+ * A held ticket never launches: a hold of any reason, or an incident naming it that the Assistant has not settled (a `job-lost`, or a
  * build that ended on `setup-failed`, `blocked`, `out-of-calls` or `gate-cannot-run`), so no fresh job races the incident's move.
  */
 function ticketIsHeld(ticket: PlaybookTicket, facts: PlaybookFacts): boolean {
@@ -425,15 +425,15 @@ function turnSpentItsBudget(incident: Readonly<Incident>, facts: PlaybookFacts):
 }
 
 /**
- * A delivered incident defaults when its turn closes. While no orchestrator is running, one holding an Airlock defaults at once and the
+ * A delivered incident defaults when its turn closes. While no Assistant is running, one holding an Airlock defaults at once and the
  * others wait for a fresh session; while none can come up, every one defaults.
  */
-function incidentDefaultStepsOf(facts: PlaybookFacts, noOrchestratorCanComeUp: boolean, orchestratorIsRunning: boolean): PlaybookStep[] {
+function incidentDefaultStepsOf(facts: PlaybookFacts, noAssistantCanComeUp: boolean, assistantIsRunning: boolean): PlaybookStep[] {
   return facts.incidents.flatMap((incident): PlaybookStep[] => {
-    if (noOrchestratorCanComeUp) return [{ kind: 'default-incident', incidentId: incident.id, cause: 'no-assistant' }];
+    if (noAssistantCanComeUp) return [{ kind: 'default-incident', incidentId: incident.id, cause: 'no-assistant' }];
     if (turnIsClosed(incident, facts)) return [{ kind: 'default-incident', incidentId: incident.id, cause: 'turn-closed' }];
     if (turnSpentItsBudget(incident, facts)) return [{ kind: 'default-incident', incidentId: incident.id, cause: 'turn-budget' }];
-    if (!orchestratorIsRunning && AIRLOCK_HOLDING_INCIDENT_KINDS.includes(incident.kind)) return [{ kind: 'default-incident', incidentId: incident.id, cause: 'no-assistant' }];
+    if (!assistantIsRunning && AIRLOCK_HOLDING_INCIDENT_KINDS.includes(incident.kind)) return [{ kind: 'default-incident', incidentId: incident.id, cause: 'no-assistant' }];
     return [];
   });
 }
@@ -465,11 +465,11 @@ function nextStepsOf(facts: PlaybookFacts, limits: LifecycleLimits): PlaybookSte
   const outageHolds             = outageNow || openDecisionOfKind(facts, 'outage');
   const resumesAreHeld          = versionOrUsageHolds || !facts.pipelineIsSet || outageHolds;
   const newWorkIsHeld           = resumesAreHeld || facts.overseerState === 'paused';
-  const bootsKeepFailing        = failedOrchestratorBootsOf(facts) >= limits.FAILED_ASSISTANT_BOOTS_BEFORE_DEFAULTING;
-  const noOrchestratorCanComeUp = usageLimitHolds(limits) || (bootsKeepFailing && !facts.observations.orchestratorHasAnswered);
-  const orchestratorMayBoot     = !usageLimitHolds(limits) && (!bootsKeepFailing || facts.observations.orchestratorBootRetryDue);
-  const orchestratorIsLive      = facts.jobs.some((job) => job.kind === 'assistant');
-  const orchestratorIsRunning   = facts.jobs.some((job) => job.kind === 'assistant' && job.state === 'running');
+  const bootsKeepFailing        = failedAssistantBootsOf(facts) >= limits.FAILED_ASSISTANT_BOOTS_BEFORE_DEFAULTING;
+  const noAssistantCanComeUp = usageLimitHolds(limits) || (bootsKeepFailing && !facts.observations.assistantHasAnswered);
+  const assistantMayBoot     = !usageLimitHolds(limits) && (!bootsKeepFailing || facts.observations.assistantBootRetryDue);
+  const assistantIsLive      = facts.jobs.some((job) => job.kind === 'assistant');
+  const assistantIsRunning   = facts.jobs.some((job) => job.kind === 'assistant' && job.state === 'running');
 
   const steps: PlaybookStep[] = [];
   if (outageNow) steps.push({ kind: 'pause-overseer', cause: 'outage' }, boardDecisionStepOf('outage'));
@@ -477,13 +477,13 @@ function nextStepsOf(facts: PlaybookFacts, limits: LifecycleLimits): PlaybookSte
   const onboarderIsHeld = versionOrUsageHolds || outageHolds || facts.overseerState === 'paused';
   if (!facts.pipelineIsSet && !onboarderIsHeld && !onboarderAnsweredChecksNotSet(facts)) steps.push({ kind: 'launch-onboarder' });
   steps.push(...crashBoundStepsOf(facts, limits, resumesAreHeld));
-  if (!orchestratorIsLive && orchestratorMayBoot && !facts.observations.installVersionChanged) steps.push({ kind: 'boot-assistant' });
+  if (!assistantIsLive && assistantMayBoot && !facts.observations.installVersionChanged) steps.push({ kind: 'boot-assistant' });
   const parkSteps    = parkStepsOf(facts, limits);
   const jobLostSteps = jobLostStepsOf(facts, limits);
   steps.push(...parkSteps, ...jobLostSteps);
   const ticketIdsSettledThisPass = new Set([...parkSteps, ...jobLostSteps].flatMap(ticketIdsOfStep));
   if (!newWorkIsHeld) steps.push(...mergeQueueStepsOf(facts, ticketIdsSettledThisPass), ...launchStepsOf(facts, ticketIdsSettledThisPass));
-  steps.push(...incidentDefaultStepsOf(facts, noOrchestratorCanComeUp, orchestratorIsRunning));
+  steps.push(...incidentDefaultStepsOf(facts, noAssistantCanComeUp, assistantIsRunning));
   return steps;
 }
 

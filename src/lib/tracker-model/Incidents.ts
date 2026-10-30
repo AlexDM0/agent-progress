@@ -1,5 +1,5 @@
 /**
- * The Overseer's orchestrator's incidents on the board: opened once per question request, delivered in a chat turn, and closed by a move,
+ * The Assistant's incidents on the board: opened once per question request, delivered in a chat turn, and closed by a move,
  * by their default or by an escalation to the user. A closed incident leaves the board in that hold and lives on in the log.
  */
 import type { IncidentClosed, IncidentEscalated, IncidentOpened } from './@types/BoardChanges.ts';
@@ -17,7 +17,7 @@ import type { Decisions }                            from './Decisions.ts';
 import { FIRST_INCIDENT_NUMBER, INCIDENT_ID_PREFIX } from './constants/DecisionAndIncidentVocabulary.ts';
 import { NumberedIdUtil }                            from './utils/NumberedIdUtil.ts';
 
-/** What an escalation puts to the user: exactly the agent's questions, with no note of the orchestrator's. */
+/** What an escalation puts to the user: exactly the agent's questions, with no note of the Assistant's. */
 export type IncidentEscalation = Pick<DecisionOpening, 'askedBy' | 'questions' | 'context'>;
 
 export class Incidents {
@@ -65,7 +65,7 @@ export class Incidents {
     return incident;
   }
 
-  /** An orchestrator that went down never closes its turn: what it was delivered goes out again to the fresh one. */
+  /** An Assistant that went down never closes its turn: what it was delivered goes out again to the fresh one. */
   withdrawIncidentDelivery(incidentId: string): Readonly<Incident> {
     const incident           = this.requireOpenIncident(incidentId);
     incident.deliveredInTurn = null;

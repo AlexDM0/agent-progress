@@ -92,7 +92,7 @@ describe('the allowed commands', () => {
     expect(profileOf('builder', [], FACTS, ['(cd x && make)']).allowedCommandPrefixes.slice(0, 3)).toEqual([['cd'], ['make'], ['git', 'status']]);
   });
 
-  test('are none with no stored lines but the git verbs, and none at all for the orchestrator', () => {
+  test('are none with no stored lines but the git verbs, and none at all for the Assistant', () => {
     expect(profileOf('builder', [], FACTS, []).allowedCommandPrefixes[0]).toEqual(['git', 'status']);
     expect(profileOf('assistant').allowedCommandPrefixes).toEqual([]);
   });

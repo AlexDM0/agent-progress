@@ -17,7 +17,7 @@ import {
   interruptedRecord,
   jobFixture,
   launchedRecord,
-  LIVE_ORCHESTRATOR,
+  LIVE_ASSISTANT,
   stepKindsOf,
   ticketOf
 } from './testing/LifecycleFixtures.ts';
@@ -41,7 +41,7 @@ function redInterruptedJob(kind: 'build' | 'review', resumesSoFar: number): { jo
 function stepsFor(kind: 'build' | 'review', resumesSoFar: number): ReturnType<typeof Playbook.nextStepsOf> {
   const { job, logRecords } = redInterruptedJob(kind, resumesSoFar);
   const status = kind === 'build' ? 'in-progress' : 'in-review';
-  return Playbook.nextStepsOf(factsWith({ tickets: [ticketOf('001', status)], jobs: [LIVE_ORCHESTRATOR, job], logRecords }), FIXTURE_LIMITS);
+  return Playbook.nextStepsOf(factsWith({ tickets: [ticketOf('001', status)], jobs: [LIVE_ASSISTANT, job], logRecords }), FIXTURE_LIMITS);
 }
 
 describe('a red handoff', () => {
@@ -65,7 +65,7 @@ describe('a red handoff', () => {
   test('never counts toward the crash bound, so it resumes whatever its crash resumes', () => {
     const { job, logRecords } = redInterruptedJob('build', 0);
     const crashed = { ...job, crashResumes: FIXTURE_LIMITS.JOB_RESUMES_BEFORE_FRESH };
-    const steps = Playbook.nextStepsOf(factsWith({ tickets: [ticketOf('001', 'in-progress')], jobs: [LIVE_ORCHESTRATOR, crashed], logRecords }), FIXTURE_LIMITS);
+    const steps = Playbook.nextStepsOf(factsWith({ tickets: [ticketOf('001', 'in-progress')], jobs: [LIVE_ASSISTANT, crashed], logRecords }), FIXTURE_LIMITS);
 
     expect(steps).toEqual([{ kind: 'resume-job', jobId: 'J1' }]);
   });
@@ -98,7 +98,7 @@ describe('a red handoff whose session could not be resumed', () => {
       redResumedRecord('J2', 2),
       interruptedRecord('J2', 'handoff-red'),
     ];
-    const steps = Playbook.nextStepsOf(factsWith({ tickets: [ticketOf('001', 'in-progress')], jobs: [LIVE_ORCHESTRATOR, successor], logRecords }), FIXTURE_LIMITS);
+    const steps = Playbook.nextStepsOf(factsWith({ tickets: [ticketOf('001', 'in-progress')], jobs: [LIVE_ASSISTANT, successor], logRecords }), FIXTURE_LIMITS);
 
     expect(stepKindsOf(steps)).toEqual(['park']);
   });

@@ -81,7 +81,7 @@ write_login_overseer() {
   <array>
     <string>$(xml_escaped "$bun_path")</string>
     <string>$(xml_escaped "$HERE/agent-progress.ts")</string>
-    <string>run</string>
+    <string>oversee</string>
     <string>--detach</string>
   </array>
   <key>WorkingDirectory</key>

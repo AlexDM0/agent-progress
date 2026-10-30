@@ -136,7 +136,7 @@ describe('job message', () => {
     expect(refusalDetailOf(() => apply(board, { kind: 'job-message', jobId: 'J2', text: 'Hello' }))).toEqual({ reason: 'job-finished', jobId: 'J2' });
   });
 
-  test('a finished reviewer, a closed orchestrator and a product owner replaced past its bound are refused job-finished', () => {
+  test('a finished reviewer, a closed Assistant and a product owner replaced past its bound are refused job-finished', () => {
     const { board } = boardFixture({ tickets: [ticketFixture({ id: '001', status: 'in-review' })] });
     board.launchJob({
       kind: 'review', role: 'reviewer', ticketIds: ['001'], parentJobId: null, attempt: 1, target: 'main'

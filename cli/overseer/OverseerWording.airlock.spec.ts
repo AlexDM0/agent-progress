@@ -73,7 +73,7 @@ describe('the merge-gate fixer prompt', () => {
     expect(message).toContain('numbered Acceptance');
     expect(message).toContain('`## Brief`');
     expect(message).toContain('Add `--needs-user` only when User\'s input is needed');
-    expect(message).toContain('awaits the orchestrator\'s decision when this ticket is delivered');
+    expect(message).toContain('awaits the Assistant\'s decision when this ticket is delivered');
   });
 });
 

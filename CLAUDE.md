@@ -29,6 +29,9 @@ guard spec holds is one line naming the guard: the spec is the full statement.
   shadowing a global (`CorpusMap.ts`, not `Map.ts`): a question as the question (`sourceIsReachable`), a producer
   for its product (`fullTextOf`), a boolean as a predicate phrase.
 - Design constants are `SCREAMING_CASE`, named for what they bound, with the unit.
+- The lifecycle components carry the names the owner decided: Overseer, Watcher, Pass, Playbook, Hatch, Customs,
+  Airlock, Assistant, Baton, Regrouping, Bouncer and Bridge, in code, stored values, wording and docs alike;
+  `src/ComponentNames.spec.ts` holds that no tracked file names one by its retired name.
 - `eslint.config.js` holds one-letter names (`id-length`: only `i`, `a`, `b`) and inline magic numbers
   (`@typescript-eslint/no-magic-numbers`, its ignore list the arithmetic identities, off in specs, `testing/` and
   `constants/` folders); `src/LintRules.spec.ts` plants each mechanised rule's forms and exceptions.
@@ -37,7 +40,7 @@ guard spec holds is one line naming the guard: the spec is the full statement.
 ### Imports
 
 ```
-src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → tracker → lifecycle → control → Overseer)  →  features (cli/, bridge/)
+src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → tracker → lifecycle → control → overseer)  →  features (cli/, bridge/)
 ```
 
 - `src/ImportDirection.spec.ts` holds the direction, cycles, barrels, feature and sibling-command isolation, the bin
@@ -195,7 +198,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 | One reference per fact. | `resources/templates/Reference.md`, installed as `.agent-progress/reference.md`, copies three `docs/cli.md` sections verbatim (ticket format, ticket moves, exit codes); a change to either changes both, held by `cli/ReferenceCopies.spec.ts`. | Agents elsewhere cannot read `docs/cli.md`. |
 | A failure exits non-zero. | `hook session-start` exits 0 whatever happens, printing nothing on failure and skipping the install check. | A failing SessionStart hook would reach every session in the repository. |
 | A failure exits non-zero. | `hook bash-domains` exits 0 whatever happens, skipping the install check and answering deny through its JSON on any failure. | A hook that errors lets the call through; the deny is what keeps the network inside the ticket's line. |
-| A clock decides nothing. | No launch, resume or orchestrator delivery happens before the usage marker's `resetsAt`, and the Overseer wakes a DrivePass at it (`src/lib/tracker-model/Playbook.ts`, `src/services/overseer/DrivePass.ts`). | The vendor names its reset as a time, and only a clock can honour it. |
+| A clock decides nothing. | No launch, resume or Assistant delivery happens before the usage marker's `resetsAt`, and the Overseer wakes a DrivePass at it (`src/lib/tracker-model/Playbook.ts`, `src/services/overseer/DrivePass.ts`). | The vendor names its reset as a time, and only a clock can honour it. |
 | A failure exits non-zero. | A verb relayed under a job whose reply does not come within `HATCH_REPLY_TRIES` × `HATCH_REPLY_INTERVAL_MILLISECONDS` prints `queued <requestId>` and exits 0. | The request is written; the Overseer applies it later, and the id is what a filed finding cites. |
 | A clock decides nothing. | A running build or review whose event log stands still for `QUIET_JOB_SWEEPS` Overseer sweeps opens `quiet-job` (`src/services/overseer/IncidentRouter.ts`). | A hung session makes no calls, so no count of its own bounds it; sweeps come at an interval, and the incident only asks. |
 | A failure exits non-zero. | A monitor registry (`~/.agent-progress-monitor/projects.json`) that cannot be read or written, a newer version or a malformed one is reported on stderr and the command keeps its exit code. | The command's own work is done; the registry is only a pointer for a monitor. |

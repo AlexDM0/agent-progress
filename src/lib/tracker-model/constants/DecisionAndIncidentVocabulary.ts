@@ -77,7 +77,7 @@ export const QUESTIONS_FACT = 'questions';
 /** A ticket whose job ended with its question open is held `awaiting answer (E7)` until User answers it. */
 export const AWAITING_ANSWER_HOLD_PREFIX = 'awaiting answer';
 
-/** A v16 low `pending` ticket the Overseer's first start holds for its orchestrator's triage. */
+/** A v16 low `pending` ticket the Overseer's first start holds for its Assistant's triage. */
 export const FIRST_RUN_REVIEW_HOLD = 'first-run review';
 
 /** The section of a ticket's body the answers to its ended job's questions go under, for the next agent. */

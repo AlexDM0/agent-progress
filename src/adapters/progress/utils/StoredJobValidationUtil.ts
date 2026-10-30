@@ -10,7 +10,7 @@ import {
   JOB_ROLES,
   JOB_STATES,
   JOB_STOP_MODES,
-  SLOT_PHASES
+  AIRLOCK_PHASES
 }                          from '../../../lib/tracker-model/constants/JobStates.ts';
 import { StoredValueUtil } from '../../utils/StoredValueUtil.ts';
 
@@ -47,7 +47,7 @@ function airlockProblem(value: unknown, path: string): string | null {
   for (const field of ['target', 'targetTip', 'branchTip']) {
     if (typeof value[field] !== 'string') return `${path}.${field} is not a string`;
   }
-  return vocabularyProblem(value['phase'], `${path}.phase`, SLOT_PHASES);
+  return vocabularyProblem(value['phase'], `${path}.phase`, AIRLOCK_PHASES);
 }
 
 function answerMapIsWellFormed(value: unknown): boolean {

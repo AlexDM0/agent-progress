@@ -466,7 +466,7 @@ export async function runOverseerInTheForeground(request: ForegroundRunRequest):
     serving.lifetime.stopWatching();
     serving.watcher.stop();
     await serving.drivePass.stop();
-    await openTrackerForWriting(request.commandArguments, context, (change) => change.board.recordOverseerStopped('handed-over', change.at));
+    await openTrackerForWriting(request.commandArguments, context, (change) => change.board.recordOverseerStopped('baton-passed', change.at));
     await serving.server.stop();
     log('Released the board to the successor.');
   }
@@ -552,7 +552,7 @@ export async function runOverseerInTheForeground(request: ForegroundRunRequest):
     if (end.kind === 'restart') {
       const successor = spawnSuccessor(context, workspace, files, serving.generation, serving.server.port);
       const outcome = await handOver(serving, successor);
-      if (outcome.verdict === 'handed-over') {
+      if (outcome.verdict === 'baton-passed') {
         log(`Handed the board over to code ${outcome.successorCodeVersion} at ${outcome.url} under Baton ${outcome.generation}; exiting.`);
         serving.lifetime.stopListening();
         return;
@@ -586,11 +586,11 @@ export async function runOverseerInTheForeground(request: ForegroundRunRequest):
     serving.watcher.stop();
     await serving.drivePass.idle();
     if (end.kind === 'stopped' && end.now) {
-      const stoppedHosts = await WatcherFleet.stopLiveProcessHosts(workspace.trackerDirectory);
-      log(`Stopped ${stoppedHosts} live process host${stoppedHosts === 1 ? '' : 's'}.`);
+      const stoppedWatchers = await WatcherFleet.stopLiveProcessWatchers(workspace.trackerDirectory);
+      log(`Stopped ${stoppedWatchers} live process Watcher${stoppedWatchers === 1 ? '' : 's'}.`);
     }
     // A Watcher ending after the last pass would otherwise wait for an acknowledgement until the next Overseer.
-    await WatcherFleet.reapEndedHosts(workspace.trackerDirectory);
+    await WatcherFleet.reapEndedWatchers(workspace.trackerDirectory);
     try {
       await serving.server.stop();
       if (end.kind === 'taken-over') {

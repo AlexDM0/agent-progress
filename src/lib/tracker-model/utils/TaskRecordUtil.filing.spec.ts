@@ -42,7 +42,7 @@ test('a task filed with everything keeps everything', () => {
 });
 
 /**
- * How long a row sat in the queue before anybody picked it up is the interval an orchestrator most wants, and it is
+ * How long a row sat in the queue before anybody picked it up is the interval an Assistant most wants, and it is
  * measurable only if the filing is a phase of its own. Without a stamp to file it at there is still nothing to record.
  */
 test('a row filed as pending records that it was filed, at the moment it was filed', () => {

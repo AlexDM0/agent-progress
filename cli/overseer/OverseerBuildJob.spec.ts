@@ -247,7 +247,7 @@ function commitInTicketWorktree(changeCommand: string, stagedPath: string, commi
 
 /**
  * Commits a file, reports, then waits for its input to close, as a builder whose session the Overseer ends after the report. Only in a
- * ticket's worktree: the orchestrator session plays the same steps in the main checkout, where a commit would move the target, which V14
+ * ticket's worktree: the Assistant session plays the same steps in the main checkout, where a commit would move the target, which V14
  * fails as a foreign ref.
  */
 function buildingSession(commitMessage = 'Build the example', report = builderReport()): FakeAgentStep[] {
@@ -422,12 +422,12 @@ describe('a build job end to end', () => {
 
 describe('unforced wakes', () => {
   // Steps a pass makes possible by itself change nothing a later observation sees, so only the pass itself can carry them on.
-  test('with no install line and the orchestrator quiet, unforced wakes carry a readied ticket\'s job from launching to running', async () => {
+  test('with no install line and the Assistant quiet, unforced wakes carry a readied ticket\'s job from launching to running', async () => {
     await run(['gate', 'add', 'checks', '--', 'true']);
     await run(['ticket', 'hold', '001']);
     const drivePass = await drivePassPlaying([{ kind: 'print', line: fakeStartedLine('fake-session') }, { kind: 'await-line' }]);
-    const orchestratorIsQuiet = (): boolean => storedProgressOf(repositoryDirectory).jobs?.some((job) => job.kind === 'assistant' && job.eventCursor.sequence > 0) === true;
-    await passUntil(drivePass, orchestratorIsQuiet, 'the orchestrator session starting');
+    const assistantIsQuiet = (): boolean => storedProgressOf(repositoryDirectory).jobs?.some((job) => job.kind === 'assistant' && job.eventCursor.sequence > 0) === true;
+    await passUntil(drivePass, assistantIsQuiet, 'the Assistant session starting');
     await run(['ticket', 'unhold', '001']);
     for (let attempt = 0; attempt < PASS_TRIES && !buildStates.includes('running'); attempt += 1) {
       drivePass.wake();

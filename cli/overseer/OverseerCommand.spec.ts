@@ -58,7 +58,7 @@ function overseerDirectory(): string {
 }
 
 function batonFileNames(): string[] {
-  return existsSync(overseerDirectory()) ? readdirSync(overseerDirectory()).filter((fileName) => fileName.startsWith('baton-')).sort() : [];
+  return existsSync(overseerDirectory()) ? readdirSync(overseerDirectory()).filter((fileName) => /^baton-\d+\.json$/.test(fileName)).sort() : [];
 }
 
 function batonOf(fileName: string): Record<string, unknown> {
@@ -119,7 +119,7 @@ describe('run in the foreground', () => {
     expect(servingIndex).toBeGreaterThanOrEqual(0);
     const refused = await (starters[1 - servingIndex]?.finished ?? Promise.reject(new Error('no second starter')));
     expect(refused.exitCode, refused.standardError).toBe(1);
-    expect(refused.standardError).toMatch(/A overseer already serves this board at http:\/\/127\.0\.0\.1:\d+\/|Another overseer started/);
+    expect(refused.standardError).toMatch(/An Overseer already serves this board at http:\/\/127\.0\.0\.1:\d+\/|Another Overseer started/);
 
     const url = firstLines[servingIndex] ?? '';
     expect(batonFileNames()).toEqual(['baton-1.json']);
@@ -329,8 +329,8 @@ describe('run --detach, status, restart and stop', () => {
       expect(processIsGone(watcherProcessId), overseerLogText()).toBe(true);
     } finally {
       // A failed assertion would otherwise leave the Watcher and its child running past the scratch repository.
-      await WatcherFleet.stopLiveProcessHosts(trackerDirectory);
-      await WatcherFleet.reapEndedHosts(trackerDirectory);
+      await WatcherFleet.stopLiveProcessWatchers(trackerDirectory);
+      await WatcherFleet.reapEndedWatchers(trackerDirectory);
       removeScratchDirectory(monitorFolder);
     }
   }, OVERSEER_TEST_TIMEOUT_MILLISECONDS);

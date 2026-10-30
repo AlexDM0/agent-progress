@@ -103,7 +103,7 @@ describe('the Overseer API on a scratch board', () => {
   test('the Baton names the token file and holds no token; that token is what an Origin-less command needs, answered 200, 409 or 400', async () => {
     const overseer = startAgentProgress(['oversee', '--port', '0'], { currentDirectory: repositoryDirectory, homeDirectory });
     const url = await overseer.firstOutputLine ?? '';
-    const batonFile = readdirSync(overseerDirectory()).find((fileName) => fileName.startsWith('baton-')) ?? '';
+    const batonFile = readdirSync(overseerDirectory()).find((fileName) => /^baton-\d+\.json$/.test(fileName)) ?? '';
     const batonText = readFileSync(join(overseerDirectory(), batonFile), 'utf8');
     const baton = JSON.parse(batonText) as { tokenFile: string };
     expect(realpathSync(baton.tokenFile)).toBe(realpathSync(join(overseerDirectory(), 'token')));

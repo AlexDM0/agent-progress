@@ -29,7 +29,7 @@ test('a well-formed job, with or without its optional fields, has no problem', (
     ...WELL_FORMED_JOB,
     role:         null,
     interruption: 'reboot',
-    slot:         {
+    airlock:      {
       target: 'main', targetTip: 'a1b2c3d', branchTip: 'b2c3d4e', phase: 'gating',
     },
     outcome: 'landed',
@@ -55,10 +55,10 @@ test.each<[string, Record<string, unknown>, string]>([
   ['a negative crash count', { crashResumes: -1 }, 'jobs[0].crashResumes'],
   ['an unknown interruption', { interruption: 'power-cut' }, 'jobs[0].interruption'],
   ['a slot in an unknown phase', {
-    slot: {
+    airlock: {
       target: 'main', targetTip: 'a', branchTip: 'b', phase: 'waiting'
     }
-  }, 'jobs[0].slot.phase'],
+  }, 'jobs[0].airlock.phase'],
   ['an unknown outcome', { outcome: 'shipped' }, 'jobs[0].outcome'],
 ])('%s is a problem naming the field', (_case, change, field) => {
   expect(jobsProblemOf({ jobs: [{ ...WELL_FORMED_JOB, ...change }] })).toStartWith(field);

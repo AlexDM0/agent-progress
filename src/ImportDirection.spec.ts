@@ -519,9 +519,9 @@ describe('the guard still names each violation, planted in memory', () => {
 
   test('the Watcher binary importing anything but its package, another lib package and a builtin included, and not its package', () => {
     expect(plantedSentencesOf({ 'watcher.ts': importing('./src/lib/claude-code/ClaudeCodeAdapter.ts') })).toEqual([
-      'watcher-binary-imports-beyond-its-package — watcher.ts:1 imports src/lib/claude-code/ClaudeCodeAdapter.ts: watcher.ts imports only src/lib/watcher/',
       'vendor-adapter-imported-outside-its-seam — watcher.ts:1 imports src/lib/claude-code/ClaudeCodeAdapter.ts: '
         + 'only cli/CommandContext.ts chooses the vendor\'s adapter',
+      'watcher-binary-imports-beyond-its-package — watcher.ts:1 imports src/lib/claude-code/ClaudeCodeAdapter.ts: watcher.ts imports only src/lib/watcher/',
     ]);
     expect(plantedSentencesOf({ 'watcher.ts': importing('./cli/Main.ts') })).toEqual([
       'watcher-binary-imports-beyond-its-package — watcher.ts:1 imports cli/Main.ts: watcher.ts imports only src/lib/watcher/',

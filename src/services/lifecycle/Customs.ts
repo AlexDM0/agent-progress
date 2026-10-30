@@ -365,7 +365,7 @@ export function ticketIdFiledByRequest(records: readonly LogRecord[], jobId: str
   return null;
 }
 
-/** V12 reads the filing record, never the ticket now: the orchestrator or User may have readied or triaged it since. */
+/** V12 reads the filing record, never the ticket now: the Assistant or User may have readied or triaged it since. */
 function filingIsThisJobsLowFinding(records: readonly LogRecord[], jobId: string, ticketId: string): boolean {
   return records.some((record) => record.kind === 'ticket-filed'
     && ticketNumberOf(record.ticketId) === ticketNumberOf(ticketId)

@@ -11,7 +11,7 @@ import type { RoleCommandRefusalReason }                 from '../../shared/@typ
 import { WORKER_FILINGS_PER_JOB }                        from '../../shared/constants/OverseerLimits.ts';
 import { ALLOWED_MOVES_BY_INCIDENT_KIND, FINDING_MOVES } from './constants/AllowedMovesByIncidentKind.ts';
 
-/** The job record as the policy reads it: its role, what it filed so far (by `filedByJob`) and, for an orchestrator, what it was delivered. */
+/** The job record as the policy reads it: its role, what it filed so far (by `filedByJob`) and, for an Assistant, what it was delivered. */
 export interface RelayingJob {
   id:                 string;
   role:               JobRole | null;
@@ -107,7 +107,7 @@ function referencedTicketTextsOf(command: ControlCommand): unknown[] {
   return [fieldOf(command, 'ticketReference')];
 }
 
-function orchestratorVerdictOf(job: RelayingJob, command: ControlCommand): BouncerVerdict {
+function assistantVerdictOf(job: RelayingJob, command: ControlCommand): BouncerVerdict {
   const incidentId = fieldOf(command, 'incidentId');
   const incident   = job.deliveredIncidents.find((delivered) => delivered.id === incidentId);
   if (incident === undefined) return refused('incident-move-not-allowed');
@@ -122,7 +122,7 @@ function verdictOf(job: RelayingJob, command: ControlCommand): BouncerVerdict {
   if (job.role === null) return refused('command-not-allowed-for-role');
   if (WORKER_ROLES.has(job.role)) return workerVerdictOf(job, command);
   if (job.role === 'product-owner') return productOwnerVerdictOf(job, command);
-  if (job.role === 'assistant') return orchestratorVerdictOf(job, command);
+  if (job.role === 'assistant') return assistantVerdictOf(job, command);
   return refused('command-not-allowed-for-role');
 }
 

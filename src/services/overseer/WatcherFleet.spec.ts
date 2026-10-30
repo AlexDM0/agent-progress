@@ -1,7 +1,7 @@
 /**
  * The Overseer's reaping of ended Watchers, against the real Watcher binary. What matters: an ended Watcher lingers for its acknowledgement, and the
  * sweep over the tracker's job folders gives it, so the Watcher process is gone once its job ended, a Watcher and a process Watcher in its
- * job's subfolder alike; a Watcher still running its child is never touched by the reap. `stopLiveProcessHosts`, the Overseer's `--now` stop,
+ * job's subfolder alike; a Watcher still running its child is never touched by the reap. `stopLiveProcessWatchers`, the Overseer's `--now` stop,
  * stops a live process Watcher and waits for its recorded end, but never touches a Watcher.
  */
 import { mkdirSync, symlinkSync } from 'node:fs';
@@ -83,7 +83,7 @@ describe('reaping ended watchers', () => {
     await untilEnded(watcherJob().jobFolder, 1);
     await Bun.sleep(POLL_MILLISECONDS * 5);
     expect(watcher.exitCode).toBeNull();
-    expect(await WatcherFleet.reapEndedHosts(trackerDirectory)).toBe(1);
+    expect(await WatcherFleet.reapEndedWatchers(trackerDirectory)).toBe(1);
     expect(await watcher.exited).toBe(0);
   }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
@@ -91,7 +91,7 @@ describe('reaping ended watchers', () => {
     const { watcherFolder, processId } = spawnProcessWatcher('gate-1', 'console.log("gate passed");');
     await untilEnded(watcherFolder, 1);
     expect(processIsGone(processId)).toBe(false);
-    expect(await WatcherFleet.reapEndedHosts(trackerDirectory)).toBe(1);
+    expect(await WatcherFleet.reapEndedWatchers(trackerDirectory)).toBe(1);
     await untilGone(processId);
     expect(processIsGone(processId)).toBe(true);
   }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
@@ -102,7 +102,7 @@ describe('reaping ended watchers', () => {
     const client = await watcherJob().attach(1);
     await client.nextFrame((frame) => frame.kind === 'welcome');
     expect(WatcherFleet.livenessOf(watcherJob().jobFolder, 1).verdict).toBe('live');
-    expect(await WatcherFleet.reapEndedHosts(trackerDirectory)).toBe(0);
+    expect(await WatcherFleet.reapEndedWatchers(trackerDirectory)).toBe(0);
     expect(watcher.exitCode).toBeNull();
     client.send({ kind: 'stop', graceMilliseconds: 0 });
     await untilEnded(watcherJob().jobFolder, 1);
@@ -115,9 +115,9 @@ describe('stopping live process watchers', () => {
   test('a live gate Watcher is stopped and has recorded its end when the call answers; the reap then lets it exit', async () => {
     const { watcherFolder, processId } = spawnProcessWatcher('gate-1', 'setInterval(() => undefined, 1000);');
     await untilLive(watcherFolder, 1);
-    expect(await WatcherFleet.stopLiveProcessHosts(trackerDirectory)).toBe(1);
+    expect(await WatcherFleet.stopLiveProcessWatchers(trackerDirectory)).toBe(1);
     expect(WatcherFleet.livenessOf(watcherFolder, 1).verdict).toBe('ended');
-    expect(await WatcherFleet.reapEndedHosts(trackerDirectory)).toBe(1);
+    expect(await WatcherFleet.reapEndedWatchers(trackerDirectory)).toBe(1);
     await untilGone(processId);
   }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
@@ -125,7 +125,7 @@ describe('stopping live process watchers', () => {
     watcherJob().writeLaunch(1, 'agent', 'setInterval(() => undefined, 1000);');
     const watcher = watcherJob().spawnWatcher(1);
     await untilLive(watcherJob().jobFolder, 1);
-    expect(await WatcherFleet.stopLiveProcessHosts(trackerDirectory)).toBe(0);
+    expect(await WatcherFleet.stopLiveProcessWatchers(trackerDirectory)).toBe(0);
     expect(WatcherFleet.livenessOf(watcherJob().jobFolder, 1).verdict).toBe('live');
     const client = await watcherJob().attach(1);
     await client.nextFrame((frame) => frame.kind === 'welcome');

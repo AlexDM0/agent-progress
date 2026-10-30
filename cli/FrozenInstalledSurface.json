@@ -428,8 +428,8 @@
       "started", "status", "task", "ticket", "title", "type", "updated", "usage", "version"]
   },
   "19": {
-    "commands": ["await", "decisions", "draft", "epic list", "gate", "help", "incidents", "init", "intake close", "jobs", "log", "open", "range",
-      "run", "run status", "status", "task deliver", "ticket add", "ticket deliver", "ticket ready", "ticket show", "update"],
+    "commands": ["await", "decisions", "draft", "epic list", "gate", "help", "incidents", "init", "intake close", "jobs", "log", "open", "oversee",
+      "oversee status", "range", "status", "task deliver", "ticket add", "ticket deliver", "ticket ready", "ticket show", "update"],
     "flags": ["--add", "--after", "--assumption", "--at", "--body", "--body-file", "--by-hand", "--clear", "--depends-on", "--detach", "--epic",
       "--force", "--found-in-review", "--from", "--group", "--incident", "--introduced-by", "--json", "--multiple", "--needs-user", "--network",
       "--no-hooks", "--priority", "--reason", "--remove", "--set", "--size", "--status", "--title", "--to", "--tokens", "--type", "--under"],

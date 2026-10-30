@@ -58,7 +58,7 @@ const WATCHER_SECRET_BYTES = 24;
 /** How long the Overseer waits on a Watcher to take its frames; a schedule only, never a decision. */
 const WATCHER_FRAME_TIMEOUT_MILLISECONDS = 2000;
 
-/** How long `stopLiveProcessHosts` waits on the Watchers it stopped to record their end; a schedule only. */
+/** How long `stopLiveProcessWatchers` waits on the Watchers it stopped to record their end; a schedule only. */
 const STOPPED_WATCHER_WAIT_TRIES = 100;
 const STOPPED_WATCHER_WAIT_INTERVAL_MILLISECONDS = 20;
 
@@ -253,7 +253,7 @@ async function reapEndedHostsIn(jobFolder: string): Promise<number> {
 }
 
 /** Every job folder of the tracker, swept as `reapEndedHostsIn` says. */
-async function reapEndedHosts(trackerDirectory: string): Promise<number> {
+async function reapEndedWatchers(trackerDirectory: string): Promise<number> {
   let reaped = 0;
   for (const jobFolder of jobFoldersOf(trackerDirectory)) reaped += await reapEndedHostsIn(jobFolder);
   return reaped;
@@ -263,7 +263,7 @@ async function reapEndedHosts(trackerDirectory: string): Promise<number> {
  * Sends `stop` with no grace to every live process Watcher of the tracker's jobs, an install or a gate, and waits a bounded number of tries for
  * each to record its end, so the reap after it acknowledges them. A Watcher and a legacy Watcher are left alone. Answers how many took it.
  */
-async function stopLiveProcessHosts(trackerDirectory: string): Promise<number> {
+async function stopLiveProcessWatchers(trackerDirectory: string): Promise<number> {
   const stopped: { watcherFolder: string; instance: number }[] = [];
   for (const jobFolder of jobFoldersOf(trackerDirectory)) {
     for (const watcherFolder of watcherFoldersOf(jobFolder)) {
@@ -313,6 +313,6 @@ export const WatcherFleet = Object.freeze({
   sendFramesOnce,
   spawnWatcher,
   reapEndedHostsIn,
-  reapEndedHosts,
-  stopLiveProcessHosts,
+  reapEndedWatchers,
+  stopLiveProcessWatchers,
 });

@@ -1,7 +1,7 @@
 /**
  * The port a board's Overseer prefers and the Overseer API's guards and streams, over planted routes. What matters: the preferred port is a
  * pure function of the tracker id inside `OVERSEER_PORT_FIRST` and its count, so a board keeps it across restarts; a port in use moves the
- * bind upward while a given port is refused; a foreign Watcher, a foreign Origin, an agent-dashboard frame Origin and any preflight get 403
+ * bind upward while a given port is refused; a foreign Host, a foreign Origin, an agent-dashboard frame Origin and any preflight get 403
  * with no CORS header, while a server's Origin-less write with the token is routed; the session token goes only to a same-origin fetch;
  * every answer carries the page CSP but a served job file, which is sandboxed plain text and only `report.json` or `gate.log`; the event
  * stream replays after a `Last-Event-ID` of its generation and pings; and a job stream sends its history then each new entry.
@@ -147,11 +147,11 @@ describe('OverseerServer guards', () => {
 
     expect((await post({})).status).toBe(401);
     expect((await post({ authorization: 'Bearer another-token' })).status).toBe(401);
-    expect((await post({ authorization: `Bearer ${TOKEN}`, watcher: 'example.com' })).status).toBe(403);
-    expect((await post({ authorization: `Bearer ${TOKEN}`, watcher: `example.com:${server.port}` })).status).toBe(403);
+    expect((await post({ authorization: `Bearer ${TOKEN}`, host: 'example.com' })).status).toBe(403);
+    expect((await post({ authorization: `Bearer ${TOKEN}`, host: `example.com:${server.port}` })).status).toBe(403);
     expect(commands).toEqual([]);
     expect((await post({ authorization: `Bearer ${TOKEN}` })).status).toBe(200);
-    expect((await post({ authorization: `Bearer ${TOKEN}`, watcher: `localhost:${server.port}` })).status).toBe(200);
+    expect((await post({ authorization: `Bearer ${TOKEN}`, host: `localhost:${server.port}` })).status).toBe(200);
     expect((await post({ authorization: `Bearer ${TOKEN}`, origin: `http://127.0.0.1:${server.port}` })).status).toBe(200);
     expect(commands).toEqual([{ kind: 'overseer-pause' }, { kind: 'overseer-pause' }, { kind: 'overseer-pause' }]);
   });
@@ -178,7 +178,7 @@ describe('OverseerServer guards', () => {
     expect(hasNoCorsHeader(sameOrigin)).toBe(true);
     expect((await fetch(tokenUrl)).status).toBe(403);
     expect((await fetch(tokenUrl, { headers: { 'sec-fetch-site': 'cross-site' } })).status).toBe(403);
-    expect((await fetch(tokenUrl, { headers: { 'sec-fetch-site': 'same-origin', watcher: `example.com:${server.port}` } })).status).toBe(403);
+    expect((await fetch(tokenUrl, { headers: { 'sec-fetch-site': 'same-origin', host: `example.com:${server.port}` } })).status).toBe(403);
   });
 
   test('every answer carries the page CSP, framed only by agent-dashboard\'s origin; a refusal too', async () => {

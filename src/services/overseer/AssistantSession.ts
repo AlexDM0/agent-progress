@@ -42,7 +42,7 @@ export interface AssistantChatFacts {
 export interface AssistantTurnObservations {
   closedDeliveryTurns:      IncidentDeliveryTurn[];
   budgetSpentDeliveryTurns: IncidentDeliveryTurn[];
-  orchestratorHasAnswered:  boolean;
+  assistantHasAnswered:     boolean;
 }
 
 export interface AssistantChatDelivery {
@@ -134,11 +134,11 @@ function endDownAssistants(board: Board, readings: readonly AssistantReading[], 
 
 /** What the lifecycle decides the turns' defaults by: turns closed by their `result`, and the open turn once it spent its call budget. */
 function turnObservationsOf(board: Pick<Board, 'jobs' | 'incidents'>, readings: readonly AssistantReading[]): AssistantTurnObservations {
-  const observations: AssistantTurnObservations = { closedDeliveryTurns: [], budgetSpentDeliveryTurns: [], orchestratorHasAnswered: false };
+  const observations: AssistantTurnObservations = { closedDeliveryTurns: [], budgetSpentDeliveryTurns: [], assistantHasAnswered: false };
   for (const job of liveAssistantsOf(board)) {
     const reading = readings.find((candidate) => candidate.jobId === job.id && candidate.instance === job.watcherInstance);
     if (reading === undefined) continue;
-    observations.orchestratorHasAnswered ||= reading.results > 0;
+    observations.assistantHasAnswered ||= reading.results > 0;
     for (const turn of deliveryTurnsOf(board, job.id)) {
       if (reading.results >= turn.chatSequence) observations.closedDeliveryTurns.push(turn);
       else if (turn.chatSequence === reading.results + 1 && reading.callsSinceLastResult >= ASSISTANT_TURN_CALL_BUDGET) observations.budgetSpentDeliveryTurns.push(turn);

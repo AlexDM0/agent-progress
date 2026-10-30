@@ -82,12 +82,12 @@ export interface PlaybookObservations {
   targetsHoldingManagedBlock:   readonly string[];
   /** The tickets whose branch changed agent configuration. */
   ticketIdsTouchingAgentConfig: readonly string[];
-  /** The orchestrator turns that closed, an incident delivered in one of them taking its default. */
+  /** The Assistant turns that closed, an incident delivered in one of them taking its default. */
   closedDeliveryTurns:          readonly IncidentDeliveryTurn[];
-  /** The orchestrator turns still open that reached their call budget: an incident delivered in one takes its default, cause `turn-budget`. */
+  /** The Assistant turns still open that reached their call budget: an incident delivered in one takes its default, cause `turn-budget`. */
   budgetSpentDeliveryTurns:     readonly IncidentDeliveryTurn[];
-  /** The live orchestrator's session has reached a `result`, which ends a run of failed boots. */
-  orchestratorHasAnswered:      boolean;
+  /** The live Assistant's session has reached a `result`, which ends a run of failed boots. */
+  assistantHasAnswered:         boolean;
   /** A sweep asks for one more boot past the failed-boot bound; never set in the pass a boot failed. */
-  orchestratorBootRetryDue:     boolean;
+  assistantBootRetryDue:        boolean;
 }

@@ -64,9 +64,9 @@ export const HANDOFF_RED_INTERRUPTION = 'handoff-red' satisfies InterruptionCaus
 /** The interruptions a resume counts in `crashResumes`; a reboot, an answer delivery or a usage limit is nobody's crash. */
 export const CRASH_INTERRUPTION_CAUSES = ['watcher-lost', 'agent-crashed'] as const satisfies readonly InterruptionCause[];
 
-export const SLOT_PHASES = ['merge-in', 'resolving', 'reviewing-resolution', 'gating', 'fixing', 'landing'] as const satisfies readonly AirlockPhase[];
+export const AIRLOCK_PHASES = ['merge-in', 'resolving', 'reviewing-resolution', 'gating', 'fixing', 'landing'] as const satisfies readonly AirlockPhase[];
 
-export const OVERSEER_STOP_REASONS = ['stopped', 'handed-over'] as const satisfies readonly OverseerStopReason[];
+export const OVERSEER_STOP_REASONS = ['stopped', 'baton-passed'] as const satisfies readonly OverseerStopReason[];
 
 export const JOB_STOP_MODES = ['stop', 'wind-down', 'fresh'] as const satisfies readonly JobStopMode[];
 

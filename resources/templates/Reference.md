@@ -186,8 +186,8 @@ commits and the checks line run on its tree.
 
 **A decision** is a question for User, kept on the board until answered: an agent's own question (`agent-question`),
 drafts to ready (`ready-drafts`), a parked ticket, a proposed waiver, a refused landing or merge, and the other kinds
-the Overseer opens from the facts. `{{program}} decisions` lists the open ones; `decide` answers one with the Overseer up
-or down, the first answer winning. An agent's question carries exactly its words, never anybody's opinion.
+the Overseer opens from the facts. `{{program}} decisions` lists the open ones; `decide` answers one with the Overseer
+up or down, the first answer winning. An agent's question carries exactly its words, never anybody's opinion.
 
 **An incident** is operational trouble the Overseer's code cannot settle alone, addressed to the Assistant, never to
 User: an agent's `system` or `ticket` question, a failed setup, a job out of calls, a blocked or lost job, a gate

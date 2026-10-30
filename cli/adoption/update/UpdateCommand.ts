@@ -66,7 +66,7 @@ async function handTheLiveOverseerToTheCodeOnDisk(context: CommandContext, track
   if (newest.record.codeVersion === CodeVersion.onDisk() && newest.record.installVersion === INSTALL_VERSION) return;
   context.standardOutput(`Handing the Overseer at ${newest.record.url} over to the code on disk…`);
   const batonPass = await OverseerRemote.handOverTheLiveOverseer(files, false);
-  if (batonPass.verdict === 'handed-over') {
+  if (batonPass.verdict === 'baton-passed') {
     context.standardOutput(`Overseer handed over to code ${batonPass.successorCodeVersion} at ${batonPass.url}.`);
     return;
   }

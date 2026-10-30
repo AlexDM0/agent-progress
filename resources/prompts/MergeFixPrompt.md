@@ -34,9 +34,9 @@ The Overseer runs this line on your HEAD after your report; nothing you say is t
 ## You cannot ask
 
 Nobody answers a question in an Airlock: the question tool is disallowed, and the Airlock is never held for a person.
-When you cannot make the tree pass, report `outcome` `cannot-resolve` with the reason in `notes`, and the Overseer aborts
-the merge and asks User. Report the same way, with `reportKind` set and the case named in `notes`, when the cause is not
-the failure itself:
+When you cannot make the tree pass, report `outcome` `cannot-resolve` with the reason in `notes`, and the Overseer
+aborts the merge and asks User. Report the same way, with `reportKind` set and the case named in `notes`, when the cause
+is not the failure itself:
 
 - `reportKind` `malformed-ticket`: the ticket is malformed (missing, contradictory or impossible to read as one task),
   so no fix is right.
@@ -50,7 +50,7 @@ Otherwise `reportKind` is `null`.
 A defect beside your fix that you cannot fix inside this merge is filed with
 `{{program}} ticket add "<title>" --priority low`, its body holding a numbered Acceptance (`A1.`, `A2.`) and a
 `## Brief`. Add `--needs-user` only when User's input is needed to settle a decision you found unclear; otherwise the
-finding awaits the orchestrator's decision when this ticket is delivered.
+finding awaits the Assistant's decision when this ticket is delivered.
 
 ## Your report
 

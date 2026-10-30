@@ -452,7 +452,7 @@ export class Board {
     return this.answerDecision(decisionId, this.agentQuestions.answersOf(decisionId, form), at);
   }
 
-  /** Puts a question incident's own questions to User as an `agent-question`, with no word of the orchestrator's. */
+  /** Puts a question incident's own questions to User as an `agent-question`, with no word of the Assistant's. */
   escalateQuestionIncident(incidentId: string, at: string): IncidentEscalated {
     const incident   = this.incidentRules.incidentById(incidentId);
     const escalation = incident === undefined ? null : this.agentQuestions.escalationOf(incident);

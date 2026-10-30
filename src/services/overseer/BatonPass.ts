@@ -46,7 +46,7 @@ export interface BatonPassFailure {
 
 /** `kept-driving`: it failed before `released`, so the old Overseer never stopped. `taken-back`: after it, so the old Overseer takes n+2. */
 export type BatonPassOutcome =
-  | { verdict: 'handed-over'; successorCodeVersion: string; generation: number; url: string }
+  | { verdict: 'baton-passed'; successorCodeVersion: string; generation: number; url: string }
   | { verdict: 'kept-driving'; failure: BatonPassFailure }
   | { verdict: 'taken-back'; failure: BatonPassFailure };
 
@@ -150,7 +150,7 @@ function failureOf(report: Extract<BatonPassReport, { state: 'successor-failed' 
 /** The old Overseer's side, its outcome also left in the file whoever failed, so `oversee restart` and `update` read one place. */
 async function handOver(request: HandOverRequest): Promise<BatonPassOutcome> {
   const outcome = await handOverSteps(request);
-  if (outcome.verdict !== 'handed-over') {
+  if (outcome.verdict !== 'baton-passed') {
     // Recorded first, so whoever reads the outcome from the file finds the failure already logged.
     await request.recordFailure(outcome.failure);
     writeBatonPass(request.batonPassFilePath, { state: 'failed', ...outcome.failure, afterRelease: outcome.verdict === 'taken-back' });
@@ -176,7 +176,7 @@ async function handOverSteps(request: HandOverRequest): Promise<BatonPassOutcome
   if (served.report.state !== 'serving') return { verdict: 'taken-back', failure: unreportedFailure(request, { verdict: 'exited' }, 'serve', releaseTries) };
   const { successorCodeVersion, generation, url } = served.report;
   return {
-    verdict: 'handed-over', successorCodeVersion, generation, url
+    verdict: 'baton-passed', successorCodeVersion, generation, url
   };
 }
 

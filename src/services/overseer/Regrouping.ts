@@ -41,7 +41,7 @@ export interface WatcherRegrouped {
 export interface RegroupingReport {
   attached:          WatcherRegrouped[];
   /** Live Watchers on a protocol below the supported window: watch only, their events read from their files by each pass. */
-  legacyHosts:       { jobId: string; instance: number; protocolVersion: number }[];
+  legacyWatchers:    { jobId: string; instance: number; protocolVersion: number }[];
   lost:              { jobId: string; instance: number; cause: InterruptionCause }[];
   /** Jobs whose current instance was never claimed: the first pass spawns that same instance, and the exclusive claim lets one run. */
   respawnJobIds:     string[];
@@ -172,14 +172,14 @@ function awaitsItsSpawn(job: Readonly<Job>): boolean {
 async function regroup(workspace: Workspace): Promise<RegroupingReport> {
   const jobs   = requireProgressFile(workspace).jobs ?? [];
   const report: RegroupingReport = {
-    attached: [], legacyHosts: [], lost: [], respawnJobIds: [], leftoverWorktrees: leftoverWorktreesOf(workspace, jobs)
+    attached: [], legacyWatchers: [], lost: [], respawnJobIds: [], leftoverWorktrees: leftoverWorktreesOf(workspace, jobs)
   };
   for (const job of jobs.filter((candidate) => candidate.role !== null)) {
     const jobFolder = WatcherFleet.jobFolderOf(workspace.trackerDirectory, job.id);
     const liveness  = WatcherFleet.livenessOf(jobFolder, job.watcherInstance);
     const record    = WatcherFleet.watcherRecordOf(jobFolder, job.watcherInstance);
     if (liveness.verdict === 'live' && record !== null && LegacyWatcherReader.attachmentOf(record) === 'legacy-watcher') {
-      report.legacyHosts.push({ jobId: job.id, instance: job.watcherInstance, protocolVersion: record.protocolVersion });
+      report.legacyWatchers.push({ jobId: job.id, instance: job.watcherInstance, protocolVersion: record.protocolVersion });
     } else if (liveness.verdict === 'live') {
       const sinceSequence = job.eventCursor.instance === job.watcherInstance ? job.eventCursor.sequence : 0;
       report.attached.push({ jobId: job.id, instance: job.watcherInstance, replayedEntries: await helloHistoryOf(jobFolder, job.watcherInstance, sinceSequence) });

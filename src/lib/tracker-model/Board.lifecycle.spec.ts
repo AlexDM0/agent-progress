@@ -19,7 +19,7 @@ import {
   FIXTURE_AT,
   FIXTURE_LIMITS,
   FIXTURE_OBSERVATIONS,
-  LIVE_ORCHESTRATOR,
+  LIVE_ASSISTANT,
   finishedJobRecords,
   interruptedRecord,
   jobFixture,
@@ -74,7 +74,7 @@ function lifecycleBoardOf(contents: { tickets: Ticket[]; progress?: Partial<Trac
     concurrencyLimit: 4,
     overseerState:    'running',
     nextJobId:        901,
-    jobs:             [{ ...LIVE_ORCHESTRATOR }],
+    jobs:             [{ ...LIVE_ASSISTANT }],
     tasks:            [],
     ...contents.progress,
   };
@@ -176,7 +176,7 @@ describe('advancing the lifecycle applies what the policy derives', () => {
       tickets:  [ticketWith('001', { status: 'in-progress' }), ticketWith('002', { status: 'in-progress' })],
       progress: {
         jobs: [
-          { ...LIVE_ORCHESTRATOR },
+          { ...LIVE_ASSISTANT },
           jobFixture({
             id: 'J1', ticketIds: ['001'], state: 'interrupted', interruption: 'usage-limit'
           }),

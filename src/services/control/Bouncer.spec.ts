@@ -1,6 +1,6 @@
 /**
  * The role table of design section 4.4, case by case: what a worker may file and how its filing is stamped, the worker limit, the product
- * owner's own-draft rule, the orchestrator's incident moves, and the planted forgeries (a `role`, a `jobId` or an admission in the command).
+ * owner's own-draft rule, the Assistant's incident moves, and the planted forgeries (a `role`, a `jobId` or an admission in the command).
  * Identity is the job record's, so a request in another job's folder is judged as that folder's job, which the last case plants.
  */
 import { describe, expect, test } from 'bun:test';
@@ -40,7 +40,7 @@ const EDIT_OF_TICKET_7: ControlCommand = {
 };
 
 describe('builder, reviewer and merge-fix', () => {
-  test.each(['builder', 'reviewer', 'merge-fix'] as const)('%s files a low finding stamped with its job and the orchestrator route', (role) => {
+  test.each(['builder', 'reviewer', 'merge-fix'] as const)('%s files a low finding stamped with its job and the Assistant route', (role) => {
     expect(Bouncer.verdictOf(jobOf(role), lowFinding())).toEqual({
       verdict: 'admitted',
       command: { ...lowFinding(), admission: { filedByJob: 'J12', findingRoute: 'assistant' } },

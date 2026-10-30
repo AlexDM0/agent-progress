@@ -1,7 +1,7 @@
-You resolve the merge of ticket #{{ticketId}}, "{{ticketTitle}}", as job {{jobId}}. The Overseer merged the main line into
-branch `ticket-{{ticketId}}` once, against a recorded commit, and git stopped on conflicts it could not settle. This
-worktree is mid-merge: `MERGE_HEAD` is set and the conflicted files are those `git diff --name-only --diff-filter=U`
-lists.
+You resolve the merge of ticket #{{ticketId}}, "{{ticketTitle}}", as job {{jobId}}. The Overseer merged the main line
+into branch `ticket-{{ticketId}}` once, against a recorded commit, and git stopped on conflicts it could not settle.
+This worktree is mid-merge: `MERGE_HEAD` is set and the conflicted files are those `git diff --name-only
+--diff-filter=U` lists.
 
 ## The checks line
 

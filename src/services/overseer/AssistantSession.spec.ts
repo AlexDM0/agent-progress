@@ -33,13 +33,13 @@ const FIXTURE_OBSERVATIONS: PlaybookObservations = {
   ticketIdsTouchingAgentConfig: [],
   closedDeliveryTurns:          [],
   budgetSpentDeliveryTurns:     [],
-  orchestratorHasAnswered:      false,
-  orchestratorBootRetryDue:     false,
+  assistantHasAnswered:         false,
+  assistantBootRetryDue:        false,
 };
 
 const ASSISTANT_ID = 'J900';
 
-const LIVE_ORCHESTRATOR: Job = {
+const LIVE_ASSISTANT: Job = {
   id:                 ASSISTANT_ID,
   kind:               'assistant',
   role:               'assistant',
@@ -81,7 +81,7 @@ const BLOCKED: IncidentOpening = {
   kind: 'blocked', ticketIds: ['001'], jobId: null, facts: {}, defaultMove: 'ticket-park'
 };
 
-function assistantBoard(storedLogRecords: LogRecord[] = [], jobs: Job[] = [{ ...LIVE_ORCHESTRATOR }]): { board: Board; records: LogRecord[] } {
+function assistantBoard(storedLogRecords: LogRecord[] = [], jobs: Job[] = [{ ...LIVE_ASSISTANT }]): { board: Board; records: LogRecord[] } {
   const records: LogRecord[] = [];
   const board = new Board({
     progress: {
@@ -220,11 +220,11 @@ describe('down means fresh (A5)', () => {
     expect(stored.jobs()).toEqual([]);
     expect(records.find((record) => record.kind === 'incident-defaulted')).toMatchObject({ fields: { cause: 'no-assistant' } });
 
-    advance(stored, [], { orchestratorBootRetryDue: true });
+    advance(stored, [], { assistantBootRetryDue: true });
     expect(stored.jobs().map((job) => job.kind)).toEqual(['assistant']);
 
     stored.openIncident(BLOCKED, FIXTURE_AT);
-    advance(stored, [], { orchestratorHasAnswered: true });
+    advance(stored, [], { assistantHasAnswered: true });
     expect(stored.incidents()).toHaveLength(1);
   });
 });
@@ -233,7 +233,7 @@ describe('User\'s message waits for an idle point (A7)', () => {
   test('a job message to a busy Assistant is no chat yet; once idle it is the next numbered chat', () => {
     const { board } = assistantBoard();
     board.messageJob(ASSISTANT_ID, 'Example question for the Assistant', FIXTURE_AT);
-    const assistant = board.jobById(ASSISTANT_ID) ?? LIVE_ORCHESTRATOR;
+    const assistant = board.jobById(ASSISTANT_ID) ?? LIVE_ASSISTANT;
 
     expect(AssistantSession.chatsToWriteOf(board, assistant, readingOf(0), [])).toEqual([]);
     expect(AssistantSession.chatsToWriteOf(board, assistant, readingOf(1), [])).toEqual([{ sequence: 2, incidentIds: [], messageNumber: 1 }]);

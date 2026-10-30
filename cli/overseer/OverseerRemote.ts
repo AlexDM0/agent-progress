@@ -93,7 +93,7 @@ async function stopTheLiveOverseer(files: OverseerFiles, kind: RuntimeStopKind, 
 export type RestartOutcome =
   | { verdict: 'was-down' }
   | { verdict: 'not-taken'; record: BatonRecord }
-  | { verdict: 'handed-over'; successorCodeVersion: string; url: string };
+  | { verdict: 'baton-passed'; successorCodeVersion: string; url: string };
 
 /**
  * Asks the live Overseer for its checked Baton pass and reads the outcome it leaves in its Baton pass file; a failed one is refused
@@ -106,7 +106,7 @@ async function handOverTheLiveOverseer(files: OverseerFiles, now: boolean): Prom
   const batonPassFilePath = BatonPass.batonPassFilePathOf(files.overseerDirectory, newest.generation);
   for (let attempt = 0; attempt < BATON_PASS_OUTCOME_TRIES; attempt++) {
     const report = BatonPass.readBatonPass(batonPassFilePath);
-    if (report?.state === 'serving') return { verdict: 'handed-over', successorCodeVersion: report.successorCodeVersion, url: report.url };
+    if (report?.state === 'serving') return { verdict: 'baton-passed', successorCodeVersion: report.successorCodeVersion, url: report.url };
     if (report?.state === 'failed') {
       throw new OperationRefusal('refused', {
         kind: 'baton-pass-failed', successorCodeVersion: report.successorCodeVersion, step: report.step, error: report.error, url: newest.record.url

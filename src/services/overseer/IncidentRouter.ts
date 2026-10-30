@@ -15,7 +15,7 @@ export interface DefaultedIncident {
   at:         string;
 }
 
-/** The agents a sweep watches: a session that waits on an answer, or one an orchestrator turn bounds, is quiet on purpose. */
+/** The agents a sweep watches: a session that waits on an answer, or one an Assistant turn bounds, is quiet on purpose. */
 const WATCHED_JOB_KINDS: readonly JobKind[] = ['build', 'review'];
 
 export interface QuietJobWatch {

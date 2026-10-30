@@ -117,7 +117,7 @@ describe('a question that outlives its job', () => {
 });
 
 describe('escalating a question incident', () => {
-  test('opens an agent-question carrying exactly the agent\'s questions and the request, with no context of the orchestrator\'s', () => {
+  test('opens an agent-question carrying exactly the agent\'s questions and the request, with no context of the Assistant\'s', () => {
     const { board } = boardWithAWaitingJob();
     board.withdrawDecision('E1', 'example', AT);
     board.openIncident({

@@ -119,7 +119,7 @@ describe('item 2: regrouping', () => {
   test('fails on a second Watcher instance or a second build job', () => {
     const verdict = CutoverSmokeUtil.regroupingVerdictOf({ ...kept, watcherInstanceAfterRegrouping: 2, buildJobsOnTheTicketAfterKill: 1 });
     expect(verdict.passed).toBe(false);
-    expect(verdict.detail).toContain('watcher instance 2');
+    expect(verdict.detail).toContain('Watcher instance 2');
     expect(verdict.detail).toContain('1 more build jobs');
   });
 });

@@ -21,8 +21,8 @@ export const FIXTURE_OBSERVATIONS: PlaybookObservations = {
   ticketIdsTouchingAgentConfig: [],
   closedDeliveryTurns:          [],
   budgetSpentDeliveryTurns:     [],
-  orchestratorHasAnswered:      false,
-  orchestratorBootRetryDue:     false,
+  assistantHasAnswered:         false,
+  assistantBootRetryDue:        false,
 };
 
 /** The values `src/shared/constants/LifecycleLimits.ts` passes in, which the tracker model may not import. */
@@ -57,8 +57,8 @@ export function jobFixture(overrides: Partial<Job> & Pick<Job, 'id'>): Job {
   };
 }
 
-/** The live orchestrator every fact set starts with, so a spec sees no `boot-assistant` it did not ask for. */
-export const LIVE_ORCHESTRATOR = jobFixture({
+/** The live Assistant every fact set starts with, so a spec sees no `boot-assistant` it did not ask for. */
+export const LIVE_ASSISTANT = jobFixture({
   id: 'J900', kind: 'assistant', role: 'assistant', target: null
 });
 
@@ -69,7 +69,7 @@ export function ticketOf(id: string, status: TicketStatus, overrides: Partial<Pl
 export function factsWith(overrides: Partial<PlaybookFacts> = {}): PlaybookFacts {
   return {
     tickets:                     [],
-    jobs:                        [LIVE_ORCHESTRATOR],
+    jobs:                        [LIVE_ASSISTANT],
     decisions:                   [],
     incidents:                   [],
     logRecords:                  [],

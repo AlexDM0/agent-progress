@@ -1,5 +1,5 @@
 /**
- * The Overseer's orchestrator's incidents on the Board. What matters: an incident starts undelivered and carries its facts and default
+ * The Assistant's incidents on the Board. What matters: an incident starts undelivered and carries its facts and default
  * move; it closes exactly once, by a move (`incident-handled`), by its own default with the cause the warning state reads
  * (`incident-defaulted`), or by an escalation that puts the agent's questions to the user unchanged as an `agent-question` decision on the
  * same tickets, job and request; a closed one refuses every later close; and a replayed question request opens no second incident.

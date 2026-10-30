@@ -19,7 +19,7 @@ import { TicketIdUtil }                       from './utils/TicketIdUtil.ts';
 /** The states with no agent session to stop: a stop there ends the job in the same hold. */
 const SESSIONLESS_STATES: readonly Job['state'][] = ['launching', 'preparing', 'interrupted', 'awaiting-answer'];
 
-/** The jobs `job stop --all` reaches: the agents User started work through, never the orchestrator or an Airlock's agents. */
+/** The jobs `job stop --all` reaches: the agents User started work through, never the Assistant or an Airlock's agents. */
 const STOPPABLE_BY_ALL_KINDS: readonly Job['kind'][] = ['build', 'review', 'product-owner'];
 
 const PRODUCT_OWNER_KIND = 'product-owner';

@@ -18,7 +18,7 @@ import {
   FIXTURE_AT,
   FIXTURE_LIMITS,
   FIXTURE_OBSERVATIONS,
-  LIVE_ORCHESTRATOR,
+  LIVE_ASSISTANT,
   endedRecord,
   factsWith,
   finishedJobRecords,
@@ -111,7 +111,7 @@ const USAGE_LIMIT_AHEAD: LifecycleLimits = { ...FIXTURE_LIMITS, usageResetsAt: '
 const CLAIMS: PolicyClaim[] = [
   {
     name:   'a resume comes before any launch',
-    facts:  factsWith({ tickets: [ticketOf('001', 'in-progress'), ticketOf('002', 'pending')], jobs: [LIVE_ORCHESTRATOR, INTERRUPTED_BUILD] }),
+    facts:  factsWith({ tickets: [ticketOf('001', 'in-progress'), ticketOf('002', 'pending')], jobs: [LIVE_ASSISTANT, INTERRUPTED_BUILD] }),
     holds:  (steps) => stepKindsOf(steps).join(' ') === 'resume-job launch-build',
     mutant: policyLine('  steps.push(...crashBoundStepsOf(facts, limits, resumesAreHeld));', ''),
   },
@@ -191,7 +191,7 @@ const CLAIMS: PolicyClaim[] = [
     name:  'a ticket with a live job gets no second one',
     facts: factsWith({
       tickets: [ticketOf('001', 'pending')],
-      jobs:    [LIVE_ORCHESTRATOR, jobFixture({
+      jobs:    [LIVE_ASSISTANT, jobFixture({
         id: 'J1', ticketIds: ['001'], kind: 'merge', role: null
       })]
     }),
@@ -202,7 +202,7 @@ const CLAIMS: PolicyClaim[] = [
     name:  'a job waiting for an answer keeps its slot',
     facts: factsWith({
       tickets:          [ticketOf('001', 'in-progress'), ticketOf('002', 'pending'), ticketOf('003', 'pending')],
-      jobs:             [LIVE_ORCHESTRATOR, jobFixture({ id: 'J1', ticketIds: ['001'], state: 'waiting-for-answer' })],
+      jobs:             [LIVE_ASSISTANT, jobFixture({ id: 'J1', ticketIds: ['001'], state: 'waiting-for-answer' })],
       concurrencyLimit: 2,
     }),
     holds:  launchesExactly(['002']),
@@ -223,7 +223,7 @@ const CLAIMS: PolicyClaim[] = [
     name:  'an interrupted job whose question is open resumes only once it is answered, so the resume carries the answer',
     facts: factsWith({
       tickets: [ticketOf('001', 'in-progress')],
-      jobs:    [LIVE_ORCHESTRATOR, jobFixture({
+      jobs:    [LIVE_ASSISTANT, jobFixture({
         id: 'J1', ticketIds: ['001'], state: 'interrupted', interruption: 'reboot'
       })],
       decisions: [{
@@ -234,10 +234,10 @@ const CLAIMS: PolicyClaim[] = [
     mutant: policyLine(' || jobAwaitsAnAnswer(job, facts)) return [];', ') return [];'),
   },
   {
-    name:   'an orchestrator job takes no slot',
+    name:   'an Assistant job takes no slot',
     facts:  factsWith({ tickets: [ticketOf('001', 'pending')], concurrencyLimit: 1 }),
     holds:  launchesExactly(['001']),
-    mutant: policyLine('= [\'build\', \'review\'];', '= [\'build\', \'review\', \'orchestrator\'];'),
+    mutant: policyLine('= [\'build\', \'review\'];', '= [\'build\', \'review\', \'assistant\'];'),
   },
   {
     name:   'launches stop at the concurrency limit',
@@ -247,19 +247,19 @@ const CLAIMS: PolicyClaim[] = [
   },
   {
     name:   'a job crash-resumed up to the bound is replaced, not resumed',
-    facts:  factsWith({ tickets: [ticketOf('001', 'in-progress')], jobs: [LIVE_ORCHESTRATOR, { ...INTERRUPTED_BUILD, crashResumes: FIXTURE_LIMITS.JOB_RESUMES_BEFORE_FRESH }] }),
+    facts:  factsWith({ tickets: [ticketOf('001', 'in-progress')], jobs: [LIVE_ASSISTANT, { ...INTERRUPTED_BUILD, crashResumes: FIXTURE_LIMITS.JOB_RESUMES_BEFORE_FRESH }] }),
     holds:  (steps) => stepKindsOf(steps).join(' ') === 'replace-job',
     mutant: policyLine('job.crashResumes >= limits.JOB_RESUMES_BEFORE_FRESH', 'job.crashResumes > limits.JOB_RESUMES_BEFORE_FRESH'),
   },
   {
     name:   'a job interrupted by a reboot resumes whatever its crash count',
-    facts:  factsWith({ tickets: [ticketOf('001', 'in-progress')], jobs: [LIVE_ORCHESTRATOR, { ...INTERRUPTED_BUILD, interruption: 'reboot', crashResumes: 5 }] }),
+    facts:  factsWith({ tickets: [ticketOf('001', 'in-progress')], jobs: [LIVE_ASSISTANT, { ...INTERRUPTED_BUILD, interruption: 'reboot', crashResumes: 5 }] }),
     holds:  (steps) => stepKindsOf(steps).join(' ') === 'resume-job',
     mutant: policyLine('return isCrash(job.interruption) && job.crashResumes', 'return job.crashResumes'),
   },
   {
     name:   'a session that went down is replaced, never resumed',
-    facts:  factsWith({ jobs: [{ ...LIVE_ORCHESTRATOR, state: 'interrupted', interruption: 'watcher-lost' }] }),
+    facts:  factsWith({ jobs: [{ ...LIVE_ASSISTANT, state: 'interrupted', interruption: 'watcher-lost' }] }),
     holds:  (steps) => stepKindsOf(steps).join(' ') === 'replace-job',
     mutant: policyLine('    if (SESSION_JOB_KINDS.includes(job.kind)) return [{ kind: \'replace-job\', jobId: job.id }];\n', ''),
   },
@@ -335,13 +335,13 @@ const CLAIMS: PolicyClaim[] = [
   },
   {
     name:   'an open outage decision holds resumes',
-    facts:  factsWith({ tickets: [ticketOf('001', 'in-progress')], jobs: [LIVE_ORCHESTRATOR, INTERRUPTED_BUILD], decisions: [decisionOf('outage')] }),
+    facts:  factsWith({ tickets: [ticketOf('001', 'in-progress')], jobs: [LIVE_ASSISTANT, INTERRUPTED_BUILD], decisions: [decisionOf('outage')] }),
     holds:  (steps) => !stepKindsOf(steps).includes('resume-job'),
     mutant: policyLine(' || openDecisionOfKind(facts, \'outage\')', ''),
   },
   {
     name:   'a paused board resumes interrupted jobs but launches nothing new',
-    facts:  factsWith({ tickets: [ticketOf('001', 'in-progress'), ticketOf('002', 'pending')], jobs: [LIVE_ORCHESTRATOR, INTERRUPTED_BUILD], overseerState: 'paused' }),
+    facts:  factsWith({ tickets: [ticketOf('001', 'in-progress'), ticketOf('002', 'pending')], jobs: [LIVE_ASSISTANT, INTERRUPTED_BUILD], overseerState: 'paused' }),
     holds:  (steps) => stepKindsOf(steps).join(' ') === 'resume-job',
     mutant: policyLine('resumesAreHeld || facts.overseerState === \'paused\'', 'resumesAreHeld'),
   },
@@ -373,13 +373,13 @@ const CLAIMS: PolicyClaim[] = [
   },
   {
     name:   'an open checks-not-set decision is not opened again',
-    facts:  factsWith({ pipelineIsSet: false, decisions: [decisionOf('checks-not-set')], jobs: [LIVE_ORCHESTRATOR, onboarderJob()] }),
+    facts:  factsWith({ pipelineIsSet: false, decisions: [decisionOf('checks-not-set')], jobs: [LIVE_ASSISTANT, onboarderJob()] }),
     holds:  (steps) => steps.length === 0,
     mutant: policyLine(' && !openDecisionOfKind(facts, \'checks-not-set\')', ''),
   },
   {
     name:   'a live onboarder answers checks-not-set, so no second one launches',
-    facts:  factsWith({ pipelineIsSet: false, decisions: [decisionOf('checks-not-set')], jobs: [LIVE_ORCHESTRATOR, onboarderJob()] }),
+    facts:  factsWith({ pipelineIsSet: false, decisions: [decisionOf('checks-not-set')], jobs: [LIVE_ASSISTANT, onboarderJob()] }),
     holds:  (steps) => !stepKindsOf(steps).includes('launch-onboarder'),
     mutant: policyLine('  if (facts.jobs.some((job) => job.kind === \'onboarder\')) return true;\n', ''),
   },
@@ -407,7 +407,7 @@ const CLAIMS: PolicyClaim[] = [
   },
   {
     name:   'a usage limit holds launches and resumes until its reset',
-    facts:  factsWith({ tickets: [ticketOf('001', 'in-progress'), ticketOf('002', 'pending')], jobs: [LIVE_ORCHESTRATOR, INTERRUPTED_BUILD] }),
+    facts:  factsWith({ tickets: [ticketOf('001', 'in-progress'), ticketOf('002', 'pending')], jobs: [LIVE_ASSISTANT, INTERRUPTED_BUILD] }),
     limits: USAGE_LIMIT_AHEAD,
     holds:  (steps) => steps.length === 0,
     mutant: policyLine('limits.usageResetsAt !== null && Date.parse(limits.now) < Date.parse(limits.usageResetsAt)', 'false'),
@@ -416,7 +416,7 @@ const CLAIMS: PolicyClaim[] = [
     name:  'a changed install version holds launches and resumes',
     facts: factsWith({
       tickets:      [ticketOf('001', 'in-progress'), ticketOf('002', 'pending')],
-      jobs:         [LIVE_ORCHESTRATOR, INTERRUPTED_BUILD],
+      jobs:         [LIVE_ASSISTANT, INTERRUPTED_BUILD],
       observations: { ...FIXTURE_OBSERVATIONS, installVersionChanged: true },
     }),
     holds:  (steps) => steps.length === 0,
@@ -435,13 +435,13 @@ const CLAIMS: PolicyClaim[] = [
     mutant: policyLine('  if (facts.observations.ticketIdsTouchingAgentConfig.includes(ticket.id)) return true;\n', ''),
   },
   {
-    name:   'with no orchestrator live one boots',
+    name:   'with no Assistant live one boots',
     facts:  factsWith({ jobs: [] }),
     holds:  (steps) => stepKindsOf(steps).join(' ') === 'boot-assistant',
     mutant: policyLine(' steps.push({ kind: \'boot-assistant\' });', ' steps.push();'),
   },
   {
-    name:  'after two failed boots no orchestrator boots and every open incident takes its default',
+    name:  'after two failed boots no Assistant boots and every open incident takes its default',
     facts: factsWith({
       jobs:       [],
       incidents:  [incidentOf({})],
@@ -453,15 +453,15 @@ const CLAIMS: PolicyClaim[] = [
   {
     name:  'during a reboot a merge-gate-failed takes its default in that pass while a blocked one waits for the fresh session',
     facts: factsWith({
-      jobs:      [{ ...LIVE_ORCHESTRATOR, state: 'interrupted', interruption: 'reboot' }],
+      jobs:      [{ ...LIVE_ASSISTANT, state: 'interrupted', interruption: 'reboot' }],
       incidents: [incidentOf({ id: 'I1', kind: 'merge-gate-failed', defaultMove: 'merge-abort' }), incidentOf({ id: 'I2', kind: 'blocked' })],
     }),
     holds: (steps) => steps.filter((step) => step.kind === 'default-incident')
       .map((step) => (step.kind === 'default-incident' ? `${step.incidentId} ${step.cause}` : '')).join(',') === 'I1 no-assistant',
-    mutant: policyLine('!orchestratorIsRunning && AIRLOCK_HOLDING_INCIDENT_KINDS', 'false && AIRLOCK_HOLDING_INCIDENT_KINDS'),
+    mutant: policyLine('!assistantIsRunning && AIRLOCK_HOLDING_INCIDENT_KINDS', 'false && AIRLOCK_HOLDING_INCIDENT_KINDS'),
   },
   {
-    name:   'a resolution over the threshold waits for nobody while no orchestrator is running',
+    name:   'a resolution over the threshold waits for nobody while no Assistant is running',
     facts:  factsWith({ jobs: [], incidents: [incidentOf({ kind: 'resolution-over-threshold', defaultMove: 'merge-review' })] }),
     holds:  (steps) => steps.some((step) => step.kind === 'default-incident' && step.cause === 'no-assistant'),
     mutant: policyLine('[\'merge-gate-failed\', \'resolution-over-threshold\']', '[\'merge-gate-failed\']'),
@@ -476,7 +476,7 @@ const CLAIMS: PolicyClaim[] = [
     mutant: policyLine('  return facts.observations.closedDeliveryTurns.some(', '  return false && facts.observations.closedDeliveryTurns.some('),
   },
   {
-    name:   'an incident delivered to an orchestrator that is gone takes its default',
+    name:   'an incident delivered to an Assistant that is gone takes its default',
     facts:  factsWith({ incidents: [incidentOf({ deliveredInTurn: { jobId: 'J7', chatSequence: 1 } })] }),
     holds:  (steps) => stepKindsOf(steps).join(' ') === 'default-incident',
     mutant: policyLine('  if (!facts.jobs.some((job) => job.id === turn.jobId)) return true;\n', ''),

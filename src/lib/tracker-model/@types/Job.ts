@@ -127,7 +127,7 @@ export interface JobEnding {
   deniedPermissions?: readonly string[];
 }
 
-export type OverseerStopReason = 'stopped' | 'handed-over';
+export type OverseerStopReason = 'stopped' | 'baton-passed';
 
 /** How a merge reached its target: `landed` fast-forwarded the main line, `integrated` a group branch. */
 export type LandingKind = 'landed' | 'integrated';

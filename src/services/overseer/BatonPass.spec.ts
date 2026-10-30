@@ -151,7 +151,7 @@ describe('a successor failing after released', () => {
       BatonPass.reportServing({ batonPassFilePath, codeVersion: SUCCESSOR_CODE }, 2, 'http://127.0.0.1:4930/');
     });
     expect(outcome).toEqual({
-      verdict: 'handed-over', successorCodeVersion: SUCCESSOR_CODE, generation: 2, url: 'http://127.0.0.1:4930/'
+      verdict: 'baton-passed', successorCodeVersion: SUCCESSOR_CODE, generation: 2, url: 'http://127.0.0.1:4930/'
     });
     expect([recorded, released]).toEqual([[], 1]);
   });

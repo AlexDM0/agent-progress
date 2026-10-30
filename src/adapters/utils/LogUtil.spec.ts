@@ -139,7 +139,7 @@ describe('the Overseer and its jobs', () => {
   const SENTENCE_AND_TICKET_IDS_FOR_RECORD: readonly (readonly [LogRecordContent, string, readonly string[]])[] = [
     [{ kind: 'overseer-started', fields: { codeVersion: 'a1b2c3d', installVersion: 17 } }, 'Overseer started on code a1b2c3d, install version 17', []],
     [{ kind: 'overseer-stopped', fields: { reason: 'stopped' } }, 'Overseer stopped', []],
-    [{ kind: 'overseer-stopped', fields: { reason: 'handed-over' } }, 'Overseer handed the board over to its successor', []],
+    [{ kind: 'overseer-stopped', fields: { reason: 'baton-passed' } }, 'Overseer handed the board over to its successor', []],
     [
       {
         kind:   'job-launched',
@@ -405,7 +405,7 @@ describe('decisions, incidents and triage', () => {
     ],
     [
       { kind: 'incident-defaulted', incidentId: 'I2', fields: { move: 'ticket-park', cause: 'no-assistant' } },
-      'Incident I2 took its default, ticket-park, while no orchestrator could come up',
+      'Incident I2 took its default, ticket-park, while no Assistant could come up',
       [],
     ],
     [{ kind: 'incident-escalated', incidentId: 'I2', fields: { decisionId: 'E5' } }, 'Incident I2 escalated to the user as decision E5', []],

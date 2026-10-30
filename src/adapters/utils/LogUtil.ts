@@ -194,7 +194,7 @@ function sentenceOf(record: LogRecordContent): string {
     case 'overseer-started':
       return `Overseer started on code ${record.fields.codeVersion}, install version ${record.fields.installVersion}`;
     case 'overseer-stopped':
-      return record.fields.reason === 'handed-over' ? 'Overseer handed the board over to its successor' : 'Overseer stopped';
+      return record.fields.reason === 'baton-passed' ? 'Overseer handed the board over to its successor' : 'Overseer stopped';
     case 'baton-pass-failed':
       return `Overseer Baton pass to code ${record.fields.successorCodeVersion} failed at ${record.fields.step}: ${record.fields.error}; the old Overseer keeps driving`;
     case 'job-launched':
@@ -253,7 +253,7 @@ const JOB_STOP_MODE_PHRASES: Readonly<Record<JobStopMode, string>> = {
 const INCIDENT_DEFAULT_CAUSE_TEXT: Readonly<Record<IncidentDefaultCause, string>> = {
   'turn-closed':  'when its delivery turn closed',
   'turn-budget':  'when its delivery turn reached its call budget',
-  'no-assistant': 'while no orchestrator could come up',
+  'no-assistant': 'while no Assistant could come up',
 };
 
 function ticketsSuffixOf(ticketIds: readonly string[]): string {

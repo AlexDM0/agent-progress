@@ -259,7 +259,7 @@ describe('what a job carries', () => {
     expect(board.jobById(job.id)).toMatchObject({
       eventCursor:        { instance: 1, sequence: 7 },
       answeredRequestIds: ['request-1'],
-      slot:               {
+      airlock:            {
         target: 'main', targetTip: 'a1b2c3d', branchTip: 'b2c3d4e', phase: 'merge-in'
       },
     });

@@ -133,8 +133,8 @@ describe('each kind\'s default', () => {
         ticketIdsTouchingAgentConfig: [],
         closedDeliveryTurns:          [],
         budgetSpentDeliveryTurns:     [],
-        orchestratorHasAnswered:      false,
-        orchestratorBootRetryDue:     false,
+        assistantHasAnswered:         false,
+        assistantBootRetryDue:        false,
       }, wordingOf);
       expect(board.incidentById(incident?.id ?? '')).toBeUndefined();
       if (i < priorDefaults && board.ticketByReference('001')?.frontmatter.hold !== undefined) board.unholdTicket('001', AT);
@@ -206,7 +206,7 @@ describe('findings-delivered', () => {
     return fixture;
   }
 
-  test('delivering a ticket lists every orchestrator-route draft its jobs filed, in the delivering hold', () => {
+  test('delivering a ticket lists every assistant-route draft its jobs filed, in the delivering hold', () => {
     const { board } = boardWithFindings();
     const moved = board.moveTicket('001', 'delivered', { checksLegality: false }, AT);
     expect(moved.logged.at(-1)).toMatchObject({ kind: 'incident-opened', fields: { kind: 'findings-delivered', ticketIds: ['002', '003'] } });
@@ -252,8 +252,8 @@ describe('findings-delivered', () => {
       ticketIdsTouchingAgentConfig: [],
       closedDeliveryTurns:          [],
       budgetSpentDeliveryTurns:     [],
-      orchestratorHasAnswered:      false,
-      orchestratorBootRetryDue:     false,
+      assistantHasAnswered:         false,
+      assistantBootRetryDue:        false,
     }, wordingOf);
     expect(['002', '003'].map((ticketId) => board.ticketByReference(ticketId)?.frontmatter.findingRoute)).toEqual(['user', 'user']);
   });
