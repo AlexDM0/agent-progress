@@ -396,11 +396,19 @@ function launchStepsOf(facts: LifecycleFacts, ticketIdsSettledThisPass: Readonly
     .map((candidate) => candidate.step);
 }
 
-/** Without a review phase only a gate's settling queues a build to land, so a ticket already in review when the phase went is queued here. */
+function mergeRefusalAwaitsUser(ticketId: string, facts: LifecycleFacts): boolean {
+  return facts.decisions.some((decision) => decision.kind === 'merge-refused' && decision.ticketIds.includes(ticketId));
+}
+
+/**
+ * Without a review phase only a gate's settling queues a build to land, so a ticket already in review when the phase went is queued here;
+ * a refused merge took it out of the queue for User, so it waits for the answer.
+ */
 function mergeQueueStepsOf(facts: LifecycleFacts, ticketIdsSettledThisPass: ReadonlySet<string>): LifecycleStep[] {
   if (facts.reviewIsSet) return [];
   return facts.tickets
     .filter((ticket) => ticket.status === 'in-review' && !ticketIsHeld(ticket, facts) && !ticketHasAJob(ticket.id, facts) && !ticketIdsSettledThisPass.has(ticket.id))
+    .filter((ticket) => !mergeRefusalAwaitsUser(ticket.id, facts))
     .map((ticket): LifecycleStep => ({ kind: 'queue-merge', ticketId: ticket.id, target: targetOf(ticket, facts.observations) }));
 }
 

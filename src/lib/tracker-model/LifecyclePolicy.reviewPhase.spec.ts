@@ -7,6 +7,7 @@
  */
 import { describe, expect, test } from 'bun:test';
 
+import type { Decision }   from './@types/Decision.ts';
 import type { LogRecord }  from './@types/LogRecord.ts';
 import { LifecyclePolicy } from './LifecyclePolicy.ts';
 import {
@@ -51,6 +52,14 @@ describe('a pipeline without a review phase', () => {
   test('queues no ticket already merge-queued again', () => {
     const queued = { ...ticketOf('001', 'in-review'), mergeQueued: true };
     const steps  = LifecyclePolicy.nextStepsOf(factsWith({ tickets: [queued], reviewIsSet: false }), FIXTURE_LIMITS);
+    expect(steps).toEqual([]);
+  });
+
+  test('queues no ticket whose refused merge waits on User, so a refusal does not loop back into the queue', () => {
+    const mergeRefused: Decision = {
+      id: 'E1', kind: 'merge-refused', ticketIds: ['001'], jobId: null, askedBy: 'runner', requestId: null, questions: [], context: '', openedAt: FIXTURE_AT,
+    };
+    const steps = LifecyclePolicy.nextStepsOf(factsWith({ tickets: [ticketOf('001', 'in-review')], decisions: [mergeRefused], reviewIsSet: false }), FIXTURE_LIMITS);
     expect(steps).toEqual([]);
   });
 
