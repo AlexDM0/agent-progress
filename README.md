@@ -120,7 +120,7 @@ cache reads included, to its row. `agent-progress usage` audits the same figures
 | **CLI and hook** | `agent-progress` | Holds the state, draws the page, records tokens when an agent stops. |
 
 <p align="center">
-  <img src="docs/images/lifecycle.png" width="560" alt="One ticket, start to merge: you describe the work, the orchestrator files a ticket, on your go the dispatcher starts a builder in a worktree, a fresh agent reviews it, a large rework loops to another round, otherwise release fast-forwards main and done means merged; findings outside scope become low-priority tickets and the SubagentStop hook adds tokens to the row">
+  <img src="docs/images/lifecycle.png" width="560" alt="One ticket, start to merge: you describe the work, a product owner files a draft, once you ready it the Overseer starts a builder in a worktree, a fresh agent reviews it, a large rework loops to another round, otherwise the Airlock merges it into main and done means merged; findings outside scope become low-priority tickets and the Overseer reads each session's calls and tokens live">
 </p>
 
 You can keep filing tickets while a run is going; it picks them up when its next agent returns, and a
@@ -132,7 +132,7 @@ orchestrator picks up where it left off.
 <summary><b>Where everything goes</b> — the architecture</summary>
 <br>
 <p align="center">
-  <img src="docs/images/architecture.png" width="680" alt="Everything goes through one CLI: you talk to the orchestrator session, which launches the dispatcher, which runs builders and reviewers; all of them and the SubagentStop hook call the agent-progress CLI, which locks, writes atomically and re-renders; the CLI writes .agent-progress/, which becomes progress.html in your browser; reviewers fast-forward main on release">
+  <img src="docs/images/architecture.png" width="680" alt="One runner owns the board: you work through the Bridge in your browser or an optional orchestrator session; both reach the Overseer, agent-progress run, which launches product-owner, builder, reviewer and Assistant sessions, keeps .agent-progress/, and passes reviewed tickets through the merge queue to the Airlock, which lands them on main one at a time">
 </p>
 </details>
 
@@ -168,7 +168,7 @@ agent-progress init --project "Example Storefront"
 ```
 
 <p align="center">
-  <img src="docs/images/terminal-init.png" width="680" alt="Terminal output of agent-progress init for Example Storefront, listing tracker, brief, dashboard, .gitignore entry, CLAUDE.md block, SubagentStop hook, dispatcher workflow and worker agent, followed by agent-progress open">
+  <img src="docs/images/terminal-init.png" width="720" alt="Terminal output of agent-progress init for Example Storefront, listing tracker, session instructions, dashboard, .gitignore entry, CLAUDE.md, retired files, SessionStart hook, skills and worktrees folder, followed by agent-progress run --detach printing the Overseer's local URL">
 </p>
 
 `init` writes nine things:

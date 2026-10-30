@@ -26,7 +26,9 @@ step() { printf "\n\033[1m%s\033[0m\n" "$1"; }
 command -v bun >/dev/null || { echo "bun is required" >&2; exit 1; }
 [[ -d "$REPOSITORY/node_modules/react" ]] || { echo "run bun install in $REPOSITORY first" >&2; exit 1; }
 
-WORK="$(mktemp -d "${TMPDIR:-/tmp}/agent-progress-readme-graphics.XXXXXX")"
+# A short folder under /tmp rather than macOS's long $TMPDIR: the scratch home holds the agent hosts' Unix sockets, whose
+# paths must stay under 104 bytes, or every host ends unreadable and the Overseer pauses on an outage.
+WORK="$(mktemp -d /tmp/ap-readme.XXXXXX)"
 if [[ "$KEEP_DEMO" == "1" ]]; then
   trap 'echo "demo repository kept at $WORK/example-storefront"' EXIT
 else
