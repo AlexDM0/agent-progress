@@ -308,9 +308,9 @@ describe('run pause and resume', () => {
   });
 
   test('the board state the Bridge header reads agrees with run status after a resume and after a pause', async () => {
-    const pausedFlagsAfter = async (subcommand: 'resume' | 'pause'): Promise<{ header: boolean; runStatus: unknown }> => {
+    const pausedFlagsAfter = async (commandLine: readonly string[]): Promise<{ header: boolean; runStatus: unknown }> => {
       const moved = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-      expect(await runCommandLine(['run', subcommand], moved), moved.errorText()).toBe(0);
+      expect(await runCommandLine([...commandLine], moved), moved.errorText()).toBe(0);
       const statusContext = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
       expect(await runCommandLine(['run', 'status', '--json'], statusContext), statusContext.errorText()).toBe(0);
       const boardState = readBoardState({
@@ -323,7 +323,7 @@ describe('run pause and resume', () => {
       }).state;
       return { header: boardState.overseer.paused, runStatus: (JSON.parse(statusContext.outputText()) as Record<string, unknown>)['paused'] };
     };
-    expect(await pausedFlagsAfter('resume')).toEqual({ header: false, runStatus: false });
-    expect(await pausedFlagsAfter('pause')).toEqual({ header: true, runStatus: true });
+    expect(await pausedFlagsAfter(['run', 'resume'])).toEqual({ header: false, runStatus: false });
+    expect(await pausedFlagsAfter(['run', 'pause'])).toEqual({ header: true, runStatus: true });
   });
 });
