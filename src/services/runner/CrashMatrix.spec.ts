@@ -1196,6 +1196,7 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
   test('a worktree folder no job or branch owns opens leftover-worktree to User once, however often the runner starts', async () => {
     const worktreesRoot = join(repository, PRODUCT_NAMES.WORKTREES_FOLDER);
     mkdirSync(join(worktreesRoot, 'ticket-999'), { recursive: true });
+    mkdirSync(join(worktreesRoot, 'onboard', 'J9'), { recursive: true });
     gitOutputIn(repository, ['worktree', 'add', '-q', '-b', 'example-owned', join(worktreesRoot, 'example-owned')]);
     await writeTracker({
       workspace: sessionWorkspace, at: CHANGED_AT, now, renderState, mutate: (change) => { change.board.setDispatcherState('stopped', change.at); },

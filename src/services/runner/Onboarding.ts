@@ -3,9 +3,13 @@
  * and the end of its pass. Once its host is gone the pass is verified, a setup proposal's gates run twice on the snapshot and its caching is
  * checked, all outside the hold; the next hold opens `pipeline-proposal` with that record, or ends the job, and the snapshot is removed.
  */
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { readFileSync }                         from 'node:fs';
-import { join }                                 from 'node:path';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync
+} from 'node:fs';
+import { join } from 'node:path';
 
 import type { AgentAdapter }                                              from '../../lib/agent-launch/AgentAdapter.ts';
 import type { WorkerProfile }                                             from '../../lib/agent-launch/WorkerProfile.ts';
@@ -23,7 +27,8 @@ import { HostFleet }                                                      from '
 
 const ONBOARDER_KIND = 'onboarder';
 
-const SNAPSHOT_FOLDER = 'onboard';
+/** Under the worktrees root, one detached snapshot per onboarder job; the runner owns it, so it is never a leftover worktree. */
+export const ONBOARDER_SNAPSHOT_FOLDER = 'onboard';
 
 const SNAPSHOT_START_FILE = 'onboarder-start.json';
 
@@ -47,14 +52,14 @@ function isOnboarderJob(job: Readonly<Job>): boolean {
 }
 
 function snapshotDirectoryOf(worktreesRoot: string, jobId: string): string {
-  return join(worktreesRoot, SNAPSHOT_FOLDER, jobId);
+  return join(worktreesRoot, ONBOARDER_SNAPSHOT_FOLDER, jobId);
 }
 
 /** Taken once, at the main line's tip: every ref and HEAD then, which Customs holds the pass to. */
 function prepareSnapshot(context: Pick<OnboardingContext, 'workspace' | 'worktreesRoot' | 'mainLine'>, job: Readonly<Job>): string {
   const snapshot = snapshotDirectoryOf(context.worktreesRoot, job.id);
   if (existsSync(snapshot)) return snapshot;
-  mkdirSync(join(context.worktreesRoot, SNAPSHOT_FOLDER), { recursive: true });
+  mkdirSync(join(context.worktreesRoot, ONBOARDER_SNAPSHOT_FOLDER), { recursive: true });
   GitProcess.run(context.workspace.rootDirectory, ['worktree', 'add', '--detach', snapshot, context.mainLine]);
   const startCommit = GitProcess.resolvedCommitOf(snapshot, 'HEAD');
   const launchSnapshot = launchSnapshotOf(snapshot);
