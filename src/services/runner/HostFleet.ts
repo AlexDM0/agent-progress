@@ -58,6 +58,10 @@ const HOST_SECRET_BYTES = 24;
 /** How long the runner waits on a host to take its frames; a schedule only, never a decision. */
 const HOST_FRAME_TIMEOUT_MILLISECONDS = 2000;
 
+/** How long `stopLiveProcessHosts` waits on the hosts it stopped to record their end; a schedule only. */
+const STOPPED_HOST_WAIT_TRIES = 100;
+const STOPPED_HOST_WAIT_INTERVAL_MILLISECONDS = 20;
+
 function jobFolderOf(trackerDirectory: string, jobId: string): string {
   return join(trackerDirectory, 'jobs', jobId);
 }
@@ -234,14 +238,8 @@ function endedHostStillRuns(record: HostRecord | null): record is HostRecord & {
  * to an agent host, `stop` to a process host. A legacy host is left alone. Answers how many took the acknowledgement.
  */
 async function reapEndedHostsIn(jobFolder: string): Promise<number> {
-  let subfolderNames: string[];
-  try {
-    subfolderNames = readdirSync(jobFolder, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name);
-  } catch {
-    return 0;
-  }
   let reaped = 0;
-  for (const hostFolder of [jobFolder, ...subfolderNames.map((name) => join(jobFolder, name))]) {
+  for (const hostFolder of hostFoldersOf(jobFolder)) {
     for (const instance of claimedInstancesIn(hostFolder)) {
       const record = hostRecordOf(hostFolder, instance);
       if (!endedHostStillRuns(record) || LegacyHostReader.attachmentOf(record) === 'legacy-host') continue;
@@ -256,15 +254,52 @@ async function reapEndedHostsIn(jobFolder: string): Promise<number> {
 
 /** Every job folder of the tracker, swept as `reapEndedHostsIn` says. */
 async function reapEndedHosts(trackerDirectory: string): Promise<number> {
-  let jobIds: string[];
-  try {
-    jobIds = readdirSync(join(trackerDirectory, 'jobs'));
-  } catch {
-    return 0;
-  }
   let reaped = 0;
-  for (const jobId of jobIds) reaped += await reapEndedHostsIn(jobFolderOf(trackerDirectory, jobId));
+  for (const jobFolder of jobFoldersOf(trackerDirectory)) reaped += await reapEndedHostsIn(jobFolder);
   return reaped;
+}
+
+/**
+ * Sends `stop` with no grace to every live process host of the tracker's jobs, an install or a gate, and waits a bounded number of tries for
+ * each to record its end, so the reap after it acknowledges them. An agent host and a legacy host are left alone. Answers how many took it.
+ */
+async function stopLiveProcessHosts(trackerDirectory: string): Promise<number> {
+  const stopped: { hostFolder: string; instance: number }[] = [];
+  for (const jobFolder of jobFoldersOf(trackerDirectory)) {
+    for (const hostFolder of hostFoldersOf(jobFolder)) {
+      for (const instance of claimedInstancesIn(hostFolder)) {
+        if (livenessOf(hostFolder, instance).verdict !== 'live') continue;
+        if (LegacyHostReader.attachmentOf(hostRecordOf(hostFolder, instance)) === 'legacy-host') continue;
+        const reading = readHostLaunch(hostFilesOf(hostFolder, instance).launchPath);
+        if (reading.verdict !== 'read' || reading.launch.kind !== 'process') continue;
+        if (await sendFrames(hostFolder, instance, [{ kind: 'stop', graceMilliseconds: 0 }])) stopped.push({ hostFolder, instance });
+      }
+    }
+  }
+  // The tries only bound the wait; whether a host ended is its own record.
+  for (let attempt = 0; attempt < STOPPED_HOST_WAIT_TRIES; attempt += 1) {
+    if (stopped.every(({ hostFolder, instance }) => livenessOf(hostFolder, instance).verdict !== 'live')) break;
+    await Bun.sleep(STOPPED_HOST_WAIT_INTERVAL_MILLISECONDS);
+  }
+  return stopped.length;
+}
+
+function jobFoldersOf(trackerDirectory: string): string[] {
+  try {
+    return readdirSync(join(trackerDirectory, 'jobs')).map((jobId) => jobFolderOf(trackerDirectory, jobId));
+  } catch {
+    return [];
+  }
+}
+
+/** The job folder itself, holding its agent host, and each subfolder, holding a process host. */
+function hostFoldersOf(jobFolder: string): string[] {
+  try {
+    const subfolderNames = readdirSync(jobFolder, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name);
+    return [jobFolder, ...subfolderNames.map((name) => join(jobFolder, name))];
+  } catch {
+    return [];
+  }
 }
 
 export const HostFleet = Object.freeze({
@@ -279,4 +314,5 @@ export const HostFleet = Object.freeze({
   spawnHost,
   reapEndedHostsIn,
   reapEndedHosts,
+  stopLiveProcessHosts,
 });
