@@ -1,5 +1,5 @@
 /**
- * The dependencies view as a model, laid out as `page/dependencies/` lays out its waves: a Done column of the settled tickets the open ones
+ * The dependencies view as a model, laid out as the static page laid out its waves: a Done column of the settled tickets the open ones
  * build on, then one column per wave, every head, band, node and edge placed in pixels on one canvas. The graph is `DependencyGraphUtil`'s
  * and the forecast `WaveForecastUtil`'s, both moved unchanged; which tickets are ready is the Board's `readyTickets`, never a rule here.
  */

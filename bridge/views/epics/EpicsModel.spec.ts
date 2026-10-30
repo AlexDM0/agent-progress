@@ -1,5 +1,5 @@
 /**
- * The epic marks, as the static page's `page/epics/EpicMarkup.spec.ts` held them, now on the view model. What matters: open epics show
+ * The epic marks, as the static page's epic markup spec held them, now on the view model. What matters: open epics show
  * before settled ones, the done text, roll-up segments in settled-first order and the facts read as the page's, ticket lines are newest
  * first with their display state, the description stays the rendered string for the sandbox, and a finished epic outside the window hides
  * behind the empty line naming it.

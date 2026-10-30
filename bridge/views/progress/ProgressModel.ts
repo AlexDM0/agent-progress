@@ -1,5 +1,5 @@
 /**
- * The Progress chart as a model, from the Overseer's `BoardState` and the viewer's range and review-rows choice, as `page/progress/` draws
+ * The Progress chart as a model, from the Overseer's `BoardState` and the viewer's range and review-rows choice, as the static page drew
  * it. Which rows are review bars, and of which ticket's own row, are the Board's facts (`boardFacts.rows`); a ticket's review bars are
  * ordered by the round their name gives, never by a rule copied here. The geometry is `GeometryUtil`'s, moved unchanged.
  */
