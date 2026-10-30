@@ -10,6 +10,7 @@ import {
   existsSync,
   mkdirSync,
   openSync,
+  readdirSync,
   readFileSync,
   writeFileSync
 } from 'node:fs';
@@ -206,6 +207,76 @@ function spawnHost(request: HostSpawnRequest): number | undefined {
   }
 }
 
+const HOST_RECORD_FILE_PATTERN = /^host-(?<instance>\d+)\.json$/;
+
+function claimedInstancesIn(hostFolder: string): number[] {
+  let fileNames: string[];
+  try {
+    fileNames = readdirSync(hostFolder);
+  } catch {
+    return [];
+  }
+  return fileNames.flatMap((fileName) => {
+    const instance = HOST_RECORD_FILE_PATTERN.exec(fileName)?.groups?.['instance'];
+    return instance === undefined ? [] : [Number(instance)];
+  });
+}
+
+/** Whether the record says ended while the very process it names still runs: an ended host lingering for its acknowledgement. */
+function endedHostStillRuns(record: HostRecord | null): record is HostRecord & { host: NonNullable<HostRecord['host']> } {
+  if (record?.end === undefined || record.host === null) return false;
+  const current = identityOf(record.host.processId);
+  return current !== null && sameProcess(current, record.host);
+}
+
+/**
+ * Acknowledges the end of every ended host in the job folder and its process hosts' subfolders that still runs, so it exits: `close-input`
+ * to an agent host, `stop` to a process host. A legacy host is left alone. Answers how many took the acknowledgement.
+ */
+async function reapEndedHostsIn(jobFolder: string): Promise<number> {
+  let subfolderNames: string[];
+  try {
+    subfolderNames = readdirSync(jobFolder, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name);
+  } catch {
+    return 0;
+  }
+  let reaped = 0;
+  for (const hostFolder of [jobFolder, ...subfolderNames.map((name) => join(jobFolder, name))]) {
+    for (const instance of claimedInstancesIn(hostFolder)) {
+      const record = hostRecordOf(hostFolder, instance);
+      if (!endedHostStillRuns(record) || LegacyHostReader.attachmentOf(record) === 'legacy-host') continue;
+      const reading = readHostLaunch(hostFilesOf(hostFolder, instance).launchPath);
+      if (reading.verdict !== 'read') continue;
+      const acknowledgement: ActingFrame = reading.launch.kind === 'agent' ? { kind: 'close-input' } : { kind: 'stop', graceMilliseconds: 0 };
+      if (await sendFrames(hostFolder, instance, [acknowledgement])) reaped += 1;
+    }
+  }
+  return reaped;
+}
+
+/** Every job folder of the tracker, swept as `reapEndedHostsIn` says. */
+async function reapEndedHosts(trackerDirectory: string): Promise<number> {
+  let jobIds: string[];
+  try {
+    jobIds = readdirSync(join(trackerDirectory, 'jobs'));
+  } catch {
+    return 0;
+  }
+  let reaped = 0;
+  for (const jobId of jobIds) reaped += await reapEndedHostsIn(jobFolderOf(trackerDirectory, jobId));
+  return reaped;
+}
+
 export const HostFleet = Object.freeze({
-  jobFolderOf, hostRecordOf, livenessOf, eventsAfter, writeLaunchFiles, writeProcessLaunchFile, sendFrames, sendFramesOnce, spawnHost
+  jobFolderOf,
+  hostRecordOf,
+  livenessOf,
+  eventsAfter,
+  writeLaunchFiles,
+  writeProcessLaunchFile,
+  sendFrames,
+  sendFramesOnce,
+  spawnHost,
+  reapEndedHostsIn,
+  reapEndedHosts,
 });
