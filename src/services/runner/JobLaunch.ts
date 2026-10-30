@@ -364,17 +364,17 @@ function verifyAndRoute(hold: HoldContext, job: Readonly<Job>, observation: Buil
     return;
   }
   const subject: JobVerificationSubject = {
-    role:                  job.kind === REVIEW_JOB_KIND ? 'reviewer' : 'builder',
-    worktreePath:          worktreeOf(hold.context.workspace, job),
-    startCommit:           start.startCommit,
-    bodyHashAtLaunch:      start.bodyHashAtLaunch,
-    report:                observation.report,
-    ticketBody:            ticket.body,
-    jobId:                 job.id,
-    logRecords:            board.logRecordsSoFar(),
-    launchSnapshot:        start.launchSnapshot,
-    refMovesAllowed:       refMovesAllowedFor(hold.context, board, job),
-    checksDefinitionFiles: board.checksDefinitionFiles(),
+    role:             job.kind === REVIEW_JOB_KIND ? 'reviewer' : 'builder',
+    worktreePath:     worktreeOf(hold.context.workspace, job),
+    startCommit:      start.startCommit,
+    bodyHashAtLaunch: start.bodyHashAtLaunch,
+    report:           observation.report,
+    ticketBody:       ticket.body,
+    jobId:            job.id,
+    logRecords:       board.logRecordsSoFar(),
+    launchSnapshot:   start.launchSnapshot,
+    refMovesAllowed:  refMovesAllowedFor(hold.context, board, job),
+    gates:            board.pipeline()?.gates ?? [],
   };
   const reportVerdict = VERIFICATION_CHECKS.V1(subject);
   if (reportVerdict.verdict === 'refused') {

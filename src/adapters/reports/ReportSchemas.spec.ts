@@ -16,6 +16,7 @@ const BUILT = {
   headCommit:        HEAD,
   acceptance:        [{ item: 'A1', state: 'met', evidence: 'cli/Main.spec.ts › relays' }],
   alsoFixed:         [],
+  gates:             [{ name: 'tests', commit: HEAD }],
   handoff:           'Done.',
   blockedReason:     null,
   cannotBuildReason: null,
@@ -48,6 +49,8 @@ const REPORT_TABLE: ReadonlyArray<[name: string, schema: JsonSchema, report: unk
   ['a builder report carrying blockedOn', BUILDER_REPORT_SCHEMA, { ...BUILT, blockedOn: 'Which currency?' }, false],
   ['a builder report with a short head commit', BUILDER_REPORT_SCHEMA, { ...BUILT, headCommit: 'abc123' }, false],
   ['a builder report with a round', BUILDER_REPORT_SCHEMA, { ...BUILT, round: 2 }, false],
+  ['a builder report without gate claims', BUILDER_REPORT_SCHEMA, Object.fromEntries(Object.entries(BUILT).filter(([field]) => field !== 'gates')), false],
+  ['a builder report claiming a gate on a short commit', BUILDER_REPORT_SCHEMA, { ...BUILT, gates: [{ name: 'tests', commit: 'abc123' }] }, false],
   ['an acceptance evidence over 300 characters', BUILDER_REPORT_SCHEMA, { ...BUILT, acceptance: [{ item: 'A1', state: 'met', evidence: 'x'.repeat(301) }] }, false],
   ['a reviewer report with a fixed and a queued filed finding', REVIEWER_REPORT_SCHEMA, REVIEWED, true],
   ['a filed finding naming its ticket', REVIEWER_REPORT_SCHEMA, {

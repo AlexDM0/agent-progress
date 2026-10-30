@@ -38,7 +38,10 @@ function listOf(items: JsonSchema): JsonSchema {
   return { type: 'array', items };
 }
 
-/** `blocked` stays for a session that cannot continue at all, with a reason; a question is asked live, so there is no `blockedOn`. */
+/**
+ * `blocked` stays for a session that cannot continue at all, with a reason; a question is asked live, so there is no `blockedOn`. `gates`
+ * claims each gate the agent ran green and the commit it passed on: never trusted, only held against HEAD before any gate runs.
+ */
 export const BUILDER_REPORT_SCHEMA: JsonSchema = {
   $schema: DRAFT_07,
   title:   'builder report',
@@ -53,6 +56,7 @@ export const BUILDER_REPORT_SCHEMA: JsonSchema = {
       waiverReason: TEXT,
     }, ['item', 'state', 'evidence'])),
     alsoFixed:         listOf(closedObject({ summary: TEXT, files: listOf(TEXT), evidence: TEXT })),
+    gates:             listOf(closedObject({ name: TEXT, commit: COMMIT_SHA })),
     handoff:           TEXT,
     blockedReason:     NULLABLE_TEXT,
     cannotBuildReason: NULLABLE_TEXT,

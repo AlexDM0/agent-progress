@@ -22,6 +22,7 @@ import type { DecisionAnswer }                                                  
 import type { IncidentDefaultCause, IncidentMove }                               from '../../lib/tracker-model/@types/Incident.ts';
 import type { InterruptionCause, Job, JobKind }                                  from '../../lib/tracker-model/@types/Job.ts';
 import type { DecisionDraft, DecisionWording }                                   from '../../lib/tracker-model/@types/LifecycleStep.ts';
+import type { PipelineGate }                                                     from '../../lib/tracker-model/@types/Pipeline.ts';
 import type { Board }                                                            from '../../lib/tracker-model/Board.ts';
 import { JOB_ID_VARIABLE, RELAY_DIRECTORY_VARIABLE }                             from '../../shared/Environment.ts';
 import { LIFECYCLE_LIMITS }                                                      from '../../shared/constants/LifecycleLimits.ts';
@@ -75,6 +76,8 @@ export interface JobLaunchText {
 export interface JobLaunchFacts {
   tickets:                readonly { id: string; title: string; body: string }[];
   checksLine:             string | null;
+  /** The stored gates in run order, which a builder is briefed on; `null` with no pipeline stored. */
+  gates:                  readonly Readonly<PipelineGate>[] | null;
   /** The job's work was last held by a session ended `replaced`, whose uncommitted changes are in the worktree it inherits. */
   earlierSessionReplaced: boolean;
   /** A product owner's request, and what a fresh one takes over from the session it replaces; `null` for every other job. */
@@ -467,6 +470,7 @@ function launchFactsOf(board: Board, trackerDirectory: string, job: Readonly<Job
       .filter((ticket) => job.ticketIds.includes(ticket.frontmatter.id))
       .map((ticket) => ({ id: ticket.frontmatter.id, title: ticket.frontmatter.title, body: ticket.body })),
     checksLine:             board.checksLine(),
+    gates:                  board.pipeline()?.gates ?? null,
     earlierSessionReplaced: JobResumption.earlierSessionWasReplaced(board.logRecordsSoFar(), job),
     intake:                 IntakeSessions.intakeFactsOf(board, job),
     assistant:              AssistantBoot.assistantFactsOf(board, trackerDirectory, job),

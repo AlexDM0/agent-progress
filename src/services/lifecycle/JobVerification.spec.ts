@@ -1,7 +1,8 @@
 /**
- * Verification by code, V1 to V11, on a scratch repository: each check refuses its planted case and passes a clean one, and `verifyJob`
+ * Verification by code, V1 to V15, on a scratch repository: each check refuses its planted case and passes a clean one, and `verifyJob`
  * runs only the checks of the role's column, stopping at the first refusal. The planted cases are what a session could leave behind and
- * claim otherwise; V5 plants the data folder under the name `PRODUCT_NAMES` gives it.
+ * claim otherwise; V5 plants the data folder under the name `PRODUCT_NAMES` gives it. V11 reads its patterns from every gate's
+ * `definedBy`, and V15 holds a builder's gate claims to HEAD itself, so a stale claim is refused before any gate runs.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join }                     from 'node:path';
@@ -12,6 +13,7 @@ import {
   expect,
   test
 }                                    from 'bun:test';
+import type { PipelineGate }          from '../../lib/tracker-model/@types/Pipeline.ts';
 import { TicketBodyHashUtil }         from '../../lib/tracker-model/utils/TicketBodyHashUtil.ts';
 import { PRODUCT_NAMES }              from '../../shared/constants/ProductNames.ts';
 import {
@@ -36,9 +38,13 @@ import {
 
 const TICKET_BODY = '## Report\nExample report.\n\n## Acceptance\nA1. The example page loads.\n';
 
-const BUN_DEFINITION_FILES = ['package.json', 'bun.lock', 'tsconfig*.json', 'eslint.config.*', 'bunfig.toml', '.githooks/'];
+/** The definition files spread over two gates, so V11 is shown reading every gate's `definedBy`, not only the first's. */
+const BUN_GATES: readonly PipelineGate[] = [
+  { name: 'tests', run: 'bun test', definedBy: ['bun.lock', 'tsconfig*.json'] },
+  { name: 'lint', run: 'bun run lint', definedBy: ['package.json', 'eslint.config.*', 'bunfig.toml', '.githooks/'] },
+];
 
-const PYTHON_DEFINITION_FILES = ['pyproject.toml', 'noxfile.py'];
+const PYTHON_GATES: readonly PipelineGate[] = [{ name: 'tests', run: 'nox', definedBy: ['pyproject.toml', 'noxfile.py'] }];
 
 let repositoryDirectory = '';
 
@@ -64,6 +70,7 @@ function builderReport(): Record<string, unknown> {
     headCommit:        headCommit(),
     acceptance:        [{ item: 'A1', state: 'met', evidence: 'ExamplePage.spec.ts' }],
     alsoFixed:         [],
+    gates:             [],
     handoff:           'Example handoff.',
     blockedReason:     null,
     cannotBuildReason: null,
@@ -215,7 +222,7 @@ describeWhenGitIsPresent('verification by code', () => {
     gitOutputIn(repositoryDirectory, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'commit', '-q', '-m', 'Undo the planted changes']);
 
     expect(refusalOf('V5', builderSubject({ report: builderReport() }))).toBe('data-folder-touched');
-    expect(refusalOf('V11', builderSubject({ report: builderReport(), checksDefinitionFiles: BUN_DEFINITION_FILES }))).toBe('checks-definition-changed');
+    expect(refusalOf('V11', builderSubject({ report: builderReport(), gates: BUN_GATES }))).toBe('checks-definition-changed');
   });
 
   test('V6 refuses a ticket body edited since launch', () => {
@@ -251,7 +258,7 @@ describeWhenGitIsPresent('verification by code', () => {
 
   test('a resolver is judged on its own merge, never the target\'s history: the target\'s package.json, data, config and trailer pass', () => {
     const merge = mergedTarget(plantTargetHistory);
-    const subject = resolverSubject(merge, { checksDefinitionFiles: BUN_DEFINITION_FILES });
+    const subject = resolverSubject(merge, { gates: BUN_GATES });
 
     for (const check of ['V3', 'V5', 'V7', 'V11', 'V13'] as const) expect([check, refusalOf(check, subject)]).toEqual([check, null]);
     expect(verifyJob(subject)).toEqual({ verdict: 'verified' });
@@ -264,7 +271,7 @@ describeWhenGitIsPresent('verification by code', () => {
       writeFileSync(join(repositoryDirectory, `${PRODUCT_NAMES.DATA_FOLDER}/progress.json`), '{}\n');
       gitOutputIn(repositoryDirectory, ['add', '--', PRODUCT_NAMES.DATA_FOLDER]);
     }, 'Merge the example target\n\nCo-Authored-By: Claude <noreply@example.com>');
-    const subject = resolverSubject(merge, { checksDefinitionFiles: BUN_DEFINITION_FILES });
+    const subject = resolverSubject(merge, { gates: BUN_GATES });
 
     expect(VERIFICATION_CHECKS.V11(subject)).toEqual({ verdict: 'refused', reason: 'checks-definition-changed', facts: ['package.json'] });
     expect(refusalOf('V5', subject)).toBe('data-folder-touched');
@@ -280,7 +287,7 @@ describeWhenGitIsPresent('verification by code', () => {
     gitOutputIn(repositoryDirectory, ['checkout', '-q', '-']);
     expect(() => gitOutputIn(repositoryDirectory, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'merge', '-q', '--no-ff', '--no-commit', 'example-target'])).toThrow();
     commitFile(repositoryDirectory, 'target.ts', 'export const target = \'resolved\';\n');
-    const subject = resolverSubject({ branchTip, targetTip }, { checksDefinitionFiles: BUN_DEFINITION_FILES });
+    const subject = resolverSubject({ branchTip, targetTip }, { gates: BUN_GATES });
 
     expect(refusalOf('V11', subject)).toBeNull();
     expect(refusalOf('V10', subject)).toBeNull();
@@ -291,36 +298,65 @@ describeWhenGitIsPresent('verification by code', () => {
     stagePackageJson();
     gitOutputIn(repositoryDirectory, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'commit', '-q', '-m', 'Change the verify script']);
 
-    expect(refusalOf('V11', resolverSubject(merge, { checksDefinitionFiles: BUN_DEFINITION_FILES }))).toBe('checks-definition-changed');
+    expect(refusalOf('V11', resolverSubject(merge, { gates: BUN_GATES }))).toBe('checks-definition-changed');
   });
 
   test('V11 refuses a change to a file the checks line resolves through, unless the ticket body names it', () => {
     commitFile(repositoryDirectory, 'package.json', '{ "scripts": { "verify": "true" } }\n');
 
-    expect(refusalOf('V11', builderSubject({ report: builderReport(), checksDefinitionFiles: BUN_DEFINITION_FILES }))).toBe('checks-definition-changed');
+    expect(refusalOf('V11', builderSubject({ report: builderReport(), gates: BUN_GATES }))).toBe('checks-definition-changed');
     const namingTheFile = `${TICKET_BODY}\nScope: package.json\n`;
 
-    expect(refusalOf('V11', builderSubject({ report: builderReport(), checksDefinitionFiles: BUN_DEFINITION_FILES, ticketBody: namingTheFile }))).toBeNull();
+    expect(refusalOf('V11', builderSubject({ report: builderReport(), gates: BUN_GATES, ticketBody: namingTheFile }))).toBeNull();
   });
 
   test('V11 reads the board\'s own list: a Python list refuses a pyproject.toml change and passes a package.json one', () => {
     const startOfThisTest = headCommit();
     commitFile(repositoryDirectory, 'package.json', '{}\n');
 
-    expect(refusalOf('V11', builderSubject({ report: builderReport(), checksDefinitionFiles: PYTHON_DEFINITION_FILES }))).toBeNull();
+    expect(refusalOf('V11', builderSubject({ report: builderReport(), gates: PYTHON_GATES }))).toBeNull();
 
     commitFile(repositoryDirectory, 'pyproject.toml', '[project]\nname = "example"\n');
-    const verdict = VERIFICATION_CHECKS.V11(builderSubject({ startCommit: startOfThisTest, report: builderReport(), checksDefinitionFiles: PYTHON_DEFINITION_FILES }));
+    const verdict = VERIFICATION_CHECKS.V11(builderSubject({ startCommit: startOfThisTest, report: builderReport(), gates: PYTHON_GATES }));
 
     expect(verdict).toEqual({ verdict: 'refused', reason: 'checks-definition-changed', facts: ['pyproject.toml'] });
   });
 
-  test('V11 passes any change when the board stores no list, or an empty one', () => {
+  test('V11 refuses a change matching a later gate\'s definedBy, and passes it once the ticket body names the file', () => {
+    commitFile(repositoryDirectory, 'eslint.config.js', 'export default [];\n');
+
+    expect(VERIFICATION_CHECKS.V11(builderSubject({ gates: BUN_GATES }))).toEqual({ verdict: 'refused', reason: 'checks-definition-changed', facts: ['eslint.config.js'] });
+    expect(refusalOf('V11', builderSubject({ gates: BUN_GATES, ticketBody: `${TICKET_BODY}\nScope: eslint.config.js\n` }))).toBeNull();
+  });
+
+  test('V15 refuses a gate claimed on an older commit, naming only it, and verifyJob stops there before any gate could run', () => {
+    const gates: PipelineGate[] = [{ name: 'tests', run: 'true' }, { name: 'lint', run: 'true' }];
+    const report = { ...builderReport(), gates: [{ name: 'tests', commit: headCommit() }, { name: 'lint', commit: startCommit }] };
+
+    expect(VERIFICATION_CHECKS.V15(builderSubject({ gates, report }))).toEqual({ verdict: 'refused', reason: 'gate-unclaimed', facts: ['lint'] });
+    expect(verifyJob(builderSubject({ gates, report }))).toEqual({
+      verdict: 'refused', check: 'V15', reason: 'gate-unclaimed', facts: ['lint']
+    });
+    expect(refusalOf('V15', builderSubject({ gates, report: { ...builderReport(), gates: [] } }))).toBe('gate-unclaimed');
+    expect(refusalOf('V15', builderSubject({ gates, report: { ...report, gates: [{ name: 'tests', commit: headCommit() }, { name: 'lint', commit: headCommit() }] } }))).toBeNull();
+  });
+
+  test('V15 asks no claim for an overseerOnly gate, and a builder report without gates is refused by V1', () => {
+    const gates: PipelineGate[] = [{ name: 'tests', run: 'true' }, { name: 'audit', run: 'true', overseerOnly: true }];
+    const report = { ...builderReport(), gates: [{ name: 'tests', commit: headCommit() }] };
+
+    expect(refusalOf('V15', builderSubject({ gates, report }))).toBeNull();
+    const { gates: _omitted, ...withoutGates } = builderReport();
+
+    expect(refusalOf('V1', builderSubject({ report: withoutGates }))).toBe('report-invalid');
+  });
+
+  test('V11 passes any change when no gate names a definedBy, or there are no gates', () => {
     commitFile(repositoryDirectory, 'package.json', '{}\n');
     commitFile(repositoryDirectory, 'pyproject.toml', '[project]\n');
 
     expect(refusalOf('V11', builderSubject({ report: builderReport() }))).toBeNull();
-    expect(refusalOf('V11', builderSubject({ report: builderReport(), checksDefinitionFiles: [] }))).toBeNull();
+    expect(refusalOf('V11', builderSubject({ report: builderReport(), gates: [{ name: 'tests', run: 'true' }] }))).toBeNull();
   });
 
   test('a definition-file pattern reads as a git pathspec glob: a bare name at any depth, an inner / anchored, a trailing / a folder', () => {

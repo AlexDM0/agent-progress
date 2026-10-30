@@ -1,5 +1,5 @@
 /**
- * Verification by code of what a session left (design section 5.1, V1 to V11): nothing it says is taken as true, so each check reads git,
+ * Verification by code of what a session left (design section 5.1, V1 to V15): nothing it says is taken as true, so each check reads git,
  * the ticket body and the report itself, and answers a wordless verdict. A role runs only the checks its column of the table names.
  */
 import { createHash } from 'node:crypto';
@@ -22,13 +22,14 @@ import { TicketAcceptanceUtil }                                                 
 import { GitProcess }                                                            from '../../lib/git/GitProcess.ts';
 import type { JobOutcome }                                                       from '../../lib/tracker-model/@types/Job.ts';
 import type { LogRecord }                                                        from '../../lib/tracker-model/@types/LogRecord.ts';
+import type { PipelineGate }                                                     from '../../lib/tracker-model/@types/Pipeline.ts';
 import { TicketBodyHashUtil }                                                    from '../../lib/tracker-model/utils/TicketBodyHashUtil.ts';
 import { PRODUCT_NAMES }                                                         from '../../shared/constants/ProductNames.ts';
 
 /** A fixer is a builder one attempt on, and is verified as one. */
 export type VerifiedRole = 'builder' | 'reviewer' | 'resolver' | 'merge-fix' | 'resolution-review';
 
-export type VerificationCheck = 'V1' | 'V2' | 'V3' | 'V4' | 'V5' | 'V6' | 'V7' | 'V8' | 'V9' | 'V10' | 'V11' | 'V12' | 'V13' | 'V14';
+export type VerificationCheck = 'V1' | 'V2' | 'V3' | 'V4' | 'V5' | 'V6' | 'V7' | 'V8' | 'V9' | 'V10' | 'V11' | 'V12' | 'V13' | 'V14' | 'V15';
 
 export type VerificationRefusalReason =
   | 'report-invalid'
@@ -46,6 +47,7 @@ export type VerificationRefusalReason =
   | 'finding-not-filed-by-job'
   | 'branch-touches-agent-config'
   | 'foreign-ref-moved'
+  | 'gate-unclaimed'
   | 'git-failed';
 
 export interface MergeUnderVerification {
@@ -89,24 +91,24 @@ export interface OverseerRefNaming {
 const LANDING_OUTCOMES: readonly JobOutcome[] = ['landed', 'integrated', 'refreshed'];
 
 export interface JobVerificationSubject {
-  role:                   VerifiedRole;
-  worktreePath:           string;
+  role:             VerifiedRole;
+  worktreePath:     string;
   /** The worktree's HEAD at launch, the branch tip with `MERGE_HEAD` at the target tip for a resolver, the merged commit after it. */
-  startCommit:            string;
+  startCommit:      string;
   /** The report as parsed from the session's structured output, unvalidated. */
-  report:                 unknown;
-  ticketBody:             string;
-  bodyHashAtLaunch:       string;
+  report:           unknown;
+  ticketBody:       string;
+  bodyHashAtLaunch: string;
   /** V10's merge, for a resolver, merge-fix or resolution-review job. */
-  merge?:                 MergeUnderVerification;
-  /** V11: the board's stored definition-file patterns; absent or empty, V11 passes. */
-  checksDefinitionFiles?: readonly string[];
+  merge?:           MergeUnderVerification;
+  /** V11 reads each gate's `definedBy`, V15 the gates an agent runs; absent or empty, both pass. */
+  gates?:           readonly Readonly<PipelineGate>[];
   /** V12: the job being verified, and the log as stored plus this hold's records. */
-  jobId?:                 string;
-  logRecords?:            readonly LogRecord[];
+  jobId?:           string;
+  logRecords?:      readonly LogRecord[];
   /** V13 and V14: what was snapshotted at launch; without it V14 refuses, since nothing proves no ref moved. */
-  launchSnapshot?:        LaunchSnapshot;
-  refMovesAllowed?:       RefMovesAllowed;
+  launchSnapshot?:  LaunchSnapshot;
+  refMovesAllowed?: RefMovesAllowed;
 }
 
 /** `facts` name what failed: paths, commits or labels, never words. */
@@ -295,14 +297,23 @@ export function definitionFilePatternExpressionOf(pattern: string): RegExp {
   return new RegExp(`${anchored ? '^' : '(^|/)'}${translated}${namesAFolder ? '/' : '$'}`);
 }
 
-/** With no list stored the board names no definition files, so nothing refuses. */
+/** With no gate naming a `definedBy` the board names no definition files, so nothing refuses. */
 function checksDefinitionUnchanged(subject: JobVerificationSubject): CheckVerdict {
-  const patterns = (subject.checksDefinitionFiles ?? []).map(definitionFilePatternExpressionOf);
+  const patterns = (subject.gates ?? []).flatMap((gate) => gate.definedBy ?? []).map(definitionFilePatternExpressionOf);
   if (patterns.length === 0) return PASSED;
   const paths = pathsChangedInRange(subject);
   if (paths === null) return refused('git-failed', [rangeOf(subject)]);
   const changed = paths.filter((path) => patterns.some((pattern) => pattern.test(path)) && !subject.ticketBody.includes(path));
   return changed.length === 0 ? PASSED : refused('checks-definition-changed', changed);
+}
+
+/** Every gate but an `overseerOnly` one must be claimed on HEAD itself; a claim on any other commit is stale, and an unknown name is ignored. */
+function everyAgentGateClaimedOnHead(subject: JobVerificationSubject): CheckVerdict {
+  const headCommit = GitProcess.resolvedCommitOf(subject.worktreePath, 'HEAD');
+  if (headCommit === null) return refused('git-failed', ['HEAD']);
+  const claimedOnHead = reportListOf(subject.report, 'gates').filter((claim) => claim['commit'] === headCommit).map((claim) => String(claim['name']));
+  const unclaimed = (subject.gates ?? []).filter((gate) => gate.overseerOnly !== true && !claimedOnHead.includes(gate.name)).map((gate) => gate.name);
+  return unclaimed.length === 0 ? PASSED : refused('gate-unclaimed', unclaimed);
 }
 
 function ticketNumberOf(ticketReference: string): number {
@@ -482,11 +493,12 @@ export const VERIFICATION_CHECKS: Readonly<Record<VerificationCheck, Verificatio
   V12: filedFindingsWereFiledByThisJob,
   V13: agentConfigUntouched,
   V14: onlyOwnRefsMoved,
+  V15: everyAgentGateClaimedOnHead,
 };
 
 /** The design's table, column by column, in check order. */
 export const CHECKS_OF_ROLE: Readonly<Record<VerifiedRole, readonly VerificationCheck[]>> = {
-  'builder':           ['V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V8', 'V11', 'V13', 'V14'],
+  'builder':           ['V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V8', 'V11', 'V13', 'V14', 'V15'],
   'reviewer':          ['V1', 'V2', 'V4', 'V5', 'V6', 'V7', 'V8', 'V9', 'V11', 'V12', 'V13', 'V14'],
   'resolver':          ['V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V10', 'V11', 'V13', 'V14'],
   'merge-fix':         ['V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V10', 'V11', 'V13', 'V14'],

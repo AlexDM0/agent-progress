@@ -198,6 +198,9 @@ function ticketText(): string {
   return readFileSync(join(ticketsFolder, fileName), 'utf8');
 }
 
+/** Every gate name a spec here adds, claimed on HEAD by default: a claim for a gate the board lacks is ignored. */
+const CLAIMED_GATE_NAMES = ['checks', 'types', 'tests', 'lint'];
+
 function builderReport(fields: Record<string, unknown> = {}): string {
   return fakeResultLine({
     role:              'builder',
@@ -205,6 +208,7 @@ function builderReport(fields: Record<string, unknown> = {}): string {
     headCommit:        FAKE_HEAD_PLACEHOLDER,
     acceptance:        [{ item: 'A1', state: 'met', evidence: 'Example spec proves it' }, { item: 'A2', state: 'met', evidence: 'Example probe' }],
     alsoFixed:         [],
+    gates:             CLAIMED_GATE_NAMES.map((name) => ({ name, commit: FAKE_HEAD_PLACEHOLDER })),
     handoff:           'Example handoff by Alex Example: the example holds.',
     blockedReason:     null,
     cannotBuildReason: null,
@@ -320,6 +324,19 @@ describe('a build job end to end', () => {
     expect(typesProfile.includes('(deny network-outbound')).toBe(false);
     expect(typesProfile).toContain('.cache/example-types');
     expect(readFileSync(join(jobFolder, 'gate-2', 'process-sandbox.sb'), 'utf8').includes('(deny network-outbound')).toBe(true);
+  }, BUILD_TEST_TIMEOUT_MILLISECONDS);
+
+  test('a report claiming one gate on HEAD and another on an older commit fails Customs naming the stale one, and no gate runs', async () => {
+    await run(['gate', 'add', 'checks', '--', 'true']);
+    await run(['gate', 'add', 'types', '--', 'true']);
+    const staleClaims = [{ name: 'checks', commit: FAKE_HEAD_PLACEHOLDER }, { name: 'types', commit: mainTipAtStart }];
+    const drivePass = await drivePassPlaying(buildingSession('Build the example', builderReport({ gates: staleClaims })));
+    await passUntil(drivePass, () => buildJobEnding() !== undefined, 'the build job ending');
+
+    expect(buildJobEnding()).toMatchObject({ outcome: 'failed', cause: 'gate-unclaimed' });
+    expect(buildStates).not.toContain('gating');
+    expect(loggedEntries('gate-ran')).toEqual([]);
+    expect(existsSync(join(jobFolderOf(firstBuildJobId()), 'gate-1'))).toBe(false);
   }, BUILD_TEST_TIMEOUT_MILLISECONDS);
 
   test('a changed pipeline is gated without a restart, and the row records the hash of the pipeline it was judged by', async () => {

@@ -889,10 +889,6 @@ export class Board {
     return this.records.pipeline === null ? null : PipelineUtil.installLineOf(this.records.pipeline);
   }
 
-  checksDefinitionFiles(): readonly string[] {
-    return this.records.pipeline === null ? [] : PipelineUtil.definitionFilesOf(this.records.pipeline);
-  }
-
   gateWritablePaths(): readonly string[] {
     return this.records.pipeline === null ? [] : PipelineUtil.writablePathsOf(this.records.pipeline);
   }

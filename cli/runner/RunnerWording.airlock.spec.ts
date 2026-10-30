@@ -25,6 +25,7 @@ const AIRLOCK: AirlockFacts = {
 const FACTS: JobLaunchFacts = {
   tickets:                [{ id: '012', title: 'Example basket total', body: '## Acceptance\nA1. Example basket adds up.\n' }],
   checksLine:             'bun run verify',
+  gates:                  [{ name: 'verify', run: 'bun run verify' }],
   earlierSessionReplaced: false,
   intake:                 null,
   airlock:                AIRLOCK,

@@ -11,6 +11,7 @@ import type {
   ReadyDraftFact,
   ReadyDraftsFacts
 } from '../../src/lib/tracker-model/@types/LifecycleStep.ts';
+import type { PipelineGate }              from '../../src/lib/tracker-model/@types/Pipeline.ts';
 import { ALLOWED_MOVES_BY_INCIDENT_KIND } from '../../src/services/control/constants/AllowedMovesByIncidentKind.ts';
 import type { AssistantFacts }            from '../../src/services/runner/AssistantBoot.ts';
 import type { AssistantChatFacts }        from '../../src/services/runner/AssistantSession.ts';
@@ -72,6 +73,32 @@ function decisionWordingOf(draft: DecisionDraft): DecisionWording {
 }
 
 const NO_CHECKS_LINE = '(no checks line is stored)';
+
+function gateEntryOf(gate: Readonly<PipelineGate>, position: number): string {
+  const folder = gate.in === undefined ? '' : ` (in \`${gate.in}\`)`;
+  const entry  = `${position}. \`${gate.name}\`: \`${gate.run}\`${folder}`;
+  return gate.fix === undefined ? entry : `${entry}\n   Fix: \`${gate.fix}\`. Run it before you fix anything by hand.`;
+}
+
+/** The builder's gates in run order with each fix; an `overseerOnly` gate is named as the Overseer's, never as one to run or claim. */
+function gateListOf(gates: readonly Readonly<PipelineGate>[] | null): string {
+  const agentGates    = (gates ?? []).filter((gate) => gate.overseerOnly !== true);
+  const overseerGates = (gates ?? []).filter((gate) => gate.overseerOnly === true);
+  const overseerLine  = overseerGates.length === 0
+    ? []
+    : ['', `The Overseer alone runs ${overseerGates.map((gate) => `\`${gate.name}\``).join(', ')}: never run or claim it.`];
+  if (agentGates.length === 0) {
+    const none = overseerGates.length === 0 ? 'This repository has no gates' : 'No gate is yours to run';
+    return [`${none}: nothing to pass before you report, and your report's \`gates\` is empty.`, ...overseerLine].join('\n');
+  }
+  return [
+    'Pass every gate on your final commit before you report, in this order, and claim each in your report\'s `gates` with',
+    'the commit it passed on:',
+    '',
+    ...agentGates.map((gate, index) => gateEntryOf(gate, index + 1)),
+    ...overseerLine,
+  ].join('\n');
+}
 
 /**
  * The first line runs the product-owner skill on User's request; a fresh session taking over a replaced one also reads the drafts filed so
@@ -211,7 +238,7 @@ function launchTextOf(job: Readonly<Job>, facts: JobLaunchFacts): JobLaunchText 
       ticketBody:  ticket.body.trim(),
       jobId:       job.id,
       attempt:     String(job.attempt),
-      checksLine:  facts.checksLine ?? NO_CHECKS_LINE,
+      gateList:    gateListOf(facts.gates),
       callBudget:  String(DISPATCH_PROTOCOL.BUILDER_API_CALL_BUDGET),
       program:     PRODUCT_NAMES.PROGRAM,
     }),
