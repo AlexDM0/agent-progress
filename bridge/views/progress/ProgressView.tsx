@@ -18,8 +18,6 @@ import {
 import type { ProgressBoardState }                                          from '../../@types/ProgressBoardState.ts';
 import type { PreferenceStore }                                             from '../../preferences/PreferenceStore.ts';
 import { HashRouter }                                                       from '../../shell/HashRouter.ts';
-import { DependenciesModel }                                                from '../dependencies/DependenciesModel.ts';
-import { DependenciesView }                                                 from '../dependencies/DependenciesView.tsx';
 import { CustomRangePopover }                                               from './CustomRangePopover.tsx';
 import { EpicRowGrouping, type EpicGroupHeadModel, type EpicRowGroup }      from './EpicRowGrouping.ts';
 import { CLOSES_MENU_KEEPING_FOCUS, CLOSES_MENU_RETURNING_FOCUS, HeadMenu } from './HeadMenu.tsx';
@@ -31,6 +29,8 @@ import {
 } from './ProgressModel.ts';
 import { progressPreferencesOf } from './ProgressPreferences.ts';
 import { CUSTOM_RANGE_PRESET }   from './constants/ProgressChart.ts';
+import { DependenciesModel }     from './dependencies/DependenciesModel.ts';
+import { DependenciesView }      from './dependencies/DependenciesView.tsx';
 import { AxisFitUtil }           from './utils/AxisFitUtil.ts';
 import { ChartPreferenceUtil }   from './utils/ChartPreferenceUtil.ts';
 import { RangePresetUtil }       from './utils/RangePresetUtil.ts';

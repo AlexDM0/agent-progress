@@ -1,7 +1,7 @@
 /** A chat box that sends `job-message` to one session, clearing itself once the Overseer took the turn. */
 import { useState } from 'react';
 
-import { CommandButton } from '../../shell/CommandButton.tsx';
+import { CommandButton } from '../shell/CommandButton.tsx';
 
 export interface ChatBoxProps {
   readonly label:   string;

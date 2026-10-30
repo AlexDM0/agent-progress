@@ -4,7 +4,7 @@
  */
 import { useEffect, useState } from 'react';
 
-import type { TranscriptEntryDocument, TranscriptStreamHandlers } from '../../api/TranscriptStreamClient.ts';
+import type { TranscriptEntryDocument, TranscriptStreamHandlers } from '../api/TranscriptStreamClient.ts';
 
 export type TranscriptFollower = (jobId: string, handlers: TranscriptStreamHandlers) => { close: () => void };
 

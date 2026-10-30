@@ -12,7 +12,7 @@ import {
   FIXTURE_NOW,
   OPEN_EPIC,
   PLANTED_DESCRIPTION_HTML
-} from '../../testing/BoardStateFixture.ts';
+} from '../../../testing/BoardStateFixture.ts';
 import { EpicsModel } from './EpicsModel.ts';
 
 const PAGE = boardStateFixture().page ?? (() => {

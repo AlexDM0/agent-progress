@@ -3,14 +3,14 @@
  * build on, then one column per wave, every head, band, node and edge placed in pixels on one canvas. The graph is `DependencyGraphUtil`'s
  * and the forecast `WaveForecastUtil`'s, both moved unchanged; which tickets are ready is the Board's `readyTickets`, never a rule here.
  */
-import type { DisplayState }                               from '../../../src/lib/tracker-model/@types/Task.ts';
-import type { DependencyGraph, DependencyGraphTicket }     from '../../@types/DependencyGraph.ts';
-import type { ProgressBoardState, ProgressTicketDocument } from '../../@types/ProgressBoardState.ts';
-import { DependencyGraphUtil }                             from '../../utils/DependencyGraphUtil.ts';
-import { DisplayStateWordingUtil }                         from '../../utils/DisplayStateWordingUtil.ts';
-import { TimeUtil }                                        from '../../utils/TimeUtil.ts';
-import type { ForecastRow, ForecastTicket }                from '../../utils/WaveForecastUtil.ts';
-import { WaveForecastUtil }                                from '../../utils/WaveForecastUtil.ts';
+import type { DisplayState }                               from '../../../../src/lib/tracker-model/@types/Task.ts';
+import type { DependencyGraph, DependencyGraphTicket }     from '../../../@types/DependencyGraph.ts';
+import type { ProgressBoardState, ProgressTicketDocument } from '../../../@types/ProgressBoardState.ts';
+import { DependencyGraphUtil }                             from '../../../utils/DependencyGraphUtil.ts';
+import { DisplayStateWordingUtil }                         from '../../../utils/DisplayStateWordingUtil.ts';
+import { TimeUtil }                                        from '../../../utils/TimeUtil.ts';
+import type { ForecastRow, ForecastTicket }                from '../../../utils/WaveForecastUtil.ts';
+import { WaveForecastUtil }                                from '../../../utils/WaveForecastUtil.ts';
 
 export const NODE_WIDTH_PIXELS = 192;
 export const NODE_HEIGHT_PIXELS = 80;

@@ -6,9 +6,9 @@
 import { useState } from 'react';
 
 import type { ConversationBoardDocument }                        from '../../@types/ConversationDocuments.ts';
+import { ChatBox }                                               from '../../conversation/ChatBox.tsx';
+import { TranscriptLog, useTranscript, type TranscriptFollower } from '../../conversation/TranscriptLog.tsx';
 import { AssistantModelUtil, type IncidentEntry }                from './AssistantModel.ts';
-import { ChatBox }                                               from './ChatBox.tsx';
-import { TranscriptLog, useTranscript, type TranscriptFollower } from './TranscriptLog.tsx';
 
 export interface AssistantViewProps {
   readonly board:            ConversationBoardDocument;

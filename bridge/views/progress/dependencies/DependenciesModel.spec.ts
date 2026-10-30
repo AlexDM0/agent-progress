@@ -7,7 +7,7 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { exampleProgressBoard, exampleProgressTask, exampleProgressTicket } from '../../testing/ProgressBoardFixture.ts';
+import { exampleProgressBoard, exampleProgressTask, exampleProgressTicket } from '../../../testing/ProgressBoardFixture.ts';
 import { DependenciesModel, NODE_WIDTH_PIXELS }                             from './DependenciesModel.ts';
 
 const NOW_EPOCH_MILLISECONDS = Date.parse('2026-09-18T13:00:00+02:00');

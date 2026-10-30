@@ -11,7 +11,7 @@ import {
   test
 } from 'bun:test';
 
-import { boardStateFixture, FIXTURE_NOW, PLANTED_DESCRIPTION_HTML } from '../../testing/BoardStateFixture.ts';
+import { boardStateFixture, FIXTURE_NOW, PLANTED_DESCRIPTION_HTML } from '../../../testing/BoardStateFixture.ts';
 import { EpicsModel }                                               from './EpicsModel.ts';
 import { EpicsView }                                                from './EpicsView.tsx';
 

@@ -5,8 +5,8 @@
 import { useState } from 'react';
 
 import type { ConversationBoardDocument }                              from '../../@types/ConversationDocuments.ts';
+import { DecisionCard }                                                from '../../conversation/DecisionCard.tsx';
 import { CommandButton }                                               from '../../shell/CommandButton.tsx';
-import { DecisionCard }                                                from './DecisionCard.tsx';
 import type { NotificationAllowance, QuestionNotifier }                from './QuestionAlerts.ts';
 import { QuestionsModelUtil, type AnsweredDecision, type TriageEntry } from './QuestionsModel.ts';
 

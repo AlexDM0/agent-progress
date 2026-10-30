@@ -12,6 +12,7 @@ type ImportViolation =
   | 'layer-imports-upward'
   | 'feature-imports-another-feature'
   | 'command-imports-a-sibling-command'
+  | 'bridge-view-imports-a-sibling-view'
   | 'binary-imports-beyond-cli'
   | 'watcher-binary-imports-beyond-its-package'
   | 'test-helper-imported-outside-its-allowlist'
@@ -175,6 +176,13 @@ function commandFolderOf(path: string): string | null {
   return CLI_SET_SHARED_FOLDERS.includes(commandFolder) ? null : `cli/${setFolder}/${commandFolder}/`;
 }
 
+function bridgeViewFolderOf(path: string): string | null {
+  const segments = path.split('/');
+  const [topFolder, viewsFolder, viewFolder] = segments;
+  if (topFolder !== 'bridge' || viewsFolder !== 'views' || viewFolder === undefined || segments.length < 4) return null;
+  return `bridge/views/${viewFolder}/`;
+}
+
 function isTestOnly(path: string): boolean {
   return isSpec(path) || testingFolderOf(path) !== null;
 }
@@ -243,6 +251,13 @@ function commandFinding(edge: ImportEdge, targetPath: string): Finding | null {
   return edgeFinding(edge, 'command-imports-a-sibling-command', `the command folder ${fromCommand} imports another command's folder; hoist what both need above them`);
 }
 
+function bridgeViewFinding(edge: ImportEdge, targetPath: string): Finding | null {
+  const fromView = bridgeViewFolderOf(edge.fromPath);
+  const targetView = bridgeViewFolderOf(targetPath);
+  if (fromView === null || targetView === null || fromView === targetView) return null;
+  return edgeFinding(edge, 'bridge-view-imports-a-sibling-view', `the view folder ${fromView} imports another view's folder; hoist what both need above them`);
+}
+
 function libFinding(edge: ImportEdge, declarations: ReadonlyMap<string, readonly string[]>): Finding | null {
   const fromPackage = libPackageOf(edge.fromPath);
   if (fromPackage === null) return null;
@@ -276,6 +291,7 @@ function edgeFindingsOf(edge: ImportEdge, declarations: ReadonlyMap<string, read
   return [
     directionFinding(edge, targetPath, allowlists),
     commandFinding(edge, targetPath),
+    bridgeViewFinding(edge, targetPath),
     testingFolderFinding(edge, targetPath, allowlists),
     vendorSeamFinding(edge, targetPath),
     libVerdict,
@@ -430,8 +446,10 @@ describe('the scan itself', () => {
 
   test('it finds the command folders, the lib packages and the header that declares a lib dependency', () => {
     const commandFolders = new Set(GRAPH.scannedPaths.flatMap((path) => commandFolderOf(path) ?? []));
+    const bridgeViewFolders = new Set(GRAPH.scannedPaths.flatMap((path) => bridgeViewFolderOf(path) ?? []));
     const libPackages = new Set(GRAPH.scannedPaths.flatMap((path) => libPackageOf(path) ?? []));
     expect(commandFolders.size, 'command folders under cli/').toBeGreaterThanOrEqual(10);
+    expect(bridgeViewFolders.size, 'view folders under bridge/views/').toBeGreaterThanOrEqual(10);
     expect(libPackages.size, 'packages under src/lib/').toBeGreaterThanOrEqual(4);
     expect(declaredLibDependenciesOf(GRAPH).get('claude-code')).toEqual(['agent-launch', 'atomic-file', 'json-record', 'local-time']);
     expect(declaredLibDependenciesOf(GRAPH).get('watcher')).toEqual(['atomic-file', 'process-identity']);
@@ -509,6 +527,15 @@ describe('the guard still names each violation, planted in memory', () => {
     ]);
     const importingHoistedFiles = `${importing('../RenderDashboardOrRefuse.ts')}${importing('../../utils/PlantedUtil.ts').replaceAll('planted', 'plantedUtil')}`;
     expect(plantedSentencesOf({ 'cli/tracking/log/PlantedStep.ts': importingHoistedFiles })).toEqual([]);
+  });
+
+  test('a Bridge view folder importing a sibling view\'s folder, and not its own subfolder or the shared folders above the views', () => {
+    expect(plantedSentencesOf({ 'bridge/views/intake/PlantedPart.tsx': importing('../assistant/AssistantModel.ts') })).toEqual([
+      'bridge-view-imports-a-sibling-view — bridge/views/intake/PlantedPart.tsx:1 imports bridge/views/assistant/AssistantModel.ts: '
+        + 'the view folder bridge/views/intake/ imports another view\'s folder; hoist what both need above them',
+    ]);
+    const importingOwnAndHoistedFiles = `${importing('./dependencies/DependenciesModel.ts')}${importing('../../conversation/ChatBox.tsx').replaceAll('planted', 'plantedChat')}`;
+    expect(plantedSentencesOf({ 'bridge/views/progress/PlantedPart.tsx': importingOwnAndHoistedFiles })).toEqual([]);
   });
 
   test('the binary importing anything but cli/', () => {
@@ -647,6 +674,10 @@ describe('the imports of the tree', () => {
 
   test('no cli/ command folder imports a sibling command\'s folder', () => {
     expect(sentencesAbout(FINDINGS, 'command-imports-a-sibling-command')).toEqual([]);
+  });
+
+  test('no bridge/views/ view folder imports a sibling view\'s folder', () => {
+    expect(sentencesAbout(FINDINGS, 'bridge-view-imports-a-sibling-view')).toEqual([]);
   });
 
   test('agent-progress.ts imports only cli/', () => {

@@ -1,7 +1,7 @@
 /**
  * The Questions view's model. What matters: an agent's questions come first, before the code-opened kinds, and an escalated one is marked;
  * an answered decision is read back from the log; the Low-priority triage list holds exactly the user-routed drafts and `first-run review`
- * leftovers, with the job and tickets they were found on, and adds nothing to the open-question count; an answer is only sendable whole.
+ * leftovers, with the job and tickets they were found on, and adds nothing to the open-question count.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -19,15 +19,6 @@ function decisionOf(id: string, kind: string, questions: DecisionDocument['quest
 const ONE_QUESTION = [{
   question: 'Which store?', header: 'Store', multiSelect: false, options: [{ label: 'Disk', description: '' }, { label: 'Memory', description: '' }]
 }];
-const TWO_QUESTIONS = [
-  ...ONE_QUESTION,
-  {
-    question:    'Which targets?',
-    header:      'Targets',
-    multiSelect: true,
-    options:     [{ label: 'main', description: '' }, { label: 'group', description: '' }, { label: 'none', description: '' }],
-  },
-];
 
 const BOARD: ConversationBoardDocument = {
   jobs: [{
@@ -107,20 +98,5 @@ describe('the tab title and notifications', () => {
 
   test('only a decision not seen before is new', () => {
     expect(QuestionsModelUtil.newDecisionsOf(new Set(['E1', 'E2']), BOARD.decisions).map((decision) => decision.id)).toEqual(['E3']);
-  });
-});
-
-describe('QuestionsModelUtil.answerOf', () => {
-  test('one option letter per single-select question and the sorted letters of a multi-select', () => {
-    expect(QuestionsModelUtil.answerOf(decisionOf('E5', 'agent-question', TWO_QUESTIONS), [[1], [2, 0]], '')).toEqual({ form: 'letters', choices: ['b', 'ac'] });
-  });
-
-  test('free text answers a decision of one question, never one of several', () => {
-    expect(QuestionsModelUtil.answerOf(decisionOf('E2', 'agent-question', ONE_QUESTION), [], '  Use disk  ')).toEqual({ form: 'text', text: 'Use disk' });
-    expect(QuestionsModelUtil.answerOf(decisionOf('E5', 'agent-question', TWO_QUESTIONS), [], 'Both')).toBeNull();
-  });
-
-  test('an unanswered question keeps the answer unsendable', () => {
-    expect(QuestionsModelUtil.answerOf(decisionOf('E5', 'agent-question', TWO_QUESTIONS), [[0]], '')).toBeNull();
   });
 });

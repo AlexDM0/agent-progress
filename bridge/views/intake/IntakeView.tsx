@@ -6,10 +6,10 @@
 import { useState } from 'react';
 
 import type { ConversationBoardDocument }                        from '../../@types/ConversationDocuments.ts';
+import { ChatBox }                                               from '../../conversation/ChatBox.tsx';
+import { DecisionCard }                                          from '../../conversation/DecisionCard.tsx';
+import { TranscriptLog, useTranscript, type TranscriptFollower } from '../../conversation/TranscriptLog.tsx';
 import { CommandButton }                                         from '../../shell/CommandButton.tsx';
-import { ChatBox }                                               from '../assistant/ChatBox.tsx';
-import { TranscriptLog, useTranscript, type TranscriptFollower } from '../assistant/TranscriptLog.tsx';
-import { DecisionCard }                                          from '../questions/DecisionCard.tsx';
 import { IntakeModelUtil, type IntakeSession }                   from './IntakeModel.ts';
 
 export interface IntakeViewProps {

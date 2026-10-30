@@ -5,9 +5,9 @@
  */
 import { Fragment, useState } from 'react';
 
-import type { DecisionDocument }                       from '../../@types/ConversationDocuments.ts';
-import { CommandButton }                               from '../../shell/CommandButton.tsx';
-import { QuestionsModelUtil, type QuestionSelections } from './QuestionsModel.ts';
+import type { DecisionDocument }                       from '../@types/ConversationDocuments.ts';
+import { CommandButton }                               from '../shell/CommandButton.tsx';
+import { DecisionAnswerUtil, type QuestionSelections } from './DecisionAnswerUtil.ts';
 
 export interface DecisionCardProps {
   readonly decision:  DecisionDocument;
@@ -25,7 +25,7 @@ function selectionsAfter(selections: QuestionSelections, questionIndex: number, 
 export function DecisionCard({ decision, escalated }: DecisionCardProps) {
   const [selections, setSelections] = useState<QuestionSelections>([]);
   const [freeText, setFreeText] = useState('');
-  const answer = QuestionsModelUtil.answerOf(decision, selections, freeText);
+  const answer = DecisionAnswerUtil.answerOf(decision, selections, freeText);
   const facts = [
     decision.kind,
     decision.ticketIds.length === 0 ? null : `ticket ${decision.ticketIds.join(', ')}`,
@@ -52,7 +52,7 @@ export function DecisionCard({ decision, escalated }: DecisionCardProps) {
                   checked={(selections[questionIndex] ?? []).includes(optionIndex)}
                   onChange={() => setSelections(selectionsAfter(selections, questionIndex, optionIndex, question.multiSelect))}
                 />
-                {`${QuestionsModelUtil.optionLetterOf(optionIndex)}. ${option.label}`}
+                {`${DecisionAnswerUtil.optionLetterOf(optionIndex)}. ${option.label}`}
               </label>
               {option.description === '' ? null : <span className="bridge-note">{option.description}</span>}
             </Fragment>

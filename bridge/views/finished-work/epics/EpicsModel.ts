@@ -3,8 +3,8 @@
  * text, roll-up segments, facts and ticket lines, open epics first. Its description stays the rendered string, which only the sandboxed
  * frame shows.
  */
-import type { EpicRollupDocument, PageDocument }      from '../../@types/BoardStateDocument.ts';
-import { FinishedWorkModel, type FinishedWorkChoice } from '../finished-work/FinishedWorkModel.ts';
+import type { EpicRollupDocument, PageDocument }      from '../../../@types/BoardStateDocument.ts';
+import { FinishedWorkModel, type FinishedWorkChoice } from '../FinishedWorkModel.ts';
 
 /** The roll-up bar's segments, settled work first. */
 const ROLLUP_STATUS_ORDER = ['delivered', 'reviewed', 'in-review', 'in-progress', 'pending', 'abandoned'] as const;

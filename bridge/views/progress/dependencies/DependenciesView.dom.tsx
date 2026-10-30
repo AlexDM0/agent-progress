@@ -17,7 +17,7 @@ import {
   test
 } from 'bun:test';
 
-import { exampleProgressBoard, exampleProgressTicket }        from '../../testing/ProgressBoardFixture.ts';
+import { exampleProgressBoard, exampleProgressTicket }        from '../../../testing/ProgressBoardFixture.ts';
 import { DependenciesModel }                                  from './DependenciesModel.ts';
 import { DependenciesView, LINEAGE_CLEAR_GRACE_MILLISECONDS } from './DependenciesView.tsx';
 

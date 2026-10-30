@@ -51,7 +51,7 @@
  *                           [data-label-side="left"] near the right edge, .bridge-progress-overlay the grid lines and the now line;
  *                           on a board with epics a .bridge-progress-epic-head[data-epic-key] row, [data-collapsed] when folded,
  *                           leads each group, its .bridge-progress-epic-span on the track
- * Dependencies (bridge/views/dependencies/)
+ * Dependencies (bridge/views/progress/dependencies/)
  *   .bridge-dependency-canvas  bands, edges, heads and .bridge-dependency-node[data-state] placed in pixels by style;
  *                           [data-lineage-shown] dims all but the [data-lit] lineage
  * Filter chips (bridge/chips/)

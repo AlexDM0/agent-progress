@@ -5,7 +5,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 
-import { HashRouter }                                                            from '../../shell/HashRouter.ts';
+import { HashRouter }                                                            from '../../../shell/HashRouter.ts';
 import type { DependenciesCanvasModel, DependencyNodeChip, DependencyNodeModel } from './DependenciesModel.ts';
 import { DependenciesModel, EMPTY_DEPENDENCIES_TEXT }                            from './DependenciesModel.ts';
 
