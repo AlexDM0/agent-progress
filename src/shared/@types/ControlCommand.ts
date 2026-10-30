@@ -118,6 +118,7 @@ export type ControlCommand =
   | { kind: 'merge-land'; jobId: string; incidentId?: string }
   | { kind: 'job-message'; jobId: string; text: string; incidentId?: string }
   | { kind: 'intake-start'; text: string }
+  | { kind: 'onboarder-advise' }
   /** Relayed by a product owner without `jobId`: the role policy stamps its own job, from the relay folder. */
   | { kind: 'intake-close'; jobId?: string; proposedDraftSets: string[][] }
   | { kind: 'concurrency-set'; limit: number }
