@@ -17,6 +17,7 @@ export interface KanbanTicketDocument {
   readonly size?:       TicketSize;
   readonly hold?:       string;
   readonly epics?:      readonly string[];
+  readonly dependsOn?:  readonly string[];
   readonly delivered:   string | null;
   readonly abandonedAt: string | null;
 }
@@ -51,7 +52,8 @@ export interface KanbanBoardState {
   readonly page: {
     readonly tickets: readonly KanbanTicketDocument[];
     readonly payload: {
-      readonly progress:   { readonly tasks: readonly { readonly tokens?: number }[] };
+      readonly concurrency: { readonly limit: number };
+      readonly progress:    { readonly tasks: readonly { readonly tokens?: number }[] };
       readonly boardFacts: {
         readonly tickets:      readonly KanbanTicketFacts[];
         readonly epics:        readonly KanbanEpicDocument[];

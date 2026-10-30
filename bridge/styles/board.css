@@ -26,7 +26,12 @@
  *   .bridge-kanban          the epic chips over .bridge-kanban-lanes
  *   .bridge-lane[data-lane] drafts | ready | building | in-review | merge-queue | done | abandoned; its head dot by [data-state]
  *   .bridge-kanban-card[data-state]  a ticket or filing draft; [data-changed] once its state moved since the previous board
- *   .bridge-kanban-size[data-size], .bridge-kanban-priority[data-priority], .bridge-kanban-type[data-type]  the head's marks
+ *   .bridge-kanban-size[data-size], .bridge-kanban-priority[data-priority], .bridge-kanban-type[data-type]  the head's marks;
+ *                           .bridge-kanban-needed-first shown while the hovered card depends on it ([data-needed-first]),
+ *                           .bridge-kanban-held-count[data-heavy?] the "↦ N"
+ *   .bridge-kanban-frame    holds the lanes and, while a card is hovered, svg.bridge-kanban-arrows[data-still?] of its arrows
+ *   .bridge-lane-wave[data-narrow?]  the Ready lane by wave (.bridge-kanban-order switches it); .bridge-lane-more a closed lane's
+ *                           paging; .bridge-lane[data-collapsed] the folded Abandoned lane, .bridge-lane-toggle its fold
  * Tickets (bridge/views/tickets/)
  *   .bridge-tickets         the count and Group by epic over .bridge-tickets-toolbar (search, chips) and .bridge-tickets-table
  *   .bridge-ticket-row[data-state]  one ticket; .bridge-ticket-epic-head[data-epic-slot] heads an epic's rows when grouped;
@@ -393,6 +398,164 @@ body {
 
 .bridge-kanban-held {
   color: var(--warn-ink);
+}
+
+.bridge-kanban-needed-first {
+  font-size: var(--fs-micro);
+  font-weight: 500;
+  color: var(--link);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity var(--motion-fast);
+}
+
+.bridge-kanban-card[data-needed-first] .bridge-kanban-needed-first {
+  opacity: 1;
+}
+
+.bridge-kanban-held-count {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.bridge-kanban-held-count[data-heavy] {
+  color: var(--ink);
+}
+
+.bridge-lane-toggle,
+.bridge-kanban-order-choice,
+.bridge-lane-page {
+  padding: 0 var(--space-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink-muted);
+  font: inherit;
+  font-size: var(--fs-small);
+  cursor: pointer;
+}
+
+.bridge-lane-toggle {
+  margin-left: auto;
+}
+
+.bridge-lane[data-collapsed] {
+  align-self: start;
+}
+
+.bridge-kanban-order {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.bridge-kanban-order-choice[aria-pressed="true"] {
+  background: var(--surface-selected);
+  color: var(--ink);
+}
+
+.bridge-lane-wave {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.bridge-lane-wave[data-narrow] {
+  padding: var(--space-1);
+  border-radius: var(--radius-control);
+  background: var(--link-tint);
+}
+
+.bridge-lane-wave-head {
+  margin: 0;
+  font-size: var(--fs-micro);
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.bridge-lane-wave-note {
+  font-weight: 400;
+  text-transform: none;
+}
+
+.bridge-lane-wave[data-narrow] .bridge-lane-wave-note {
+  color: var(--link);
+}
+
+.bridge-lane-more {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--line);
+  font-size: var(--fs-micro);
+  color: var(--ink-muted);
+}
+
+.bridge-kanban-frame {
+  position: relative;
+}
+
+.bridge-kanban-arrows {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.bridge-kanban-arrow-line {
+  fill: none;
+  stroke: var(--link);
+  stroke-width: 2;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: bridge-arrow-draw 420ms var(--ease-out) var(--arrow-delay, 0ms) forwards;
+}
+
+.bridge-kanban-arrow-head {
+  fill: var(--link);
+  opacity: 0;
+  animation: bridge-arrow-head 140ms ease-out calc(var(--arrow-delay, 0ms) + 340ms) forwards;
+}
+
+@keyframes bridge-arrow-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes bridge-arrow-head {
+  to { opacity: 1; }
+}
+
+.bridge-kanban-arrows[data-still] .bridge-kanban-arrow-line {
+  animation: none;
+  stroke-dashoffset: 0;
+}
+
+.bridge-kanban-arrows[data-still] .bridge-kanban-arrow-head {
+  animation: none;
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bridge-kanban-needed-first {
+    transition: none;
+  }
+
+  .bridge-kanban-arrow-line {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+
+  .bridge-kanban-arrow-head {
+    animation: none;
+    opacity: 1;
+  }
 }
 
 .bridge-kanban {

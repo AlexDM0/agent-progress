@@ -21,8 +21,9 @@ export function exampleBoard(fields: ExampleBoardFields): KanbanBoardState {
     page: {
       tickets: fields.tickets,
       payload: {
-        progress:   { tasks: tokenEntries.map(([, tokens]) => ({ tokens })) },
-        boardFacts: {
+        concurrency: { limit: 4 },
+        progress:    { tasks: tokenEntries.map(([, tokens]) => ({ tokens })) },
+        boardFacts:  {
           tickets: fields.tickets.map((ticket) => {
             const position = tokenEntries.findIndex(([ticketId]) => ticketId === ticket.id);
             return {
