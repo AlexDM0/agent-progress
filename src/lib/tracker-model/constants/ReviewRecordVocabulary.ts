@@ -1,7 +1,6 @@
 /**
  * The words a recorded review pass is made of: its verdict, each claim's result, and each finding's class, severity, evidence and
- * outcome. `review record` refuses a findings file using any other, the stored log check reads the same lists, and the dispatcher's
- * reviewer reply schema takes the class and severity lists, so the reply and the record agree.
+ * outcome. The stored log check refuses a `review-recorded` record using any other word, so every recorded pass reads the same.
  */
 
 export const REVIEW_VERDICTS = ['released', 'round-requested', 'does-not-hold', 'not-released', 'integrated'] as const;

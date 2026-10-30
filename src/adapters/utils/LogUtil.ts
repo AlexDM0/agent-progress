@@ -10,9 +10,10 @@ import type {
   AgentUsage,
   LogRecord,
   LogRecordContent,
-  LogRecordFieldsOf
+  LogRecordFieldsOf,
+  RetiredDispatcherState
 } from '../../lib/tracker-model/@types/LogRecord.ts';
-import type { DispatcherState, ViewRange }         from '../../lib/tracker-model/@types/TrackerProgress.ts';
+import type { ViewRange }                          from '../../lib/tracker-model/@types/TrackerProgress.ts';
 import type { IdentifiedLogEntry, WordedLogEntry } from '../../shared/@types/WordedLogEntry.ts';
 import type { MovedToStatus }                      from './StatusWordingUtil.ts';
 import { StatusWordingUtil }                       from './StatusWordingUtil.ts';
@@ -28,7 +29,7 @@ const STATUS_REACHED_BY_MOVE_KIND: Readonly<Record<TicketMoveKind, MovedToStatus
   'ticket-delivered': 'delivered',
 };
 
-function dispatcherStateTextOf(state: DispatcherState, runId: string | null): string {
+function retiredDispatcherStateTextOf(state: RetiredDispatcherState, runId: string | null): string {
   return runId === null ? state : `${state} (run ${runId})`;
 }
 
@@ -160,8 +161,10 @@ function sentenceOf(record: LogRecordContent): string {
       return `Chart range: ${chartRangeTextOf(record.fields.view)}`;
     case 'concurrency-limit-set':
       return `Concurrency limit set to ${record.fields.limit}`;
+    case 'runner-set':
+      return `Runner set to ${record.fields.state}`;
     case 'dispatcher-set':
-      return `Dispatcher set to ${dispatcherStateTextOf(record.fields.state, record.fields.runId)}`;
+      return `Dispatcher set to ${retiredDispatcherStateTextOf(record.fields.state, record.fields.runId)}`;
     case 'pipeline-prepare-step-set':
       return `Prepare step ${record.fields.name} set to ${record.fields.run}`;
     case 'pipeline-gate-added':
@@ -312,7 +315,6 @@ function identifiedEntryOf(record: LogRecord): IdentifiedLogEntry {
 }
 
 export const LogUtil = {
-  dispatcherStateTextOf,
   identifiedEntryOf,
   sentenceOf,
   wordedEntryOf,

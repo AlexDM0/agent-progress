@@ -117,7 +117,7 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
     tickMinutes: 15,
   }, at);
   board.setConcurrencyLimit(3, at);
-  board.setDispatcherState('running', at);
+  board.setRunnerState('running', at);
   board.recordAgentStop({
     agentId:              'example-agent',
     agentType:            'agent-progress-worker',

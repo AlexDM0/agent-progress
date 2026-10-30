@@ -126,7 +126,7 @@ export function readBoardState(source: BoardStateSource): { state: BoardState; p
       silentSweeps: source.silentSweepsOf?.(job.id) ?? 0,
     }),
     notices:          source.notices(),
-    overseer:         { ...source.overseer(), paused: board.dispatcherState() === 'stopped' },
+    overseer:         { ...source.overseer(), paused: board.runnerState() === 'paused' },
     usage:            usageOf(context),
     mergeForecasting: source.mainLine === undefined ? null : mergeForecastingIn(workspace.rootDirectory, source.mainLine, source.mergeForecastCache ?? null),
   });

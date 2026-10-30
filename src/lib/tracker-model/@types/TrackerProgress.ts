@@ -9,11 +9,8 @@ export type ViewRange =
   | { kind: 'absolute'; from: string; to: string; tickMinutes: number | null }
   | { kind: 'relative'; from: string; to: string; tickMinutes: number | null };
 
-/**
- * `finished` ended by itself; `stopped`, never started or ended by the user, waits for the user's go. A stored `finished` reads as `stopped`,
- * which fails closed: nothing starts before the user looks.
- */
-export type DispatcherState = 'running' | 'finished' | 'stopped';
+/** `paused`, never resumed or paused by the user, starts no new job until the user's go. */
+export type RunnerState = 'running' | 'paused';
 
 export interface TrackerProgress {
   trackerId:               string;
@@ -24,8 +21,8 @@ export interface TrackerProgress {
   nextTaskId:              number;
   /** How many agents may be in flight at once; absent on a tracker that never set one, which reads as the default. */
   concurrencyLimit?:       number;
-  /** Where the user left the dispatcher; absent on a tracker that never set one, which reads as `stopped`. */
-  dispatcherState?:        DispatcherState;
+  /** Where the user left the runner; absent on a tracker that never set one, which reads as `paused`. */
+  runnerState?:            RunnerState;
   /** The number the next draft takes, never wound back; absent on a tracker that never opened a draft. */
   nextDraftId?:            number;
   /** The number the next job takes, never wound back; absent on a tracker that never launched a job. */

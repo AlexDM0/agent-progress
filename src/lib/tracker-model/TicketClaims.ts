@@ -96,7 +96,7 @@ export class TicketClaims {
     if (ticket.frontmatter.hold !== undefined) throw new BoardRefusal({ reason: 'claim-of-a-held-ticket', ticketId });
   }
 
-  // An in-progress review bar is a reviewer at work, so a builder claiming the ticket, a second dispatcher run's among them, would rebuild it in review.
+  // An in-progress review bar is a reviewer at work, so a builder claiming the ticket would rebuild it in review.
   private refuseATicketUnderReview(ticketId: string): void {
     const [inProgressBar] = this.reviewBars.inProgressReviewBarsOf([ticketId]);
     if (inProgressBar !== undefined) throw new BoardRefusal({ reason: 'claim-under-review', ticketId, reviewBarTaskId: inProgressBar.id });

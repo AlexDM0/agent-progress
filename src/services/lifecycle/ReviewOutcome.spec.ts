@@ -59,7 +59,7 @@ function newBoard(storedLogRecords: readonly LogRecord[] = []): Board {
     view:             { kind: 'auto' },
     nextTaskId:       1,
     concurrencyLimit: 2,
-    dispatcherState:  'running',
+    runnerState:      'running',
     tasks:            [],
   };
   const ticket: Ticket = {

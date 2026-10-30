@@ -46,6 +46,7 @@ const COPY_FOR_FIELD_SHAPE: Readonly<Record<LogFieldShape, (value: unknown) => u
   'review-round':           sameValue,
   'chart-range':            (value) => viewRangeOf(value as ViewRange),
   'concurrency-limit':      sameValue,
+  'runner-state':           sameValue,
   'dispatcher-state':       sameValue,
   'dispatcher-run-id':      sameValue,
   'check-command':          sameValue,

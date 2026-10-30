@@ -299,12 +299,12 @@ describe('run pause and resume', () => {
   test('write the stored drain flag through the write pipeline with no runner up', async () => {
     const paused = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
     expect(await runCommandLine(['run', 'resume', '--json'], paused), paused.errorText()).toBe(0);
-    expect(JSON.parse(paused.outputText())).toEqual({ dispatcherState: 'running', previousState: 'stopped' });
+    expect(JSON.parse(paused.outputText())).toEqual({ runnerState: 'running', previousState: 'paused' });
     const resumed = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
     expect(await runCommandLine(['run', 'pause', '--json'], resumed), resumed.errorText()).toBe(0);
-    expect(JSON.parse(resumed.outputText())).toEqual({ dispatcherState: 'stopped', previousState: 'running' });
+    expect(JSON.parse(resumed.outputText())).toEqual({ runnerState: 'paused', previousState: 'running' });
     const progress = JSON.parse(readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'), 'utf8')) as Record<string, unknown>;
-    expect(progress['dispatcherState']).toBe('stopped');
+    expect(progress['runnerState']).toBe('paused');
   });
 
   test('the board state the Bridge header reads agrees with run status after a resume and after a pause', async () => {

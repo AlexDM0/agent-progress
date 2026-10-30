@@ -7,7 +7,6 @@ import {
   INCIDENT_KINDS,
   INCIDENT_MOVES
 }                             from '../../lib/tracker-model/constants/DecisionAndIncidentVocabulary.ts';
-import { DISPATCHER_STATES } from '../../lib/tracker-model/constants/DispatcherStates.ts';
 import {
   FIRST_HOST_INSTANCE,
   GATE_OUTCOMES,
@@ -19,14 +18,15 @@ import {
   RUNNER_STOP_REASONS,
   JOB_STOP_MODES
 }                                                            from '../../lib/tracker-model/constants/JobStates.ts';
-import type { LogFieldShape }                                from '../../lib/tracker-model/constants/LogRecordSchema.ts';
-import { LOG_RECORD_SCHEMA, LOG_RECORD_SUBJECT_IDS }         from '../../lib/tracker-model/constants/LogRecordSchema.ts';
-import { FIRST_REPEAT_REVIEW_ROUND, FIRST_REVIEW_BAR_ROUND } from '../../lib/tracker-model/constants/ReviewRounds.ts';
-import { TICKET_PRIORITIES, TICKET_SIZES }                   from '../../lib/tracker-model/constants/TicketFields.ts';
-import { BoardSettingsUtil }                                 from '../../lib/tracker-model/utils/BoardSettingsUtil.ts';
-import { VocabularyUtil }                                    from '../../lib/tracker-model/utils/VocabularyUtil.ts';
-import { StoredValueUtil }                                   from '../utils/StoredValueUtil.ts';
-import { ReviewRecordFieldsUtil }                            from './utils/ReviewRecordFieldsUtil.ts';
+import type { LogFieldShape }                                                   from '../../lib/tracker-model/constants/LogRecordSchema.ts';
+import { LOG_RECORD_SCHEMA, LOG_RECORD_SUBJECT_IDS, RETIRED_DISPATCHER_STATES } from '../../lib/tracker-model/constants/LogRecordSchema.ts';
+import { FIRST_REPEAT_REVIEW_ROUND, FIRST_REVIEW_BAR_ROUND }                    from '../../lib/tracker-model/constants/ReviewRounds.ts';
+import { RUNNER_STATES }                                                        from '../../lib/tracker-model/constants/RunnerStates.ts';
+import { TICKET_PRIORITIES, TICKET_SIZES }                                      from '../../lib/tracker-model/constants/TicketFields.ts';
+import { BoardSettingsUtil }                                                    from '../../lib/tracker-model/utils/BoardSettingsUtil.ts';
+import { VocabularyUtil }                                                       from '../../lib/tracker-model/utils/VocabularyUtil.ts';
+import { StoredValueUtil }                                                      from '../utils/StoredValueUtil.ts';
+import { ReviewRecordFieldsUtil }                                               from './utils/ReviewRecordFieldsUtil.ts';
 
 type UnknownObject = Record<string, unknown>;
 
@@ -87,8 +87,12 @@ function reviewBarRoundProblem(value: unknown, path: string): string | null {
   return StoredValueUtil.wholeNumberIsAtLeast(value, FIRST_REVIEW_BAR_ROUND) ? null : `${path} is not a whole round of at least ${FIRST_REVIEW_BAR_ROUND}`;
 }
 
-function dispatcherStateProblem(value: unknown, path: string): string | null {
-  return BoardSettingsUtil.dispatcherStateIsKnown(value) ? null : `${path} is ${JSON.stringify(value)}, which is not one of ${DISPATCHER_STATES.join(', ')}`;
+function runnerStateProblem(value: unknown, path: string): string | null {
+  return BoardSettingsUtil.runnerStateIsKnown(value) ? null : `${path} is ${JSON.stringify(value)}, which is not one of ${RUNNER_STATES.join(', ')}`;
+}
+
+function retiredDispatcherRunIdProblem(value: unknown, path: string): string | null {
+  return value === null || (typeof value === 'string' && value.trim() !== '') ? null : `${path} is neither null nor a run id`;
 }
 
 const CHECK_FOR_FIELD_SHAPE: Readonly<Record<LogFieldShape, FieldShapeCheck>> = {
@@ -106,8 +110,9 @@ const CHECK_FOR_FIELD_SHAPE: Readonly<Record<LogFieldShape, FieldShapeCheck>> = 
   'review-round':           reviewRoundProblem,
   'chart-range':            (value, path) => (BoardSettingsUtil.viewRangeIsWellFormed(value) ? null : `${path} is not a chart range`),
   'concurrency-limit':      (value, path) => (BoardSettingsUtil.concurrencyLimitIsWellFormed(value) ? null : `${path} is not a whole number of agents`),
-  'dispatcher-state':       dispatcherStateProblem,
-  'dispatcher-run-id':      (value, path) => (value === null || BoardSettingsUtil.dispatcherRunIdIsWellFormed(value) ? null : `${path} is neither null nor a run id`),
+  'runner-state':           runnerStateProblem,
+  'dispatcher-state':       (value, path) => vocabularyProblem(value, path, RETIRED_DISPATCHER_STATES),
+  'dispatcher-run-id':      retiredDispatcherRunIdProblem,
   'check-command':          checkCommandProblem,
   'count':                  (value, path) => (StoredValueUtil.wholeNumberIsAtLeast(value, 0) ? null : `${path} is not a whole number of at least 0`),
   'review-bar-round':       reviewBarRoundProblem,

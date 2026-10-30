@@ -1,12 +1,11 @@
 /**
- * The ticket moves the runner's lifecycle service makes (a claim, a finish into review, an approval, a delivery) and the dispatcher state it
- * sets, applied to a scratch board for specs that need a ticket or the board in that state: the CLI no longer has those verbs. A spec's command
- * lines pass through here in the shape the retired verbs took; every other line reaches `runCommandLine` unchanged.
+ * The ticket moves the runner's lifecycle service makes (a claim, a finish into review, an approval, a delivery), applied to a scratch
+ * board for specs that need a ticket in that state: the CLI no longer has those verbs. A spec's command lines pass through here in the shape
+ * the retired verbs took; every other line reaches `runCommandLine` unchanged.
  */
 import { OperationRefusalWordingUtil }               from '../../src/adapters/utils/OperationRefusalWordingUtil.ts';
 import { TicketJsonUtil }                            from '../../src/adapters/utils/TicketJsonUtil.ts';
 import type { TicketStatus }                         from '../../src/lib/tracker-model/@types/Ticket.ts';
-import type { DispatcherState }                      from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import type { TrackerChange }                        from '../../src/services/tracker/TrackerPipeline.ts';
 import { refusalIsOperationRefusal }                 from '../../src/shared/OperationRefusal.ts';
 import type { CommandContext }                       from '../CommandContext.ts';
@@ -56,9 +55,6 @@ function moveOnTheBoard(targetStatus: TicketStatus, commandArguments: ArgumentPa
 
 function boardMoveOf(commandLineArguments: readonly string[]): ((commandArguments: ArgumentParser, change: TrackerChange) => unknown) | null {
   const [command, word] = commandLineArguments;
-  if (command === 'dispatcher' && word !== undefined) {
-    return (_commandArguments, change) => change.board.setDispatcherState(word as DispatcherState, change.at).previousState;
-  }
   if (command !== 'ticket' || word === undefined || commandLineArguments.includes('--by-hand')) return null;
   if (word === CLAIM_VERB) return claimOnTheBoard;
   const targetStatus = Object.hasOwn(STATUS_OF_RUNNER_MOVE, word) ? STATUS_OF_RUNNER_MOVE[word] : undefined;

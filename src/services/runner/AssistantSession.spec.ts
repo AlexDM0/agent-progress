@@ -91,7 +91,7 @@ function assistantBoard(storedLogRecords: LogRecord[] = [], jobs: Job[] = [{ ...
       view:             { kind: 'auto' },
       nextTaskId:       1,
       concurrencyLimit: 4,
-      dispatcherState:  'stopped',
+      runnerState:      'paused',
       nextJobId:        901,
       jobs,
       tasks:            [],

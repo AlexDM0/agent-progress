@@ -72,7 +72,7 @@ function lifecycleBoardOf(contents: { tickets: Ticket[]; progress?: Partial<Trac
     view:             { kind: 'auto' },
     nextTaskId:       1,
     concurrencyLimit: 4,
-    dispatcherState:  'running',
+    runnerState:      'running',
     nextJobId:        901,
     jobs:             [{ ...LIVE_ORCHESTRATOR }],
     tasks:            [],
@@ -166,7 +166,7 @@ describe('advancing the lifecycle applies what the policy derives', () => {
 
     advance(board);
 
-    expect(board.dispatcherState()).toBe('stopped');
+    expect(board.runnerState()).toBe('paused');
     expect(board.decisions().map((decision) => decision.kind)).toEqual(['outage']);
     expect(board.incidents()).toEqual([]);
   });
@@ -234,7 +234,7 @@ describe('ready is pending and unheld', () => {
 });
 
 describe('what code counts and acts on alone', () => {
-  test('a runner restart between two crashes is not counted: the outage still stops dispatching', () => {
+  test('a runner restart between two crashes is not counted: the outage still pauses the runner', () => {
     const storedLogRecords = [
       launchedRecord('J1', 'build', ['001']),
       launchedRecord('J2', 'build', ['002']),
@@ -244,7 +244,7 @@ describe('what code counts and acts on alone', () => {
     ];
     const { board } = lifecycleBoardOf({ tickets: [], storedLogRecords });
 
-    expect(stepKindsOf(advance(board).steps)).toContain('stop-dispatching');
+    expect(stepKindsOf(advance(board).steps)).toContain('pause-runner');
   });
 
   test('one failed pass rebuilds on the next attempt and opens nothing', () => {

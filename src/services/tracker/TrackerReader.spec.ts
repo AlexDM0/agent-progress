@@ -1,7 +1,7 @@
 /**
  * The tracker read without the lock: which verdict each broken or missing file gives, that the progress file's verdict wins over a broken
  * log, how an absent log.jsonl reads beside a version 2 file, and that reading writes nothing. `requireProgressFile` is pinned apart because
- * `concurrency` and `dispatcher` must keep working with a broken log.jsonl.
+ * `concurrency` and `run status` must keep working with a broken log.jsonl.
  */
 import {
   mkdirSync,

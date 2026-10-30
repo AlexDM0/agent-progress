@@ -8,8 +8,8 @@ import { join, relative }                      from 'node:path';
 
 const PROGRAM_ROOT = join(import.meta.dir, '..', '..', '..');
 
-const SHIPPING_FILES   = ['agent-progress.ts', 'package.json', 'bun.lock'];
-const SHIPPING_FOLDERS = ['cli', 'src', 'resources', 'skills'];
+const SHIPPING_FILES   = ['agent-progress.ts', 'agent-host.ts', 'package.json', 'bun.lock'];
+const SHIPPING_FOLDERS = ['cli', 'src', 'bridge', 'resources', 'skills'];
 
 const SKIPPED_FOLDER_NAMES = new Set(['node_modules', 'testing']);
 const SPEC_SUFFIX          = '.spec.ts';
