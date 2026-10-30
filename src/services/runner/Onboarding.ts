@@ -132,7 +132,7 @@ async function settledOutcomeOf(context: OnboardingContext, board: Board, job: R
     logRecords:       board.logRecordsSoFar(),
     launchSnapshot:   start.launchSnapshot,
     refMovesAllowed:  {
-      ownBranch: '', otherJobBranches: [], recordedLandings: [], removedAfterLandings: [], refreshWorktreeHeads: []
+      ownBranch: '', otherJobBranches: [], loggedJobBranches: [], recordedLandings: [], removedAfterLandings: [], refreshWorktreeHeads: []
     },
   });
   if (verdict.verdict === 'refused') return verdict;
