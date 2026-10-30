@@ -322,6 +322,48 @@ describeWhenGitIsPresent('V14: no foreign ref moved', () => {
     expect(refusal('V14', buildJobAcross(landing.slice(0, 1)))).toEqual({ reason: 'foreign-ref-moved', facts: ['refs/heads/ticket-019'] });
   });
 
+  /** The cutover smoke's sequence: #002 builds while #001 is built, reviewed and landed on their shared target, its branch kept at the landing. */
+  function landAnotherTicketOnTheOwnTarget(): { mainLine: string; landing: LogRecord[] } {
+    const mainLine = gitOutputIn(repositoryDirectory, ['rev-parse', '--abbrev-ref', 'HEAD']);
+    gitOutputIn(repositoryDirectory, ['branch', 'ticket-001', startCommit]);
+    gitOutputIn(repositoryDirectory, ['branch', 'example-protected', startCommit]);
+    gitOutputIn(repositoryDirectory, ['checkout', '-q', '-b', 'ticket-002']);
+    launchSnapshot = launchSnapshotOf(repositoryDirectory) ?? launchSnapshot;
+    gitOutputIn(repositoryDirectory, ['checkout', '-q', 'ticket-001']);
+    const landedCommit = commitFile(repositoryDirectory, 'palette.txt', 'colour: Example\n');
+    gitOutputIn(repositoryDirectory, ['branch', '-f', mainLine, landedCommit]);
+    gitOutputIn(repositoryDirectory, ['checkout', '-q', 'ticket-002']);
+    commitFile(repositoryDirectory, 'shade.txt', 'shade: Example\n');
+    const builtEnded: LogRecord = {
+      at: AT, kind: 'job-ended', jobId: 'J2', fields: { outcome: 'built', commit: landedCommit, deniedPermissions: [] }
+    };
+    const landing = [
+      jobLaunchedRecord('J2', { kind: 'build', ticketIds: ['001'], target: mainLine }),
+      jobLaunchedRecord(OWN_BUILD_JOB_ID, { kind: 'build', ticketIds: ['002'], target: mainLine }),
+      builtEnded,
+      jobLaunchedRecord('J5', { kind: 'merge', ticketIds: ['001'], target: mainLine }),
+      jobEndedRecord('J5', 'landed', landedCommit),
+    ];
+    return { mainLine, landing };
+  }
+
+  test('a job whose own target another ticket\'s landing moved, that ticket\'s branch kept at the landing, passes as builder and as reviewer', () => {
+    const { mainLine, landing } = landAnotherTicketOnTheOwnTarget();
+    expect(refusal('V14', buildJobAcross(landing))).toBeNull();
+    expect(refusal('V14', { ...buildJobAcross(landing), role: 'reviewer' })).toBeNull();
+    expect(refusal('V14', buildJobAcross([]))?.facts).toEqual([`refs/heads/${mainLine}`, 'refs/heads/ticket-001']);
+  });
+
+  test('beside that landing, another protected ref moving, or the own target moving past the landed commit, still refuses', () => {
+    const { mainLine, landing } = landAnotherTicketOnTheOwnTarget();
+    const ownTip = headCommit();
+    gitOutputIn(repositoryDirectory, ['branch', '-f', 'example-protected', ownTip]);
+    expect(refusal('V14', buildJobAcross(landing))).toEqual({ reason: 'foreign-ref-moved', facts: ['refs/heads/example-protected'] });
+    gitOutputIn(repositoryDirectory, ['branch', '-f', 'example-protected', startCommit]);
+    gitOutputIn(repositoryDirectory, ['branch', '-f', mainLine, ownTip]);
+    expect(refusal('V14', buildJobAcross(landing))).toEqual({ reason: 'foreign-ref-moved', facts: [`refs/heads/${mainLine}`] });
+  });
+
   test('a job deleting another ticket\'s branch still refuses, even beside a recorded group release', () => {
     gitOutputIn(repositoryDirectory, ['branch', 'ticket-021', startCommit]);
     gitOutputIn(repositoryDirectory, ['branch', 'group-example', startCommit]);
