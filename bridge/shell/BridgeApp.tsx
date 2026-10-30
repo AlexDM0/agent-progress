@@ -16,14 +16,22 @@ import type { PreferenceStorage }                                               
 import type { CommandClient }                                                            from '../api/CommandClient.ts';
 import type { ConnectionState, EventStreamHandlers }                                     from '../api/EventStreamClient.ts';
 import { boardPreferenceStoreOf, sharedPreferenceStoreOf }                               from '../preferences/PreferenceStore.ts';
+import { TimeUtil }                                                                      from '../utils/TimeUtil.ts';
 import { AgentsView, BROWSER_AGENTS_CLOCK, type AgentsClock }                            from '../views/agents/AgentsView.tsx';
+import { DetailPanel }                                                                   from '../views/detail-panel/DetailPanel.tsx';
 import { EpicsModel }                                                                    from '../views/epics/EpicsModel.ts';
 import { EpicsView }                                                                     from '../views/epics/EpicsView.tsx';
 import { FinishedWorkModel }                                                             from '../views/finished-work/FinishedWorkModel.ts';
 import type { FinishedWorkChoice }                                                       from '../views/finished-work/FinishedWorkModel.ts';
 import { FinishedWorkMenu, FinishedWorkView, useFinishedWorkChoice }                     from '../views/finished-work/FinishedWorkView.tsx';
+import { KanbanModel }                                                                   from '../views/kanban/KanbanModel.ts';
+import { KanbanView }                                                                    from '../views/kanban/KanbanView.tsx';
 import { MergeQueueModel }                                                               from '../views/merge-queue/MergeQueueModel.ts';
 import { MergeQueueView }                                                                from '../views/merge-queue/MergeQueueView.tsx';
+import { ProgressModel }                                                                 from '../views/progress/ProgressModel.ts';
+import { ProgressView }                                                                  from '../views/progress/ProgressView.tsx';
+import { TicketsModel }                                                                  from '../views/tickets/TicketsModel.ts';
+import { TicketsView }                                                                   from '../views/tickets/TicketsView.tsx';
 import { BoardStateUpdate }                                                              from './BoardStateUpdate.ts';
 import { ConnectionBanners }                                                             from './ConnectionBanners.tsx';
 import { ControlAvailabilityUtil, ControlSurroundingsContext, type ControlSurroundings } from './ControlAvailability.ts';
@@ -130,6 +138,16 @@ export function BridgeApp({ services }: BridgeAppProps) {
   }), [streamIsDown, installIsHeld, services]);
 
   const agentsClock = useMemo((): AgentsClock => ({ now: services.now, everySecond: BROWSER_AGENTS_CLOCK.everySecond }), [services]);
+  const kanbanBoardState = useMemo(() => KanbanModel.kanbanBoardStateOf(boardState), [boardState]);
+  const ticketsBoardState = useMemo(() => TicketsModel.ticketsBoardStateOf(boardState), [boardState]);
+  const progressBoardState = useMemo(() => ProgressModel.progressBoardStateOf(boardState), [boardState]);
+  // The chart reads the clock once per board: its now line and Fit range move on with the next board, and are only shown.
+  const progressNow = useMemo(() => (boardState === null ? 0 : services.now().getTime()), [boardState, services]);
+  const mergeQueueIsOpen = route.tab === 'kanban' && route.item === MERGE_QUEUE_ITEM;
+  const boardViewIsShown = route.tab === 'agents' || mergeQueueIsOpen
+    || (route.tab === 'kanban' && kanbanBoardState !== null)
+    || (route.tab === 'tickets' && ticketsBoardState !== null)
+    || (route.tab === 'progress' && (progressBoardState !== null || boardState?.page !== undefined));
 
   const chooseTheme = (choice: ThemeChoice): void => {
     ThemeBootstrap.chooseTheme(sharedStore, choice);
@@ -158,8 +176,31 @@ export function BridgeApp({ services }: BridgeAppProps) {
           {boardState !== null && route.tab === 'agents'
             ? <AgentsView jobs={boardState.jobs} decisions={boardState.decisions} selectedJobId={route.item} clock={agentsClock} />
             : null}
-          {boardState !== null && route.tab !== 'agents'
-            ? <BoardViews boardState={boardState} route={route} finishedWorkChoice={finishedWorkChoice} onFinishedWorkChoice={chooseFinishedWork} now={services.now()} />
+          {boardState !== null && mergeQueueIsOpen
+            ? <MergeQueueView targets={MergeQueueModel.mergeQueueModelOf(boardState.mergeQueue, boardState.notices ?? [])} />
+            : null}
+          {kanbanBoardState !== null && route.tab === 'kanban' && !mergeQueueIsOpen
+            ? (
+              <>
+                <p><a href={HashRouter.fragmentOf({ tab: 'kanban', item: MERGE_QUEUE_ITEM })}>Merge queue</a></p>
+                <KanbanView boardState={kanbanBoardState} boardStore={boardStore} />
+              </>
+            )
+            : null}
+          {ticketsBoardState !== null && route.tab === 'tickets' && route.item !== null
+            ? <DetailPanel boardState={ticketsBoardState} ticketId={route.item} todayCalendarDate={TimeUtil.calendarDateOf(services.now().getTime())} tab={route.tab} />
+            : null}
+          {ticketsBoardState !== null && route.tab === 'tickets'
+            ? <TicketsView boardState={ticketsBoardState} boardStore={boardStore} />
+            : null}
+          {progressBoardState !== null && route.tab === 'progress'
+            ? <ProgressView boardState={progressBoardState} boardStore={boardStore} nowEpochMilliseconds={progressNow} todayCalendarDate={TimeUtil.calendarDateOf(progressNow)} />
+            : null}
+          {boardState?.page !== undefined && route.tab === 'progress'
+            ? <FinishedWorkAndEpics page={boardState.page} finishedWorkChoice={finishedWorkChoice} onFinishedWorkChoice={chooseFinishedWork} now={services.now()} />
+            : null}
+          {boardState !== null && !boardViewIsShown
+            ? <BoardCounts boardState={boardState} tab={route.tab} />
             : null}
         </main>
       </div>
@@ -167,36 +208,32 @@ export function BridgeApp({ services }: BridgeAppProps) {
   );
 }
 
-interface BoardViewsProps {
-  readonly boardState:           BoardStateDocument;
-  readonly route:                ReturnType<typeof HashRouter.routeOf>;
+interface FinishedWorkAndEpicsProps {
+  readonly page:                 NonNullable<BoardStateDocument['page']>;
   readonly finishedWorkChoice:   FinishedWorkChoice;
   readonly onFinishedWorkChoice: (choice: FinishedWorkChoice) => void;
   readonly now:                  Date;
 }
 
-function BoardViews({
-  boardState, route, finishedWorkChoice, onFinishedWorkChoice, now
-}: BoardViewsProps) {
-  if (route.tab === 'kanban' && route.item === MERGE_QUEUE_ITEM) {
-    return <MergeQueueView targets={MergeQueueModel.mergeQueueModelOf(boardState.mergeQueue, boardState.notices ?? [])} />;
-  }
-  if (route.tab === 'progress' && boardState.page !== undefined) {
-    const nowEpochMilliseconds = now.getTime();
-    const { page } = boardState;
-    const cutoff = FinishedWorkModel.cutoffEpochMillisecondsOf(finishedWorkChoice, nowEpochMilliseconds);
-    return (
-      <>
-        <FinishedWorkMenu choice={finishedWorkChoice} onChoice={onFinishedWorkChoice} hiddenCount={FinishedWorkModel.finishedTicketsOf(page.tickets, cutoff).hiddenCount} />
-        <EpicsView model={EpicsModel.epicsModelOf(page, finishedWorkChoice, nowEpochMilliseconds)} />
-        <FinishedWorkView tickets={page.tickets} choice={finishedWorkChoice} nowEpochMilliseconds={nowEpochMilliseconds} />
-      </>
-    );
-  }
+function FinishedWorkAndEpics({
+  page, finishedWorkChoice, onFinishedWorkChoice, now
+}: FinishedWorkAndEpicsProps) {
+  const nowEpochMilliseconds = now.getTime();
+  const cutoff = FinishedWorkModel.cutoffEpochMillisecondsOf(finishedWorkChoice, nowEpochMilliseconds);
+  return (
+    <>
+      <FinishedWorkMenu choice={finishedWorkChoice} onChoice={onFinishedWorkChoice} hiddenCount={FinishedWorkModel.finishedTicketsOf(page.tickets, cutoff).hiddenCount} />
+      <EpicsView model={EpicsModel.epicsModelOf(page, finishedWorkChoice, nowEpochMilliseconds)} />
+      <FinishedWorkView tickets={page.tickets} choice={finishedWorkChoice} nowEpochMilliseconds={nowEpochMilliseconds} />
+    </>
+  );
+}
+
+function BoardCounts({ boardState, tab }: { readonly boardState: BoardStateDocument; readonly tab: string }) {
   return (
     <p className="bridge-empty">
       {`${boardState.jobs.length} jobs, ${boardState.decisions.length} decisions, ${boardState.incidents.length} incidents. `}
-      {route.tab === 'kanban' ? <a href={HashRouter.fragmentOf({ tab: 'kanban', item: MERGE_QUEUE_ITEM })}>Merge queue</a> : null}
+      {tab === 'kanban' ? <a href={HashRouter.fragmentOf({ tab: 'kanban', item: MERGE_QUEUE_ITEM })}>Merge queue</a> : null}
     </p>
   );
 }

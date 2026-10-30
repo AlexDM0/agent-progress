@@ -5,7 +5,7 @@ import { join }         from 'node:path';
 import { createScratchDirectory, removeScratchDirectory } from './ScratchWorkspace.ts';
 
 export interface SourceMutant {
-  /** Repo-rooted, as `dispatcher/run/DispatchRun.ts`. */
+  /** Repo-rooted, as `src/lib/tracker-model/LifecyclePolicy.ts`. */
   modulePath: string;
   find:       string;
   replace:    string;

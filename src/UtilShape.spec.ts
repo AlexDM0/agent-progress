@@ -53,7 +53,7 @@ const UTIL_SHAPES = SHIPPING_SOURCES.flatMap((source) => exportedUtilShapesOf(so
 
 describe('every exported util groups at least two members', () => {
   test('the scan reads the utils of every feature and of src/', () => {
-    for (const folder of ['src/', 'cli/', 'page/', 'dispatcher/']) {
+    for (const folder of ['src/', 'cli/', 'page/', 'bridge/']) {
       expect(UTIL_SHAPES.filter((shape) => shape.name.startsWith(folder)).length).toBeGreaterThan(MINIMUM_UTIL_MEMBER_COUNT);
     }
   });

@@ -17,10 +17,10 @@ import { workspacePathsFor }                  from '../../src/services/tracker/W
 import { LIMITS }                             from '../../src/shared/constants/Limits.ts';
 import { removeScratchDirectory }             from '../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.ts';
-import { runCommandLine }                     from '../Main.ts';
 import { createCapturedCommandContext }       from '../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../testing/InitializedScratchRepository.ts';
 import { fileReadyTicket }                    from '../testing/ReadyTicketFiling.ts';
+import { runCommandLineWithRunnerMoves }      from '../testing/RunnerTicketMoves.ts';
 import { storedLogEntriesOf }                 from '../testing/StoredLogEntries.ts';
 import { storedProgressOf }                   from '../testing/StoredProgress.ts';
 
@@ -38,7 +38,7 @@ function contextHere(): ReturnType<typeof createCapturedCommandContext> {
 
 async function runWithExitCode(commandLineArguments: readonly string[]): Promise<{ exitCode: number; context: ReturnType<typeof createCapturedCommandContext> }> {
   const context  = contextHere();
-  const exitCode = await runCommandLine(commandLineArguments, context);
+  const exitCode = await runCommandLineWithRunnerMoves(commandLineArguments, context);
   return { exitCode, context };
 }
 
@@ -70,21 +70,6 @@ afterEach(() => {
 });
 
 describeWhenGitIsPresent('starting the review bar with the move to review', () => {
-  test('ticket finish --start-review puts the ticket in review beside a running bar that reviews it, and the agents in flight stay as many', async () => {
-    const agentsBefore = await agentsInFlightNow();
-
-    const output = (await run(['ticket', 'finish', '1', '--start-review', '--owner', 'opus', '--note', 'Reviewed by the dispatcher'])).outputText();
-
-    const bars = inProgressBarsReviewing('001');
-    expect(bars).toHaveLength(1);
-    expect(bars[0]?.name).toBe(`Review 1 #001 — ${REVIEWED_TICKET_TITLE}`);
-    expect(bars[0]?.owner).toBe('opus');
-    expect(bars[0]?.note).toBe('Reviewed by the dispatcher');
-    expect(JSON.parse((await run(['ticket', 'show', '1', '--json'])).outputText())).toMatchObject({ status: 'in-review' });
-    expect(await agentsInFlightNow()).toBe(agentsBefore);
-    expect(output).toContain(`Review row #${bars[0]?.id} started`);
-  });
-
   // The gap the option closes: between a plain move to review and the reviewer's own `task add --start`, the board shows the slot free.
   test('a plain ticket finish frees the slot, so a claim before the reviewer adds its bar takes it and the board runs one over', async () => {
     await run(['ticket', 'finish', '1']);
@@ -164,8 +149,7 @@ describeWhenGitIsPresent('starting the review bar with the move to review', () =
     const movesOutOfReview: string[][] = [
       ['ticket', 'abandon', '1', '--reason', 'superseded by #2'],
       ['ticket', 'reopen', '1'],
-      ['ticket', 'start', '1'],
-      ['ticket', 'approve', '1'],
+      ['ticket', 'status', '1', 'reviewed'],
       ['ticket', 'status', '1', 'pending'],
     ];
     for (const moveOutOfReview of movesOutOfReview) {
@@ -212,7 +196,7 @@ describeWhenGitIsPresent('starting the review bar with the move to review', () =
   });
 
   test('--owner or --note without --start-review is refused, and nothing moves', async () => {
-    const { exitCode, context } = await runWithExitCode(['ticket', 'finish', '1', '--owner', 'opus']);
+    const { exitCode, context } = await runWithExitCode(['ticket', 'rereview', '1', '--owner', 'opus']);
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('only with --start-review');

@@ -16,10 +16,10 @@ import { PRODUCT_NAMES }                      from '../../src/shared/constants/P
 import { DispatcherClaimNoteUtil }            from '../../src/shared/utils/DispatcherClaimNoteUtil.ts';
 import { removeScratchDirectory }             from '../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.ts';
-import { runCommandLine }                     from '../Main.ts';
 import { createCapturedCommandContext }       from '../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../testing/InitializedScratchRepository.ts';
 import { fileReadyTicket }                    from '../testing/ReadyTicketFiling.ts';
+import { runCommandLineWithRunnerMoves }      from '../testing/RunnerTicketMoves.ts';
 import { storedLogEntriesOf }                 from '../testing/StoredLogEntries.ts';
 import { storedLogTextOf }                    from '../testing/StoredLogText.ts';
 import { storedProgressOf }                   from '../testing/StoredProgress.ts';
@@ -39,14 +39,14 @@ function contextHere(): ReturnType<typeof createCapturedCommandContext> {
 
 async function run(commandLineArguments: readonly string[]): Promise<ReturnType<typeof createCapturedCommandContext>> {
   const context  = contextHere();
-  const exitCode = await runCommandLine(commandLineArguments, context);
+  const exitCode = await runCommandLineWithRunnerMoves(commandLineArguments, context);
   expect(exitCode, `\`agent-progress ${commandLineArguments.join(' ')}\` failed: ${context.errorText()}`).toBe(0);
   return context;
 }
 
 async function runExpectingRefusal(commandLineArguments: readonly string[]): Promise<ReturnType<typeof createCapturedCommandContext>> {
   const context  = contextHere();
-  const exitCode = await runCommandLine(commandLineArguments, context);
+  const exitCode = await runCommandLineWithRunnerMoves(commandLineArguments, context);
   expect(exitCode, `\`agent-progress ${commandLineArguments.join(' ')}\` was expected to be refused`).toBe(1);
   return context;
 }
@@ -144,20 +144,20 @@ describeWhenGitIsPresent('holding a ticket', () => {
   });
 
   // `start` is the override beside `claim`, so it moves a held ticket, but says so the way it does for an unsettled dependency.
-  test('ticket start moves a held ticket and warns on standard error that it is held', async () => {
+  test('ticket status <id> in-progress moves a held ticket and warns on standard error that it is held', async () => {
     await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Show the role history']);
     await run(['ticket', 'hold', '1', '--reason', 'the user reads it first']);
 
-    const context = await run(['ticket', 'start', '1']);
+    const context = await run(['ticket', 'status', '1', 'in-progress']);
 
     expect(context.errorText()).toContain('Ticket #001 is held; it was started anyway');
     expect((await run(['ticket', 'show', '1', '--json'])).outputText()).toContain('"status": "in-progress"');
   });
 
-  test('ticket start warns about no hold on a ticket that is not held', async () => {
+  test('ticket status <id> in-progress warns about no hold on a ticket that is not held', async () => {
     await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Show the role history']);
 
-    expect((await run(['ticket', 'start', '1'])).errorText()).not.toContain('held');
+    expect((await run(['ticket', 'status', '1', 'in-progress'])).errorText()).not.toContain('held');
   });
 });
 

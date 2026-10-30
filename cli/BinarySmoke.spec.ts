@@ -25,13 +25,10 @@ const STANDALONE_PROGRAM_NAME_PATTERN = new RegExp(
   'g',
 );
 
-/** The brief's row, ticket and review lines are markers the dispatcher writes and the hook reads, not a program to run. */
+/** The brief's row, ticket and review lines are markers a prompt carries, not a program to run. */
 const BRIEF_MARKER_PATTERN = new RegExp(`${RegExp.escape(ORIGINAL_PRODUCT_NAMES.PROGRAM)} (?:row|ticket|review):`, 'g');
 
-/**
- * Every program name the text files `init` installed stand alone in, each once. The dispatcher script is left out: it is bundled from
- * `dispatcher/`, which the code-owned lifecycle retires rather than renames.
- */
+/** Every program name the text files `init` installed stand alone in, each once. */
 function programNamesInstalledIn(repositoryDirectory: string): string[] {
   const installedPaths = [...new Bun.Glob('**/*').scanSync({ cwd: repositoryDirectory, dot: true })]
     .filter((path) => path === 'CLAUDE.md' || path.startsWith('.claude/') || (path.startsWith(`${PRODUCT_NAMES.DATA_FOLDER}/`) && path.endsWith('.md')));
@@ -102,15 +99,15 @@ describeWhenGitIsPresent('a whole session through the binary', () => {
       const [suggestedProgram, ...suggestedArguments] = suggestedCommand.split(' ');
       expect(suggestedProgram, 'the program a refusal tells the agent to run is the one this build links').toBe(PRODUCT_NAMES.PROGRAM);
       expect(await run(suggestedArguments)).toContain('Double-click a role to edit it');
-      await run(['ticket', 'start', '1', '--at', '-2h']);
+      await run(['ticket', 'status', '1', 'in-progress', '--at', '-2h']);
       expect(await run(['task', 'add', 'Review pass', '--start', '--owner', 'Alex Example'])).toContain('Task #2 added');
       expect(await run(['task', 'pause', '2'])).toContain('Task #2 paused');
       await run(['task', 'start', '2']);
       await run(['log', 'Halfway through the role editor', '--at', '-5m']);
-      expect(await refused(['ticket', 'deliver', '1'])).toContain(`${PRODUCT_NAMES.PROGRAM} ticket status 001 delivered`);
-      await run(['ticket', 'finish', '1', '--at', '-1h']);
-      await run(['ticket', 'approve', '1', '--commit', 'abc1234', '--tokens', '12k']);
-      await run(['ticket', 'deliver', '1']);
+      expect(await refused(['task', 'finish', '1'])).toContain(`${PRODUCT_NAMES.PROGRAM} ticket status 001 in-review`);
+      await run(['ticket', 'status', '1', 'in-review', '--at', '-1h']);
+      await run(['ticket', 'status', '1', 'reviewed', '--commit', 'abc1234', '--tokens', '12k']);
+      await run(['ticket', 'deliver', '1', '--by-hand']);
 
       const document = JSON.parse(await run(['status', '--json', '--full'])) as {
         project:    string;
@@ -163,40 +160,6 @@ describeWhenGitIsPresent('a whole session through the binary', () => {
       const dashboard = readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.html'), 'utf8');
       expect(dashboard).toContain('Double-click a role to edit it');
       expect(dashboard).toContain('Review pass');
-    } finally {
-      removeScratchDirectory(repositoryDirectory);
-    }
-  }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
-});
-
-// The orchestrator reads this hint from the command's printed output, so it is pinned where a process prints it, and so is its absence from the JSON.
-describeWhenGitIsPresent('unholding a ticket whose build was left paused, through the binary', () => {
-  test('names the single-ticket dispatcher run in the human output only in that state, and never under --json', async () => {
-    const repositoryDirectory = createScratchGitRepository('binary-smoke-unhold');
-    const resumeBuildHint = 'launch a single-ticket dispatcher run for #001';
-
-    try {
-      const run = async (commandLineArguments: readonly string[]): Promise<string> => {
-        const result = await runAgentProgress(commandLineArguments, { currentDirectory: repositoryDirectory });
-        expect(result.exitCode, `\`agent-progress ${commandLineArguments.join(' ')}\` failed: ${result.standardError}`).toBe(0);
-        return result.standardOutput;
-      };
-
-      await run(['init', '--project', 'Example Agency']);
-      await run(['ticket', 'add', 'Show the role history', '--type', 'ticket', ...READY_TICKET_BODY_ARGUMENTS]);
-      await run(['ticket', 'ready', '1']);
-      await run(['ticket', 'claim', '1', '--note', 'Built by the whole-board dispatcher run on ticket-001']);
-      await run(['ticket', 'hold', '1']);
-      expect(await run(['ticket', 'unhold', '1'])).not.toContain(resumeBuildHint);
-
-      await run(['task', 'pause', '1']);
-      await run(['ticket', 'hold', '1']);
-      const jsonOutput = await run(['ticket', 'unhold', '1', '--json']);
-      expect(jsonOutput).not.toContain(resumeBuildHint);
-      expect((JSON.parse(jsonOutput) as { status: string }).status).toBe('in-progress');
-
-      await run(['ticket', 'hold', '1']);
-      expect((await run(['ticket', 'unhold', '1'])).trimEnd().split('\n').at(-1)).toContain(resumeBuildHint);
     } finally {
       removeScratchDirectory(repositoryDirectory);
     }

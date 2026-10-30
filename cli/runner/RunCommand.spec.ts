@@ -94,7 +94,7 @@ async function stopRunner(): Promise<void> {
 }
 
 beforeEach(async () => {
-  repositoryDirectory = await createInitializedScratchRepository('runner', ['--project', 'Example Agency', '--no-claude-md', '--no-hooks'], SPEC_CLOCK);
+  repositoryDirectory = await createInitializedScratchRepository('runner', ['--project', 'Example Agency', '--no-hooks'], SPEC_CLOCK);
   homeDirectory       = createScratchDirectory('runner-home');
 });
 

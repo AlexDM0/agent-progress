@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { basename }   from 'node:path';
 
-import { ensureIgnored, type EnsureIgnoredOutcome }       from '../../../src/lib/git/GitIgnore.ts';
+import { ensureIgnored }                                  from '../../../src/lib/git/GitIgnore.ts';
 import { LocalTimeUtil }                                  from '../../../src/lib/local-time/LocalTimeUtil.ts';
 import { createTracker }                                  from '../../../src/services/tracker/TrackerCreation.ts';
 import { findWorkspace, workspacePathsFor }               from '../../../src/services/tracker/Workspace.ts';
@@ -17,25 +17,18 @@ import type { InstalledFileTexts }                        from '../InstalledFile
 import { refuseBesideAnOlderProgram }                     from '../OlderProgramRefusal.ts';
 import { refuseARetiredAgentHostsInstall }                from '../RetiredAgentHostRefusal.ts';
 import {
+  IGNORE_OUTCOME_WORDS,
   optOutFlagsGiven,
   recordInstallVersion,
   refreshReportLinesOf,
   reportLineOf,
-  refreshTrackedRepository,
-  refuseAnAgentDefinitionOptOutKeepingTheWorkflow,
-  refuseKeepingADispatcherWithoutItsAgentDefinition
+  refreshTrackedRepository
 }                                                                             from '../TrackerRefresh.ts';
 import { initRootDirectoryOf, refuseAnOverrideNamingAnotherDirectory } from './InitRoot.ts';
 
-const USAGE = `${PRODUCT_NAMES.PROGRAM} init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]`;
+const USAGE = `${PRODUCT_NAMES.PROGRAM} init [--project <name>] [--root <path>] [--no-hooks]`;
 
-const KNOWN_OPTION_NAMES = ['project', 'root', 'no-claude-md', 'no-hooks', 'no-workflow', 'no-agent-definition'];
-
-const IGNORE_OUTCOME_WORDS: Record<EnsureIgnoredOutcome, string> = {
-  'already-ignored':      'already ignored, so nothing was added',
-  'appended':             'entry added',
-  'no-gitignore-written': 'not written — this directory is not a git repository',
-};
+const KNOWN_OPTION_NAMES = ['project', 'root', 'no-hooks'];
 
 export const initCommand: CommandHandler = async (commandArguments, context) => {
   commandArguments.rejectUnknownOptions(KNOWN_OPTION_NAMES, USAGE);
@@ -44,14 +37,12 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
   const rootDirectory = initRootDirectoryOf(commandArguments.option('root'), context.currentDirectory);
   const workspace     = workspacePathsFor(rootDirectory);
   const optOutFlags = optOutFlagsGiven((flagName) => commandArguments.flag(flagName));
-  const writesTheDispatcherWorkflow = !optOutFlags.has('no-workflow');
-  const writesTheAgentDefinition = !optOutFlags.has('no-agent-definition');
-  refuseAnAgentDefinitionOptOutKeepingTheWorkflow('init', { writesTheAgentDefinition, writesTheDispatcherWorkflow });
 
   refuseAnOverrideNamingAnotherDirectory(context.currentDirectory, rootDirectory);
 
   const skillFileTexts = installedSkillFileTexts();
-  // The brief, the block and the hook are written by the same refresh a second `init` and `update` run, so a fresh tracker and an adopted one never drift.
+  // The briefs, the hook and the skills are written by the same refresh a second `init` and `update` run, so a fresh tracker and an
+  // adopted one never drift.
   const refreshTheRepository = (installedFileTexts: InstalledFileTexts, { writesTheBriefFirst }: { writesTheBriefFirst: boolean }) => refreshTrackedRepository({
     workspace,
     installedFileTexts,
@@ -80,17 +71,18 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
   refuseBesideAnOlderProgram(workspace.rootDirectory);
   requireInstallManifestThisVersionCanReplace(workspace.rootDirectory);
   refuseARetiredAgentHostsInstall('init', workspace.rootDirectory);
-  refuseKeepingADispatcherWithoutItsAgentDefinition('init', workspace.rootDirectory, { writesTheAgentDefinition, writesTheDispatcherWorkflow });
 
-  // Every installed text is computed before the first write, so a dispatcher that will not bundle leaves no tracker and no file behind.
-  const installedFileTexts = await installedFileTextsFor({ generatesTheDispatcherScript: writesTheDispatcherWorkflow });
+  // Every installed text is computed before the first write, so a template that will not read leaves no tracker and no file behind.
+  const installedFileTexts = installedFileTextsFor();
   if (existingWorkspace !== null) {
     reportTheRefreshOfAnExistingTracker(installedFileTexts);
     return;
   }
 
-  // The ignore entry goes in before the tracker directory exists, so the tracker is never briefly visible to git status.
+  // The ignore entries go in before the tracker directory exists, so the tracker is never briefly visible to git status, and before any
+  // worktree can exist.
   const ignoreOutcome = ensureIgnored(rootDirectory, TRACKER_FILES.TRACKER_DIRECTORY_NAME);
+  ensureIgnored(rootDirectory, PRODUCT_NAMES.WORKTREES_FOLDER);
   const project  = commandArguments.option('project') ?? basename(rootDirectory);
   const creation = await createTracker(workspace, {
     project,

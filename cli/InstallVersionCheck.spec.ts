@@ -37,7 +37,7 @@ function makeTracker(): void {
 }
 
 function installBrief(): void {
-  writeFileSync(installedFilePathsIn(rootDirectory).agentBrief, '# Example brief\n');
+  writeFileSync(installedFilePathsIn(rootDirectory).sessionInstructions, '# Example instructions\n');
 }
 
 function writeManifest(text: string): void {

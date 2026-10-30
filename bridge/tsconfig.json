@@ -10,7 +10,19 @@
   "include": [
     "./**/*.ts",
     "./**/*.tsx",
-    "../src/shared/constants/ProductNames.ts"
+    "../src/shared/constants/ProductNames.ts",
+    "../src/lib/html-escape/HtmlEscapeUtil.ts",
+    "../src/lib/local-time/LocalTimeUtil.ts",
+    "../src/lib/token-count/TokenCountUtil.ts",
+    "../src/lib/tracker-model/constants/ReviewRounds.ts",
+    "../src/lib/tracker-model/constants/Statuses.ts",
+    "../src/lib/tracker-model/@types/Decision.ts",
+    "../src/lib/tracker-model/@types/Draft.ts",
+    "../src/lib/tracker-model/@types/Incident.ts",
+    "../src/lib/tracker-model/@types/Job.ts",
+    "../src/lib/tracker-model/@types/Task.ts",
+    "../src/lib/tracker-model/@types/Ticket.ts",
+    "../src/lib/tracker-model/@types/TrackerProgress.ts"
   ],
   // The specs, the DOM specs and the test-only helpers stay out, so this program's surface is the Bridge that ships.
   "exclude": ["./**/*.spec.ts", "./**/*.dom.tsx", "./testing/**"]

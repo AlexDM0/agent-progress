@@ -14,15 +14,17 @@ import { join } from 'node:path';
 
 import { createInstallManifestWriter } from '../../src/adapters/install/InstallManifestWriter.ts';
 import { writeFileAtomically }         from '../../src/lib/atomic-file/AtomicFile.ts';
-import { writeManagedBlock }           from '../../src/lib/claude-code/ClaudeInstructions.ts';
+import { removeManagedBlock }          from '../../src/lib/claude-code/ClaudeInstructions.ts';
 import {
   claudeLocalSettingsFilePathFor,
   claudeSettingsFilePathFor,
   refreshCommandHook,
+  removeCommandHook,
   writeCommandHook,
   type CommandHook
 }                                                                    from '../../src/lib/claude-code/ClaudeSettings.ts';
 import { ensureIgnored, removeIgnoreEntry }                                                from '../../src/lib/git/GitIgnore.ts';
+import type { EnsureIgnoredOutcome }                                                       from '../../src/lib/git/GitIgnore.ts';
 import type { Workspace }                                                                  from '../../src/services/tracker/Workspace.ts';
 import { OperationRefusal }                                                                from '../../src/shared/OperationRefusal.ts';
 import { PRODUCT_NAMES }                                                                   from '../../src/shared/constants/ProductNames.ts';
@@ -38,9 +40,18 @@ import {
   type InstallOptOutFlag,
   type RetiredSkillFolder
 }                                                                from './constants/ClaudeCodeInstall.ts';
-import { CLAUDE_MANAGED_BLOCK_MARKERS } from './constants/ClaudeManagedBlockMarkers.ts';
+import { CLAUDE_MANAGED_BLOCK_MARKERS }               from './constants/ClaudeManagedBlockMarkers.ts';
+import { RETIRED_HOOKS, retiredInstalledFilePathsIn } from './constants/RetiredClaudeInstall.ts';
 
 const REFUSED_UNREADABLE_SETTINGS_LINE = 'refused (the settings file could not be read)';
+
+const CLAUDE_INSTRUCTIONS_FILE_NAME = 'CLAUDE.md';
+
+export const IGNORE_OUTCOME_WORDS: Readonly<Record<EnsureIgnoredOutcome, string>> = {
+  'already-ignored':      'already ignored, so nothing was added',
+  'appended':             'entry added',
+  'no-gitignore-written': 'not written — this directory is not a git repository',
+};
 
 /** Wide enough for the longest label, `.gitignore:`, so every value starts in one column. */
 const REPORT_LABEL_COLUMN_WIDTH = 13;
@@ -131,15 +142,6 @@ function refreshBriefs(files: readonly InstalledFile[], installedFilePaths: Inst
   return anyBriefChanged ? `updated — re-read it before your next brief (${briefFilePath})` : `unchanged (${briefFilePath})`;
 }
 
-/** Rewritten on every refresh like the briefs: a hand edit is undone, and a project that wants its own keeps it under another name. */
-function refreshRewrittenFiles(files: readonly InstalledFile[], installedFilePaths: InstalledFilePaths, installedFileTexts: InstalledFileTexts): string {
-  const fileLines = files.map((file) => {
-    const filePath = installedFilePaths[file.name];
-    return fileChangedByWriting(filePath, requiredTextOf(installedFileTexts, file.name)) ? `updated (${filePath})` : `unchanged (${filePath})`;
-  });
-  return fileLines.join('; ');
-}
-
 /**
  * Every file of the skill is rewritten, like the briefs; a file a user added to the folder is never touched, so one the skill dropped stays
  * behind too. Each folder is git-ignored, since it is a copy of this checkout's and the next `update` replaces it.
@@ -218,15 +220,10 @@ function refreshClaudeSettingsHooks(hooks: readonly CommandHook[], rootDirectory
   return hookLines.map(({ event, line }) => `${event} ${line}`).join('; ');
 }
 
-function refreshManagedBlock(
-  claudeFilePath: string,
-  blockBody: string,
-  commandName: string,
-  standardError: (text: string) => void,
-): string {
-  const bytesBefore = fileBytesOrNothing(claudeFilePath);
-  const outcome     = writeManagedBlock(claudeFilePath, blockBody, CLAUDE_MANAGED_BLOCK_MARKERS);
-
+/** Removed once: `init` and `update` no longer own CLAUDE.md, and the Overseer launches nothing onto a target that still commits the block. */
+function removeTheManagedBlock(rootDirectory: string, commandName: string, standardError: (text: string) => void): string {
+  const claudeFilePath = join(rootDirectory, CLAUDE_INSTRUCTIONS_FILE_NAME);
+  const outcome        = removeManagedBlock(claudeFilePath, CLAUDE_MANAGED_BLOCK_MARKERS);
   if (outcome === 'refused-start-without-end') {
     standardError(
       `${claudeFilePath} has an \`${CLAUDE_MANAGED_BLOCK_MARKERS.start}\` marker with no matching end marker, so the block was left alone. `
@@ -234,57 +231,38 @@ function refreshManagedBlock(
     );
     return 'refused (start marker without an end marker)';
   }
+  return outcome === 'removed' ? 'removed; commit CLAUDE.md' : 'no managed block';
+}
 
-  if (outcome === 'replaced') {
-    const pairCount = readFileSync(claudeFilePath, 'utf8').split(CLAUDE_MANAGED_BLOCK_MARKERS.start).length - 1;
-    if (pairCount > 1) {
-      standardError(`${claudeFilePath} holds ${pairCount} ${PRODUCT_NAMES.PROGRAM} blocks; only the first was refreshed and the others are now stale.`);
+/** Each retired hook goes from both settings files, since version 16 wrote it into whichever already held it; nothing is said when none was there. */
+function retiredHookLinesOf(rootDirectory: string, commandName: string, standardError: (text: string) => void): string[] {
+  const settingsFilePaths = [claudeSettingsFilePathFor(rootDirectory), claudeLocalSettingsFilePathFor(rootDirectory)];
+  return settingsFilePaths.flatMap((settingsFilePath) => {
+    const outcomes = RETIRED_HOOKS.map((hook) => ({ event: hook.event, outcome: removeCommandHook(settingsFilePath, hook) }));
+    if (outcomes.some(({ outcome }) => outcome === 'refused-unreadable')) {
+      standardError(
+        `${settingsFilePath} could not be read as a JSON object, so it was left exactly as it was and the retired hooks stayed in it. `
+        + `Fix or remove that file and run \`${PRODUCT_NAMES.PROGRAM} ${commandName}\` again.`,
+      );
+      return [`${REFUSED_UNREADABLE_SETTINGS_LINE} ${settingsFilePath}`];
     }
-  }
-  // Reported by the bytes on disk, not by the write that was attempted.
-  if (!bytesDiffer(bytesBefore, fileBytesOrNothing(claudeFilePath))) return 'unchanged';
-  return `updated (${outcome})`;
-}
-
-/** Checked before the first write: the dispatcher starts every builder and reviewer as the agent this definition declares. */
-export function refuseAnAgentDefinitionOptOutKeepingTheWorkflow(
-  commandName: string,
-  { writesTheAgentDefinition, writesTheDispatcherWorkflow }: { writesTheAgentDefinition: boolean; writesTheDispatcherWorkflow: boolean },
-): void {
-  if (writesTheAgentDefinition || !writesTheDispatcherWorkflow) return;
-  throw new OperationRefusal(
-    'refused',
-    `${PRODUCT_NAMES.PROGRAM} ${commandName} --no-agent-definition needs --no-workflow as well: the dispatcher workflow starts every builder and reviewer `
-    + 'as the `agent-progress-worker` agent that definition declares, so without it no worker could start. Nothing was written. '
-    + 'Add --no-workflow, or drop --no-agent-definition.',
-  );
-}
-
-/** Checked before the first write: `--no-workflow` leaves an installed dispatcher in place, and it could start no worker without the definition. */
-export function refuseKeepingADispatcherWithoutItsAgentDefinition(
-  commandName: string,
-  rootDirectory: string,
-  { writesTheAgentDefinition, writesTheDispatcherWorkflow }: { writesTheAgentDefinition: boolean; writesTheDispatcherWorkflow: boolean },
-): void {
-  if (writesTheAgentDefinition || writesTheDispatcherWorkflow) return;
-  const installedFilePaths   = installedFilePathsIn(rootDirectory);
-  const dispatcherFilePath   = installedFilePaths[lastFileOf(filesOptedOutBy('no-workflow')).name];
-  const definitionFilePath   = installedFilePaths[lastFileOf(filesOptedOutBy('no-agent-definition')).name];
-  if (!existsSync(dispatcherFilePath) || existsSync(definitionFilePath)) return;
-  throw new OperationRefusal(
-    'refused',
-    `${PRODUCT_NAMES.PROGRAM} ${commandName} --no-agent-definition --no-workflow would leave ${dispatcherFilePath} in place without `
-    + `${definitionFilePath}, the \`agent-progress-worker\` agent it starts every builder and reviewer as, so no worker could start. `
-    + 'Nothing was written. Drop --no-agent-definition, or remove that dispatcher script first.',
-  );
-}
-
-function filesOptedOutBy(optOutFlag: InstallOptOutFlag): readonly InstalledFile[] {
-  return CLAUDE_CODE_INSTALL.parts.flatMap((part) => {
-    if (part.optOutFlag !== optOutFlag) return [];
-    if (part.writing === 'rewritten-files') return part.files;
-    return [];
+    const removedEvents = outcomes.filter(({ outcome }) => outcome === 'removed').map(({ event }) => event);
+    return removedEvents.length === 0 ? [] : [`removed ${removedEvents.join(', ')} hooks (${settingsFilePath})`];
   });
+}
+
+/** What install version 16 wrote that 17 does not: its hooks, unless the reader asked for no settings file to be touched, and its files. */
+function removeTheRetiredInstall(rootDirectory: string, removesHooks: boolean, commandName: string, standardError: (text: string) => void): string {
+  const hookLines   = removesHooks ? retiredHookLinesOf(rootDirectory, commandName, standardError) : [];
+  const removedFilePaths = Object.values(retiredInstalledFilePathsIn(rootDirectory)).filter((filePath) => existsSync(filePath));
+  for (const filePath of removedFilePaths) rmSync(filePath);
+  const fileLines = removedFilePaths.map((filePath) => `removed (${filePath})`);
+  const lines = [...hookLines, ...fileLines];
+  return lines.length === 0 ? 'nothing to remove' : lines.join('; ');
+}
+
+function ignoreFolders(rootDirectory: string, folderNames: readonly string[]): string {
+  return folderNames.map((folderName) => `${folderName} ${IGNORE_OUTCOME_WORDS[ensureIgnored(rootDirectory, folderName)]}`).join('; ');
 }
 
 /** Touches nothing the tracker holds: not `progress.json`, not a ticket, not the log. */
@@ -302,25 +280,29 @@ export function refreshTrackedRepository(request: TrackerRefreshRequest): Tracke
     // behalf of a reader who asked for no settings file to be touched at all.
     if (part.optOutFlag !== null && optOutFlags.has(part.optOutFlag)) return `left alone (--${part.optOutFlag})`;
     switch (part.writing) {
-      case 'managed-block':
-        return refreshManagedBlock(installedFilePaths[part.file.name], requiredTextOf(installedFileTexts, part.file.name), commandName, standardError);
+      case 'retired-managed-block':
+        return removeTheManagedBlock(workspace.rootDirectory, commandName, standardError);
+      case 'retired-install':
+        return removeTheRetiredInstall(workspace.rootDirectory, !optOutFlags.has('no-hooks'), commandName, standardError);
       case 'briefs':
         return refreshBriefs(part.files, installedFilePaths, installedFileTexts);
-      case 'rewritten-files':
-        return refreshRewrittenFiles(part.files, installedFilePaths, installedFileTexts);
       case 'claude-settings-hooks':
         return refreshClaudeSettingsHooks(part.hooks, workspace.rootDirectory, commandName, standardError);
       case 'skill-folders':
         return refreshSkillFolders(part, workspace.rootDirectory, installedSkillFileTexts);
+      case 'ignored-folders':
+        return ignoreFolders(workspace.rootDirectory, part.folderNames);
     }
   }
 
   // The briefs go last, so a write that fails before them leaves the brief's `updated` for the rerun to report, unless a fresh init
-  // writes them first to mark the files installed.
+  // writes them first to mark the files installed. The retired parts go after them, so a run cut short never leaves neither marker.
+  const isRetired = (part: InstalledPart) => part.writing === 'retired-managed-block' || part.writing === 'retired-install';
   const writeOrder = [
     ...parts.filter((part) => writesTheBriefFirst && part.writing === 'briefs'),
-    ...parts.filter((part) => part.writing !== 'briefs'),
+    ...parts.filter((part) => part.writing !== 'briefs' && !isRetired(part)),
     ...parts.filter((part) => !writesTheBriefFirst && part.writing === 'briefs'),
+    ...parts.filter(isRetired),
   ];
   const lineByPart = new Map<InstalledPart, string>();
   for (const part of writeOrder) lineByPart.set(part, refreshedLineOf(part));

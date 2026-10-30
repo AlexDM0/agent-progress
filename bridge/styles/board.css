@@ -16,6 +16,32 @@
  *   .bridge-control         a command button and, beside it, the Overseer's refusal verbatim (.bridge-refusal)
  *   .bridge-overseer-state[data-state]  serving | held-by-install-change | handing-over | down | connecting
  *   .agents-elapsed-silent  the time since a job's last tool call while its silent sweeps are above zero
+ * Kanban (bridge/views/kanban/)
+ *   .bridge-kanban          the epic chips over .bridge-kanban-lanes
+ *   .bridge-lane[data-lane] drafts | ready | building | in-review | merge-queue | done | abandoned; its head dot by [data-state]
+ *   .bridge-kanban-card[data-state]  a ticket or filing draft; [data-changed] once its state moved since the previous board
+ *   .bridge-kanban-size[data-size], .bridge-kanban-priority[data-priority], .bridge-kanban-type[data-type]  the head's marks
+ * Tickets (bridge/views/tickets/)
+ *   .bridge-tickets         the count and Group by epic over .bridge-tickets-toolbar (search, chips) and .bridge-tickets-table
+ *   .bridge-ticket-row[data-state]  one ticket; .bridge-ticket-epic-head[data-epic-slot] heads an epic's rows when grouped;
+ *                           .bridge-ticket-empty the one row of a table nothing matches; .bridge-match a search match
+ *   .bridge-state-badge[data-state], .bridge-ticket-priority[data-priority], .bridge-ticket-type[data-type]  the marks
+ * Detail panel (bridge/views/detail-panel/)
+ *   .bridge-detail          the head, .bridge-detail-controls, .bridge-detail-facts and its .bridge-detail-section blocks:
+ *                           Timeline (.bridge-detail-phases), Description (iframe.bridge-ticket-body, sandboxed), Log
+ *                           (.bridge-detail-log)
+ * Progress (bridge/views/progress/)
+ *   .bridge-progress-view   the toolbar (range chips, .bridge-progress-choice, .bridge-progress-range-note) over
+ *                           .bridge-progress-chart and, when a ticket depends on another, .bridge-dependencies
+ *   .bridge-progress-row[data-state]  a name cell and a .bridge-progress-track of .bridge-progress-bar[data-state] stretches
+ *                           placed by style; [data-review-of] a review row drawn above its ticket's; the axis row holds the ticks,
+ *                           .bridge-progress-overlay the grid lines and the now line
+ * Dependencies (bridge/views/dependencies/)
+ *   .bridge-dependency-canvas  bands, edges, heads and .bridge-dependency-node[data-state] placed in pixels by style;
+ *                           [data-lineage-shown] dims all but the [data-lit] lineage
+ * Filter chips (bridge/chips/)
+ *   .bridge-chips           one row of .bridge-chip[aria-pressed], [data-empty] at a count of zero, leading with a
+ *                           .bridge-lane-dot[data-state] or a .bridge-chip-swatch[data-epic-slot]
  */
 
 html:not([data-theme]) body {
@@ -150,6 +176,222 @@ body {
 
 .bridge-empty {
   color: var(--ink-muted);
+}
+
+.bridge-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+}
+
+.bridge-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-small);
+  cursor: pointer;
+}
+
+.bridge-chip[aria-pressed="true"] {
+  background: var(--link-tint);
+  border-color: var(--link);
+}
+
+.bridge-chip[data-empty] {
+  color: var(--ink-muted);
+}
+
+.bridge-chip-count {
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.bridge-chip-swatch,
+.bridge-lane-dot {
+  width: 0.6em;
+  height: 0.6em;
+  border-radius: 50%;
+  background: var(--line-strong);
+}
+
+.bridge-lane-dot[data-state="draft"] { background: var(--state-draft-ink); }
+.bridge-lane-dot[data-state="pending"] { background: var(--state-pending-ink); }
+.bridge-lane-dot[data-state="in-progress"] { background: var(--state-in-progress-ink); }
+.bridge-lane-dot[data-state="in-review"] { background: var(--state-in-review-ink); }
+.bridge-lane-dot[data-state="reviewed"] { background: var(--state-reviewed-ink); }
+.bridge-lane-dot[data-state="delivered"] { background: var(--state-delivered-ink); }
+.bridge-lane-dot[data-state="abandoned"] { background: var(--state-abandoned-ink); }
+
+.bridge-kanban-lanes {
+  display: grid;
+  grid-auto-columns: minmax(16rem, 1fr);
+  grid-auto-flow: column;
+  gap: var(--space-3);
+  overflow-x: auto;
+}
+
+.bridge-lane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+}
+
+.bridge-lane-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-left: var(--space-2);
+  border-left: 3px solid var(--line-strong);
+}
+
+.bridge-lane-head[data-state="draft"] { border-left-color: var(--state-draft-edge); }
+.bridge-lane-head[data-state="pending"] { border-left-color: var(--state-pending-edge); }
+.bridge-lane-head[data-state="in-progress"] { border-left-color: var(--state-in-progress-edge); }
+.bridge-lane-head[data-state="in-review"] { border-left-color: var(--state-in-review-edge); }
+.bridge-lane-head[data-state="reviewed"] { border-left-color: var(--state-reviewed-edge); }
+.bridge-lane-head[data-state="delivered"] { border-left-color: var(--state-delivered-edge); }
+.bridge-lane-head[data-state="abandoned"] { border-left-color: var(--state-abandoned-edge); }
+
+.bridge-lane-title {
+  margin: 0;
+  font-size: var(--fs-title);
+  font-weight: 600;
+}
+
+.bridge-lane-count {
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.bridge-lane-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.bridge-lane-empty {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: var(--fs-small);
+}
+
+.bridge-kanban-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--bg);
+}
+
+.bridge-kanban-card[data-state="draft"] {
+  border-style: dashed;
+  border-color: var(--state-draft-edge);
+  background: var(--state-draft-tint);
+}
+
+.bridge-kanban-card[data-changed] {
+  animation: bridge-changed 1200ms var(--ease-out) 1;
+}
+
+@keyframes bridge-changed {
+  from { box-shadow: 0 0 0 2px var(--link); }
+  to { box-shadow: 0 0 0 0 transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bridge-kanban-card[data-changed] {
+    animation: none;
+    outline: 2px solid var(--link);
+  }
+}
+
+.bridge-kanban-card-head,
+.bridge-kanban-marks,
+.bridge-kanban-actions,
+.bridge-epic-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.bridge-kanban-select {
+  margin: 0;
+}
+
+.bridge-kanban-id {
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  color: var(--ink-muted);
+}
+
+.bridge-kanban-size,
+.bridge-kanban-type,
+.bridge-kanban-priority,
+.bridge-epic-chip {
+  padding: 0 var(--space-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  font-size: var(--fs-micro);
+  color: var(--ink-muted);
+}
+
+.bridge-kanban-priority[data-priority="high"] {
+  border-color: var(--warn-edge);
+  background: var(--warn-tint);
+  color: var(--warn-ink);
+}
+
+.bridge-kanban-type[data-type="bug"] {
+  border-color: var(--err-edge);
+  color: var(--err-ink);
+}
+
+.bridge-kanban-tokens {
+  margin-left: auto;
+  font-size: var(--fs-micro);
+  color: var(--ink-muted);
+}
+
+.bridge-kanban-title {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.bridge-kanban-label,
+.bridge-kanban-note {
+  margin: 0;
+  font-size: var(--fs-small);
+  color: var(--state-draft-ink);
+}
+
+.bridge-kanban-waiting,
+.bridge-kanban-held {
+  font-size: var(--fs-micro);
+  color: var(--ink-muted);
+}
+
+.bridge-kanban-held {
+  color: var(--warn-ink);
+}
+
+.bridge-kanban {
+  display: flex;
+  flex-direction: column;
 }
 
 .bridge-new-code,
@@ -491,3 +733,496 @@ body {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+.bridge-tickets,
+.bridge-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+}
+
+.bridge-detail {
+  margin-bottom: var(--space-3);
+}
+
+.bridge-tickets-head,
+.bridge-tickets-toolbar,
+.bridge-detail-head,
+.bridge-detail-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.bridge-tickets-count {
+  color: var(--ink-muted);
+  font-size: var(--fs-small);
+}
+
+.bridge-search,
+.bridge-text-input {
+  min-width: 14rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+}
+
+.bridge-tickets-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-small);
+}
+
+.bridge-tickets-table th,
+.bridge-tickets-table td {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.bridge-sort {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.bridge-ticket-row[data-state="draft"] {
+  background: var(--state-draft-tint);
+}
+
+.bridge-ticket-id,
+.bridge-ticket-branch,
+.bridge-ticket-task,
+.bridge-detail-id {
+  font-family: var(--font-mono);
+  color: var(--ink-muted);
+}
+
+.bridge-link {
+  color: var(--link);
+}
+
+.bridge-match {
+  background: var(--link-tint);
+  color: inherit;
+}
+
+.bridge-ticket-priority,
+.bridge-ticket-type,
+.bridge-ticket-group,
+.bridge-state-badge {
+  margin-left: var(--space-1);
+  padding: 0 var(--space-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  font-size: var(--fs-micro);
+  color: var(--ink-muted);
+}
+
+.bridge-ticket-priority[data-priority="high"] {
+  border-color: var(--warn-edge);
+  background: var(--warn-tint);
+  color: var(--warn-ink);
+}
+
+.bridge-ticket-type[data-type="bug"] {
+  border-color: var(--err-edge);
+  color: var(--err-ink);
+}
+
+.bridge-state-badge[data-state="draft"] { border-color: var(--state-draft-edge); color: var(--state-draft-ink); }
+.bridge-state-badge[data-state="pending"] { border-color: var(--state-pending-edge); color: var(--state-pending-ink); }
+.bridge-state-badge[data-state="in-progress"] { border-color: var(--state-in-progress-edge); color: var(--state-in-progress-ink); }
+.bridge-state-badge[data-state="in-review"] { border-color: var(--state-in-review-edge); color: var(--state-in-review-ink); }
+.bridge-state-badge[data-state="reviewed"] { border-color: var(--state-reviewed-edge); color: var(--state-reviewed-ink); }
+.bridge-state-badge[data-state="delivered"] { border-color: var(--state-delivered-edge); color: var(--state-delivered-ink); }
+.bridge-state-badge[data-state="abandoned"] { border-color: var(--state-abandoned-edge); color: var(--state-abandoned-ink); }
+
+.bridge-ticket-waiting {
+  margin-left: var(--space-1);
+  font-size: var(--fs-micro);
+  color: var(--warn-ink);
+}
+
+.bridge-ticket-epic-head th {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.bridge-ticket-empty {
+  color: var(--ink-muted);
+}
+
+.bridge-detail-title {
+  margin: 0;
+  font-size: var(--fs-title);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.bridge-detail-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  font-size: var(--fs-small);
+}
+
+.bridge-detail-fact {
+  display: contents;
+}
+
+.bridge-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.bridge-detail-section-title {
+  margin: 0;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+
+.bridge-detail-phases,
+.bridge-detail-log {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-small);
+}
+
+.bridge-detail-log time,
+.bridge-detail-phases time {
+  margin-right: var(--space-2);
+  font-family: var(--font-mono);
+  color: var(--ink-muted);
+}
+
+.bridge-ticket-body {
+  width: 100%;
+  min-height: 4rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--bg);
+}
+
+.bridge-state-badge[data-state="paused"] { border-color: var(--state-pending-edge); color: var(--state-pending-ink); }
+.bridge-state-badge[data-state="reviewing"],
+.bridge-state-badge[data-state="re-review"] { border-color: var(--state-in-review-edge); color: var(--state-in-review-ink); }
+.bridge-state-badge[data-ready] { border-color: var(--state-reviewed-edge); color: var(--state-reviewed-ink); }
+
+.bridge-progress-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.bridge-progress-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.bridge-progress-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--fs-small);
+}
+
+.bridge-progress-range-note {
+  font-size: var(--fs-small);
+  color: var(--ink-muted);
+}
+
+.bridge-progress-chart {
+  --progress-name-width: 360px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.bridge-progress-rows {
+  position: relative;
+}
+
+.bridge-progress-row {
+  display: grid;
+  grid-template-columns: var(--progress-name-width) 1fr;
+  min-height: 28px;
+  border-bottom: 1px solid var(--line);
+}
+
+.bridge-progress-row[data-review-of] .bridge-progress-name {
+  padding-left: var(--space-5);
+}
+
+.bridge-progress-axis-row {
+  min-height: 22px;
+  background: var(--bg);
+}
+
+.bridge-progress-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: 0 var(--space-2);
+  border-right: 1px solid var(--line);
+  font-size: var(--fs-small);
+}
+
+.bridge-progress-label {
+  font-family: var(--font-mono);
+  color: var(--ink-muted);
+}
+
+.bridge-progress-row-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bridge-progress-track {
+  position: relative;
+}
+
+.bridge-progress-tick {
+  position: absolute;
+  top: 4px;
+  padding-left: 3px;
+  font-size: var(--fs-micro);
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.bridge-progress-overlay {
+  position: absolute;
+  inset: 0 0 0 var(--progress-name-width);
+  pointer-events: none;
+}
+
+.bridge-progress-grid-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1px dashed var(--line);
+}
+
+.bridge-progress-now {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 2px solid var(--status-live);
+}
+
+.bridge-progress-bar {
+  position: absolute;
+  top: 7px;
+  height: 14px;
+  min-width: 2px;
+  border-radius: 3px;
+  background: var(--bar-fill, var(--line-strong));
+}
+
+.bridge-progress-bar[data-review-pass] {
+  top: 10px;
+  height: 8px;
+}
+
+.bridge-progress-bar[data-live] {
+  background-image: repeating-linear-gradient(135deg, transparent 0 4px, var(--surface) 4px 6px);
+}
+
+.bridge-progress-bar[data-state="draft"] { --bar-fill: var(--state-draft-edge); }
+.bridge-progress-bar[data-state="pending"],
+.bridge-progress-bar[data-state="paused"] { --bar-fill: var(--state-pending-edge); }
+.bridge-progress-bar[data-state="in-progress"] { --bar-fill: var(--state-in-progress-edge); }
+.bridge-progress-bar[data-state="in-review"] { --bar-fill: var(--state-in-review-edge); }
+.bridge-progress-bar[data-state="reviewing"] { --bar-fill: var(--state-in-review-ink); }
+.bridge-progress-bar[data-state="re-review"] { --bar-fill: var(--link); }
+.bridge-progress-bar[data-state="reviewed"] { --bar-fill: var(--state-reviewed-edge); }
+.bridge-progress-bar[data-state="delivered"] { --bar-fill: var(--state-delivered-edge); }
+.bridge-progress-bar[data-state="abandoned"] { --bar-fill: var(--state-abandoned-edge); }
+
+.bridge-progress-clip {
+  position: absolute;
+  top: 7px;
+  height: 14px;
+  border-left: 2px dotted var(--ink-muted);
+}
+
+.bridge-progress-clip[data-side="left"] { left: 0; }
+.bridge-progress-clip[data-side="right"] { right: 0; }
+
+.bridge-dependencies {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  overflow-x: auto;
+}
+
+.bridge-dependency-canvas {
+  position: relative;
+}
+
+.bridge-dependency-band {
+  position: absolute;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--bg);
+}
+
+.bridge-dependency-band[data-narrow] { border-color: var(--warn-edge); }
+.bridge-dependency-band[data-done] { border-style: dashed; }
+
+.bridge-dependency-edges {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.bridge-dependency-edge {
+  fill: none;
+  stroke: var(--line-strong);
+  stroke-width: 1.5;
+}
+
+.bridge-dependency-edge[data-pace] { stroke: var(--warn-ink); stroke-width: 2; }
+.bridge-dependency-edge[data-settled] { stroke-dasharray: 4 3; }
+
+.bridge-dependency-head {
+  position: absolute;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  width: 192px;
+  font-size: var(--fs-small);
+}
+
+.bridge-dependency-head-name {
+  font-weight: 600;
+}
+
+.bridge-dependency-head-count {
+  color: var(--ink-muted);
+}
+
+.bridge-dependency-slots {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.bridge-dependency-slot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: var(--space-1);
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+}
+
+.bridge-dependency-slot[data-filled] { background: var(--ink-muted); }
+
+.bridge-dependency-node {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  box-sizing: border-box;
+  width: 192px;
+  height: 80px;
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--node-stripe, var(--line-strong));
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  text-decoration: none;
+  overflow: hidden;
+}
+
+.bridge-dependency-node[data-state="pending"] { --node-stripe: var(--state-pending-edge); }
+.bridge-dependency-node[data-state="in-progress"] { --node-stripe: var(--state-in-progress-edge); }
+.bridge-dependency-node[data-state="in-review"],
+.bridge-dependency-node[data-state="reviewing"],
+.bridge-dependency-node[data-state="re-review"] { --node-stripe: var(--state-in-review-edge); }
+.bridge-dependency-node[data-state="reviewed"] { --node-stripe: var(--state-reviewed-edge); }
+.bridge-dependency-node[data-state="delivered"] { --node-stripe: var(--state-delivered-edge); }
+.bridge-dependency-node[data-done] { background: var(--bg); color: var(--ink-muted); }
+.bridge-dependency-node[data-live] { box-shadow: 0 0 0 1px var(--status-live); }
+
+.bridge-dependency-canvas[data-lineage-shown] .bridge-dependency-node:not([data-lit]),
+.bridge-dependency-canvas[data-lineage-shown] .bridge-dependency-edge:not([data-lit]) {
+  opacity: 0.3;
+}
+
+.bridge-dependency-node-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.bridge-dependency-node-title {
+  overflow: hidden;
+  font-size: var(--fs-small);
+  line-height: 1.3;
+}
+
+.bridge-dependency-wait {
+  margin-left: auto;
+  font-size: var(--fs-micro);
+  color: var(--ink-muted);
+}
+
+.bridge-dependency-wait[data-heavy] { color: var(--ink); }
+
+.bridge-dependency-weight {
+  position: absolute;
+  bottom: 4px;
+  left: var(--space-3);
+  height: 3px;
+  border-radius: 2px;
+  background: var(--warn-edge);
+}
+
+.bridge-dependency-legend {
+  display: flex;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-small);
+  color: var(--ink-muted);
+}
+
+.bridge-dependency-legend-line {
+  display: inline-block;
+  width: 20px;
+  margin-right: var(--space-1);
+  vertical-align: middle;
+  border-top: 1.5px solid var(--line-strong);
+}
+
+.bridge-dependency-legend-line[data-pace] { border-top: 2px solid var(--warn-ink); }
+.bridge-dependency-legend-line[data-settled] { border-top-style: dashed; }

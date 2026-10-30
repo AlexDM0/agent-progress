@@ -92,7 +92,7 @@ describe('-h that is not a request for the reference', () => {
   beforeAll(async () => {
     trackedDirectory = createScratchDirectory('main-short-help');
     const initialisingContext = createCapturedCommandContext({ currentDirectory: trackedDirectory });
-    expect(await runCommandLine(['init', '--project', 'Example Agency', '--no-claude-md', '--no-hooks'], initialisingContext)).toBe(0);
+    expect(await runCommandLine(['init', '--project', 'Example Agency', '--no-hooks'], initialisingContext)).toBe(0);
     expect(await runCommandLine(['ticket', 'add', '--type', 'ticket', 'Example ticket'], createCapturedCommandContext({ currentDirectory: trackedDirectory }))).toBe(0);
   });
 
@@ -155,7 +155,7 @@ describe('a command run where no tracker is', () => {
 });
 
 describe('a tracker whose installed files are of another install version', () => {
-  const COMMANDS_THAT_RUN_OR_CHECK_ON_THEIR_OWN = new Set(['init', 'update', 'help', 'status', 'version', 'hook', 'release']);
+  const COMMANDS_THAT_RUN_OR_CHECK_ON_THEIR_OWN = new Set(['init', 'update', 'help', 'status', 'version', 'hook']);
   const CHECKED_COMMAND_NAMES = COMMAND_NAMES.filter((commandName) => !COMMANDS_THAT_RUN_OR_CHECK_ON_THEIR_OWN.has(commandName));
 
   /** A tracker made by `init` and then stripped of its manifest is exactly a tracker installed by an agent-progress from before versioning. */
@@ -164,7 +164,7 @@ describe('a tracker whose installed files are of another install version', () =>
   beforeEach(async () => {
     trackedDirectory = realpathSync(createScratchDirectory('main-install-version'));
     const initialisingContext = createCapturedCommandContext({ currentDirectory: trackedDirectory });
-    expect(await runCommandLine(['init', '--project', 'Example Agency', '--no-claude-md', '--no-hooks'], initialisingContext)).toBe(0);
+    expect(await runCommandLine(['init', '--project', 'Example Agency', '--no-hooks'], initialisingContext)).toBe(0);
     rmSync(installedFilePathsIn(trackedDirectory).installManifest);
   });
 
@@ -273,8 +273,36 @@ describe('a tracker whose installed files are of another install version', () =>
     }
   }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
+  test('hook session-start skips the install check: it prints the session instructions at exit 0, and nothing under a job', async () => {
+    const relayFolder = createScratchDirectory('main-session-start');
+    try {
+      const instructions = readFileSync(installedFilePathsIn(trackedDirectory).sessionInstructions, 'utf8');
+      const session = await runAgentProgress(['hook', 'session-start'], { currentDirectory: trackedDirectory, standardInput: '{}' });
+      expect(session.exitCode, session.standardError).toBe(0);
+      expect(session.standardOutput).toBe(instructions);
+      expect(session.standardError).toBe('');
+
+      const underAJob = await runAgentProgress(['hook', 'session-start'], {
+        currentDirectory: trackedDirectory,
+        environment:      { [JOB_ID_VARIABLE]: 'J7', [RELAY_DIRECTORY_VARIABLE]: relayFolder },
+        standardInput:    '{}',
+      });
+      expect(underAJob.exitCode, underAJob.standardError).toBe(0);
+      expect(underAJob.standardOutput).toBe('');
+
+      rmSync(installedFilePathsIn(trackedDirectory).sessionInstructions);
+      const unreadable = await runAgentProgress(['hook', 'session-start', '--unknown'], { currentDirectory: trackedDirectory, standardInput: '' });
+      expect(unreadable.exitCode, 'whatever goes wrong, the hook exits 0 and prints nothing').toBe(0);
+      expect(unreadable.standardOutput).toBe('');
+      expect(unreadable.standardError).toBe('');
+      expect(existsSync(installedFilePathsIn(trackedDirectory).installManifest)).toBe(false);
+    } finally {
+      removeScratchDirectory(relayFolder);
+    }
+  }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
+
   test('init runs and records the install version, after which a refused command runs', async () => {
-    expect(await runCommandLine(['init', '--no-claude-md', '--no-hooks'], trackedContext())).toBe(0);
+    expect(await runCommandLine(['init', '--no-hooks'], trackedContext())).toBe(0);
     expect(existsSync(installedFilePathsIn(trackedDirectory).installManifest)).toBe(true);
     const addingContext = trackedContext();
     expect(await runCommandLine(['task', 'add', 'Example row'], addingContext), addingContext.errorText()).toBe(0);
@@ -283,13 +311,13 @@ describe('a tracker whose installed files are of another install version', () =>
   test('update runs and records the install version, after which a refused command runs', async () => {
     const refusedContext = trackedContext();
     expect(await runCommandLine(['task', 'add', 'Example row'], refusedContext)).toBe(1);
-    expect(await runCommandLine(['update', '--no-claude-md', '--no-hooks'], trackedContext())).toBe(0);
+    expect(await runCommandLine(['update', '--no-hooks'], trackedContext())).toBe(0);
     const addingContext = trackedContext();
     expect(await runCommandLine(['task', 'add', 'Example row'], addingContext), addingContext.errorText()).toBe(0);
   });
 
   test('a tracker with neither a brief nor a manifest counts as current, so its commands run', async () => {
-    rmSync(installedFilePathsIn(trackedDirectory).agentBrief);
+    rmSync(installedFilePathsIn(trackedDirectory).sessionInstructions);
     const addingContext = trackedContext();
     expect(await runCommandLine(['task', 'add', 'Example row'], addingContext), addingContext.errorText()).toBe(0);
   });
@@ -356,7 +384,7 @@ describe('after the stubbed cases', () => {
     const trackedDirectory = createScratchDirectory('main-render');
     try {
       const initialisingContext = createCapturedCommandContext({ currentDirectory: trackedDirectory });
-      expect(await runCommandLine(['init', '--project', 'Example Agency', '--no-claude-md', '--no-hooks'], initialisingContext)).toBe(0);
+      expect(await runCommandLine(['init', '--project', 'Example Agency', '--no-hooks'], initialisingContext)).toBe(0);
       const renderingContext = createCapturedCommandContext({ currentDirectory: trackedDirectory });
       expect(await runCommandLine(['render'], renderingContext), renderingContext.errorText()).toBe(0);
       expect(renderingContext.errorText()).toBe('');

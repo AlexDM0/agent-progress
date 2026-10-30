@@ -104,7 +104,7 @@ function problemOf(message: DevToolsMessage): string | null {
 
 /** Starts a runner and Chrome, reads the Bridge, and removes both and every scratch folder again, whatever happened. */
 export async function readTheBridgeHeadless(chromePath: string): Promise<HeadlessBridgeReading> {
-  const repositoryDirectory = await createInitializedScratchRepository('headless-bridge', ['--project', HEADLESS_CHECK_PROJECT, '--no-claude-md', '--no-hooks'], FIXED_CLOCK);
+  const repositoryDirectory = await createInitializedScratchRepository('headless-bridge', ['--project', HEADLESS_CHECK_PROJECT, '--no-hooks'], FIXED_CLOCK);
   const homeDirectory = createScratchDirectory('headless-bridge-home');
   const chromeProfileDirectory = createScratchDirectory('headless-bridge-chrome');
   let chrome: Bun.Subprocess<'ignore', 'ignore', 'pipe'> | null = null;

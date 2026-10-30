@@ -2,14 +2,16 @@ import { PRODUCT_NAMES } from '../../../shared/constants/ProductNames.ts';
 
 /** The names of the tracker's own files and folders, each a bare name joined onto the directory that holds it. */
 export const TRACKER_FILES = {
-  PROGRESS_FILE_NAME:     'progress.json',
-  LOG_FILE_NAME:          'log.jsonl',
-  HTML_FILE_NAME:         'progress.html',
-  STAMP_FILE_NAME:        'progress.stamp.js',
-  TRACKER_DIRECTORY_NAME: PRODUCT_NAMES.DATA_FOLDER,
-  TICKETS_DIRECTORY_NAME: 'tickets',
-  EPICS_DIRECTORY_NAME:   'epics',
-  DRAFTS_DIRECTORY_NAME:  'filing-cabinet',
-  LOCK_DIRECTORY_NAME:    '.lock',
-  HOLD_JOURNAL_FILE_NAME: 'hold-journal.json',
+  PROGRESS_FILE_NAME:        'progress.json',
+  LOG_FILE_NAME:             'log.jsonl',
+  HTML_FILE_NAME:            'progress.html',
+  STAMP_FILE_NAME:           'progress.stamp.js',
+  TRACKER_DIRECTORY_NAME:    PRODUCT_NAMES.DATA_FOLDER,
+  TICKETS_DIRECTORY_NAME:    'tickets',
+  EPICS_DIRECTORY_NAME:      'epics',
+  DRAFTS_DIRECTORY_NAME:     'filing-cabinet',
+  LOCK_DIRECTORY_NAME:       '.lock',
+  HOLD_JOURNAL_FILE_NAME:    'hold-journal.json',
+  /** Installed by `init` and `update`, read by the Overseer at each Assistant launch. */
+  ASSISTANT_BRIEF_FILE_NAME: 'assistant-brief.md',
 } as const;

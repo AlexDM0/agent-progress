@@ -15,10 +15,10 @@ import { workspacePathsFor }                  from '../../../src/services/tracke
 import { PRODUCT_NAMES }                      from '../../../src/shared/constants/ProductNames.ts';
 import { removeScratchDirectory }             from '../../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../../src/testing/ToolGuard.ts';
-import { runCommandLine }                     from '../../Main.ts';
 import { createCapturedCommandContext }       from '../../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../../testing/InitializedScratchRepository.ts';
 import { fileReadyTicket }                    from '../../testing/ReadyTicketFiling.ts';
+import { runCommandLineWithRunnerMoves }      from '../../testing/RunnerTicketMoves.ts';
 import { storedLogEntriesOf }                 from '../../testing/StoredLogEntries.ts';
 import { storedLogTextOf }                    from '../../testing/StoredLogText.ts';
 import { storedProgressOf }                   from '../../testing/StoredProgress.ts';
@@ -36,7 +36,7 @@ function progressFilePath(): string {
 
 async function runWithExitCode(commandLineArguments: readonly string[]): Promise<{ exitCode: number; context: ReturnType<typeof createCapturedCommandContext> }> {
   const context  = createCapturedCommandContext({ currentDirectory: repositoryDirectory, now: () => FROZEN_NOW });
-  const exitCode = await runCommandLine(commandLineArguments, context);
+  const exitCode = await runCommandLineWithRunnerMoves(commandLineArguments, context);
   return { exitCode, context };
 }
 
@@ -216,7 +216,7 @@ describeWhenGitIsPresent('the check command', () => {
       executableSearchPath: [join(repositoryDirectory, 'spec-home', '.local', 'bin'), '/opt/example-tools'],
     });
 
-    expect(await runCommandLine(['checks', '--cache-paths', `~/.bun/install/cache ${path}`], context)).toBe(1);
+    expect(await runCommandLineWithRunnerMoves(['checks', '--cache-paths', `~/.bun/install/cache ${path}`], context)).toBe(1);
     expect(context.errorText()).toContain(named);
     expect(readFileSync(progressFilePath(), 'utf8')).toBe(before);
     expect(storedLogTextOf(repositoryDirectory)).toBe(logBefore);

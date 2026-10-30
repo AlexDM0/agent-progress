@@ -106,7 +106,7 @@ describe('job stop and wind-down', () => {
 
   test('stop --all pauses the board and stops every build, review and product-owner job', () => {
     const board = runningBuildBoard();
-    board.setDispatcherState('running', null, AT);
+    board.setDispatcherState('running', AT);
     apply(board, { kind: 'intake-start', text: 'A basket' });
     const result = apply(board, { kind: 'job-stop-all', mode: 'stop' });
 

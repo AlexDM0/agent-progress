@@ -1,8 +1,8 @@
 /**
  * A Claude `init` and the `update` after it write exactly the files `cli/adoption/FrozenClaudeInstall.json` holds, taken from the
- * implementation before the install became a per-host table: every opt-out flag is its own scenario, since each one decides which files
- * exist, and the report lines are compared too, because the table walk now produces them. The dispatcher script is compared against a fresh
- * bundle instead, since `dispatcher/` changes it on its own, and each skill file against its source in `skills/` for the same reason. To
+ * install version 17 implementation: every opt-out flag is its own scenario, since each one decides which files exist, and the report
+ * lines are compared too, because the table walk produces them. Each skill file is compared against its source in `skills/`, since those
+ * change on their own. To
  * retake, only in a commit meant to change an installed text: write the table this spec gathers (`frozenTableFromTheCurrentImplementation`)
  * to the JSON file, and check its diff shows only that change.
  */
@@ -17,7 +17,6 @@ import { describeWhenGitIsPresent }                           from '../../src/te
 import { runCommandLine }                                     from '../Main.ts';
 import { createCapturedCommandContext }                       from '../testing/CapturedCommandContext.ts';
 import { repositoryFileContentsOf }                           from '../testing/RepositoryFileContents.ts';
-import { installedFileTextsFor }                              from './InstalledFileGeneration.ts';
 
 interface InstallScenario {
   installedPaths: string[];
@@ -35,11 +34,8 @@ import { INSTALLED_SKILL_NAMES } from './constants/ClaudeCodeInstall.ts';
 const FROZEN_TABLE_PATH = join(import.meta.dir, 'FrozenClaudeInstall.json');
 
 const OPT_OUT_SCENARIOS: Readonly<Record<string, readonly string[]>> = {
-  'every file':                          [],
-  '--no-claude-md':                      ['--no-claude-md'],
-  '--no-hooks':                          ['--no-hooks'],
-  '--no-workflow':                       ['--no-workflow'],
-  '--no-workflow --no-agent-definition': ['--no-workflow', '--no-agent-definition'],
+  'every file': [],
+  '--no-hooks': ['--no-hooks'],
 };
 
 /** The tracker's own store is not installed: `progress.json` carries a fresh tracker id, and the page carries the page bundle. */
@@ -47,17 +43,11 @@ const TRACKER_STORE_PATHS = new Set(['progress.json', 'progress.html', 'progress
 
 const TRACKER_LOCK_FOLDER = `${PRODUCT_NAMES.DATA_FOLDER}/.lock/`;
 
-const DISPATCHER_SCRIPT_PATH = `${PRODUCT_NAMES.DATA_FOLDER}/agent-progress-dispatch.js`;
-
-const DISPATCHER_SCRIPT_STAND_IN = '<the dispatcher script bundled from dispatcher/>';
-
 const ROOT_STAND_IN = '<root>';
 
 const INSTALLED_SKILLS_FOLDER = '.claude/skills/';
 
 const CHECKOUT_SKILLS_DIRECTORY = join(import.meta.dir, '..', '..', 'skills');
-
-const GENERATED_DISPATCHER_SCRIPT = (await installedFileTextsFor({ generatesTheDispatcherScript: true })).dispatcherScript ?? '';
 
 const scratchDirectories: string[] = [];
 
@@ -85,8 +75,7 @@ function installedFilesIn(repositoryDirectory: string): Map<string, string> {
   const installedFiles = new Map<string, string>();
   for (const [relativePath, text] of repositoryFileContentsOf(repositoryDirectory)) {
     if (TRACKER_STORE_PATHS.has(relativePath) || relativePath.startsWith(TRACKER_LOCK_FOLDER)) continue;
-    const dispatcherStandIn = relativePath === DISPATCHER_SCRIPT_PATH && text === GENERATED_DISPATCHER_SCRIPT ? DISPATCHER_SCRIPT_STAND_IN : null;
-    installedFiles.set(relativePath, dispatcherStandIn ?? skillCopyStandInOf(relativePath, text) ?? text);
+    installedFiles.set(relativePath, skillCopyStandInOf(relativePath, text) ?? text);
   }
   return installedFiles;
 }

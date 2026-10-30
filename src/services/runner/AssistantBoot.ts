@@ -3,6 +3,8 @@
  * and the board it starts from, since it is booted clean and the board is its memory. Its first message carries every open incident, which
  * is its first delivery turn.
  */
+import { join } from 'node:path';
+
 import type { AgentEffort } from '../../lib/agent-launch/AgentLaunchRequest.ts';
 import type { Incident }    from '../../lib/tracker-model/@types/Incident.ts';
 import type { Job }         from '../../lib/tracker-model/@types/Job.ts';
@@ -15,6 +17,7 @@ import {
   WORKER_EFFORT,
   WORKER_MODEL
 } from '../../shared/constants/RunnerLimits.ts';
+import { TRACKER_FILES } from '../tracker/constants/TrackerFiles.ts';
 
 export interface LaunchSettings {
   model:  string;
@@ -36,9 +39,11 @@ export interface BoardSummary {
 
 /** The facts an Assistant's first message is worded from: the incidents it is delivered, the newest incident records, and the board. */
 export interface AssistantFacts {
-  incidents: readonly Readonly<Incident>[];
-  history:   readonly AssistantHistoryRecord[];
-  summary:   BoardSummary;
+  incidents:     readonly Readonly<Incident>[];
+  history:       readonly AssistantHistoryRecord[];
+  summary:       BoardSummary;
+  /** The installed Assistant brief, which `init` and `update` write and the launch fills with the job's own values. */
+  briefFilePath: string;
 }
 
 /** The first message is chat 1 of every Assistant session; each later chat is numbered on from it. */
@@ -85,12 +90,13 @@ function deliverOpenIncidentsAtBoot(board: Board, jobIdsBeforeTheLifecycle: Read
 }
 
 /** `null` for every job but an Assistant. */
-function assistantFactsOf(board: Board, job: Readonly<Job>): AssistantFacts | null {
+function assistantFactsOf(board: Board, trackerDirectory: string, job: Readonly<Job>): AssistantFacts | null {
   if (!isAssistantJob(job)) return null;
   return {
-    incidents: board.incidents().filter((incident) => incident.deliveredInTurn?.jobId === job.id && incident.deliveredInTurn.chatSequence === FIRST_CHAT_SEQUENCE),
-    history:   incidentHistoryOf(board.logRecordsSoFar()),
-    summary:   boardSummaryOf(board),
+    briefFilePath: join(trackerDirectory, TRACKER_FILES.ASSISTANT_BRIEF_FILE_NAME),
+    incidents:     board.incidents().filter((incident) => incident.deliveredInTurn?.jobId === job.id && incident.deliveredInTurn.chatSequence === FIRST_CHAT_SEQUENCE),
+    history:       incidentHistoryOf(board.logRecordsSoFar()),
+    summary:       boardSummaryOf(board),
   };
 }
 

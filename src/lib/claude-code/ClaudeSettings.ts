@@ -165,6 +165,48 @@ export function refreshCommandHook(settingsFilePath: string, hook: CommandHook):
   return 'updated';
 }
 
+export type RemoveCommandHookOutcome = 'absent' | 'removed' | 'refused-unreadable';
+
+function groupWithoutTheCommand(group: unknown, command: string): unknown {
+  const groupRecord = JsonRecordUtil.recordOf(group);
+  const groupHooks = groupRecord?.[HOOKS_KEY];
+  if (groupRecord === undefined || !Array.isArray(groupHooks)) return group;
+  return { ...groupRecord, [HOOKS_KEY]: groupHooks.filter((entry) => JsonRecordUtil.recordOf(entry)?.['command'] !== command) };
+}
+
+function groupIsEmptied(group: unknown): boolean {
+  const groupHooks = JsonRecordUtil.recordOf(group)?.[HOOKS_KEY];
+  return Array.isArray(groupHooks) && groupHooks.length === 0;
+}
+
+/**
+ * Takes this command's entry out under every matcher, then a group it leaves empty, then an event it leaves without groups; every other
+ * hook and key stays. A file that will not parse is refused and left untouched, as `writeCommandHook` refuses one.
+ */
+export function removeCommandHook(settingsFilePath: string, hook: Pick<CommandHook, 'event' | 'command'>): RemoveCommandHookOutcome {
+  if (!fileExists(settingsFilePath)) return 'absent';
+
+  const settings = parsedSettings(settingsFilePath);
+  if (settings === 'unreadable') return 'refused-unreadable';
+
+  const hooksSection = JsonRecordUtil.recordOf(settings[HOOKS_KEY]);
+  if (hooksSection === undefined) return settings[HOOKS_KEY] === undefined ? 'absent' : 'refused-unreadable';
+
+  const eventGroupsValue = hooksSection[hook.event];
+  if (eventGroupsValue === undefined) return 'absent';
+  if (!Array.isArray(eventGroupsValue)) return 'refused-unreadable';
+  if (!eventGroupsValue.some((group) => groupAlreadyRunsTheCommand(group, hook.command))) return 'absent';
+
+  const remainingGroups = eventGroupsValue
+    .map((group) => (groupAlreadyRunsTheCommand(group, hook.command) ? groupWithoutTheCommand(group, hook.command) : group))
+    .filter((group) => !groupIsEmptied(group));
+  if (remainingGroups.length === 0) delete hooksSection[hook.event];
+  else hooksSection[hook.event] = remainingGroups;
+  settings[HOOKS_KEY] = hooksSection;
+  writeFileAtomically(settingsFilePath, `${JSON.stringify(settings, null, SETTINGS_FILE_JSON_INDENT_SPACES)}\n`);
+  return 'removed';
+}
+
 /** Reads only: whether the event runs this command under any matcher. A file that cannot be read holds no entry anyone could run. */
 export function commandHookIsPresent(settingsFilePath: string, hook: Pick<CommandHook, 'event' | 'command'>): boolean {
   if (!fileExists(settingsFilePath)) return false;
