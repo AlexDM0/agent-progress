@@ -76,6 +76,8 @@ export interface RefMovesAllowed {
   ownBranch:            string;
   /** The branches of the other jobs on the board, each moved by its own session. */
   otherJobBranches:     readonly string[];
+  /** The ticket branches of the jobs that ended after this job launched, which their sessions moved before ending: exempt only while they exist. */
+  loggedJobBranches:    readonly string[];
   /** Each landing the runner recorded, as the ref it moved and the commit it moved it to. */
   recordedLandings:     readonly { ref: string; commit: string }[];
   /** The branches the Overseer deletes after a landing, a released group's and each landed ticket's: exempt only once gone. */
@@ -86,6 +88,8 @@ export interface RefMovesAllowed {
 
 /** How the Overseer names the refs around its landings, which the log records only by ticket and target. */
 export interface OverseerRefNaming {
+  /** The job being verified: only the jobs ending after its launch moved a ticket branch past its launch snapshot. */
+  ownJobId:              string;
   ownBranch:             string;
   otherJobBranches:      readonly string[];
   ticketBranchOf:        (ticketId: string) => string;
@@ -102,6 +106,8 @@ export interface JobVerificationSubject {
   worktreePath:      string;
   /** The worktree's HEAD at launch, the branch tip with `MERGE_HEAD` at the target tip for a resolver, the merged commit after it. */
   startCommit:       string;
+  /** V3 measures from it when set: the start of the failed build attempts this one retries, whose commits its branch already holds. */
+  workStartCommit?:  string;
   /** The report as parsed from the session's structured output, unvalidated. */
   report:            unknown;
   ticketBody:        string;
@@ -212,9 +218,23 @@ function headDescendsFromTheStart(subject: JobVerificationSubject): CheckVerdict
 /** A builder owes a commit only when it reports `built`; a reviewer and a resolution reviewer never do. */
 function aCommitSinceTheStart(subject: JobVerificationSubject): CheckVerdict {
   if (subject.role === 'builder' && reportFieldOf(subject.report, 'outcome') !== 'built') return PASSED;
-  const commits = gitLines(subject.worktreePath, ['rev-list', ...rangeArgumentsOf(subject)]);
-  if (commits === null) return refused('git-failed', [rangeOf(subject)]);
-  return commits.length > 0 ? PASSED : refused('no-commit-since-start', [subject.startCommit]);
+  const measured = { ...subject, startCommit: subject.workStartCommit ?? subject.startCommit };
+  const commits = gitLines(subject.worktreePath, ['rev-list', ...rangeArgumentsOf(measured)]);
+  if (commits === null) return refused('git-failed', [rangeOf(measured)]);
+  return commits.length > 0 ? PASSED : refused('no-commit-since-start', [measured.startCommit]);
+}
+
+/** The first build job of the unbroken run of failed attempts right before this build job on its ticket; `null` after any other ending. */
+export function retriedFailedBuildJobIdOf(logRecords: readonly LogRecord[], jobId: string): string | null {
+  const buildLaunches = logRecords.flatMap((record) => (record.kind === 'job-launched' && record.fields.kind === 'build' ? [record] : []));
+  const ownLaunch = buildLaunches.find((launch) => launch.jobId === jobId);
+  if (ownLaunch === undefined) return null;
+  const ticketKey = [...ownLaunch.fields.ticketIds].sort().join(',');
+  const failedJobIds = new Set(logRecords.flatMap((record) => (record.kind === 'job-ended' && record.fields.outcome === 'failed' ? [record.jobId] : [])));
+  const earlier = buildLaunches.slice(0, buildLaunches.indexOf(ownLaunch)).filter((launch) => [...launch.fields.ticketIds].sort().join(',') === ticketKey);
+  let retried: string | null = null;
+  for (let i = earlier.length - 1; i >= 0 && failedJobIds.has(earlier[i]?.jobId ?? ''); i -= 1) retried = earlier[i]?.jobId ?? null;
+  return retried;
 }
 
 function worktreeIsClean(subject: JobVerificationSubject): CheckVerdict {
@@ -457,23 +477,32 @@ function onlyOwnRefsMoved(subject: JobVerificationSubject): CheckVerdict {
   exempt.add(`HEAD:${subject.worktreePath}`);
   for (const refreshHead of refMovesAllowed.refreshWorktreeHeads) exempt.add(refreshHead);
   const removedAfterLandings = new Set(refMovesAllowed.removedAfterLandings);
+  const loggedJobRefs = new Set(refMovesAllowed.loggedJobBranches.map((branch) => `refs/heads/${branch}`));
   const moved = [...new Set([...Object.keys(launchSnapshot.refs), ...Object.keys(now.refs)])].filter((ref) => {
     if (exempt.has(ref)) return false;
     const after = now.refs[ref];
     if (launchSnapshot.refs[ref] === after) return false;
     if (after === undefined && removedAfterLandings.has(ref)) return false;
+    if (after !== undefined && loggedJobRefs.has(ref)) return false;
     return !refMovesAllowed.recordedLandings.some((landing) => landing.ref === ref && landing.commit === after);
   });
   return moved.length === 0 ? PASSED : refused('foreign-ref-moved', moved.sort());
 }
 
-/** V14's exemptions from the log: each landing on its job's target at its commit, what a main-line landing deletes, and every refresh's worktree. */
+/** V14's exemptions from the log: each landing on its job's target at its commit, what a main-line landing deletes, every refresh's worktree, and the
+ * ticket branches of the jobs ending after the verified job's launch. */
 export function refMovesAllowedOf(logRecords: readonly LogRecord[], naming: OverseerRefNaming): RefMovesAllowed {
   const launchById = new Map<string, { target: string | null; ticketIds: readonly string[] }>();
   const recordedLandings: { ref: string; commit: string }[] = [];
   const removedAfterLandings: string[] = [];
   const refreshWorktreeHeads: string[] = [];
+  const loggedJobBranches = new Set<string>();
+  let ownJobLaunched = false;
   for (const record of logRecords) {
+    if (record.kind === 'job-launched' && record.jobId === naming.ownJobId) ownJobLaunched = true;
+    if (record.kind === 'job-ended' && ownJobLaunched) {
+      for (const ticketId of launchById.get(record.jobId)?.ticketIds ?? []) loggedJobBranches.add(naming.ticketBranchOf(ticketId));
+    }
     if (record.kind === 'job-launched') {
       launchById.set(record.jobId, { target: record.fields.target, ticketIds: record.fields.ticketIds });
       if (record.fields.kind === 'refresh' && record.fields.target !== null) refreshWorktreeHeads.push(`HEAD:${naming.refreshWorktreeOf(record.fields.target)}`);
@@ -490,7 +519,12 @@ export function refMovesAllowedOf(logRecords: readonly LogRecord[], naming: Over
     }
   }
   return {
-    ownBranch: naming.ownBranch, otherJobBranches: naming.otherJobBranches, recordedLandings, removedAfterLandings, refreshWorktreeHeads
+    ownBranch:         naming.ownBranch,
+    otherJobBranches:  naming.otherJobBranches,
+    loggedJobBranches: [...loggedJobBranches],
+    recordedLandings,
+    removedAfterLandings,
+    refreshWorktreeHeads,
   };
 }
 

@@ -1,6 +1,6 @@
 /**
- * The state after one event. What matters: `board` replaces everything, a record event replaces its record by id or adds it, a slice event
- * replaces its slice, and nothing updates before the first board.
+ * The state after one event. What matters: `board` replaces everything, a record event replaces its record by id or adds it, an ended
+ * job leaves the jobs, a slice event replaces its slice, and nothing updates before the first board.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -28,6 +28,11 @@ describe('the board state after an event', () => {
     expect(BoardStateUpdate.boardStateAfter(BOARD, 'job', { id: 'J2' })?.jobs.map((job) => job.id)).toEqual(['J1', 'J2']);
     expect(BoardStateUpdate.boardStateAfter(BOARD, 'decision', { id: 'Q1' })?.decisions).toEqual([{ id: 'Q1' }]);
     expect(BoardStateUpdate.boardStateAfter(BOARD, 'incident', { id: 'I1' })?.incidents).toEqual([{ id: 'I1' }]);
+  });
+
+  test('an ended job leaves the jobs, and one never shown adds nothing', () => {
+    expect(BoardStateUpdate.boardStateAfter(BOARD, 'job', { id: 'J1', state: 'ended' })?.jobs).toEqual([]);
+    expect(BoardStateUpdate.boardStateAfter(BOARD, 'job', { id: 'J5', state: 'ended' })?.jobs).toEqual([{ id: 'J1' }]);
   });
 
   test('overseer and usage replace their slices', () => {

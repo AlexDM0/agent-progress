@@ -33,7 +33,7 @@ export type AcceptanceVerdict =
   | { verdict: 'waived-in-review-only'; waivers: ReviewWaiver[] };
 
 const LINE_BREAK_PATTERN        = /\r?\n/;
-const REVIEW_HEADING            = /^## Review[ \t]*$/;
+const REVIEW_HEADING            = /^## Review(?:[ \t]+\d+)?[ \t]*$/;
 const BRIEF_HEADING             = /^## Brief[ \t]*$/;
 const WAIVED_MARKER_PATTERN     = /^Waived:[ \t]*(.*)$/;
 const REVIEW_LINE_PATTERN       = /^[ \t]*(?:[-*+][ \t]+)?A(\d+)[ \t]+(holds|does not hold|waived)\b(.*)$/;

@@ -94,7 +94,6 @@ const INTERRUPTED_BUILD = jobFixture({
 const TWO_FAILED_PASSES_WITH_REWORK_BETWEEN: LogRecord[] = [
   ticketRecord('ticket-started', '001'),
   ...finishedJobRecords('J1', 'build', '001', 'failed'),
-  ...finishedJobRecords('J2', 'build', '001', 'built', 2),
   ticketRecord('ticket-finished', '001'),
   ...finishedJobRecords('J3', 'review', '001', 'does-not-hold'),
   ticketRecord('ticket-started', '001'),
@@ -293,6 +292,12 @@ const CLAIMS: PolicyClaim[] = [
     facts:  factsWith({ tickets: [ticketOf('001', 'in-progress')], logRecords: TWO_FAILED_PASSES_WITH_REWORK_BETWEEN }),
     holds:  launchesExactly([]),
     mutant: policyLine('!ticketIdsSettledThisPass.has(ticket.id) && !ticketHasAJob', '!ticketHasAJob'),
+  },
+  {
+    name:   'without a review phase a ticket left in review is queued for merge',
+    facts:  factsWith({ tickets: [ticketOf('001', 'in-review')], reviewIsSet: false }),
+    holds:  (steps) => stepKindsOf(steps).join(' ') === 'queue-merge',
+    mutant: policyLine('  if (facts.reviewIsSet) return [];\n', '  return [];\n'),
   },
   {
     name:   'two crashed jobs on different tickets stop dispatching and open the outage decision',

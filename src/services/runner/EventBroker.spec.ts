@@ -1,7 +1,7 @@
 /**
  * The Overseer's event broker. What matters: the first state sends only `board`; a later one sends one `job`, `decision` or `incident`
- * event per changed item, `overseer` and `usage` when theirs changed, then `board`; a state differing only in the page's generation stamp
- * sends nothing; ids are `<generation>-<n>`, and a replay serves only a buffered id of this generation.
+ * event per changed item, a `job` per newly ended job, `overseer` and `usage` when theirs changed, then `board`; a state differing only
+ * in the page's generation stamp sends nothing; ids are `<generation>-<n>`, and a replay serves only a buffered id of this generation.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -9,10 +9,13 @@ import type { BoardState }    from './BoardState.ts';
 import { createEventBroker }  from './EventBroker.ts';
 import type { OverseerEvent } from './EventBroker.ts';
 
-function exampleState(changes: Partial<Record<'jobs' | 'decisions' | 'incidents', unknown[]>> & { paused?: boolean; resetsAt?: string; stamp?: number } = {}): BoardState {
+type ExampleChanges = Partial<Record<'jobs' | 'endedJobs' | 'decisions' | 'incidents', unknown[]>> & { paused?: boolean; resetsAt?: string; stamp?: number };
+
+function exampleState(changes: ExampleChanges = {}): BoardState {
   return {
     page:       { payload: { generatedAtEpochMilliseconds: changes.stamp ?? 1 }, tickets: [] },
     jobs:       changes.jobs ?? [{ id: 'J1', state: 'running' }],
+    endedJobs:  changes.endedJobs ?? [],
     decisions:  changes.decisions ?? [],
     incidents:  changes.incidents ?? [],
     notices:    [],
@@ -45,6 +48,17 @@ describe('EventBroker', () => {
     }));
     expect(events.slice(1).map((event) => event.kind)).toEqual(['job', 'job', 'decision', 'incident', 'overseer', 'usage', 'board']);
     expect(events[1]?.data).toEqual({ id: 'J1', state: 'ended' });
+  });
+
+  test('a job launched and ended between two states sends one ended job event, and only once', () => {
+    const { broker, events } = recordingBroker();
+    broker.publishState(exampleState());
+    const merged = {
+      id: 'J5', kind: 'merge', state: 'ended', outcome: 'landed'
+    };
+    broker.publishState(exampleState({ endedJobs: [merged] }));
+    broker.publishState(exampleState({ endedJobs: [merged], paused: true }));
+    expect(events.filter((event) => event.kind === 'job').map((event) => event.data)).toEqual([merged]);
   });
 
   test('a state differing only in the page generation stamp sends nothing', () => {

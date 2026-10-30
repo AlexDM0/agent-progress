@@ -1,11 +1,13 @@
 /**
- * The review as an optional phase: without a pipeline `review` no reviewer is ever launched, whatever waits in review; and a review that
+ * The review as an optional phase: without a pipeline `review` no reviewer is ever launched, and what waits in review unqueued is queued
+ * to merge instead of waiting forever; and a review that
  * does not hold resumes the builder in the same attempt, counted against the red-handoff resumes of its cycle, so the review that goes
  * one past them parks the ticket instead. What matters is that no reviewer launches on a board that left review out, and that a review
  * resume and a red resume share the one bound.
  */
 import { describe, expect, test } from 'bun:test';
 
+import type { Decision }   from './@types/Decision.ts';
 import type { LogRecord }  from './@types/LogRecord.ts';
 import { LifecyclePolicy } from './LifecyclePolicy.ts';
 import {
@@ -42,6 +44,25 @@ describe('a pipeline without a review phase', () => {
     expect(steps.filter((step) => step.kind === 'launch-review')).toEqual([]);
   });
 
+  test('queues a ticket left in review and not merge-queued for merge on the next pass', () => {
+    const steps = LifecyclePolicy.nextStepsOf(factsWith({ tickets: [ticketOf('001', 'in-review')], reviewIsSet: false }), FIXTURE_LIMITS);
+    expect(steps).toEqual([{ kind: 'queue-merge', ticketId: '001', target: 'main' }]);
+  });
+
+  test('queues no ticket already merge-queued again', () => {
+    const queued = { ...ticketOf('001', 'in-review'), mergeQueued: true };
+    const steps  = LifecyclePolicy.nextStepsOf(factsWith({ tickets: [queued], reviewIsSet: false }), FIXTURE_LIMITS);
+    expect(steps).toEqual([]);
+  });
+
+  test('queues no ticket whose refused merge waits on User, so a refusal does not loop back into the queue', () => {
+    const mergeRefused: Decision = {
+      id: 'E1', kind: 'merge-refused', ticketIds: ['001'], jobId: null, askedBy: 'runner', requestId: null, questions: [], context: '', openedAt: FIXTURE_AT,
+    };
+    const steps = LifecyclePolicy.nextStepsOf(factsWith({ tickets: [ticketOf('001', 'in-review')], decisions: [mergeRefused], reviewIsSet: false }), FIXTURE_LIMITS);
+    expect(steps).toEqual([]);
+  });
+
   test('still launches the reviewer once the review phase is set', () => {
     const steps = LifecyclePolicy.nextStepsOf(factsWith({ tickets: [ticketOf('001', 'in-review')], reviewIsSet: true }), FIXTURE_LIMITS);
     expect(steps).toEqual([{
@@ -75,12 +96,24 @@ describe('a review that does not hold', () => {
       endedRecord('B1', 'built'),
       ...finishedJobRecords('R2', 'review', '001', 'does-not-hold', 2),
     ];
-    const limits = { ...FIXTURE_LIMITS, FAILED_PASSES_BEFORE_PARKING: 3 };
-    const steps = LifecyclePolicy.nextStepsOf(factsWith({ tickets: [ticketOf('001', 'in-progress')], logRecords: records }), limits);
+    const steps = LifecyclePolicy.nextStepsOf(factsWith({ tickets: [ticketOf('001', 'in-progress')], logRecords: records }), FIXTURE_LIMITS);
     expect(steps).toEqual([{ kind: 'park', ticketId: '001', cause: 'red-resumes-spent' }]);
     const unheld = [...records, ticketRecord('ticket-unheld', '001')];
-    expect(LifecyclePolicy.nextStepsOf(factsWith({ tickets: [ticketOf('001', 'in-progress')], logRecords: unheld }), limits)).toEqual([{
+    expect(LifecyclePolicy.nextStepsOf(factsWith({ tickets: [ticketOf('001', 'in-progress')], logRecords: unheld }), FIXTURE_LIMITS)).toEqual([{
       kind: 'launch-build', ticketId: '001', attempt: 2, base: 'main'
     }]);
+  });
+
+  test('with the real limits each of two reviews resumes the builder, and the third parks the ticket red-resumes-spent', () => {
+    const stepsAfter = (failedReviews: number): unknown => LifecyclePolicy.nextStepsOf(
+      factsWith({ tickets: [ticketOf('001', 'in-progress')], logRecords: failedReviewsRecords(failedReviews) }),
+      FIXTURE_LIMITS
+    );
+    const resumedBuild = [{
+      kind: 'launch-build', ticketId: '001', attempt: 1, base: 'main'
+    }];
+    expect(stepsAfter(1)).toEqual(resumedBuild);
+    expect(stepsAfter(2)).toEqual(resumedBuild);
+    expect(stepsAfter(3)).toEqual([{ kind: 'park', ticketId: '001', cause: 'red-resumes-spent' }]);
   });
 });

@@ -49,7 +49,7 @@ function onboarderSubject(report: unknown = onboarderReportOf(startCommit), logR
     logRecords,
     launchSnapshot,
     refMovesAllowed:  {
-      ownBranch: '', otherJobBranches: [], recordedLandings: [], removedAfterLandings: [], refreshWorktreeHeads: []
+      ownBranch: '', otherJobBranches: [], loggedJobBranches: [], recordedLandings: [], removedAfterLandings: [], refreshWorktreeHeads: []
     },
   };
 }

@@ -112,6 +112,21 @@ export interface BoardState {
   usage:                 UsageFacts;
   /** What an open decision or incident leaves behind once it is settled, and the sessions the Bridge shows after they end: see `questionHistoryOf`. */
   questionHistory:       LogRecord[];
+  /** The newest jobs that left the board, oldest first, so a job launched and ended between two states still reaches the stream as `ended`. */
+  endedJobs:             EndedJob[];
+}
+
+export interface EndedJob {
+  id:        string;
+  kind:      Job['kind'];
+  role:      Job['role'];
+  ticketIds: string[];
+  target:    string | null;
+  attempt:   number;
+  state:     'ended';
+  outcome:   string;
+  cause:     string | null;
+  endedAt:   string;
 }
 
 export interface BoardSummary {
@@ -184,6 +199,32 @@ function questionHistoryOf(logRecords: readonly LogRecord[]): LogRecord[] {
   });
 }
 
+const ENDED_JOBS_SHOWN = 32;
+
+function endedJobsOf(logRecords: readonly LogRecord[]): EndedJob[] {
+  const launchById = new Map(logRecords.flatMap((record) => (record.kind === 'job-launched' ? [[record.jobId, record.fields] as const] : [])));
+  // A reopened job ends again: only its newest ending stays, in that ending's place.
+  const newestEndingById = new Map<string, EndedJob>();
+  for (const record of logRecords) {
+    const launch = record.kind === 'job-ended' ? launchById.get(record.jobId) : undefined;
+    if (record.kind !== 'job-ended' || launch === undefined) continue;
+    newestEndingById.delete(record.jobId);
+    newestEndingById.set(record.jobId, {
+      id:        record.jobId,
+      kind:      launch.kind,
+      role:      launch.role,
+      ticketIds: [...launch.ticketIds],
+      target:    launch.target,
+      attempt:   launch.attempt,
+      state:     'ended',
+      outcome:   record.fields.outcome,
+      cause:     record.fields.cause ?? null,
+      endedAt:   record.at,
+    });
+  }
+  return [...newestEndingById.values()].slice(-ENDED_JOBS_SHOWN);
+}
+
 function boardStateOf(reading: BoardStateReading): BoardState {
   const { board } = reading;
   const page = assemblePagePayload({
@@ -209,6 +250,7 @@ function boardStateOf(reading: BoardStateReading): BoardState {
     overseer:        reading.overseer,
     usage:           reading.usage,
     questionHistory: questionHistoryOf(reading.logRecords),
+    endedJobs:       endedJobsOf(reading.logRecords),
   };
 }
 
@@ -229,5 +271,5 @@ function summaryOf(state: BoardState, project: string, readyTicketIds: readonly 
 }
 
 export const BoardStateAssembly = Object.freeze({
-  boardStateOf, summaryOf, mergeQueueOf, questionHistoryOf
+  boardStateOf, summaryOf, mergeQueueOf, questionHistoryOf, endedJobsOf
 });

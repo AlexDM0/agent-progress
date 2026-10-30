@@ -86,6 +86,14 @@ describe('acceptanceVerdictOf', () => {
     expect(acceptanceVerdictOf(bodyWith(ACCEPTANCE))).toEqual({ verdict: 'unaccounted', labels: ['A1', 'A2', 'A3'] });
   });
 
+  test('reads the `## Review <round>` sections a review job\'s code writes, the latest round counting', () => {
+    const latestRound = ['## Review 2', '- A1 holds — probe', '- A2 holds', '- A3 holds', ''];
+    const body = bodyWith(ACCEPTANCE, '## Review 1', 'A1 holds', 'A2 holds', 'A3 holds', '', ...latestRound);
+    expect(acceptanceVerdictOf(body)).toEqual({ verdict: 'accounted-for' });
+    const shorterLatestRound = bodyWith(ACCEPTANCE, '## Review 1', 'A1 holds', 'A2 holds', 'A3 holds', '', '## Review 2', 'A1 holds', '');
+    expect(acceptanceVerdictOf(shorterLatestRound)).toEqual({ verdict: 'unaccounted', labels: ['A2', 'A3'] });
+  });
+
   test('an earlier round holding an item does not account for it in the latest', () => {
     const body = bodyWith(ACCEPTANCE, '## Review', 'A1 holds', 'A2 holds', 'A3 holds', '', '## Review', 'A1 holds', 'A2 holds', '');
     expect(acceptanceVerdictOf(body)).toEqual({ verdict: 'unaccounted', labels: ['A3'] });
