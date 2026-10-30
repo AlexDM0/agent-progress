@@ -24,49 +24,44 @@
 
 <br>
 
-<p align="center">
-  <img src="docs/images/panel-watch.gif" width="100%" alt="Watch your agents work: the Progress tab of the Example Storefront board in light mode, animated from 09:10 to 13:36 as the now-line sweeps across, Gantt bars grow under their epic heads, pills move from unstarted to wip to reviewing to done, and review rows appear above their tickets">
-</p>
+The Bridge is the live board the Overseer serves while it runs the work. Every image below is its own view of the
+Example Storefront demo board, taken with the Overseer running scripted fake agents.
 
 <p align="center">
-  <img src="docs/images/panel-kanban.png" width="100%" alt="Every ticket on one board: the Kanban tab with lanes To do, In progress, Review, Awaiting merge, Done and a collapsed Abandoned lane; cards show priority, type, tokens, what a ticket waits on and when it moved">
-</p>
-
-<table>
-  <tr>
-    <td width="50%" valign="top">
-      <img src="docs/images/panel-themes.png" width="100%" alt="Light or dark: the same Progress tab split diagonally, light theme on the left and dark on the right">
-    </td>
-    <td width="50%" valign="top">
-      <img src="docs/images/panel-story.png" width="100%" alt="Click for the whole story: the detail panel of ticket #002 listing its six phases with how long each lasted">
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <img src="docs/images/panel-tickets.png" width="100%" alt="Tickets an agent can build unasked: the Tickets tab with priorities, a waiting-on note and branches">
-    </td>
-    <td width="50%" valign="top">
-      <img src="docs/images/panel-cost.png" width="100%" alt="Know what every agent cost: the token column of the chart in dark mode">
-    </td>
-  </tr>
-</table>
-
-### What waits on what
-
-Tickets that wait on others are laid out in waves: what can run now, what the next wave frees, and a
-wave only one ticket wide, where the work cannot spread over agents, marked as the bottleneck.
-
-<p align="center">
-  <img src="docs/images/panel-dependencies.png" width="100%" alt="See what waits on what: the Waves tab with a Done column and waves Now, Wave 2, Wave 3 and Wave 4; Wave 3 holds only #012 One-page checkout and is marked one at a time, and pointing at #012 lights the chains behind it, from #001 in Done, from #004 and from #008 through #011, and the two tickets it frees, #013 and #014">
+  <img src="docs/images/bridge-kanban.png" width="100%" alt="Kanban: the Bridge's Kanban view of the Example Storefront board, with the Overseer header, its controls and statistics above lanes for drafts, ready, building and in-review tickets; ready cards carry Hold and priority buttons">
 </p>
 
 <table>
   <tr>
     <td width="50%" valign="top">
-      <img src="docs/images/panel-epic-waves.png" width="100%" alt="Every epic, wave by wave: the Epics tab with the Checkout redesign and Customer account cards, each with its roll-up and three dependency rows: the tickets of the other epic it waits on, its own tickets in the board's waves, and the other epic it frees through #012 or through #004 and #008">
+      <img src="docs/images/bridge-progress.png" width="100%" alt="Progress: the Bridge's Progress view, a Gantt row per ticket with its state, then the waves Now, Wave 2, a one-at-a-time Wave 3 holding #012 One-page checkout, and Wave 4">
     </td>
     <td width="50%" valign="top">
-      <img src="docs/images/panel-kanban-waves.png" width="100%" alt="Point at a card, see its prerequisites: the Kanban tab narrowed to the Checkout redesign epic with To do ordered by wave, Now, Wave 2 and a one-at-a-time Wave 3; hovering #012 One-page checkout draws arrows from #011 in To do and #001 in Done">
+      <img src="docs/images/bridge-agents.png" width="100%" alt="Agents: the Bridge's Agents view, one row per job the Overseer launched, the Assistant, three builders and a product owner, with state, calls, tool calls and tokens">
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/images/bridge-tickets.png" width="100%" alt="Tickets: the Bridge's Tickets view with ticket #012 One-page checkout open in the detail panel">
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/images/bridge-merge-queue.png" width="100%" alt="Merge queue: the Bridge's Merge queue view, opened from the Kanban, listing each merge target's slot holder and queue">
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/images/bridge-questions.png" width="100%" alt="Questions: the Bridge's Questions view with an open decision the Overseer asks the user, its answer box, and the answered, notices and low-priority triage sections">
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/images/bridge-assistant.png" width="100%" alt="Assistant: the Bridge's Assistant view, the Overseer's own orchestrating session, its transcript and a chat box">
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/images/bridge-intake.png" width="100%" alt="Intake: the Bridge's Intake view with its New request box and the product-owner session taking a wish-list request">
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/images/bridge-kanban-dark.png" width="100%" alt="Dark theme: the same Kanban view in the dark theme">
     </td>
   </tr>
 </table>

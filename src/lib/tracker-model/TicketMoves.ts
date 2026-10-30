@@ -188,7 +188,6 @@ export class TicketMoves {
 
     const task = this.records.ensureTaskForTicketOnTheChart(ticket, at);
     if (task !== null) this.records.transitionTaskInPlace(task, targetStatus, at);
-    if (task !== null && targetStatus === 'in-progress') this.records.stampCheckCommand(task);
     this.records.markChanged(ticket);
     return this.logTicketMove(frontmatter, targetStatus, fields.byHand === true, at);
   }

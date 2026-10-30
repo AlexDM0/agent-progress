@@ -237,6 +237,12 @@ describe('the rendered settings', () => {
     expect(sandbox.network).toMatchObject({ allowedDomains: ['registry.example.com'], strictAllowlist: true });
   });
 
+  test('the gates\' writes the profile names are writable beside the relay, //-anchored', () => {
+    const request = requestOf('builder');
+    const plan    = CLAUDE_CODE_ADAPTER.planOf({ ...request, profile: { ...request.profile, writableRoots: ['/Users/example/.cache/example-uv'] } });
+    expect(settingsOf(plan).sandbox.filesystem.allowWrite).toEqual([`/${RELAY}`, '//Users/example/.cache/example-uv']);
+  });
+
   test('the signing allowance is the agent sockets alone, with the key folder\'s private keys read-denied, and no unsigned fallback', () => {
     const plan = CLAUDE_CODE_ADAPTER.planOf(requestOf('builder'));
     expect(settingsOf(plan).sandbox.network.allowUnixSockets).toEqual(['//Users/example/.gnupg/S.gpg-agent', '//Users/example/.gnupg/S.keyboxd']);

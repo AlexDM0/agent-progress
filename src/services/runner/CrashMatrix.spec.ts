@@ -79,6 +79,7 @@ import { createDrivePass, type DrivePass, type JobLaunchFacts } from './DrivePas
 import { GroupWorktrees }                                       from './GroupWorktrees.ts';
 import { HOST_ENTRY_PATH, HostBundle }                          from './HostBundle.ts';
 import { HostFleet }                                            from './HostFleet.ts';
+import { CONSTITUTION_DEFAULT_PATH, defaultInstructionPathOf }  from './InstructionFiles.ts';
 import { IntakeSessions }                                       from './IntakeSessions.ts';
 import { JobResumption }                                        from './JobResumption.ts';
 import { Reattachment }                                         from './Reattachment.ts';
@@ -347,6 +348,7 @@ async function startedRunner(
     assistantChatTextOf: (facts) => `${ASSISTANT_CHAT_PREFIX} ${facts.sequence}: ${facts.incidents.map((incident) => incident.id).join(', ')}`,
     windDownMessage:     'Example wind-down message',
     resumeMessage:       RESUME_MESSAGE,
+    redHandoffMessageOf: (facts) => `Red handoff: ${facts.name}, resume ${facts.resume}`,
     answerMessageOf:     (answer) => `${ANSWER_MESSAGE_PREFIX} ${JSON.stringify(answer)}`,
     ...(deliversByControlResponse === undefined ? {} : { deliversAnswersByControlResponse: deliversByControlResponse }),
     homeDirectory:       monitorFolder,
@@ -551,13 +553,18 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
     runnerLog        = [];
     mkdirSync(sessionWorkspace.ticketsDirectory, { recursive: true });
     writeReadableTracker(sessionWorkspace);
+    const instructionDefaults = [CONSTITUTION_DEFAULT_PATH, ...(['builder', 'reviewer', 'merger', 'productOwner', 'assistant'] as const).map(defaultInstructionPathOf)];
+    for (const path of instructionDefaults) {
+      mkdirSync(join(repository, path, '..'), { recursive: true });
+      writeFileSync(join(repository, path), 'Example instructions.\n');
+    }
     await writeTracker({
       workspace: sessionWorkspace,
       at:        CHANGED_AT,
       now,
       renderState,
       mutate:    (change) => {
-        change.board.setCheckCommand('true', false, change.at);
+        change.board.addGate({ name: 'checks', run: 'true' }, change.at);
         change.board.setDispatcherState('running', change.at);
       },
     });
@@ -1189,6 +1196,7 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
   test('a worktree folder no job or branch owns opens leftover-worktree to User once, however often the runner starts', async () => {
     const worktreesRoot = join(repository, PRODUCT_NAMES.WORKTREES_FOLDER);
     mkdirSync(join(worktreesRoot, 'ticket-999'), { recursive: true });
+    mkdirSync(join(worktreesRoot, 'onboard', 'J9'), { recursive: true });
     gitOutputIn(repository, ['worktree', 'add', '-q', '-b', 'example-owned', join(worktreesRoot, 'example-owned')]);
     await writeTracker({
       workspace: sessionWorkspace, at: CHANGED_AT, now, renderState, mutate: (change) => { change.board.setDispatcherState('stopped', change.at); },

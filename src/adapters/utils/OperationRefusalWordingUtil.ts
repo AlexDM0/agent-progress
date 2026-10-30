@@ -178,10 +178,9 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
     case 'several-letters-on-single-select-question':
       return `${detail.letters.join(', ')} names several options, and the question takes one: only a question asked with --multiple takes `
         + `several. ${NOTHING_WAS_WRITTEN}`;
-    case 'check-command-change-with-tickets-in-flight':
-      return `The check command was not changed: ${TicketPhraseUtil.ticketReferencesText(detail.ticketIds)} `
-        + `${detail.ticketIds.length === 1 ? 'is' : 'are'} in progress or in review under the one stored, and a release refuses a ticket `
-        + 'whose stamp differs from the command it runs. Nothing was written; add --restamp to stamp every ticket in flight with the new command.';
+    case 'unknown-gate':
+      return `There is no gate ${detail.gateName}: ${detail.gateNames.length === 0 ? 'none is stored' : `the gates are ${detail.gateNames.join(', ')}`}. `
+        + NOTHING_WAS_WRITTEN;
     case 'dependency-loop':
       return `That would make tickets wait on each other in a circle: ${detail.loopTicketIds.map((ticketId) => `#${ticketId}`).join(' → ')}.`;
     case 'priority-unchanged':
@@ -408,8 +407,9 @@ function messageOf(refusal: OperationRefusal): string {
     case 'unreadable-file-in-the-way':
       return `${detail.filePath} already exists but cannot be read as ${detail.record === 'epic' ? 'an epic' : 'a draft'}, so it is not overwritten. `
         + 'Nothing was written; repair or delete it first.';
-    case 'no-check-command-to-clear':
-      return 'No check command is set, so there is none to clear.';
+    case 'malformed-pipeline':
+      return `${detail.filePath} cannot be read as a pipeline (${detail.reason}), so it is not overwritten. Nothing was written; repair `
+        + 'or delete it first.';
     case 'role-command-refused':
       return `The runner refused the relayed ${detail.commandKind}: ${ROLE_COMMAND_REFUSAL_TEXT[detail.reason]} (${detail.reason}). ${NOTHING_WAS_WRITTEN}`;
     case 'verb-not-relayable':

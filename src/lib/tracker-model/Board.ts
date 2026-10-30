@@ -6,7 +6,6 @@
 import type {
   AgentChoice,
   AgentStopRecorded,
-  CheckCommandSet,
   ConcurrencyLimitSet,
   DispatcherStateSet,
   DraftChanged,
@@ -19,13 +18,10 @@ import type {
   IncidentClosed,
   IncidentEscalated,
   IncidentOpened,
-  InstallCommandSet,
-  ChecksDefinitionFilesSet,
-  GateKeyCommandSet,
-  GateCachePathsSet,
   JobChanged,
   LifecycleAdvanced,
   Logged,
+  PipelineChanged,
   ReviewBarRequest,
   ReviewBarStarted,
   ReviewRecorded,
@@ -87,6 +83,7 @@ import type {
   LifecycleStep
 }                                              from './@types/LifecycleStep.ts';
 import type { AgentUsage, LogRecord, LogRecordFieldsOf } from './@types/LogRecord.ts';
+import type { Pipeline, PipelineGate, PipelineStep }     from './@types/Pipeline.ts';
 import type { DisplayState, Task, TaskStatus }           from './@types/Task.ts';
 import type {
   ReadinessGap,
@@ -139,6 +136,7 @@ import { TicketSettings }                from './TicketSettings.ts';
 import { TokenCredits }                  from './TokenCredits.ts';
 import { TrackerChanges }                from './TrackerChanges.ts';
 import { PARKED_HOLD_PREFIX }            from './constants/DecisionAndIncidentVocabulary.ts';
+import { PipelineUtil }                  from './utils/PipelineUtil.ts';
 
 export interface BoardInput {
   progress:          TrackerProgress;
@@ -149,6 +147,8 @@ export interface BoardInput {
   logger:            Logger;
   /** The log as stored, which orders the ready tickets by readiness; absent reads as an empty log. */
   storedLogRecords?: readonly LogRecord[];
+  /** The stored pipeline; absent or `null` when none is stored or it could not be read, which reads as no gates set. */
+  pipeline?:         Pipeline | null;
 }
 
 export class Board {
@@ -205,7 +205,7 @@ export class Board {
   private readonly incidentMoves: IncidentMoves;
 
   constructor(input: BoardInput) {
-    this.records            = new BoardRecords(input.progress, input.tickets, input.epics, input.drafts ?? [], input.logger, input.storedLogRecords ?? []);
+    this.records            = new BoardRecords(input.progress, input.tickets, input.epics, input.drafts ?? [], input.logger, input.storedLogRecords ?? [], input.pipeline ?? null);
     this.reviewBars         = new ReviewBars(this.records);
     this.groupReleases      = new GroupReleases(this.records);
     this.dispatchQueries    = new DispatchQueries(this.records, this.groupReleases);
@@ -320,6 +320,10 @@ export class Board {
       ...draft, askedBy: 'runner', requestId: null, ...decisionWordingOf(draft)
     }, at);
     return { logged: [...ended.logged, ...opened.logged] };
+  }
+
+  startOnboarder(at: string): JobChanged {
+    return this.jobControls.startOnboarder(at);
   }
 
   launchJob(launch: JobLaunch, at: string): JobChanged {
@@ -529,7 +533,8 @@ export class Board {
       readinessPositionByTicketId: this.dispatchQueries.readinessPositionByTicketId(),
       concurrencyLimit:            this.concurrency().limit,
       dispatcherState:             this.dispatcherState(),
-      checkCommandIsSet:           this.checkCommand() !== undefined,
+      pipelineIsSet:               this.records.pipeline !== null,
+      reviewIsSet:                 this.records.pipeline?.review !== undefined,
       observations,
     };
   }
@@ -551,6 +556,8 @@ export class Board {
         return this.launchJob({
           kind: 'orchestrator', role: 'orchestrator', ticketIds: [], parentJobId: null, attempt: 1, target: null
         }, at).logged;
+      case 'launch-onboarder':
+        return this.jobControls.startOnboarder(at).logged;
       case 'resume-job':
         return this.moveJob(step.jobId, 'running', at).logged;
       case 'replace-job':
@@ -561,6 +568,7 @@ export class Board {
         return this.jobControls.refreshIntake(step.jobId, at).logged;
       case 'park':
         return [
+          ...step.jobId === undefined ? [] : this.endJob(step.jobId, { outcome: 'failed', cause: step.cause }, at).logged,
           ...this.holdTicket(step.ticketId, `${PARKED_HOLD_PREFIX}${step.cause}`, at).logged,
           ...openDecision({ kind: 'parked', ticketIds: [step.ticketId], jobId: null }),
         ];
@@ -596,24 +604,24 @@ export class Board {
     return this.trackerChanges.setDispatcherState(state, at);
   }
 
-  setCheckCommand(command: string | null, restamps: boolean, at: string): CheckCommandSet {
-    return this.trackerChanges.setCheckCommand(command, restamps, at);
+  setPrepareStep(step: PipelineStep, at: string): PipelineChanged {
+    return this.trackerChanges.setPrepareStep(step, at);
   }
 
-  setInstallCommand(command: string, at: string): InstallCommandSet {
-    return this.trackerChanges.setInstallCommand(command, at);
+  addGate(gate: PipelineGate, at: string): PipelineChanged {
+    return this.trackerChanges.addGate(gate, at);
   }
 
-  setChecksDefinitionFiles(patterns: readonly string[] | null, at: string): ChecksDefinitionFilesSet {
-    return this.trackerChanges.setChecksDefinitionFiles(patterns, at);
+  setNoGates(at: string): PipelineChanged {
+    return this.trackerChanges.setNoGates(at);
   }
 
-  setGateKeyCommand(command: string | null, at: string): GateKeyCommandSet {
-    return this.trackerChanges.setGateKeyCommand(command, at);
+  removeGate(name: string, at: string): PipelineChanged {
+    return this.trackerChanges.removeGate(name, at);
   }
 
-  setGateCachePaths(paths: readonly string[] | null, at: string): GateCachePathsSet {
-    return this.trackerChanges.setGateCachePaths(paths, at);
+  recordPipelineJudgedBy(ticketId: string): void {
+    this.trackerChanges.recordPipelineJudgedBy(ticketId);
   }
 
   recordWorktreeRepaired(ticketId: string, fields: LogRecordFieldsOf<'worktree-repaired'>, at: string): Logged {
@@ -869,24 +877,28 @@ export class Board {
     return this.dispatchQueries.dispatcherState();
   }
 
-  checkCommand(): string | undefined {
-    return this.dispatchQueries.checkCommand();
+  /** `null` when none is stored, or the stored one could not be read: either way no gate is set. */
+  pipeline(): Readonly<Pipeline> | null {
+    return this.records.pipeline;
   }
 
-  installCommand(): string | undefined {
-    return this.records.progress.installCommand;
+  /** Whether the hold has a changed pipeline to write. */
+  pipelineChanged(): boolean {
+    return this.records.pipelineChanged;
   }
 
-  checksDefinitionFiles(): readonly string[] | undefined {
-    return this.records.progress.checksDefinitionFiles;
+  /** The stored gates joined in order, the line a landing and a gate run; `null` with no pipeline. */
+  checksLine(): string | null {
+    return this.records.pipeline === null ? null : PipelineUtil.checksLineOf(this.records.pipeline);
   }
 
-  gateKeyCommand(): string | undefined {
-    return this.records.progress.gateKeyCommand;
+  /** The prepare steps joined in order; `null` with no pipeline or none to run. */
+  installLine(): string | null {
+    return this.records.pipeline === null ? null : PipelineUtil.installLineOf(this.records.pipeline);
   }
 
-  gateCachePaths(): readonly string[] | undefined {
-    return this.records.progress.gateCachePaths;
+  gateWritablePaths(): readonly string[] {
+    return this.records.pipeline === null ? [] : PipelineUtil.writablePathsOf(this.records.pipeline);
   }
 
   readyTickets(): readonly Readonly<Ticket>[] {

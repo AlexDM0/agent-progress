@@ -26,7 +26,7 @@ function progressWithSettingsAfterTheLog(): TrackerProgress {
   const progress = emptyProgress();
   fileRow(progress, { name: 'Example build' });
   progress.dispatcherState = 'running';
-  progress.checkCommand    = 'bun test';
+  progress.overseerFirstStartedAt = '2026-09-18T21:00:00+02:00';
   return progress;
 }
 
@@ -44,7 +44,7 @@ test('version 1 comes first, whatever the progress holds', () => {
 test('the worded log sits directly after tasks, also when a setting stored later follows it', () => {
   const document = ProgressFileMappingUtil.wordedDocumentOf(progressWithSettingsAfterTheLog(), WORDED_LOG);
   const keys     = Object.keys(document);
-  expect(keys.slice(keys.indexOf('tasks'))).toEqual(['tasks', 'log', 'dispatcherState', 'checkCommand']);
+  expect(keys.slice(keys.indexOf('tasks'))).toEqual(['tasks', 'log', 'dispatcherState', 'overseerFirstStartedAt']);
   expect(document.log).toEqual([...WORDED_LOG]);
 });
 

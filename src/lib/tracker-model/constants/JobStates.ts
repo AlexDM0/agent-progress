@@ -11,7 +11,7 @@ import type {
   SlotPhase
 } from '../@types/Job.ts';
 
-export const JOB_KINDS = ['build', 'review', 'merge', 'merge-agent', 'refresh', 'orchestrator', 'product-owner'] as const satisfies readonly JobKind[];
+export const JOB_KINDS = ['build', 'review', 'merge', 'merge-agent', 'refresh', 'orchestrator', 'product-owner', 'onboarder'] as const satisfies readonly JobKind[];
 
 export const JOB_ROLES = [
   'builder',
@@ -21,6 +21,7 @@ export const JOB_ROLES = [
   'resolution-review',
   'orchestrator',
   'product-owner',
+  'onboarder',
 ] as const satisfies readonly JobRole[];
 
 export const JOB_STATES = [
@@ -55,7 +56,10 @@ export const JOB_OUTCOMES = [
   'closed',
 ] as const satisfies readonly JobOutcome[];
 
-export const INTERRUPTION_CAUSES = ['host-lost', 'agent-crashed', 'reboot', 'answer-delivery', 'usage-limit'] as const satisfies readonly InterruptionCause[];
+export const INTERRUPTION_CAUSES = ['host-lost', 'agent-crashed', 'reboot', 'answer-delivery', 'usage-limit', 'handoff-red'] as const satisfies readonly InterruptionCause[];
+
+/** The interruption of a handoff whose gate or Customs check went red, which resumes the same session to fix it. */
+export const HANDOFF_RED_INTERRUPTION = 'handoff-red' satisfies InterruptionCause;
 
 /** The interruptions a resume counts in `crashResumes`; a reboot, an answer delivery or a usage limit is nobody's crash. */
 export const CRASH_INTERRUPTION_CAUSES = ['host-lost', 'agent-crashed'] as const satisfies readonly InterruptionCause[];

@@ -5,7 +5,7 @@
 import { writeFileSync } from 'node:fs';
 import { join }          from 'node:path';
 
-import type { GateOutcome, Job }                   from '../../../lib/tracker-model/@types/Job.ts';
+import type { Job }                                from '../../../lib/tracker-model/@types/Job.ts';
 import type { TicketPriority }                     from '../../../lib/tracker-model/@types/Ticket.ts';
 import type { Board }                              from '../../../lib/tracker-model/Board.ts';
 import { MERGE_SLOT_LIMITS, type MergeSlotLimits } from '../../../shared/constants/MergeSlotLimits.ts';
@@ -21,6 +21,7 @@ import {
   createMergeSlots,
   type DeclinedCleanup,
   type MergeAgentReading,
+  type MergedTreeGate,
   type MergeSlots
 } from '../MergeSlots.ts';
 
@@ -56,7 +57,7 @@ export interface MergeSlotsHarness {
   /** The facts each merge job's Airlock incident left for the agent it launches, by merge job id. */
   keptAirlockFacts: Map<string, Readonly<Record<string, string>>>;
   settings:    {
-    gateOutcome:   GateOutcome;
+    gateOutcome:   MergedTreeGate['outcome'];
     reading:       MergeAgentReading;
     hostIsLive:    boolean;
     refDeniesHold: boolean;
@@ -129,7 +130,7 @@ export function createMergeSlotsHarness(tickets: readonly HarnessTicket[], limit
     gateMergedTree: (_worktreePath, treeId) => {
       gatedTrees.push(treeId);
       settings.beforeGate();
-      return Promise.resolve({ outcome: settings.gateOutcome, output: 'Example gate output\nexpected 2, received 3' });
+      return Promise.resolve({ outcome: settings.gateOutcome, step: settings.gateOutcome === 'passed' ? null : 'tests', output: 'Example gate output\nexpected 2, received 3' });
     },
     mergeAgentReadingOf: () => settings.reading,
     hostIsLive:          () => settings.hostIsLive,
@@ -144,6 +145,8 @@ export function createMergeSlotsHarness(tickets: readonly HarnessTicket[], limit
       context: ''
     }),
     keepAirlockFacts:      (mergeJob, facts) => keptAirlockFacts.set(mergeJob.id, facts),
+    jobFolderOf:           (job) => join(repository, '.example-tracker', 'jobs', job.id),
+    redHandoffResumes:     2,
     dispatchIsStopped:     () => false,
     reportDeclinedCleanup: (declined) => declinedCleanups.push(declined),
   });
@@ -186,7 +189,8 @@ export function commitResolution(worktree: string, file: string, content: string
 export function finishMergeAgent(harness: MergeSlotsHarness, report: Record<string, unknown>): void {
   const agent = harness.mergeAgent();
   if (agent === undefined) throw new Error('No merge agent is live.');
-  if (agent.state === 'launching') harness.board.moveJob(agent.id, 'running', HARNESS_AT);
+  // A fixer interrupted on its red merged tree is resumed first, as the lifecycle's `resume-job` step does.
+  if (agent.state === 'launching' || agent.state === 'interrupted') harness.board.moveJob(agent.id, 'running', HARNESS_AT);
   harness.board.moveJob(agent.id, 'verifying', HARNESS_AT);
   harness.settings.reading = { calls: 3, report };
 }

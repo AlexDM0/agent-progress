@@ -475,67 +475,31 @@ output never carries either.
                               carries it beside \`agentsInFlight\`, the free slots and the ready
                               tickets.
 
-  checks ["<command>" | --clear] [--restamp] [--json]
-                              Print the check command a landing runs on a branch's tip before it
-                              changes anything, or store one for every worktree with one log line:
-                              the repository's full check line, quoted as one argument. It lives in
-                              the tracker, never in the branch being released, and runs through the
-                              user's shell (\`$SHELL\`, else /bin/sh) in the branch's worktree.
-                              A new line is first run in the main checkout: when it exits non-zero
-                              nothing is stored or logged, and it is refused at exit 1 with its last
-                              20 lines. --clear removes it, and the read writes nothing. Every
-                              claim stamps the
-                              stored line on the ticket's row, so a change while a ticket is in
-                              progress or in review is refused at exit 1 unless --restamp is given,
-                              which stamps every such row with the new line in the same write and
-                              logs each. A blank command, a command beside --clear, --restamp alone,
-                              or --clear with none stored and no --restamp is refused at exit 1 with
-                              nothing written. Only the orchestrator's session changes it: the
-                              PreToolUse hook blocks a subagent's change (see \`hook\`).
-                              --json prints {checkCommand}, null when none is stored, and a change
-                              adds previousCheckCommand and restampedTicketIds.
+  gate list [--json]          The board's gate pipeline, stored in <data>/pipeline.json beside
+                              progress.json and never tracked. Read-only, no lock. --json prints
+                              {pipelineIsSet, pipelineHash, prepare, gates} and review,
+                              constitution and agents when stored; with no pipeline pipelineIsSet
+                              is false, pipelineHash null and both lists empty. A malformed file
+                              is refused at exit 1 with its reason.
 
-  checks --install "<line>" [--json]
-                              Store the install line that prepares a fresh worktree before a gate,
-                              untried, with one log line; it is part of a gate's cache key. It goes
-                              alone, and a blank one is refused at exit 1 with nothing written.
-                              --json prints {installCommand, previousInstallCommand}.
-
-  checks --definition-files ("<pattern> <pattern>…" | --clear) [--json]
-                              Store the files the check line resolves through, as git pathspec-style
-                              globs quoted as one argument: * and ? stay in a folder, ** crosses
-                              folders, a name without an inner / matches at any depth, a trailing /
-                              takes a whole folder. A job whose commits change a matching path its
-                              ticket body does not name is refused (checks-definition-changed).
-                              With none stored nothing is refused. --clear removes the list; it
-                              goes alone, and a blank list is refused at exit 1 with nothing
-                              written. --json prints {checksDefinitionFiles,
-                              previousChecksDefinitionFiles}.
-
-  checks --key-command ("<line>" | --clear) [--json]
-                              Store a shell line whose standard output joins a gate's cache key,
-                              such as \`bun --version\`, untried, with one log line. Before each
-                              cache lookup it runs as the gate does, in the gate's sandboxed host on
-                              the gated tree; one that exits non-zero or cannot run caches nothing
-                              and the gate cannot run (gate-cannot-run). With none stored the key
-                              is the tree, the checks line and the install line alone. --clear
-                              removes it; it goes alone, and a blank one is refused at exit 1 with
-                              nothing written. --json prints {gateKeyCommand,
-                              previousGateKeyCommand}.
-
-  checks --cache-paths ("<path> <path>…" | --clear) [--json]
-                              Store the folders a gate and install line may write besides the
-                              worktree, its git admin folder and temp, absolute or home-relative
-                              (\`~/.bun/install/cache\`), with one log line; with none stored they
-                              write only those. A path that is, sits in or holds a \`bin\` folder or
-                              a folder on PATH is refused at exit 1 with nothing written, and one
-                              that became so later is left out of the gate's profile; the \`bin\`
-                              beside each of a cache path's ancestors is never writable.
-                              A worker may run unasked the first word of each command in the
-                              stored checks and install lines (split outside quotes on &&, ||, ;,
-                              | and parentheses) and the git verbs it reads and commits with.
-                              --clear removes the key; it goes alone.
-                              --json prints {gateCachePaths, previousGateCachePaths}.
+  gate prepare <name> [--json] -- <command>
+                              Set the prepare step <name>, run before a gate in a fresh worktree;
+                              a step of the same name is replaced where it stands. One log line.
+  gate add <name> [--fix "<command>"] [--in <folder>] [--defined-by <pattern>]
+           [--network <domain>] [--writes <path>] [--overseer-only] [--json] -- <command>
+                              Add the gate <name>, run last, or replace one of the same name where
+                              it stands; --defined-by, --network and --writes repeat.
+                              --in runs it in a folder of the worktree; --defined-by
+                              names the files that define it (git pathspec-style patterns), which
+                              a job may change only when its ticket body names them; --writes a
+                              folder it may write besides the worktree and temp. One log line.
+  gate none [--json]          Store an empty gate list on purpose: the board counts it as set, so
+                              no checks-not-set decision opens, and a landing runs no gate.
+  gate remove <name> [--json] Remove the gate <name>; an unknown one is refused at exit 1.
+                              Every write takes the lock, is accepted with tickets in flight, and
+                              refuses a malformed pipeline.json at exit 1 rather than overwrite it.
+                              Each row records the content hash of the pipeline at its next gate
+                              run. --json prints {pipeline, pipelineHash}.
 
   range --from <when>         The stored default axis of the chart; a bound may also be \`start\`, the
                               earliest visible row. A relative bound is stored as
@@ -673,6 +637,13 @@ output never carries either.
                               session ends the runner opens a ready-drafts decision listing its
                               drafts, one option per --set and one for none. Under the product
                               owner's own job it names no job.
+
+  advise [--json]             Record an onboarder job (no ticket, no build slot) the runner
+                              launches on a main-line snapshot: it reads the repository and the
+                              gate history, files each optimisation as a draft low ticket, and
+                              proposes the pipeline. With no pipeline one starts by itself
+                              (checks-not-set); its verified proposal, its gates run twice, opens
+                              a pipeline-proposal decision whose Accept writes them.
 
   await [--json] [--after <n>]
                               Wait until the log holds a decision-opened or incident-escalated

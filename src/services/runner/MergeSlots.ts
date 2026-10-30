@@ -22,11 +22,14 @@ import { BoardRefusal }                        from '../../lib/tracker-model/Boa
 import type { MergeCandidate, MergeTargetOf }  from '../../lib/tracker-model/MergeSlotClaims.ts';
 import { MERGE_PRIORITY_RANK }                 from '../../lib/tracker-model/MergeSlotClaims.ts';
 import { PARKED_HOLD_PREFIX }                  from '../../lib/tracker-model/constants/DecisionAndIncidentVocabulary.ts';
+import { HANDOFF_RED_INTERRUPTION }            from '../../lib/tracker-model/constants/JobStates.ts';
 import { MergeQueueUtil, type MergeForecast }  from '../../lib/tracker-model/utils/MergeQueueUtil.ts';
 import type { MergeSlotLimits }                from '../../shared/constants/MergeSlotLimits.ts';
+import { RED_HANDOFF_RESUME_CALL_BUDGET }      from '../../shared/constants/RunnerLimits.ts';
 import { LANDING_OUTCOME_OF_REFUSAL, Landing } from '../lifecycle/Landing.ts';
 import { MergeRun }                            from '../lifecycle/MergeRun.ts';
 import { GroupWorktrees }                      from './GroupWorktrees.ts';
+import { RedHandoff }                          from './RedHandoff.ts';
 
 export interface MergeSlotHold {
   board: Board;
@@ -62,6 +65,10 @@ export interface MergeSlotsContext {
   decisionWordingOf:     (draft: DecisionDraft) => DecisionWording;
   /** Keeps an Airlock incident's facts beside the merge job, for the agent its move or default launches once the incident is closed. */
   keepAirlockFacts:      (mergeJob: Readonly<Job>, facts: Readonly<Record<string, string>>) => void;
+  /** The job's own folder, where a merge-gate fixer's red handoff is written for its resumed session. */
+  jobFolderOf:           (job: Readonly<Job>) => string;
+  /** How often a fixer whose fix left the merged tree red is resumed before the merge parks. */
+  redHandoffResumes:     number;
   /** `run pause` opens no new slot; a slot already open finishes. */
   dispatchIsStopped:     () => boolean;
   /** A removal git declined after a refresh or a release: the Overseer logs it and shows it as a notice while the leftover stands. */
@@ -70,8 +77,27 @@ export interface MergeSlotsContext {
 
 /** The merged tree's gate: its outcome and what the checks line printed, whose tail a merge-gate fixer is given. */
 export interface MergedTreeGate {
-  outcome: GateOutcome;
+  /** `setup-failed` when a prepare step did not exit 0: no gate judged the tree. */
+  outcome: GateOutcome | 'setup-failed';
+  /** The red gate or the failed prepare step; `null` on a pass. */
+  step:    string | null;
   output:  string;
+}
+
+/** A red gate is the Airlock's own incident; a gate that could not run and a failed prepare step are the ones a build job opens too. */
+const MERGE_GATE_INCIDENT_KINDS = { 'failed': 'merge-gate-failed', 'cannot-run': 'gate-cannot-run', 'setup-failed': 'setup-failed' } as const;
+
+function treeOfCommit(worktree: string, commit: string): string | null {
+  const run = GitProcess.run(worktree, ['rev-parse', '--verify', '--quiet', `${commit}^{tree}`]);
+  return GitProcess.succeeded(run) ? run.standardOutput.trim() : null;
+}
+
+/** The merged tree is the branch's own tree, and the newest gate run on it passed: the merge changed nothing the gates judged. */
+function mergedTreeWasLastPassed(board: Board, worktree: string, job: Readonly<Job>, treeId: string): boolean {
+  const branchTip = job.slot?.branchTip;
+  if (branchTip === undefined || treeOfCommit(worktree, branchTip) !== treeId) return false;
+  const newestRunOnTheTree = board.logRecordsSoFar().findLast((record) => record.kind === 'gate-ran' && record.fields.tree === treeId);
+  return newestRunOnTheTree?.kind === 'gate-ran' && newestRunOnTheTree.fields.outcome === 'passed';
 }
 
 /** The Airlock agents a slot launches on an incident's move or default, each bounded by its own launches and call budget. */
@@ -115,6 +141,8 @@ const MERGE_REFUSED_CAUSES = {
 const REQUEUE_CAUSES = { orphaned: 'orphaned', targetMoved: 'target-moved', targetHeld: 'target-held' } as const;
 
 const MERGE_ABORTED_CAUSE = 'merge-aborted';
+
+const RED_RESUMES_SPENT_CAUSE = 'red-resumes-spent';
 
 const LANDING_REFUSED_DECISION: DecisionKind = 'landing-refused';
 
@@ -164,6 +192,11 @@ function launchesUnder(board: Board, job: Readonly<Job>, role: AirlockAgentRole)
   return board.logRecordsSoFar().filter((record) => (
     record.kind === 'job-launched' && record.fields.parentJobId === job.id && record.fields.role === role
   )).length;
+}
+
+/** How often the agent's session was resumed after a red handoff. */
+function redResumesOf(board: Board, agent: Readonly<Job>): number {
+  return board.logRecordsSoFar().filter((record) => record.kind === 'job-resumed' && record.jobId === agent.id && record.fields.cause === HANDOFF_RED_INTERRUPTION).length;
 }
 
 function tailOf(output: string, lineCount: number): string {
@@ -360,18 +393,27 @@ export function createMergeSlots(context: MergeSlotsContext): MergeSlots {
       await refuseMerge(job, MERGE_REFUSED_CAUSES.gitFailed, 'The merged tree cannot be read.');
       return true;
     }
-    const { outcome, output } = await context.gateMergedTree(worktree, treeId);
+    const landsUngated = await context.hold((hold) => {
+      if (!mergedTreeWasLastPassed(hold.board, worktree, job, treeId)) return false;
+      setPhase(hold, job, 'landing');
+      return true;
+    });
+    if (landsUngated) return true;
+    const { outcome, step, output } = await context.gateMergedTree(worktree, treeId);
     const fixersSpent = await context.hold((hold) => {
-      hold.board.recordGateRan({ tree: treeId, outcome, cached: false }, hold.at);
+      if (outcome !== 'setup-failed') hold.board.recordGateRan({ tree: treeId, outcome, cached: false }, hold.at);
+      const fixer = mergeAgentOf(hold.board, job);
       if (outcome === 'passed') {
+        if (fixer !== undefined) hold.board.endJob(fixer.id, { outcome: 'resolved', commit: MergeRun.headOf(worktree) ?? treeId }, hold.at);
         setPhase(hold, job, 'landing');
         return false;
       }
+      if (outcome === 'failed' && fixer !== undefined) return resumeOrSpendTheFixer(hold, job, fixer, { step: step ?? '', output, worktree });
       if (outcome === 'failed' && launchesUnder(hold.board, job, 'merge-fix') >= context.limits.MERGE_FIX_ATTEMPTS) return true;
-      const facts = { tree: treeId, gateTail: tailOf(output, context.limits.CHECK_OUTPUT_TAIL_LINES) };
+      const facts = { tree: treeId, gate: step ?? '', gateTail: tailOf(output, context.limits.CHECK_OUTPUT_TAIL_LINES) };
       if (outcome === 'failed') context.keepAirlockFacts(job, facts);
       hold.board.openIncident({
-        kind:        outcome === 'failed' ? 'merge-gate-failed' : 'gate-cannot-run',
+        kind:        MERGE_GATE_INCIDENT_KINDS[outcome],
         ticketIds:   job.ticketIds,
         jobId:       job.id,
         facts,
@@ -381,6 +423,36 @@ export function createMergeSlots(context: MergeSlotsContext): MergeSlots {
     });
     if (fixersSpent) await abortAndPark(job, 'merge-gate-failed', tailOf(output, context.limits.CHECK_OUTPUT_TAIL_LINES));
     return true;
+  }
+
+  /**
+   * A fixer whose fix left the merged tree red is resumed in its own session, handed the gate's failure, while its handoff cycle has resumes
+   * left; past them it ends `failed` and the merge parks. Returns whether the fixers are spent.
+   */
+  function resumeOrSpendTheFixer(hold: MergeSlotHold, job: Readonly<Job>, fixer: Readonly<Job>, red: { step: string; output: string; worktree: string }): boolean {
+    const resumes = redResumesOf(hold.board, fixer);
+    if (resumes >= context.redHandoffResumes) {
+      hold.board.endJob(fixer.id, { outcome: 'failed', cause: RED_RESUMES_SPENT_CAUSE }, hold.at);
+      return true;
+    }
+    const fixerFolder = context.jobFolderOf(fixer);
+    RedHandoff.writeRedHandoff(fixerFolder, {
+      kind:                'gate',
+      name:                red.step,
+      command:             null,
+      fixCommand:          null,
+      commit:              MergeRun.headOf(red.worktree) ?? '',
+      exitCode:            null,
+      handoverPath:        RedHandoff.handoverPathOf(fixerFolder),
+      fullLogPath:         null,
+      resume:              resumes + 1,
+      resumesAllowed:      context.redHandoffResumes,
+      callBudget:          RED_HANDOFF_RESUME_CALL_BUDGET,
+      interruptedInstance: fixer.hostInstance,
+    }, red.output);
+    hold.board.interruptJob(fixer.id, HANDOFF_RED_INTERRUPTION, hold.at);
+    setPhase(hold, job, 'fixing');
+    return false;
   }
 
   /** The merge aborts, the slot frees and the ticket is held `parked:<cause>` with a `parked` decision; a refresh has no ticket, so User is asked. */
@@ -421,7 +493,7 @@ export function createMergeSlots(context: MergeSlotsContext): MergeSlots {
    */
   async function settleAirlockAgent(job: Readonly<Job>, agent: Readonly<Job>, role: AirlockAgentRole): Promise<boolean> {
     const reading = context.mergeAgentReadingOf(agent);
-    const budget  = role === 'merge-fix' ? context.limits.MERGE_FIXER_API_CALL_BUDGET : context.limits.RESOLUTION_REVIEWER_API_CALL_BUDGET;
+    const budget  = role === 'merge-fix' ? await context.hold((hold) => fixerBudgetOf(hold.board, agent)) : context.limits.RESOLUTION_REVIEWER_API_CALL_BUDGET;
     if (agent.state === 'running' && reading.calls >= budget) {
       await context.stopMergeAgent(agent);
       await refuseMerge(job, MERGE_REFUSED_CAUSES.outOfCalls, `The ${role} agent reached its ${budget} calls.`);
@@ -440,10 +512,17 @@ export function createMergeSlots(context: MergeSlotsContext): MergeSlots {
     const worktree = slotWorktreeOf(job);
     await context.hold((hold) => {
       const head = MergeRun.headOf(worktree);
-      hold.board.endJob(agent.id, { outcome: 'resolved', ...(head === null ? {} : { commit: head }) }, hold.at);
+      // A fixer waits through the gate of its fix, so a red one resumes the same session; the gate's pass ends it `resolved`.
+      if (role === 'merge-fix') hold.board.moveJob(agent.id, 'gating', hold.at);
+      else hold.board.endJob(agent.id, { outcome: 'resolved', ...(head === null ? {} : { commit: head }) }, hold.at);
       setPhase(hold, job, 'gating');
     });
     return true;
+  }
+
+  /** A fixer resumed after a red gate has the short resume budget, its calls counted from the resume. */
+  function fixerBudgetOf(board: Board, agent: Readonly<Job>): number {
+    return redResumesOf(board, agent) > 0 ? RED_HANDOFF_RESUME_CALL_BUDGET : context.limits.MERGE_FIXER_API_CALL_BUDGET;
   }
 
   function currentBranchIn(directory: string): string | null {
@@ -506,7 +585,10 @@ export function createMergeSlots(context: MergeSlotsContext): MergeSlots {
     let releasedGroup: string | undefined = undefined;
     const landed = await context.hold((hold) => {
       const ticket = hold.board.tickets().find((candidate) => candidate.frontmatter.id === ticketId);
-      const ticketRefusal = ticket === undefined ? null : Landing.ticketRefusalOf(hold.board, [ticket]);
+      // Only a review accounts for the Acceptance: a pipeline without a review phase lands on its gates alone.
+      const pipeline = hold.board.pipeline();
+      const acceptanceIsReviewed = pipeline === null || pipeline.review !== undefined;
+      const ticketRefusal = ticket === undefined || !acceptanceIsReviewed ? null : Landing.ticketRefusalOf([ticket]);
       if (ticketRefusal !== null) return ticketRefusal;
       const verdict = Landing.landOnTarget({
         target:            { branch: slot.target, directory },

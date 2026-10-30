@@ -7,7 +7,6 @@ import { TicketAcceptanceUtil }             from '../../adapters/tickets/utils/T
 import { fastForwardTo, readCurrentBranch } from '../../lib/git/BranchIntegration.ts';
 import { GitProcess, type GitHookPolicy }   from '../../lib/git/GitProcess.ts';
 import type { Ticket }                      from '../../lib/tracker-model/@types/Ticket.ts';
-import type { Board }                       from '../../lib/tracker-model/Board.ts';
 
 /** Main is landed in the main checkout; a group branch in the worktree it is checked out in, never by `update-ref`. */
 export interface LandingTarget {
@@ -31,7 +30,6 @@ export type LandingRefusalReason =
   | 'not-on-target-branch'
   | 'dirty-checkout'
   | 'git-failed'
-  | 'check-command-differs-from-start'
   | 'acceptance-unnumbered'
   | 'acceptance-unaccounted'
   | 'acceptance-waived';
@@ -58,7 +56,6 @@ export const LANDING_OUTCOME_OF_REFUSAL: Readonly<Record<LandingRefusalReason, L
   'not-on-target-branch':               'hold-target',
   'dirty-checkout':                     'hold-target',
   'git-failed':                         'hold-target',
-  'check-command-differs-from-start':   'hold-ticket',
   'acceptance-unnumbered':              'hold-ticket',
   'acceptance-unaccounted':             'hold-ticket',
   'acceptance-waived':                  'hold-ticket',
@@ -105,12 +102,10 @@ function landOnTarget(request: LandingRequest): LandingVerdict {
   return gitFailed(merge.reason.trim());
 }
 
-/** The ticket-level checks a landing makes before git moves: the check stamp, then the Acceptance, each ticket on its own. */
-function ticketRefusalOf(board: Board, tickets: readonly Readonly<Ticket>[]): LandingVerdict | null {
-  const storedCheckCommand = board.checkCommand() ?? null;
+/** The ticket-level check a landing makes before git moves: the Acceptance, each ticket on its own. */
+function ticketRefusalOf(tickets: readonly Readonly<Ticket>[]): LandingVerdict | null {
   for (const { frontmatter, body } of tickets) {
     const ticketId = frontmatter.id;
-    if ((board.linkedRowOf(ticketId)?.checkCommand ?? null) !== storedCheckCommand) return refused('check-command-differs-from-start', { ticketId });
     switch (TicketAcceptanceUtil.acceptanceVerdictOf(body).verdict) {
       case 'accounted-for':
         continue;

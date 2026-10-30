@@ -11,6 +11,9 @@ export const WORKER_FILINGS_PER_JOB = 10;
 /** The calls a session may make past its role's call budget after the wind-down message, before the runner stops it `out-of-calls`. */
 export const WIND_DOWN_GRACE_CALLS = 10;
 
+/** The calls a session resumed after a red handoff may make before its wind-down message, counted from the resume. */
+export const RED_HANDOFF_RESUME_CALL_BUDGET = 30;
+
 /** Consecutive runner sweeps a running build or review job's event log may stand still before it opens `quiet-job`: a count, never a clock. */
 export const QUIET_JOB_SWEEPS = 6;
 
@@ -71,6 +74,12 @@ export const RUNNER_REQUEST_TIMEOUT_MILLISECONDS = 2000;
 
 /** How often the runner re-reads the board as a backstop for watch events the platform dropped; a schedule only, never a decision. */
 export const RUNNER_SWEEP_SECONDS = 30;
+
+/** How many gates the Overseers of this machine run at once, the rest queued; only the Overseers' own gate runs count. */
+export const GATE_RUNS_AT_ONCE = 2;
+
+/** How often an Overseer's in-process gate run looks for a free gate slot; a schedule only, never a decision. */
+export const GATE_SLOT_RETRY_MILLISECONDS = 500;
 
 /** How long the runner lets a burst of file events settle before it wakes a pass. */
 export const RUNNER_WATCH_DEBOUNCE_MILLISECONDS = 150;

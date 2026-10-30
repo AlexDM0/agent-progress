@@ -16,7 +16,8 @@ export type DecisionKind =
   | 'branch-touches-agent-config'
   | 'outage'
   | 'quiet-job'
-  | 'leftover-worktree';
+  | 'leftover-worktree'
+  | 'pipeline-proposal';
 
 export interface DecisionQuestionOption {
   label:       string;

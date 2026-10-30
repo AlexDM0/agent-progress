@@ -9,6 +9,7 @@ import { afterAll, expect, test } from 'bun:test';
 import { ConcurrencyUtil }                                 from '../../lib/tracker-model/utils/ConcurrencyUtil.ts';
 import { emptyProgress, fileRow }                          from '../../testing/ProgressFixtures.ts';
 import { createScratchDirectory, removeScratchDirectory }  from '../../testing/ScratchWorkspace.ts';
+import { OLDER_FORMAT_ADVICE }                             from '../constants/OlderFormatAdvice.ts';
 import { ProgressFileIngestion, type ProgressFileReading } from './ProgressFileIngestion.ts';
 import { emptyDocument, versionTwoDocumentOf }             from './testing/ProgressFileFixtures.ts';
 
@@ -73,12 +74,14 @@ test('a concurrency limit that is not a whole number of at least 1 makes the fil
   }
 });
 
-test('a check command reads back as stored, and one that is blank or not text makes the file unreadable, the reason naming the field', () => {
-  const stored = readBack('store-check-command', { ...emptyDocument(), checkCommand: 'bun run example-checks' });
-  expect(stored.verdict === 'readable' ? stored.progress.checkCommand : null).toBe('bun run example-checks');
-  for (const malformedCommand of ['', '  ', 3, null]) {
-    const result = readBack('store-malformed-check-command', { ...emptyDocument(), checkCommand: malformedCommand });
-    expect(result.verdict === 'unreadable' ? result.reason : '', JSON.stringify(malformedCommand)).toContain('checkCommand');
+// The gate pipeline moved to pipeline.json; nothing migrates, so a file still holding a retired key is an older file, refused.
+test('a file holding a key the retired checks verb stored is refused as an older format, the reason naming the key', () => {
+  const retiredValues = {
+    checkCommand: 'bun test', installCommand: 'bun install', checksDefinitionFiles: ['bunfig.toml'], gateKeyCommand: 'bun --version', gateCachePaths: ['~/.bun']
+  };
+  for (const [key, value] of Object.entries(retiredValues)) {
+    const result = readBack('store-retired-pipeline-key', { ...emptyDocument(), [key]: value });
+    expect(result.verdict === 'unreadable' ? result.reason : '', key).toBe(`${key} is present, and the gate pipeline lives in pipeline.json; ${OLDER_FORMAT_ADVICE}`);
   }
 });
 
@@ -146,7 +149,8 @@ test('every other missing or mistyped field is named too', () => {
     { prefix: 'store-zero-bar-round', document: { ...progress, tasks: [{ ...progress.tasks[0], reviewBarRound: 0 }] }, named: 'tasks[0].reviewBarRound' },
     { prefix: 'store-fractional-bar-round', document: { ...progress, tasks: [{ ...progress.tasks[0], reviewBarRound: 1.5 }] }, named: 'tasks[0].reviewBarRound' },
     { prefix: 'store-written-bar-round', document: { ...progress, tasks: [{ ...progress.tasks[0], reviewBarRound: '2' }] }, named: 'tasks[0].reviewBarRound' },
-    { prefix: 'store-blank-stamp', document: { ...progress, tasks: [{ ...progress.tasks[0], checkCommand: '  ' }] }, named: 'tasks[0].checkCommand' },
+    { prefix: 'store-retired-stamp', document: { ...progress, tasks: [{ ...progress.tasks[0], checkCommand: 'bun test' }] }, named: 'tasks[0].checkCommand' },
+    { prefix: 'store-numeric-pipeline-hash', document: { ...progress, tasks: [{ ...progress.tasks[0], pipelineHash: 3 }] }, named: 'tasks[0].pipelineHash' },
   ];
   for (const { prefix, document, named } of cases) {
     const result = readBack(prefix, document);

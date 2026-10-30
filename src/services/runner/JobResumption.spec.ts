@@ -4,8 +4,8 @@
  * of the same work decides whether a fresh job inherits a replaced session's worktree. A fresh instance's first message survives a Watcher
  * not yet listening and is sent once, its marker following the accepted frame.
  */
-import { existsSync } from 'node:fs';
-import { join }       from 'node:path';
+import { existsSync, mkdirSync } from 'node:fs';
+import { join }                  from 'node:path';
 import {
   afterEach,
   beforeEach,
@@ -19,6 +19,7 @@ import type { LogRecord }                                 from '../../lib/tracke
 import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
 import { HostFleet }                                      from './HostFleet.ts';
 import { JobResumption }                                  from './JobResumption.ts';
+import { RedHandoff, type RedHandoffFacts }               from './RedHandoff.ts';
 import { PlantedWatcher }                                 from './testing/PlantedWatcher.ts';
 
 const AT = '2026-09-18T22:11:03+02:00';
@@ -52,7 +53,7 @@ function launched(jobId: string, kind: 'build' | 'review', ticketIds: string[]):
   };
 }
 
-function ended(jobId: string, outcome: 'replaced' | 'failed'): LogRecord {
+function ended(jobId: string, outcome: 'replaced' | 'failed' | 'built' | 'does-not-hold'): LogRecord {
   return {
     at: AT, kind: 'job-ended', jobId, fields: { outcome, deniedPermissions: [] }
   };
@@ -137,6 +138,35 @@ describe('a failed resume', () => {
   });
 });
 
+// A review that did not hold resumes the builder's own session, so the build job after it carries on the session it was sent back from.
+describe('the session a build job carries on', () => {
+  const builtThenSentBack = [launched('J1', 'build', ['001']), ended('J1', 'built'), launched('R1', 'review', ['001']), ended('R1', 'does-not-hold')];
+
+  test('is the builder its review sent back, across every later round', () => {
+    expect(JobResumption.sessionOwnerJobIdOf([...builtThenSentBack, launched('J2', 'build', ['001'])], buildJob())).toBe('J1');
+    const secondRound = [...builtThenSentBack, launched('J2', 'build', ['001']), ended('J2', 'built'), launched('J3', 'build', ['001'])];
+    expect(JobResumption.sessionOwnerJobIdOf(secondRound, buildJob({ id: 'J3' }))).toBe('J1');
+  });
+
+  test('is the job itself when it starts a new attempt, as after an unhold', () => {
+    const nextAttempt: LogRecord = { ...launched('J2', 'build', ['001']), fields: { ...launched('J2', 'build', ['001']).fields, attempt: 2 } } as LogRecord;
+    expect(JobResumption.sessionOwnerJobIdOf([...builtThenSentBack, nextAttempt], buildJob({ id: 'J2', attempt: 2 }))).toBe('J2');
+  });
+
+  test('is the job itself after a replaced or failed build, and for a reviewer', () => {
+    const afterReplaced = [launched('J1', 'build', ['001']), ended('J1', 'replaced'), launched('J2', 'build', ['001'])];
+    expect(JobResumption.sessionOwnerJobIdOf(afterReplaced, buildJob())).toBe('J2');
+    const review = buildJob({ id: 'R2', kind: 'review', role: 'reviewer' });
+    expect(JobResumption.sessionOwnerJobIdOf([...builtThenSentBack, launched('R2', 'review', ['001'])], review)).toBe('R2');
+  });
+
+  test('is sent only the newest review section of the ticket', () => {
+    const body = '## Report\nx\n\n## Review 1\n\nold\n\n## Review 2\n\n- A1 does-not-hold — the example fails\n\n## Notes\nlater\n';
+    expect(JobResumption.newestReviewSectionOf(body)).toBe('## Review 2\n\n- A1 does-not-hold — the example fails');
+    expect(JobResumption.newestReviewSectionOf('## Report\nx\n')).toBe('');
+  });
+});
+
 describe('the earlier-session note', () => {
   test('goes to a fresh job whose newest earlier job of the same work ended replaced', () => {
     const records = [launched('J1', 'build', ['001']), ended('J1', 'replaced'), launched('J2', 'build', ['001'])];
@@ -148,5 +178,65 @@ describe('the earlier-session note', () => {
     expect(JobResumption.earlierSessionWasReplaced(laterFailure, buildJob({ id: 'J4' }))).toBe(false);
     const otherWork = [launched('J1', 'review', ['001']), ended('J1', 'replaced'), launched('J3', 'build', ['002']), ended('J3', 'replaced')];
     expect(JobResumption.earlierSessionWasReplaced(otherWork, buildJob({ id: 'J4' }))).toBe(false);
+  });
+});
+
+describe('a red handoff\'s resume', () => {
+  let trackerDirectory = '';
+  const messages = { resumeMessage: 'Example resume message', redHandoffMessageOf: (facts: Readonly<RedHandoffFacts>) => `Red ${facts.name}, resume ${facts.resume}` };
+
+  beforeEach(() => {
+    trackerDirectory = createScratchDirectory('red-resume');
+  });
+
+  afterEach(() => {
+    removeScratchDirectory(trackerDirectory);
+  });
+
+  function writeRedFacts(jobId: string): void {
+    const jobFolder = HostFleet.jobFolderOf(trackerDirectory, jobId);
+    mkdirSync(jobFolder, { recursive: true });
+    RedHandoff.writeRedHandoff(jobFolder, {
+      kind:                'gate',
+      name:                'tests',
+      command:             'bun test',
+      fixCommand:          null,
+      commit:              'example-commit',
+      exitCode:            1,
+      handoverPath:        RedHandoff.handoverPathOf(jobFolder),
+      fullLogPath:         null,
+      resume:              1,
+      resumesAllowed:      2,
+      callBudget:          30,
+      interruptedInstance: 1,
+    }, 'expected 2, received 3');
+  }
+
+  function interrupted(jobId: string, cause: 'handoff-red' | 'host-lost'): LogRecord {
+    return {
+      at: AT, kind: 'job-interrupted', jobId, fields: { cause, hostInstance: 1 }
+    };
+  }
+
+  test('opens the resumed session with the red handoff\'s message, never the plain resume line', () => {
+    writeRedFacts('J2');
+    const board = { logRecordsSoFar: () => [] };
+
+    expect(JobResumption.resumeLineOf(trackerDirectory, board, buildJob({ hostInstance: 2, interruption: 'handoff-red' }), messages)).toBe('Red tests, resume 1');
+    expect(JobResumption.resumeLineOf(trackerDirectory, board, buildJob({ hostInstance: 2, interruption: 'host-lost' }), messages)).toBe('Example resume message');
+  });
+
+  test('hands a fresh session taking over an unresumable red handoff the same facts, its calls counted from its own first instance', () => {
+    writeRedFacts('J1');
+    const records = [launched('J1', 'build', ['001']), interrupted('J1', 'handoff-red'), ended('J1', 'replaced'), launched('J2', 'build', ['001'])];
+
+    expect(JobResumption.redHandoffTakenOverOf(trackerDirectory, records, buildJob())).toMatchObject({ name: 'tests', resume: 1, interruptedInstance: 0 });
+  });
+
+  test('hands nothing to a fresh session whose predecessor was replaced after a crash', () => {
+    writeRedFacts('J1');
+    const records = [launched('J1', 'build', ['001']), interrupted('J1', 'host-lost'), ended('J1', 'replaced'), launched('J2', 'build', ['001'])];
+
+    expect(JobResumption.redHandoffTakenOverOf(trackerDirectory, records, buildJob())).toBeNull();
   });
 });

@@ -6,6 +6,7 @@
 import type { DecisionAnswerForm }                 from '../../lib/tracker-model/@types/Decision.ts';
 import type { DraftNoteKind, DraftQuestionAsking } from '../../lib/tracker-model/@types/Draft.ts';
 import type { JobStopMode }                        from '../../lib/tracker-model/@types/Job.ts';
+import type { PipelineGate, PipelineStep }         from '../../lib/tracker-model/@types/Pipeline.ts';
 import type {
   AgentEffort,
   AgentModel,
@@ -117,14 +118,14 @@ export type ControlCommand =
   | { kind: 'merge-land'; jobId: string; incidentId?: string }
   | { kind: 'job-message'; jobId: string; text: string; incidentId?: string }
   | { kind: 'intake-start'; text: string }
+  | { kind: 'onboarder-advise' }
   /** Relayed by a product owner without `jobId`: the role policy stamps its own job, from the relay folder. */
   | { kind: 'intake-close'; jobId?: string; proposedDraftSets: string[][] }
   | { kind: 'concurrency-set'; limit: number }
-  | { kind: 'checks-set'; command: string | null; restamps: boolean }
-  | { kind: 'install-command-set'; command: string }
-  | { kind: 'checks-definition-files-set'; patterns: string[] | null }
-  | { kind: 'gate-key-command-set'; command: string | null }
-  | { kind: 'gate-cache-paths-set'; paths: string[] | null };
+  | { kind: 'pipeline-prepare-step-set'; step: PipelineStep }
+  | { kind: 'pipeline-gate-add'; gate: PipelineGate }
+  | { kind: 'pipeline-gates-none' }
+  | { kind: 'pipeline-gate-remove'; name: string };
 
 export type ControlCommandKind = ControlCommand['kind'];
 

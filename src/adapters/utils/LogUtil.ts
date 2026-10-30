@@ -162,6 +162,14 @@ function sentenceOf(record: LogRecordContent): string {
       return `Concurrency limit set to ${record.fields.limit}`;
     case 'dispatcher-set':
       return `Dispatcher set to ${dispatcherStateTextOf(record.fields.state, record.fields.runId)}`;
+    case 'pipeline-prepare-step-set':
+      return `Prepare step ${record.fields.name} set to ${record.fields.run}`;
+    case 'pipeline-gate-added':
+      return `Gate ${record.fields.name} set to ${record.fields.run}`;
+    case 'pipeline-gates-none':
+      return 'No gates, on purpose';
+    case 'pipeline-gate-removed':
+      return `Gate ${record.fields.name} removed`;
     case 'check-command-set':
       return record.fields.command === null ? 'Check command cleared' : `Check command set to ${record.fields.command}`;
     case 'install-command-set':

@@ -16,6 +16,7 @@ export interface Workspace {
   rootDirectory:     string;
   trackerDirectory:  string;
   progressFilePath:  string;
+  pipelineFilePath:  string;
   logFilePath:       string;
   htmlFilePath:      string;
   stampFilePath:     string;
@@ -33,6 +34,7 @@ export function workspacePathsFor(rootDirectory: string): Workspace {
     rootDirectory:     absoluteRoot,
     trackerDirectory,
     progressFilePath:  join(trackerDirectory, TRACKER_FILES.PROGRESS_FILE_NAME),
+    pipelineFilePath:  join(trackerDirectory, TRACKER_FILES.PIPELINE_FILE_NAME),
     logFilePath:       join(trackerDirectory, TRACKER_FILES.LOG_FILE_NAME),
     htmlFilePath:      join(trackerDirectory, TRACKER_FILES.HTML_FILE_NAME),
     stampFilePath:     join(trackerDirectory, TRACKER_FILES.STAMP_FILE_NAME),

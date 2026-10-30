@@ -5,17 +5,22 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, sep }       from 'node:path';
 
-import { filledTemplateOf, productNameTemplateValuesOf }                           from '../../src/shared/FilledTemplate.ts';
-import { OperationRefusal }                                                        from '../../src/shared/OperationRefusal.ts';
-import { resourceFilePathOf }                                                      from '../../src/shared/ResourceFilePath.ts';
-import { PRODUCT_NAMES }                                                           from '../../src/shared/constants/ProductNames.ts';
-import { CLAUDE_CODE_INSTALL, type InstalledFileName, type SkillSourceFolderName } from './constants/ClaudeCodeInstall.ts';
+import { filledTemplateOf, productNameTemplateValuesOf } from '../../src/shared/FilledTemplate.ts';
+import { OperationRefusal }                              from '../../src/shared/OperationRefusal.ts';
+import { resourceFilePathOf }                            from '../../src/shared/ResourceFilePath.ts';
+import { PRODUCT_NAMES }                                 from '../../src/shared/constants/ProductNames.ts';
+import {
+  CLAUDE_CODE_INSTALL,
+  type InstalledFile,
+  type InstalledFileName,
+  type SkillSourceFolderName
+} from './constants/ClaudeCodeInstall.ts';
 
 /** Each installed file's text; a placeholder the product's names do not fill, such as the Assistant brief's job id, is left for its reader. */
 export type InstalledFileTexts = Readonly<Partial<Record<InstalledFileName, string>>>;
 
-function templateTextOf(templateFileName: string): string {
-  return readFileSync(resourceFilePathOf('templates', templateFileName), 'utf8');
+function templateTextOf(file: InstalledFile): string {
+  return readFileSync(resourceFilePathOf(file.resourceFolder ?? 'templates', file.templateFileName), 'utf8');
 }
 
 /** Each installed skill's files under its installed name, keyed by their path inside the skill folder written with `/`, in path order. */
@@ -64,7 +69,7 @@ export function installedFileTextsFor(): InstalledFileTexts {
   const texts: Partial<Record<InstalledFileName, string>> = {};
   for (const part of CLAUDE_CODE_INSTALL.parts) {
     if (part.writing !== 'briefs') continue;
-    for (const file of part.files) texts[file.name] = filledTemplateOf(templateTextOf(file.templateFileName), templateValues);
+    for (const file of part.files) texts[file.name] = filledTemplateOf(templateTextOf(file), templateValues);
   }
   return texts;
 }

@@ -11,15 +11,15 @@ import type {
   JobKind,
   JobOutcome
 } from './@types/Job.ts';
-import type { LifecycleLimits }                      from './@types/LifecycleLimits.ts';
-import type { LifecycleObservations, LifecycleStep } from './@types/LifecycleStep.ts';
-import type { LogRecord }                            from './@types/LogRecord.ts';
-import type { TicketPriority, TicketStatus }         from './@types/Ticket.ts';
-import type { DispatcherState }                      from './@types/TrackerProgress.ts';
-import { CRASH_INTERRUPTION_CAUSES }                 from './constants/JobStates.ts';
-import { FailedPassUtil }                            from './utils/FailedPassUtil.ts';
-import { TicketDefaultsUtil }                        from './utils/TicketDefaultsUtil.ts';
-import { TicketDependencyUtil }                      from './utils/TicketDependencyUtil.ts';
+import type { LifecycleLimits }                                from './@types/LifecycleLimits.ts';
+import type { LifecycleObservations, LifecycleStep }           from './@types/LifecycleStep.ts';
+import type { LogRecord }                                      from './@types/LogRecord.ts';
+import type { TicketPriority, TicketStatus }                   from './@types/Ticket.ts';
+import type { DispatcherState }                                from './@types/TrackerProgress.ts';
+import { CRASH_INTERRUPTION_CAUSES, HANDOFF_RED_INTERRUPTION } from './constants/JobStates.ts';
+import { FailedPassUtil }                                      from './utils/FailedPassUtil.ts';
+import { TicketDefaultsUtil }                                  from './utils/TicketDefaultsUtil.ts';
+import { TicketDependencyUtil }                                from './utils/TicketDependencyUtil.ts';
 
 export interface LifecycleTicket {
   id:           string;
@@ -45,7 +45,9 @@ export interface LifecycleFacts {
   readinessPositionByTicketId: ReadonlyMap<string, number>;
   concurrencyLimit:            number;
   dispatcherState:             DispatcherState;
-  checkCommandIsSet:           boolean;
+  pipelineIsSet:               boolean;
+  /** The pipeline has a `review` phase; without one no reviewer is ever launched, and a gated build queues to merge. */
+  reviewIsSet:                 boolean;
   observations:                LifecycleObservations;
 }
 
@@ -54,6 +56,9 @@ const SLOT_TAKING_JOB_KINDS: readonly JobKind[] = ['build', 'review'];
 
 /** Incidents holding a target's Airlock, which never wait for an orchestrator to boot. */
 const AIRLOCK_HOLDING_INCIDENT_KINDS: readonly IncidentKind[] = ['merge-gate-failed', 'resolution-over-threshold'];
+
+/** The jobs whose spent red resumes park their ticket; a merge-gate fixer's Airlock parks its own, aborting the merge. */
+const TICKET_WORK_JOB_KINDS: readonly JobKind[] = ['review', 'build'];
 
 /** Sessions, which are never resumed once down: a fresh one boots instead. */
 const SESSION_JOB_KINDS: readonly JobKind[] = ['orchestrator', 'product-owner'];
@@ -156,6 +161,70 @@ function lastBuildAttemptOf(ticketId: string, facts: LifecycleFacts): number {
   return Math.max(0, ...buildAttempts);
 }
 
+interface HandoffCycle {
+  kind:      JobKind;
+  ticketIds: readonly string[];
+  attempt:   number;
+}
+
+/**
+ * The resumes of a handoff cycle, every job of its kind, tickets and attempt, so a fresh session that took over a session the vendor
+ * could not resume carries on the same count: its red-handoff resumes, and for a build cycle each review of its tickets that did not
+ * hold after the cycle began, since the builder is resumed with that review's findings.
+ */
+function handoffCycleResumesOf(cycle: HandoffCycle, logRecords: readonly LogRecord[]): number {
+  const launches = jobLaunchesByJobIdOf(logRecords);
+  const ticketKey = [...cycle.ticketIds].sort().join(',');
+  const inTheCycle = (jobId: string): boolean => {
+    const launch = launches.get(jobId);
+    return launch !== undefined && launch.kind === cycle.kind && launch.attempt === cycle.attempt && [...launch.ticketIds].sort().join(',') === ticketKey;
+  };
+  let cycleBegan = false;
+  let resumes = 0;
+  for (const record of logRecords) {
+    if (record.kind === 'job-launched' && inTheCycle(record.jobId)) cycleBegan = true;
+    if (record.kind === 'job-resumed' && record.fields.cause === HANDOFF_RED_INTERRUPTION && inTheCycle(record.jobId)) resumes += 1;
+    const endedReview = record.kind === 'job-ended' && record.fields.outcome === 'does-not-hold' ? launches.get(record.jobId) : undefined;
+    if (cycleBegan && cycle.kind === 'build' && endedReview?.kind === 'review' && endedReview.ticketIds.some((ticketId) => cycle.ticketIds.includes(ticketId))) resumes += 1;
+  }
+  return resumes;
+}
+
+function redHandoffResumesOf(job: Readonly<Job>, facts: LifecycleFacts): number {
+  return handoffCycleResumesOf(job, facts.logRecords);
+}
+
+/**
+ * The ticket's newest ended build job was `built`: its review sent it back, and that builder's session is resumed with the findings.
+ * An unhold since then starts a fresh attempt instead, so a ticket parked past its resumes does not park again.
+ */
+function builderReturnsFromReview(ticketId: string, facts: LifecycleFacts): boolean {
+  const launches = jobLaunchesByJobIdOf(facts.logRecords);
+  let returns = false;
+  for (const record of facts.logRecords) {
+    if (record.kind === 'ticket-unheld' && record.ticketId === ticketId) returns = false;
+    if (record.kind !== 'job-ended') continue;
+    const launch = launches.get(record.jobId);
+    if (launch?.kind === 'build' && launch.ticketIds.includes(ticketId)) returns = record.fields.outcome === 'built';
+  }
+  return returns;
+}
+
+/** The ticket's newest ended build job was replaced while interrupted on a red handoff: its fresh successor keeps the attempt. */
+function redHandoffCarriesOver(ticketId: string, facts: LifecycleFacts): boolean {
+  const launches = jobLaunchesByJobIdOf(facts.logRecords);
+  const lastInterruptionByJobId = new Map<string, InterruptionCause>();
+  let carriesOver = false;
+  for (const record of facts.logRecords) {
+    if (record.kind === 'job-interrupted') lastInterruptionByJobId.set(record.jobId, record.fields.cause);
+    if (record.kind !== 'job-ended') continue;
+    const launch = launches.get(record.jobId);
+    if (launch?.kind !== 'build' || !launch.ticketIds.includes(ticketId)) continue;
+    carriesOver = record.fields.outcome === 'replaced' && lastInterruptionByJobId.get(record.jobId) === HANDOFF_RED_INTERRUPTION;
+  }
+  return carriesOver;
+}
+
 function targetOf(ticket: LifecycleTicket, observations: LifecycleObservations): string {
   return ticket.group === undefined ? observations.mainLine : `${observations.groupTargetPrefix}${ticket.group}`;
 }
@@ -215,11 +284,24 @@ function productOwnerStepsOf(job: Readonly<Job>, facts: LifecycleFacts, limits: 
   return resumesAreHeld || awaitsAnAnswer ? [] : [{ kind: 'resume-job', jobId: job.id }];
 }
 
+/** A red handoff resumes the same session while its cycle has resumes left; the next red ends it and parks its ticket for User. */
+function redHandoffStepsOf(job: Readonly<Job>, facts: LifecycleFacts, limits: LifecycleLimits, resumesAreHeld: boolean): LifecycleStep[] {
+  const ticketId = job.ticketIds[0];
+  if (redHandoffResumesOf(job, facts) >= limits.RED_HANDOFF_RESUMES_BEFORE_PARKING && ticketId !== undefined && TICKET_WORK_JOB_KINDS.includes(job.kind)) {
+    return [{
+      kind: 'park', ticketId, cause: 'red-resumes-spent', jobId: job.id
+    }];
+  }
+  const resumeIsHeld = resumesAreHeld || jobResumeIsHeld(job, facts) || jobAwaitsAnAnswer(job, facts);
+  return resumeIsHeld ? [] : [{ kind: 'resume-job', jobId: job.id }];
+}
+
 function crashBoundStepsOf(facts: LifecycleFacts, limits: LifecycleLimits, resumesAreHeld: boolean): LifecycleStep[] {
   const productOwnerSteps = facts.jobs
     .filter((job) => job.kind === 'product-owner' && (job.state === 'interrupted' || job.state === 'awaiting-answer'))
     .flatMap((job) => productOwnerStepsOf(job, facts, limits, resumesAreHeld));
   return [...productOwnerSteps, ...facts.jobs.filter((job) => job.state === 'interrupted' && job.kind !== 'product-owner').flatMap((job): LifecycleStep[] => {
+    if (job.interruption === HANDOFF_RED_INTERRUPTION) return redHandoffStepsOf(job, facts, limits, resumesAreHeld);
     if (SESSION_JOB_KINDS.includes(job.kind)) return [{ kind: 'replace-job', jobId: job.id }];
     if (crashResumesAreSpent(job, limits)) return [{ kind: 'replace-job', jobId: job.id }];
     if (resumesAreHeld || jobResumeIsHeld(job, facts) || jobAwaitsAnAnswer(job, facts)) return [];
@@ -227,11 +309,20 @@ function crashBoundStepsOf(facts: LifecycleFacts, limits: LifecycleLimits, resum
   })];
 }
 
+/** A builder a review sent back past its cycle's resumes is never resumed again: the review that did not hold is one past the last. */
+function reviewResumesAreSpent(ticket: LifecycleTicket, facts: LifecycleFacts, limits: LifecycleLimits): boolean {
+  if (ticket.status !== 'in-progress' || !builderReturnsFromReview(ticket.id, facts)) return false;
+  const cycle: HandoffCycle = { kind: 'build', ticketIds: [ticket.id], attempt: lastBuildAttemptOf(ticket.id, facts) };
+  return handoffCycleResumesOf(cycle, facts.logRecords) > limits.RED_HANDOFF_RESUMES_BEFORE_PARKING;
+}
+
 function parkStepsOf(facts: LifecycleFacts, limits: LifecycleLimits): LifecycleStep[] {
   return facts.tickets
     .filter((ticket) => ticket.hold === undefined && (ticket.status === 'in-progress' || ticket.status === 'in-review') && !ticketHasAJob(ticket.id, facts))
-    .filter((ticket) => FailedPassUtil.failedPassesOf(ticket.id, facts.logRecords) >= limits.FAILED_PASSES_BEFORE_PARKING)
-    .map((ticket) => ({ kind: 'park', ticketId: ticket.id, cause: 'failed-passes' }));
+    .flatMap((ticket): LifecycleStep[] => {
+      if (FailedPassUtil.failedPassesOf(ticket.id, facts.logRecords) >= limits.FAILED_PASSES_BEFORE_PARKING) return [{ kind: 'park', ticketId: ticket.id, cause: 'failed-passes' }];
+      return reviewResumesAreSpent(ticket, facts, limits) ? [{ kind: 'park', ticketId: ticket.id, cause: 'red-resumes-spent' }] : [];
+    });
 }
 
 function jobLostStepsOf(facts: LifecycleFacts, limits: LifecycleLimits): LifecycleStep[] {
@@ -249,6 +340,7 @@ function jobLostStepsOf(facts: LifecycleFacts, limits: LifecycleLimits): Lifecyc
 function candidateOf(ticket: LifecycleTicket, facts: LifecycleFacts): Candidate | null {
   const base = targetOf(ticket, facts.observations);
   if (ticket.status === 'in-review') {
+    if (!facts.reviewIsSet) return null;
     return {
       ticket,
       phase: 'review',
@@ -257,8 +349,9 @@ function candidateOf(ticket: LifecycleTicket, facts: LifecycleFacts): Candidate 
       }
     };
   }
-  const attempt = lastBuildAttemptOf(ticket.id, facts) + 1;
-  if (ticket.status === 'in-progress' && attempt > 1) return {
+  const carriesOver = redHandoffCarriesOver(ticket.id, facts) || (ticket.status === 'in-progress' && builderReturnsFromReview(ticket.id, facts));
+  const attempt = lastBuildAttemptOf(ticket.id, facts) + (carriesOver ? 0 : 1);
+  if (ticket.status === 'in-progress' && (attempt > 1 || carriesOver)) return {
     ticket,
     phase: 'rebuild',
     step:  {
@@ -329,6 +422,17 @@ function incidentDefaultStepsOf(facts: LifecycleFacts, noOrchestratorCanComeUp: 
   });
 }
 
+/** One onboarder answers each `checks-not-set`: live now, or launched since the newest one opened, which this pass may be opening. */
+function onboarderAnsweredChecksNotSet(facts: LifecycleFacts): boolean {
+  if (facts.jobs.some((job) => job.kind === 'onboarder')) return true;
+  let launchedSinceTheDecision = false;
+  for (const record of facts.logRecords) {
+    if (record.kind === 'decision-opened' && record.fields.kind === 'checks-not-set') launchedSinceTheDecision = false;
+    if (record.kind === 'job-launched' && record.fields.kind === 'onboarder') launchedSinceTheDecision = true;
+  }
+  return launchedSinceTheDecision;
+}
+
 /** A decision about the whole board, which names no ticket and no job. */
 function boardDecisionStepOf(kind: Decision['kind']): LifecycleStep {
   return { kind: 'open-decision', decision: { kind, ticketIds: [], jobId: null } };
@@ -342,7 +446,8 @@ function ticketIdsOfStep(step: LifecycleStep): readonly string[] {
 function nextStepsOf(facts: LifecycleFacts, limits: LifecycleLimits): LifecycleStep[] {
   const outageNow               = facts.dispatcherState !== 'stopped' && outageIsDue(facts, limits);
   const versionOrUsageHolds     = usageLimitHolds(limits) || facts.observations.installVersionChanged;
-  const resumesAreHeld          = versionOrUsageHolds || !facts.checkCommandIsSet || outageNow || openDecisionOfKind(facts, 'outage');
+  const outageHolds             = outageNow || openDecisionOfKind(facts, 'outage');
+  const resumesAreHeld          = versionOrUsageHolds || !facts.pipelineIsSet || outageHolds;
   const newWorkIsHeld           = resumesAreHeld || facts.dispatcherState === 'stopped';
   const bootsKeepFailing        = failedOrchestratorBootsOf(facts) >= limits.FAILED_ORCHESTRATOR_BOOTS_BEFORE_DEFAULTING;
   const noOrchestratorCanComeUp = usageLimitHolds(limits) || (bootsKeepFailing && !facts.observations.orchestratorHasAnswered);
@@ -352,7 +457,9 @@ function nextStepsOf(facts: LifecycleFacts, limits: LifecycleLimits): LifecycleS
 
   const steps: LifecycleStep[] = [];
   if (outageNow) steps.push({ kind: 'stop-dispatching', cause: 'outage' }, boardDecisionStepOf('outage'));
-  if (!facts.checkCommandIsSet && !openDecisionOfKind(facts, 'checks-not-set')) steps.push(boardDecisionStepOf('checks-not-set'));
+  if (!facts.pipelineIsSet && !openDecisionOfKind(facts, 'checks-not-set')) steps.push(boardDecisionStepOf('checks-not-set'));
+  const onboarderIsHeld = versionOrUsageHolds || outageHolds || facts.dispatcherState === 'stopped';
+  if (!facts.pipelineIsSet && !onboarderIsHeld && !onboarderAnsweredChecksNotSet(facts)) steps.push({ kind: 'launch-onboarder' });
   steps.push(...crashBoundStepsOf(facts, limits, resumesAreHeld));
   if (!orchestratorIsLive && orchestratorMayBoot && !facts.observations.installVersionChanged) steps.push({ kind: 'boot-orchestrator' });
   const parkSteps    = parkStepsOf(facts, limits);
@@ -366,4 +473,5 @@ function nextStepsOf(facts: LifecycleFacts, limits: LifecycleLimits): LifecycleS
 export const LifecyclePolicy = {
   nextStepsOf,
   outageIsDue,
+  handoffCycleResumesOf,
 } as const;

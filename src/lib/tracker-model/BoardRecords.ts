@@ -7,6 +7,7 @@ import type { Draft }                from './@types/Draft.ts';
 import type { Epic }                 from './@types/Epic.ts';
 import type { Incident }             from './@types/Incident.ts';
 import type { LogRecord }            from './@types/LogRecord.ts';
+import type { Pipeline }             from './@types/Pipeline.ts';
 import type { Task, TaskStatus }     from './@types/Task.ts';
 import type { Ticket, TicketStatus } from './@types/Ticket.ts';
 import type { TrackerProgress }      from './@types/TrackerProgress.ts';
@@ -49,6 +50,9 @@ export class BoardRecords {
     },
   };
 
+  /** Set once a `gate` verb changed the pipeline, so the hold writes `pipeline.json`. */
+  pipelineChanged = false;
+
   constructor(
     readonly progress: TrackerProgress,
     readonly ticketRecords: Ticket[],
@@ -56,6 +60,8 @@ export class BoardRecords {
     readonly draftRecords: Draft[],
     private readonly sinkLogger: Logger,
     readonly storedLogRecords: readonly LogRecord[],
+    /** `null` when no pipeline is stored, or the stored one could not be read. */
+    public pipeline: Pipeline | null,
   ) {}
 
   markChanged(ticket: Ticket): void {
@@ -151,13 +157,6 @@ export class BoardRecords {
       if (!Object.hasOwn(transitioned, key)) Reflect.deleteProperty(task, key);
     }
     Object.assign(task, transitioned);
-  }
-
-  /** The row takes the tracker's check command as it stands, or loses its stamp when none is stored, so a release can hold the two equal. */
-  stampCheckCommand(task: Task): void {
-    const { checkCommand } = this.progress;
-    if (checkCommand === undefined) delete task.checkCommand;
-    else task.checkCommand = checkCommand;
   }
 
   /** An existing row comes back untouched, so a row a forced link deliberately moved is never taken back. */

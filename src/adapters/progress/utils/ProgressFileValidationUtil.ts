@@ -16,6 +16,9 @@ import { CURRENT_PROGRESS_FILE_VERSION }                     from '../constants/
 import { StoredDecisionAndIncidentValidationUtil }           from './StoredDecisionAndIncidentValidationUtil.ts';
 import { StoredJobValidationUtil }                           from './StoredJobValidationUtil.ts';
 
+/** What the retired `checks` verb stored here; the gate pipeline lives in `pipeline.json` now. */
+const RETIRED_PIPELINE_KEYS = ['checkCommand', 'installCommand', 'checksDefinitionFiles', 'gateKeyCommand', 'gateCachePaths'] as const;
+
 function textFieldIsPresent(candidate: Record<string, unknown>, field: string): boolean {
   return typeof candidate[field] === 'string';
 }
@@ -78,9 +81,10 @@ function taskProblem(value: unknown, index: number): string | null {
   if (task['reviewBarRound'] !== undefined && !reviewBarRoundIsWellFormed(task['reviewBarRound'])) {
     return `tasks[${index}].reviewBarRound is present and is not a whole round of at least ${FIRST_REVIEW_BAR_ROUND}`;
   }
-  if (task['checkCommand'] !== undefined && !BoardSettingsUtil.checkCommandIsWellFormed(task['checkCommand'])) {
-    return `tasks[${index}].checkCommand is present and is not a shell line that is not blank`;
+  if (Object.hasOwn(task, 'checkCommand')) {
+    return `tasks[${index}].checkCommand is present, and a row records the hash of the pipeline it was gated by instead; ${OLDER_FORMAT_ADVICE}`;
   }
+  if (task['pipelineHash'] !== undefined && !textFieldIsPresent(task, 'pipelineHash')) return `tasks[${index}].pipelineHash is present and is not a hash`;
   if (task['mergeQueued'] !== undefined && task['mergeQueued'] !== true) return `tasks[${index}].mergeQueued is present and is not true`;
   return null;
 }
@@ -108,21 +112,8 @@ function documentHeaderProblemOf(candidate: unknown): string | null {
   if (candidate['dispatcherState'] !== undefined && !BoardSettingsUtil.dispatcherStateIsKnown(candidate['dispatcherState'])) {
     return `dispatcherState is ${JSON.stringify(candidate['dispatcherState'])}, and when present it has to be one of ${DISPATCHER_STATES.join(', ')}`;
   }
-  if (candidate['checkCommand'] !== undefined && !BoardSettingsUtil.checkCommandIsWellFormed(candidate['checkCommand'])) {
-    return `checkCommand is ${JSON.stringify(candidate['checkCommand'])}, and when present it has to be a shell line that is not blank`;
-  }
-  if (candidate['installCommand'] !== undefined && !BoardSettingsUtil.checkCommandIsWellFormed(candidate['installCommand'])) {
-    return `installCommand is ${JSON.stringify(candidate['installCommand'])}, and when present it has to be a shell line that is not blank`;
-  }
-  if (candidate['checksDefinitionFiles'] !== undefined && !BoardSettingsUtil.checksDefinitionFilesAreWellFormed(candidate['checksDefinitionFiles'])) {
-    return `checksDefinitionFiles is ${JSON.stringify(candidate['checksDefinitionFiles'])}, and when present it has to be a non-empty list of patterns without whitespace`;
-  }
-  if (candidate['gateKeyCommand'] !== undefined && !BoardSettingsUtil.checkCommandIsWellFormed(candidate['gateKeyCommand'])) {
-    return `gateKeyCommand is ${JSON.stringify(candidate['gateKeyCommand'])}, and when present it has to be a shell line that is not blank`;
-  }
-  if (candidate['gateCachePaths'] !== undefined && !BoardSettingsUtil.gateCachePathsAreWellFormed(candidate['gateCachePaths'])) {
-    return `gateCachePaths is ${JSON.stringify(candidate['gateCachePaths'])}, and when present it has to be a non-empty list of absolute or ~/ paths without whitespace`;
-  }
+  const retiredKey = RETIRED_PIPELINE_KEYS.find((key) => Object.hasOwn(candidate, key));
+  if (retiredKey !== undefined) return `${retiredKey} is present, and the gate pipeline lives in pipeline.json; ${OLDER_FORMAT_ADVICE}`;
   if (candidate['nextDraftId'] !== undefined && !StoredValueUtil.wholeNumberIsAtLeast(candidate['nextDraftId'], FIRST_DRAFT_NUMBER)) {
     return `nextDraftId is ${JSON.stringify(candidate['nextDraftId'])}, and when present it has to be a whole number of at least ${FIRST_DRAFT_NUMBER}`;
   }

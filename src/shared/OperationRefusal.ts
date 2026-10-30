@@ -24,7 +24,7 @@ export type OperationRefusalDetail =
   | { kind: 'no-readable-ticket'; reference: string }
   | { kind: 'malformed-ticket-file'; filePath: string; line: number; reason: string }
   | { kind: 'unreadable-file-in-the-way'; filePath: string; record: 'epic' | 'draft' }
-  | { kind: 'no-check-command-to-clear' }
+  | { kind: 'malformed-pipeline'; filePath: string; reason: string }
   | { kind: 'role-command-refused'; reason: RoleCommandRefusalReason; commandKind: string }
   | { kind: 'verb-not-relayable'; verb: string; jobId: string }
   | { kind: 'malformed-relay-reply'; replyFilePath: string }
