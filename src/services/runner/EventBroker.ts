@@ -4,7 +4,7 @@
  * published after a pass is diffed against the last one: `board` when anything changed, and one event per changed job, newly ended job,
  * decision or incident, and for the Overseer and usage. A job first shown past `launching`, ended included, is published `launching` first.
  */
-import type { BoardState, EndedJob } from './BoardState.ts';
+import type { BoardState, EndedJob, JobLiveFactsWithSilence } from './BoardState.ts';
 
 export type OverseerEventKind = 'board' | 'job' | 'decision' | 'incident' | 'overseer' | 'usage';
 
@@ -36,7 +36,7 @@ function changedItemsOf<Item>(previous: readonly unknown[], next: readonly Item[
 }
 
 /** A job that ended before any state showed it had no host yet when it launched, so nothing had run. */
-function launchingJobOf(endedJob: EndedJob): object {
+function launchingJobOf(endedJob: EndedJob): Omit<EndedJob, 'state' | 'outcome' | 'cause' | 'endedAt'> & { state: 'launching'; live: JobLiveFactsWithSilence } {
   const {
     id, kind, role, ticketIds, target, attempt
   } = endedJob;
