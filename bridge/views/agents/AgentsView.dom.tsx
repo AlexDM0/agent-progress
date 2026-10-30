@@ -195,6 +195,14 @@ describe('the job rows', () => {
       embedded:             false,
       embeddedSurroundings: () => ({ window, parent: null, parentOrigin: null }),
       now:                  () => new Date('2026-10-29T20:00:05Z'),
+      followTranscript:     () => ({ close: () => undefined }),
+      questionNotifier:     {
+        allowance:         () => 'denied',
+        askAllowance:      () => Promise.resolve('denied'),
+        notify:            () => undefined,
+        setDocumentTitle:  () => undefined,
+        baseDocumentTitle: 'agent-progress',
+      },
     }} />);
     const stream = (): EventStreamHandlers => {
       if (handlers === null) throw new Error('no event stream');

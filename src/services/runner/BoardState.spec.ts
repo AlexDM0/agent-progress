@@ -27,6 +27,51 @@ const EXAMPLE_STATE = {
   usage: { resetsAt: null, window: null },
 } as unknown as BoardState;
 
+describe('BoardStateAssembly.questionHistoryOf', () => {
+  test('keeps every decision and incident record, ticket-triaged, and the records of session jobs alone', () => {
+    const at = '2026-10-29T20:00:00+01:00';
+    const records = [
+      {
+        kind:   'job-launched',
+        at,
+        jobId:  'J1',
+        fields: {
+          kind: 'build', role: 'builder', ticketIds: ['001'], attempt: 1, target: 'main', parentJobId: null
+        }
+      },
+      {
+        kind:   'job-launched',
+        at,
+        jobId:  'J2',
+        fields: {
+          kind: 'product-owner', role: 'product-owner', ticketIds: [], attempt: 1, target: null, parentJobId: null
+        }
+      },
+      {
+        kind: 'job-ended', at, jobId: 'J1', fields: { outcome: 'built' }
+      },
+      {
+        kind: 'job-ended', at, jobId: 'J2', fields: { outcome: 'closed' }
+      },
+      {
+        kind: 'decision-answered', at, decisionId: 'E1', fields: { answer: { 'Which?': 'Both' } }
+      },
+      {
+        kind: 'incident-defaulted', at, incidentId: 'I1', fields: { move: 'ticket-triage', cause: 'turn-closed' }
+      },
+      {
+        kind: 'ticket-triaged', at, ticketId: '004', fields: {}
+      },
+      {
+        kind: 'ticket-readied', at, ticketId: '005', fields: {}
+      },
+    ] as unknown as Parameters<typeof BoardStateAssembly.questionHistoryOf>[0];
+    expect(BoardStateAssembly.questionHistoryOf(records).map((record) => record.kind)).toEqual([
+      'job-launched', 'job-ended', 'decision-answered', 'incident-defaulted', 'ticket-triaged'
+    ]);
+  });
+});
+
 describe('BoardStateAssembly.summaryOf', () => {
   test('answers summaryVersion 1 exactly as the fixture holds it', () => {
     const fixture: unknown = JSON.parse(readFileSync(SUMMARY_FIXTURE_PATH, 'utf8'));

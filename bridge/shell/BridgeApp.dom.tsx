@@ -1,7 +1,8 @@
 /**
  * The shell against fake services, in a happy-dom document. What matters: every control is disabled while the event stream is down and
  * while launches are held for an install change, a 423 raises that banner with the Overseer's sentence, a refusal shows verbatim beside its
- * control, a reconnect to an Overseer running new code reloads the page, and a view that throws leaves the error banner, not a blank page.
+ * control, a reconnect to an Overseer running new code reloads the page, each tab routes to its view, and a view that throws leaves the
+ * error banner, not a blank page.
  */
 import {
   act,
@@ -20,6 +21,7 @@ import {
 import type { BoardStateDocument, OverseerIdentity } from '../@types/BoardStateDocument.ts';
 import type { CommandOutcome, ControlCommandBody }   from '../api/CommandClient.ts';
 import type { EventStreamHandlers }                  from '../api/EventStreamClient.ts';
+import { exampleTicketsBoard, exampleTicketsTicket } from '../testing/TicketsBoardFixture.ts';
 import { BridgeApp, type BridgeServices }            from './BridgeApp.tsx';
 import { BridgeErrorBoundary }                       from './BridgeErrorBoundary.tsx';
 
@@ -74,6 +76,14 @@ function fakeBridge(): FakeBridge {
       embedded:             false,
       embeddedSurroundings: () => ({ window, parent: null, parentOrigin: null }),
       now:                  () => new Date('2026-10-29T20:00:00Z'),
+      followTranscript:     () => ({ close: () => undefined }),
+      questionNotifier:     {
+        allowance:         () => 'denied',
+        askAllowance:      () => Promise.resolve('denied'),
+        notify:            () => undefined,
+        setDocumentTitle:  () => undefined,
+        baseDocumentTitle: 'agent-progress',
+      },
     },
     stream: () => {
       if (handlers === null) throw new Error('the shell opened no event stream');
@@ -90,11 +100,11 @@ function fakeBridge(): FakeBridge {
   };
 }
 
-async function renderedLive(bridge: FakeBridge): Promise<void> {
+async function renderedLive(bridge: FakeBridge, board: unknown = BOARD): Promise<void> {
   render(<BridgeApp services={bridge.services} />);
   await act(async () => {
     bridge.stream().onConnection('live');
-    bridge.stream().onEvent('board', BOARD);
+    bridge.stream().onEvent('board', board);
     await Promise.resolve();
   });
 }
@@ -105,6 +115,7 @@ function pauseButton(): HTMLButtonElement {
 
 afterEach(() => {
   cleanup();
+  window.location.hash = '';
 });
 
 describe('the shell\'s controls', () => {
@@ -177,6 +188,34 @@ describe('new code behind the same port', () => {
       await Promise.resolve();
     });
     expect(bridge.reloads()).toBe(1);
+  });
+});
+
+describe('the shell\'s routing', () => {
+  test('the questions and assistant tabs show their views, not the board counts', async () => {
+    window.location.hash = '#questions';
+    await renderedLive(fakeBridge());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByRole('heading', { name: 'Open questions (0)' })).not.toBeNull();
+    await act(async () => {
+      window.location.hash = '#assistant';
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+      await Promise.resolve();
+    });
+    expect(screen.getByRole('heading', { name: 'Open incidents (0)' })).not.toBeNull();
+    expect(document.querySelector('.bridge-empty')).toBeNull();
+  });
+
+  test('the tickets tab shows the Tickets view, with the detail panel once a ticket is selected', async () => {
+    window.location.hash = '#tickets/002';
+    await renderedLive(fakeBridge(), { ...BOARD, ...exampleTicketsBoard({ tickets: [exampleTicketsTicket('002')] }) });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByRole('link', { name: '#002' }).getAttribute('href')).toBe('#tickets/002');
+    expect(screen.getByRole('link', { name: 'Close' }).getAttribute('href')).toBe('#tickets');
   });
 });
 

@@ -12,24 +12,30 @@ import {
 } from 'react';
 
 import type { BoardStateDocument, OverseerIdentity }                                     from '../@types/BoardStateDocument.ts';
+import type { ConversationBoardDocument }                                                from '../@types/ConversationDocuments.ts';
 import type { PreferenceStorage }                                                        from '../@types/PreferenceStorage.ts';
 import type { CommandClient }                                                            from '../api/CommandClient.ts';
 import type { ConnectionState, EventStreamHandlers }                                     from '../api/EventStreamClient.ts';
 import { boardPreferenceStoreOf, sharedPreferenceStoreOf }                               from '../preferences/PreferenceStore.ts';
 import { TimeUtil }                                                                      from '../utils/TimeUtil.ts';
 import { AgentsView, BROWSER_AGENTS_CLOCK, type AgentsClock }                            from '../views/agents/AgentsView.tsx';
+import { AssistantView }                                                                 from '../views/assistant/AssistantView.tsx';
+import type { TranscriptFollower }                                                       from '../views/assistant/TranscriptLog.tsx';
 import { DetailPanel }                                                                   from '../views/detail-panel/DetailPanel.tsx';
 import { EpicsModel }                                                                    from '../views/epics/EpicsModel.ts';
 import { EpicsView }                                                                     from '../views/epics/EpicsView.tsx';
 import { FinishedWorkModel }                                                             from '../views/finished-work/FinishedWorkModel.ts';
 import type { FinishedWorkChoice }                                                       from '../views/finished-work/FinishedWorkModel.ts';
 import { FinishedWorkMenu, FinishedWorkView, useFinishedWorkChoice }                     from '../views/finished-work/FinishedWorkView.tsx';
+import { IntakeView }                                                                    from '../views/intake/IntakeView.tsx';
 import { KanbanModel }                                                                   from '../views/kanban/KanbanModel.ts';
 import { KanbanView }                                                                    from '../views/kanban/KanbanView.tsx';
 import { MergeQueueModel }                                                               from '../views/merge-queue/MergeQueueModel.ts';
 import { MergeQueueView }                                                                from '../views/merge-queue/MergeQueueView.tsx';
 import { ProgressModel }                                                                 from '../views/progress/ProgressModel.ts';
 import { ProgressView }                                                                  from '../views/progress/ProgressView.tsx';
+import { QuestionAlerts, type QuestionNotifier }                                         from '../views/questions/QuestionAlerts.ts';
+import { QuestionsView }                                                                 from '../views/questions/QuestionsView.tsx';
 import { TicketsModel }                                                                  from '../views/tickets/TicketsModel.ts';
 import { TicketsView }                                                                   from '../views/tickets/TicketsView.tsx';
 import { BoardStateUpdate }                                                              from './BoardStateUpdate.ts';
@@ -50,6 +56,8 @@ export interface BridgeServices {
   readonly embedded:             boolean;
   readonly embeddedSurroundings: () => EmbeddedSurroundings;
   readonly now:                  () => Date;
+  readonly followTranscript:     TranscriptFollower;
+  readonly questionNotifier:     QuestionNotifier;
 }
 
 export interface BridgeAppProps {
@@ -76,6 +84,8 @@ export function BridgeApp({ services }: BridgeAppProps) {
   const storedTab = useCallback(() => boardStore?.readChoice(TAB_CHOICE_NAME) ?? null, [boardStore]);
   const route = HashRouter.useHashRoute(storedTab);
   const [finishedWorkChoice, chooseFinishedWork] = useFinishedWorkChoice(boardStore);
+  const conversationBoard = boardState as ConversationBoardDocument | null;
+  QuestionAlerts.useOpenQuestionAlerts(conversationBoard?.decisions ?? null, services.questionNotifier);
 
   useEffect(() => {
     let current = true;
@@ -144,7 +154,7 @@ export function BridgeApp({ services }: BridgeAppProps) {
   // The chart reads the clock once per board: its now line and Fit range move on with the next board, and are only shown.
   const progressNow = useMemo(() => (boardState === null ? 0 : services.now().getTime()), [boardState, services]);
   const mergeQueueIsOpen = route.tab === 'kanban' && route.item === MERGE_QUEUE_ITEM;
-  const boardViewIsShown = route.tab === 'agents' || mergeQueueIsOpen
+  const boardViewIsShown = route.tab === 'agents' || route.tab === 'questions' || route.tab === 'assistant' || route.tab === 'intake' || mergeQueueIsOpen
     || (route.tab === 'kanban' && kanbanBoardState !== null)
     || (route.tab === 'tickets' && ticketsBoardState !== null)
     || (route.tab === 'progress' && (progressBoardState !== null || boardState?.page !== undefined));
@@ -175,6 +185,15 @@ export function BridgeApp({ services }: BridgeAppProps) {
             : null}
           {boardState !== null && route.tab === 'agents'
             ? <AgentsView jobs={boardState.jobs} decisions={boardState.decisions} selectedJobId={route.item} clock={agentsClock} />
+            : null}
+          {conversationBoard !== null && route.tab === 'questions'
+            ? <QuestionsView board={conversationBoard} notifier={services.questionNotifier} />
+            : null}
+          {conversationBoard !== null && route.tab === 'assistant'
+            ? <AssistantView board={conversationBoard} followTranscript={services.followTranscript} />
+            : null}
+          {conversationBoard !== null && route.tab === 'intake'
+            ? <IntakeView board={conversationBoard} followTranscript={services.followTranscript} />
             : null}
           {boardState !== null && mergeQueueIsOpen
             ? <MergeQueueView targets={MergeQueueModel.mergeQueueModelOf(boardState.mergeQueue, boardState.notices ?? [])} />
