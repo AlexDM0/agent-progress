@@ -18,8 +18,8 @@ import {
   rangeBoundLine,
   type RangeBoundLine
 } from './CustomRangeDraft.ts';
-import { TICK_MINUTE_CHOICES }     from './constants/ProgressChart.ts';
-import type { StoredViewOverride } from './utils/ChartPreferenceUtil.ts';
+import { AUTOMATIC_TICK_CHOICE, TICK_MINUTE_CHOICES } from './constants/ProgressChart.ts';
+import type { StoredViewOverride }                    from './utils/ChartPreferenceUtil.ts';
 
 export interface CustomRangePopoverProps {
   readonly appliedOverride:   StoredViewOverride;
@@ -112,7 +112,7 @@ export function CustomRangePopover({
       </label>
       <div className="bridge-chips" role="group" aria-label="Ticks">
         {[null, ...TICK_MINUTE_CHOICES].map((choice) => (
-          <button key={choice ?? 'auto'} type="button" className="bridge-chip" aria-pressed={choice === tickMinutes} onClick={() => setTickMinutes(choice)}>
+          <button key={choice ?? AUTOMATIC_TICK_CHOICE} type="button" className="bridge-chip" aria-pressed={choice === tickMinutes} onClick={() => setTickMinutes(choice)}>
             {tickLabelOf(choice)}
           </button>
         ))}
