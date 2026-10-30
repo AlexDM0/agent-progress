@@ -238,7 +238,7 @@ const ARROW_STAGGER_MILLISECONDS = 90;
 interface ShownArrows {
   readonly hoveredTicketId: string;
   readonly arrows:          readonly DependencyArrow[];
-  /** The first drawing animates in; a re-measure after a scroll or resize draws still. */
+  /** The first drawing animates in; a re-measure after a lane scroll draws still. */
   readonly drawsIn:         boolean;
 }
 
