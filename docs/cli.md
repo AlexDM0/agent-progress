@@ -87,10 +87,10 @@ own conventions only.
 |---|---|---|---|---|
 | 1 | The tracker: `progress.json`, `log.jsonl`, a `tickets/` folder, the generated `progress.html` and its `progress.stamp.js`, and the `.lock` directory | `.agent-progress/` | `init` only | — |
 | 2 | `.gitignore` entries for the tracker (`init` only) and for the worktrees folder | `.gitignore` | `init`, `update` | — |
-| 3 | The session instructions, from `resources/templates/SessionInstructions.md`, the reference, from `Reference.md`, and the Assistant brief, from `AssistantBrief.md` | `.agent-progress/session-instructions.md`, `reference.md`, `assistant-brief.md` | `init`, `update` | — |
+| 3 | The session instructions, from `resources/templates/SessionInstructions.md`, the reference, from `Reference.md`, and the seven instruction defaults, from `Constitution.md`, `OnboarderBrief.md` and `AssistantBrief.md` there and `BuildPrompt.md`, `ReviewPrompt.md`, `MergerBrief.md` and `ProductOwnerPrompt.md` under `resources/prompts/` | `.agent-progress/session-instructions.md`, `reference.md`, `briefs/defaults/<constitution\|builder\|reviewer\|merger\|productOwner\|onboarder\|assistant>.md` | `init`, `update` | — |
 | 4 | The `SessionStart` hook running `agent-progress hook session-start`, kept current in `.claude/settings.json` when that file already holds it | `.claude/settings.local.json` | `init`, `update` | `--no-hooks` |
 | 5 | The two skills, copied from this checkout's `skills/agent-po/` and `skills/agent-progress-orchestrate/`, each with its `.gitignore` entry | `.claude/skills/agent-po/`, `.claude/skills/agent-progress-orchestrate/` | `init`, `update` | — |
-| 6 | Removed once: the managed `CLAUDE.md` block, the `SubagentStop`, `PreToolUse` and `PostToolUse` hook entries, the worker agent definition, the dispatcher script and the three briefs install version 16 wrote | `CLAUDE.md`, `.claude/`, `.agent-progress/` | `init`, `update` | `--no-hooks` keeps the hook entries |
+| 6 | Removed once: the managed `CLAUDE.md` block, the `SubagentStop`, `PreToolUse` and `PostToolUse` hook entries, the worker agent definition, the dispatcher script and the three briefs install version 16 wrote, and the `assistant-brief.md` versions before 19 wrote | `CLAUDE.md`, `.claude/`, `.agent-progress/` | `init`, `update` | `--no-hooks` keeps the hook entries |
 | 7 | The install version | `.agent-progress/version.json` | `init`, `update` | — |
 
 1. **The tracker.** Its root is the main checkout, found from any worktree.
@@ -102,10 +102,12 @@ own conventions only.
    every session User opens: how this repository tracks its work, which skill to load for what, and
    where the reference is. A fresh `init` writes it first, and its presence marks the files installed.
    `reference.md` is the ticket file's format, the ticket moves and the exit codes copied from this
-   file, which a session reads on demand. `assistant-brief.md` is the Assistant's role prompt, which the
-   runner fills with the job's id and call budget and reads at each Assistant launch. They are guidance
-   shipped with the tool rather than files a project edits, so every `init` and `update` rewrites all
-   three. The line reports the session instructions, and `updated` when any of the three changed.
+   file, which a session reads on demand. `briefs/defaults/` holds the instruction file each role reads
+   when the pipeline names none (see [Files on disk](#files-on-disk)), which the runner fills with
+   the job's values at each launch. They are guidance shipped with the tool rather than files a project
+   edits, so every `init` and `update` rewrites them all; a project adds its own tracked files through
+   the pipeline instead. The line reports the session instructions, and `updated` when any of them
+   changed. Install version 19 removes the `assistant-brief.md` earlier versions wrote.
 4. **The hook**, under an empty matcher. It goes into `.claude/settings.local.json` — the per-user file
    Claude Code applies over the shared one and keeps out of git, and which a job's
    `--setting-sources project` never loads — so it lands in nothing colleagues share and reaches no
@@ -197,8 +199,8 @@ command's own no-tracker refusal is unchanged.
 `init` and `update` copy two Claude Code skills from this checkout's `skills/` into the tracked
 repository's git-ignored `.claude/skills/` (item 5 of [Adopting a repository](#adopting-a-repository)),
 split by audience: filing a ticket in any session, and working alongside the runner in one. No job the
-runner launches loads either, except the product owner, whose first line runs `agent-po`: every other role
-reads its prompt under `resources/prompts/`, and the Assistant `.agent-progress/assistant-brief.md`.
+runner launches loads either, except the product owner, whose first line runs `agent-po`: every role reads
+the instruction files its pipeline names, by default those under `.agent-progress/briefs/defaults/`.
 Neither skill lists commands: `agent-progress help` is the reference, and both name it and
 `.agent-progress/reference.md`.
 
@@ -958,6 +960,21 @@ in the advice to run `agent-progress update` with a release that still reads it.
 `effort`), `constitution` (a list of files) and `agents` (a list per role: `builder`, `reviewer`, `merger`,
 `productOwner`, `onboarder`, `assistant`). An unknown key, a step or gate without `name` or `run`, or a name given
 twice makes it malformed: the board reads it as no pipeline, `gate list` and every `gate` write refuse it at exit 1.
+
+The pipeline says what each agent is told. The builder, the reviewer and the merger (the resolver, the merge-gate fixer
+and the resolution reviewer) get the `constitution` files first, then their role's own; the product owner and the
+Assistant get only their own. An absent `constitution` is `.agent-progress/briefs/defaults/constitution.md`, an absent
+`agents.<role>` `.agent-progress/briefs/defaults/<role>.md`; a listed array replaces its default, so listing the default
+then another file extends it. A session reads exactly these files, in order, and nothing found by folder convention.
+Paths are relative to the repository root: one under `.agent-progress/` is read from disk, any other is tracked and
+read from the main line at each launch and resume, never from the ticket's branch, so a changed file, default or
+`pipeline.json` reaches the next one. The files are joined and their placeholders filled: a builder's and a reviewer's
+are its first message, every other role's its role brief. One that is missing, or a path leaving the repository,
+refuses the launch: nothing is spawned, `run status` shows the `instructions-missing` notice naming the job and the
+path, and every pass tries again. Each launch writes `jobs/<J>/instructions-<instance>.json`, `{ files: [{ path,
+contentHash }] }`, the first 16 hex digits of each file's SHA-256 as it was read. Check V11 refuses a job
+(`instruction-file-changed`) when a commit in its range changes a tracked file any array names that its ticket body
+does not name.
 
 `jobs`, `nextJobId` and a row's `mergeQueued` are each written only once set, so a file without them stays
 byte-identical; keys the tool does not know on a job, its `eventCursor` and its `slot` survive in the file's order. A

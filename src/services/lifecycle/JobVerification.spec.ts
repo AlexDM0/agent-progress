@@ -2,7 +2,8 @@
  * Verification by code, V1 to V15, on a scratch repository: each check refuses its planted case and passes a clean one, and `verifyJob`
  * runs only the checks of the role's column, stopping at the first refusal. The planted cases are what a session could leave behind and
  * claim otherwise; V5 plants the data folder under the name `PRODUCT_NAMES` gives it. V11 reads its patterns from every gate's
- * `definedBy`, and V15 holds a builder's gate claims to HEAD itself, so a stale claim is refused before any gate runs.
+ * `definedBy` and the tracked instruction files the pipeline names, and V15 holds a builder's gate claims to HEAD itself, so a stale
+ * claim is refused before any gate runs.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join }                     from 'node:path';
@@ -327,6 +328,15 @@ describeWhenGitIsPresent('verification by code', () => {
 
     expect(VERIFICATION_CHECKS.V11(builderSubject({ gates: BUN_GATES }))).toEqual({ verdict: 'refused', reason: 'checks-definition-changed', facts: ['eslint.config.js'] });
     expect(refusalOf('V11', builderSubject({ gates: BUN_GATES, ticketBody: `${TICKET_BODY}\nScope: eslint.config.js\n` }))).toBeNull();
+  });
+
+  test('V11 refuses a change to a tracked instruction file the pipeline names, and passes it once the ticket body names the file', () => {
+    commitFile(repositoryDirectory, 'example-constitution.md', '# Example rules\n');
+    const instructionFiles = ['example-constitution.md', 'example-builder.md'];
+
+    expect(VERIFICATION_CHECKS.V11(builderSubject({ instructionFiles }))).toEqual({ verdict: 'refused', reason: 'instruction-file-changed', facts: ['example-constitution.md'] });
+    expect(refusalOf('V11', builderSubject({ instructionFiles: ['example-builder.md'] }))).toBeNull();
+    expect(refusalOf('V11', builderSubject({ instructionFiles, ticketBody: `${TICKET_BODY}\nScope: example-constitution.md\n` }))).toBeNull();
   });
 
   test('V15 refuses a gate claimed on an older commit, naming only it, and verifyJob stops there before any gate could run', () => {

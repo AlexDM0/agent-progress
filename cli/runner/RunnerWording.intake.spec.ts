@@ -4,14 +4,18 @@
  * message, the session runs with skills on, the web open and Bash on no domain, and the `ready-drafts` decision lists every draft with
  * its priority and `network` domains, one option per proposed set naming its tickets as `#<id>`, then "None".
  */
+import { readFileSync }           from 'node:fs';
 import { describe, expect, test } from 'bun:test';
 
 import type { WorkerProfile }  from '../../src/lib/agent-launch/WorkerProfile.ts';
 import type { Job }            from '../../src/lib/tracker-model/@types/Job.ts';
 import type { JobLaunchFacts } from '../../src/services/runner/DrivePass.ts';
 import { IntakeSessions }      from '../../src/services/runner/IntakeSessions.ts';
+import { resourceFilePathOf }  from '../../src/shared/ResourceFilePath.ts';
 import { PRODUCT_NAMES }       from '../../src/shared/constants/ProductNames.ts';
 import { RunnerWording }       from './RunnerWording.ts';
+
+const PRODUCT_OWNER_INSTRUCTIONS = readFileSync(resourceFilePathOf('prompts', 'ProductOwnerPrompt.md'), 'utf8');
 
 const SESSION_FOLDER = '/Users/example/development/example-repository/.example-worktrees/sessions/J3';
 
@@ -21,7 +25,7 @@ const PRODUCT_OWNER_JOB = {
 
 function launchFactsWith(intake: JobLaunchFacts['intake']): JobLaunchFacts {
   return {
-    tickets: [], checksLine: null, gates: null, earlierSessionReplaced: false, intake, airlock: null, assistant: null
+    tickets: [], checksLine: null, gates: null, earlierSessionReplaced: false, intake, airlock: null, assistant: null, instructions: PRODUCT_OWNER_INSTRUCTIONS,
   };
 }
 

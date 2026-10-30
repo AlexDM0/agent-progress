@@ -30,6 +30,7 @@ const FACTS: JobLaunchFacts = {
   intake:                 null,
   airlock:                AIRLOCK,
   assistant:              null,
+  instructions:           '',
 };
 
 function messageOf(role: 'merge-fix' | 'resolution-review'): string {

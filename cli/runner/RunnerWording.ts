@@ -106,7 +106,7 @@ function gateListOf(gates: readonly Readonly<PipelineGate>[] | null): string {
  * The first line runs the product-owner skill on User's request; a fresh session taking over a replaced one also reads the drafts filed so
  * far and the answers its predecessor's questions got, in the same message.
  */
-function productOwnerTextOf(job: Readonly<Job>, intake: NonNullable<JobLaunchFacts['intake']>): JobLaunchText {
+function productOwnerTextOf(job: Readonly<Job>, intake: NonNullable<JobLaunchFacts['intake']>, instructions: string): JobLaunchText {
   const firstLine = `/${PRODUCT_NAMES.PRODUCT_OWNER_SKILL} ${intake.text}`.trim();
   const draftLines = intake.drafts.map((draft) => `- #${draft.id} ${draft.title}`);
   const answerLines = intake.carriedAnswers.flatMap((answer) => Object.entries(answer).map(([question, answerText]) => `- ${question}\n  Answer: ${answerText}`));
@@ -116,7 +116,7 @@ function productOwnerTextOf(job: Readonly<Job>, intake: NonNullable<JobLaunchFac
     ...(answerLines.length === 0 ? [] : ['Answers User gave its questions:', ...answerLines]),
   ];
   const fills = { jobId: job.id, program: PRODUCT_NAMES.PROGRAM, skill: PRODUCT_NAMES.PRODUCT_OWNER_SKILL };
-  const roleBrief = filledTemplateOf(readFileSync(resourceFilePathOf('prompts', 'ProductOwnerPrompt.md'), 'utf8'), fills);
+  const roleBrief = filledTemplateOf(instructions, fills);
   return { firstMessage: [firstLine, ...(takeover.length === 0 ? [] : ['', ...takeover])].join('\n'), roleBrief };
 }
 
@@ -171,7 +171,7 @@ function assistantChatTextOf(facts: AssistantChatFacts): string {
 }
 
 /** The Assistant's brief and its first message, chat 1: its open incidents, the newest incident records and a board summary. */
-function assistantTextOf(job: Readonly<Job>, assistant: AssistantFacts): JobLaunchText {
+function assistantTextOf(job: Readonly<Job>, assistant: AssistantFacts, instructions: string): JobLaunchText {
   const { summary } = assistant;
   const statusCounts = Object.entries(summary.ticketCountByStatus).map(([status, count]) => `${status} ${count}`).join(', ');
   const jobLines = summary.liveJobs.map((live) => `- ${live.id} ${live.kind} ${live.state}${live.ticketIds.length === 0 ? '' : ` #${live.ticketIds.join(', #')}`}`);
@@ -190,7 +190,7 @@ function assistantTextOf(job: Readonly<Job>, assistant: AssistantFacts): JobLaun
     ...(jobLines.length === 0 ? ['No job is live.'] : ['Live jobs:', ...jobLines]),
   ].join('\n');
   const fills = { jobId: job.id, program: PRODUCT_NAMES.PROGRAM, callBudget: String(ASSISTANT_TURN_CALL_BUDGET) };
-  const roleBrief = filledTemplateOf(readFileSync(assistant.briefFilePath, 'utf8'), fills);
+  const roleBrief = filledTemplateOf(instructions, fills);
   return { firstMessage, roleBrief };
 }
 
@@ -204,16 +204,22 @@ function reviewFindingsMessageOf(ticketId: string, facts: Readonly<ReviewFinding
   ].join('\n');
 }
 
-/** A builder's first message is the whole build prompt, its ticket and checks line filled in; the other roles get theirs later in the chain. */
+/**
+ * A builder's and a reviewer's first message is its role's instruction files, the constitution first, filled with its ticket and checks
+ * line; a merge-slot role's instruction files are its role brief, beside the first message its merge prompt gives it.
+ */
 function launchTextOf(job: Readonly<Job>, facts: JobLaunchFacts): JobLaunchText {
-  if (facts.intake !== null) return productOwnerTextOf(job, facts.intake);
-  if (facts.assistant !== null) return assistantTextOf(job, facts.assistant);
+  if (facts.intake !== null) return productOwnerTextOf(job, facts.intake, facts.instructions);
+  if (facts.assistant !== null) return assistantTextOf(job, facts.assistant, facts.instructions);
   const subject = ticketsPhraseOf(job.ticketIds);
-  const roleBrief = `You are the ${job.role ?? job.kind} of job ${job.id}.`;
+  const mergeSlotRole = job.role === 'resolver' || job.role === 'merge-fix' || job.role === 'resolution-review';
+  const roleBrief = mergeSlotRole
+    ? filledTemplateOf(facts.instructions, { role: job.role ?? job.kind, jobId: job.id, program: PRODUCT_NAMES.PROGRAM })
+    : `You are the ${job.role ?? job.kind} of job ${job.id}.`;
   const [ticket] = facts.tickets;
   if (job.kind === 'review' && ticket !== undefined) {
     return {
-      firstMessage: filledTemplateOf(readFileSync(resourceFilePathOf('prompts', 'ReviewPrompt.md'), 'utf8'), {
+      firstMessage: filledTemplateOf(facts.instructions, {
         ticketId:    ticket.id,
         ticketTitle: ticket.title,
         ticketBody:  ticket.body.trim(),
@@ -246,7 +252,7 @@ function launchTextOf(job: Readonly<Job>, facts: JobLaunchFacts): JobLaunchText 
   const reviewFindings = facts.reviewFindings ?? null;
   if (reviewFindings !== null) return { firstMessage: reviewFindingsMessageOf(ticket.id, reviewFindings), roleBrief };
   return {
-    firstMessage: filledTemplateOf(readFileSync(resourceFilePathOf('prompts', 'BuildPrompt.md'), 'utf8'), {
+    firstMessage: filledTemplateOf(facts.instructions, {
       ticketId:    ticket.id,
       ticketTitle: ticket.title,
       ticketBody:  ticket.body.trim(),
@@ -337,6 +343,8 @@ function noticeTextOf(notice: RunnerNotice): string {
       return `incident ${notice.incidentId} took its default, ${notice.move}, as no orchestrator handled it (${notice.cause})`;
     case 'cleanup-declined':
       return `git declined the ${notice.cleanup} cleanup of ${notice.groupBranch}, so it is left in place: ${notice.reason}`;
+    case 'instructions-missing':
+      return `job ${notice.jobId} is not launched: the instruction file ${notice.path} its pipeline names is missing`;
   }
 }
 

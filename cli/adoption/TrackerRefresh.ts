@@ -5,12 +5,13 @@
  */
 import {
   existsSync,
+  mkdirSync,
   readdirSync,
   readFileSync,
   rmdirSync,
   rmSync
 } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { createInstallManifestWriter } from '../../src/adapters/install/InstallManifestWriter.ts';
 import { writeFileAtomically }         from '../../src/lib/atomic-file/AtomicFile.ts';
@@ -112,6 +113,7 @@ function bytesDiffer(before: Buffer | null, after: Buffer | null): boolean {
 
 function fileChangedByWriting(filePath: string, text: string): boolean {
   const bytesBefore = fileBytesOrNothing(filePath);
+  mkdirSync(dirname(filePath), { recursive: true });
   writeFileAtomically(filePath, text);
   return bytesDiffer(bytesBefore, fileBytesOrNothing(filePath));
 }

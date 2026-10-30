@@ -48,6 +48,7 @@ import { createGateRunSlots, gateRunHolderIsLive, inProcessHolderOf }       from
 import { GroupWorktrees }                                                   from './GroupWorktrees.ts';
 import { HostFleet, type HostLiveness }                                     from './HostFleet.ts';
 import { type DefaultedIncident, IncidentRouter }                           from './IncidentRouter.ts';
+import { InstructionFiles }                                                 from './InstructionFiles.ts';
 import { IntakeSessions, type IntakeFacts }                                 from './IntakeSessions.ts';
 import { JobControlDelivery }                                               from './JobControlDelivery.ts';
 import {
@@ -92,6 +93,13 @@ export interface JobLaunchFacts {
   airlock:                AirlockFacts | null;
   /** What a fresh Assistant boots with: the incidents of its first message, the newest incident records and the board; `null` otherwise. */
   assistant:              AssistantFacts | null;
+  /** The role's instruction files as the pipeline names them, joined in order and unfilled; empty for a job no array speaks for. */
+  instructions:           string;
+}
+
+interface InstructionsMissing {
+  jobId: string;
+  path:  string;
 }
 
 /** The review that did not hold, and which resume of the builder's handoff cycle this is. */
@@ -167,7 +175,9 @@ export type RunnerNotice =
   // An incident took its default since the runner started: the warning state of owner answer Q34.
   | { kind: 'incident-defaulted'; incidentId: string; move: IncidentMove; cause: IncidentDefaultCause }
   // Git declined a removal after a refresh or a release; shown while what it would have removed stands.
-  | { kind: 'cleanup-declined'; cleanup: DeclinedCleanup['cleanup']; groupBranch: string; reason: string };
+  | { kind: 'cleanup-declined'; cleanup: DeclinedCleanup['cleanup']; groupBranch: string; reason: string }
+  // A job's launch was refused, nothing spawned, because an instruction file its pipeline names is missing; retried each pass.
+  | { kind: 'instructions-missing'; jobId: string; path: string };
 
 /** What a pass knows of the runtime state; the runner adds `handing-over` around a handover. */
 export type PassRuntimeState = 'serving' | 'held-by-install-change';
@@ -488,8 +498,9 @@ function reviewFindingsOf(board: Board, job: Readonly<Job>): ReviewFindingsFacts
   };
 }
 
-function launchFactsOf(board: Board, trackerDirectory: string, job: Readonly<Job>, workingDirectory: string): JobLaunchFacts {
+function launchFactsOf(board: Board, trackerDirectory: string, job: Readonly<Job>, workingDirectory: string, instructions: string): JobLaunchFacts {
   return {
+    instructions,
     airlock: airlockFactsOf(board, trackerDirectory, job, workingDirectory),
     tickets: board.tickets()
       .filter((ticket) => job.ticketIds.includes(ticket.frontmatter.id))
@@ -500,17 +511,20 @@ function launchFactsOf(board: Board, trackerDirectory: string, job: Readonly<Job
     redHandoff:             JobResumption.redHandoffTakenOverOf(trackerDirectory, board.logRecordsSoFar(), job),
     reviewFindings:         reviewFindingsOf(board, job),
     intake:                 IntakeSessions.intakeFactsOf(board, job),
-    assistant:              AssistantBoot.assistantFactsOf(board, trackerDirectory, job),
+    assistant:              AssistantBoot.assistantFactsOf(board, job),
   };
 }
 
-function launchHost(request: DrivePassRequest, jobLaunchContext: JobLaunchContext, board: Board, trackerId: string, job: Readonly<Job>): void {
+/** Refused, spawning nothing, when an instruction file the pipeline names is missing: what the refusal names is returned for the notice. */
+function launchHost(request: DrivePassRequest, jobLaunchContext: JobLaunchContext, board: Board, trackerId: string, job: Readonly<Job>): InstructionsMissing | null {
   const { workspace, agentAdapter } = request;
+  const instructions = InstructionFiles.readingFor(workspace.rootDirectory, request.mainLine, board.pipeline(), job);
+  if (instructions.verdict === 'instructions-missing') return { jobId: job.id, path: instructions.path };
   const jobFolder        = HostFleet.jobFolderOf(workspace.trackerDirectory, job.id);
   const relayDirectory   = RelayInbox.relayDirectoryOf(workspace.rootDirectory, job.id);
   mkdirSync(join(relayDirectory, 'requests'), { recursive: true });
   const workingDirectory = workingDirectoryOf(workspace, job);
-  const launchFacts      = launchFactsOf(board, workspace.trackerDirectory, job, workingDirectory);
+  const launchFacts      = launchFactsOf(board, workspace.trackerDirectory, job, workingDirectory, instructions.text);
   const text             = request.launchTextOf(job, launchFacts);
   const resumeLine       = JobResumption.resumeLineOf(workspace.trackerDirectory, board, job, request);
   const launchParts      = JobResumption.launchPartsOf(job, text.firstMessage, resumeLine);
@@ -542,8 +556,10 @@ function launchHost(request: DrivePassRequest, jobLaunchContext: JobLaunchContex
     workingDirectory,
     plan:            agentAdapter.planOf(launchRequest),
   });
+  JobLaunch.recordInstructionsRead(jobFolder, job.hostInstance, instructions.files);
   HostFleet.spawnHost({ bundlePath: request.hostBundlePath, jobFolder, instance: job.hostInstance });
   request.log(`Spawned host instance ${job.hostInstance} of job ${job.id} (${job.kind}${job.ticketIds.length === 0 ? '' : ` #${job.ticketIds.join(', #')}`}).`);
+  return null;
 }
 
 /**
@@ -572,6 +588,7 @@ function noticesOf(
   heldTargets: readonly HeldTarget[],
   declinedCleanups: readonly DeclinedCleanup[],
   defaultedIncidents: readonly DefaultedIncident[],
+  missingInstructions: readonly InstructionsMissing[],
 ): RunnerNotice[] {
   return [
     ...heldTargets.map((held) => ({
@@ -586,6 +603,7 @@ function noticesOf(
     ...defaultedIncidents.map(({ incidentId, move, cause }) => ({
       kind: 'incident-defaulted', incidentId, move, cause
     }) as const),
+    ...missingInstructions.map(({ jobId, path }) => ({ kind: 'instructions-missing', jobId, path }) as const),
   ];
 }
 
@@ -816,9 +834,11 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     await JobControlDelivery.deliverJobControls({
       trackerDirectory: request.workspace.trackerDirectory, board: written.board, adapter: request.agentAdapter, windDownMessage: request.windDownMessage,
     });
+    const missingInstructions: InstructionsMissing[] = [];
     for (const job of jobsNeedingAHost(written.board, request.workspace.trackerDirectory, spawnedInstances, written.result.agentConfigHeldTicketIds)) {
-      spawnedInstances.add(`${job.id}:${job.hostInstance}`);
-      launchHost(request, jobLaunchContext, written.board, observation.trackerId, job);
+      const refusal = launchHost(request, jobLaunchContext, written.board, observation.trackerId, job);
+      if (refusal === null) spawnedInstances.add(`${job.id}:${job.hostInstance}`);
+      else missingInstructions.push(refusal);
     }
     const { trackerDirectory } = request.workspace;
     const answerAwaitsDelivery = (job: Readonly<Job>): boolean => AnswerDelivery.answerAwaitsDelivery(trackerDirectory, job);
@@ -845,6 +865,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
         heldTargets,
         stillDeclinedCleanups(),
         IncidentRouter.defaultedIncidentsOf(written.board.logRecordsSoFar()),
+        missingInstructions,
       ),
       legacyHostJobIds: legacyHostJobIdsOf(written.board, request.workspace.trackerDirectory),
     };

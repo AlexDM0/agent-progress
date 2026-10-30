@@ -16,6 +16,7 @@ import type { HostEnd }                                                         
 import type { AgentAdapter }                                                                      from '../../lib/agent-launch/AgentAdapter.ts';
 import type { AgentEffort }                                                                       from '../../lib/agent-launch/AgentLaunchRequest.ts';
 import { launchEnvironmentOf }                                                                    from '../../lib/agent-launch/LaunchEnvironment.ts';
+import { writeFileAtomically }                                                                    from '../../lib/atomic-file/AtomicFile.ts';
 import { GitProcess }                                                                             from '../../lib/git/GitProcess.ts';
 import type { GateOutcome, Job, JobKind }                                                         from '../../lib/tracker-model/@types/Job.ts';
 import type { DecisionDraft, DecisionWording }                                                    from '../../lib/tracker-model/@types/LifecycleStep.ts';
@@ -48,6 +49,7 @@ import type { Workspace }                                 from '../tracker/Works
 import type { GateRunSlots }                              from './GateRunSlots.ts';
 import { GroupWorktrees }                                 from './GroupWorktrees.ts';
 import { HostFleet }                                      from './HostFleet.ts';
+import { InstructionFiles, type InstructionFileRead }     from './InstructionFiles.ts';
 import type { ProcessHostSandbox, ProcessSandboxRequest } from './ProcessHostSandbox.ts';
 import { RedHandoff, type RedHandoffFacts }               from './RedHandoff.ts';
 import { RelayInbox }                                     from './RelayInbox.ts';
@@ -111,12 +113,13 @@ export interface BuildJobObservation {
 
 /** What the runner writes in the job folder beside its hosts; only the runner writes there. */
 const JOB_FILES = {
-  worktreeFailure: 'worktree-failure.txt',
-  start:           'start.json',
-  windDownSent:    'wind-down-sent',
-  inputClosed:     'input-closed',
-  stopSent:        'stop-sent',
-  profile:         'process-sandbox.sb',
+  worktreeFailure:        'worktree-failure.txt',
+  start:                  'start.json',
+  windDownSent:           'wind-down-sent',
+  inputClosed:            'input-closed',
+  stopSent:               'stop-sent',
+  profile:                'process-sandbox.sb',
+  instructionsReadPrefix: 'instructions-',
 } as const;
 
 const INSTALL_HOST_FOLDER = 'install';
@@ -411,6 +414,7 @@ function verifyAndRoute(hold: HoldContext, job: Readonly<Job>, observation: Buil
     launchSnapshot:   start.launchSnapshot,
     refMovesAllowed:  refMovesAllowedFor(hold.context, board, job),
     gates:            board.pipeline()?.gates ?? [],
+    instructionFiles: InstructionFiles.trackedInstructionPathsOf(board.pipeline()),
   };
   const reportVerdict = VERIFICATION_CHECKS.V1(subject);
   if (reportVerdict.verdict === 'refused') {
@@ -878,7 +882,14 @@ function recordJobStart(context: JobLaunchContext, board: Board, job: Readonly<J
   writeFileSync(startPath, `${JSON.stringify(start, null, 2)}\n`);
 }
 
+/** Each host instance's launch keeps the path and content hash of every instruction file its session was given. */
+function recordInstructionsRead(jobFolder: string, hostInstance: number, files: readonly InstructionFileRead[]): void {
+  mkdirSync(jobFolder, { recursive: true });
+  writeFileAtomically(join(jobFolder, `${JOB_FILES.instructionsReadPrefix}${hostInstance}.json`), `${JSON.stringify({ files }, null, 2)}\n`);
+}
+
 export const JobLaunch = Object.freeze({
+  recordInstructionsRead,
   observeBuildJobs,
   applyBuildJobObservations,
   runBuildJobEffects,

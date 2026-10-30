@@ -4,12 +4,16 @@
  * `overseerOnly` gate is named as the Overseer's and never listed as one to run or claim; and after `gate none`, or with no pipeline stored,
  * the message says the repository has no gates.
  */
+import { readFileSync }           from 'node:fs';
 import { describe, expect, test } from 'bun:test';
 
 import type { Job }            from '../../src/lib/tracker-model/@types/Job.ts';
 import type { PipelineGate }   from '../../src/lib/tracker-model/@types/Pipeline.ts';
 import type { JobLaunchFacts } from '../../src/services/runner/DrivePass.ts';
+import { resourceFilePathOf }  from '../../src/shared/ResourceFilePath.ts';
 import { RunnerWording }       from './RunnerWording.ts';
+
+const BUILD_INSTRUCTIONS = readFileSync(resourceFilePathOf('prompts', 'BuildPrompt.md'), 'utf8');
 
 const BUILD_JOB = {
   id: 'J4', kind: 'build', role: 'builder', ticketIds: ['012'], attempt: 1
@@ -31,6 +35,7 @@ function buildMessageOf(gates: readonly PipelineGate[] | null): string {
     intake:                 null,
     airlock:                null,
     assistant:              null,
+    instructions:           BUILD_INSTRUCTIONS,
   };
   return RunnerWording.launchTextOf(BUILD_JOB, facts).firstMessage;
 }
@@ -86,6 +91,7 @@ describe('the first line of a builder resumed after its review', () => {
     intake:                 null,
     airlock:                null,
     assistant:              null,
+    instructions:           BUILD_INSTRUCTIONS,
   };
   const message = RunnerWording.launchTextOf(BUILD_JOB, facts).firstMessage;
 

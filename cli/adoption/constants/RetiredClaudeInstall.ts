@@ -1,5 +1,5 @@
 /**
- * What install version 16 wrote that 17 removes once: the three hook entries and the files below. Kept out of
+ * What install version 16 wrote that 17 removes once, the three hook entries and the files below, and the Assistant brief 19 retired. Kept out of
  * `cli/adoption/constants/ClaudeCodeInstall.ts`, which `cli/InstalledSurface.spec.ts` scans, so no installed surface names them.
  */
 import { join } from 'node:path';
@@ -21,6 +21,8 @@ export interface RetiredInstalledFilePaths {
   reviewBrief:      string;
   dispatcherScript: string;
   agentDefinition:  string;
+  /** Install version 19 moved the Assistant's brief to the instruction defaults, `briefs/defaults/assistant.md`. */
+  assistantBrief:   string;
 }
 
 export function retiredInstalledFilePathsIn(rootDirectory: string): RetiredInstalledFilePaths {
@@ -30,5 +32,6 @@ export function retiredInstalledFilePathsIn(rootDirectory: string): RetiredInsta
     reviewBrief:      join(rootDirectory, PRODUCT_NAMES.DATA_FOLDER, 'review-brief.md'),
     dispatcherScript: join(rootDirectory, PRODUCT_NAMES.DATA_FOLDER, 'agent-progress-dispatch.js'),
     agentDefinition:  join(rootDirectory, '.claude', 'agents', `${DISPATCH_PROTOCOL.WORKER_AGENT_TYPE}.md`),
+    assistantBrief:   join(rootDirectory, PRODUCT_NAMES.DATA_FOLDER, 'assistant-brief.md'),
   };
 }

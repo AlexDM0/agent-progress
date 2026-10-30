@@ -133,11 +133,11 @@ describeWhenGitIsPresent('updating a tracked repository', () => {
     expect(await runCommandLine(['update'], second)).toBe(0);
     expect(second.outputText()).toContain('brief:       unchanged');
 
-    rmSync(installedFilePathsIn(repositoryDirectory).assistantBrief);
+    rmSync(installedFilePathsIn(repositoryDirectory).assistantDefault);
     const third = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
     expect(await runCommandLine(['update'], third)).toBe(0);
     expect(third.outputText()).toContain('brief:       updated');
-    expect(existsSync(installedFilePathsIn(repositoryDirectory).assistantBrief)).toBe(true);
+    expect(existsSync(installedFilePathsIn(repositoryDirectory).assistantDefault)).toBe(true);
   });
 
   test('a version 16 install is removed once: the block, the three hooks, the agent definition, the dispatcher and the three briefs', async () => {

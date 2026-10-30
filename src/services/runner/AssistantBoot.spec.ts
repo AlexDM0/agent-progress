@@ -63,7 +63,7 @@ describe('the first message comes from the board (A1)', () => {
     const { job } = board.launchJob(ASSISTANT_LAUNCH, FIXTURE_AT);
 
     AssistantBoot.deliverOpenIncidentsAtBoot(board, before);
-    const facts = AssistantBoot.assistantFactsOf(board, '/scratch/example-tracker', job);
+    const facts = AssistantBoot.assistantFactsOf(board, job);
 
     expect(facts?.incidents).toHaveLength(ASSISTANT_HISTORY_RECORDS + 1);
     expect(board.incidents().every((incident) => incident.deliveredInTurn?.jobId === job.id && incident.deliveredInTurn.chatSequence === 1)).toBe(true);
@@ -81,6 +81,6 @@ describe('the first message comes from the board (A1)', () => {
     AssistantBoot.deliverOpenIncidentsAtBoot(board, new Set([job.id]));
 
     expect(board.incidentById(incident?.id ?? '')?.deliveredInTurn).toBeNull();
-    expect(AssistantBoot.assistantFactsOf(board, '/scratch/example-tracker', jobOf('build', 'builder'))).toBeNull();
+    expect(AssistantBoot.assistantFactsOf(board, jobOf('build', 'builder'))).toBeNull();
   });
 });
