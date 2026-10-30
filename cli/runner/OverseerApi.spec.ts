@@ -2,11 +2,18 @@
  * The Overseer's API end to end against a spawned runner on a scratch board, the fake agent playing every session. What matters: the
  * Baton names the token file and never holds the token, and that file's token is the one `POST /api/commands` accepts from an Origin-less
  * server request; a command answers 200, 409 worded or 400; `/api/state` carries the status document beside the page, jobs with live facts
- * and the Overseer; `/api/summary` has the fixture's shape; and an event-stream client sees a `board` event for a ticket move and a `job`
+ * and the Overseer; `/api/summary` has the fixture's shape; `GET /` and its chunks carry the frame-ancestors of agent-dashboard's origins, against
+ * clickjacking of the Bridge's controls; and an event-stream client sees a `board` event for a ticket move and a `job`
  * event for each state the build job passes through, launching to running.
  */
-import { readdirSync, readFileSync, realpathSync } from 'node:fs';
-import { join }                                    from 'node:path';
+import {
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  writeFileSync
+} from 'node:fs';
+import { join } from 'node:path';
 import {
   afterEach,
   beforeEach,
@@ -141,6 +148,20 @@ describe('the Overseer API on a scratch board', () => {
     expect(script.status).toBe(200);
     expect(await script.text()).toContain('bridge-root');
     expect((await fetch(new URL(stylesheetPath, url))).status).toBe(200);
+  }, API_TEST_TIMEOUT_MILLISECONDS);
+
+  test('GET / carries the page CSP, framed only by the origins agent-dashboard\'s server record names', async () => {
+    const dashboardRecordDirectory = join(homeDirectory, '.agent-progress-monitor', 'agent-dashboard');
+    mkdirSync(dashboardRecordDirectory, { recursive: true });
+    writeFileSync(join(dashboardRecordDirectory, 'server.json'), JSON.stringify({ url: 'http://127.0.0.1:4411/', boardOrigin: 'http://localhost:4412' }));
+    const runner = startAgentProgress(['run', '--port', '0'], { currentDirectory: repositoryDirectory, homeDirectory });
+    const url = await runner.firstOutputLine ?? '';
+    const page = await fetch(url);
+    expect(page.status).toBe(200);
+    const policy = page.headers.get('content-security-policy') ?? '';
+    expect(/frame-ancestors ([^;]*)$/.exec(policy)?.[1]).toBe('http://127.0.0.1:4411 http://localhost:4412');
+    const scriptPath = /<script[^>]+src="([^"]+)"/.exec(await page.text())?.[1] ?? '';
+    expect((await fetch(new URL(scriptPath, url))).headers.get('content-security-policy')).toBe(policy);
   }, API_TEST_TIMEOUT_MILLISECONDS);
 
   test('an event-stream client sees a board event for a ticket move and a job event for each state the build job is published in', async () => {

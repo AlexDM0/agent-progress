@@ -267,8 +267,10 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 ### The Bridge
 
 - The Bridge is the React live UI the Overseer serves at `GET /` from `bridge/index.html`, an HTML import in
-  `cli/runner/routes/OverseerRoutes.ts` that Bun bundles with `development: false`. It reads the Overseer's API and
-  nothing else, and keeps no copy of the rules: what it shows arrives as facts.
+  `cli/runner/routes/OverseerRoutes.ts` that `src/services/runner/RunnerServer.ts` builds with `Bun.build` for
+  production and serves through `fetch`, never Bun's HTML route, which takes no headers: every file carries the page
+  CSP's `frame-ancestors`. It reads the Overseer's API and nothing else, and keeps no copy of the rules: what it shows
+  arrives as facts.
 - `bridge/styles/tokens.css` holds every colour, state token and theme value; `bridge/styles/board.css` holds every
   class. Both are designer-owned. `bridge/StyleContract.spec.ts` holds both ways that every class a component emits is
   styled and every styled class is emitted; a `className` is a literal the scan can read.

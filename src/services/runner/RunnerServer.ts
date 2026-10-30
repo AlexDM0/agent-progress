@@ -51,8 +51,8 @@ export interface RunnerRoutes {
   /** The origins allowed to frame the Bridge, read per response: agent-dashboard's. */
   frameOrigins: () => readonly string[];
   /**
-   * The Bridge's HTML import, served at `GET /` by Bun's own route with `development: false`: Bun bundles and minifies its scripts and
-   * stylesheets on the first request and serves the chunks itself. Absent, `GET /` is a 404 like any unknown path.
+   * The Bridge's HTML import, built by `Bun.build` on the first page request and served at `GET /` with its chunks beside it through
+   * `fetch`, so every file carries the page CSP: Bun's own HTML route takes no headers. Absent, `GET /` is a 404 like any unknown path.
    */
   page?:        HTMLBundle;
 }
@@ -82,7 +82,11 @@ const HTTP_STATUS = {
   UNAUTHORIZED: 401,
   FORBIDDEN:    403,
   NOT_FOUND:    404,
+  SERVER_ERROR: 500,
 } as const;
+
+const PAGE_INDEX_PATH = '/';
+const BUILT_PAGE_INDEX_NAME = 'index.html';
 
 // Job ids and served file names need no percent-decoding, so a segment holding an escape is no route and gets the 404.
 const JOB_STREAM_PATH = /^\/api\/jobs\/([\w.-]+)\/stream$/;
@@ -206,7 +210,56 @@ function jobFileResponse(routes: RunnerRoutes, jobId: string, fileName: string):
   return new Response(text, { headers: { 'content-type': 'text/plain; charset=utf-8', 'content-security-policy': 'sandbox' } });
 }
 
-function routeOf(request: Request, routes: RunnerRoutes, identity: RunnerIdentity, openStreams: OpenStreams): Response | Promise<Response> {
+/** The built Bridge's files by the path each is served at: the page at `/`, every chunk at its own name. */
+type BuiltPageFiles = ReadonlyMap<string, Blob>;
+
+type BuiltPageOutcome =
+  | { verdict: 'built'; files: BuiltPageFiles }
+  | { verdict: 'failed' };
+
+async function buildPage(page: HTMLBundle): Promise<BuiltPageOutcome> {
+  const built = await Bun.build({
+    entrypoints: [page.index],
+    target:      'browser',
+    minify:      true,
+    define:      { 'process.env.NODE_ENV': '"production"' },
+    jsx:         { development: false },
+    throw:       false,
+  });
+  if (!built.success) return { verdict: 'failed' };
+  const files = new Map<string, Blob>();
+  for (const output of built.outputs) {
+    const fileName = output.path.replace(/^\.\//, '');
+    files.set(fileName === BUILT_PAGE_INDEX_NAME ? PAGE_INDEX_PATH : `/${fileName}`, output);
+  }
+  return { verdict: 'built', files };
+}
+
+/** Builds the page on the first request and hands every later one that build; a failed build is retried by the next request. */
+function pageFilesOf(page: HTMLBundle): () => Promise<BuiltPageOutcome> {
+  let building: Promise<BuiltPageOutcome> | null = null;
+  return async () => {
+    building ??= buildPage(page);
+    const outcome = await building;
+    if (outcome.verdict === 'failed') building = null;
+    return outcome;
+  };
+}
+
+function notFoundResponse(): Response {
+  return jsonResponse({ status: HTTP_STATUS.NOT_FOUND, body: { refusal: 'not-found' } });
+}
+
+async function pageFileResponse(pageFiles: () => Promise<BuiltPageOutcome>, pathname: string): Promise<Response> {
+  const outcome = await pageFiles();
+  if (outcome.verdict === 'failed') return jsonResponse({ status: HTTP_STATUS.SERVER_ERROR, body: { refusal: 'page-build-failed' } });
+  const file = outcome.files.get(pathname);
+  return file === undefined ? notFoundResponse() : new Response(file, { headers: { 'content-type': file.type } });
+}
+
+type PageFiles = (() => Promise<BuiltPageOutcome>) | null;
+
+function routeOf(request: Request, routes: RunnerRoutes, identity: RunnerIdentity, openStreams: OpenStreams, pageFiles: PageFiles): Response | Promise<Response> {
   const { pathname } = new URL(request.url);
   const { method } = request;
   if (method === 'GET' && pathname === '/api/identity') return jsonResponse({ status: HTTP_STATUS.OK, body: identity });
@@ -223,7 +276,8 @@ function routeOf(request: Request, routes: RunnerRoutes, identity: RunnerIdentit
   if (jobStream?.[1] !== undefined) return transcriptResponse(request, routes, jobStream[1], openStreams);
   const jobFile = method === 'GET' ? JOB_FILE_PATH.exec(pathname) : null;
   if (jobFile?.[1] !== undefined && jobFile[2] !== undefined) return jobFileResponse(routes, jobFile[1], jobFile[2]);
-  return jsonResponse({ status: HTTP_STATUS.NOT_FOUND, body: { refusal: 'not-found' } });
+  if (method === 'GET' && pageFiles !== null && !pathname.startsWith('/api/')) return pageFileResponse(pageFiles, pathname);
+  return notFoundResponse();
 }
 
 /** The job file's own sandbox policy stands; every other answer carries the page's. */
@@ -235,13 +289,13 @@ function withPagePolicy(response: Response, frameOrigins: readonly string[]): Re
 function start(serverRequest: RunnerServerRequest): RunnerServer {
   const { routes } = serverRequest;
   const openStreams: OpenStreams = new Set();
+  const pageFiles = routes.page === undefined ? null : pageFilesOf(routes.page);
   const identity: RunnerIdentity = { application: PRODUCT_NAMES.PROGRAM, ...serverRequest.identity, hostProtocolVersion: HOST_PROTOCOL_VERSION };
   const server = RunnerPort.bindFirstFree(serverRequest.portChoice, (port) => Bun.serve({
     hostname:    LOOPBACK_ADDRESS,
     port,
     reusePort:   false,
     development: false,
-    ...(routes.page === undefined ? {} : { routes: { '/': routes.page } }),
     async fetch(request, ownServer) {
       const boundPort = ownServer.port ?? port;
       const frameOrigins = routes.frameOrigins();
@@ -252,7 +306,7 @@ function start(serverRequest: RunnerServerRequest): RunnerServer {
       // Bun's idle timeout would close a quiet event stream mid-response; its heartbeat keeps it under the timeout anyway.
       const { pathname } = new URL(request.url);
       if (pathname === '/api/events' || JOB_STREAM_PATH.test(pathname)) ownServer.timeout(request, 0);
-      return withPagePolicy(await routeOf(request, routes, identity, openStreams), frameOrigins);
+      return withPagePolicy(await routeOf(request, routes, identity, openStreams, pageFiles), frameOrigins);
     },
   }));
   const boundPort = server.port ?? 0;
