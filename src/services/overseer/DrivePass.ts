@@ -819,7 +819,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
         }
         request.afterHoldPhase?.('lifecycle', change.board);
         // Also credits every job this hold ended, since its `job-ended` record is already in the log the scan reads.
-        const endedJobIdsExaminedThisPass = EndedJobTokens.creditJobsEndedOutsideTheHold(change.board, endedJobTokensContext, endedJobIdsExamined, change.at);
+        const endedJobIdsExaminedThisPass = EndedJobTokens.creditJobsTheLogEndedUncredited(change.board, endedJobTokensContext, endedJobIdsExamined, change.at);
         return {
           replies,
           endedJobIdsExaminedThisPass,

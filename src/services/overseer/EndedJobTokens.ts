@@ -90,10 +90,11 @@ function highestWatcherInstanceOf(logRecords: readonly LogRecord[], jobId: strin
 }
 
 /**
- * Credits each ticket job the log ended with no `agent-stopped` record, rebuilt from its `job-launched` record: a CLI control ends a
- * sessionless job in a hold of its own. Answers the job ids it looked at, which the caller skips after, since a job with no turns logs nothing.
+ * Credits every ticket job the log records as ended and not yet credited (no `agent-stopped` record), rebuilt from its `job-launched`
+ * record, whichever hold ended it: this one, or a CLI control's hold of its own. Answers the job ids it looked at, which the caller skips
+ * after, since a job with no turns logs nothing.
  */
-function creditJobsEndedOutsideTheHold(board: Board, context: EndedJobTokensContext, jobIdsAlreadyExamined: ReadonlySet<string>, at: string): string[] {
+function creditJobsTheLogEndedUncredited(board: Board, context: EndedJobTokensContext, jobIdsAlreadyExamined: ReadonlySet<string>, at: string): string[] {
   const logRecords = board.logRecordsSoFar();
   const creditedJobIds = new Set(logRecords.flatMap((record) => (record.kind === 'agent-stopped' ? [record.fields.agentId] : [])));
   const endedJobIds = new Set(logRecords.flatMap((record) => (record.kind === 'job-ended' ? [record.jobId] : [])));
@@ -111,4 +112,4 @@ function creditJobsEndedOutsideTheHold(board: Board, context: EndedJobTokensCont
   return examinedJobIds;
 }
 
-export const EndedJobTokens = Object.freeze({ creditJobsEndedInTheHold, creditJobsEndedOutsideTheHold, creditsOf });
+export const EndedJobTokens = Object.freeze({ creditJobsEndedInTheHold, creditJobsTheLogEndedUncredited, creditsOf });

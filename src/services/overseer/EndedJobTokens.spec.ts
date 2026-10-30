@@ -156,18 +156,18 @@ describe('EndedJobTokens', () => {
     const { board, progress } = boardWithAJobStoppedWhileInterrupted();
     const context = { trackerDirectory: trackerWithLoggedEvents('J1', BUILD_EVENTS, SECOND_INSTANCE_EVENTS), agentAdapter: LINE_AS_EVENT_ADAPTER };
 
-    const examined = EndedJobTokens.creditJobsEndedOutsideTheHold(board, context, new Set(), ENDED_AT);
+    const examined = EndedJobTokens.creditJobsTheLogEndedUncredited(board, context, new Set(), ENDED_AT);
 
     expect(examined).toEqual(['J1']);
     expect(progress.tasks[0]?.tokens).toBe(1_750);
   });
 
-  test('a job ended outside the hold is credited once, however many passes see it', () => {
+  test('a job the log ended uncredited is credited once, however many passes see it', () => {
     const { board, progress } = boardWithAJobStoppedWhileInterrupted();
     const context = { trackerDirectory: trackerWithLoggedEvents('J1', BUILD_EVENTS, SECOND_INSTANCE_EVENTS), agentAdapter: LINE_AS_EVENT_ADAPTER };
 
-    EndedJobTokens.creditJobsEndedOutsideTheHold(board, context, new Set(), ENDED_AT);
-    const examinedAgain = EndedJobTokens.creditJobsEndedOutsideTheHold(board, context, new Set(), ENDED_AT);
+    EndedJobTokens.creditJobsTheLogEndedUncredited(board, context, new Set(), ENDED_AT);
+    const examinedAgain = EndedJobTokens.creditJobsTheLogEndedUncredited(board, context, new Set(), ENDED_AT);
 
     expect(examinedAgain).toEqual([]);
     expect(progress.tasks[0]?.tokens).toBe(1_750);
@@ -185,7 +185,7 @@ describe('EndedJobTokens', () => {
     board.endJob(job.id, { outcome: 'failed' }, ENDED_AT);
 
     EndedJobTokens.creditJobsEndedInTheHold(board, context, jobsAtTheHoldStart, ENDED_AT);
-    const examined = EndedJobTokens.creditJobsEndedOutsideTheHold(board, context, new Set(), ENDED_AT);
+    const examined = EndedJobTokens.creditJobsTheLogEndedUncredited(board, context, new Set(), ENDED_AT);
 
     expect(examined).toEqual([]);
     expect(progress.tasks[0]?.tokens).toBe(1_550);
@@ -195,8 +195,8 @@ describe('EndedJobTokens', () => {
     const { board } = boardWithAJobStoppedWhileInterrupted();
     const context = { trackerDirectory: trackerWithLoggedEvents('J1'), agentAdapter: LINE_AS_EVENT_ADAPTER };
 
-    const firstExamined = EndedJobTokens.creditJobsEndedOutsideTheHold(board, context, new Set(), ENDED_AT);
-    const laterExamined = EndedJobTokens.creditJobsEndedOutsideTheHold(board, context, new Set(firstExamined), ENDED_AT);
+    const firstExamined = EndedJobTokens.creditJobsTheLogEndedUncredited(board, context, new Set(), ENDED_AT);
+    const laterExamined = EndedJobTokens.creditJobsTheLogEndedUncredited(board, context, new Set(firstExamined), ENDED_AT);
 
     expect(firstExamined).toEqual(['J1']);
     expect(laterExamined).toEqual([]);
