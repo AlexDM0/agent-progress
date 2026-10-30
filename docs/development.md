@@ -30,7 +30,7 @@ cd agent-progress
 | step | what it does |
 |---|---|
 | 1/4 Bun | Puts `~/.bun/bin` on the `PATH` for its own run and checks for Bun. Below 1.2 it warns and suggests `bun upgrade`; when Bun is missing it offers the official installer and exits if you decline. |
-| 2/4 Dependencies and the global command | Runs `bun install` on every run, not only the first, because every command that rewrites the page needs `marked`. Then `bun link`, so `agent-progress` works from any directory. When `agent-progress` is still not found on the `PATH` and the rc file does not already mention `~/.bun/bin`, it offers to add one export line to `~/.zshrc` (or `~/.bashrc` under bash). |
+| 2/4 Dependencies and the global command | Runs `bun install` on every run, not only the first, because the Overseer renders ticket bodies for the Bridge with `marked`. Then `bun link`, so `agent-progress` works from any directory. When `agent-progress` is still not found on the `PATH` and the rc file does not already mention `~/.bun/bin`, it offers to add one export line to `~/.zshrc` (or `~/.bashrc` under bash). |
 | 3/4 Retire the global skills | Removes `~/.claude/skills/agent-progress` and `~/.claude/skills/agent-progress-orchestrate` when each is a symlink resolving into this checkout, the links earlier versions made; links nothing. |
 | 4/4 The pre-commit hook | Sets `core.hooksPath` to `.githooks` unless it already is, so `.githooks/pre-commit` refuses a commit that fails `bun run lint` or `bun run typecheck`, in this checkout and every worktree of it. |
 
@@ -133,7 +133,8 @@ and each file's header says what it is for:
   (`CliProcess.ts`), and readers of what a command left on disk.
 - `src/adapters/progress/testing/`: the stored-format fixtures for the adapter specs.
 - `src/services/tracker/testing/`: `thrownFailureOf`, what an action threw, for the tracker pipeline specs.
-- `page/testing/`: the page specs' board and limits fixtures.
+- `bridge/testing/`: the Bridge specs' board-state and limits fixtures, the happy-dom setup and fake controls, and
+  `RunDomSpecs.ts`, which runs the `*.dom.tsx` specs.
 
 Where `TrackerIsolation` runs is a rule in the root `CLAUDE.md` (Tests). It refuses any directory
 outside the scratch root, and refuses when discovery from a directory inside it (the walk up, the git
@@ -149,9 +150,9 @@ by a spec.
 | spec | what it pins |
 |---|---|
 | `src/ImportDirection.spec.ts` | The import rules the root `CLAUDE.md` lists under Imports, each planted in memory and watched failing. |
-| `src/ProjectIncludeLists.spec.ts` | The Bridge project's `include` list names exactly the files it reaches. |
+| `src/ProjectIncludeLists.spec.ts` | The Bridge project's `include` list names exactly the files it reaches, the whole tracker model included. |
+| `bridge/StyleContract.spec.ts` | Every class a Bridge component emits is styled in `bridge/styles/board.css`, and every class it styles is emitted. |
 | `src/testing/TrackerIsolation.spec.ts` | Every way a spec could reach a tracker outside the scratch root is refused. |
-| `src/services/render/TemplateColourTokens.spec.ts` | No colour literal in `resources/template.html` outside its token blocks, nor in the page modules' markup. |
 | `cli/OlderTrackerRefusal.spec.ts` | A tracker in an older stored format is refused with the update advice and left as it was. |
 | `cli/InstallVersionVerdict.spec.ts` | The install-version verdicts: current, older, newer, unversioned and unreadable. |
 | `cli/InstalledSurface.spec.ts` | Every command, flag and status field an installed file names is in `cli/FrozenInstalledSurface.json` under the current `INSTALL_VERSION`, and still in the CLI. |
@@ -162,22 +163,25 @@ by a spec.
 
 ## The page
 
-`progress.html` is built from `resources/template.html`, whose contract with the page modules is a
-rule in the root `CLAUDE.md` (The page). `src/services/render/PageTemplateFill.ts` replaces five tokens in
-it, and `src/services/render/PageBundler.ts` bundles the TypeScript under `page/` into it from
-`page/PageStart.ts`.
+The dashboard is the Bridge, a React app under `bridge/` with its own DOM-only project (`bridge/tsconfig.json`,
+specs under `bridge/tsconfig.spec.json`). `bridge/Main.tsx` is its entry and `bridge/index.html` its page, which
+`cli/runner/routes/OverseerRoutes.ts` imports by path so Bun bundles it, the one place the command surface reaches
+`bridge/`. The Overseer serves it and keeps it current over `/api/events`; the board state it sends carries the
+page payload `src/services/render/PagePayloadAssembly.ts` assembles. `.agent-progress/progress.html` is only the
+stub `src/adapters/progress-page/ProgressPageStubWriter.ts` writes. The `*.dom.tsx` specs run under happy-dom through
+`bridge/testing/RunDomSpecs.ts`, which `bun run verify` runs; `bridge/HeadlessBridge.spec.ts` loads the served Bridge
+in headless Chrome, skipped where Chrome is missing.
 
-To see a change, render a scratch tracker (the one from the session above, before its `rm -rf`) and
+To see a change, start an Overseer on a scratch tracker (the one from the session above, before its `rm -rf`) and
 open it:
 
 ```sh
-AGENT_PROGRESS_ROOT="$SCRATCH" bun agent-progress.ts render
+AGENT_PROGRESS_ROOT="$SCRATCH" bun agent-progress.ts run --detach
 AGENT_PROGRESS_ROOT="$SCRATCH" bun agent-progress.ts open
 ```
 
-`render` regenerates `progress.html` from the progress file, `log.jsonl` and the tickets; `open`
-renders first when the page is missing and opens it in the default browser. Reload the tab after each
-`render`.
+`run --detach` prints the Bridge's URL once the Overseer answers; `open` opens it in the default browser. The
+Bridge follows the board by itself; restart the Overseer to serve changed Bridge code.
 
 ## Architecture decisions
 
@@ -189,24 +193,22 @@ orchestrator that spawned it, which is the case the tool exists for. The cost is
 cannot describe one worktree in isolation; the alternative was a tracker per checkout, where a
 fan-out produces five charts and no picture.
 
-**The page is rendered under the lock, from disk.** Every mutating command writes in the order the CLI
-reference's [Locking](cli.md#conventions) paragraph states, then re-reads and rewrites `progress.html`,
-all before releasing. Rendering afterwards would let two commands interleave and leave the page
-describing a state the store never held. The lock is a directory of numbered generation records, each carrying a
-pid, a timestamp and whether it is held or released, each created exclusively and never rewritten:
+**Every write happens under one lock hold.** Every mutating command writes in the order the CLI reference's
+[Locking](cli.md#conventions) paragraph states, all before releasing, so two commands never interleave and the
+Overseer never reads a state the store never held. The lock is a directory of numbered generation records, each
+carrying a pid, a timestamp and whether it is held or released, each created exclusively and never rewritten:
 taking the lock creates the generation after the newest once that one is released, its process is
 gone or it is stale, and holds only if no newer generation appeared meanwhile; releasing creates the
 next one as released. A takeover therefore removes or renames nothing another process may have just
 written, and exactly one waiter wins.
 
-**Layout is computed in the browser, and the limits travel as data.** `progress.html` embeds the
-progress file in a JSON island and `page/utils/GeometryUtil.ts` computes every bar, tick and
-marker from it, which is what lets the in-page range presets re-lay-out without a regeneration, and
-means there is exactly one implementation of the geometry rather than a server copy and a client
-copy that disagree. The geometry's bounds are put into the island by `src/services/render/PageTemplateFill.ts` and taken
-as a parameter; `page/utils/GeometryUtil.ts` says why. The island's last key, `boardFacts`, carries the Board's answers
-the render service computes through `src/services/render/BoardFacts.ts`: one fact per row at its
-index, and one per ticket by id. The page reads every board fact from them and derives none itself.
+**Layout is computed in the browser, and the limits travel as data.** The Overseer's board state carries the
+progress file as the page payload, and `bridge/utils/GeometryUtil.ts` computes every bar, tick and marker from it,
+which is what lets the range presets re-lay-out without a new board, and means there is exactly one implementation of
+the geometry rather than a server copy and a client copy that disagree. The geometry's bounds travel in the payload
+and are taken as a parameter; `bridge/utils/GeometryUtil.ts` says why. The payload's last key, `boardFacts`, carries
+the Board's answers the render service computes through `src/services/render/BoardFacts.ts`: one fact per row at its
+index, and one per ticket by id. The Bridge reads every board fact from them and derives none itself.
 
 ## Backlog
 
