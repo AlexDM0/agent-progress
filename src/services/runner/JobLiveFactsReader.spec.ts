@@ -2,8 +2,10 @@
  * A job's live facts from its Watcher event log. What matters: `toolCalls` counts only top-level `tool-call` events, each subagent (by
  * `parentToolUseId`) keeps its own count and last call, `toolCallsWithSubagents` adds them up, `lastToolCall` is the newest call stamped
  * with its log entry's `at` and `running` until its result arrives, and `calls` stays the top-level API turns the budget is held against.
+ * After a crash a subagent the log lost is rebuilt from the session's transcripts under a scratch home, never the real `~/.claude`.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { join }                     from 'node:path';
 import {
   afterEach,
   describe,
@@ -15,6 +17,7 @@ import { createEventLogWriter }                                  from '../../lib
 import { hostFilesOf }                                           from '../../lib/agent-host/HostFiles.ts';
 import { HOST_PROTOCOL_OLDEST_SUPPORTED, HOST_PROTOCOL_VERSION } from '../../lib/agent-host/constants/HostProtocol.ts';
 import type { AgentSessionEvent }                                from '../../lib/agent-launch/AgentSessionEvent.ts';
+import { transcriptFolderFor }                                   from '../../lib/claude-code/ClaudeTranscripts.ts';
 import type { Job }                                              from '../../lib/tracker-model/@types/Job.ts';
 import { DISPATCH_PROTOCOL }                                     from '../../shared/constants/DispatchProtocol.ts';
 import { createScratchDirectory, removeScratchDirectory }        from '../../testing/ScratchWorkspace.ts';
@@ -54,10 +57,37 @@ function assistantTurn(messageId: string, parentToolUseId: string | null): Agent
   };
 }
 
+const EXAMPLE_SESSION_ID = 'session-example';
+
+function scratchDirectoryFor(prefix: string): string {
+  const directory = createScratchDirectory(prefix);
+  scratchDirectories.push(directory);
+  return directory;
+}
+
+/** A Claude Code subagent transcript under a scratch home: a tool call answered, a second left open, and one API turn of 100 tokens. */
+function writeSubagentTranscript(homeDirectory: string, workingDirectory: string, agentId: string, parentToolUseId: string): void {
+  const subagentsFolder = join(transcriptFolderFor(workingDirectory, homeDirectory), EXAMPLE_SESSION_ID, 'subagents');
+  mkdirSync(subagentsFolder, { recursive: true });
+  const usage = {
+    input_tokens: 40, output_tokens: 10, cache_creation_input_tokens: 20, cache_read_input_tokens: 30
+  };
+  const lines = [
+    { type: 'assistant', timestamp: '2026-10-29T13:00:01Z', message: { id: `${agentId}-message`, usage, content: [{ type: 'tool_use', id: `${agentId}-call-1`, name: 'Read' }] } },
+    { type: 'user', timestamp: '2026-10-29T13:00:02Z', message: { content: [{ type: 'tool_result', tool_use_id: `${agentId}-call-1` }] } },
+    { type: 'assistant', timestamp: '2026-10-29T13:00:03Z', message: { id: `${agentId}-message`, usage, content: [{ type: 'tool_use', id: `${agentId}-call-2`, name: 'Grep' }] } },
+  ];
+  writeFileSync(join(subagentsFolder, `agent-${agentId}.jsonl`), lines.map((line) => JSON.stringify(line)).join('\n'));
+  writeFileSync(join(subagentsFolder, `agent-${agentId}.meta.json`), JSON.stringify({ toolUseId: parentToolUseId }));
+}
+
 /** A scratch tracker whose job J1 logged each event as one agent line, stamped in order; the mapper reads a line as the event itself. */
-function liveFactsOfLoggedEvents(events: readonly AgentSessionEvent[], watcherProtocol: number | null = null) {
-  const trackerDirectory = createScratchDirectory('live-facts');
-  scratchDirectories.push(trackerDirectory);
+function liveFactsOfLoggedEvents(
+  events: readonly AgentSessionEvent[],
+  watcherProtocol: number | null = null,
+  session: { homeDirectory: string; workingDirectory: string } | null = null,
+) {
+  const trackerDirectory = scratchDirectoryFor('live-facts');
   const jobFolder = HostFleet.jobFolderOf(trackerDirectory, EXAMPLE_JOB.id);
   mkdirSync(jobFolder, { recursive: true });
   if (watcherProtocol !== null) writeFileSync(hostFilesOf(jobFolder, 1).hostRecordPath, JSON.stringify({ protocolVersion: watcherProtocol }));
@@ -68,7 +98,9 @@ function liveFactsOfLoggedEvents(events: readonly AgentSessionEvent[], watcherPr
   });
   for (const event of events) writer.append('agent', JSON.stringify(event));
   writer.syncAndClose();
-  return JobLiveFactsReader.liveFactsOf(trackerDirectory, EXAMPLE_JOB, (line) => [JSON.parse(line) as AgentSessionEvent]);
+  const homeDirectory = session?.homeDirectory ?? scratchDirectoryFor('live-facts-home');
+  if (session !== null) writeFileSync(hostFilesOf(jobFolder, 1).launchPath, JSON.stringify({ workingDirectory: session.workingDirectory }));
+  return JobLiveFactsReader.liveFactsOf(trackerDirectory, EXAMPLE_JOB, (line) => [JSON.parse(line) as AgentSessionEvent], { homeDirectory, sessionId: EXAMPLE_SESSION_ID });
 }
 
 describe('JobLiveFactsReader', () => {
@@ -110,6 +142,44 @@ describe('JobLiveFactsReader', () => {
     expect(liveFactsOfLoggedEvents([assistantTurn('message-1', 'call-9')]).subagents).toEqual([{
       parentToolUseId: 'call-9', toolCalls: 0, lastToolCall: null, tokens: 15
     }]);
+  });
+
+  test('after a crash the event log lost its subagents, the session\'s two subagent transcripts list both with their tallies, added to the totals', () => {
+    const homeDirectory    = scratchDirectoryFor('live-facts-home');
+    const workingDirectory = '/example/worktrees/ticket-1';
+    writeSubagentTranscript(homeDirectory, workingDirectory, 'alpha', 'call-2');
+    writeSubagentTranscript(homeDirectory, workingDirectory, 'beta', 'call-3');
+    const facts = liveFactsOfLoggedEvents([
+      assistantTurn('message-1', null),
+      toolCall('call-2', 'Agent', null),
+      toolCall('call-3', 'Agent', null),
+    ], null, { homeDirectory, workingDirectory });
+    expect(facts.subagents).toEqual([
+      {
+        parentToolUseId: 'call-2', toolCalls: 2, lastToolCall: { toolName: 'Grep', startedAt: '2026-10-29T13:00:03Z', running: true }, tokens: 100
+      },
+      {
+        parentToolUseId: 'call-3', toolCalls: 2, lastToolCall: { toolName: 'Grep', startedAt: '2026-10-29T13:00:03Z', running: true }, tokens: 100
+      },
+    ]);
+    expect(facts.toolCalls).toBe(2);
+    expect(facts.toolCallsWithSubagents).toBe(6);
+    expect(facts.tokens).toBe(215);
+    expect(facts.calls).toBe(1);
+  });
+
+  test('a subagent the event log holds is read from the log alone, and only the one it lost comes from its transcript', () => {
+    const homeDirectory    = scratchDirectoryFor('live-facts-home');
+    const workingDirectory = '/example/worktrees/ticket-1';
+    writeSubagentTranscript(homeDirectory, workingDirectory, 'alpha', 'call-2');
+    writeSubagentTranscript(homeDirectory, workingDirectory, 'beta', 'call-3');
+    const facts = liveFactsOfLoggedEvents([
+      toolCall('call-2', 'Agent', null),
+      assistantTurn('message-2', 'call-2'),
+      toolCall('sub-1', 'Bash', 'call-2'),
+    ], null, { homeDirectory, workingDirectory });
+    expect(facts.subagents.map((subagent) => [subagent.parentToolUseId, subagent.toolCalls, subagent.tokens])).toEqual([['call-2', 1, 15], ['call-3', 2, 100]]);
+    expect(facts.toolCallsWithSubagents).toBe(4);
   });
 
   test('the Watcher protocol comes from the newest instance\'s record, a protocol below the window reads watch-only, and no record reads null', () => {
