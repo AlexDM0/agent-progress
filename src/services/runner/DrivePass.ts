@@ -5,44 +5,56 @@
  */
 import { createHash }                          from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
-import { join }                                from 'node:path';
+import { basename, join }                      from 'node:path';
 
-import { PipelineFile }                                                          from '../../adapters/pipeline/PipelineFile.ts';
-import { BUILDER_REPORT_SCHEMA, RESOLVER_REPORT_SCHEMA, REVIEWER_REPORT_SCHEMA } from '../../adapters/reports/ReportSchemas.ts';
-import type { JsonSchema }                                                       from '../../adapters/reports/ReportValidation.ts';
-import { type UsageMarkerReading, UsageMarkerFile }                              from '../../adapters/usage-marker/UsageMarkerFile.ts';
-import type { EventLogEntry }                                                    from '../../lib/agent-host/EventLog.ts';
-import type { AgentAdapter }                                                     from '../../lib/agent-launch/AgentAdapter.ts';
-import type { AgentLaunchRequest }                                               from '../../lib/agent-launch/AgentLaunchRequest.ts';
-import { launchEnvironmentOf }                                                   from '../../lib/agent-launch/LaunchEnvironment.ts';
-import type { WorkerProfile }                                                    from '../../lib/agent-launch/WorkerProfile.ts';
-import { writeFileAtomically }                                                   from '../../lib/atomic-file/AtomicFile.ts';
-import { GitProcess }                                                            from '../../lib/git/GitProcess.ts';
-import type { DecisionAnswer }                                                   from '../../lib/tracker-model/@types/Decision.ts';
-import type { IncidentDefaultCause, IncidentMove }                               from '../../lib/tracker-model/@types/Incident.ts';
-import type { InterruptionCause, Job, JobKind }                                  from '../../lib/tracker-model/@types/Job.ts';
-import type { DecisionDraft, DecisionWording }                                   from '../../lib/tracker-model/@types/LifecycleStep.ts';
-import type { Board }                                                            from '../../lib/tracker-model/Board.ts';
-import { PipelineUtil }                                                          from '../../lib/tracker-model/utils/PipelineUtil.ts';
-import { JOB_ID_VARIABLE, RELAY_DIRECTORY_VARIABLE }                             from '../../shared/Environment.ts';
-import { LIFECYCLE_LIMITS }                                                      from '../../shared/constants/LifecycleLimits.ts';
-import { MERGE_SLOT_LIMITS }                                                     from '../../shared/constants/MergeSlotLimits.ts';
-import { PRODUCT_NAMES }                                                         from '../../shared/constants/ProductNames.ts';
-import { QUIET_JOB_SWEEPS, SESSION_STOP_GRACE_MILLISECONDS }                     from '../../shared/constants/RunnerLimits.ts';
-import { createFolderGateResultCache, createMemoryGateResultCache }              from '../lifecycle/GateResultCache.ts';
-import { GateRun }                                                               from '../lifecycle/GateRun.ts';
-import { ReviewOutcome }                                                         from '../lifecycle/ReviewOutcome.ts';
-import { writeTracker, type TrackerChange }                                      from '../tracker/TrackerPipeline.ts';
-import { requireProgressFile }                                                   from '../tracker/TrackerReader.ts';
-import type { Workspace }                                                        from '../tracker/Workspace.ts';
-import { AnswerDelivery }                                                        from './AnswerDelivery.ts';
-import { AssistantBoot, type AssistantFacts }                                    from './AssistantBoot.ts';
-import { type AssistantChatFacts, type AssistantReading, AssistantSession }      from './AssistantSession.ts';
-import { GroupWorktrees }                                                        from './GroupWorktrees.ts';
-import { HostFleet, type HostLiveness }                                          from './HostFleet.ts';
-import { type DefaultedIncident, IncidentRouter }                                from './IncidentRouter.ts';
-import { IntakeSessions, type IntakeFacts }                                      from './IntakeSessions.ts';
-import { JobControlDelivery }                                                    from './JobControlDelivery.ts';
+import { PipelineFile }    from '../../adapters/pipeline/PipelineFile.ts';
+import {
+  BUILDER_REPORT_SCHEMA,
+  ONBOARDER_REPORT_SCHEMA,
+  RESOLVER_REPORT_SCHEMA,
+  REVIEWER_REPORT_SCHEMA
+} from '../../adapters/reports/ReportSchemas.ts';
+import type { JsonSchema }                           from '../../adapters/reports/ReportValidation.ts';
+import { type UsageMarkerReading, UsageMarkerFile }  from '../../adapters/usage-marker/UsageMarkerFile.ts';
+import type { EventLogEntry }                        from '../../lib/agent-host/EventLog.ts';
+import type { AgentAdapter }                         from '../../lib/agent-launch/AgentAdapter.ts';
+import type { AgentLaunchRequest }                   from '../../lib/agent-launch/AgentLaunchRequest.ts';
+import { launchEnvironmentOf }                       from '../../lib/agent-launch/LaunchEnvironment.ts';
+import type { WorkerProfile }                        from '../../lib/agent-launch/WorkerProfile.ts';
+import { writeFileAtomically }                       from '../../lib/atomic-file/AtomicFile.ts';
+import { GitProcess }                                from '../../lib/git/GitProcess.ts';
+import type { DecisionAnswer }                       from '../../lib/tracker-model/@types/Decision.ts';
+import type { IncidentDefaultCause, IncidentMove }   from '../../lib/tracker-model/@types/Incident.ts';
+import type { InterruptionCause, Job, JobKind }      from '../../lib/tracker-model/@types/Job.ts';
+import type { DecisionDraft, DecisionWording }       from '../../lib/tracker-model/@types/LifecycleStep.ts';
+import type { PipelineGate }                         from '../../lib/tracker-model/@types/Pipeline.ts';
+import type { Board }                                from '../../lib/tracker-model/Board.ts';
+import { LifecyclePolicy }                           from '../../lib/tracker-model/LifecyclePolicy.ts';
+import { JOB_ID_VARIABLE, RELAY_DIRECTORY_VARIABLE } from '../../shared/Environment.ts';
+import { LIFECYCLE_LIMITS }                          from '../../shared/constants/LifecycleLimits.ts';
+import { MERGE_SLOT_LIMITS }                         from '../../shared/constants/MergeSlotLimits.ts';
+import { PRODUCT_NAMES }                             from '../../shared/constants/ProductNames.ts';
+import {
+  GATE_RUNS_AT_ONCE,
+  GATE_SLOT_RETRY_MILLISECONDS,
+  QUIET_JOB_SWEEPS,
+  SESSION_STOP_GRACE_MILLISECONDS
+} from '../../shared/constants/RunnerLimits.ts';
+import { type GateConfinement, GateRun }                                    from '../lifecycle/GateRun.ts';
+import { ReviewOutcome }                                                    from '../lifecycle/ReviewOutcome.ts';
+import { writeTracker, type TrackerChange }                                 from '../tracker/TrackerPipeline.ts';
+import { requireProgressFile }                                              from '../tracker/TrackerReader.ts';
+import type { Workspace }                                                   from '../tracker/Workspace.ts';
+import { AnswerDelivery }                                                   from './AnswerDelivery.ts';
+import { AssistantBoot, type AssistantFacts }                               from './AssistantBoot.ts';
+import { type AssistantChatFacts, type AssistantReading, AssistantSession } from './AssistantSession.ts';
+import { createGateRunSlots, gateRunHolderIsLive, inProcessHolderOf }       from './GateRunSlots.ts';
+import { GroupWorktrees }                                                   from './GroupWorktrees.ts';
+import { HostFleet, type HostLiveness }                                     from './HostFleet.ts';
+import { type DefaultedIncident, IncidentRouter }                           from './IncidentRouter.ts';
+import { InstructionFiles }                                                 from './InstructionFiles.ts';
+import { IntakeSessions, type IntakeFacts }                                 from './IntakeSessions.ts';
+import { JobControlDelivery }                                               from './JobControlDelivery.ts';
 import {
   BUILD_JOB_CAUSES,
   type BuildJobObservation,
@@ -52,13 +64,15 @@ import {
 import { JobResumption }                                           from './JobResumption.ts';
 import { LegacyHostReader }                                        from './LegacyHostReader.ts';
 import { createMergeSlots, type DeclinedCleanup, type HeldTarget } from './MergeSlots.ts';
+import { Onboarding, type OnboardingFacts }                        from './Onboarding.ts';
 import { createProcessHostSandbox }                                from './ProcessHostSandbox.ts';
 import { QuestionRouting }                                         from './QuestionRouting.ts';
 import { Reattachment, type ReattachmentReport }                   from './Reattachment.ts';
+import { RedHandoff, type RedHandoffFacts }                        from './RedHandoff.ts';
 import { RelayInbox, type PendingRelayRequest }                    from './RelayInbox.ts';
 import { RunnerLease }                                             from './RunnerLease.ts';
 import { type UsageLimitHit, UsageLimits }                         from './UsageLimits.ts';
-import { WorkerProfiles }                                          from './WorkerProfiles.ts';
+import { NO_TOOLCHAIN, WorkerProfiles }                            from './WorkerProfiles.ts';
 
 /** What a session is told at launch; worded by the command line, since services hold no words. */
 export interface JobLaunchText {
@@ -70,14 +84,36 @@ export interface JobLaunchText {
 export interface JobLaunchFacts {
   tickets:                readonly { id: string; title: string; body: string }[];
   checksLine:             string | null;
+  /** The stored gates in run order, which a builder is briefed on; `null` with no pipeline stored. */
+  gates:                  readonly Readonly<PipelineGate>[] | null;
   /** The job's work was last held by a session ended `replaced`, whose uncommitted changes are in the worktree it inherits. */
   earlierSessionReplaced: boolean;
+  /** The red handoff a fresh session takes over from the session it replaces, which could not be resumed; `null` otherwise. */
+  redHandoff?:            RedHandoffFacts | null;
+  /** What a builder its review sent back is resumed with, in place of its build prompt; `null` for every other job. */
+  reviewFindings?:        ReviewFindingsFacts | null;
   /** A product owner's request, and what a fresh one takes over from the session it replaces; `null` for every other job. */
   intake:                 IntakeFacts | null;
   /** What a merge-gate fixer or a resolution reviewer is told of its Airlock; `null` for every other job. */
   airlock:                AirlockFacts | null;
   /** What a fresh Assistant boots with: the incidents of its first message, the newest incident records and the board; `null` otherwise. */
   assistant:              AssistantFacts | null;
+  /** An onboarder's mode and the gate history `advise` reads; `null` for every other job. */
+  onboarding?:            OnboardingFacts | null;
+  /** The role's instruction files as the pipeline names them, joined in order and unfilled; empty for a job no array speaks for. */
+  instructions:           string;
+}
+
+interface InstructionsMissing {
+  jobId: string;
+  path:  string;
+}
+
+/** The review that did not hold, and which resume of the builder's handoff cycle this is. */
+export interface ReviewFindingsFacts {
+  reviewSection:  string;
+  resume:         number;
+  resumesAllowed: number;
 }
 
 /** The Airlock worktree, the slot's recorded tips, and the incident's facts: the failed gate's tail, or the merge commit under review. */
@@ -116,6 +152,8 @@ export interface DrivePassRequest {
   windDownMessage:                   string;
   /** The first line of every resumed session. */
   resumeMessage:                     string;
+  /** The first line of a session resumed to fix its red handoff, and the opening of a fresh one taking the handoff over. */
+  redHandoffMessageOf:               (facts: Readonly<RedHandoffFacts>) => string;
   /** An answer worded as a plain user message, for a resumed session that no longer holds the question's request. */
   answerMessageOf:                   (answer: DecisionAnswer) => string;
   /** Overridden by specs of the fallback T1-P1 would need: the runner stops the host and resumes with the answer. */
@@ -143,7 +181,9 @@ export type RunnerNotice =
   // An incident took its default since the runner started: the warning state of owner answer Q34.
   | { kind: 'incident-defaulted'; incidentId: string; move: IncidentMove; cause: IncidentDefaultCause }
   // Git declined a removal after a refresh or a release; shown while what it would have removed stands.
-  | { kind: 'cleanup-declined'; cleanup: DeclinedCleanup['cleanup']; groupBranch: string; reason: string };
+  | { kind: 'cleanup-declined'; cleanup: DeclinedCleanup['cleanup']; groupBranch: string; reason: string }
+  // A job's launch was refused, nothing spawned, because an instruction file its pipeline names is missing; retried each pass.
+  | { kind: 'instructions-missing'; jobId: string; path: string };
 
 /** What a pass knows of the runtime state; the runner adds `handing-over` around a handover. */
 export type PassRuntimeState = 'serving' | 'held-by-install-change';
@@ -199,6 +239,11 @@ interface Observation {
 
 export const GROUP_TARGET_PREFIX = 'group-';
 
+/** Under the monitor folder, so every Overseer of the machine shares the gate run slots. */
+const GATE_SLOTS_FOLDER = 'gate-slots';
+
+const MERGE_GATE_PROFILES_FOLDER = 'merge-gate-profiles';
+
 // T1b-P14's finding: the per-job ref denies hold, so a target moved by someone else requeues silently (owner answer Q38).
 const TARGET_REF_DENIES_HOLD = true;
 // T1-P1's finding: a live session takes the answer as the `control_response` allow with `updatedInput.answers`.
@@ -215,6 +260,7 @@ const REPORT_SCHEMA_OF_JOB_KIND: Partial<Record<JobKind, JsonSchema>> = {
   'build':       BUILDER_REPORT_SCHEMA,
   'review':      REVIEWER_REPORT_SCHEMA,
   'merge-agent': RESOLVER_REPORT_SCHEMA,
+  'onboarder':   ONBOARDER_REPORT_SCHEMA,
 };
 
 function fileTextOrEmpty(filePath: string): string {
@@ -249,7 +295,10 @@ function fingerprintOf(
   digest.update(fileTextOrEmpty(workspace.progressFilePath)).update('\0').update(fileTextOrEmpty(workspace.logFilePath)).update('\0');
   digest.update(`usage ${JSON.stringify(usageMarker)}\n`);
   for (const request of pending) digest.update(`request ${request.jobId} ${request.requestId}\n`);
-  for (const buildJob of buildJobs) digest.update(`build ${buildJob.jobId} ${buildJob.setup} ${buildJob.calls} ${buildJob.gate.verdict}\n`);
+  for (const buildJob of buildJobs) {
+    const gateStep = buildJob.gate.verdict === 'running' ? buildJob.gate.stepIndex : '';
+    digest.update(`build ${buildJob.jobId} ${buildJob.setup} ${buildJob.calls} ${buildJob.gate.verdict} ${gateStep}\n`);
+  }
   for (const host of hosts) digest.update(`host ${host.jobId} ${host.instance} ${host.liveness.verdict} ${host.events.at(-1)?.sequence ?? 0}\n`);
   for (const [target, tip] of Object.entries(tips)) digest.update(`tip ${target} ${tip ?? '-'}\n`);
   return digest.digest('hex');
@@ -284,12 +333,7 @@ function observe(request: DrivePassRequest, jobLaunchContext: JobLaunchContext):
   const targetsHoldingManagedBlock = targets.filter((target) => targetHoldsManagedBlock(workspace.rootDirectory, target, request.managedBlockMarker));
   const pipelineReading = PipelineFile.read(workspace.pipelineFilePath);
   const pipeline        = pipelineReading.verdict === 'readable' ? pipelineReading.pipeline : null;
-  const gateLines       = {
-    checksLine:  pipeline === null ? null : PipelineUtil.checksLineOf(pipeline),
-    installLine: pipeline === null ? null : PipelineUtil.installLineOf(pipeline),
-    keyCommand:  null,
-  };
-  const buildJobs = JobLaunch.observeBuildJobs(jobLaunchContext, jobs, gateLines);
+  const buildJobs = JobLaunch.observeBuildJobs(jobLaunchContext, jobs, pipeline);
   const ticketIdsTouchingAgentConfig = JobLaunch.ticketIdsTouchingAgentConfigOf(jobLaunchContext, jobs);
   const usageMarker = UsageMarkerFile.read(request.monitorFolder);
   if (usageMarker.verdict === 'malformed') {
@@ -371,8 +415,12 @@ function openLeftoverWorktreeDecisions(change: TrackerChange, decisionWordingOf:
   }
 }
 
+function worktreesRootOf(workspace: Workspace): string {
+  return join(workspace.rootDirectory, PRODUCT_NAMES.WORKTREES_FOLDER);
+}
+
 function workingDirectoryOf(workspace: Workspace, job: Readonly<Job>): string {
-  const worktreesRoot = join(workspace.rootDirectory, PRODUCT_NAMES.WORKTREES_FOLDER);
+  const worktreesRoot = worktreesRootOf(workspace);
   const [ticketId] = job.ticketIds;
   const ticketWorktree = ticketId === undefined ? null : join(worktreesRoot, `ticket-${ticketId}`);
   if (ticketWorktree !== null && existsSync(ticketWorktree)) return ticketWorktree;
@@ -412,12 +460,12 @@ function profileOf(workspace: Workspace, job: Readonly<Job>, workingDirectory: s
  */
 function launchProfileOf(jobLaunchContext: JobLaunchContext, board: Board, job: Readonly<Job>, workingDirectory: string, relayDirectory: string): WorkerProfile {
   if (IntakeSessions.isIntakeJob(job)) return IntakeSessions.productOwnerProfileOf(profileOf(jobLaunchContext.workspace, job, workingDirectory, relayDirectory));
-  if (job.kind === 'merge-agent') return WorkerProfiles.profileOf('resolver', JobLaunch.sandboxFactsFor(jobLaunchContext, job, workingDirectory), [], []);
+  if (Onboarding.isOnboarderJob(job)) return Onboarding.onboarderProfileOf(profileOf(jobLaunchContext.workspace, job, workingDirectory, relayDirectory), relayDirectory);
+  if (job.kind === 'merge-agent') return WorkerProfiles.profileOf('resolver', JobLaunch.sandboxFactsFor(jobLaunchContext, job, workingDirectory), NO_TOOLCHAIN);
   if (!JobLaunch.isWorktreeJob(job)) return profileOf(jobLaunchContext.workspace, job, workingDirectory, relayDirectory);
   const ticket = board.tickets().find((candidate) => candidate.frontmatter.id === job.ticketIds[0]);
   const role = job.kind === 'review' ? 'reviewer' : 'builder';
-  const toolchainLines = [board.checksLine(), board.installLine()].flatMap((line) => line ?? []);
-  return WorkerProfiles.profileOf(role, JobLaunch.sandboxFactsFor(jobLaunchContext, job), ticket?.frontmatter.network ?? [], toolchainLines);
+  return WorkerProfiles.profileOf(role, JobLaunch.sandboxFactsFor(jobLaunchContext, job), WorkerProfiles.workerToolchainOf(board.pipeline(), ticket?.frontmatter.network ?? []));
 }
 
 /** Kept in the merge job's folder when the Airlock opens its incident, which is closed by the time its agent launches. */
@@ -452,36 +500,62 @@ function airlockFactsOf(board: Board, trackerDirectory: string, job: Readonly<Jo
   };
 }
 
-function launchFactsOf(board: Board, trackerDirectory: string, job: Readonly<Job>, workingDirectory: string): JobLaunchFacts {
+function reviewFindingsOf(board: Board, job: Readonly<Job>): ReviewFindingsFacts | null {
+  if (JobResumption.sessionOwnerJobIdOf(board.logRecordsSoFar(), job) === job.id) return null;
+  const ticketBody = board.tickets().find((ticket) => job.ticketIds.includes(ticket.frontmatter.id))?.body ?? '';
   return {
+    reviewSection:  JobResumption.newestReviewSectionOf(ticketBody),
+    resume:         LifecyclePolicy.handoffCycleResumesOf(job, board.logRecordsSoFar()),
+    resumesAllowed: LIFECYCLE_LIMITS.RED_HANDOFF_RESUMES_BEFORE_PARKING,
+  };
+}
+
+function launchFactsOf(board: Board, trackerDirectory: string, job: Readonly<Job>, workingDirectory: string, instructions: string): JobLaunchFacts {
+  return {
+    instructions,
     airlock: airlockFactsOf(board, trackerDirectory, job, workingDirectory),
     tickets: board.tickets()
       .filter((ticket) => job.ticketIds.includes(ticket.frontmatter.id))
       .map((ticket) => ({ id: ticket.frontmatter.id, title: ticket.frontmatter.title, body: ticket.body })),
     checksLine:             board.checksLine(),
+    gates:                  board.pipeline()?.gates ?? null,
     earlierSessionReplaced: JobResumption.earlierSessionWasReplaced(board.logRecordsSoFar(), job),
+    redHandoff:             JobResumption.redHandoffTakenOverOf(trackerDirectory, board.logRecordsSoFar(), job),
+    reviewFindings:         reviewFindingsOf(board, job),
     intake:                 IntakeSessions.intakeFactsOf(board, job),
-    assistant:              AssistantBoot.assistantFactsOf(board, trackerDirectory, job),
+    assistant:              AssistantBoot.assistantFactsOf(board, job),
+    onboarding:             Onboarding.onboardingFactsOf(board, job),
   };
 }
 
-function launchHost(request: DrivePassRequest, jobLaunchContext: JobLaunchContext, board: Board, trackerId: string, job: Readonly<Job>): void {
+/** Refused, spawning nothing, when an instruction file the pipeline names is missing: what the refusal names is returned for the notice. */
+function launchHost(request: DrivePassRequest, jobLaunchContext: JobLaunchContext, board: Board, trackerId: string, job: Readonly<Job>): InstructionsMissing | null {
   const { workspace, agentAdapter } = request;
+  const instructions = InstructionFiles.readingFor(workspace.rootDirectory, request.mainLine, board.pipeline(), job);
+  if (instructions.verdict === 'instructions-missing') return { jobId: job.id, path: instructions.path };
   const jobFolder        = HostFleet.jobFolderOf(workspace.trackerDirectory, job.id);
   const relayDirectory   = RelayInbox.relayDirectoryOf(workspace.rootDirectory, job.id);
   mkdirSync(join(relayDirectory, 'requests'), { recursive: true });
-  const workingDirectory = workingDirectoryOf(workspace, job);
-  const text             = request.launchTextOf(job, launchFactsOf(board, workspace.trackerDirectory, job, workingDirectory));
-  const launchParts      = JobResumption.launchPartsOf(job, text.firstMessage, request.resumeMessage, JobResumption.reopenTextOf(board.logRecordsSoFar(), job));
+  const workingDirectory = Onboarding.isOnboarderJob(job)
+    ? Onboarding.prepareSnapshot({ workspace, worktreesRoot: worktreesRootOf(workspace), mainLine: request.mainLine }, job)
+    : workingDirectoryOf(workspace, job);
+  const launchFacts      = launchFactsOf(board, workspace.trackerDirectory, job, workingDirectory, instructions.text);
+  const text             = request.launchTextOf(job, launchFacts);
+  const resumeLine       = JobResumption.resumeLineOf(workspace.trackerDirectory, board, job, request);
+  const launchParts      = JobResumption.launchPartsOf(job, text.firstMessage, resumeLine);
+  const redHandoffTakenOver = launchFacts.redHandoff ?? null;
+  if (!launchParts.resume && redHandoffTakenOver !== null) RedHandoff.adoptRedHandoff(jobFolder, redHandoffTakenOver);
   if (JobLaunch.isWorktreeJob(job)) JobLaunch.recordJobStart(jobLaunchContext, board, job);
   if (!launchParts.resume) JobResumption.storeFirstMessage(jobFolder, job.hostInstance, launchParts.firstMessage);
+  const sessionOwnerJobId = JobResumption.sessionOwnerJobIdOf(board.logRecordsSoFar(), job);
   const launchRequest: AgentLaunchRequest = {
-    sessionId:         agentAdapter.sessionIdOf(trackerId, job.id),
-    resume:            launchParts.resume,
+    sessionId:         agentAdapter.sessionIdOf(trackerId, sessionOwnerJobId),
+    resume:            launchParts.resume || sessionOwnerJobId !== job.id,
     workingDirectory,
     firstMessage:      launchParts.firstMessage,
     roleBrief:         text.roleBrief,
     ...AssistantBoot.launchSettingsOf(job),
+    ...JobLaunch.reviewerLaunchSettingsOf(board.pipeline()?.review, job),
     environment:       launchEnvironmentOf(request.inheritedEnvironment, { [JOB_ID_VARIABLE]: job.id, [RELAY_DIRECTORY_VARIABLE]: relayDirectory }),
     profile:           launchProfileOf(jobLaunchContext, board, job, workingDirectory, relayDirectory),
     jobFilesDirectory: jobFolder,
@@ -497,8 +571,10 @@ function launchHost(request: DrivePassRequest, jobLaunchContext: JobLaunchContex
     workingDirectory,
     plan:            agentAdapter.planOf(launchRequest),
   });
+  JobLaunch.recordInstructionsRead(jobFolder, job.hostInstance, instructions.files);
   HostFleet.spawnHost({ bundlePath: request.hostBundlePath, jobFolder, instance: job.hostInstance });
   request.log(`Spawned host instance ${job.hostInstance} of job ${job.id} (${job.kind}${job.ticketIds.length === 0 ? '' : ` #${job.ticketIds.join(', #')}`}).`);
+  return null;
 }
 
 /**
@@ -527,6 +603,7 @@ function noticesOf(
   heldTargets: readonly HeldTarget[],
   declinedCleanups: readonly DeclinedCleanup[],
   defaultedIncidents: readonly DefaultedIncident[],
+  missingInstructions: readonly InstructionsMissing[],
 ): RunnerNotice[] {
   return [
     ...heldTargets.map((held) => ({
@@ -541,6 +618,7 @@ function noticesOf(
     ...defaultedIncidents.map(({ incidentId, move, cause }) => ({
       kind: 'incident-defaulted', incidentId, move, cause
     }) as const),
+    ...missingInstructions.map(({ jobId, path }) => ({ kind: 'instructions-missing', jobId, path }) as const),
   ];
 }
 
@@ -566,6 +644,9 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
   let declinedCleanups: DeclinedCleanup[] = [];
   const worktreesRoot = join(request.workspace.rootDirectory, PRODUCT_NAMES.WORKTREES_FOLDER);
   const sandbox = createProcessHostSandbox();
+  const gateSlots = createGateRunSlots({
+    folder: join(request.monitorFolder, GATE_SLOTS_FOLDER), limit: GATE_RUNS_AT_ONCE, holderIsLive: gateRunHolderIsLive, retryMilliseconds: GATE_SLOT_RETRY_MILLISECONDS,
+  });
   const jobLaunchContext: JobLaunchContext = {
     workspace:            request.workspace,
     agentAdapter:         request.agentAdapter,
@@ -577,12 +658,31 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     hostBundlePath:       request.hostBundlePath,
     codeVersion:          request.codeVersion,
     sandbox,
-    // Trusted on disk only while no gate can write the data folder; unsandboxed gates keep their passes in memory, lost on a restart.
-    gateCache:            sandbox.isUsable() ? createFolderGateResultCache(join(request.workspace.trackerDirectory, 'gates')) : createMemoryGateResultCache(),
+    gateSlots,
     windDownMessage:      request.windDownMessage,
     decisionWordingOf:    request.decisionWordingOf,
     log:                  request.log,
   };
+
+  /** A merge gate step under the profile a gate host gets, its own network and `writes`, in the slot's worktree; one profile file per worktree. */
+  function mergeGateArgvOf(worktreePath: string, argv: readonly string[], confinement: GateConfinement): readonly string[] {
+    const facts = WorkerProfiles.sandboxFactsOf({
+      repositoryRoot: request.workspace.rootDirectory,
+      dataFolder:     request.workspace.trackerDirectory,
+      monitorFolder:  request.monitorFolder,
+      homeDirectory:  request.homeDirectory,
+      worktree:       worktreePath,
+      ownBranch:      '',
+      mainLine:       request.mainLine,
+      groupPrefix:    GROUP_TARGET_PREFIX,
+      relayDirectory: '',
+    });
+    const profileFolder = join(request.workspace.trackerDirectory, 'runner', MERGE_GATE_PROFILES_FOLDER);
+    const profilePath   = join(profileFolder, `${basename(worktreePath)}.sb`);
+    mkdirSync(profileFolder, { recursive: true });
+    writeFileAtomically(profilePath, sandbox.profileTextOf(JobLaunch.processSandboxRequestOf(jobLaunchContext, facts, confinement)));
+    return sandbox.sandboxedArgvOf(profilePath, argv);
+  }
 
   const mergeSlots = createMergeSlots({
     repositoryRoot:    request.workspace.rootDirectory,
@@ -603,19 +703,18 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     })).result,
     gateMergedTree: async (worktreePath, treeId) => {
       // Read afresh at every gate run, so a pipeline changed by hand or by a `gate` verb gates the next tree without a restart.
-      const reading    = PipelineFile.read(request.workspace.pipelineFilePath);
-      const pipeline   = reading.verdict === 'readable' ? reading.pipeline : null;
-      const checksLine = pipeline === null ? '' : PipelineUtil.checksLineOf(pipeline);
-      const verdict    = await GateRun.gateTree({
-        argv:        GateRun.checksLineArgvOf(checksLine),
-        directory:   worktreePath,
-        treeId,
-        checksLine,
-        installLine: pipeline === null ? null : PipelineUtil.installLineOf(pipeline),
-        keyArgv:     null,
-        cache:       jobLaunchContext.gateCache,
+      const reading  = PipelineFile.read(request.workspace.pipelineFilePath);
+      const pipeline = reading.verdict === 'readable' ? reading.pipeline : null;
+      const holder   = inProcessHolderOf(`${worktreePath}@${treeId}`);
+      const verdict  = await GateRun.runPipeline({
+        prepare:         pipeline?.prepare ?? [],
+        gates:           pipeline?.gates ?? [],
+        directory:       worktreePath,
+        confinedArgvOf:  (argv, confinement) => mergeGateArgvOf(worktreePath, argv, confinement),
+        acquireGateSlot: () => gateSlots.acquire(holder),
       });
-      return { outcome: verdict.outcome, output: verdict.run?.output ?? '' };
+      if (verdict.outcome === 'passed') return { outcome: 'passed', step: null, output: '' };
+      return { outcome: verdict.outcome, step: 'step' in verdict ? verdict.step : verdict.gate, output: verdict.output };
     },
     mergeAgentReadingOf: (job) => JobLaunch.sessionReadingOf(jobLaunchContext, job),
     hostIsLive:          (job) => HostFleet.livenessOf(HostFleet.jobFolderOf(request.workspace.trackerDirectory, job.id), job.hostInstance).verdict === 'live',
@@ -626,6 +725,8 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     },
     decisionWordingOf:     request.decisionWordingOf,
     keepAirlockFacts:      (mergeJob, facts) => keepAirlockFacts(request.workspace.trackerDirectory, mergeJob, facts),
+    jobFolderOf:           (job) => HostFleet.jobFolderOf(request.workspace.trackerDirectory, job.id),
+    redHandoffResumes:     LIFECYCLE_LIMITS.RED_HANDOFF_RESUMES_BEFORE_PARKING,
     dispatchIsStopped:     () => requireProgressFile(request.workspace).dispatcherState === 'stopped',
     reportDeclinedCleanup: (declined) => {
       request.log(`Git declined the ${declined.cleanup} cleanup of ${declined.groupBranch}: ${declined.reason}`);
@@ -683,6 +784,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
         const livenessOf = (job: Readonly<Job>): HostLiveness => observation.hosts.find((host) => host.jobId === job.id && host.instance === job.hostInstance)?.liveness
           ?? HostFleet.livenessOf(HostFleet.jobFolderOf(request.workspace.trackerDirectory, job.id), job.hostInstance);
         IntakeSessions.endClosedIntakes(change.board, livenessOf, request.decisionWordingOf, change.at);
+        Onboarding.applySettledOnboarders(change, worktreesRootOf(request.workspace), request.decisionWordingOf);
         request.afterHoldPhase?.('host-events', change.board);
         IncidentRouter.openQuietJobIncidents(change.board, quietJobIdsDue.splice(0), QUIET_JOB_SWEEPS, change.at);
         const { assistantReadings } = observation;
@@ -730,6 +832,15 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     await stopLimitedJobs(written.board, observation.trackerId, written.result.usageLimitHits);
     scheduleThePassAtTheReset(written.result.usageResetsAt);
     await JobLaunch.runBuildJobEffects(jobLaunchContext, written.board, observation.trackerId, observation.buildJobs);
+    const settledOnboarders = await Onboarding.settleEndedOnboarders({
+      workspace:             request.workspace,
+      worktreesRoot:         worktreesRootOf(request.workspace),
+      mainLine:              request.mainLine,
+      agentAdapter:          request.agentAdapter,
+      millisecondsNow:       () => request.now().getTime(),
+      stopGraceMilliseconds: SESSION_STOP_GRACE_MILLISECONDS,
+    }, written.board);
+    if (settledOnboarders > 0) wake(true);
     for (const ended of written.result.endedAssistantJobs) {
       await HostFleet.sendFrames(HostFleet.jobFolderOf(request.workspace.trackerDirectory, ended.id), ended.hostInstance, [
         { kind: 'stop', graceMilliseconds: SESSION_STOP_GRACE_MILLISECONDS },
@@ -746,13 +857,15 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     await JobControlDelivery.deliverJobControls({
       trackerDirectory: request.workspace.trackerDirectory, board: written.board, adapter: request.agentAdapter, windDownMessage: request.windDownMessage,
     });
+    const missingInstructions: InstructionsMissing[] = [];
     for (const job of jobsNeedingAHost(written.board, request.workspace.trackerDirectory, spawnedInstances, written.result.agentConfigHeldTicketIds)) {
-      spawnedInstances.add(`${job.id}:${job.hostInstance}`);
-      launchHost(request, jobLaunchContext, written.board, observation.trackerId, job);
+      const refusal = launchHost(request, jobLaunchContext, written.board, observation.trackerId, job);
+      if (refusal === null) spawnedInstances.add(`${job.id}:${job.hostInstance}`);
+      else missingInstructions.push(refusal);
     }
     const { trackerDirectory } = request.workspace;
     const answerAwaitsDelivery = (job: Readonly<Job>): boolean => AnswerDelivery.answerAwaitsDelivery(trackerDirectory, job);
-    await JobResumption.deliverResumeMessages(trackerDirectory, written.board, request.agentAdapter, request.resumeMessage, answerAwaitsDelivery);
+    await JobResumption.deliverResumeMessages(trackerDirectory, written.board, request.agentAdapter, request, answerAwaitsDelivery);
     await AnswerDelivery.deliverAnswers({
       trackerDirectory,
       board:                     written.board,
@@ -775,6 +888,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
         heldTargets,
         stillDeclinedCleanups(),
         IncidentRouter.defaultedIncidentsOf(written.board.logRecordsSoFar()),
+        missingInstructions,
       ),
       legacyHostJobIds: legacyHostJobIdsOf(written.board, request.workspace.trackerDirectory),
     };

@@ -29,6 +29,7 @@ import { GroupWorktrees }                      from './GroupWorktrees.ts';
 import { HostFleet }                           from './HostFleet.ts';
 import { JobLaunch }                           from './JobLaunch.ts';
 import { LegacyHostReader }                    from './LegacyHostReader.ts';
+import { ONBOARDER_SNAPSHOT_FOLDER }           from './Onboarding.ts';
 
 export interface HostReattached {
   jobId:           string;
@@ -48,7 +49,7 @@ export interface ReattachmentReport {
 }
 
 /** The runner's own folders under the worktrees root: the sessions' working folders and the jobs' relay folders, one per job. */
-const RUNNER_OWNED_FOLDERS: ReadonlySet<string> = new Set(['sessions', 'relay']);
+const RUNNER_OWNED_FOLDERS: ReadonlySet<string> = new Set(['sessions', 'relay', ONBOARDER_SNAPSHOT_FOLDER]);
 
 const WORKTREE_LINE_PREFIX = 'worktree ';
 const BRANCH_LINE_PREFIX   = 'branch ';

@@ -15,6 +15,8 @@ export type InstalledFileName = Exclude<keyof InstalledFilePaths, 'installManife
 export interface InstalledFile {
   name:             InstalledFileName;
   templateFileName: string;
+  /** The `resources/` folder the template is read from; absent is `templates`. */
+  resourceFolder?:  'prompts';
 }
 
 /** A folder of this checkout's `skills/`, copied into the repository's `.claude/skills/` under the name the product gives that skill. */
@@ -79,7 +81,13 @@ export const CLAUDE_CODE_INSTALL: { parts: readonly InstalledPart[] } = {
       optOutFlag:  null,
       files:       [
         { name: 'reference', templateFileName: 'Reference.md' },
-        { name: 'assistantBrief', templateFileName: 'AssistantBrief.md' },
+        { name: 'constitutionDefault', templateFileName: 'Constitution.md' },
+        { name: 'builderDefault', templateFileName: 'BuildPrompt.md', resourceFolder: 'prompts' },
+        { name: 'reviewerDefault', templateFileName: 'ReviewPrompt.md', resourceFolder: 'prompts' },
+        { name: 'mergerDefault', templateFileName: 'MergerBrief.md', resourceFolder: 'prompts' },
+        { name: 'productOwnerDefault', templateFileName: 'ProductOwnerPrompt.md', resourceFolder: 'prompts' },
+        { name: 'onboarderDefault', templateFileName: 'OnboarderBrief.md' },
+        { name: 'assistantDefault', templateFileName: 'AssistantBrief.md' },
         { name: 'sessionInstructions', templateFileName: 'SessionInstructions.md' },
       ],
     },

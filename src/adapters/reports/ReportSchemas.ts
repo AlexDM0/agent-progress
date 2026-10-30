@@ -41,7 +41,10 @@ function listOf(items: JsonSchema): JsonSchema {
   return { type: 'array', items };
 }
 
-/** `blocked` stays for a session that cannot continue at all, with a reason; a question is asked live, so there is no `blockedOn`. */
+/**
+ * `blocked` stays for a session that cannot continue at all, with a reason; a question is asked live, so there is no `blockedOn`. `gates`
+ * claims each gate the agent ran green and the commit it passed on: never trusted, only held against HEAD before any gate runs.
+ */
 export const BUILDER_REPORT_SCHEMA: JsonSchema = {
   $schema: DRAFT_07,
   title:   'builder report',
@@ -56,6 +59,7 @@ export const BUILDER_REPORT_SCHEMA: JsonSchema = {
       waiverReason: TEXT,
     }, ['item', 'state', 'evidence'])),
     alsoFixed:         listOf(closedObject({ summary: TEXT, files: listOf(TEXT), evidence: TEXT })),
+    gates:             listOf(closedObject({ name: TEXT, commit: COMMIT_SHA })),
     handoff:           TEXT,
     blockedReason:     NULLABLE_TEXT,
     cannotBuildReason: NULLABLE_TEXT,
@@ -97,6 +101,46 @@ export const REVIEWER_REPORT_SCHEMA: JsonSchema = {
     })),
     findings:   listOf({ oneOf: [FIXED_FINDING, FILED_FINDING] }),
     reviewText: TEXT,
+  }),
+};
+
+const TEXT_LIST = listOf(TEXT);
+
+const ONBOARDER_GATE = closedObject({
+  name: TEXT, run: TEXT, definedBy: TEXT_LIST, network: TEXT_LIST, writes: TEXT_LIST
+});
+
+const ONBOARDER_REVIEW: JsonSchema = { oneOf: [{ type: 'null' }, closedObject({ name: TEXT, model: NULLABLE_TEXT, effort: NULLABLE_TEXT })], };
+
+/** Each optimisation `advise` makes is a draft low ticket the onboarder filed through its Hatch, named as a reviewer names a filed finding. */
+const FILED_OPTIMISATION: JsonSchema = {
+  ...closedObject({ summary: TEXT, filedTicketId: NULLABLE_TEXT, relayRequestId: NULLABLE_TEXT }),
+  anyOf: [
+    { properties: { filedTicketId: TEXT }, required: ['filedTicketId'] },
+    { properties: { relayRequestId: TEXT }, required: ['relayRequestId'] },
+  ],
+};
+
+/**
+ * The onboarder's proposal for the whole pipeline, every array starting from the defaults; `headCommit` is the main-line snapshot it read.
+ * `setup` answers `checks-not-set`; `advise` takes the gate history and files its optimisations.
+ */
+export const ONBOARDER_REPORT_SCHEMA: JsonSchema = {
+  $schema: DRAFT_07,
+  title:   'onboarder report',
+  ...closedObject({
+    role:         { const: 'onboarder' },
+    mode:         { enum: ['setup', 'advise'] },
+    headCommit:   COMMIT_SHA,
+    prepare:      listOf(closedObject({ name: TEXT, run: TEXT })),
+    gates:        listOf(ONBOARDER_GATE),
+    review:       ONBOARDER_REVIEW,
+    constitution: TEXT_LIST,
+    agents:       closedObject({
+      builder: TEXT_LIST, reviewer: TEXT_LIST, merger: TEXT_LIST, productOwner: TEXT_LIST, onboarder: TEXT_LIST, assistant: TEXT_LIST
+    }),
+    optimisations: listOf(FILED_OPTIMISATION),
+    notes:         TEXT,
   }),
 };
 

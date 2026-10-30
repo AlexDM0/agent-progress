@@ -12,6 +12,7 @@ import {
 
 import type { CommitSigning, NetworkDomainGuard, WorkerProfile } from '../../lib/agent-launch/WorkerProfile.ts';
 import { GitProcess }                                            from '../../lib/git/GitProcess.ts';
+import type { Pipeline }                                         from '../../lib/tracker-model/@types/Pipeline.ts';
 import { PRODUCT_NAMES }                                         from '../../shared/constants/ProductNames.ts';
 
 /** Everything a job's confinement names, read once at launch; every path absolute. */
@@ -104,7 +105,7 @@ function executablesOf(line: string): string[] {
   });
 }
 
-/** What a worker may run unasked: the executables the board's checks and install lines invoke, then the git verbs. */
+/** What a worker may run unasked: the executables the pipeline's prepare and gate lines invoke, then the git verbs. */
 function workerAllowedCommandPrefixesOf(toolchainLines: readonly string[]): (readonly string[])[] {
   const executables = [...new Set(toolchainLines.flatMap(executablesOf))].filter((executable) => executable !== 'git');
   return [...executables.map((executable) => [executable]), ...WORKER_ALLOWED_COMMAND_PREFIXES];
@@ -148,21 +149,51 @@ function webNetworkDomainsOf(role: ProfiledRole, networkDomains: readonly string
   return networkDomains.length === 0 ? 'none' : [...networkDomains];
 }
 
+/** What a worker's sandbox takes from the pipeline: the gates' network and `writes`, and the shell lines whose executables it runs unasked. */
+export interface WorkerToolchain {
+  networkDomains: readonly string[];
+  /** Absolute or `~/`, as the pipeline stores them. */
+  writes:         readonly string[];
+  lines:          readonly string[];
+}
+
+export const NO_TOOLCHAIN: WorkerToolchain = Object.freeze({ networkDomains: [], writes: [], lines: [] });
+
+const HOME_PREFIX = '~/';
+
 /**
- * A builder or reviewer of a ticket: writes only its worktree (the sandbox's default) and its own relay folder, the network its line names,
- * and runs unasked the executables of `toolchainLines`, the board's stored checks and install lines.
+ * Every prepare step and every gate but an `overseerOnly` one, which only the Overseer runs; the ticket's own `network` line is added to the
+ * gates' domains.
  */
-function profileOf(role: ProfiledRole, facts: SandboxFacts, networkDomains: readonly string[], toolchainLines: readonly string[]): WorkerProfile {
+function workerToolchainOf(pipeline: Readonly<Pipeline> | null, ticketNetworkDomains: readonly string[]): WorkerToolchain {
+  const gates = (pipeline?.gates ?? []).filter((gate) => gate.overseerOnly !== true);
+  return {
+    networkDomains: [...new Set([...ticketNetworkDomains, ...gates.flatMap((gate) => gate.network ?? [])])],
+    writes:         [...new Set(gates.flatMap((gate) => gate.writes ?? []))],
+    lines:          [...(pipeline?.prepare ?? []).map((step) => step.run), ...gates.map((gate) => gate.run)],
+  };
+}
+
+function absoluteWritesOf(writes: readonly string[], homeDirectory: string): string[] {
+  return writes.map((path) => (path.startsWith(HOME_PREFIX) ? join(homeDirectory, path.slice(HOME_PREFIX.length)) : path));
+}
+
+/**
+ * A builder or reviewer of a ticket: writes its worktree (the sandbox's default), its own relay folder and the gates' `writes`, reaches the
+ * gates' network, and runs unasked the executables of the pipeline's prepare and gate lines.
+ */
+function profileOf(role: ProfiledRole, facts: SandboxFacts, toolchain: WorkerToolchain): WorkerProfile {
   const isWorker = role === 'builder' || role === 'reviewer';
   if (role === 'resolver') return resolverProfileOf(facts);
+  const { networkDomains } = toolchain;
   return {
-    writableRoots:          [],
+    writableRoots:          isWorker ? absoluteWritesOf(toolchain.writes, facts.homeDirectory) : [],
     deniedWritableRoots:    deniedWritableRootsOf(facts),
     deniedReadableRoots:    deniedReadableRootsOf(facts),
     bashNetworkDomains:     isWorker ? [...networkDomains] : [],
     webNetworkDomains:      role === 'orchestrator' ? 'none' : webNetworkDomainsOf(role, networkDomains),
     relayDirectory:         facts.relayDirectory,
-    allowedCommandPrefixes: isWorker ? workerAllowedCommandPrefixesOf(toolchainLines) : [],
+    allowedCommandPrefixes: isWorker ? workerAllowedCommandPrefixesOf(toolchain.lines) : [],
     deniedCommandPrefixes:  isWorker ? WORKER_DENIED_GIT_SUBCOMMANDS.map((subcommand) => ['git', ...subcommand]) : [],
     askUser:                role !== 'orchestrator',
     skills:                 role === PRODUCT_OWNER_ROLE,
@@ -269,6 +300,7 @@ function sandboxFactsOf(request: SandboxFactsRequest): SandboxFacts {
 
 export const WorkerProfiles = Object.freeze({
   profileOf,
+  workerToolchainOf,
   sandboxFactsOf,
   deniedWritableRootsOf,
   deniedReadableRootsOf,

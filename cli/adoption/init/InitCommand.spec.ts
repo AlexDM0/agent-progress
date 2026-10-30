@@ -60,7 +60,7 @@ describeWhenGitIsPresent('initialising a repository', () => {
 
     expect(readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'progress.json'), 'utf8')).toContain('Example Agency');
     expect(readFileSync(join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'session-instructions.md'), 'utf8')).toStartWith('## Progress tracking');
-    expect(existsSync(installedFilePathsIn(repositoryDirectory).assistantBrief)).toBe(true);
+    expect(existsSync(installedFilePathsIn(repositoryDirectory).assistantDefault)).toBe(true);
     expect(existsSync(installedFilePathsIn(repositoryDirectory).reference)).toBe(true);
     expect(context.outputText()).toContain('.gitignore:');
     expect(context.outputText()).toContain('progress.html');

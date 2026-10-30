@@ -3,9 +3,10 @@
  * runner decided is stored: a host's process identity lives in the job's own folder, never on the board.
  */
 
-export type JobKind = 'build' | 'review' | 'merge' | 'merge-agent' | 'refresh' | 'orchestrator' | 'product-owner';
+/** `onboarder` reads the repository and proposes its pipeline, or advises on the one it has; it never touches a ticket. */
+export type JobKind = 'build' | 'review' | 'merge' | 'merge-agent' | 'refresh' | 'orchestrator' | 'product-owner' | 'onboarder';
 
-export type JobRole = 'builder' | 'reviewer' | 'merge-fix' | 'resolver' | 'resolution-review' | 'orchestrator' | 'product-owner';
+export type JobRole = 'builder' | 'reviewer' | 'merge-fix' | 'resolver' | 'resolution-review' | 'orchestrator' | 'product-owner' | 'onboarder';
 
 export type JobState =
   | 'launching'
@@ -40,8 +41,11 @@ export type JobOutcome =
   | 'stopped'
   | 'closed';
 
-/** `host-lost` and `agent-crashed` are the crashes a resume counts; the others never count. */
-export type InterruptionCause = 'host-lost' | 'agent-crashed' | 'reboot' | 'answer-delivery' | 'usage-limit';
+/**
+ * `host-lost` and `agent-crashed` are the crashes a resume counts; the others never count. `handoff-red` is a handoff whose gate or Customs
+ * check went red: the same session is resumed to fix it, counted on its own bound.
+ */
+export type InterruptionCause = 'host-lost' | 'agent-crashed' | 'reboot' | 'answer-delivery' | 'usage-limit' | 'handoff-red';
 
 export type SlotPhase = 'merge-in' | 'resolving' | 'reviewing-resolution' | 'gating' | 'fixing' | 'landing';
 

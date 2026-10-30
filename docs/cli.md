@@ -41,7 +41,7 @@ line never describes a change that was not stored. Nothing renders: the Overseer
 `status`, `ticket list`, `ticket show`, `epic list`, `epic show`,
 `concurrency` without an argument, `gate list`, `usage` and `review-stats` take none: every file
 they read is written atomically. `update`, and `init` on an existing tracker, never touch the tracker's
-own files and take no lock.
+own files but the `progress.html` stub, and take no lock.
 
 **Help and options.** `agent-progress help` prints the whole reference. `--help` works after a
 command word as well as on its own, and `-h` on its own or straight after the command word; a `-h`
@@ -84,12 +84,12 @@ own conventions only.
 
 | # | what | path | written by | opt-out |
 |---|---|---|---|---|
-| 1 | The tracker: `progress.json`, `log.jsonl`, a `tickets/` folder, the `progress.html` stub, and the `.lock` directory | `.agent-progress/` | `init` only | — |
+| 1 | The tracker: `progress.json`, `log.jsonl`, a `tickets/` folder, the `progress.html` stub, and the `.lock` directory | `.agent-progress/` | `init` only; the stub also `update` and `run` | — |
 | 2 | `.gitignore` entries for the tracker (`init` only) and for the worktrees folder | `.gitignore` | `init`, `update` | — |
-| 3 | The session instructions, from `resources/templates/SessionInstructions.md`, the reference, from `Reference.md`, and the Assistant brief, from `AssistantBrief.md` | `.agent-progress/session-instructions.md`, `reference.md`, `assistant-brief.md` | `init`, `update` | — |
+| 3 | The session instructions, from `resources/templates/SessionInstructions.md`, the reference, from `Reference.md`, and the seven instruction defaults, from `Constitution.md`, `OnboarderBrief.md` and `AssistantBrief.md` there and `BuildPrompt.md`, `ReviewPrompt.md`, `MergerBrief.md` and `ProductOwnerPrompt.md` under `resources/prompts/` | `.agent-progress/session-instructions.md`, `reference.md`, `briefs/defaults/<constitution\|builder\|reviewer\|merger\|productOwner\|onboarder\|assistant>.md` | `init`, `update` | — |
 | 4 | The `SessionStart` hook running `agent-progress hook session-start`, kept current in `.claude/settings.json` when that file already holds it | `.claude/settings.local.json` | `init`, `update` | `--no-hooks` |
 | 5 | The two skills, copied from this checkout's `skills/agent-po/` and `skills/agent-progress-orchestrate/`, each with its `.gitignore` entry | `.claude/skills/agent-po/`, `.claude/skills/agent-progress-orchestrate/` | `init`, `update` | — |
-| 6 | Removed once: the managed `CLAUDE.md` block, the `SubagentStop`, `PreToolUse` and `PostToolUse` hook entries, the worker agent definition, the dispatcher script and the three briefs install version 16 wrote | `CLAUDE.md`, `.claude/`, `.agent-progress/` | `init`, `update` | `--no-hooks` keeps the hook entries |
+| 6 | Removed once: the managed `CLAUDE.md` block, the `SubagentStop`, `PreToolUse` and `PostToolUse` hook entries, the worker agent definition, the dispatcher script and the three briefs install version 16 wrote, and the `assistant-brief.md` versions before 19 wrote | `CLAUDE.md`, `.claude/`, `.agent-progress/` | `init`, `update` | `--no-hooks` keeps the hook entries |
 | 7 | The install version | `.agent-progress/version.json` | `init`, `update` | — |
 
 1. **The tracker.** Its root is the main checkout, found from any worktree.
@@ -101,10 +101,12 @@ own conventions only.
    every session User opens: how this repository tracks its work, which skill to load for what, and
    where the reference is. A fresh `init` writes it first, and its presence marks the files installed.
    `reference.md` is the ticket file's format, the ticket moves and the exit codes copied from this
-   file, which a session reads on demand. `assistant-brief.md` is the Assistant's role prompt, which the
-   runner fills with the job's id and call budget and reads at each Assistant launch. They are guidance
-   shipped with the tool rather than files a project edits, so every `init` and `update` rewrites all
-   three. The line reports the session instructions, and `updated` when any of the three changed.
+   file, which a session reads on demand. `briefs/defaults/` holds the instruction file each role reads
+   when the pipeline names none (see [Files on disk](#files-on-disk)), which the runner fills with
+   the job's values at each launch. They are guidance shipped with the tool rather than files a project
+   edits, so every `init` and `update` rewrites them all; a project adds its own tracked files through
+   the pipeline instead. The line reports the session instructions, and `updated` when any of them
+   changed. Install version 19 removes the `assistant-brief.md` earlier versions wrote.
 4. **The hook**, under an empty matcher. It goes into `.claude/settings.local.json` — the per-user file
    Claude Code applies over the shared one and keeps out of git, and which a job's
    `--setting-sources project` never loads — so it lands in nothing colleagues share and reaches no
@@ -196,8 +198,8 @@ command's own no-tracker refusal is unchanged.
 `init` and `update` copy two Claude Code skills from this checkout's `skills/` into the tracked
 repository's git-ignored `.claude/skills/` (item 5 of [Adopting a repository](#adopting-a-repository)),
 split by audience: filing a ticket in any session, and working alongside the runner in one. No job the
-runner launches loads either, except the product owner, whose first line runs `agent-po`: every other role
-reads its prompt under `resources/prompts/`, and the Assistant `.agent-progress/assistant-brief.md`.
+runner launches loads either, except the product owner, whose first line runs `agent-po`: every role reads
+the instruction files its pipeline names, by default those under `.agent-progress/briefs/defaults/`.
 Neither skill lists commands: `agent-progress help` is the reference, and both name it and
 `.agent-progress/reference.md`.
 
@@ -371,15 +373,20 @@ there is none. The page's `boardFacts.drafts` carries the same list from the sam
 ### Concurrency and gates
 
 The limits and states here survive a compaction of the orchestrator's context, because they are
-stored in the tracker. The runner gates a tree with the checks line, the stored gates joined in order (`true` for
-none on purpose), and prepares a worktree with the install line, the prepare steps joined in order.
+stored in the tracker. The runner gates a tree by running the prepare steps, then each stored gate in list order, the
+first red gate stopping the rest (none on purpose passes). A prepare step reaches the network and a failed one is a
+setup failure, never a red gate. A gate runs in its `in` folder with only its own `network` and `writes`, and passes
+only when it exits 0 and leaves every tracked file as it was; one that changes a tracked file is red, the diff its
+output. Exit 126 or 127, or a signal, is `gate-cannot-run`. The runner never runs a gate's `fix`, and keeps no gate
+result: caching belongs to the repository's own tooling. At most `GATE_RUNS_AT_ONCE` (2) gates run at once on the
+machine, across every runner, each holding a slot file under `<monitor>/gate-slots/`; the rest wait for one to end.
 
 | command | what it does |
 |---|---|
 | `concurrency [<n>] [--json]` | Print how many agents may be in flight at once, or store a new limit for every worktree: a whole number from 1 to 10. A higher one is refused at exit 1 with nothing written, and one an older tracker stored above 10 reads as 10. A tracker that never set one reads 2. A limit below the agents already in flight is accepted and simply leaves no free slot. A slot is an agent: the in-progress rows one claim started count once, and every other in-progress row, such as a review bar, counts on its own. `--json` prints `{ limit, agentsInFlight, freeSlots }`, after a change as well. |
 | `gate list [--json]` | Print the board's gate pipeline, stored in `.agent-progress/pipeline.json` beside `progress.json`, never tracked and never inside a branch. Read-only, no lock. `--json` prints `{ pipelineIsSet, pipelineHash, prepare, gates }`, with `review`, `constitution` and `agents` when stored; with no pipeline `pipelineIsSet` is `false`, `pipelineHash` `null` and both lists empty. A malformed file is refused at exit 1 with its reason. |
-| `gate prepare <name> [--json] -- <command>` | Set the prepare step `<name>`, which prepares a fresh worktree before a gate, with one log line (`Prepare step <name> set to <command>`, kind `pipeline-prepare-step-set`); a step of the same name is replaced where it stands. The steps run in order, and their lines are part of a gate's cache key. |
-| `gate add <name> [--fix "<command>"] [--in <folder>] [--defined-by <pattern>]… [--network <domain>]… [--writes <path>]… [--overseer-only] [--json] -- <command>` | Add the gate `<name>`, run after the others, or replace a gate of the same name where it stands, with one log line (`Gate <name> set to <command>`, kind `pipeline-gate-added`). The gates run in order through the user's shell in the worktree, `--in` a folder of it; their lines are part of a gate's cache key, so a changed gate runs again. `--defined-by` names the files that define the gate, as git pathspec-style globs: `*` and `?` stay inside one folder, `**` crosses folders, a pattern without an inner `/` matches its name at any depth, one with an inner `/` is anchored at the repository root, and a trailing `/` takes a folder's whole content; the runner's check V11 refuses a job (`checks-definition-changed`) when a commit in its range changes a matching path its ticket body does not name. `--writes` names a folder a gate and a prepare step may write besides the worktree, its git admin folder and temp, absolute or `~/`; a relative one, or one that is, sits in or holds a `bin` folder or a folder on the runner's `PATH`, is refused at exit 1 with nothing written, one that became so after it was stored is left out of the gate's profile, and whatever is stored, the `bin` beside each of its ancestors is not writable. A builder or reviewer may run unasked the first word of each command in the gate and prepare lines (split outside quotes on `&&`, `\|\|`, `;`, `\|` and parentheses, past a leading `NAME=value`), beside the git verbs it reads and commits with. `--fix`, `--network` and `--overseer-only` are stored for the gate runs that act on them. |
+| `gate prepare <name> [--json] -- <command>` | Set the prepare step `<name>`, which prepares a fresh worktree before a gate, with one log line (`Prepare step <name> set to <command>`, kind `pipeline-prepare-step-set`); a step of the same name is replaced where it stands. The steps run in order, with the network, before the gates. |
+| `gate add <name> [--fix "<command>"] [--in <folder>] [--defined-by <pattern>]… [--network <domain>]… [--writes <path>]… [--overseer-only] [--json] -- <command>` | Add the gate `<name>`, run after the others, or replace a gate of the same name where it stands, with one log line (`Gate <name> set to <command>`, kind `pipeline-gate-added`). The gates run in order through the user's shell in the worktree, `--in` a folder of it, each sandboxed with its own `--network` domains and `--writes` folders. `--defined-by` names the files that define the gate, as git pathspec-style globs: `*` and `?` stay inside one folder, `**` crosses folders, a pattern without an inner `/` matches its name at any depth, one with an inner `/` is anchored at the repository root, and a trailing `/` takes a folder's whole content; the runner's check V11 refuses a job (`checks-definition-changed`) when a commit in its range changes a matching path its ticket body does not name. `--writes` names a folder a gate and a prepare step may write besides the worktree, its git admin folder and temp, absolute or `~/`; a relative one, or one that is, sits in or holds a `bin` folder or a folder on the runner's `PATH`, is refused at exit 1 with nothing written, one that became so after it was stored is left out of the gate's profile, and whatever is stored, the `bin` beside each of its ancestors is not writable. A builder or reviewer gets every gate's `--network` and `--writes` in its own sandbox, and may run unasked the first word of each command in the gate and prepare lines (split outside quotes on `&&`, `\|\|`, `;`, `\|` and parentheses, past a leading `NAME=value`), beside the git verbs it reads and commits with; an `--overseer-only` gate gives it none of these, since only the runner runs it. `--fix` is named in the builder's first message, to run before fixing by hand; the runner never runs it. |
 | `gate none [--json]` | Store an empty gate list on purpose, with one log line (`No gates, on purpose`, kind `pipeline-gates-none`). Unlike no `pipeline.json` at all, which opens the `checks-not-set` decision and holds new work, it counts as set, and a landing runs no gate. |
 | `gate remove <name> [--json]` | Remove the gate `<name>`, with one log line (`Gate <name> removed`, kind `pipeline-gate-removed`); an unknown name is refused at exit 1 with nothing written (`unknown-gate`). |
 | | Every `gate` write takes the lock, writes `pipeline.json` atomically after `progress.json`, is accepted with tickets in flight and refuses a malformed `pipeline.json` at exit 1 rather than overwrite it. A ticket's row records the content hash of the pipeline it was gated by (`pipelineHash`) at its next gate run, which reads the pipeline afresh. `--json` prints `{ pipeline, pipelineHash }`. |
@@ -421,7 +428,7 @@ pause loses its key, so a reopened bundle ticket is a new agent.
 | `run status [--json]` | The newest lease, the URL, the runtime state from the runner's `GET /api/state` (`serving`, `held-by-install-change`, `handing-over`; `starting` while the API does not answer yet, or `down`), whether the board is paused, the code version on disk against the live runner's, the runner's notices, and the warning of a failed handover. Read-only, no lock, no install-version check. `--json` prints `{state, paused, url, lease, codeVersionOnDisk, codeVersionInMemory, notices, handoverWarning}`. At each sweep and after each landing (a move of the main line's tip) the runner runs the on-disk binary's `version --json` as a child, and it reads the manifest on every pass: an install version that differs from its own holds launches (`held-by-install-change`, the stored `dispatcherState` untouched) with the notice `install-version-changed`, "run `agent-progress update`", until the versions match; code that differs alone only shows the notice `new-code`, "new code: run `agent-progress update`". A host on a protocol below `HOST_PROTOCOL_OLDEST_SUPPORTED` is a legacy host, listed in the state's `legacyHostJobIds`: sent no frame, its host file and event log read in its own `EVENT_LOG_FORMAT_VERSION`, and stopped by signalling its recorded process group, identity checked. A relayed request of a `relayFormatVersion` the runner does not read stays pending, unanswered, until a runner that reads it. |
 | `version [--json]` | Print `{codeVersion, installVersion}`: a content hash of the program's shipping files on disk, and the install version this program writes. Read-only; it needs no tracker and checks no install version. |
 | `merges [--json]` | The merge queue, read as `status` reads the tracker (no lock, nothing written): each held slot `{target, jobId, ticketIds, phase, targetTip, branchTip}`, then each queued ticket `{ticketId, target, priority, queuedAt}` by target, priority, then queue order (the slot's own pick also weighs predicted conflicts), `queuedAt` its `merge-queued` record's place in the log. `--json` prints `{slots, queue}`. |
-| `merge fixer\|abort\|review\|land <J> [--incident <I>] [--json]` | An Airlock move on merge job `J`'s open `merge-gate-failed` or `resolution-over-threshold` incident, recorded in a hold with the runner up or down and carried out by the Airlock on its next sweep; each marks the incident handled (`incident-handled`). `fixer` (merge-gate-failed) sets the slot `fixing`, and the Airlock launches one merge-gate fixer (`MERGE_FIX_ATTEMPTS`, its own `MERGE_FIXER_API_CALL_BUDGET`) given the failed gate's last `CHECK_OUTPUT_TAIL_LINES` lines; a merged tree still failing after it aborts the merge and parks the ticket `parked:merge-gate-failed`. `review` (resolution-over-threshold, also its default) lets the Airlock launch a resolution reviewer (`RESOLUTION_REVIEWER_API_CALL_BUDGET`); claims that do not hold (`cannot-resolve` with no `reportKind`) abort the merge and park it `parked:merge-resolution-rejected`. `abort` parks every ticket of the incident `parked:<kind>` with a `parked` decision, and the Airlock aborts the merge and frees the slot. `land` (resolution-over-threshold only) moves the slot to landing when a `gate-ran` record passed the merged tree the incident names, else it is refused `merge-gate-not-passed`. Both Airlock agents run with the question tool disallowed. Without `--incident` the move takes `J`'s one open incident that allows it; none is refused `no-open-incident`, several `several-open-incidents`; a slotless job `job-holds-no-merge-slot`. |
+| `merge fixer\|abort\|review\|land <J> [--incident <I>] [--json]` | An Airlock move on merge job `J`'s open `merge-gate-failed` or `resolution-over-threshold` incident, recorded in a hold with the runner up or down and carried out by the Airlock on its next sweep; each marks the incident handled (`incident-handled`). `fixer` (merge-gate-failed) sets the slot `fixing`, and the Airlock launches one merge-gate fixer (`MERGE_FIX_ATTEMPTS`, its own `MERGE_FIXER_API_CALL_BUDGET`) given the failed gate's last `CHECK_OUTPUT_TAIL_LINES` lines; a merged tree still failing after its fix resumes the same fixer twice, and the next red aborts the merge and parks the ticket `parked:merge-gate-failed`. `review` (resolution-over-threshold, also its default) lets the Airlock launch a resolution reviewer (`RESOLUTION_REVIEWER_API_CALL_BUDGET`); claims that do not hold (`cannot-resolve` with no `reportKind`) abort the merge and park it `parked:merge-resolution-rejected`. `abort` parks every ticket of the incident `parked:<kind>` with a `parked` decision, and the Airlock aborts the merge and frees the slot. `land` (resolution-over-threshold only) moves the slot to landing when a `gate-ran` record passed the merged tree the incident names, else it is refused `merge-gate-not-passed`. Both Airlock agents run with the question tool disallowed. Without `--incident` the move takes `J`'s one open incident that allows it; none is refused `no-open-incident`, several `several-open-incidents`; a slotless job `job-holds-no-merge-slot`. |
 | `worktree repair <id> --step prune\|reinstall\|recreate\|unlock [--incident <I>] [--json]` | A code-implemented repair of the ticket's worktree `<worktrees>/ticket-<id>/`, run inside the hold that records it (`worktree-repaired {step, patchPath}`): `prune` runs `git worktree prune`; `reinstall` changes nothing on disk, so the next launch reruns the install line; `recreate` saves `git diff HEAD` and every untracked file to `.agent-progress/jobs/<J>/recreate-<n>.patch` (the incident's job, else the ticket's newest) and removes the worktree, which the next launch creates again from the branch, refused `worktree-has-uncommitted-work` when changes exist and cannot be saved; `unlock` removes a stale `index.lock`. `recreate` and `unlock` are refused `worktree-in-use` while any job on the board names the ticket; a git failure is refused `worktree-repair-failed`. Without `--incident` it takes the ticket's one open incident that allows it (`setup-failed`, `blocked`, `gate-cannot-run`), else applies as a plain User control. |
 | `gate retry <J> [--incident <I>] [--json]` | Settle job `J`'s `gate-cannot-run` incident (`incident-handled`): a merge job's slot gates its merged tree again on the next sweep, and an ended build's ticket is free for its next attempt. Without `--incident` it takes `J`'s one open incident that allows it; with none there is nothing to do. |
 | `decisions [--json]` | The open decisions for User, read from `progress.json` (no lock, nothing written), in opening order, each question's options lettered `a`, `b`, `c` as `decide` takes them. `--json` prints `{decisions}`, each `{id, kind, ticketIds, jobId, askedBy, requestId, questions, context, openedAt}`. |
@@ -438,6 +445,7 @@ pause loses its key, so a reopened bundle ticket is a new agent.
 | `job wind-down\|stop <J> [--json]` | Logged `job-stop-requested` with its mode and kept as the job's `stopRequest`, with the runner up or down. `stop` and `wind-down` hold the job's ticket `stopped by User (J<n>)` or `wound down by User (J<n>)` in the same hold (an already held ticket keeps its hold), which the policy never undoes; `ticket unhold` lets a fresh agent take it. `wind-down` sends the wind-down turn; `stop` moves the job to `stopping` and the runner stops its host, the job ending `stopped`; a job with no session yet (launching, preparing, interrupted, awaiting an answer) ends `stopped` in the same hold. A stopped product owner is finished: its open decisions are withdrawn (`decision-withdrawn`), its drafts stay drafts, and it resumes only when User sends it a `job message`. `fresh` holds nothing and ends the job `replaced`, so the next attempt starts on its worktree with the earlier-session note; a job with no ticket is refused `job-has-no-ticket`. |
 | `job stop --all [--wind-down] [--json]` | `run pause`, then a stop (or wind-down) of every build, review and product-owner job, in one hold. |
 | `intake -- <text> [--json]` | Record a `product-owner` job with no ticket and no build slot, `launching`, with the runner up or down; several may run at once. The runner launches it in `<worktrees>/sessions/<J>/`, its first line `/<agent-po skill> <text>`, skills on, WebFetch and WebSearch allowed and Bash `allowedDomains: []`; it files drafts through its relay folder and never readies one. Follow-ups are `job message` turns. |
+| `advise [--json]` | Record an `onboarder` job with no ticket, no target and no build slot, `launching`, with the runner up or down. With no pipeline stored the lifecycle starts one by itself, answering `checks-not-set`: one per opening of that decision. The runner launches it in a detached snapshot of the main line, `<worktrees>/onboard/<J>/`, writing only its relay folder (the Hatch), with no network; its first message names its mode, `setup` with no pipeline and `advise` with one, and the newest `gate-ran` records. Its report (`ONBOARDER_REPORT_SCHEMA`) proposes `prepare`, `gates` with `definedBy`, `network` and `writes`, `review`, `constitution` and `agents`; in `advise` each of its `optimisations` is a draft low ticket it filed through its Hatch. Customs runs V1, V16 (HEAD unmoved), V4, V5, V12 (each optimisation is this job's low draft), V13 and V14: a changed or added file in the snapshot, a commit or a moved ref fails the pass, and the job ends `failed`. A verified `setup` proposal's prepare steps and gates then run twice on the snapshot, each gate on its own, recorded `green`, `red`, `cannot-run` or `disagreeing` with each run's time, and its caching is checked, suggesting only: no caching tool while a gate takes 30 s or more, a `turbo.json` cache kept per worktree (`.turbo/cache` or any relative `cacheDir`), a task's `inputs` missing `bin`, `templates`, `fixtures` or `resources` folders, and a gate not run through `turbo run`. The job ends `closed` and a `pipeline-proposal` decision opens with that record; `Accept` writes the prepare steps and gates through the `gate prepare`, `gate add` and `gate none` moves in the answering hold, `Decline` changes nothing. The review, constitution and agent arrays are shown, never written. |
 | `intake close <J> [--set <id,id>]... [--json]` | Close the product owner's input (`job-not-intake` for another kind of job, `job-finished` once closed). Once no host of it is live the runner ends it `closed` and opens a `ready-drafts` decision listing the drafts it (and any session it took over from) filed, each with its priority and `network` domains: one option per `--set` of readiable drafts, else one of all of them, and `None`; a draft without a numbered Acceptance or a Brief is listed as not readiable. Answering readies the chosen drafts in the answering hold. Under the product owner's own job it names no job: the runner stamps its own. A product owner interrupted by a reboot resumes by id once its question is answered; one past the crash bound with a question open waits `awaiting-answer`, and once answered a fresh session takes over with its drafts and the answers in its first message, never a resume. |
 | `await [--json] [--after <n>]` | Wait until the log holds a `decision-opened` or `incident-escalated` record past position `<n>` (the log's length at the start when absent; positions count from 1), then print them and stop. `--json` prints `{after, position, records}`, each record with its `position`; the next wait is `await --after <position>`. A stop signal ends the wait with nothing printed. Read-only, no lock. |
 | `clear [--all] [--yes]` | Throw away every task row and the log, restart the clock and reset the stored axis to automatic, leaving one `Tracker cleared` log line, and keep the tickets: each surviving ticket is given a fresh row seeded from its own frontmatter, with a new id, except a low ticket with no row. Row ids are not reused, and every epic file is kept untouched. `--all` deletes the tickets and every epic too and restarts the ticket ids at 001; `--json` prints `removedTaskCount`, `removedLogCount`, `deletedTicketCount`, `deletedEpicCount` and `reseededTicketCount`. `--yes` skips the confirmation, and is required when standard input is not a terminal. |
@@ -448,26 +456,46 @@ A readied ticket's build job moves through job states, each one a pass of the ru
 (the ticket goes `in-progress`): the runner adds `<worktrees>/ticket-<id>/` on branch `ticket-<id>` from the target's
 tip and runs the install line there in a process host under `sandbox-exec` with the job's profile, network on. Once
 it ends at exit 0 (or with no install line stored) the job is `running` and the builder launches, its first message
-holding the ticket and the checks line, confined by the per-job settings: writes denied to the data folder, the
+holding the ticket and every gate it must pass on its final commit, by name, command and `fix`, in order (an
+`overseerOnly` gate named as the runner's alone; after `gate none`, that the repository has no gates), its report
+claiming each gate but an `overseerOnly` one in `gates` with the commit it passed on, confined by the per-job settings:
+writes denied to the data folder, the
 monitor folder, the worktree's `.claude/`, `packed-refs`, the target refs, every other ticket branch and every other
 worktree's admin folder; reads denied of the runner token, the launch files, the host sockets, `~/.ssh`, `~/.aws` and
 `~/.gnupg` (only its private keys when the gpg-agent socket signs); writes outside the worktree only to its own relay
-folder; a ticket's `network` line its only network. Its closing `result` moves it to `verifying`, the runner closes
-its input and verifies; a verified `built` report is `gating`, the checks line run in a second sandboxed process host,
-network on only for a ticket with a `network` line. On a pass the runner writes the gate cache entry
-`<data>/gates/<key>.json`, replaces the ticket's `## Handoff` with the report's handoff and Acceptance evidence, moves
-the ticket `in-review` and ends the job `built`; the policy then launches the review job in the same hold.
+folder and the gates' `writes`; its ticket's `network` line and the gates' `network` its only network (an
+`overseerOnly` gate's never). Its closing `result` moves it to `verifying`, the runner closes
+its input and verifies, a builder's check V15 refusing (`gate-unclaimed`, naming the gates) a report that does not
+claim every such gate on HEAD itself, so a missing or stale claim runs no gate; a verified `built` report is `gating`:
+the prepare steps run again in a process host of
+their own (`gate-prepare`), then each gate in one (`gate-1`, `gate-2`, …), each sandboxed with its own network and
+`writes`, a red one writing its name and output to the job folder's `gate.log`. A review job whose reviewer left the
+tree it was given runs no gate. On a pass the runner replaces the ticket's `## Handoff` with the report's handoff and
+Acceptance evidence, moves the ticket `in-review` and ends the job `built`; the policy then launches the review job in
+the same hold.
+
+Review is an optional phase, set by the pipeline's `review` key. Without it no review job is ever launched: a gated
+build is queued to merge in the same hold (`merge-queued`), draws no review bar, and lands on its gates alone, the
+Acceptance check of the landing being a review's. With it, its `name` ends each review bar's name
+(`Review 1 #12 — <title> (<name>)`, logged in `review-bar-started`), and its `model` and `effort` (one of `low`,
+`medium`, `high`, `xhigh`, `max`; any other keeps the default) are the reviewer's launch settings. A review whose
+claim does not hold moves the ticket back `in-progress`, and the build job after it keeps the attempt and resumes the
+builder's own session (`--resume`, the session id of the build job the review sent back), its first line the review's
+newest `## Review <round>` section and which resume of `RED_HANDOFF_RESUMES_BEFORE_PARKING` (2) it is: each such
+review counts against the same resumes as the build cycle's red handoffs, and the one past the last parks the ticket
+`parked:red-resumes-spent`.
 
 | what happens | what the runner does |
 | --- | --- |
-| worktree creation or the install line fails | incident `setup-failed`; the job ends `stopped` |
+| worktree creation, the install line or a gating prepare step fails | incident `setup-failed`; the job ends `stopped` |
 | the session exits without a valid report | a failed pass: `job-ended` `failed`, cause `no-report` |
 | a commit in range carries an attribution trailer | a failed pass, cause `attribution`; the ticket shows the `attribution-found` notice until its next job ends |
-| any other verification refusal, or the gate fails | a failed pass, its cause the refusal reason or `gate-failed` |
+| a gate fails, or Customs refuses V3 (no commit), V4 (a dirty worktree) or V15 (missing or stale gate claims) | a red handoff: the runner writes `gate-failure.md` (gate, command, fix command, commit, exit code, the output's first and last 40 lines within 8 KB or the diff of a gate that changed a file, the full log's path) and `red-handoff.json` in the job folder, and interrupts the job `handoff-red`; the policy resumes the same session (`--resume`, the job's own session id), its first line naming the gate, commit and exit code, the handover, which resume of `RED_HANDOFF_RESUMES_BEFORE_PARKING` (2) it is and its `RED_HANDOFF_RESUME_CALL_BUDGET` (30) calls. It gates again in instance-suffixed folders (`gate-1-2`). The red after the last resume of the cycle ends the job `failed`, cause `red-resumes-spent`, and parks the ticket `parked:red-resumes-spent` with a `parked` decision. A review job goes through the same ladder. When the resume fails (`resume-failed`), the fresh build after it keeps the attempt, opens with the same message and carries on the same count |
+| any other verification refusal | a failed pass, its cause the refusal reason |
 | the report says `blocked` | incident `blocked`; the job ends `blocked` |
 | the report says `wound-down` | incident `out-of-calls`; the job ends `wound-down` |
 | the call budget is reached | the wind-down message is sent once |
-| the budget plus `WIND_DOWN_GRACE_CALLS` (10) is reached | incident `out-of-calls`; the job is `stopping`, then ends `stopped` |
+| the budget plus `WIND_DOWN_GRACE_CALLS` (10) is reached | incident `out-of-calls`; the job is `stopping`, then ends `stopped`; a session resumed after a red handoff opens no incident and, once stopped, counts as red again |
 | the checks process exits 126 or 127, or is killed by a signal | incident `gate-cannot-run`; the job ends `stopped` |
 | no `pipeline.json` is stored, or it is malformed | the `checks-not-set` decision; nothing launches (`gate none` sets an empty pipeline on purpose) |
 | a running build or review's event log stands still for `QUIET_JOB_SWEEPS` (6) sweeps | incident `quiet-job`; its default opens the `quiet-job` decision |
@@ -492,7 +520,9 @@ hold, refuses while a merge job holds the slot, when either tip moved since the 
 carries `slot: {target, targetTip, branchTip, phase}` and logs `merge-started`. Each phase is written on the slot in
 its own hold. The merge-in merges the recorded `targetTip`, never the moving name, once, in the ticket's worktree; a
 conflict launches a `merge-agent` job, role `resolver`, which cannot ask and has `RESOLVER_API_CALL_BUDGET` calls. The
-merged tree is gated, then landed by a compare-and-swap fast-forward in the main checkout, logging `merge-landed` and
+merged tree is gated (the prepare steps and gates, each sandboxed as a build's are; not at all when it is the branch's
+own tree and the newest `gate-ran` on it passed, and a failed prepare step opens `setup-failed`), then landed by a
+compare-and-swap fast-forward in the main checkout, logging `merge-landed` and
 delivering the ticket. `git log --first-parent` of the main line therefore runs through ticket branches; the
 `merge-landed` records keep the per-ticket view.
 
@@ -518,6 +548,7 @@ the main line and delivers the whole bundle; the group worktree is then removed 
 | the resolver reaches its budget, reports `cannot-resolve`, or V10 fails | the merge aborts, the slot frees, the ticket leaves the queue and the `merge-refused` decision opens with the report's `notes`; a `reportKind` of `malformed-ticket` or `system-blocker` also opens a `malformed-ticket` or `system-question` incident with no job waiting |
 | the resolution changes over `RESOLUTION_REVIEW_THRESHOLD_LINES` (150) lines against git's automatic merge | incident `resolution-over-threshold`; the slot waits for its move |
 | the merged tree fails its gate | incident `merge-gate-failed`; the slot waits for its move |
+| the merged tree still fails its gate after a merge-gate fixer's fix | the fixer, which waits `gating` through its fix's gate, is resumed in its own session with the handover (a red handoff, as a build's), the slot back in `fixing`; the red after its last resume ends it `failed`, aborts the merge and parks the ticket `parked:merge-gate-failed`; a pass ends it `resolved` |
 | the main line moved to a tip a `merge-landed` names, or to another one | the worktree is reset to `branchTip` and the ticket requeued silently; after `TARGET_MOVED_MERGES_BEFORE_PARKING` (2) unrecorded moves in a row the ticket parks |
 | the main checkout is off the main line, or its changes block the fast-forward | the slot frees and that target's landings wait under the `dirty-main-checkout` notice, rechecked every sweep; builds and reviews launch on |
 | the check stamp differs or the Acceptance is not accounted for | `mergeQueued` cleared, the ticket held, decision `landing-refused` |
@@ -821,7 +852,7 @@ wrote them and are displayed as written, never re-parsed into a viewer's zone.
       "attempt": 1,                              // from 1
       "target": "main",                          // the main line or group-<name>, or null for a session
       "state": "merging",                        // launching|preparing|running|waiting-for-answer|interrupted|awaiting-answer|verifying|gating|merging|landing|stopping
-      "interruption": "reboot",                  // optional: host-lost|agent-crashed|reboot|answer-delivery|usage-limit, why it was last interrupted
+      "interruption": "reboot",                  // optional: host-lost|agent-crashed|reboot|answer-delivery|usage-limit|handoff-red, why it was last interrupted
       "hostInstance": 1,                         // the newest host instance spawned or to spawn, from 1
       "eventCursor": { "instance": 1, "sequence": 12 }, // the last host event applied
       "answeredRequestIds": [],                  // the question requests already answered
@@ -923,6 +954,21 @@ in the advice to run `agent-progress update` with a release that still reads it.
 `productOwner`, `onboarder`, `assistant`). An unknown key, a step or gate without `name` or `run`, or a name given
 twice makes it malformed: the board reads it as no pipeline, `gate list` and every `gate` write refuse it at exit 1.
 
+The pipeline says what each agent is told. The builder, the reviewer and the merger (the resolver, the merge-gate fixer
+and the resolution reviewer) get the `constitution` files first, then their role's own; the product owner and the
+Assistant get only their own. An absent `constitution` is `.agent-progress/briefs/defaults/constitution.md`, an absent
+`agents.<role>` `.agent-progress/briefs/defaults/<role>.md`; a listed array replaces its default, so listing the default
+then another file extends it. A session reads exactly these files, in order, and nothing found by folder convention.
+Paths are relative to the repository root: one under `.agent-progress/` is read from disk, any other is tracked and
+read from the main line at each launch and resume, never from the ticket's branch, so a changed file, default or
+`pipeline.json` reaches the next one. The files are joined and their placeholders filled: a builder's and a reviewer's
+are its first message, every other role's its role brief. One that is missing, or a path leaving the repository,
+refuses the launch: nothing is spawned, `run status` shows the `instructions-missing` notice naming the job and the
+path, and every pass tries again. Each launch writes `jobs/<J>/instructions-<instance>.json`, `{ files: [{ path,
+contentHash }] }`, the first 16 hex digits of each file's SHA-256 as it was read. Check V11 refuses a job
+(`instruction-file-changed`) when a commit in its range changes a tracked file any array names that its ticket body
+does not name.
+
 `jobs`, `nextJobId` and a row's `mergeQueued` are each written only once set, so a file without them stays
 byte-identical; keys the tool does not know on a job, its `eventCursor` and its `slot` survive in the file's order. A
 `nextJobId` below 1, or a job whose field is missing, outside its vocabulary or of the wrong shape, makes the file
@@ -998,7 +1044,7 @@ record as a sentence; a note's sentence is its text.
 | `checks-definition-files-set` | — | `patterns` (empty when cleared); retired: still read, never logged |
 | `gate-key-command-set` | — | `command` (or `null` when cleared); retired: still read, never logged |
 | `gate-cache-paths-set` | — | `paths` (empty when cleared); retired: still read, never logged |
-| `gate-ran` | — | `tree` (the gated tree's object id), `outcome` (`passed`, `failed`, `cannot-run`), `cached` (true for a cache hit, which ran nothing) |
+| `gate-ran` | — | `tree` (the gated tree's object id), `outcome` (`passed`, `failed`, `cannot-run`), `cached` (always false now that no gate result is kept; true only in older logs) |
 | `dispatcher-set` | — | `state`, `runId` (a run id or `null`) |
 | `tracker-cleared` | — | none |
 | `agent-stopped` | — | below |

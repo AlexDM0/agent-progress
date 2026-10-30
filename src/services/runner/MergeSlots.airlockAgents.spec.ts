@@ -1,7 +1,7 @@
 /**
  * The Airlock agents an incident's move or default lets a slot launch (design section 6.3): one merge-gate fixer after `merge fixer`, and a
  * resolution reviewer after `merge review` or its default. What matters: each launches once, as a `merge-agent` of its own role under the
- * merge job, its incident's facts kept for its prompt; a fixer whose tree still fails after MERGE_FIX_ATTEMPTS aborts and parks
+ * merge job, its incident's facts kept for its prompt; a fixer whose tree stays red is resumed in its own session twice, and the next red aborts and parks
  * `merge-gate-failed` with no new incident; a reviewer whose claims do not hold aborts and parks `merge-resolution-rejected`; a resolved
  * report gates the merged tree again and lands; and each agent at its own call budget refuses the merge.
  */
@@ -61,16 +61,35 @@ describeWhenGitIsPresent('the merge-gate fixer', () => {
     expect(harness.mergeJob()?.slot?.phase).toBe('fixing');
   });
 
-  test('still failing after MERGE_FIX_ATTEMPTS aborts the merge and parks merge-gate-failed, opening no new incident', async () => {
+  test('a fix whose merged tree stays red resumes the same fixer twice, handed the failure, opening no incident', async () => {
+    harness = await failedMergedGate();
+    const fixerId = harness.mergeAgent()?.id;
+    for (let resume = 1; resume <= 2; resume += 1) {
+      commitFile(harness.worktreeOf('001'), 'checkout.ts', `export const checkout = ${resume + 1};\n`);
+      finishMergeAgent(harness, {
+        outcome: 'resolved', resolvedFiles: ['checkout.ts'], notes: '', reportKind: null
+      });
+      await harness.slots.sweep();
+
+      expect(harness.mergeAgent()).toMatchObject({ id: fixerId, state: 'interrupted', interruption: 'handoff-red' });
+      expect(harness.mergeJob()?.slot?.phase).toBe('fixing');
+      expect(harness.board.incidents()).toEqual([]);
+    }
+  });
+
+  test('a third red merged tree after two fixer resumes aborts the merge and parks merge-gate-failed, opening no new incident', async () => {
     harness = await failedMergedGate();
     const mainTip = harness.tipOf('main');
-    commitFile(harness.worktreeOf('001'), 'checkout.ts', 'export const checkout = 2;\n');
-    finishMergeAgent(harness, {
-      outcome: 'resolved', resolvedFiles: ['checkout.ts'], notes: '', reportKind: null
-    });
-    await harness.slots.sweep();
+    for (let pass = 1; pass <= 3; pass += 1) {
+      commitFile(harness.worktreeOf('001'), 'checkout.ts', `export const checkout = ${pass + 1};\n`);
+      finishMergeAgent(harness, {
+        outcome: 'resolved', resolvedFiles: ['checkout.ts'], notes: '', reportKind: null
+      });
+      await harness.slots.sweep();
+    }
 
-    expect(harness.gatedTrees).toHaveLength(2);
+    expect(harness.mergeAgent()).toBeUndefined();
+    expect(harness.gatedTrees).toHaveLength(4);
     expect(harness.board.incidents()).toEqual([]);
     expect(harness.board.tickets()[0]?.frontmatter.hold).toBe('parked:merge-gate-failed');
     expect(harness.board.mergeSlotHolderOf('main')).toBeUndefined();

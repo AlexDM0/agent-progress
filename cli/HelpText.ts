@@ -634,6 +634,13 @@ output never carries either.
                               drafts, one option per --set and one for none. Under the product
                               owner's own job it names no job.
 
+  advise [--json]             Record an onboarder job (no ticket, no build slot) the runner
+                              launches on a main-line snapshot: it reads the repository and the
+                              gate history, files each optimisation as a draft low ticket, and
+                              proposes the pipeline. With no pipeline one starts by itself
+                              (checks-not-set); its verified proposal, its gates run twice, opens
+                              a pipeline-proposal decision whose Accept writes them.
+
   await [--json] [--after <n>]
                               Wait until the log holds a decision-opened or incident-escalated
                               record past position <n> (the log's length when absent), then print

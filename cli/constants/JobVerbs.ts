@@ -70,6 +70,7 @@ export const RELAYED_VERB_OF_CONTROL_KIND: Readonly<Record<ControlCommandKind, s
   'merge-review':              'merge review',
   'merge-land':                'merge land',
   'intake-start':              'intake',
+  'onboarder-advise':          'advise',
   'intake-close':              'intake close',
   'runner-pause':              'run pause',
   'runner-resume':             'run resume',

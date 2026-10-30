@@ -95,6 +95,13 @@ export class JobControls {
     }, at);
   }
 
+  /** Recorded `launching` with no ticket, target or build slot: the lifecycle's answer to `checks-not-set`, or `advise` on demand. */
+  startOnboarder(at: string): JobChanged {
+    return this.jobRules.launchJob({
+      kind: 'onboarder', role: 'onboarder', ticketIds: [], parentJobId: null, attempt: 1, target: null
+    }, at);
+  }
+
   /** Closes the session's input; the runner ends it `closed` once its host is gone and opens the `ready-drafts` decision then. */
   closeIntake(jobId: string, proposedDraftSets: readonly (readonly string[])[], at: string): JobChanged {
     const job = this.jobRules.requireJob(jobId);

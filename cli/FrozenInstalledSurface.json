@@ -426,5 +426,15 @@
     "statusJsonFields": ["abandoned", "abandonedAt", "agent", "claimedBodyHash", "decisions", "delivered", "drafts", "effort", "epics", "filed", "finished",
       "group", "history", "hold", "id", "incidents", "jobs", "mergeQueue", "model", "overseer", "pending", "priority", "reviewOf", "reviewed", "start",
       "started", "status", "task", "ticket", "title", "type", "updated", "usage", "version"]
+  },
+  "19": {
+    "commands": ["await", "decisions", "draft", "epic list", "gate", "help", "incidents", "init", "intake close", "jobs", "log", "open", "range",
+      "run", "run status", "status", "task deliver", "ticket add", "ticket deliver", "ticket ready", "ticket show", "update"],
+    "flags": ["--add", "--after", "--assumption", "--at", "--body", "--body-file", "--by-hand", "--clear", "--depends-on", "--detach", "--epic",
+      "--force", "--found-in-review", "--from", "--group", "--incident", "--introduced-by", "--json", "--multiple", "--needs-user", "--network",
+      "--no-hooks", "--priority", "--reason", "--remove", "--set", "--size", "--status", "--title", "--to", "--tokens", "--type", "--under"],
+    "statusJsonFields": ["abandoned", "abandonedAt", "claimedBodyHash", "decisions", "delivered", "draft", "effort", "epics", "filed", "finished",
+      "group", "history", "hold", "id", "incidents", "jobs", "mergeQueue", "model", "note", "overseer", "pending", "priority", "reviewOf", "reviewed",
+      "started", "status", "task", "ticket", "title", "type", "updated", "usage", "version"]
   }
 }
