@@ -3,13 +3,16 @@
  * it in, ready tickets keep the Board's order, closed lanes read newest first; a draft ticket offers Ready and its lane a multi-select of
  * exactly its draft tickets, a ready ticket offers Hold or Unhold and the other priorities, and no other card offers anything; the card
  * carries the static page's marks (size, priority, type, tokens, epics, waiting-on, hold); filing drafts keep their own card; and the epic
- * chips filter, count and drop a stored chip whose epic went, as `page/chips/` does.
+ * chips filter, count and drop a stored chip whose epic went, as `page/chips/` does. Ported from `page/kanban/`: "needed first" and
+ * `↦ N` (closed lanes none, heavy from five), the hover arrows' links (skipping a card not shown), the Ready lane by wave (filed on a
+ * board without dependencies), a closed lane's pages with their clamping, and the Abandoned lane folded by default.
  */
 import { describe, expect, test } from 'bun:test';
 
-import type { KanbanBoardState }                   from '../../@types/KanbanBoardState.ts';
-import { exampleBoard, exampleTicket }             from '../../testing/KanbanBoardFixture.ts';
-import { KANBAN_LANES, KanbanModel, NO_EPIC_CHIP } from './KanbanModel.ts';
+import type { KanbanBoardState }                               from '../../@types/KanbanBoardState.ts';
+import { exampleBoard, exampleTicket }                         from '../../testing/KanbanBoardFixture.ts';
+import { KANBAN_LANES, KanbanModel, NO_EPIC_CHIP }             from './KanbanModel.ts';
+import { CLOSED_LANE_FIRST_PAGE_CARDS, DEFAULT_KANBAN_LAYOUT } from './KanbanModel.ts';
 
 function laneIdsOf(state: KanbanBoardState, pressedChips: readonly string[] = []): Record<string, string[]> {
   const model = KanbanModel.kanbanModelOf(state, pressedChips);
@@ -127,6 +130,10 @@ describe('the card', () => {
       note:       null,
       ariaLabel:  '#040 Example ticket 040, high priority',
       actions:    { readies: false, holdMove: 'unhold', priorityChoices: ['normal', 'low'] },
+
+      hasNeededFirst:     false,
+      heldCount:          null,
+      dependsOnTicketIds: [],
     });
   });
 
@@ -169,6 +176,152 @@ describe('the epic chips', () => {
     const model = KanbanModel.kanbanModelOf(board, ['retired-epic']);
     expect(model.pressedChips).toEqual([]);
     expect(laneIdsOf(board, ['retired-epic'])['ready']).toEqual(['#060', '#061', '#062']);
+  });
+});
+
+describe('the dependency marks', () => {
+  const board = exampleBoard({
+    tickets: [
+      exampleTicket('070'),
+      exampleTicket('071', { dependsOn: ['070'] }),
+      exampleTicket('072', { dependsOn: ['071'] }),
+      exampleTicket('073', { status: 'delivered', delivered: '2026-10-02T10:00:00+02:00' }),
+      exampleTicket('074', { dependsOn: ['073'] }),
+    ],
+  });
+  const cardOf = (idText: string) => KanbanModel.kanbanModelOf(board, []).lanes.flatMap((lane) => lane.cards).find((card) => card.idText === idText);
+
+  test('a ticket another depends on is marked needed first, and one nothing depends on is not', () => {
+    expect(['#070', '#071', '#072', '#073'].map((idText) => cardOf(idText)?.hasNeededFirst)).toEqual([true, true, false, true]);
+  });
+
+  test('↦ N counts the open tickets waiting on an unfinished one down the chain; a closed lane\'s card and one nothing waits on show none', () => {
+    expect(cardOf('#070')?.heldCount).toEqual({ count: 2, isHeavy: false, title: '2 tickets wait on this one, directly or further down the chain' });
+    expect(cardOf('#071')?.heldCount?.title).toBe('1 ticket waits on this one, directly or further down the chain');
+    expect(cardOf('#072')?.heldCount).toBeNull();
+    expect(cardOf('#073')?.heldCount).toBeNull();
+  });
+
+  test('five or more waiting tickets make the ↦ N heavy', () => {
+    const chain = ['080', '081', '082', '083', '084', '085'].map((id, index, ids) => exampleTicket(id, index === 0 ? {} : { dependsOn: [ids[index - 1] ?? ''] }));
+    const heavy = KanbanModel.kanbanModelOf(exampleBoard({ tickets: chain }), []).lanes.flatMap((lane) => lane.cards).find((card) => card.idText === '#080');
+    expect(heavy?.heldCount?.count).toBe(5);
+    expect(heavy?.heldCount?.isHeavy).toBe(true);
+  });
+
+  test('a card carries the tickets it directly depends on, and the board says it has dependencies', () => {
+    expect(cardOf('#072')?.dependsOnTicketIds).toEqual(['071']);
+    expect(KanbanModel.kanbanModelOf(board, []).boardHasDependencies).toBe(true);
+    expect(KanbanModel.kanbanModelOf(exampleBoard({ tickets: [exampleTicket('070')] }), []).boardHasDependencies).toBe(false);
+  });
+});
+
+describe('the dependency arrows', () => {
+  const board = exampleBoard({
+    tickets: [
+      exampleTicket('090'),
+      exampleTicket('091', { status: 'in-progress' }),
+      exampleTicket('092', { dependsOn: ['090', '091', '093', '099'] }),
+      exampleTicket('093', { status: 'abandoned', abandonedAt: '2026-10-02T10:00:00+02:00' }),
+    ],
+  });
+
+  test('hovering a card links each shown card it directly depends on, same lane or not, and skips one not on the board', () => {
+    const model = KanbanModel.kanbanModelOf(board, [], { ...DEFAULT_KANBAN_LAYOUT, abandonedLaneIsOpen: true });
+    expect(KanbanModel.dependencyArrowLinksOf(model, '092')).toEqual([
+      { dependencyCardKey: 'ticket:090', isSameLane: true },
+      { dependencyCardKey: 'ticket:091', isSameLane: false },
+      { dependencyCardKey: 'ticket:093', isSameLane: false },
+    ]);
+  });
+
+  test('a card in the folded Abandoned lane gets no arrow, and a hovered card nothing depends through draws none', () => {
+    const model = KanbanModel.kanbanModelOf(board, []);
+    expect(KanbanModel.dependencyArrowLinksOf(model, '092').map((link) => link.dependencyCardKey)).toEqual(['ticket:090', 'ticket:091']);
+    expect(KanbanModel.dependencyArrowLinksOf(model, '090')).toEqual([]);
+  });
+});
+
+describe('the Ready lane by wave', () => {
+  const board = exampleBoard({
+    tickets: [
+      exampleTicket('100'),
+      exampleTicket('101'),
+      exampleTicket('102', { dependsOn: ['100'] }),
+      exampleTicket('103', { dependsOn: ['102'] }),
+    ],
+    readyTicketIds: ['101', '100'],
+  });
+  const byWave = { ...DEFAULT_KANBAN_LAYOUT, readyOrder: 'by-wave' as const };
+
+  test('filed keeps the Board\'s order and no waves', () => {
+    const ready = KanbanModel.kanbanModelOf(board, []).lanes.find((lane) => lane.key === 'ready');
+    expect(ready?.waveGroups).toBeNull();
+    expect(ready?.cards.map((card) => card.idText)).toEqual(['#101', '#100', '#102', '#103']);
+  });
+
+  test('by wave groups the Ready cards per wave, the first noting how many are ready, a one-ticket wave narrow', () => {
+    const ready = KanbanModel.kanbanModelOf(board, [], byWave).lanes.find((lane) => lane.key === 'ready');
+    expect(ready?.waveGroups?.map((group) => [group.label, group.note, group.isNarrow, group.cards.map((card) => card.idText)])).toEqual([
+      ['Now', '2 ready · 2 side by side', false, ['#100', '#101']],
+      ['Wave 2', 'one at a time', true, ['#102']],
+      ['Wave 3', 'one at a time', true, ['#103']],
+    ]);
+    expect(ready?.cards.map((card) => card.idText)).toEqual(['#100', '#101', '#102', '#103']);
+  });
+
+  test('a board without dependencies stays filed whatever was stored', () => {
+    const model = KanbanModel.kanbanModelOf(exampleBoard({ tickets: [exampleTicket('100')] }), [], byWave);
+    expect(model.readyOrder).toBe('filed');
+    expect(model.lanes.find((lane) => lane.key === 'ready')?.waveGroups).toBeNull();
+  });
+});
+
+describe('the closed lanes\' pages', () => {
+  const deliveredStampOf = (minute: number) => `2026-10-01T10:${String(minute).padStart(2, '0')}:00+02:00`;
+  const deliveredTickets = Array.from({ length: 45 }, (_ticket, i) => exampleTicket(String(200 + i), { status: 'delivered', delivered: deliveredStampOf(i) }));
+  const board = exampleBoard({ tickets: deliveredTickets });
+  const doneLaneOf = (shownCount: number) => {
+    const shownCountByClosedLane = { done: shownCount, abandoned: CLOSED_LANE_FIRST_PAGE_CARDS };
+    return KanbanModel.kanbanModelOf(board, [], { ...DEFAULT_KANBAN_LAYOUT, shownCountByClosedLane }).lanes.find((lane) => lane.key === 'done');
+  };
+
+  test('a closed lane shows its first page, newest first, and offers the next page while counting every card', () => {
+    const done = doneLaneOf(CLOSED_LANE_FIRST_PAGE_CARDS);
+    expect(done?.count).toBe(45);
+    expect(done?.cards.length).toBe(15);
+    expect(done?.cards[0]?.idText).toBe('#244');
+    expect(done?.paging).toEqual({
+      shownCount: 15, laneCount: 45, nextPageSize: 25, firstPageSize: null
+    });
+  });
+
+  test('more shows the next page, the last page only what is left, and either offers going back to the first', () => {
+    expect(KanbanModel.shownCountAfterMore(15, 45)).toBe(40);
+    expect(doneLaneOf(40)?.paging).toEqual({
+      shownCount: 40, laneCount: 45, nextPageSize: 5, firstPageSize: 15
+    });
+    expect(doneLaneOf(KanbanModel.shownCountAfterMore(40, 45))?.paging?.nextPageSize).toBe(0);
+  });
+
+  test('a requested count is clamped to the first page and the lane, and a lane of one page has no paging', () => {
+    expect(doneLaneOf(3)?.cards.length).toBe(15);
+    expect(doneLaneOf(Number.NaN)?.cards.length).toBe(15);
+    expect(doneLaneOf(999)?.cards.length).toBe(45);
+    const small = KanbanModel.kanbanModelOf(exampleBoard({ tickets: deliveredTickets.slice(0, 15) }), []).lanes.find((lane) => lane.key === 'done');
+    expect(small?.paging).toBeNull();
+  });
+});
+
+describe('the Abandoned lane\'s fold', () => {
+  const board = exampleBoard({ tickets: [exampleTicket('300', { status: 'abandoned', abandonedAt: '2026-10-02T10:00:00+02:00' })] });
+
+  test('the Abandoned lane is folded by default and opens on the viewer\'s choice, each offering the other; no other lane folds', () => {
+    const lanesOf = (abandonedLaneIsOpen: boolean) => KanbanModel.kanbanModelOf(board, [], { ...DEFAULT_KANBAN_LAYOUT, abandonedLaneIsOpen }).lanes;
+    expect(lanesOf(false).find((lane) => lane.key === 'abandoned')?.collapse).toEqual({ isCollapsed: true, toggleTitle: 'Show the abandoned tickets' });
+    expect(lanesOf(true).find((lane) => lane.key === 'abandoned')?.collapse).toEqual({ isCollapsed: false, toggleTitle: 'Collapse the abandoned tickets' });
+    expect(lanesOf(false).filter((lane) => lane.collapse !== null).map((lane) => lane.key)).toEqual(['abandoned']);
+    expect(lanesOf(false).find((lane) => lane.key === 'abandoned')?.count).toBe(1);
   });
 });
 
