@@ -2,9 +2,9 @@
  * The runner's start, lease and stop, end to end through real child processes, since a runner holds its process until it is stopped.
  * What matters: two starters at once leave exactly one runner serving; a lease naming a dead process is taken over as after a crash; a
  * runner whose generation was overtaken stops at exit 2 touching nothing; `run --detach`, `run status`, `run restart` and `run stop`
- * agree with the lease; `run pause|resume` write the drain flag with no runner up, which the Bridge header's board state and `run status`
- * read alike; and a spec-spawned runner resolves the fake agent,
- * never the vendor's adapter. Every runner binds `--port 0`.
+ * agree with the lease; `run stop --now` stops a live process host, which a plain stop leaves running; `run pause|resume` write the
+ * drain flag with no runner up, which the Bridge header's board state and `run status` read alike; and a spec-spawned runner resolves
+ * the fake agent, never the vendor's adapter. Every runner binds `--port 0`.
  */
 import {
   appendFileSync,
@@ -26,7 +26,9 @@ import {
 } from 'bun:test';
 
 import { hostFilesOf }                                    from '../../src/lib/agent-host/HostFiles.ts';
+import { processIsGone }                                  from '../../src/lib/process-identity/ProcessIdentity.ts';
 import { CodeVersion }                                    from '../../src/services/runner/CodeVersion.ts';
+import { HostFleet }                                      from '../../src/services/runner/HostFleet.ts';
 import { requireWorkspace }                               from '../../src/services/tracker/Workspace.ts';
 import { fakeAgentVariableOf }                            from '../../src/shared/Environment.ts';
 import { PRODUCT_NAMES }                                  from '../../src/shared/constants/ProductNames.ts';
@@ -46,6 +48,7 @@ const PERMISSION_BITS      = 0o777;
 const RUNNER_TEST_TIMEOUT_MILLISECONDS = 30_000;
 const HOST_WAIT_TRIES = 100;
 const HOST_WAIT_MILLISECONDS = 50;
+const HOST_BINARY_PATH = new URL('../../agent-host.ts', import.meta.url).pathname;
 
 let repositoryDirectory = '';
 let homeDirectory       = '';
@@ -286,6 +289,46 @@ describe('run --detach, status, restart and stop', () => {
     expect(existsSync(manifestPath)).toBe(true);
     expect(leaseFileNames()).toEqual(['lease-2.json']);
     await stopRunner();
+  }, RUNNER_TEST_TIMEOUT_MILLISECONDS);
+
+  test('stop --now stops a live install host before the runner exits; a plain stop leaves it running', async () => {
+    const monitorFolder = createScratchDirectory('h');
+    try {
+      const hostFolder = join(repositoryDirectory, PRODUCT_NAMES.DATA_FOLDER, 'jobs', 'J-example', 'install-1');
+      HostFleet.writeProcessLaunchFile({
+        hostFolder,
+        instance:         1,
+        jobId:            'J-example',
+        socketName:       'J-example/install-1',
+        trackerId:        'tracker-example',
+        monitorFolder,
+        hostCodeVersion:  'code-example',
+        workingDirectory: hostFolder,
+        argv:             [process.execPath, '-e', 'setInterval(() => undefined, 1000);'],
+        environment:      {},
+      });
+      const hostProcessId = HostFleet.spawnHost({ bundlePath: HOST_BINARY_PATH, jobFolder: hostFolder, instance: 1 });
+      if (hostProcessId === undefined) throw new Error('the install host did not spawn');
+      for (let attempt = 0; attempt < HOST_WAIT_TRIES && HostFleet.livenessOf(hostFolder, 1).verdict !== 'live'; attempt += 1) await Bun.sleep(HOST_WAIT_MILLISECONDS);
+      expect(HostFleet.livenessOf(hostFolder, 1).verdict).toBe('live');
+
+      const startRunnerDetached = async (): Promise<void> => {
+        const detached = await runAgentProgress(['run', '--detach', '--port', '0'], { currentDirectory: repositoryDirectory, homeDirectory });
+        expect(detached.exitCode, detached.standardError).toBe(0);
+      };
+      await startRunnerDetached();
+      await stopRunner();
+      expect(HostFleet.livenessOf(hostFolder, 1).verdict).toBe('live');
+
+      await startRunnerDetached();
+      const stoppedNow = await runAgentProgress(['run', 'stop', '--now'], { currentDirectory: repositoryDirectory, homeDirectory });
+      expect(stoppedNow.exitCode, stoppedNow.standardError).toBe(0);
+      expect(HostFleet.livenessOf(hostFolder, 1)).toMatchObject({ verdict: 'ended' });
+      for (let attempt = 0; attempt < HOST_WAIT_TRIES && !processIsGone(hostProcessId); attempt += 1) await Bun.sleep(HOST_WAIT_MILLISECONDS);
+      expect(processIsGone(hostProcessId), runnerLogText()).toBe(true);
+    } finally {
+      removeScratchDirectory(monitorFolder);
+    }
   }, RUNNER_TEST_TIMEOUT_MILLISECONDS);
 
   test('stop with no runner live has nothing to do', async () => {
