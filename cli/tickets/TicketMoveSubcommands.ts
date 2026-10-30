@@ -19,14 +19,13 @@ import { SUBCOMMAND_WITH_TWO_ARGUMENTS_POSITIONAL_COUNT }                     fr
 import { OutputUtil }                                                         from '../utils/OutputUtil.ts';
 import type { TicketSubcommandHandler }                                       from './@types/TicketSubcommandHandler.ts';
 import { REVIEW_BAR_OPTION_NAMES, reviewBarRequestFrom, reviewBarStartedFor } from './ReviewBarRequest.ts';
-
-import { parkTicket }                                   from './TicketPark.ts';
-import { TRANSITION_OPTION_NAMES, transitionOneTicket } from './TicketTransition.ts';
-import { triageTickets }                                from './TicketTriage.ts';
-import { TICKET_USAGE }                                 from './constants/TicketUsage.ts';
-import { ReviewBarOutputUtil }                          from './utils/ReviewBarOutputUtil.ts';
-import { TicketArgumentUtil }                           from './utils/TicketArgumentUtil.ts';
-import { TicketLookupUtil }                             from './utils/TicketLookupUtil.ts';
+import { parkTicket }                                                         from './TicketPark.ts';
+import { TRANSITION_OPTION_NAMES, transitionOneTicket }                       from './TicketTransition.ts';
+import { triageTickets }                                                      from './TicketTriage.ts';
+import { TICKET_USAGE }                                                       from './constants/TicketUsage.ts';
+import { ReviewBarOutputUtil }                                                from './utils/ReviewBarOutputUtil.ts';
+import { TicketArgumentUtil }                                                 from './utils/TicketArgumentUtil.ts';
+import { TicketLookupUtil }                                                   from './utils/TicketLookupUtil.ts';
 
 const TRANSITION_VERBS: readonly (readonly [string, TicketStatus])[] = [
   ['abandon', 'abandoned'],
