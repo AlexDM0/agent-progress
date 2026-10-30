@@ -1,12 +1,12 @@
 /**
- * Each setting hands back the value it replaced and logs exactly one record, and a dispatcher write without a run id deletes the stored
- * one, which would otherwise be resumed wrongly.
+ * Each setting hands back the value it replaced and logs exactly one record, and a board that never set the runner state reads the
+ * default, which starts nothing before the user's go.
  */
 import { expect, test } from 'bun:test';
 
 import { boardFixture, taskFixture } from '../../testing/BoardFixtures.ts';
 import type { ViewRange }            from './@types/TrackerProgress.ts';
-import { DEFAULT_DISPATCHER_STATE }  from './constants/DispatcherStates.ts';
+import { DEFAULT_RUNNER_STATE }      from './constants/RunnerStates.ts';
 
 const CHANGED_AT = '2026-09-18T20:40:00+02:00';
 
@@ -17,20 +17,19 @@ const EXAMPLE_VIEW: ViewRange = {
   tickMinutes: 15,
 };
 
-test('a tracker that never set a dispatcher state reads the default one', () => {
+test('a tracker that never set a runner state reads the default one', () => {
   const { board, progress } = boardFixture();
-  expect(progress.dispatcherState).toBeUndefined();
-  expect(board.dispatcherState()).toBe(DEFAULT_DISPATCHER_STATE);
+  expect(progress.runnerState).toBeUndefined();
+  expect(board.runnerState()).toBe(DEFAULT_RUNNER_STATE);
 });
 
-// The record keeps its run id field, null, so a log holding one written by the retired Workflow dispatcher reads beside it.
-test('setting the dispatcher state hands back the state before and logs one record with no run id', () => {
+test('setting the runner state hands back the state before and logs one runner-set record', () => {
   const { board, progress, records } = boardFixture();
-  const changed                      = board.setDispatcherState('running', CHANGED_AT);
+  const changed                      = board.setRunnerState('running', CHANGED_AT);
 
-  expect(changed.previousState).toBe(DEFAULT_DISPATCHER_STATE);
-  expect(progress.dispatcherState).toBe('running');
-  expect(records).toEqual([{ at: CHANGED_AT, kind: 'dispatcher-set', fields: { state: 'running', runId: null } }]);
+  expect(changed.previousState).toBe(DEFAULT_RUNNER_STATE);
+  expect(progress.runnerState).toBe('running');
+  expect(records).toEqual([{ at: CHANGED_AT, kind: 'runner-set', fields: { state: 'running' } }]);
   expect(changed.logged).toEqual(records);
 });
 

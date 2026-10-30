@@ -1,21 +1,21 @@
-import { TicketPhraseUtil }     from '../../src/adapters/utils/TicketPhraseUtil.ts';
-import type { DispatcherState } from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
-import type { Board }           from '../../src/lib/tracker-model/Board.ts';
+import { TicketPhraseUtil } from '../../src/adapters/utils/TicketPhraseUtil.ts';
+import type { RunnerState } from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
+import type { Board }       from '../../src/lib/tracker-model/Board.ts';
 
 const READY_TICKETS_LISTED_AT_MOST = 5;
 
 interface BoardCapacity {
-  limit:           number;
-  agentsInFlight:  number;
-  freeSlots:       number;
-  readyTicketIds:  readonly string[];
-  heldTicketIds:   readonly string[];
-  dispatcherState: DispatcherState;
+  limit:          number;
+  agentsInFlight: number;
+  freeSlots:      number;
+  readyTicketIds: readonly string[];
+  heldTicketIds:  readonly string[];
+  runnerState:    RunnerState;
 }
 
-/** A running dispatcher needs no advice; a Board reads a stored `finished` as `stopped`, so a stop is the only state that advises. */
-function dispatcherAdviceOf(capacity: BoardCapacity): string {
-  return capacity.dispatcherState === 'stopped' ? '; dispatcher stopped: wait for the user\'s go' : '';
+/** A running runner needs no advice; only a pause, which starts no new job, does. */
+function runnerAdviceOf(capacity: BoardCapacity): string {
+  return capacity.runnerState === 'paused' ? '; runner paused: wait for the user\'s go' : '';
 }
 
 function slotsTextOf(capacity: BoardCapacity): string {
@@ -43,7 +43,7 @@ function heldTextOf(heldReadyTicketIds: readonly string[]): string {
 function composeNextLine(capacity: BoardCapacity): string {
   const startableTicketIds = capacity.readyTicketIds.filter((ticketId) => !capacity.heldTicketIds.includes(ticketId));
   const heldReadyTicketIds = capacity.readyTicketIds.filter((ticketId) => capacity.heldTicketIds.includes(ticketId));
-  return `Next: ${slotsTextOf(capacity)}; ${readyTextOf(startableTicketIds)}${heldTextOf(heldReadyTicketIds)}${dispatcherAdviceOf(capacity)}`;
+  return `Next: ${slotsTextOf(capacity)}; ${readyTextOf(startableTicketIds)}${heldTextOf(heldReadyTicketIds)}${runnerAdviceOf(capacity)}`;
 }
 
 /** Read from the Board's own dispatch capacity and ready entries, so the line and `status --json` cannot disagree on a slot or a ticket. */
@@ -51,10 +51,4 @@ function nextLineOf(board: Board): string {
   return composeNextLine(board.dispatchCapacity());
 }
 
-/** For the moves that change what a dispatcher picks up: an orchestrator that stopped a run to add work lost the agents in flight. */
-function endWithRunningDispatcherNotice(humanText: string, dispatcherState: DispatcherState): string {
-  if (dispatcherState !== 'running') return humanText;
-  return `${humanText}\nDispatcher running: it picks this change up at its next agent's return. Never stop or relaunch it for this.`;
-}
-
-export const NextLineUtil = { composeNextLine, nextLineOf, endWithRunningDispatcherNotice } as const;
+export const NextLineUtil = { composeNextLine, nextLineOf } as const;

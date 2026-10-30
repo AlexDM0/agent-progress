@@ -28,7 +28,7 @@ export interface MonitorRegistrationRequest {
   homeDirectory:        string;
   /** Every temp folder of the machine: a tracker under any of them is a scratch one nobody monitors. */
   temporaryDirectories: readonly string[];
-  /** The verb that wrote the page, such as `ticket finish`. */
+  /** The verb that wrote the page, such as `ticket hold`. */
   command:              string;
   now:                  () => Date;
   /** The live runner, written at its start; `removed` at its stop; absent, a stored runner key is kept as it was. */

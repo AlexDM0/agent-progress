@@ -75,6 +75,6 @@ tracker ticket add "Search suggestions" --type ticket --priority low --group sea
 tracker ticket add "Size guide on product pages" --type ticket --group product --body-file "$BODIES/016.md"
 # Filed tickets start as drafts; #009 and #015 stay drafts for the Intake view.
 at 13:33; tracker ticket ready 1 2 3 4 5 7 8 10 11 12 13 14 16
-tracker checks "true"
+tracker gate add checks -- true
 
 echo "seeded Example Storefront in $REPOSITORY"

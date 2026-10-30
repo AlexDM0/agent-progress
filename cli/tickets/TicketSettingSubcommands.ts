@@ -8,7 +8,6 @@ import { openTrackerForWriting, openTrackerForWritingThenReadNextLine } from '..
 import { relayWhenUnderJob }                                            from '../RelayUnderJob.ts';
 import type { ArgumentParser }                                          from '../arguments/ArgumentParser.ts';
 import { SUBCOMMAND_WITH_TWO_ARGUMENTS_POSITIONAL_COUNT }               from '../arguments/constants/SubcommandPositionalCounts.ts';
-import { NextLineUtil }                                                 from '../utils/NextLineUtil.ts';
 import { OptionValueUtil }                                              from '../utils/OptionValueUtil.ts';
 import { OutputUtil }                                                   from '../utils/OutputUtil.ts';
 import type { TicketSubcommandHandler }                                 from './@types/TicketSubcommandHandler.ts';
@@ -62,14 +61,13 @@ async function setTicketPriority(commandArguments: ArgumentParser, context: Comm
 
   const command: ControlCommandOf<'ticket-priority'> = { kind: 'ticket-priority', ticketReference: reference, priority };
   await relayWhenUnderJob(context, command);
-  const { result: changed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(
+  const { result: changed, nextLine } = await openTrackerForWritingThenReadNextLine(
     commandArguments,
     context,
     (change) => ControlService.apply(command, change).result,
   );
 
-  const closingLines = NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState);
-  OutputUtil.printEntityThenNextLine(commandArguments, context, TicketJsonUtil.ticketAsJson(changed.ticket), OutputUtil.loggedSentencesOf(changed.logged), closingLines);
+  OutputUtil.printEntityThenNextLine(commandArguments, context, TicketJsonUtil.ticketAsJson(changed.ticket), OutputUtil.loggedSentencesOf(changed.logged), nextLine);
 }
 
 async function setTicketSize(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
@@ -105,7 +103,7 @@ async function setTicketAgent(commandArguments: ArgumentParser, context: Command
     throw new OperationRefusal('refused', `${PRODUCT_NAMES.PROGRAM} ticket agent needs --model, --effort or both.\n  Usage: ${TICKET_USAGE}`);
   }
 
-  const { result: changed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
+  const { result: changed, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
     const ticketId = TicketLookupUtil.requireTicket(change, reference).frontmatter.id;
     return change.board.setTicketAgents(ticketId, {
       ...(model === undefined ? {} : { model }),
@@ -113,8 +111,7 @@ async function setTicketAgent(commandArguments: ArgumentParser, context: Command
     }, change.at);
   });
 
-  const closingLines = NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState);
-  OutputUtil.printEntityThenNextLine(commandArguments, context, TicketJsonUtil.ticketAsJson(changed.ticket), OutputUtil.loggedSentencesOf(changed.logged), closingLines);
+  OutputUtil.printEntityThenNextLine(commandArguments, context, TicketJsonUtil.ticketAsJson(changed.ticket), OutputUtil.loggedSentencesOf(changed.logged), nextLine);
 }
 
 /** Bare domains beside `--clear` could mean either, so the two together are refused rather than guessed. */

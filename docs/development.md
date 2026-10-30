@@ -2,7 +2,7 @@
 
 This page is for changing the tool itself: getting a checkout running, the three checks every
 TypeScript change must pass, the test helpers, the guard specs that fail the build on a structural
-mistake, the page and the dispatcher script, and the decisions that shape all of
+mistake, the page, and the decisions that shape all of
 it. Using the tool is covered in the [README](../README.md); every command and file format is in the
 [CLI reference](cli.md). The rules themselves live in the root `CLAUDE.md`; this page points into it
 rather than restating it.
@@ -13,7 +13,6 @@ rather than restating it.
 - [Tests and isolation](#tests-and-isolation)
 - [The guard specs](#the-guard-specs)
 - [The page](#the-page)
-- [The dispatcher script and its harness](#the-dispatcher-script-and-its-harness)
 - [Architecture decisions](#architecture-decisions)
 - [Backlog](#backlog)
 
@@ -136,8 +135,6 @@ and each file's header says what it is for:
 - `src/services/tracker/testing/`: `thrownFailureOf`, what an action threw, for the tracker pipeline specs.
 - `bridge/testing/`: the Bridge specs' board-state and limits fixtures, the happy-dom setup and fake controls, and
   `RunDomSpecs.ts`, which runs the `*.dom.tsx` specs.
-- `dispatcher/testing/`: the Workflow-script harness, its bundle and source mutants, the claims, and
-  the frozen trace table with the catalogue and capture that retake it.
 
 Where `TrackerIsolation` runs is a rule in the root `CLAUDE.md` (Tests). It refuses any directory
 outside the scratch root, and refuses when discovery from a directory inside it (the walk up, the git
@@ -163,9 +160,6 @@ by a spec.
 | `cli/HelpText.spec.ts` | `cli/HelpText.ts` and the command table agree in both directions; no bundled skill carries its own command table; the filing skill stays under its size ceiling, and the orchestrator skill loads it rather than restating it. |
 | `cli/BinarySmoke.spec.ts` | The real `agent-progress.ts` spawned end to end: the shebang, the argument slice and the exit status reaching the process. |
 | `cli/InitRootOverride.spec.ts` | `init` beside `AGENT_PROGRESS_ROOT`, spawned because no spec may set the environment in-process: an override naming another directory refused with both progress files byte-identical, an agreeing one refreshing like `update`. |
-| `dispatcher/testing/utils/WorkflowScriptSourceUtil.spec.ts` | Every form the guard catches, each watched failing. |
-| `dispatcher/DispatchFromWorkflowGlobals.spec.ts` | The built script's meta is pure and equals the frozen table's, an impurity planted in it is caught, it has no clock or randomness, builds to the same text every time and has one `agent()` call. |
-| `dispatcher/Dispatcher.decisions.spec.ts` and its `.holds`, `.resumption`, `.group`, `.brief` and `.equivalence` suites | The dispatcher's decisions; see below. |
 
 ## The page
 
@@ -188,37 +182,6 @@ AGENT_PROGRESS_ROOT="$SCRATCH" bun agent-progress.ts open
 
 `run --detach` prints the Bridge's URL once the Overseer answers; `open` opens it in the default browser. The
 Bridge follows the board by itself; restart the Overseer to serve changed Bridge code.
-
-## The dispatcher script and its harness
-
-The dispatcher's source is `dispatcher/`, in TypeScript: `dispatcher/DispatchFromWorkflowGlobals.ts` is its entry
-and `dispatcher/DispatchMeta.ts` its `meta`. `init` and `update` bundle it into one Workflow-tool script,
-plain JavaScript run by the Workflow tool and never by Bun, and write it into a tracked repository as
-`.agent-progress/agent-progress-dispatch.js`: `cli/adoption/InstalledFileGeneration.ts` hands
-`src/lib/claude-code/WorkflowScriptBundle.ts` the two paths. It runs a builder per ready ticket and a
-clean reviewer per built one within the board limit, and decides rounds and parking in code.
-
-The frozen table `dispatcher/testing/FrozenDispatchTraces.json` holds the port to the behaviour of the
-old committed script it replaced; when it is retaken is a rule in the root `CLAUDE.md` (Generated and
-installed files), and the table names the command that retakes it.
-
-`dispatcher/testing/DispatchScriptBundle.ts` bundles the port into one Workflow script through
-`src/lib/claude-code/WorkflowScriptBundle.ts`, and
-`dispatcher/testing/DispatchScriptHarness.ts` runs it against a fake `agent()` and a fake board, with the
-clock and randomness refused as the Workflow tool refuses them. The specs:
-
-| spec | pins |
-|---|---|
-| `dispatcher/Dispatcher.decisions.spec.ts` | Rounds, parking, concurrency, claims and restarts, each claim with its `SourceMutant` (root `CLAUDE.md`, Tests). |
-| `dispatcher/Dispatcher.holds.spec.ts` | A held ticket gets no builder or reviewer until a status block shows the hold lifted, its running row gives up its slot, and the other tickets keep flowing. |
-| `dispatcher/Dispatcher.resumption.spec.ts` | A build an earlier run left paused is resumed by a whole-board relaunch with one builder, never a held ticket's or a person's pause. |
-| `dispatcher/Dispatcher.group.spec.ts` | A group run moves the main line once, at its release ticket's release, runs one builder and one reviewer at a time in pipeline order, and resumes from the board alone. |
-| `dispatcher/Dispatcher.brief.spec.ts` | The call budgets, the rework threshold and the brief path the bundle sends, and the threshold its round decision applies, are `DISPATCH_PROTOCOL`'s; `cli/adoption/InstalledFileGeneration.spec.ts` pins that the installed brief states the same numbers. |
-| `dispatcher/Dispatcher.equivalence.spec.ts` | The bundle reproduces the frozen table on every catalogued scenario. |
-| `dispatcher/testing/DispatchTraceCapture.spec.ts` | The table names the bundle it was taken from and the command that retakes it. |
-| `dispatcher/DispatchFromWorkflowGlobals.spec.ts` and `dispatcher/testing/utils/WorkflowScriptSourceUtil.spec.ts` | No nondeterministic call, and a literal `meta`. |
-
-A change to the dispatcher's behaviour therefore comes with a claim and its mutant.
 
 ## Architecture decisions
 

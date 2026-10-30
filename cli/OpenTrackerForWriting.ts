@@ -1,5 +1,4 @@
 /** Runs the tracker service's write pipeline for a command: the workspace, the `--at` stamp and the skipped-file report are the command line's. */
-import type { DispatcherState }                                  from '../src/lib/tracker-model/@types/TrackerProgress.ts';
 import { runnerFilesIn }                                         from '../src/services/runner/RunnerFiles.ts';
 import { RunnerLease }                                           from '../src/services/runner/RunnerLease.ts';
 import { writeTracker, type TrackerChange, type TrackerWritten } from '../src/services/tracker/TrackerPipeline.ts';
@@ -58,12 +57,12 @@ export async function openTrackerForWriting<MutationResult>(
   return written.result;
 }
 
-/** The Next line and the dispatcher state are read from the Board just written, which only this invocation holds, so neither predates the move. */
+/** The Next line is read from the Board just written, which only this invocation holds, so it never predates the move. */
 export async function openTrackerForWritingThenReadNextLine<MutationResult>(
   commandArguments: ArgumentParser,
   context: CommandContext,
   mutate: (change: TrackerChange) => MutationResult | Promise<MutationResult>,
-): Promise<{ result: MutationResult; nextLine: string; dispatcherState: DispatcherState }> {
+): Promise<{ result: MutationResult; nextLine: string }> {
   const written = await writeTrackerForCommand(commandArguments, context, mutate);
-  return { result: written.result, nextLine: NextLineUtil.nextLineOf(written.board), dispatcherState: written.board.dispatcherState() };
+  return { result: written.result, nextLine: NextLineUtil.nextLineOf(written.board) };
 }

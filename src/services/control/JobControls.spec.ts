@@ -106,12 +106,12 @@ describe('job stop and wind-down', () => {
 
   test('stop --all pauses the board and stops every build, review and product-owner job', () => {
     const board = runningBuildBoard();
-    board.setDispatcherState('running', AT);
+    board.setRunnerState('running', AT);
     apply(board, { kind: 'intake-start', text: 'A basket' });
     const result = apply(board, { kind: 'job-stop-all', mode: 'stop' });
 
-    expect(loggedKindsOf(result)).toEqual(['dispatcher-set', 'job-stop-requested', 'ticket-held', 'job-stop-requested']);
-    expect(board.dispatcherState()).toBe('stopped');
+    expect(loggedKindsOf(result)).toEqual(['runner-set', 'job-stop-requested', 'ticket-held', 'job-stop-requested']);
+    expect(board.runnerState()).toBe('paused');
     expect(board.jobs().map((job) => job.state)).toEqual(['stopping', 'stopping']);
   });
 });

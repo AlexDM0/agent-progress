@@ -26,7 +26,7 @@ export const jobsCommand: CommandHandler = (commandArguments, context) => {
   const concurrency = board.concurrency();
   const footer = {
     runner:             lease.verdict === 'live' ? { state: 'live', url: lease.record.url } : { state: 'down' },
-    paused:             board.dispatcherState() !== 'running',
+    paused:             board.runnerState() === 'paused',
     agentsInFlight:     concurrency.agentsInFlight,
     limit:              concurrency.limit,
     openDecisions:      (progress.decisions ?? []).length,

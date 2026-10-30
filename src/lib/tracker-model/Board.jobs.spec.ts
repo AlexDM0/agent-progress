@@ -294,13 +294,11 @@ describe('the merge-queue mark', () => {
   });
 });
 
-describe('the dispatcher state', () => {
-  // A stored `finished` is never rewritten, so it is read as `stopped`: nothing starts before the user looks.
-  test('a stored finished reads as stopped, and the stored value stays', () => {
+describe('the runner state', () => {
+  test('the stored state is the one the Board and its dispatch capacity read', () => {
     const { board, progress } = boardFixture();
-    progress.dispatcherState  = 'finished';
-    expect(board.dispatcherState()).toBe('stopped');
-    expect(board.dispatchCapacity().dispatcherState).toBe('stopped');
-    expect(progress.dispatcherState).toBe('finished');
+    progress.runnerState      = 'running';
+    expect(board.runnerState()).toBe('running');
+    expect(board.dispatchCapacity().runnerState).toBe('running');
   });
 });

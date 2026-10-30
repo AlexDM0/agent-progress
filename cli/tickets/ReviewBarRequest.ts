@@ -1,4 +1,4 @@
-/** The review bar `ticket finish --start-review` and `ticket rereview` open for the ticket's next reviewer. */
+/** The review bar `ticket rereview --start-review` opens for the ticket's next reviewer. */
 import { TicketBodyUtil }                         from '../../src/adapters/utils/TicketBodyUtil.ts';
 import type { AgentAssignment, ReviewBarStarted } from '../../src/lib/tracker-model/@types/BoardChanges.ts';
 import type { Ticket }                            from '../../src/lib/tracker-model/@types/Ticket.ts';
@@ -29,7 +29,7 @@ export function reviewBarRequestFrom(commandArguments: ArgumentParser, subcomman
 }
 
 /**
- * A builder's `ticket finish` hands the ticket's slot to its reviewer, a reviewer's `rereview` to the next. The round is the one a reviewer
+ * A reviewer's `rereview` hands the ticket's slot to the next reviewer. The round is the one a reviewer
  * states for itself: the `## Review` sections already in the ticket, plus one.
  */
 export function reviewBarStartedFor(change: TrackerChange, ticket: Readonly<Ticket>, request: AgentAssignment | null): ReviewBarStarted | null {

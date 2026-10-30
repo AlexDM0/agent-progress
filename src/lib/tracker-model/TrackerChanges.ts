@@ -1,14 +1,14 @@
 /** The Board's changes to the tracker as a whole rather than to one row or ticket: its settings, a note in its log, and its clearing. */
 import type {
   ConcurrencyLimitSet,
-  DispatcherStateSet,
   Logged,
   PipelineChanged,
+  RunnerStateSet,
   TrackerCleared
 } from './@types/BoardChanges.ts';
 import type { LogRecordFieldsOf }                    from './@types/LogRecord.ts';
 import type { Pipeline, PipelineGate, PipelineStep } from './@types/Pipeline.ts';
-import type { DispatcherState, ViewRange }           from './@types/TrackerProgress.ts';
+import type { RunnerState, ViewRange }               from './@types/TrackerProgress.ts';
 import type { BoardRecords }                         from './BoardRecords.ts';
 import { BoardRefusal }                              from './BoardRefusal.ts';
 import type { DispatchQueries }                      from './DispatchQueries.ts';
@@ -33,12 +33,11 @@ export class TrackerChanges {
     return { logged, previousLimit, concurrency: this.dispatchQueries.concurrency() };
   }
 
-  /** The record keeps its `runId` field, null, so a log holding a run id from a retired Workflow dispatcher still reads. */
-  setDispatcherState(state: DispatcherState, at: string): DispatcherStateSet {
-    const { progress }       = this.records;
-    const previousState      = this.dispatchQueries.dispatcherState();
-    progress.dispatcherState = state;
-    return { logged: [this.records.logger.log({ kind: 'dispatcher-set', fields: { state, runId: null } }, at)], previousState };
+  setRunnerState(state: RunnerState, at: string): RunnerStateSet {
+    const { progress }   = this.records;
+    const previousState  = this.dispatchQueries.runnerState();
+    progress.runnerState = state;
+    return { logged: [this.records.logger.log({ kind: 'runner-set', fields: { state } }, at)], previousState };
   }
 
   /**

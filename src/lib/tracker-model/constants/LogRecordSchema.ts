@@ -20,6 +20,7 @@ export type LogFieldShape =
   | 'review-round'
   | 'chart-range'
   | 'concurrency-limit'
+  | 'runner-state'
   | 'dispatcher-state'
   | 'dispatcher-run-id'
   | 'check-command'
@@ -144,6 +145,7 @@ export const LOG_RECORD_SCHEMA = {
   },
   'chart-range-set':             { subject: 'board', fields: { view: 'chart-range' } },
   'concurrency-limit-set':       { subject: 'board', fields: { limit: 'concurrency-limit' } },
+  'runner-set':                  { subject: 'board', fields: { state: 'runner-state' } },
   'dispatcher-set':              { subject: 'board', fields: { state: 'dispatcher-state', runId: 'dispatcher-run-id' } },
   'pipeline-prepare-step-set':   { subject: 'board', fields: { name: 'text', run: 'text' } },
   'pipeline-gate-added':         { subject: 'board', fields: { name: 'text', run: 'text' } },
@@ -236,8 +238,12 @@ export const LOG_RECORD_SCHEMA = {
   },
 } as const satisfies Readonly<Record<string, LogRecordKindSchema>>;
 
-/** The kinds the retired `checks` verb logged: a log holding them still reads, and nothing logs them any more. */
+/** The states a retired `dispatcher-set` record holds. */
+export const RETIRED_DISPATCHER_STATES = ['running', 'finished', 'stopped'] as const;
+
+/** The kinds the retired `checks` verb and Workflow dispatcher logged: a log holding them still reads, and nothing logs them any more. */
 export const RETIRED_LOG_RECORD_KINDS = [
+  'dispatcher-set',
   'check-command-set',
   'ticket-check-command-restamped',
   'install-command-set',

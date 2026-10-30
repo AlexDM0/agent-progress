@@ -7,7 +7,6 @@ import type {
   AgentChoice,
   AgentStopRecorded,
   ConcurrencyLimitSet,
-  DispatcherStateSet,
   DraftChanged,
   DraftClaimChanged,
   EpicChanged,
@@ -40,7 +39,8 @@ import type {
   TicketsReadied,
   TicketsReleased,
   TokenCredit,
-  TrackerCleared
+  TrackerCleared,
+  RunnerStateSet
 }                                                           from './@types/BoardChanges.ts';
 import type { Concurrency, DispatchCapacity }                 from './@types/Concurrency.ts';
 import type { Decision, DecisionAnswerForm, DecisionOpening } from './@types/Decision.ts';
@@ -93,27 +93,27 @@ import type {
   TicketSize,
   TicketStatus
 }                                                         from './@types/Ticket.ts';
-import type { DispatcherState, TrackerProgress, ViewRange } from './@types/TrackerProgress.ts';
-import { AgentQuestions }                                   from './AgentQuestions.ts';
-import { BoardRecords }                                     from './BoardRecords.ts';
-import { BoardRefusal }                                     from './BoardRefusal.ts';
-import { Decisions }                                        from './Decisions.ts';
-import { DispatchQueries }                                  from './DispatchQueries.ts';
-import { DisplayQueries }                                   from './DisplayQueries.ts';
-import { DraftContents }                                    from './DraftContents.ts';
-import { Drafts }                                           from './Drafts.ts';
-import { Epics }                                            from './Epics.ts';
-import { GroupReleases }                                    from './GroupReleases.ts';
-import { IncidentMoves }                                    from './IncidentMoves.ts';
-import type { IncidentEscalation }                          from './Incidents.ts';
-import { Incidents }                                        from './Incidents.ts';
-import { JobControls }                                      from './JobControls.ts';
-import type { SteppedJobState }                             from './Jobs.ts';
-import { Jobs }                                             from './Jobs.ts';
-import type { LifecycleFacts }                              from './LifecyclePolicy.ts';
-import { LifecyclePolicy }                                  from './LifecyclePolicy.ts';
-import type { Logger }                                      from './Logger.ts';
-import { MergeQueueMarks }                                  from './MergeQueueMarks.ts';
+import type { RunnerState, TrackerProgress, ViewRange } from './@types/TrackerProgress.ts';
+import { AgentQuestions }                               from './AgentQuestions.ts';
+import { BoardRecords }                                 from './BoardRecords.ts';
+import { BoardRefusal }                                 from './BoardRefusal.ts';
+import { Decisions }                                    from './Decisions.ts';
+import { DispatchQueries }                              from './DispatchQueries.ts';
+import { DisplayQueries }                               from './DisplayQueries.ts';
+import { DraftContents }                                from './DraftContents.ts';
+import { Drafts }                                       from './Drafts.ts';
+import { Epics }                                        from './Epics.ts';
+import { GroupReleases }                                from './GroupReleases.ts';
+import { IncidentMoves }                                from './IncidentMoves.ts';
+import type { IncidentEscalation }                      from './Incidents.ts';
+import { Incidents }                                    from './Incidents.ts';
+import { JobControls }                                  from './JobControls.ts';
+import type { SteppedJobState }                         from './Jobs.ts';
+import { Jobs }                                         from './Jobs.ts';
+import type { LifecycleFacts }                          from './LifecyclePolicy.ts';
+import { LifecyclePolicy }                              from './LifecyclePolicy.ts';
+import type { Logger }                                  from './Logger.ts';
+import { MergeQueueMarks }                              from './MergeQueueMarks.ts';
 import {
   type MergeCandidate,
   type MergeLanding,
@@ -280,7 +280,7 @@ export class Board {
 
   /** Pauses the board, then stops or winds down every live build, review and product-owner job. */
   stopAllJobs(mode: Exclude<JobStopMode, 'fresh'>, at: string): Logged {
-    const pause = (): readonly LogRecord[] => (this.dispatcherState() === 'stopped' ? [] : this.setDispatcherState('stopped', at).logged);
+    const pause = (): readonly LogRecord[] => (this.runnerState() === 'paused' ? [] : this.setRunnerState('paused', at).logged);
     return this.jobControls.stopAllJobs(mode, pause, at);
   }
 
@@ -532,7 +532,7 @@ export class Board {
       logRecords:                  [...this.records.storedLogRecords, ...this.records.loggedRecords],
       readinessPositionByTicketId: this.dispatchQueries.readinessPositionByTicketId(),
       concurrencyLimit:            this.concurrency().limit,
-      dispatcherState:             this.dispatcherState(),
+      runnerState:                 this.runnerState(),
       pipelineIsSet:               this.records.pipeline !== null,
       reviewIsSet:                 this.records.pipeline?.review !== undefined,
       observations,
@@ -580,8 +580,8 @@ export class Board {
         return this.openIncident(step.incident, at).logged;
       case 'default-incident':
         return this.incidentMoves.defaultIncident(step.incidentId, step.cause, decisionWordingOf, at);
-      case 'stop-dispatching':
-        return this.setDispatcherState('stopped', at).logged;
+      case 'pause-runner':
+        return this.setRunnerState('paused', at).logged;
     }
   }
 
@@ -602,8 +602,8 @@ export class Board {
     return this.trackerChanges.setConcurrencyLimit(limit, at);
   }
 
-  setDispatcherState(state: DispatcherState, at: string): DispatcherStateSet {
-    return this.trackerChanges.setDispatcherState(state, at);
+  setRunnerState(state: RunnerState, at: string): RunnerStateSet {
+    return this.trackerChanges.setRunnerState(state, at);
   }
 
   setPrepareStep(step: PipelineStep, at: string): PipelineChanged {
@@ -875,8 +875,8 @@ export class Board {
     return this.dispatchQueries.concurrency();
   }
 
-  dispatcherState(): DispatcherState {
-    return this.dispatchQueries.dispatcherState();
+  runnerState(): RunnerState {
+    return this.dispatchQueries.runnerState();
   }
 
   /** `null` when none is stored, or the stored one could not be read: either way no gate is set. */

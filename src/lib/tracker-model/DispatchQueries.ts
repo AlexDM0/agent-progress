@@ -1,18 +1,18 @@
 /**
- * What a dispatcher reads off the Board to start its next agent: the concurrency, the ready and held tickets, what a ticket still waits
+ * What the runner reads off the Board to start its next job: the concurrency, the ready and held tickets, what a ticket still waits
  * on, which tickets have a builder or a reviewer at work, and the check command a release runs.
  */
-import type { Concurrency, DispatchCapacity }                               from './@types/Concurrency.ts';
-import type { Task }                                                        from './@types/Task.ts';
-import type { ReadyTicket, Ticket }                                         from './@types/Ticket.ts';
-import type { DispatcherState }                                             from './@types/TrackerProgress.ts';
-import type { BoardRecords }                                                from './BoardRecords.ts';
-import type { GroupReleases }                                               from './GroupReleases.ts';
-import { DEFAULT_DISPATCHER_STATE, DISPATCHER_STATE_READ_FOR_STORED_STATE } from './constants/DispatcherStates.ts';
-import { SETTLED_TICKET_STATUSES }                                          from './constants/Statuses.ts';
-import { ConcurrencyUtil }                                                  from './utils/ConcurrencyUtil.ts';
-import { TicketDefaultsUtil }                                               from './utils/TicketDefaultsUtil.ts';
-import { TicketDependencyUtil }                                             from './utils/TicketDependencyUtil.ts';
+import type { Concurrency, DispatchCapacity } from './@types/Concurrency.ts';
+import type { Task }                          from './@types/Task.ts';
+import type { ReadyTicket, Ticket }           from './@types/Ticket.ts';
+import type { RunnerState }                   from './@types/TrackerProgress.ts';
+import type { BoardRecords }                  from './BoardRecords.ts';
+import type { GroupReleases }                 from './GroupReleases.ts';
+import { DEFAULT_RUNNER_STATE }               from './constants/RunnerStates.ts';
+import { SETTLED_TICKET_STATUSES }            from './constants/Statuses.ts';
+import { ConcurrencyUtil }                    from './utils/ConcurrencyUtil.ts';
+import { TicketDefaultsUtil }                 from './utils/TicketDefaultsUtil.ts';
+import { TicketDependencyUtil }               from './utils/TicketDependencyUtil.ts';
 
 export class DispatchQueries {
   constructor(
@@ -24,8 +24,8 @@ export class DispatchQueries {
     return ConcurrencyUtil.concurrencyOf(this.records.progress.tasks, this.records.progress.concurrencyLimit);
   }
 
-  dispatcherState(): DispatcherState {
-    return DISPATCHER_STATE_READ_FOR_STORED_STATE[this.records.progress.dispatcherState ?? DEFAULT_DISPATCHER_STATE];
+  runnerState(): RunnerState {
+    return this.records.progress.runnerState ?? DEFAULT_RUNNER_STATE;
   }
 
   /** In the order to take them: by priority, then by readiness, then by id. */
@@ -56,7 +56,7 @@ export class DispatchQueries {
     }));
   }
 
-  /** Every held ticket a dispatcher could still start a step of, in progress or in review as much as ready. */
+  /** Every held ticket the runner could still start a step of, in progress or in review as much as ready. */
   heldTicketIds(): string[] {
     return this.records.ticketRecords
       .filter((ticket) => ticket.frontmatter.hold !== undefined && !SETTLED_TICKET_STATUSES.includes(ticket.frontmatter.status))
@@ -64,15 +64,15 @@ export class DispatchQueries {
   }
 
   /**
-   * What a dispatcher needs to start the next agent: the limit, the agents in flight against it, what is left, and the tickets that could take it —
-   * in the order to take them — and where the user left the dispatcher.
+   * What the runner needs to start the next job: the limit, the agents in flight against it, what is left, and the tickets that could take it —
+   * in the order to take them — and where the user left the runner.
    */
   dispatchCapacity(): DispatchCapacity {
     return {
       ...this.concurrency(),
-      readyTicketIds:  this.readyTickets().map((ticket) => ticket.frontmatter.id),
-      dispatcherState: this.dispatcherState(),
-      heldTicketIds:   this.heldTicketIds(),
+      readyTicketIds: this.readyTickets().map((ticket) => ticket.frontmatter.id),
+      runnerState:    this.runnerState(),
+      heldTicketIds:  this.heldTicketIds(),
     };
   }
 

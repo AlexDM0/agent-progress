@@ -102,7 +102,7 @@ export function prependToExecutableSearchPath(folder: string): void {
   process.env[EXECUTABLE_SEARCH_PATH_VARIABLE] = [folder, ...executableSearchPath()].join(EXECUTABLE_SEARCH_PATH_SEPARATOR);
 }
 
-/** The user's shell, which runs the check command `release` runs; an empty or whitespace-only value reads as unset, and the caller picks a default. */
+/** The user's shell, which runs a gate's checks line; an empty or whitespace-only value reads as unset, and the caller picks a default. */
 export function userShell(): string | undefined {
   const value = process.env[USER_SHELL_VARIABLE];
   if (value === undefined || value.trim().length === 0) return undefined;

@@ -109,7 +109,7 @@ export class LifecycleWorld {
     view:             { kind: 'auto' },
     nextTaskId:       1,
     concurrencyLimit: WORLD_CONCURRENCY_LIMIT,
-    dispatcherState:  'running',
+    runnerState:      'running',
     tasks:            [],
   };
 
@@ -263,7 +263,7 @@ export class LifecycleWorld {
     if (decision === undefined) return;
     this.board.answerDecision(decisionId, ['Yes'], FIXTURE_AT);
     if (decision.kind === 'parked') decision.ticketIds.forEach((ticketId) => this.board.unholdTicket(ticketId, FIXTURE_AT));
-    if (decision.kind === 'outage') this.board.setDispatcherState('running', FIXTURE_AT);
+    if (decision.kind === 'outage') this.board.setRunnerState('running', FIXTURE_AT);
     if (decision.jobId !== null && this.board.jobById(decision.jobId)?.state === 'waiting-for-answer') this.board.moveJob(decision.jobId, 'running', FIXTURE_AT);
     try {
       this.board.answerDecision(decisionId, ['No'], FIXTURE_AT);

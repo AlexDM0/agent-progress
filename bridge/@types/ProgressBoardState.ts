@@ -69,10 +69,10 @@ export interface ProgressBoardState {
     readonly tickets: readonly ProgressTicketDocument[];
     readonly payload: {
       readonly progress: {
-        readonly startedAt:        string;
-        readonly view:             ViewRange;
-        readonly tasks:            readonly ProgressTaskDocument[];
-        readonly dispatcherState?: string;
+        readonly startedAt:    string;
+        readonly view:         ViewRange;
+        readonly tasks:        readonly ProgressTaskDocument[];
+        readonly runnerState?: string;
       };
       readonly limits:      TimelineLimits & TimestampSlices & DurationUnits;
       readonly concurrency: { readonly limit: number };
