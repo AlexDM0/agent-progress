@@ -221,7 +221,5 @@ describeWhenGitIsPresent('draft content', () => {
 
     const fullDrafts = ((await jsonOf(['status', '--full'])) as { drafts: ListedDraft[] }).drafts;
     expect(fullDrafts).toEqual(await statusDrafts());
-    const page = readFileSync(join(trackerDirectory(), 'progress.html'), 'utf8');
-    expect(page).toContain('"state":"researching","openQuestionCount":0,"questions":[{"id":"Q1"');
   });
 });

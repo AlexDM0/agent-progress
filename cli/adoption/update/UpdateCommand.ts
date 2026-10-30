@@ -11,6 +11,7 @@ import { PRODUCT_NAMES }                                  from '../../../src/sha
 import type { CommandContext }                            from '../../CommandContext.ts';
 import type { CommandHandler }                            from '../../CommandHandler.ts';
 import { requireInstallManifestThisVersionCanReplace }    from '../../InstallVersionCheck.ts';
+import { writeProgressPageStub }                          from '../../WriteProgressPageStub.ts';
 import { INSTALL_VERSION }                                from '../../constants/InstallVersion.ts';
 import { RunnerRemote }                                   from '../../runner/RunnerRemote.ts';
 import { installedFileTextsFor, installedSkillFileTexts } from '../InstalledFileGeneration.ts';
@@ -49,6 +50,7 @@ export const updateCommand: CommandHandler = async (commandArguments, context) =
 
   context.standardOutput(`Refreshed what ${PRODUCT_NAMES.PROGRAM} manages in ${workspace.rootDirectory}; the tracker itself was not touched.`);
   for (const line of refreshReportLinesOf(report, workspace.htmlFilePath)) context.standardOutput(line);
+  writeProgressPageStub(workspace);
   recordInstallVersion(workspace.rootDirectory);
   await handTheLiveRunnerToTheCodeOnDisk(context, workspace.trackerDirectory);
 };

@@ -50,8 +50,8 @@ const NOT_RELAYABLE_MUTATING_VERBS = [
  */
 const READ_ONLY_VERBS = [...READ_ONLY_VERBS_UNDER_A_JOB, 'open', 'await'];
 
-/** Verbs design section 9.2 retires, which no command replaces; T26 retired `ticket claim` and the measurement hook events. */
-const RETIRING_VERBS = ['hook', 'render'];
+/** Verbs design section 9.2 retires, which no command replaces; T26 retired `ticket claim` and the measurement hook events, T26b `render`. */
+const RETIRING_VERBS = ['hook'];
 
 interface ControlContract {
   readonly verbOfKind:                Readonly<Record<string, string>>;

@@ -1,8 +1,8 @@
 import base       from '@reliquary/eslint-config';
 import reactHooks from 'eslint-plugin-react-hooks';
 
-const STORAGE_MESSAGE = 'Browser storage is reached only in page/preferences/PreferenceStore.ts and bridge/preferences/PreferenceStore.ts.';
-const STORAGE_SITES = ['page/preferences/PreferenceStore.ts', 'bridge/preferences/PreferenceStore.ts'];
+const STORAGE_MESSAGE = 'Browser storage is reached only in bridge/preferences/PreferenceStore.ts.';
+const STORAGE_SITES = ['bridge/preferences/PreferenceStore.ts'];
 
 const TYPESCRIPT_FILES = ['**/*.{ts,tsx}'];
 
@@ -61,7 +61,6 @@ export default [
       'cli/testing/**/*.ts',
       'src/adapters/progress/testing/**/*.ts',
       'src/services/tracker/testing/**/*.ts',
-      'page/testing/**/*.ts',
       'bridge/testing/**/*.ts',
       'bridge/**/*.dom.tsx',
     ],

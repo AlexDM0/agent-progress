@@ -1,6 +1,6 @@
 /**
  * Where the files read at runtime are found. What matters is that the path is anchored to the package, not to the
- * working directory the linked binary runs in, and that the files the commands read, both page templates among them, are found through it.
+ * working directory the linked binary runs in, and that the files the commands read are found through it.
  */
 import { existsSync }             from 'node:fs';
 import { isAbsolute, join }       from 'node:path';
@@ -10,11 +10,11 @@ import { resourceFilePathOf } from './ResourceFilePath.ts';
 
 describe('resourceFilePathOf', () => {
   test('the path it gives is absolute', () => {
-    expect(isAbsolute(resourceFilePathOf('template.html'))).toBe(true);
+    expect(isAbsolute(resourceFilePathOf('templates', 'TicketBody.md'))).toBe(true);
   });
 
-  test('the page template and a markdown template are found through it', () => {
-    expect(existsSync(resourceFilePathOf('template.html'))).toBe(true);
+  test('the markdown templates are found through it', () => {
+    expect(existsSync(resourceFilePathOf('templates', 'TicketBody.md'))).toBe(true);
     expect(existsSync(resourceFilePathOf('templates', 'SessionInstructions.md'))).toBe(true);
   });
 

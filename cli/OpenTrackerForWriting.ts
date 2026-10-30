@@ -1,4 +1,4 @@
-/** Runs the tracker service's write pipeline for a command: the workspace, the `--at` stamp and the render report are the command line's. */
+/** Runs the tracker service's write pipeline for a command: the workspace, the `--at` stamp and the skipped-file report are the command line's. */
 import type { DispatcherState }                                  from '../src/lib/tracker-model/@types/TrackerProgress.ts';
 import { runnerFilesIn }                                         from '../src/services/runner/RunnerFiles.ts';
 import { RunnerLease }                                           from '../src/services/runner/RunnerLease.ts';
@@ -7,7 +7,7 @@ import { requireWorkspace }                                      from '../src/se
 import { OperationRefusal }                                      from '../src/shared/OperationRefusal.ts';
 import { RUNNER_NUDGE_TIMEOUT_MILLISECONDS }                     from '../src/shared/constants/RunnerLimits.ts';
 import type { CommandContext }                                   from './CommandContext.ts';
-import { registerWrittenDashboard }                              from './RegisterWrittenDashboard.ts';
+import { registerWrittenTracker }                                from './RegisterWrittenTracker.ts';
 import type { ArgumentParser }                                   from './arguments/ArgumentParser.ts';
 import { NextLineUtil }                                          from './utils/NextLineUtil.ts';
 import { OptionValueUtil }                                       from './utils/OptionValueUtil.ts';
@@ -25,10 +25,12 @@ async function writeTrackerForCommand<MutationResult>(
   const workspace = requireWorkspace(context.currentDirectory);
   const at        = OptionValueUtil.atStampFrom(commandArguments, context.now());
   const written   = await writeTracker({
-    workspace, at, now: context.now, renderState: context.renderState, mutate
+    workspace, at, now: context.now, mutate
   });
-  OutputUtil.reportRenderProblems(context, written.renderOutcome);
-  await registerWrittenDashboard(context, workspace, written.renderOutcome);
+  // The store is already written, so a skipped file never fails the command: exit 0, named on standard error.
+  OutputUtil.reportIgnoredTicketFiles(context, written.malformedTickets);
+  OutputUtil.reportIgnoredEpicFiles(context, written.malformedEpics);
+  await registerWrittenTracker(context, workspace);
   await nudgeTheRunner(workspace.trackerDirectory);
   return written;
 }

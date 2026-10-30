@@ -14,6 +14,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 
+import { createProgressPageStubWriter }                    from '../../src/adapters/progress-page/ProgressPageStubWriter.ts';
 import { HOST_PROTOCOL_VERSION }                           from '../../src/lib/agent-host/constants/HostProtocol.ts';
 import { writeFileAtomically }                             from '../../src/lib/atomic-file/AtomicFile.ts';
 import { GitProcess }                                      from '../../src/lib/git/GitProcess.ts';
@@ -191,16 +192,12 @@ function manifestMatchesIn(repositoryRoot: string): boolean {
 
 /** What the successor proves before it reports `ready`, holding no lease and writing nothing but its bundles. */
 function preparationSteps(request: ForegroundRunRequest, pinHostBundle: () => Promise<string>): readonly HandoverStepRun[] {
-  const { workspace, context } = request;
+  const { workspace } = request;
   const jobsOf = () => requireProgressFile(workspace).jobs ?? [];
   const steps: readonly HandoverStepRun[] = [
     {
       step: 'build-bundles',
-      run:  async () => {
-        await pinHostBundle();
-        const page = await context.renderState.pageBundler.bundlePageScript();
-        if (page.verdict === 'failed') throw new Error(`the page bundle failed: ${page.reason}`);
-      },
+      run:  async () => { await pinHostBundle(); },
     },
     { step: 'read-board', run: () => { readingBoardOf(requireProgressFile(workspace), [], []); } },
     {
@@ -392,6 +389,7 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
         return change.board.recordRunnerStarted({ codeVersion, installVersion: INSTALL_VERSION }, change.at);
       });
       await registerRunner(request, { url: server.url, processId: process.pid, startedAt: LocalTimeUtil.formatLocalIso(context.now()) });
+      createProgressPageStubWriter(workspace.htmlFilePath).write(server.url);
       log(`Runner serving ${server.url} under lease ${generation} (code ${codeVersion}, install version ${INSTALL_VERSION}, agents ${context.agentAdapter.vendor}).`);
       if (!printedTheUrl) OutputUtil.printEntity(request.commandArguments, context, { url: server.url, generation }, server.url);
       printedTheUrl = true;
@@ -399,7 +397,6 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
       const startedLifetime = lifetime;
       drivePass = createDrivePass({
         workspace,
-        renderState:           context.renderState,
         now:                   context.now,
         formatStamp:           (moment) => LocalTimeUtil.formatLocalIso(moment),
         runnerDirectory:       files.runnerDirectory,
@@ -588,6 +585,7 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
       }
       await openTrackerForWriting(request.commandArguments, context, (change) => change.board.recordRunnerStopped('stopped', change.at));
       await registerRunner(request, 'removed');
+      createProgressPageStubWriter(workspace.htmlFilePath).write(null);
       RunnerLease.release(files.runnerDirectory, serving.generation);
       log('Runner stopped; its lease is released.');
     } finally {

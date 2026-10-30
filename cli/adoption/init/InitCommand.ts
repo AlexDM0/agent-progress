@@ -3,6 +3,7 @@ import { basename }   from 'node:path';
 
 import { ensureIgnored }                                  from '../../../src/lib/git/GitIgnore.ts';
 import { LocalTimeUtil }                                  from '../../../src/lib/local-time/LocalTimeUtil.ts';
+import { listTickets }                                    from '../../../src/services/tracker/TicketStore.ts';
 import { createTracker }                                  from '../../../src/services/tracker/TrackerCreation.ts';
 import { findWorkspace, workspacePathsFor }               from '../../../src/services/tracker/Workspace.ts';
 import { TRACKER_FILES }                                  from '../../../src/services/tracker/constants/TrackerFiles.ts';
@@ -10,7 +11,8 @@ import { OperationRefusal }                               from '../../../src/sha
 import { PRODUCT_NAMES }                                  from '../../../src/shared/constants/ProductNames.ts';
 import type { CommandHandler }                            from '../../CommandHandler.ts';
 import { requireInstallManifestThisVersionCanReplace }    from '../../InstallVersionCheck.ts';
-import { registerWrittenDashboard }                       from '../../RegisterWrittenDashboard.ts';
+import { registerWrittenTracker }                         from '../../RegisterWrittenTracker.ts';
+import { writeProgressPageStub }                          from '../../WriteProgressPageStub.ts';
 import { OutputUtil }                                     from '../../utils/OutputUtil.ts';
 import { installedFileTextsFor, installedSkillFileTexts } from '../InstalledFileGeneration.ts';
 import type { InstalledFileTexts }                        from '../InstalledFileGeneration.ts';
@@ -57,6 +59,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
     context.standardOutput(`${PRODUCT_NAMES.PROGRAM} is already initialised in ${rootDirectory}.`);
     for (const line of refreshReportLinesOf(refresh, workspace.htmlFilePath)) context.standardOutput(line);
     context.standardOutput(`  \`${PRODUCT_NAMES.PROGRAM} update\` is the command for this refresh; \`init\` only creates a tracker.`);
+    writeProgressPageStub(workspace);
     recordInstallVersion(workspace.rootDirectory);
   };
 
@@ -89,13 +92,15 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
     startedAt: LocalTimeUtil.formatLocalIso(context.now()),
     // The page's localStorage key: `file://` is one origin in Chrome, so two trackers would otherwise share a saved range.
     trackerId: randomUUID(),
-  }, context.now, context.renderState);
+  }, context.now);
   if (creation.verdict === 'already-exists') {
     reportTheRefreshOfAnExistingTracker(installedFileTexts);
     return;
   }
-  OutputUtil.reportRenderProblems(context, creation.renderOutcome);
-  await registerWrittenDashboard(context, workspace, creation.renderOutcome);
+  // A ticket file left from a removed tracker is adopted as it stands, so one that will not parse is named.
+  OutputUtil.reportIgnoredTicketFiles(context, listTickets(workspace).malformed);
+  writeProgressPageStub(workspace);
+  await registerWrittenTracker(context, workspace);
 
   const refresh = refreshTheRepository(installedFileTexts, { writesTheBriefFirst: true });
 

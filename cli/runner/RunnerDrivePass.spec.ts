@@ -32,7 +32,6 @@ import type { HostRecord }                                                 from 
 import type { AgentAdapter }                                               from '../../src/lib/agent-launch/AgentAdapter.ts';
 import { identityOf, sameProcess }                                         from '../../src/lib/process-identity/ProcessIdentity.ts';
 import type { Board }                                                      from '../../src/lib/tracker-model/Board.ts';
-import { createRenderState }                                               from '../../src/services/render/RenderState.ts';
 import { createDrivePass, type DrivePass }                                 from '../../src/services/runner/DrivePass.ts';
 import { HOST_ENTRY_PATH, HostBundle }                                     from '../../src/services/runner/HostBundle.ts';
 import { HostFleet }                                                       from '../../src/services/runner/HostFleet.ts';
@@ -97,7 +96,6 @@ async function drivePassWith(
   const hostBundlePath = await HostBundle.pinHostBundle({ runnerDirectory, codeVersion: 'code-example', entryPath: HOST_ENTRY_PATH });
   const drivePass = createDrivePass({
     workspace,
-    renderState:           createRenderState(),
     now:                   () => new Date(Date.parse(clock.stamp)),
     formatStamp:           () => clock.stamp,
     runnerDirectory,

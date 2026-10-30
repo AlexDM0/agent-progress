@@ -1,7 +1,5 @@
 import { LogUtil }                        from '../../src/adapters/utils/LogUtil.ts';
-import { TrackerReadingWordingUtil }      from '../../src/adapters/utils/TrackerReadingWordingUtil.ts';
 import type { LogRecord }                 from '../../src/lib/tracker-model/@types/LogRecord.ts';
-import type { DashboardRenderOutcome }    from '../../src/services/tracker/DashboardRendering.ts';
 import type { MalformedDraftFile }        from '../../src/services/tracker/DraftStore.ts';
 import type { MalformedEpicFile }         from '../../src/services/tracker/EpicStore.ts';
 import type { MalformedTicketFile }       from '../../src/services/tracker/TicketStore.ts';
@@ -51,19 +49,6 @@ function printEntityThenNextLine(commandArguments: ArgumentParser, context: Comm
   printEntity(commandArguments, context, entity, `${humanLine}\n${nextLine}`);
 }
 
-/** The store is already written by the time this runs, so none of these fail the command: exit 0, reason on standard error. */
-function reportRenderProblems(context: CommandContext, outcome: DashboardRenderOutcome): void {
-  if (outcome.verdict === 'unreadable') {
-    context.standardError(`The dashboard was not regenerated: ${TrackerReadingWordingUtil.renderReasonOf(outcome.reading)}`);
-    return;
-  }
-  if (outcome.verdict === 'rendered-without-page-script') {
-    context.standardError(`The dashboard was written without its page script, so the chart is not interactive: ${outcome.reason}`);
-  }
-  reportIgnoredTicketFiles(context, outcome.malformedTickets);
-  reportIgnoredEpicFiles(context, outcome.malformedEpics);
-}
-
 /** A commit printed in a sentence, cut to its first characters as git abbreviates; a text already that short is kept whole. */
 function shortCommitOf(commit: string): string {
   return commit.slice(0, SHORT_COMMIT_LENGTH_CHARACTERS);
@@ -79,5 +64,4 @@ export const OutputUtil = {
   reportIgnoredTicketFiles,
   reportIgnoredEpicFiles,
   reportIgnoredDraftFiles,
-  reportRenderProblems,
 } as const;
