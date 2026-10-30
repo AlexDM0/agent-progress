@@ -76,7 +76,7 @@ export interface RefMovesAllowed {
   ownBranch:            string;
   /** The branches of the other jobs on the board, each moved by its own session. */
   otherJobBranches:     readonly string[];
-  /** The ticket branches of every job the log launched, which their sessions and merges moved before ending: exempt only while they exist. */
+  /** The ticket branches of the jobs that ended after this job launched, which their sessions moved before ending: exempt only while they exist. */
   loggedJobBranches:    readonly string[];
   /** Each landing the runner recorded, as the ref it moved and the commit it moved it to. */
   recordedLandings:     readonly { ref: string; commit: string }[];
@@ -88,6 +88,8 @@ export interface RefMovesAllowed {
 
 /** How the Overseer names the refs around its landings, which the log records only by ticket and target. */
 export interface OverseerRefNaming {
+  /** The job being verified: only the jobs ending after its launch moved a ticket branch past its launch snapshot. */
+  ownJobId:              string;
   ownBranch:             string;
   otherJobBranches:      readonly string[];
   ticketBranchOf:        (ticketId: string) => string;
@@ -487,17 +489,22 @@ function onlyOwnRefsMoved(subject: JobVerificationSubject): CheckVerdict {
   return moved.length === 0 ? PASSED : refused('foreign-ref-moved', moved.sort());
 }
 
-/** V14's exemptions from the log: each landing on its job's target at its commit, what a main-line landing deletes, and every refresh's worktree. */
+/** V14's exemptions from the log: each landing on its job's target at its commit, what a main-line landing deletes, every refresh's worktree, and the
+ * ticket branches of the jobs ending after the verified job's launch. */
 export function refMovesAllowedOf(logRecords: readonly LogRecord[], naming: OverseerRefNaming): RefMovesAllowed {
   const launchById = new Map<string, { target: string | null; ticketIds: readonly string[] }>();
   const recordedLandings: { ref: string; commit: string }[] = [];
   const removedAfterLandings: string[] = [];
   const refreshWorktreeHeads: string[] = [];
   const loggedJobBranches = new Set<string>();
+  let ownJobLaunched = false;
   for (const record of logRecords) {
+    if (record.kind === 'job-launched' && record.jobId === naming.ownJobId) ownJobLaunched = true;
+    if (record.kind === 'job-ended' && ownJobLaunched) {
+      for (const ticketId of launchById.get(record.jobId)?.ticketIds ?? []) loggedJobBranches.add(naming.ticketBranchOf(ticketId));
+    }
     if (record.kind === 'job-launched') {
       launchById.set(record.jobId, { target: record.fields.target, ticketIds: record.fields.ticketIds });
-      for (const ticketId of record.fields.ticketIds) loggedJobBranches.add(naming.ticketBranchOf(ticketId));
       if (record.fields.kind === 'refresh' && record.fields.target !== null) refreshWorktreeHeads.push(`HEAD:${naming.refreshWorktreeOf(record.fields.target)}`);
     }
     if (record.kind !== 'job-ended' || !LANDING_OUTCOMES.includes(record.fields.outcome) || record.fields.commit === undefined) continue;

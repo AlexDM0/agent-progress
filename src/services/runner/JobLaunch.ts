@@ -461,6 +461,7 @@ function refMovesAllowedFor(context: JobLaunchContext, board: Board, job: Readon
   const worktreesRoot = join(context.workspace.rootDirectory, PRODUCT_NAMES.WORKTREES_FOLDER);
   const tickets       = board.tickets();
   return refMovesAllowedOf(board.logRecordsSoFar(), {
+    ownJobId:              job.id,
     ownBranch:             branchOf(job),
     otherJobBranches:      board.jobs().filter((other) => other.id !== job.id && isWorktreeJob(other)).map(branchOf),
     ticketBranchOf:        (ticketId) => `ticket-${ticketId}`,

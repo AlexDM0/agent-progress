@@ -99,12 +99,15 @@ function jobEndedRecord(jobId: string, outcome: 'landed' | 'refreshed', commit: 
   };
 }
 
+const OWN_BUILD_JOB_ID = 'J9';
+
 /** A live build job whose exemptions are read from the Overseer's records: ticket 378 releases `group-example`. */
 function buildJobAcross(logRecords: readonly LogRecord[], refreshWorktree = ''): JobVerificationSubject {
   return {
     ...reviewerSubject([]),
     role:            'builder',
     refMovesAllowed: refMovesAllowedOf(logRecords, {
+      ownJobId:              OWN_BUILD_JOB_ID,
       ownBranch:             currentBranchOf(repositoryDirectory),
       otherJobBranches:      [],
       ticketBranchOf:        (ticketId) => `ticket-${ticketId}`,
@@ -287,7 +290,7 @@ describeWhenGitIsPresent('V14: no foreign ref moved', () => {
     expect(refusal('V14', buildJobAcross(refreshRecords, listedRefreshWorktree))).toBeNull();
   });
 
-  test('a ticket landing on the main line mid-build passes, its branch moved by its ended build and review; deleting it still refuses', () => {
+  test('a ticket landing on the main line mid-build passes, its build ending after this one launched; one ended before, or deleting it, still refuses', () => {
     const mainLine = gitOutputIn(repositoryDirectory, ['rev-parse', '--abbrev-ref', 'HEAD']);
     gitOutputIn(repositoryDirectory, ['checkout', '-q', '-b', 'ticket-020']);
     launchSnapshot = launchSnapshotOf(repositoryDirectory) ?? launchSnapshot;
@@ -296,13 +299,22 @@ describeWhenGitIsPresent('V14: no foreign ref moved', () => {
     const landedCommit = commitFile(repositoryDirectory, 'reviewed.ts', 'export const reviewed = true;\n');
     gitOutputIn(repositoryDirectory, ['branch', '-f', mainLine, landedCommit]);
     gitOutputIn(repositoryDirectory, ['checkout', '-q', 'ticket-020']);
+    const buildLaunched = jobLaunchedRecord('J2', { kind: 'build', ticketIds: ['019'], target: mainLine });
+    const ownLaunched   = jobLaunchedRecord(OWN_BUILD_JOB_ID, { kind: 'build', ticketIds: ['020'], target: mainLine });
+    const buildEnded: LogRecord = {
+      at: AT, kind: 'job-ended', jobId: 'J2', fields: { outcome: 'built', deniedPermissions: [] }
+    };
     const landing = [
-      jobLaunchedRecord('J2', { kind: 'build', ticketIds: ['019'], target: mainLine }),
+      buildLaunched,
+      ownLaunched,
+      buildEnded,
       jobLaunchedRecord('M1', { kind: 'merge', ticketIds: ['019'], target: mainLine }),
       jobEndedRecord('M1', 'landed', landedCommit),
     ];
     expect(refusal('V14', buildJobAcross(landing))).toBeNull();
     expect(refusal('V14', buildJobAcross([]))?.facts).toEqual([`refs/heads/${mainLine}`, 'refs/heads/ticket-019']);
+    const endedBeforeOwnLaunch = [buildLaunched, buildEnded, ownLaunched];
+    expect(refusal('V14', buildJobAcross(endedBeforeOwnLaunch))?.facts).toContain('refs/heads/ticket-019');
     gitOutputIn(repositoryDirectory, ['branch', '-D', 'ticket-019']);
     gitOutputIn(repositoryDirectory, ['branch', 'ticket-019', startCommit]);
     launchSnapshot = launchSnapshotOf(repositoryDirectory) ?? launchSnapshot;
