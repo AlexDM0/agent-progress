@@ -206,7 +206,7 @@ describe('the scans', () => {
   });
 
   test('a signature line run into its prose is caught', () => {
-    const planted = HELP_TEXT.replace('      [--rebased-from <old tip>]\n', '      [--rebased-from <old tip>] removed lines, never blank lines\n');
+    const planted = HELP_TEXT.replace('      [--transcripts <folder>]\n', '      [--transcripts <folder>] read out of the transcripts\n');
     expect(planted).not.toBe(HELP_TEXT);
     expect(signatureLinePartsOf(planted).filter((part) => !SIGNATURE_ENDING.test(part))).not.toEqual([]);
   });
