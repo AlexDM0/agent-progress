@@ -41,7 +41,7 @@ line never describes a change that was not stored. Nothing renders: the Overseer
 `status`, `ticket list`, `ticket show`, `epic list`, `epic show`,
 `concurrency` without an argument, `gate list`, `usage` and `review-stats` take none: every file
 they read is written atomically. `update`, and `init` on an existing tracker, never touch the tracker's
-own files and take no lock.
+own files but the `progress.html` stub, and take no lock.
 
 **Help and options.** `agent-progress help` prints the whole reference. `--help` works after a
 command word as well as on its own, and `-h` on its own or straight after the command word; a `-h`
@@ -84,7 +84,7 @@ own conventions only.
 
 | # | what | path | written by | opt-out |
 |---|---|---|---|---|
-| 1 | The tracker: `progress.json`, `log.jsonl`, a `tickets/` folder, the `progress.html` stub, and the `.lock` directory | `.agent-progress/` | `init` only | — |
+| 1 | The tracker: `progress.json`, `log.jsonl`, a `tickets/` folder, the `progress.html` stub, and the `.lock` directory | `.agent-progress/` | `init` only; the stub also `update` and `run` | — |
 | 2 | `.gitignore` entries for the tracker (`init` only) and for the worktrees folder | `.gitignore` | `init`, `update` | — |
 | 3 | The session instructions, from `resources/templates/SessionInstructions.md`, the reference, from `Reference.md`, and the seven instruction defaults, from `Constitution.md`, `OnboarderBrief.md` and `AssistantBrief.md` there and `BuildPrompt.md`, `ReviewPrompt.md`, `MergerBrief.md` and `ProductOwnerPrompt.md` under `resources/prompts/` | `.agent-progress/session-instructions.md`, `reference.md`, `briefs/defaults/<constitution\|builder\|reviewer\|merger\|productOwner\|onboarder\|assistant>.md` | `init`, `update` | — |
 | 4 | The `SessionStart` hook running `agent-progress hook session-start`, kept current in `.claude/settings.json` when that file already holds it | `.claude/settings.local.json` | `init`, `update` | `--no-hooks` |
