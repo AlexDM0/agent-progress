@@ -1,6 +1,6 @@
 /**
  * Each setting hands back the value it replaced and logs exactly one record, and a dispatcher write without a run id deletes the stored
- * one, which would otherwise be resumed wrongly, as a cleared check command deletes its key.
+ * one, which would otherwise be resumed wrongly.
  */
 import { expect, test } from 'bun:test';
 
@@ -32,33 +32,6 @@ test('setting the dispatcher state hands back the state before and logs one reco
   expect(progress.dispatcherState).toBe('running');
   expect(records).toEqual([{ at: CHANGED_AT, kind: 'dispatcher-set', fields: { state: 'running', runId: null } }]);
   expect(changed.logged).toEqual(records);
-});
-
-test('a tracker that never set a check command reads none', () => {
-  const { board, progress } = boardFixture();
-  expect('checkCommand' in progress).toBe(false);
-  expect(board.checkCommand()).toBeUndefined();
-});
-
-test('setting the check command hands back the one before, stores the new one and logs one record', () => {
-  const { board, progress, records } = boardFixture();
-  const changed                      = board.setCheckCommand('bun run example-checks', false, CHANGED_AT);
-
-  expect(changed.previousCheckCommand).toBeNull();
-  expect(progress.checkCommand).toBe('bun run example-checks');
-  expect(board.checkCommand()).toBe('bun run example-checks');
-  expect(records).toEqual([{ at: CHANGED_AT, kind: 'check-command-set', fields: { command: 'bun run example-checks' } }]);
-  expect(changed.logged).toEqual(records);
-});
-
-// A cleared setting must leave the file as though it had never been set, so a release runs no check rather than an empty one.
-test('clearing the check command deletes the stored key and hands back the one it held', () => {
-  const { board, progress } = boardFixture();
-  board.setCheckCommand('bun run example-checks', false, CHANGED_AT);
-  const changed = board.setCheckCommand(null, false, CHANGED_AT);
-
-  expect(changed.previousCheckCommand).toBe('bun run example-checks');
-  expect('checkCommand' in progress).toBe(false);
 });
 
 test('setting the concurrency limit hands back the limit before and the concurrency after, and logs one record', () => {

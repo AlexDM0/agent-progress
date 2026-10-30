@@ -1,14 +1,15 @@
 /**
  * The sequence every mutating command follows, written once and all inside the lock: read the tracker into a Board, mutate, write the progress
- * file, then the tickets the Board changed, then the epics it changed or removed, then the drafts, then log.jsonl, then render from disk, so
- * no older render lands last and the progress file is never behind the tickets. The writes commit through the hold journal, fenced
- * against a takeover of the lock.
+ * file, then the pipeline when a `gate` verb changed it, then the tickets the Board changed, then the epics it changed or removed, then the
+ * drafts, then log.jsonl, then render from disk, so no older render lands last and the progress file is never behind the tickets. The
+ * writes commit through the hold journal, fenced against a takeover of the lock.
  */
 import { createDraftFileWriter }                           from '../../adapters/drafts/DraftFileWriter.ts';
 import { createEpicFileWriter }                            from '../../adapters/epics/EpicFileWriter.ts';
 import type { JournaledFile }                              from '../../adapters/hold-journal/HoldJournalIngestion.ts';
 import { createLogFileWriter }                             from '../../adapters/log/LogFileWriter.ts';
 import { createLogRecordCollector }                        from '../../adapters/log/LogRecordCollector.ts';
+import { PipelineFile }                                    from '../../adapters/pipeline/PipelineFile.ts';
 import { createProgressFileWriter }                        from '../../adapters/progress/ProgressFileWriter.ts';
 import { createTicketFileWriter }                          from '../../adapters/tickets/TicketFileWriter.ts';
 import type { LogRecord }                                  from '../../lib/tracker-model/@types/LogRecord.ts';
@@ -33,6 +34,8 @@ export interface TrackerChange {
   malformedTickets:               readonly MalformedTicketFile[];
   malformedEpics:                 readonly MalformedEpicFile[];
   malformedDrafts:                readonly MalformedDraftFile[];
+  /** Why the stored `pipeline.json` could not be read; `null` when it was, or none is stored. */
+  malformedPipelineReason:        string | null;
   /** How many entries the log held when it was read, before anything this invocation logged. */
   storedLogEntryCount:            number;
   /** The log as it was read, before anything this invocation logged. */
@@ -75,6 +78,7 @@ function openBoard(contents: TrackerContents): OpenBoard {
     drafts:           contents.draftListing.drafts,
     logger:           createLogger(logRecordCollector.collect),
     storedLogRecords: contents.storedLog.records,
+    pipeline:         contents.pipelineReading.verdict === 'readable' ? contents.pipelineReading.pipeline : null,
   });
   return { contents, logRecordCollector, board };
 }
@@ -91,6 +95,8 @@ function plannedHoldOf(workspace: Workspace, openedBoard: OpenBoard, deletesEver
   const removed = (filePath: string): JournaledFile => ({ kind: 'removed', filePath });
 
   const files: JournaledFile[] = [written(workspace.progressFilePath, createProgressFileWriter(workspace.progressFilePath).contentsOf(contents.progress))];
+  const changedPipeline = board.pipelineChanged() ? board.pipeline() : null;
+  if (changedPipeline !== null) files.push(written(workspace.pipelineFilePath, PipelineFile.contentsOf(changedPipeline)));
   const ticketFileWriter = createTicketFileWriter();
   for (const ticket of board.changedTickets()) files.push(written(ticket.filePath, ticketFileWriter.contentsOf(ticket)));
   const epicFileWriter = createEpicFileWriter();
@@ -137,6 +143,7 @@ export function writeTracker<MutationResult>(request: TrackerWriteRequest<Mutati
       malformedTickets:               openedBoard.contents.listing.malformed,
       malformedEpics:                 openedBoard.contents.epicListing.malformed,
       malformedDrafts:                openedBoard.contents.draftListing.malformed,
+      malformedPipelineReason:        openedBoard.contents.pipelineReading.verdict === 'malformed' ? openedBoard.contents.pipelineReading.reason : null,
       storedLogEntryCount:            openedBoard.contents.storedLog.records.length,
       storedLogRecords:               openedBoard.contents.storedLog.records,
       deleteAllTicketFilesAfterwards: (onDeleted) => { deletionCallbacks.push(onDeleted); },

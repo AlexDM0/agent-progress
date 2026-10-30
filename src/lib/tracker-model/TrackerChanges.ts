@@ -1,23 +1,19 @@
 /** The Board's changes to the tracker as a whole rather than to one row or ticket: its settings, a note in its log, and its clearing. */
 import type {
-  CheckCommandSet,
   ConcurrencyLimitSet,
   DispatcherStateSet,
-  InstallCommandSet,
-  ChecksDefinitionFilesSet,
-  GateKeyCommandSet,
-  GateCachePathsSet,
   Logged,
+  PipelineChanged,
   TrackerCleared
 } from './@types/BoardChanges.ts';
-import type { LogRecordFieldsOf }          from './@types/LogRecord.ts';
-import type { Task }                       from './@types/Task.ts';
-import type { Ticket }                     from './@types/Ticket.ts';
-import type { DispatcherState, ViewRange } from './@types/TrackerProgress.ts';
-import type { BoardRecords }               from './BoardRecords.ts';
-import { BoardRefusal }                    from './BoardRefusal.ts';
-import type { DispatchQueries }            from './DispatchQueries.ts';
-import { TicketChartUtil }                 from './utils/TicketChartUtil.ts';
+import type { LogRecordFieldsOf }                    from './@types/LogRecord.ts';
+import type { Pipeline, PipelineGate, PipelineStep } from './@types/Pipeline.ts';
+import type { DispatcherState, ViewRange }           from './@types/TrackerProgress.ts';
+import type { BoardRecords }                         from './BoardRecords.ts';
+import { BoardRefusal }                              from './BoardRefusal.ts';
+import type { DispatchQueries }                      from './DispatchQueries.ts';
+import { PipelineUtil }                              from './utils/PipelineUtil.ts';
+import { TicketChartUtil }                           from './utils/TicketChartUtil.ts';
 
 export class TrackerChanges {
   constructor(
@@ -46,66 +42,60 @@ export class TrackerChanges {
   }
 
   /**
-   * A `null` command deletes the stored one, so a release runs no check again. A ticket in flight was stamped with the command it started
-   * under, so a change that would leave its stamp behind is refused unless `restamps` stamps every such row with the new command.
+   * Every pipeline change is accepted with tickets in flight: no row is stamped here, and each row records the hash of the pipeline it is
+   * judged by at its next gate run.
    */
-  setCheckCommand(command: string | null, restamps: boolean, at: string): CheckCommandSet {
-    const { progress, logger } = this.records;
-    const ticketsInFlight      = this.ticketsInFlightWithTheirRows();
-    if (!restamps) {
-      const staleTicketIds = ticketsInFlight.filter(({ row }) => (row.checkCommand ?? null) !== command).map(({ ticket }) => ticket.frontmatter.id);
-      if (staleTicketIds.length > 0) throw new BoardRefusal({ reason: 'check-command-change-with-tickets-in-flight', ticketIds: staleTicketIds });
-    }
-
-    const previousCheckCommand = progress.checkCommand ?? null;
-    if (command === null) delete progress.checkCommand;
-    else progress.checkCommand = command;
-    const logged = [logger.log({ kind: 'check-command-set', fields: { command } }, at)];
-    if (!restamps) return { logged, previousCheckCommand, restampedTicketIds: [] };
-
-    for (const { ticket, row } of ticketsInFlight) {
-      this.records.stampCheckCommand(row);
-      logged.push(logger.log({ kind: 'ticket-check-command-restamped', ticketId: ticket.frontmatter.id, fields: { command } }, at));
-    }
-    return { logged, previousCheckCommand, restampedTicketIds: ticketsInFlight.map(({ ticket }) => ticket.frontmatter.id) };
+  private changedPipelineOf(change: (pipeline: Pipeline) => void, logged: Logged['logged']): PipelineChanged {
+    const pipeline = this.records.pipeline ?? { prepare: [], gates: [] };
+    change(pipeline);
+    this.records.pipeline        = pipeline;
+    this.records.pipelineChanged = true;
+    return { logged, pipeline };
   }
 
-  /** No ticket is stamped with it: a changed line only changes the gate cache's key, so a gate runs again. */
-  setInstallCommand(command: string, at: string): InstallCommandSet {
-    const { progress, logger }   = this.records;
-    const previousInstallCommand = progress.installCommand ?? null;
-    progress.installCommand      = command;
-    return { logged: [logger.log({ kind: 'install-command-set', fields: { command } }, at)], previousInstallCommand };
+  /** A step of the same name is replaced where it stands, so a prepare step is set rather than added twice. */
+  setPrepareStep(step: PipelineStep, at: string): PipelineChanged {
+    const logged = [this.records.logger.log({ kind: 'pipeline-prepare-step-set', fields: { name: step.name, run: step.run } }, at)];
+    return this.changedPipelineOf((pipeline) => {
+      const index = pipeline.prepare.findIndex((candidate) => candidate.name === step.name);
+      if (index === -1) pipeline.prepare.push({ ...step });
+      else pipeline.prepare[index] = { ...step };
+    }, logged);
   }
 
-  /** `null` removes the key, so the board holds no definition files again. */
-  setChecksDefinitionFiles(patterns: readonly string[] | null, at: string): ChecksDefinitionFilesSet {
-    const { progress, logger }          = this.records;
-    const previousChecksDefinitionFiles = progress.checksDefinitionFiles ?? null;
-    if (patterns === null) delete progress.checksDefinitionFiles;
-    else progress.checksDefinitionFiles = [...patterns];
-    return {
-      logged: [logger.log({ kind: 'checks-definition-files-set', fields: { patterns: patterns ?? [] } }, at)],
-      previousChecksDefinitionFiles,
-    };
+  /** A gate of the same name is replaced where it stands, keeping its place in the run order; a new one runs last. */
+  addGate(gate: PipelineGate, at: string): PipelineChanged {
+    const logged = [this.records.logger.log({ kind: 'pipeline-gate-added', fields: { name: gate.name, run: gate.run } }, at)];
+    return this.changedPipelineOf((pipeline) => {
+      const index = pipeline.gates.findIndex((candidate) => candidate.name === gate.name);
+      if (index === -1) pipeline.gates.push({ ...gate });
+      else pipeline.gates[index] = { ...gate };
+    }, logged);
   }
 
-  /** `null` removes the key, so a gate's cache key is the tree, checks line and install line alone again. */
-  setGateKeyCommand(command: string | null, at: string): GateKeyCommandSet {
-    const { progress, logger }   = this.records;
-    const previousGateKeyCommand = progress.gateKeyCommand ?? null;
-    if (command === null) delete progress.gateKeyCommand;
-    else progress.gateKeyCommand = command;
-    return { logged: [logger.log({ kind: 'gate-key-command-set', fields: { command } }, at)], previousGateKeyCommand };
+  /** No gates on purpose: an empty list stored, which counts as set, unlike no pipeline at all. */
+  setNoGates(at: string): PipelineChanged {
+    const logged = [this.records.logger.log({ kind: 'pipeline-gates-none', fields: {} }, at)];
+    return this.changedPipelineOf((pipeline) => {
+      pipeline.gates.length = 0;
+    }, logged);
   }
 
-  /** `null` removes the key, so a gate writes only its worktree, its admin folder and temp again. */
-  setGateCachePaths(paths: readonly string[] | null, at: string): GateCachePathsSet {
-    const { progress, logger }   = this.records;
-    const previousGateCachePaths = progress.gateCachePaths ?? null;
-    if (paths === null) delete progress.gateCachePaths;
-    else progress.gateCachePaths = [...paths];
-    return { logged: [logger.log({ kind: 'gate-cache-paths-set', fields: { paths: paths ?? [] } }, at)], previousGateCachePaths };
+  removeGate(name: string, at: string): PipelineChanged {
+    const gateNames = this.records.pipeline?.gates.map((gate) => gate.name) ?? [];
+    if (!gateNames.includes(name)) throw new BoardRefusal({ reason: 'unknown-gate', gateName: name, gateNames });
+    const logged = [this.records.logger.log({ kind: 'pipeline-gate-removed', fields: { name } }, at)];
+    return this.changedPipelineOf((pipeline) => {
+      pipeline.gates.splice(pipeline.gates.findIndex((gate) => gate.name === name), 1);
+    }, logged);
+  }
+
+  /** At a gate run: the ticket's row records the hash of the pipeline it is judged by, or loses it when none is stored. */
+  recordPipelineJudgedBy(ticketId: string): void {
+    const row = this.records.linkedTaskRecordOf(this.records.requireTicket(ticketId));
+    if (row === undefined) return;
+    if (this.records.pipeline === null) delete row.pipelineHash;
+    else row.pipelineHash = PipelineUtil.pipelineHashOf(this.records.pipeline);
   }
 
   recordWorktreeRepaired(ticketId: string, fields: LogRecordFieldsOf<'worktree-repaired'>, at: string): Logged {
@@ -116,14 +106,6 @@ export class TrackerChanges {
   /** The gate ran outside the hold, so only its outcome is recorded here. */
   recordGateRan(fields: LogRecordFieldsOf<'gate-ran'>, at: string): Logged {
     return { logged: [this.records.logger.log({ kind: 'gate-ran', fields: { tree: fields.tree, outcome: fields.outcome, cached: fields.cached } }, at)] };
-  }
-
-  private ticketsInFlightWithTheirRows(): { ticket: Readonly<Ticket>; row: Task }[] {
-    return this.records.ticketRecords.flatMap((ticket) => {
-      if (ticket.frontmatter.status !== 'in-progress' && ticket.frontmatter.status !== 'in-review') return [];
-      const row = this.records.linkedTaskRecordOf(ticket);
-      return row === undefined ? [] : [{ ticket, row }];
-    });
   }
 
   recordNote(text: string, at: string): Logged {

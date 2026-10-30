@@ -5,9 +5,10 @@
 
 export const OPTION_NAMES_WITH_VALUES = new Set<string>([
   'project',
-  'definition-files',
-  'key-command',
-  'cache-paths',
+  'fix',
+  'in',
+  'defined-by',
+  'writes',
   'root',
   'owner',
   'note',

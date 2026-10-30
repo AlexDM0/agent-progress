@@ -12,7 +12,7 @@ import {
   expect,
   test
 }                                    from 'bun:test';
-import { boardFixture, ticketFixture } from '../../testing/BoardFixtures.ts';
+import { ticketFixture }   from '../../testing/BoardFixtures.ts';
 import {
   addWorktree,
   commitFile,
@@ -112,16 +112,13 @@ describeWhenGitIsPresent('landing a gated commit', () => {
     expect(tipOf('main')).toBe(mainTip);
   });
 
-  test('the ticket-level refusals hold the ticket: a stamp that differs and an Acceptance not accounted for', () => {
+  test('the ticket-level refusals hold the ticket: an Acceptance not accounted for', () => {
     const unnumbered = ticketFixture({ id: '001' });
     const accounted  = { ...ticketFixture({ id: '002' }), body: '## Acceptance\nA1. Example.\n\n## Review\nA1 holds — probe.\n' };
-    const { board }  = boardFixture({ tickets: [unnumbered, accounted] });
 
-    expect(Landing.ticketRefusalOf(board, [accounted])).toBeNull();
-    expect(Landing.ticketRefusalOf(board, [accounted, unnumbered])).toEqual({ verdict: 'refused', reason: 'acceptance-unnumbered', facts: { ticketId: '001' } });
-    board.setCheckCommand('bun run verify', false, '2026-10-28T10:00:00+01:00');
-    expect(Landing.ticketRefusalOf(board, [accounted])).toEqual({ verdict: 'refused', reason: 'check-command-differs-from-start', facts: { ticketId: '002' } });
-    for (const reason of ['check-command-differs-from-start', 'acceptance-unnumbered', 'acceptance-unaccounted', 'acceptance-waived'] as const) {
+    expect(Landing.ticketRefusalOf([accounted])).toBeNull();
+    expect(Landing.ticketRefusalOf([accounted, unnumbered])).toEqual({ verdict: 'refused', reason: 'acceptance-unnumbered', facts: { ticketId: '001' } });
+    for (const reason of ['acceptance-unnumbered', 'acceptance-unaccounted', 'acceptance-waived'] as const) {
       expect(LANDING_OUTCOME_OF_REFUSAL[reason]).toBe('hold-ticket');
     }
   });

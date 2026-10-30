@@ -34,13 +34,13 @@ with `git rev-parse --git-common-dir`, so every worktree of a repository shares 
 chart.
 
 **Locking.** Every mutating command (`init`, `task`, `ticket`, `epic`, `log`, `concurrency`,
-`checks`, `range`, `clear`) takes the tracker's
+`gate`, `range`, `clear`) takes the tracker's
 lock, reads, changes, writes `progress.json` atomically, writes any ticket file after it, then `log.jsonl` when it
 logged something, and regenerates `progress.html` from disk, then its `progress.stamp.js` — all before releasing
 the lock, so the page never describes a state the store did not hold, a ticket file is never ahead of the progress
 file, and a log line never describes a change that was not stored.
 `render` and `open` take the lock only to render. `status`, `ticket list`, `ticket show`, `epic list`, `epic show`,
-`concurrency` and `checks` without an argument, `usage` and `review-stats` take none: every file
+`concurrency` without an argument, `gate list`, `usage` and `review-stats` take none: every file
 they read is written atomically. `update`, and `init` on an existing tracker, never touch the tracker's
 own files and take no lock.
 
@@ -369,19 +369,21 @@ open and nobody holds the claim. `status --json`, both documents, carries `draft
 by id, `claimOwner` null while unclaimed, `questions` the stored question tree, an empty list when
 there is none. The page's `boardFacts.drafts` carries the same list from the same Board query.
 
-### Concurrency and checks
+### Concurrency and gates
 
 The limits and states here survive a compaction of the orchestrator's context, because they are
-stored in the tracker.
+stored in the tracker. The runner gates a tree with the checks line, the stored gates joined in order (`true` for
+none on purpose), and prepares a worktree with the install line, the prepare steps joined in order.
 
 | command | what it does |
 |---|---|
 | `concurrency [<n>] [--json]` | Print how many agents may be in flight at once, or store a new limit for every worktree: a whole number from 1 to 10. A higher one is refused at exit 1 with nothing written, and one an older tracker stored above 10 reads as 10. A tracker that never set one reads 2. A limit below the agents already in flight is accepted and simply leaves no free slot. A slot is an agent: the in-progress rows one claim started count once, and every other in-progress row, such as a review bar, counts on its own. `--json` prints `{ limit, agentsInFlight, freeSlots }`, after a change as well. |
-| `checks --install "<line>" [--json]` | Store the install line that prepares a fresh worktree before a gate, as `installCommand` in `progress.json`, written only once set, with one log line (`Install command set to <line>`, kind `install-command-set`). It is stored untried, and is part of a gate's cache key beside the tree and the check command. It goes alone: beside a check command, `--clear` or `--restamp`, or blank, it is refused at exit 1 with nothing written. `--json` prints `{ installCommand, previousInstallCommand }`. |
-| `checks --definition-files ("<pattern> <pattern>…" \| --clear) [--json]` | Store the files the check line resolves through, as `checksDefinitionFiles` in `progress.json`, written only once set, with one log line (`Checks definition files set to <patterns>`, `Checks definition files cleared`, kind `checks-definition-files-set`). The patterns are git pathspec-style globs, separated by spaces and quoted as one argument: `*` and `?` stay inside one folder, `**` crosses folders, a pattern without an inner `/` matches its name at any depth (`package.json` matches `packages/a/package.json`), one with an inner `/` is anchored at the repository root, and a trailing `/` takes a folder's whole content (`.githooks/`). The runner's check V11 refuses a job (`checks-definition-changed`) when a commit in its range changes a matching path its ticket body does not name. With no list stored V11 checks no definition files and refuses nothing. `--clear` removes the key. It goes alone: beside a check command, `--install` or `--restamp`, blank, or beside both patterns and `--clear`, it is refused at exit 1 with nothing written. `--json` prints `{ checksDefinitionFiles, previousChecksDefinitionFiles }`, `null` when none. |
-| `checks --key-command ("<line>" \| --clear) [--json]` | Store a shell line whose standard output joins a gate's cache key, as `gateKeyCommand` in `progress.json`, written only once set, with one log line (`Gate key command set to <line>`, `Gate key command cleared`, kind `gate-key-command-set`). It names what else invalidates a cached pass, such as the toolchain: `bun --version`, `python --version && uv --version`. It is stored untried. Before each gate cache lookup the runner runs it as it runs the gate — in the gate's sandboxed process host with the gate's profile, on the gated tree, never in the runner's own process; a merged tree's gate runs it beside that gate — and hashes its standard output, trailing newlines dropped, into the key with the tree, the check command and the install line. One that exits non-zero, or cannot run, caches nothing: the gate records `cannot-run` and opens `gate-cannot-run`. With none stored the key is exactly the tree, the check command and the install line, so no cached pass changes meaning. `--clear` removes the key. It goes alone: beside a check command, `--install`, `--definition-files` or `--restamp`, blank, or beside both a line and `--clear`, it is refused at exit 1 with nothing written. `--json` prints `{ gateKeyCommand, previousGateKeyCommand }`, `null` when none. |
-| `checks --cache-paths ("<path> <path>…" \| --clear) [--json]` | Store the folders a gate and an install line may write besides the worktree, its git admin folder and temp, as `gateCachePaths` in `progress.json`, written only once set, with one log line (`Gate cache paths set to <paths>`, `Gate cache paths cleared`, kind `gate-cache-paths-set`). Each path is absolute or home-relative (`~/.bun/install/cache`), separated by spaces and quoted as one argument. With none stored a gate writes only its worktree, its admin folder and temp. A path that is, sits in or holds a `bin` folder, or is, sits in or holds a folder on the runner's `PATH`, is refused at exit 1 with nothing written (`~/.bun` and `~/.bun/bin` are, `~/.bun/install/cache` is not); one that became so after it was stored is left out of the gate's profile. Whatever is stored, the `bin` beside each of a cache path's ancestors is not writable to a gate; a folder inside a cache path is, a `bin` included. The stored lines also decide what a builder or reviewer may run unasked: the first word of each command in the checks line and the install line (split outside quotes on `&&`, `\|\|`, `;`, `\|` and parentheses, past a leading `NAME=value`), beside the git verbs it reads and commits with; no toolchain is allowed otherwise. `--clear` removes the key. It goes alone: beside a check command, `--install`, `--definition-files`, `--key-command` or `--restamp`, blank, or beside both paths and `--clear`, it is refused at exit 1 with nothing written. `--json` prints `{ gateCachePaths, previousGateCachePaths }`, `null` when none. |
-| `checks ["<command>" \| --clear] [--restamp] [--json]` | Print the check command a landing runs on a branch's tip before it changes anything, or store one for every worktree with one log line (`Check command set to <command>`, `Check command cleared`): the repository's full check line, quoted as one argument. It lives in the tracker, never in the branch being released, and runs through the user's shell — `$SHELL`, else `/bin/sh` — in the branch's worktree. A new line is first run the same way in the main checkout, outside the lock: when it exits non-zero, nothing is stored or logged and it is refused at exit 1 with its last 20 lines, so a typo never stalls a landing. `--clear` removes the key; a landing refuses a tracker that never set one (`checks-not-set`), and the read writes nothing. Every move of a ticket into in-progress stamps the stored line on its row as `checkCommand`, or removes the stamp when none is stored; so setting or clearing it while a ticket whose stamp would then differ is in progress or in review is refused at exit 1 (naming those tickets) unless `--restamp` is given, which stamps every in-progress and in-review ticket's row with the new line in the same write and logs a `ticket-check-command-restamped` line for each. A blank command, a command beside `--clear`, `--restamp` with neither, or `--clear` with none stored and no `--restamp` is refused at exit 1 with nothing written. Only the orchestrator's session changes it. `--json` prints `{ checkCommand }`, `null` when none is stored, and a change adds `previousCheckCommand` and `restampedTicketIds`. |
+| `gate list [--json]` | Print the board's gate pipeline, stored in `.agent-progress/pipeline.json` beside `progress.json`, never tracked and never inside a branch. Read-only, no lock. `--json` prints `{ pipelineIsSet, pipelineHash, prepare, gates }`, with `review`, `constitution` and `agents` when stored; with no pipeline `pipelineIsSet` is `false`, `pipelineHash` `null` and both lists empty. A malformed file is refused at exit 1 with its reason. |
+| `gate prepare <name> [--json] -- <command>` | Set the prepare step `<name>`, which prepares a fresh worktree before a gate, with one log line (`Prepare step <name> set to <command>`, kind `pipeline-prepare-step-set`); a step of the same name is replaced where it stands. The steps run in order, and their lines are part of a gate's cache key. |
+| `gate add <name> [--fix "<command>"] [--in <folder>] [--defined-by <pattern>]… [--network <domain>]… [--writes <path>]… [--overseer-only] [--json] -- <command>` | Add the gate `<name>`, run after the others, or replace a gate of the same name where it stands, with one log line (`Gate <name> set to <command>`, kind `pipeline-gate-added`). The gates run in order through the user's shell in the worktree, `--in` a folder of it; their lines are part of a gate's cache key, so a changed gate runs again. `--defined-by` names the files that define the gate, as git pathspec-style globs: `*` and `?` stay inside one folder, `**` crosses folders, a pattern without an inner `/` matches its name at any depth, one with an inner `/` is anchored at the repository root, and a trailing `/` takes a folder's whole content; the runner's check V11 refuses a job (`checks-definition-changed`) when a commit in its range changes a matching path its ticket body does not name. `--writes` names a folder a gate and a prepare step may write besides the worktree, its git admin folder and temp, absolute or `~/`; whatever is stored, the `bin` beside each of its ancestors is not writable. A builder or reviewer may run unasked the first word of each command in the gate and prepare lines (split outside quotes on `&&`, `\|\|`, `;`, `\|` and parentheses, past a leading `NAME=value`), beside the git verbs it reads and commits with. `--fix`, `--network` and `--overseer-only` are stored for the gate runs that act on them. |
+| `gate none [--json]` | Store an empty gate list on purpose, with one log line (`No gates, on purpose`, kind `pipeline-gates-none`). Unlike no `pipeline.json` at all, which opens the `checks-not-set` decision and holds new work, it counts as set, and a landing runs no gate. |
+| `gate remove <name> [--json]` | Remove the gate `<name>`, with one log line (`Gate <name> removed`, kind `pipeline-gate-removed`); an unknown name is refused at exit 1 with nothing written (`unknown-gate`). |
+| | Every `gate` write takes the lock, writes `pipeline.json` atomically after `progress.json`, is accepted with tickets in flight and refuses a malformed `pipeline.json` at exit 1 rather than overwrite it. A ticket's row records the content hash of the pipeline it was gated by (`pipelineHash`) at its next gate run, which reads the pipeline afresh. `--json` prints `{ pipeline, pipelineHash }`. |
 
 **A slot is an agent.** A claim of a bundle writes the same `agent` key on each of its rows, the
 claimed ids joined (`"003,004,005"`). The agents in flight are the `in-progress` rows grouped by
@@ -469,7 +471,7 @@ the ticket `in-review` and ends the job `built`; the policy then launches the re
 | the call budget is reached | the wind-down message is sent once |
 | the budget plus `WIND_DOWN_GRACE_CALLS` (10) is reached | incident `out-of-calls`; the job is `stopping`, then ends `stopped` |
 | the checks process exits 126 or 127, or is killed by a signal | incident `gate-cannot-run`; the job ends `stopped` |
-| no checks line is stored | the `checks-not-set` decision; nothing launches |
+| no `pipeline.json` is stored, or it is malformed | the `checks-not-set` decision; nothing launches (`gate none` sets an empty pipeline on purpose) |
 | a running build or review's event log stands still for `QUIET_JOB_SWEEPS` (6) sweeps | incident `quiet-job`; its default opens the `quiet-job` decision |
 
 A ticket an open incident names launches no new job until the incident is settled. An incident's default applies when
@@ -815,11 +817,6 @@ wrote them and are displayed as written, never re-parsed into a viewer's zone.
   "nextTaskId": 18,                              // never wound back, so an id is never reused
   "concurrencyLimit": 2,                         // optional: absent reads 2, above 10 reads 10
   "dispatcherState": "running",                  // optional: running|finished|stopped, absent or finished reads stopped
-  "checkCommand": "bun run typecheck && bun test", // optional: the shell line release runs; absent refuses every release
-  "installCommand": "bun install --frozen-lockfile", // optional: the line that prepares a fresh worktree before a gate
-  "checksDefinitionFiles": ["package.json", ".githooks/"], // optional: the patterns V11 holds a job to; absent checks none
-  "gateKeyCommand": "bun --version",             // optional: the line whose output joins a gate's cache key; absent keys none
-  "gateCachePaths": ["~/.bun/install/cache"],    // optional: the folders a gate may write besides worktree and temp; absent allows none
   "nextDraftId": 3,                              // optional: the number the next draft takes, written by the first draft open, never wound back
   "nextJobId": 5,                                // optional: the number the next job takes (J5), written by the first launch, never wound back
   "jobs": [                                      // optional: the unsettled jobs in launch order, written by the first launch
@@ -905,7 +902,7 @@ wrote them and are displayed as written, never re-parsed into a viewer's zone.
       "tokens": null,
       "reviewOf": "003",                         // optional: the ticket this row reviews
       "reviewBarRound": 1,                       // optional: which review of that ticket this bar is, from 1
-      "checkCommand": "bun test"                 // optional: the stored check command when the row's ticket last moved into in-progress, or was restamped
+      "pipelineHash": "0f871814e52ef878"         // optional: the content hash of the pipeline the row's ticket was last gated by
     }
   ]
 }
@@ -918,12 +915,21 @@ does not know survive a read and a write, at the top level and on a row, in the 
 ticket's unknown frontmatter lines do.
 
 A present `concurrencyLimit` that is not a whole number of at least 1, a `dispatcherState` outside
-the three, a `checkCommand` that is not text or is blank, or a
+the three, or a
 `nextDraftId` that is not a whole number of at least 1 makes the file unreadable (exit 2), and so does a
 present optional row key of the wrong shape: `reviewRound` below 2, `reviewBarRound` below 1, a row
-`checkCommand` that is not text or is blank, or a
+`pipelineHash` that is not text, or a
 `history` that is not a list of known statuses with their stamps, or a `mergeQueued` that is not `true`. A task is
 linked to at most one ticket. Task ids are never reused, not even after `task remove` or `clear`.
+
+A file holding `checkCommand`, `installCommand`, `checksDefinitionFiles`, `gateKeyCommand` or `gateCachePaths`, or a
+row holding `checkCommand`, which the retired `checks` verb wrote, is an older file: its reason names the key and ends
+in the advice to run `agent-progress update` with a release that still reads it. The gate pipeline lives in
+`pipeline.json`: `prepare` (steps of `name` and `run`), `gates` (in run order, each `name` and `run`, with optional
+`fix`, `in`, `definedBy`, `network`, `writes` and `overseerOnly: true`), and optionally `review` (`name`, `model`,
+`effort`), `constitution` (a list of files) and `agents` (a list per role: `builder`, `reviewer`, `merger`,
+`productOwner`, `onboarder`, `assistant`). An unknown key, a step or gate without `name` or `run`, or a name given
+twice makes it malformed: the board reads it as no pipeline, `gate list` and every `gate` write refuse it at exit 1.
 
 `jobs`, `nextJobId` and a row's `mergeQueued` are each written only once set, so a file without them stays
 byte-identical; keys the tool does not know on a job, its `eventCursor` and its `slot` survive in the file's order. A
@@ -985,18 +991,21 @@ record as a sentence; a note's sentence is its text.
 | `ticket-introduced-by-set` | `ticketId` | `introducedBy`: the cause's ticket id, absent when it was cleared |
 | `ticket-epics-set` | `ticketId` | `epics`: epic keys |
 | `ticket-release-marked` | `ticketId` | `group` |
-| `ticket-check-command-restamped` | `ticketId` | `command` (the line stamped on its row, or `null`), logged per ticket by `checks --restamp` |
+| `ticket-check-command-restamped` | `ticketId` | `command` (the line stamped on its row, or `null`); retired: still read, never logged |
 | `epic-added`, `epic-edited` | `epicKey` | `title` |
 | `epic-removed` | `epicKey` | none |
 | `review-bar-started`, `review-bar-closed` | `taskId`, `ticketId` | `name` |
 | `review-recorded` | `taskId`, `ticketId` | `round` (the bar's, from 1), `verdict`, `reviewStartCommit`, `fixReworkedCodeLines`, `rebaseReworkedCodeLines`, `totalReworkedCodeLines`, `builderChangedFiles`, `builderInsertions`, `builderDeletions`, `claims` and `findings` as the reviewer's findings file holds them, logged by the lifecycle service as it records a review's outcome |
 | `chart-range-set` | — | `view`, shaped as `progress.json`'s |
 | `concurrency-limit-set` | — | `limit` |
-| `check-command-set` | — | `command` (the shell line, or `null` when cleared) |
-| `install-command-set` | — | `command` (the install line) |
-| `checks-definition-files-set` | — | `patterns` (the stored patterns, empty when cleared) |
-| `gate-key-command-set` | — | `command` (the key command, or `null` when cleared) |
-| `gate-cache-paths-set` | — | `paths` (the stored cache paths, empty when cleared) |
+| `pipeline-prepare-step-set`, `pipeline-gate-added` | — | `name`, `run` (the step's or gate's command) |
+| `pipeline-gates-none` | — | none |
+| `pipeline-gate-removed` | — | `name` |
+| `check-command-set` | — | `command` (the shell line, or `null` when cleared); retired: still read, never logged |
+| `install-command-set` | — | `command` (the install line); retired: still read, never logged |
+| `checks-definition-files-set` | — | `patterns` (empty when cleared); retired: still read, never logged |
+| `gate-key-command-set` | — | `command` (or `null` when cleared); retired: still read, never logged |
+| `gate-cache-paths-set` | — | `paths` (empty when cleared); retired: still read, never logged |
 | `gate-ran` | — | `tree` (the gated tree's object id), `outcome` (`passed`, `failed`, `cannot-run`), `cached` (true for a cache hit, which ran nothing) |
 | `dispatcher-set` | — | `state`, `runId` (a run id or `null`) |
 | `tracker-cleared` | — | none |

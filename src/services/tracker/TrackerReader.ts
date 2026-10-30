@@ -2,6 +2,7 @@
 import type { StoredLog }                                  from '../../adapters/log/@types/StoredLog.ts';
 import { LogFileIngestion }                                from '../../adapters/log/LogFileIngestion.ts';
 import { LogRecordMappingUtil }                            from '../../adapters/log/utils/LogRecordMappingUtil.ts';
+import { PipelineFile, type PipelineReading }              from '../../adapters/pipeline/PipelineFile.ts';
 import { ProgressFileIngestion, type ProgressFileReading } from '../../adapters/progress/ProgressFileIngestion.ts';
 import type { TrackerProgress }                            from '../../lib/tracker-model/@types/TrackerProgress.ts';
 import type { UnreadableTracker }                          from '../../shared/@types/UnreadableTracker.ts';
@@ -12,11 +13,13 @@ import { listTickets, type TicketListing }                 from './TicketStore.t
 import type { Workspace }                                  from './Workspace.ts';
 
 export interface TrackerContents {
-  progress:     TrackerProgress;
-  storedLog:    StoredLog;
-  listing:      TicketListing;
-  epicListing:  EpicListing;
-  draftListing: DraftListing;
+  progress:        TrackerProgress;
+  /** A malformed pipeline leaves the rest readable: the board reads it as no pipeline, and the `gate` verbs refuse to write over it. */
+  pipelineReading: PipelineReading;
+  storedLog:       StoredLog;
+  listing:         TicketListing;
+  epicListing:     EpicListing;
+  draftListing:    DraftListing;
 }
 
 export type TrackerReading = { verdict: 'readable'; contents: TrackerContents } | UnreadableTracker;
@@ -53,11 +56,12 @@ export function readTracker(workspace: Workspace): TrackerReading {
   return {
     verdict:  'readable',
     contents: {
-      progress:     progressReading.progress,
-      storedLog:    { records: storedLog.records },
-      listing:      listTickets(workspace),
-      epicListing:  listEpics(workspace),
-      draftListing: listDrafts(workspace),
+      progress:        progressReading.progress,
+      pipelineReading: PipelineFile.read(workspace.pipelineFilePath),
+      storedLog:       { records: storedLog.records },
+      listing:         listTickets(workspace),
+      epicListing:     listEpics(workspace),
+      draftListing:    listDrafts(workspace),
     },
   };
 }

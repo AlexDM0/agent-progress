@@ -20,7 +20,6 @@ import type { HostLaunch }                             from '../../src/lib/agent
 import type { HostRecord }                             from '../../src/lib/agent-host/HostRecord.ts';
 import type { Job, JobState }                          from '../../src/lib/tracker-model/@types/Job.ts';
 import type { Board }                                  from '../../src/lib/tracker-model/Board.ts';
-import { GateRun }                                     from '../../src/services/lifecycle/GateRun.ts';
 import { createRenderState }                           from '../../src/services/render/RenderState.ts';
 import { createDrivePass, type DrivePass }             from '../../src/services/runner/DrivePass.ts';
 import { HOST_ENTRY_PATH, HostBundle }                 from '../../src/services/runner/HostBundle.ts';
@@ -228,14 +227,6 @@ function buildingSession(commitMessage = 'Build the example', report = builderRe
   ];
 }
 
-/** The key output of every pass the folder cache holds; an unsandboxed runner caches in memory, so it holds none. */
-function cachedKeyOutputs(): unknown[] {
-  const gatesFolder = join(requireWorkspace(repositoryDirectory).trackerDirectory, 'gates');
-  if (!existsSync(gatesFolder)) return [];
-  const passes = readdirSync(gatesFolder).map((fileName) => JSON.parse(readFileSync(join(gatesFolder, fileName), 'utf8')) as Record<string, unknown>);
-  return passes.map((pass) => pass['keyOutput']);
-}
-
 function hostLaunchIn(hostFolder: string): HostLaunch {
   return JSON.parse(readFileSync(hostFilesOf(hostFolder, 1).launchPath, 'utf8')) as HostLaunch;
 }
@@ -278,8 +269,8 @@ afterEach(() => {
 
 describe('a build job end to end', () => {
   test('prepares, installs, launches, verifies, gates, writes the Handoff, finishes the ticket and gets a review job launched', async () => {
-    await run(['checks', 'true']);
-    await run(['checks', '--install', 'true']);
+    await run(['gate', 'add', 'checks', '--', 'true']);
+    await run(['gate', 'prepare', 'install', '--', 'true']);
     const drivePass = await drivePassPlaying(buildingSession());
     await passUntil(drivePass, () => storedProgressOf(repositoryDirectory).jobs?.some((job) => job.kind === 'review') === true, 'the review launch');
 
@@ -307,34 +298,23 @@ describe('a build job end to end', () => {
     expect(existsSync(gatesFolder) && readdirSync(gatesFolder).length === 1).toBe(sandboxApplies);
   }, BUILD_TEST_TIMEOUT_MILLISECONDS);
 
-  test('a stored key command runs first in a process host of its own under the gate\'s sandbox profile, and its output keys the pass', async () => {
-    await run(['checks', 'true']);
-    await run(['checks', '--key-command', 'echo example-toolchain 1.0']);
+  test('a changed pipeline is gated without a restart, and the row records the hash of the pipeline it was judged by', async () => {
+    await run(['gate', 'add', 'checks', '--', 'true']);
+    await run(['gate', 'add', 'types', '--', 'true']);
     const drivePass = await drivePassPlaying(buildingSession());
     await passUntil(drivePass, () => buildJobEnding() !== undefined, 'the build job ending');
 
     expect(buildJobEnding()).toMatchObject({ outcome: 'built' });
-    const jobFolder = jobFolderOf(firstBuildJobId());
-    const keyLaunch = hostLaunchIn(join(jobFolder, 'gate-key'));
-    const gateLaunch = hostLaunchIn(join(jobFolder, 'gate'));
-    expect(keyLaunch.kind).toBe('process');
-    expect(keyLaunch.workingDirectory).toBe(gateLaunch.workingDirectory);
-    expect(keyLaunch.environment).toEqual(gateLaunch.environment);
-    const gateSandboxPrefix = gateLaunch.argv.slice(0, -GateRun.checksLineArgvOf('').length)
-      .map((part) => (part === join(jobFolder, 'gate', 'process-sandbox.sb') ? join(jobFolder, 'gate-key', 'process-sandbox.sb') : part));
-    expect(keyLaunch.argv.slice(0, -GateRun.keyCommandArgvOf('').length)).toEqual(gateSandboxPrefix);
-    expect(keyLaunch.argv.slice(-GateRun.keyCommandArgvOf('').length)).toEqual(GateRun.keyCommandArgvOf('echo example-toolchain 1.0'));
-    expect(keyLaunch.argv[0] === SANDBOX_EXEC_PATH).toBe(createProcessHostSandbox().isUsable());
-    expect(readFileSync(join(jobFolder, 'gate-key', 'process-sandbox.sb'), 'utf8')).toBe(readFileSync(join(jobFolder, 'gate', 'process-sandbox.sb'), 'utf8'));
-
-    expect(cachedKeyOutputs()).toEqual(createProcessHostSandbox().isUsable() ? ['example-toolchain 1.0'] : []);
+    const listed = JSON.parse((await run(['gate', 'list', '--json'])).outputText()) as { pipelineHash: string };
+    const progress = JSON.parse(readFileSync(requireWorkspace(repositoryDirectory).progressFilePath, 'utf8')) as { tasks: { ticket: string | null; pipelineHash?: string }[] };
+    expect(progress.tasks.find((task) => task.ticket === '001')?.pipelineHash).toBe(listed.pipelineHash);
   }, BUILD_TEST_TIMEOUT_MILLISECONDS);
 });
 
 describe('unforced wakes', () => {
   // Steps a pass makes possible by itself change nothing a later observation sees, so only the pass itself can carry them on.
   test('with no install line and the orchestrator quiet, unforced wakes carry a readied ticket\'s job from launching to running', async () => {
-    await run(['checks', 'true']);
+    await run(['gate', 'add', 'checks', '--', 'true']);
     await run(['ticket', 'hold', '001']);
     const drivePass = await drivePassPlaying([{ kind: 'print', line: fakeStartedLine('fake-session') }, { kind: 'await-line' }]);
     const orchestratorIsQuiet = (): boolean => storedProgressOf(repositoryDirectory).jobs?.some((job) => job.kind === 'orchestrator' && job.eventCursor.sequence > 0) === true;
@@ -351,8 +331,8 @@ describe('unforced wakes', () => {
 
 describe('operational failures', () => {
   test('an install line that fails opens setup-failed, and the ticket launches nothing while it is open', async () => {
-    await run(['checks', 'true']);
-    await run(['checks', '--install', 'false']);
+    await run(['gate', 'add', 'checks', '--', 'true']);
+    await run(['gate', 'prepare', 'install', '--', 'false']);
     const drivePass = await drivePassPlaying(buildingSession());
     await passUntil(drivePass, () => openIncidentKinds().includes('setup-failed'), 'the setup-failed incident');
     expect(buildJobEnding()).toMatchObject({ outcome: 'stopped', cause: 'setup-failed' });
@@ -361,7 +341,7 @@ describe('operational failures', () => {
   }, BUILD_TEST_TIMEOUT_MILLISECONDS);
 
   test('a worktree that cannot be created opens setup-failed', async () => {
-    await run(['checks', 'true']);
+    await run(['gate', 'add', 'checks', '--', 'true']);
     // The branch is checked out elsewhere already, so `git worktree add` refuses it.
     await Bun.$`git -C ${repositoryDirectory} branch ticket-001`.quiet();
     await Bun.$`git -C ${repositoryDirectory} worktree add -q ${join(repositoryDirectory, 'elsewhere')} ticket-001`.quiet();
@@ -373,26 +353,14 @@ describe('operational failures', () => {
   // Each line passes where `checks` tries it, in the main checkout, and cannot run only on the built tree.
   const cannotRunLines = [['exits 127', 'exit 127'], ['exits 126', 'exit 126'], ['is killed by a signal', 'kill -9 $$']];
   test.each(cannotRunLines)('a checks process that %s opens gate-cannot-run, never a failed pass', async (_name, cannotRun) => {
-    await run(['checks', `test ! -f built.txt || ${cannotRun}`]);
+    await run(['gate', 'add', 'checks', '--', `test ! -f built.txt || ${cannotRun}`]);
     const drivePass = await drivePassPlaying(buildingSession());
     await passUntil(drivePass, () => openIncidentKinds().includes('gate-cannot-run'), 'the gate-cannot-run incident');
     expect(buildJobEnding()).toMatchObject({ outcome: 'stopped', cause: 'gate-cannot-run' });
-  }, BUILD_TEST_TIMEOUT_MILLISECONDS);
-
-  test.each([['exits non-zero', 'exit 3'], ['exits 127', 'exit 127']])('a key command that %s opens gate-cannot-run, runs no gate and caches nothing', async (_name, failing) => {
-    await run(['checks', 'true']);
-    await run(['checks', '--key-command', `echo example-toolchain 1.0; ${failing}`]);
-    const drivePass = await drivePassPlaying(buildingSession());
-    await passUntil(drivePass, () => openIncidentKinds().includes('gate-cannot-run'), 'the gate-cannot-run incident');
-
-    expect(buildJobEnding()).toMatchObject({ outcome: 'stopped', cause: 'gate-cannot-run' });
-    expect(loggedEntries('gate-ran').map((entry) => entry.fields)).toEqual([expect.objectContaining({ outcome: 'cannot-run', cached: false })]);
-    expect(existsSync(join(jobFolderOf(firstBuildJobId()), 'gate'))).toBe(false);
-    expect(cachedKeyOutputs()).toEqual([]);
   }, BUILD_TEST_TIMEOUT_MILLISECONDS);
 
   test('a report saying blocked opens blocked', async () => {
-    await run(['checks', 'true']);
+    await run(['gate', 'add', 'checks', '--', 'true']);
     const drivePass = await drivePassPlaying(buildingSession('Build the example', builderReport({ outcome: 'blocked', blockedReason: 'The example service is down' })));
     await passUntil(drivePass, () => openIncidentKinds().includes('blocked'), 'the blocked incident');
     expect(buildJobEnding()).toMatchObject({ outcome: 'blocked' });
@@ -408,7 +376,7 @@ describe('operational failures', () => {
 
 describe('failed passes', () => {
   test('an attribution trailer fails the pass with cause attribution and shows the attribution-found notice', async () => {
-    await run(['checks', 'true']);
+    await run(['gate', 'add', 'checks', '--', 'true']);
     const drivePass = await drivePassPlaying(buildingSession('Build the example\n\nCo-Authored-By: Claude <noreply@example.com>'));
     await passUntil(drivePass, () => buildJobEnding() !== undefined, 'the build job ending');
     expect(buildJobEnding()).toMatchObject({ outcome: 'failed', cause: 'attribution' });
@@ -416,7 +384,7 @@ describe('failed passes', () => {
   }, BUILD_TEST_TIMEOUT_MILLISECONDS);
 
   test('a commit changing .claude/ fails the pass on V13, opens branch-touches-agent-config and launches no review while it is open', async () => {
-    await run(['checks', 'true']);
+    await run(['gate', 'add', 'checks', '--', 'true']);
     const drivePass = await drivePassPlaying([
       { kind: 'print', line: fakeStartedLine('fake-session') },
       {
@@ -437,14 +405,14 @@ describe('failed passes', () => {
   }, BUILD_TEST_TIMEOUT_MILLISECONDS);
 
   test('a session ending without a report ends failed with cause no-report', async () => {
-    await run(['checks', 'true']);
+    await run(['gate', 'add', 'checks', '--', 'true']);
     const drivePass = await drivePassPlaying([{ kind: 'print', line: fakeStartedLine('fake-session') }, { kind: 'exit', code: 0 }]);
     await passUntil(drivePass, () => buildJobEnding() !== undefined, 'the build job ending');
     expect(buildJobEnding()).toMatchObject({ outcome: 'failed', cause: 'no-report' });
   }, BUILD_TEST_TIMEOUT_MILLISECONDS);
 
   test('at the call budget the wind-down message is sent, and past the grace calls the job stops and out-of-calls opens', async () => {
-    await run(['checks', 'true']);
+    await run(['gate', 'add', 'checks', '--', 'true']);
     const turnLine = (index: number): FakeAgentStep => ({ kind: 'print', line: fakeAssistantTurnLine(`message-${index}`) });
     const turns = (from: number, count: number): FakeAgentStep[] => Array.from({ length: count }, (_unused, i) => turnLine(from + i));
     const budget = DISPATCH_PROTOCOL.BUILDER_API_CALL_BUDGET;

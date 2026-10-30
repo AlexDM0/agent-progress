@@ -28,10 +28,6 @@ export class DispatchQueries {
     return DISPATCHER_STATE_READ_FOR_STORED_STATE[this.records.progress.dispatcherState ?? DEFAULT_DISPATCHER_STATE];
   }
 
-  checkCommand(): string | undefined {
-    return this.records.progress.checkCommand;
-  }
-
   /** In the order to take them: by priority, then by readiness, then by id. */
   readyTickets(): readonly Readonly<Ticket>[] {
     const readyTicketIds = TicketDependencyUtil.readyTicketIdsOf(this.records.ticketRecords.map((ticket) => ticket.frontmatter), this.readinessPositionByTicketId());

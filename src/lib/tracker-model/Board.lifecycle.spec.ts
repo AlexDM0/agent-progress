@@ -10,6 +10,7 @@ import { describe, expect, test } from 'bun:test';
 import type { Decision }                  from './@types/Decision.ts';
 import type { LifecycleObservations }     from './@types/LifecycleStep.ts';
 import type { LogRecord }                 from './@types/LogRecord.ts';
+import type { Pipeline }                  from './@types/Pipeline.ts';
 import type { Ticket, TicketFrontmatter } from './@types/Ticket.ts';
 import type { TrackerProgress }           from './@types/TrackerProgress.ts';
 import { Board }                          from './Board.ts';
@@ -62,7 +63,7 @@ interface LifecycleBoard {
   records:  LogRecord[];
 }
 
-function lifecycleBoardOf(contents: { tickets: Ticket[]; progress?: Partial<TrackerProgress>; storedLogRecords?: LogRecord[] }): LifecycleBoard {
+function lifecycleBoardOf(contents: { tickets: Ticket[]; progress?: Partial<TrackerProgress>; storedLogRecords?: LogRecord[]; pipeline?: Pipeline | null }): LifecycleBoard {
   const records: LogRecord[] = [];
   const progress: TrackerProgress = {
     trackerId:        'example-tracker-id',
@@ -72,14 +73,18 @@ function lifecycleBoardOf(contents: { tickets: Ticket[]; progress?: Partial<Trac
     nextTaskId:       1,
     concurrencyLimit: 4,
     dispatcherState:  'running',
-    checkCommand:     'bun run verify',
     nextJobId:        901,
     jobs:             [{ ...LIVE_ORCHESTRATOR }],
     tasks:            [],
     ...contents.progress,
   };
   const board = new Board({
-    progress, tickets: contents.tickets, epics: [], logger: createLogger((record) => records.push(record)), storedLogRecords: contents.storedLogRecords ?? [],
+    progress,
+    tickets:          contents.tickets,
+    epics:            [],
+    logger:           createLogger((record) => records.push(record)),
+    storedLogRecords: contents.storedLogRecords ?? [],
+    pipeline:         contents.pipeline === undefined ? { prepare: [], gates: [{ name: 'verify', run: 'bun run verify' }] } : contents.pipeline,
   });
   return { board, progress, records };
 }
@@ -93,6 +98,31 @@ function questionOn(ticketId: string): Decision {
     id: 'E1', kind: 'agent-question', ticketIds: [ticketId], jobId: 'J5', askedBy: 'builder', requestId: 'R1', questions: WORDING.questions, context: '', openedAt: FIXTURE_AT,
   };
 }
+
+// Unset and empty differ: no pipeline means nobody chose the gates, an empty one was chosen on purpose.
+describe('no pipeline and no gates on purpose are told apart', () => {
+  test('with no pipeline the board opens checks-not-set and launches nothing', () => {
+    const { board } = lifecycleBoardOf({ tickets: [ticketWith('001')], pipeline: null });
+
+    advance(board);
+
+    expect(board.decisions().map((decision) => decision.kind)).toEqual(['checks-not-set']);
+    expect(board.jobs().map((job) => job.kind)).toEqual(['orchestrator']);
+  });
+
+  test('after gate none the board opens no checks-not-set, launches the ready ticket and logged the choice once', () => {
+    const { board, records } = lifecycleBoardOf({ tickets: [ticketWith('001')], pipeline: null });
+    board.setNoGates(FIXTURE_AT);
+
+    advance(board);
+
+    expect(board.decisions()).toEqual([]);
+    expect(board.jobs().map((job) => job.kind)).toEqual(['orchestrator', 'build']);
+    expect(records.filter((record) => record.kind === 'pipeline-gates-none')).toHaveLength(1);
+    expect(board.pipeline()).toEqual({ prepare: [], gates: [] });
+    expect(board.checksLine()).toBe('true');
+  });
+});
 
 describe('advancing the lifecycle applies what the policy derives', () => {
   test('a ready ticket is launched as a build job record on its target, every record stamped now', () => {

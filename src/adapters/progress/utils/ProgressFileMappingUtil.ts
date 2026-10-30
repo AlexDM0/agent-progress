@@ -41,11 +41,6 @@ const KNOWN_PROGRESS_KEYS = {
   nextTaskId:             true,
   concurrencyLimit:       true,
   dispatcherState:        true,
-  checkCommand:           true,
-  installCommand:         true,
-  checksDefinitionFiles:  true,
-  gateKeyCommand:         true,
-  gateCachePaths:         true,
   nextDraftId:            true,
   nextJobId:              true,
   jobs:                   true,
@@ -144,7 +139,7 @@ const KNOWN_TASK_KEYS = {
   agent:          true,
   reviewOf:       true,
   reviewBarRound: true,
-  checkCommand:   true,
+  pipelineHash:   true,
   mergeQueued:    true,
 } as const satisfies Record<keyof Task | keyof StoredTask, true>;
 
@@ -206,7 +201,7 @@ function taskOf(stored: StoredTask): Task {
     ...(stored.agent === undefined ? {} : { agent: stored.agent }),
     ...(stored.reviewOf === undefined ? {} : { reviewOf: stored.reviewOf }),
     ...(stored.reviewBarRound === undefined ? {} : { reviewBarRound: stored.reviewBarRound }),
-    ...(stored.checkCommand === undefined ? {} : { checkCommand: stored.checkCommand }),
+    ...(stored.pipelineHash === undefined ? {} : { pipelineHash: stored.pipelineHash }),
     ...(stored.mergeQueued === undefined ? {} : { mergeQueued: stored.mergeQueued }),
   });
 }
@@ -293,11 +288,6 @@ function progressOf(document: StoredProgressFile): TrackerProgress {
     nextTaskId: document.nextTaskId,
     ...(document.concurrencyLimit === undefined ? {} : { concurrencyLimit: document.concurrencyLimit }),
     ...(document.dispatcherState === undefined ? {} : { dispatcherState: document.dispatcherState }),
-    ...(document.checkCommand === undefined ? {} : { checkCommand: document.checkCommand }),
-    ...(document.installCommand === undefined ? {} : { installCommand: document.installCommand }),
-    ...(document.checksDefinitionFiles === undefined ? {} : { checksDefinitionFiles: [...document.checksDefinitionFiles] }),
-    ...(document.gateKeyCommand === undefined ? {} : { gateKeyCommand: document.gateKeyCommand }),
-    ...(document.gateCachePaths === undefined ? {} : { gateCachePaths: [...document.gateCachePaths] }),
     ...(document.nextDraftId === undefined ? {} : { nextDraftId: document.nextDraftId }),
     ...(document.nextJobId === undefined ? {} : { nextJobId: document.nextJobId }),
     ...(document.jobs === undefined ? {} : { jobs: document.jobs.map(jobOf) }),
@@ -331,7 +321,7 @@ function storedTaskOf(task: Task): StoredTask {
     ...(task.agent === undefined ? {} : { agent: task.agent }),
     ...(task.reviewOf === undefined ? {} : { reviewOf: task.reviewOf }),
     ...(task.reviewBarRound === undefined ? {} : { reviewBarRound: task.reviewBarRound }),
-    ...(task.checkCommand === undefined ? {} : { checkCommand: task.checkCommand }),
+    ...(task.pipelineHash === undefined ? {} : { pipelineHash: task.pipelineHash }),
     ...(task.mergeQueued === undefined ? {} : { mergeQueued: task.mergeQueued }),
   });
 }
@@ -419,11 +409,6 @@ function storedDocumentOf(progress: TrackerProgress): StoredProgressFile {
     nextTaskId: progress.nextTaskId,
     ...(progress.concurrencyLimit === undefined ? {} : { concurrencyLimit: progress.concurrencyLimit }),
     ...(progress.dispatcherState === undefined ? {} : { dispatcherState: progress.dispatcherState }),
-    ...(progress.checkCommand === undefined ? {} : { checkCommand: progress.checkCommand }),
-    ...(progress.installCommand === undefined ? {} : { installCommand: progress.installCommand }),
-    ...(progress.checksDefinitionFiles === undefined ? {} : { checksDefinitionFiles: [...progress.checksDefinitionFiles] }),
-    ...(progress.gateKeyCommand === undefined ? {} : { gateKeyCommand: progress.gateKeyCommand }),
-    ...(progress.gateCachePaths === undefined ? {} : { gateCachePaths: [...progress.gateCachePaths] }),
     ...(progress.nextDraftId === undefined ? {} : { nextDraftId: progress.nextDraftId }),
     ...(progress.nextJobId === undefined ? {} : { nextJobId: progress.nextJobId }),
     ...(progress.jobs === undefined ? {} : { jobs: progress.jobs.map(storedJobOf) }),

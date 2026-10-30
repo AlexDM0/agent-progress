@@ -31,7 +31,7 @@ export interface CommandContext {
   platform:                string;
   /** `node:os`'s `homedir()`, carried here so a spec can point the Claude Code transcripts at a scratch tree. */
   homeDirectory:           string;
-  /** The folders of this process's `PATH`, which `checks --cache-paths` refuses to let a gate write. */
+  /** The folders of this process's `PATH`, which a gate's `--writes` folder never makes writable. */
   executableSearchPath:    readonly string[];
   /** `temporaryDirectoriesOfThisMachine()`: a tracker under any of them is a scratch one the monitor registry leaves out. */
   temporaryDirectories:    readonly string[];

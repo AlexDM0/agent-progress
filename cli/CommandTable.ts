@@ -20,7 +20,6 @@ export const COMMAND_TABLE = {
   epic:           async () => (await import('./epics/EpicCommand.ts')).epicCommand,
   draft:          async () => (await import('./drafts/DraftCommand.ts')).draftCommand,
   concurrency:    async () => (await import('./dispatch/concurrency/ConcurrencyCommand.ts')).concurrencyCommand,
-  checks:         async () => (await import('./dispatch/checks/ChecksCommand.ts')).checksCommand,
   merges:         async () => (await import('./merges/MergesCommand.ts')).mergesCommand,
   merge:          async () => (await import('./merges/MergeCommand.ts')).mergeCommand,
   worktree:       async () => (await import('./worktrees/WorktreeCommand.ts')).worktreeCommand,

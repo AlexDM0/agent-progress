@@ -55,11 +55,10 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
   board.openDraft({ title: 'Example import', request: '', owner: 'opus' }, at);
   board.abandonDraft('D2', 'folded into D1', at);
   board.moveTicket('001', 'in-progress', { checksLegality: true }, at);
-  board.setCheckCommand('bun run example-checks', true, at);
-  board.setInstallCommand('bun install --frozen-lockfile', at);
-  board.setChecksDefinitionFiles(['pyproject.toml', 'noxfile.py'], at);
-  board.setGateKeyCommand('bun --version', at);
-  board.setGateCachePaths(['~/.bun/install/cache'], at);
+  board.setPrepareStep({ name: 'install', run: 'bun install --frozen-lockfile' }, at);
+  board.addGate({ name: 'checks', run: 'bun run example-checks' }, at);
+  board.removeGate('checks', at);
+  board.setNoGates(at);
   board.recordGateRan({ tree: '4b825dc642cb6eb9a060e54bf8d69288fbee4904', outcome: 'passed', cached: true }, at);
   board.editTicket('001', { body: { text: 'Example rewritten report.\n', appends: false }, allowsPastPending: true }, at);
   board.moveTicket('001', 'in-review', { checksLegality: true }, at);
