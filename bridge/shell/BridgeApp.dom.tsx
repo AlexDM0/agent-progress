@@ -192,6 +192,22 @@ describe('new code behind the same port', () => {
 });
 
 describe('the shell\'s routing', () => {
+  test('the questions and assistant tabs show their views, not the board counts', async () => {
+    window.location.hash = '#questions';
+    await renderedLive(fakeBridge());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByRole('heading', { name: 'Open questions (0)' })).not.toBeNull();
+    await act(async () => {
+      window.location.hash = '#assistant';
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+      await Promise.resolve();
+    });
+    expect(screen.getByRole('heading', { name: 'Open incidents (0)' })).not.toBeNull();
+    expect(document.querySelector('.bridge-empty')).toBeNull();
+  });
+
   test('the tickets tab shows the Tickets view, with the detail panel once a ticket is selected', async () => {
     window.location.hash = '#tickets/002';
     await renderedLive(fakeBridge(), { ...BOARD, ...exampleTicketsBoard({ tickets: [exampleTicketsTicket('002')] }) });
