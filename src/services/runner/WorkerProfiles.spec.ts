@@ -9,6 +9,7 @@
 import { isAbsolute }             from 'node:path';
 import { describe, expect, test } from 'bun:test';
 
+import type { Pipeline }                                        from '../../lib/tracker-model/@types/Pipeline.ts';
 import { PRODUCT_NAMES }                                        from '../../shared/constants/ProductNames.ts';
 import { type ProfiledRole, type SandboxFacts, WorkerProfiles } from './WorkerProfiles.ts';
 
@@ -30,8 +31,39 @@ const FACTS: SandboxFacts = {
 const THIS_REPOSITORY_TOOLCHAIN_LINES = ['bun run verify', 'bun install'];
 
 function profileOf(role: ProfiledRole, networkDomains: readonly string[] = [], facts: SandboxFacts = FACTS, toolchainLines = THIS_REPOSITORY_TOOLCHAIN_LINES) {
-  return WorkerProfiles.profileOf(role, facts, networkDomains, toolchainLines);
+  return WorkerProfiles.profileOf(role, facts, { networkDomains, writes: [], lines: toolchainLines });
 }
+
+describe('the pipeline\'s toolchain', () => {
+  const pipeline: Pipeline = {
+    prepare: [{ name: 'install', run: 'uv sync' }],
+    gates:   [
+      {
+        name: 'tests', run: 'uv run pytest', in: 'service', network: ['pypi.example.org'], writes: ['~/.cache/example-uv']
+      },
+      {
+        name: 'deploy-check', run: 'terraform plan', network: ['cloud.example.com'], writes: ['/example/terraform-cache'], overseerOnly: true
+      },
+    ],
+  };
+
+  test('gives a builder the network and writes of every gate but an overseerOnly one, its ticket\'s line added, and their executables', () => {
+    const toolchain = WorkerProfiles.workerToolchainOf(pipeline, ['docs.example.org']);
+    const profile   = WorkerProfiles.profileOf('builder', FACTS, toolchain);
+
+    expect(profile.bashNetworkDomains).toEqual(['docs.example.org', 'pypi.example.org']);
+    expect(profile.writableRoots).toEqual(['/home/alex-example/.cache/example-uv']);
+    expect(profile.allowedCommandPrefixes.slice(0, 1)).toEqual([['uv']]);
+    expect(profile.allowedCommandPrefixes.flat()).not.toContain('terraform');
+  });
+
+  test('gives a reviewer the same, and the product owner none of the gates\' writes', () => {
+    const toolchain = WorkerProfiles.workerToolchainOf(pipeline, []);
+
+    expect(WorkerProfiles.profileOf('reviewer', FACTS, toolchain).writableRoots).toEqual(['/home/alex-example/.cache/example-uv']);
+    expect(WorkerProfiles.profileOf('product-owner', FACTS, toolchain).writableRoots).toEqual([]);
+  });
+});
 
 describe('the allowed commands', () => {
   test('are the executables a uv board\'s checks and install lines invoke, never bun, then the git verbs', () => {

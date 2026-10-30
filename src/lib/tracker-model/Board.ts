@@ -322,6 +322,10 @@ export class Board {
     return { logged: [...ended.logged, ...opened.logged] };
   }
 
+  startOnboarder(at: string): JobChanged {
+    return this.jobControls.startOnboarder(at);
+  }
+
   launchJob(launch: JobLaunch, at: string): JobChanged {
     return this.jobRules.launchJob(launch, at);
   }
@@ -530,6 +534,7 @@ export class Board {
       concurrencyLimit:            this.concurrency().limit,
       dispatcherState:             this.dispatcherState(),
       pipelineIsSet:               this.records.pipeline !== null,
+      reviewIsSet:                 this.records.pipeline?.review !== undefined,
       observations,
     };
   }
@@ -551,6 +556,8 @@ export class Board {
         return this.launchJob({
           kind: 'orchestrator', role: 'orchestrator', ticketIds: [], parentJobId: null, attempt: 1, target: null
         }, at).logged;
+      case 'launch-onboarder':
+        return this.jobControls.startOnboarder(at).logged;
       case 'resume-job':
         return this.moveJob(step.jobId, 'running', at).logged;
       case 'replace-job':
@@ -561,6 +568,7 @@ export class Board {
         return this.jobControls.refreshIntake(step.jobId, at).logged;
       case 'park':
         return [
+          ...step.jobId === undefined ? [] : this.endJob(step.jobId, { outcome: 'failed', cause: step.cause }, at).logged,
           ...this.holdTicket(step.ticketId, `${PARKED_HOLD_PREFIX}${step.cause}`, at).logged,
           ...openDecision({ kind: 'parked', ticketIds: [step.ticketId], jobId: null }),
         ];
@@ -887,10 +895,6 @@ export class Board {
   /** The prepare steps joined in order; `null` with no pipeline or none to run. */
   installLine(): string | null {
     return this.records.pipeline === null ? null : PipelineUtil.installLineOf(this.records.pipeline);
-  }
-
-  checksDefinitionFiles(): readonly string[] {
-    return this.records.pipeline === null ? [] : PipelineUtil.definitionFilesOf(this.records.pipeline);
   }
 
   gateWritablePaths(): readonly string[] {

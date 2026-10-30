@@ -53,10 +53,6 @@ function installLineOf(pipeline: Readonly<Pipeline>): string | null {
   return pipeline.prepare.length === 0 ? null : joinedLineOf(pipeline.prepare.map((step) => step.run));
 }
 
-function definitionFilesOf(pipeline: Readonly<Pipeline>): string[] {
-  return [...new Set(pipeline.gates.flatMap((gate) => gate.definedBy ?? []))];
-}
-
 function writablePathsOf(pipeline: Readonly<Pipeline>): string[] {
   return [...new Set(pipeline.gates.flatMap((gate) => gate.writes ?? []))];
 }
@@ -65,6 +61,5 @@ export const PipelineUtil = Object.freeze({
   pipelineHashOf,
   checksLineOf,
   installLineOf,
-  definitionFilesOf,
   writablePathsOf,
 });

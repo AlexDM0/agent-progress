@@ -90,6 +90,7 @@ const ARGUMENTS_OF_KIND: { readonly [Kind in ControlCommandKind]: readonly strin
   'merge-review':              ['merge', 'review', 'J1', '--incident', 'I1'],
   'merge-land':                ['merge', 'land', 'J1', '--incident', 'I1'],
   'intake-start':              ['intake', '--', 'Alex Example asks for a basket.'],
+  'onboarder-advise':          ['advise'],
   'intake-close':              ['intake', 'close', '--set', '1'],
   'runner-pause':              ['run', 'pause'],
   'runner-resume':             ['run', 'resume'],
