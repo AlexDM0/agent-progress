@@ -1,11 +1,16 @@
 /**
  * A job's live facts as the Overseer's API shows them, read from its Watcher event logs through the adapter's mapper: API turns against
- * the budget, tokens so far, and tool calls, the job's own and each subagent's by `parentToolUseId`. The stamps are only recorded and
- * shown: no Overseer decision reads them.
+ * the budget, tokens so far, and tool calls, the job's own and each subagent's by `parentToolUseId`, a subagent the log lost rebuilt from
+ * the session's transcripts. The stamps are only recorded and shown: no Overseer decision reads them.
  */
+import { readFileSync } from 'node:fs';
+
 import type { EventLogEntry }     from '../../lib/agent-host/EventLog.ts';
+import { hostFilesOf }            from '../../lib/agent-host/HostFiles.ts';
 import type { AgentSessionEvent } from '../../lib/agent-launch/AgentSessionEvent.ts';
+import { JsonRecordUtil }         from '../../lib/json-record/JsonRecordUtil.ts';
 import type { Job }               from '../../lib/tracker-model/@types/Job.ts';
+import { ClaudeTranscripts }      from './ClaudeTranscripts.ts';
 import { HostFleet }              from './HostFleet.ts';
 import { JobLaunch }              from './JobLaunch.ts';
 import { LegacyHostReader }       from './LegacyHostReader.ts';
@@ -50,6 +55,12 @@ export interface JobLiveFacts {
 export interface StampedEvents {
   at:     string | null;
   events: readonly AgentSessionEvent[];
+}
+
+/** Where the job's session keeps its transcripts: the home folder from the command context, and the session id its adapter derived. */
+export interface JobSession {
+  homeDirectory: string;
+  sessionId:     string;
 }
 
 type JobLiveCounts = Omit<JobLiveFacts, 'jobId' | 'callBudget' | keyof WatcherFacts>;
@@ -136,12 +147,55 @@ function watcherFactsOf(trackerDirectory: string, job: Readonly<Job>): WatcherFa
   return { watcherProtocol: record?.protocolVersion ?? null, watchOnly: LegacyHostReader.attachmentOf(record) === 'legacy-host' };
 }
 
-function liveFactsOf(trackerDirectory: string, job: Readonly<Job>, eventsOf: (line: string) => readonly AgentSessionEvent[]): JobLiveFacts {
+/** Every instance's working directory, once each: a resumed session may have moved from its session folder into the ticket's worktree. */
+function workingDirectoriesOf(jobFolder: string, job: Readonly<Job>): Set<string> {
+  const workingDirectories = new Set<string>();
+  for (let instance = 1; instance <= job.hostInstance; instance += 1) {
+    try {
+      const workingDirectory = JsonRecordUtil.recordOf(JSON.parse(readFileSync(hostFilesOf(jobFolder, instance).launchPath, 'utf8')))?.['workingDirectory'];
+      if (typeof workingDirectory === 'string') workingDirectories.add(workingDirectory);
+    } catch {
+      // An instance whose launch file is gone or unreadable names no folder to look in.
+    }
+  }
+  return workingDirectories;
+}
+
+/** The event log's subagents stand; a subagent only the session's transcripts still hold is added, its tallies in the totals. */
+function withTranscriptSubagents(counts: JobLiveCounts, transcriptSubagents: readonly SubagentLiveFacts[]): JobLiveCounts {
+  if (transcriptSubagents.length === 0) return counts;
+  return {
+    ...counts,
+    tokens:                 transcriptSubagents.reduce((sum, subagent) => sum + subagent.tokens, counts.tokens),
+    subagents:              [...counts.subagents, ...transcriptSubagents],
+    toolCallsWithSubagents: transcriptSubagents.reduce((sum, subagent) => sum + subagent.toolCalls, counts.toolCallsWithSubagents),
+  };
+}
+
+function lostSubagentsOf(trackerDirectory: string, job: Readonly<Job>, session: JobSession, counts: JobLiveCounts): SubagentLiveFacts[] {
+  const tallied = new Set(counts.subagents.map((subagent) => subagent.parentToolUseId));
+  const lost: SubagentLiveFacts[] = [];
+  for (const workingDirectory of workingDirectoriesOf(HostFleet.jobFolderOf(trackerDirectory, job.id), job)) {
+    for (const subagent of ClaudeTranscripts.subagentFactsOf({ ...session, workingDirectory }, tallied)) {
+      tallied.add(subagent.parentToolUseId);
+      lost.push(subagent);
+    }
+  }
+  return lost;
+}
+
+function liveFactsOf(
+  trackerDirectory: string,
+  job: Readonly<Job>,
+  eventsOf: (line: string) => readonly AgentSessionEvent[],
+  session: JobSession,
+): JobLiveFacts {
   const stampedEvents = agentEntriesOf(trackerDirectory, job).map((entry) => ({ at: entry.at ?? null, events: eventsOf(entry.line) }));
+  const counts        = liveCountsOf(stampedEvents);
   return {
     jobId:      job.id,
     callBudget: BUDGETED_JOB_KINDS.includes(job.kind) ? JobLaunch.callBudgetOf(job) : null,
-    ...liveCountsOf(stampedEvents),
+    ...withTranscriptSubagents(counts, lostSubagentsOf(trackerDirectory, job, session, counts)),
     ...watcherFactsOf(trackerDirectory, job),
   };
 }

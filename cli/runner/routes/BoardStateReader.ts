@@ -76,7 +76,10 @@ export function readBoardState(source: BoardStateSource): { state: BoardState; p
     generatedAt:    context.now(),
     renderMarkdown: context.renderState.markdownRenderer.renderMarkdown,
     liveFactsOf:    (job) => ({
-      ...JobLiveFactsReader.liveFactsOf(workspace.trackerDirectory, job, (line) => context.agentAdapter.eventsOf(line)),
+      ...JobLiveFactsReader.liveFactsOf(workspace.trackerDirectory, job, (line) => context.agentAdapter.eventsOf(line), {
+        homeDirectory: context.homeDirectory,
+        sessionId:     context.agentAdapter.sessionIdOf(progress.trackerId, job.id),
+      }),
       silentSweeps: source.silentSweepsOf?.(job.id) ?? 0,
     }),
     notices:          source.notices(),
