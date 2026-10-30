@@ -2,7 +2,6 @@
  * `run` and its subcommands. Starting, restarting, pausing and resuming check the install version; `run status` and `run stop` do not,
  * so a runner whose install changed can still be inspected and stopped.
  */
-import { LogUtil }                                       from '../../src/adapters/utils/LogUtil.ts';
 import { readingBoardOf }                                from '../../src/lib/tracker-model/ReadingBoard.ts';
 import { ControlService }                                from '../../src/services/control/ControlService.ts';
 import { CodeVersion }                                   from '../../src/services/runner/CodeVersion.ts';
@@ -123,8 +122,8 @@ function pauseSubcommand(kind: 'runner-pause' | 'runner-resume'): RunSubcommand 
     await relayWhenUnderJob(context, command);
     requireCurrentInstall(context.currentDirectory);
     const { logged, previousState } = await openTrackerForWriting(commandArguments, context, (change) => ControlService.apply(command, change).result);
-    const dispatcherState = kind === 'runner-pause' ? 'stopped' : 'running';
-    OutputUtil.printEntity(commandArguments, context, { dispatcherState, previousState }, `${OutputUtil.loggedSentencesOf(logged)} (was ${previousState}).`);
+    const runnerState = kind === 'runner-pause' ? 'paused' : 'running';
+    OutputUtil.printEntity(commandArguments, context, { runnerState, previousState }, `${OutputUtil.loggedSentencesOf(logged)} (was ${previousState}).`);
   };
 }
 
@@ -133,7 +132,7 @@ async function printRunnerStatus(commandArguments: ArgumentParser, context: Comm
   commandArguments.rejectUnknownOptions(['json'], STATUS_USAGE);
   commandArguments.rejectExtraPositionals(1, STATUS_USAGE);
   const workspace       = requireWorkspace(context.currentDirectory);
-  const dispatcherState = readingBoardOf(requireProgressFile(workspace), [], []).dispatcherState();
+  const storedRunnerState = readingBoardOf(requireProgressFile(workspace), [], []).runnerState();
   const newest          = RunnerLease.newestLeaseOf(runnerFilesIn(workspace.trackerDirectory).runnerDirectory);
   const codeVersionOnDisk = CodeVersion.onDisk();
   const live            = newest.verdict === 'live' ? newest : null;
@@ -141,7 +140,7 @@ async function printRunnerStatus(commandArguments: ArgumentParser, context: Comm
   const state           = live === null ? 'down' : runnerState?.runtimeState ?? (await RunnerRemote.identityAnswers(live.record) ? 'serving' : 'starting');
   const entity = {
     state,
-    paused:              dispatcherState !== 'running',
+    paused:              storedRunnerState === 'paused',
     url:                 live?.record.url ?? null,
     lease:               live === null ? null : { generation: live.generation, ...live.record },
     codeVersionOnDisk,
@@ -149,7 +148,7 @@ async function printRunnerStatus(commandArguments: ArgumentParser, context: Comm
     notices:             runnerState?.notices ?? [],
     handoverWarning:     runnerState?.handoverWarning ?? null,
   };
-  const pausedText = entity.paused ? `paused (${LogUtil.dispatcherStateTextOf(dispatcherState, null)})` : 'not paused';
+  const pausedText = entity.paused ? 'paused' : 'not paused';
   const lines = live === null
     ? [`runner: down; ${pausedText}`, `code on disk: ${codeVersionOnDisk}`]
     : [

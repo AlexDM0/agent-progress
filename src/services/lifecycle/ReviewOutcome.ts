@@ -68,7 +68,7 @@ function textOf(report: unknown, field: string): string {
   return typeof value === 'string' ? value : '';
 }
 
-/** Code lines only, as `rework` counts them; a range git cannot read as plain commits counts nothing. */
+/** Code lines only, as a rework count counts them; a range git cannot read as plain commits counts nothing. */
 function reworkedCodeLinesOf(worktreePath: string, reviewStartCommit: string, headCommit: string): number {
   const reading = readCommitsDiff(worktreePath, reviewStartCommit, headCommit);
   if (reading.verdict !== 'read') return 0;

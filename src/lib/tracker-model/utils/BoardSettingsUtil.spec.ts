@@ -1,19 +1,18 @@
 /**
  * The checks a stored or written board setting passes before the model takes it. What matters: every stored view shape passes and a
- * malformed one does not, a limit above the ceiling is still well-formed on disk, a name every object inherits is no dispatcher state,
- * and a blank run id or check command is none.
+ * malformed one does not, a limit above the ceiling is still well-formed on disk, a name every object inherits is no runner state,
+ * and a blank check command is none.
  */
 import { describe, expect, test } from 'bun:test';
 
 import { CONCURRENCY_LIMIT_CEILING_AGENTS, LOWEST_CONCURRENCY_LIMIT_AGENTS } from '../constants/ConcurrencyLimits.ts';
-import { DISPATCHER_STATES }                                                 from '../constants/DispatcherStates.ts';
+import { RUNNER_STATES }                                                     from '../constants/RunnerStates.ts';
 import { BoardSettingsUtil }                                                 from './BoardSettingsUtil.ts';
 
 const {
   checkCommandIsWellFormed,
   concurrencyLimitIsWellFormed,
-  dispatcherRunIdIsWellFormed,
-  dispatcherStateIsKnown,
+  runnerStateIsKnown,
   viewRangeIsWellFormed,
 } = BoardSettingsUtil;
 
@@ -57,26 +56,15 @@ describe('concurrencyLimitIsWellFormed', () => {
   });
 });
 
-describe('dispatcherStateIsKnown', () => {
-  test('knows every dispatcher state', () => {
-    expect(DISPATCHER_STATES.filter((state) => !dispatcherStateIsKnown(state))).toEqual([]);
+describe('runnerStateIsKnown', () => {
+  test('knows every runner state', () => {
+    expect(RUNNER_STATES.filter((state) => !runnerStateIsKnown(state))).toEqual([]);
   });
 
+  // `stopped` is what the retired Workflow dispatcher stored; the runner's own word is `paused`.
   test('does not know a name every object inherits, nor a plausible state the tuple lacks', () => {
-    expect(dispatcherStateIsKnown('constructor')).toBe(false);
-    expect(dispatcherStateIsKnown('paused')).toBe(false);
-  });
-});
-
-describe('dispatcherRunIdIsWellFormed', () => {
-  test('accepts a Workflow run id', () => {
-    expect(dispatcherRunIdIsWellFormed('wf_example')).toBe(true);
-  });
-
-  test('refuses a blank run id, a whitespace one and a number', () => {
-    expect(dispatcherRunIdIsWellFormed('')).toBe(false);
-    expect(dispatcherRunIdIsWellFormed('   ')).toBe(false);
-    expect(dispatcherRunIdIsWellFormed(42)).toBe(false);
+    expect(runnerStateIsKnown('constructor')).toBe(false);
+    expect(runnerStateIsKnown('stopped')).toBe(false);
   });
 });
 

@@ -28,7 +28,7 @@ interface NextLineCase {
 
 /**
  * Each case starts from three pending tickets (rows #1 to #3) and a free-standing row #4 under the default
- * limit of 2, with the dispatcher running. The expected line is written out from that state by hand, never taken from a run.
+ * limit of 2, with the runner running. The expected line is written out from that state by hand, never taken from a run.
  */
 const NEXT_LINE_CASES: NextLineCase[] = [
   {
@@ -96,8 +96,8 @@ beforeEach(async () => {
   await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Show the role history']);
   await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Export the roles']);
   await run(['task', 'add', 'Review pass']);
-  // A running dispatcher adds no advice, so these lines pin slots and queue alone.
-  await run(['dispatcher', 'running']);
+  // A running runner adds no advice, so these lines pin slots and queue alone.
+  await run(['run', 'resume']);
 });
 
 afterEach(() => {
@@ -113,8 +113,7 @@ describeWhenGitIsPresent('the line the human output ends with', () => {
     test(`\`${nextLineCase.command.join(' ')}\` ends with the board as the move left it`, async () => {
       await runSetup(nextLineCase.setup);
 
-      // `ticket add` follows it with the running dispatcher notice, pinned in `cli/tickets/TicketCommand.dispatcher.spec.ts`.
-      const lines = (await run(nextLineCase.command)).outputText().split('\n').filter((line) => !line.startsWith('Dispatcher running:'));
+      const lines = (await run(nextLineCase.command)).outputText().split('\n');
 
       expect(lines.at(-1)).toBe(nextLineCase.expectedNextLine);
       expect(lines.filter((line) => line.startsWith('Next:'))).toHaveLength(1);
@@ -134,14 +133,14 @@ describeWhenGitIsPresent('a held ticket on the line', () => {
     expect(await nextLineAfter(['ticket', 'unhold', '2'])).toBe('Next: 2 of 2 slots free; ready: #001, #002, #003');
   });
 
-  // A finished dispatcher relaunched onto held work would start nothing, so the line must not advise it.
-  test('a finished board whose only ready ticket is held advises no launch', async () => {
+  // A paused runner resumed onto held work would start nothing, so the line must not advise it.
+  test('a paused board whose only ready ticket is held advises no launch', async () => {
     await run(['ticket', 'abandon', '1', '--reason', 'superseded by #3']);
     await run(['ticket', 'abandon', '3', '--reason', 'superseded by #2']);
-    await run(['dispatcher', 'finished']);
+    await run(['run', 'pause']);
 
-    expect(await nextLineAfter(['ticket', 'hold', '2'])).toBe('Next: 2 of 2 slots free; nothing ready; held: #002; dispatcher stopped: wait for the user\'s go');
-    expect(await nextLineAfter(['status'])).toBe('Next: 2 of 2 slots free; nothing ready; held: #002; dispatcher stopped: wait for the user\'s go');
+    expect(await nextLineAfter(['ticket', 'hold', '2'])).toBe('Next: 2 of 2 slots free; nothing ready; held: #002; runner paused: wait for the user\'s go');
+    expect(await nextLineAfter(['status'])).toBe('Next: 2 of 2 slots free; nothing ready; held: #002; runner paused: wait for the user\'s go');
   });
 });
 

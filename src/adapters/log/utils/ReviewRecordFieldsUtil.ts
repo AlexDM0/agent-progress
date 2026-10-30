@@ -1,6 +1,6 @@
 /**
- * The check and the copy of a recorded review's verdict, claims and findings, shared by the stored log's validation and by `review record`
- * reading its findings file, so the file a reviewer writes is refused by exactly the rules a stored line is read back with.
+ * The check and the copy of a recorded review's verdict, claims and findings, shared by the stored log's validation and its mapping
+ * back, so a stored line is copied by exactly the rules it was checked with.
  */
 import { JsonRecordUtil }                  from '../../../lib/json-record/JsonRecordUtil.ts';
 import type { ReviewClaim, ReviewFinding } from '../../../lib/tracker-model/@types/ReviewRecord.ts';

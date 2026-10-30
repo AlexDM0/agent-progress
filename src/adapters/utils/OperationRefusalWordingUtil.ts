@@ -1,6 +1,6 @@
 /**
  * Words an `OperationRefusal` wherever the command line prints one: its own message, or its detail. A Board refusal carries only its reason
- * code and facts, and the install-version mismatch is worded as one paragraph, so the SubagentStop hook's one-report rule holds.
+ * code and facts, and the install-version mismatch is worded as one paragraph, so a refusal is always one report.
  */
 import type { JobMoveTarget }                                from '../../lib/tracker-model/@types/Job.ts';
 import type { TaskStatus }                                   from '../../lib/tracker-model/@types/Task.ts';

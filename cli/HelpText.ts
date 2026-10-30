@@ -28,12 +28,8 @@ depends\`, \`priority\`, \`agent\`, \`hold\` and \`unhold\` end their
 output with one line read from the board after the change: \`Next: 1 of 2 slots free; ready: #003, #005\`, \`Next: no slot
 free (2 agents in flight); ready: #003\` or \`Next: 2 of 2 slots free; nothing ready\` — at most five
 ready ids, then \`and N more\`; a held ready ticket is left out and named apart, \`; held: #002\` —
-followed by the dispatcher's advice where it has any: \`; launch the
-dispatcher\` or \`; dispatcher stopped: wait for the user's go\`. While the dispatcher is \`running\`,
-\`ticket add\`, \`priority\`, \`agent\`, \`depends\`, \`hold\`, \`unhold\`, \`reopen\` and \`status <id> pending\` add
-one more line after it: the run
-picks the change up at its next agent's return and is never stopped or relaunched for it. --json
-output never carries either.
+followed, while the runner is paused, by \`; runner paused: wait for the user's go\`. --json output
+never carries it.
 
   init                        Create the tracker here: \`${PRODUCT_NAMES.DATA_FOLDER}/\` with an empty progress
       [--project <name>]      file and log and a \`tickets/\` folder, and \`.gitignore\` entries for it
@@ -91,7 +87,7 @@ output never carries either.
                               delivered or abandoned. Beside it, \`readyTickets\` lists the same
                               tickets in the same order as {id, priority, model, effort}, the
                               defaults resolved, plus an optional group and held: true on a held
-                              one, so a dispatcher derives none of them itself.
+                              one, so a reader derives none of them itself.
                               Both carry \`epics\`, every epic with its roll-up as \`epic list
                               --json\` prints it, and each ticket's \`epics\`, empty when it has none.
       [--tickets-only]        --tickets-only leaves out the free-standing task rows, those that are
@@ -257,11 +253,10 @@ output never carries either.
 
   ticket unhold <id> [--at <when>]
                               Lift the hold, with one log line: the step it held starts at the
-                              dispatcher's next board read. On a ticket in progress whose row is
-                              paused, a last line says how the build resumes: by a dispatcher run
-                              under a dispatcher claim note, by \`task start <row>\` under any
-                              other. Refused at exit 1 on a delivered or abandoned ticket and on
-                              one not held.
+                              runner's next pass. On a ticket in progress whose row is paused, a
+                              last line says to resume it with \`task start <row>\`, since the
+                              runner never takes a paused row over. Refused at exit 1 on a
+                              delivered or abandoned ticket and on one not held.
 
   ticket release-of <id> [--clear] [--at <when>]
                               Mark a ticket as its group's release ticket: the group's release is
@@ -537,7 +532,7 @@ output never carries either.
                               over and reattaches every host; no agent is touched. A failed
                               handover leaves the old runner driving with a warning and exits 1
                               (runner-handover-failed).
-  run pause|resume [--json]   Store \`dispatcherState\` \`stopped\` or \`running\`: no new jobs while
+  run pause|resume [--json]   Store \`runnerState\` \`paused\` or \`running\`: no new jobs while
                               paused. Works with the runner up or down.
   run status [--json]         The lease, the URL, the runtime state, paused or not, and the code
                               version on disk against the live runner's. Read-only, no lock.

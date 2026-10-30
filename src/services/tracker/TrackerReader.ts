@@ -73,7 +73,7 @@ export function requireTracker(workspace: Workspace): TrackerContents {
   return reading.contents;
 }
 
-/** For the progress-only reads (`concurrency`, `dispatcher`): log.jsonl is not read, so a broken log does not stop them. */
+/** For the progress-only reads (`concurrency`, `run status`, `decisions`): log.jsonl is not read, so a broken log does not stop them. */
 export function requireProgressFile(workspace: Workspace): TrackerProgress {
   const reading = progressFileReadingOf(workspace);
   if (reading.verdict !== 'readable') throw new OperationRefusal('unrepaired', { kind: 'unreadable-tracker', reading });

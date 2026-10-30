@@ -15,7 +15,7 @@ import type {
   SlotPhase
 }                                             from '../../../lib/tracker-model/@types/Job.ts';
 import type { TaskStatus }                    from '../../../lib/tracker-model/@types/Task.ts';
-import type { DispatcherState, ViewRange }    from '../../../lib/tracker-model/@types/TrackerProgress.ts';
+import type { RunnerState, ViewRange }        from '../../../lib/tracker-model/@types/TrackerProgress.ts';
 import type { CURRENT_PROGRESS_FILE_VERSION } from '../constants/ProgressFileVersions.ts';
 
 export interface StoredTaskPhase {
@@ -83,7 +83,7 @@ export interface StoredProgressFile {
   view:                    ViewRange;
   nextTaskId:              number;
   concurrencyLimit?:       number;
-  dispatcherState?:        DispatcherState;
+  runnerState?:            RunnerState;
   nextDraftId?:            number;
   nextJobId?:              number;
   jobs?:                   StoredJob[];

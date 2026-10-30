@@ -1,7 +1,7 @@
 /**
  * `ticket hold` and `ticket unhold`, as the command surface sees them. The cases that matter: the key is written only while held and a
  * round trip leaves the ticket as it was, each move logs one line, `status --json` names a held ticket in review as much as a ready one — the
- * dispatcher decides on that list — every refusal leaves the whole tracker byte-identical, and `ticket claim` refuses a held ticket.
+ * runner decides on that list — every refusal leaves the whole tracker byte-identical, and `ticket claim` refuses a held ticket.
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { join }                      from 'node:path';
@@ -13,7 +13,6 @@ import {
   test
 }                                                                             from 'bun:test';
 import { PRODUCT_NAMES }                      from '../../src/shared/constants/ProductNames.ts';
-import { DispatcherClaimNoteUtil }            from '../../src/shared/utils/DispatcherClaimNoteUtil.ts';
 import { removeScratchDirectory }             from '../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.ts';
 import { createCapturedCommandContext }       from '../testing/CapturedCommandContext.ts';
@@ -108,7 +107,7 @@ describeWhenGitIsPresent('holding a ticket', () => {
     expect((await statusDocument()).concurrency.heldTicketIds).toEqual(['001']);
   });
 
-  // The dispatcher decides on this list, and a ticket in review has no readyTickets entry to carry the flag.
+  // The runner decides on this list, and a ticket in review has no readyTickets entry to carry the flag.
   test('status --json lists a held ticket in review, and marks a held ready ticket\'s entry', async () => {
     await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Show the role history']);
     await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Export the roles']);
@@ -161,60 +160,29 @@ describeWhenGitIsPresent('holding a ticket', () => {
   });
 });
 
-const RESUME_BUILD_HINT = 'launch a single-ticket dispatcher run for #001';
-const WHOLE_BOARD_RESUME_HINT = 'the next whole-board dispatcher run resumes it; when none is going or about to be launched, launch a single-ticket';
+const RESUME_BUILD_HINT = 'which the runner never takes over';
 
 async function unholdOutput(extraArguments: readonly string[] = []): Promise<string> {
   return (await run(['ticket', 'unhold', '1', ...extraArguments])).outputText();
 }
 
-// A whole-board run's survey resumes a paused build, so the hint names the single-ticket run only as the lane for when no such run is coming.
-describeWhenGitIsPresent('unholding a ticket whose build a dispatcher run left paused', () => {
+// The runner launches jobs and never takes over a paused row, so whatever note the row carries, the hint names resuming it by hand.
+describeWhenGitIsPresent('unholding a ticket whose build row was left paused', () => {
   beforeEach(async () => {
     await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Show the role history']);
   });
 
-  test('ends its human output with the whole-board run that resumes the build and the single-ticket fast lane, after the Next line', async () => {
-    await run(['ticket', 'claim', '1', '--note', 'Built by the whole-board dispatcher run on ticket-001']);
-    await run(['task', 'pause', '1']);
-    await run(['ticket', 'hold', '1']);
-
-    const lines = (await unholdOutput()).trimEnd().split('\n');
-
-    expect(lines.at(-2)).toStartWith('Next: ');
-    expect(lines.at(-1)).toContain(RESUME_BUILD_HINT);
-    expect(lines.at(-1)).toContain(WHOLE_BOARD_RESUME_HINT);
-  });
-
-  // Every dispatcher run's builder takes over only a dispatcher claim, so a person's pause is resumed or settled by hand.
-  test('names resuming the row by hand, and no dispatcher run, when the paused row carries a note other than a dispatcher claim', async () => {
+  test('ends its human output, after the Next line, with the task start that resumes the row by hand', async () => {
     await run(['ticket', 'claim', '1', '--note', 'Paused by Alex Example']);
     await run(['task', 'pause', '1']);
     await run(['ticket', 'hold', '1']);
     const buildRowId = storedProgressOf(repositoryDirectory).tasks[0]?.id;
 
-    const lastLine = (await unholdOutput()).trimEnd().split('\n').at(-1);
+    const lines = (await unholdOutput()).trimEnd().split('\n');
 
-    expect(lastLine).toContain(`\`${PRODUCT_NAMES.PROGRAM} task start ${buildRowId}\``);
-    expect(lastLine).not.toContain('dispatcher run');
-  });
-
-  // This pins the CLI half against the util both sides build the note with. The dispatcher half is pinned in dispatcher/: the runLabel cases
-  // of WorkflowInputUtil.spec, the SKIP_A_CLAIM_REFUSED_BY_THE_RUN_ITSELF mutant in DecisionClaims, and AgentPromptUtil.spec's builder note case.
-  test('a claim note in the form the dispatcher writes, for either kind of run, is recognised as a dispatcher claim', async () => {
-    const claimNotes = [
-      DispatcherClaimNoteUtil.claimNoteFor(DispatcherClaimNoteUtil.runLabelFor(null), '001'),
-      DispatcherClaimNoteUtil.claimNoteFor(DispatcherClaimNoteUtil.runLabelFor(['001']), '001'),
-    ];
-
-    for (const claimNote of claimNotes) {
-      await run(['ticket', 'claim', '1', '--note', claimNote]);
-      await run(['task', 'pause', '1']);
-      await run(['ticket', 'hold', '1']);
-
-      expect((await unholdOutput()).trimEnd().split('\n').at(-1), claimNote).toContain(WHOLE_BOARD_RESUME_HINT);
-      await run(['ticket', 'reopen', '1']);
-    }
+    expect(lines.at(-2)).toStartWith('Next: ');
+    expect(lines.at(-1)).toContain(`\`${PRODUCT_NAMES.PROGRAM} task start ${buildRowId}\``);
+    expect(lines.at(-1)).toContain(RESUME_BUILD_HINT);
   });
 
   test('prints no hint under --json, whose document parses whole', async () => {

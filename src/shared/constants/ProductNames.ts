@@ -1,7 +1,7 @@
 /**
  * Every name the product goes by on a machine: its program, its folders, its skills, its storage and environment prefixes, its login item
  * and its first runner port. A build linked beside the released one takes the side-by-side names, so neither reads or removes the other's
- * files. It imports nothing, so the dispatcher's project compiles it.
+ * files. It imports nothing, so the Bridge's project compiles it.
  */
 export interface ProductNames {
   PROGRAM:             string;

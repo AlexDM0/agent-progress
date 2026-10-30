@@ -9,7 +9,6 @@ import type { AgentUsage, LogRecord, LogRecordContent } from '../../lib/tracker-
 import { LogUtil }                                      from './LogUtil.ts';
 
 const {
-  dispatcherStateTextOf,
   identifiedEntryOf,
   sentenceOf,
   wordedEntryOf,
@@ -105,6 +104,7 @@ const SENTENCE_FOR_RECORD: readonly (readonly [LogRecordContent, string])[] = [
     'Chart range: -2h → now',
   ],
   [{ kind: 'concurrency-limit-set', fields: { limit: 3 } }, 'Concurrency limit set to 3'],
+  [{ kind: 'runner-set', fields: { state: 'paused' } }, 'Runner set to paused'],
   [{ kind: 'dispatcher-set', fields: { state: 'running', runId: 'example-run' } }, 'Dispatcher set to running (run example-run)'],
   [{ kind: 'dispatcher-set', fields: { state: 'finished', runId: null } }, 'Dispatcher set to finished'],
   [{ kind: 'check-command-set', fields: { command: 'bun run example-checks' } }, 'Check command set to bun run example-checks'],
@@ -127,7 +127,7 @@ const SENTENCE_FOR_RECORD: readonly (readonly [LogRecordContent, string])[] = [
   ],
 ];
 
-const RECORD_KIND_COUNT = 31;
+const RECORD_KIND_COUNT = 32;
 
 test('every kind of record reads as the sentence the log held before there were records', () => {
   expect(new Set(SENTENCE_FOR_RECORD.map(([record]) => record.kind)).size, 'the table covers every kind').toBe(RECORD_KIND_COUNT);
@@ -285,6 +285,7 @@ describe('the entry the page reads', () => {
       ],
       [{ kind: 'chart-range-set', fields: { view: { kind: 'auto' } } }, { taskIds: [], ticketIds: [] }],
       [{ kind: 'concurrency-limit-set', fields: { limit: 3 } }, { taskIds: [], ticketIds: [] }],
+      [{ kind: 'runner-set', fields: { state: 'running' } }, { taskIds: [], ticketIds: [] }],
       [{ kind: 'dispatcher-set', fields: { state: 'running', runId: 'example-run' } }, { taskIds: [], ticketIds: [] }],
       [{ kind: 'check-command-set', fields: { command: 'bun run example-checks' } }, { taskIds: [], ticketIds: [] }],
       [{ kind: 'tracker-cleared', fields: {} }, { taskIds: [], ticketIds: [] }],
@@ -327,11 +328,6 @@ describe('the entry the page reads', () => {
       expect({ at: identified.at, text: identified.text }, content.kind).toEqual(wordedEntryOf(record));
     }
   });
-});
-
-test('a dispatcher state names its run only when it has one, as the dispatcher command reads it back', () => {
-  expect(dispatcherStateTextOf('running', 'example-run')).toBe('running (run example-run)');
-  expect(dispatcherStateTextOf('stopped', null)).toBe('stopped');
 });
 
 describe('the line the log receives', () => {

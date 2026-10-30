@@ -10,7 +10,6 @@ import type { CommandContext }                   from '../CommandContext.ts';
 import { openTrackerForWritingThenReadNextLine } from '../OpenTrackerForWriting.ts';
 import { relayWhenUnderJob }                     from '../RelayUnderJob.ts';
 import type { ArgumentParser }                   from '../arguments/ArgumentParser.ts';
-import { NextLineUtil }                          from '../utils/NextLineUtil.ts';
 import { OutputUtil }                            from '../utils/OutputUtil.ts';
 import { TICKET_USAGE }                          from './constants/TicketUsage.ts';
 import { TicketArgumentUtil }                    from './utils/TicketArgumentUtil.ts';
@@ -56,7 +55,7 @@ export async function setTicketDependencies(commandArguments: ArgumentParser, co
     kind: 'ticket-depends', ticketReference: reference, edit: edit.kind, ticketIds: edit.ticketIds
   };
   await relayWhenUnderJob(context, command);
-  const { result: changed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(
+  const { result: changed, nextLine } = await openTrackerForWritingThenReadNextLine(
     commandArguments,
     context,
     (change) => ControlService.apply(command, change).result,
@@ -66,5 +65,5 @@ export async function setTicketDependencies(commandArguments: ArgumentParser, co
   const droppedSuffix = changed.droppedTicketIds.length === 0 ? '' : ` (dropped ${TicketPhraseUtil.ticketReferencesText(changed.droppedTicketIds)})`;
   const humanLines    = [`${OutputUtil.loggedSentencesOf(changed.logged)}${droppedSuffix}`, ...droppedDependencyLinesOf(ticketId, changed)].join('\n');
   const entity        = { ...TicketJsonUtil.ticketAsJson(changed.ticket), added: changed.addedTicketIds, dropped: changed.droppedTicketIds };
-  OutputUtil.printEntityThenNextLine(commandArguments, context, entity, humanLines, NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState));
+  OutputUtil.printEntityThenNextLine(commandArguments, context, entity, humanLines, nextLine);
 }
