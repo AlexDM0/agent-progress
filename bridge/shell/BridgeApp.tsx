@@ -21,6 +21,8 @@ import { AgentsView, BROWSER_AGENTS_CLOCK, type AgentsClock }                   
 import { DetailPanel }                                                                   from '../views/detail-panel/DetailPanel.tsx';
 import { KanbanModel }                                                                   from '../views/kanban/KanbanModel.ts';
 import { KanbanView }                                                                    from '../views/kanban/KanbanView.tsx';
+import { ProgressModel }                                                                 from '../views/progress/ProgressModel.ts';
+import { ProgressView }                                                                  from '../views/progress/ProgressView.tsx';
 import { TicketsModel }                                                                  from '../views/tickets/TicketsModel.ts';
 import { TicketsView }                                                                   from '../views/tickets/TicketsView.tsx';
 import { BoardStateUpdate }                                                              from './BoardStateUpdate.ts';
@@ -126,6 +128,9 @@ export function BridgeApp({ services }: BridgeAppProps) {
   const agentsClock = useMemo((): AgentsClock => ({ now: services.now, everySecond: BROWSER_AGENTS_CLOCK.everySecond }), [services]);
   const kanbanBoardState = useMemo(() => KanbanModel.kanbanBoardStateOf(boardState), [boardState]);
   const ticketsBoardState = useMemo(() => TicketsModel.ticketsBoardStateOf(boardState), [boardState]);
+  const progressBoardState = useMemo(() => ProgressModel.progressBoardStateOf(boardState), [boardState]);
+  // The chart reads the clock once per board: its now line and Fit range move on with the next board, and are only shown.
+  const progressNow = useMemo(() => (boardState === null ? 0 : services.now().getTime()), [boardState, services]);
 
   const chooseTheme = (choice: ThemeChoice): void => {
     ThemeBootstrap.chooseTheme(sharedStore, choice);
@@ -163,7 +168,11 @@ export function BridgeApp({ services }: BridgeAppProps) {
           {ticketsBoardState !== null && route.tab === 'tickets'
             ? <TicketsView boardState={ticketsBoardState} boardStore={boardStore} />
             : null}
+          {progressBoardState !== null && route.tab === 'progress'
+            ? <ProgressView boardState={progressBoardState} boardStore={boardStore} nowEpochMilliseconds={progressNow} todayCalendarDate={TimeUtil.calendarDateOf(progressNow)} />
+            : null}
           {boardState !== null && route.tab !== 'agents' && (kanbanBoardState === null || route.tab !== 'kanban') && (ticketsBoardState === null || route.tab !== 'tickets')
+            && (progressBoardState === null || route.tab !== 'progress')
             ? <p className="bridge-empty">{`${boardState.jobs.length} jobs, ${boardState.decisions.length} decisions, ${boardState.incidents.length} incidents.`}</p>
             : null}
         </main>
