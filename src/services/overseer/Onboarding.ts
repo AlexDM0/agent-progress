@@ -94,7 +94,7 @@ function onboardingFactsOf(board: Board, job: Readonly<Job>): OnboardingFacts | 
   return { mode: board.pipeline() === null ? 'setup' : 'advise', gateHistory };
 }
 
-/** It reads the snapshot and writes only its Hatch, the Hatch folder; no network, no question, no skill. */
+/** It reads the snapshot and writes only its Hatch folder; no network, no question, no skill. */
 function onboarderProfileOf(sessionProfile: WorkerProfile, hatchDirectory: string): WorkerProfile {
   return {
     ...sessionProfile, writableRoots: [hatchDirectory], bashNetworkDomains: [], webNetworkDomains: 'none', askUser: false, skills: false, networkDomainGuard: null

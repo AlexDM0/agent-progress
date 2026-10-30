@@ -72,7 +72,7 @@ Running one coding agent is easy to follow. Running five is not: which one is on
 safe to merge, who checked the work, and what did it all cost? The answers end up scattered across
 terminal tabs and a context window that gets compacted halfway through the afternoon.
 
-agent-progress puts the answers on a board, and one Overseer, the **Overseer** (`agent-progress oversee`), works
+agent-progress puts the answers on a board, and one **Overseer** (`agent-progress oversee`), works
 it. You describe a request in the Bridge's Intake view or in a Claude Code session; a product owner files
 it as a draft ticket with a testable Acceptance. Once you ready it, the Overseer launches a builder agent
 per ready ticket in its own worktree, gates the result, hands every finished build to a reviewer agent
@@ -101,7 +101,7 @@ two failed passes park a ticket for you, and two agents in a row dying stop laun
 of blaming the tickets. What only you can answer becomes a decision in the Questions view.
 
 **Merges cannot collide.** Store the repository's gates once with `agent-progress gate add`, and every
-build runs them on its final commit. The Airlock holds one Airlock per target: it merges the target's
+build runs them on its final commit. There is one Airlock per target: it merges the target's
 tip into the reviewed branch, gates the merged tree, and lands it by a compare-and-swap fast-forward, so a
 main line that moved meanwhile only requeues the ticket. On this board a row's *done* pill means merged.
 

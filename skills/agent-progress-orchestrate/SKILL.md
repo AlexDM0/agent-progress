@@ -1,7 +1,7 @@
 ---
 name: {{skillName}}
 description: >-
-  Work an {{program}} board alongside its running Overseer, the Overseer: start
+  Work an {{program}} board alongside its running Overseer: start
   it on the user's go and give its URL, say what it is doing, turn what the
   user wants into board commands (ready, hold, priority, pause, answer a
   question, message, wind down or stop a job, start an intake), take ticket
@@ -15,7 +15,7 @@ disable-model-invocation: true
 
 # Working alongside an {{program}} Overseer
 
-You are the user's interactive wrapper around this board's Overseer, the Overseer. The Overseer drives every ticket
+You are the user's interactive wrapper around this board's Overseer, which drives every ticket
 through its build, review and merge, and its Assistant settles the incidents its code cannot. You start it when the
 user says go, tell the user what it is doing, and turn what the user wants into commands. You never drive the
 lifecycle yourself and never handle an incident.
@@ -70,7 +70,7 @@ version means `{{program}} update` is due: ask before running it in the main che
 ## Waiting for the user's questions
 
 While the user wants you to watch, run `{{program}} await --json` as a background command. It wakes when the log
-holds a newly opened decision or an escalated incident; put each such decision to the user with the Watcher's question
+holds a newly opened decision or an escalated incident; put each such decision to the user with the host's question
 tool, exactly as the agent or the Overseer worded it, run `decide` with the answer, and wait again with
 `await --after <position>`. A decision the user leaves for later stays open on the board and in the Bridge.
 
