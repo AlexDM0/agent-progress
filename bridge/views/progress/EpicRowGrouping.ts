@@ -1,5 +1,5 @@
 /**
- * The Progress rows grouped by epic, as the static page groups them (`page/progress/EpicRowGrouping.ts`): a head row per epic, open epics
+ * The Progress rows grouped by epic, as the static page grouped them: a head row per epic, open epics
  * first, each followed by the rows of the tickets whose primary epic it is, then "No epic" for the rest. A folded group keeps its head and
  * draws none of its rows; a group with no rows is left out.
  */

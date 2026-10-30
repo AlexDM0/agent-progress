@@ -1,5 +1,5 @@
 /**
- * The Custom… range's popover, as the static page's (`page/progress/CustomRangePopover.ts`): the typed bounds with what each resolves to,
+ * The Custom… range's popover, as the static page's was: the typed bounds with what each resolves to,
  * the tick sizes, and applying or discarding them together. It opens on the applied range's texts with From focused; Enter or Apply
  * applies a readable draft, Esc or Cancel discards it and hands the focus back, and a click or focus outside discards it.
  */

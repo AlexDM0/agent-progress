@@ -1,5 +1,5 @@
 /**
- * A row of filter chips, in a happy-dom document, behaving as `page/chips/` does. What matters: each chip shows whether it is pressed and
+ * A row of filter chips, in a happy-dom document, behaving as the static page's chips did. What matters: each chip shows whether it is pressed and
  * its count, a chip of no count is marked empty, a click hands its value on, a state chip leads with its lane dot and an epic chip with
  * its swatch, and a label is text, never markup.
  */

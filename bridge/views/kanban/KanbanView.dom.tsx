@@ -3,7 +3,7 @@
  * (id, size mark, priority, type, tokens, epics, waiting-on, hold, the draft labels) as text, a planted payload included; a draft's Ready,
  * the Drafts lane's multi-select Ready, and a ready card's Hold, Unhold and priority each post their `ControlCommand`; a refusal shows
  * verbatim; the controls are disabled while the stream is down; pressing an epic chip narrows the lanes and stores the choice under the
- * static page's key; and a card whose state moved on the next board is marked changed. Ported from `page/kanban/`: "needed first" and
+ * static page's key; and a card whose state moved on the next board is marked changed. Ported from the static page's Kanban: "needed first" and
  * `↦ N` on the cards, the hover marks and arrows (against stubbed card boxes, since happy-dom lays nothing out), the Ready lane by wave,
  * a closed lane's pages and the Abandoned lane's fold, each choice stored under the static page's key.
  */

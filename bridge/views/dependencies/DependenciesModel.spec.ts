@@ -1,5 +1,5 @@
 /**
- * The dependencies view's model, laid out as `page/dependencies/` lays out its waves. The cases that matter: a diamond lays out a Done
+ * The dependencies view's model, laid out as the static page laid out its waves. The cases that matter: a diamond lays out a Done
  * column of what the open tickets build on and one column per wave, the pace path first; Ready comes only from the Board's ready list and a
  * held ticket wears Held; edges mark the pace path and a settled dependency; nodes and heads are placed in pixels on one canvas; a ticket's
  * lineage is itself, everything upstream and everything waiting on it; a forecast is asked only while the runner is running; and a

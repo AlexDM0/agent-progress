@@ -1,5 +1,5 @@
 /**
- * The finished-work choice as pure rules, the static page's `page/utils/FinishedWorkUtil.ts` read from the Board facts: which delivered or
+ * The finished-work choice as pure rules, the static page's finished-work rules read from the Board facts: which delivered or
  * abandoned tickets and epics a choice lets through beside the unfinished work, how it reads, and the key it is stored under. The clock
  * arrives as a parameter; comparing with the cutoff is a stated clock exception that decides only what the Bridge shows.
  */

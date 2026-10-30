@@ -1,5 +1,5 @@
 /**
- * The Epics view's model, the static page's epic marks (`page/epics/EpicGroupMarks.ts`) read from the Board facts: each shown epic's done
+ * The Epics view's model, the static page's epic marks read from the Board facts: each shown epic's done
  * text, roll-up segments, facts and ticket lines, open epics first. Its description stays the rendered string, which only the sandboxed
  * frame shows.
  */

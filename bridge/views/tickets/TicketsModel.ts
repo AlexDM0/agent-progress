@@ -1,6 +1,6 @@
 /**
- * The Tickets view as a model, from the Overseer's `BoardState` and the viewer's search, chips and sort, as `page/tickets/` narrows and
- * orders its table: OR inside a chip group, AND across the search and the groups, a digits query looking for an id alone, ties newest first.
+ * The Tickets view as a model, from the Overseer's `BoardState` and the viewer's search, chips and sort, as the static page narrowed and
+ * ordered its table: OR inside a chip group, AND across the search and the groups, a digits query looking for an id alone, ties newest first.
  * Each ticket's state and what it waits on are the Board's facts, never derived here.
  */
 import type { DisplayState }                                                  from '../../../src/lib/tracker-model/@types/Task.ts';

@@ -1,5 +1,5 @@
 /**
- * A chart-head menu, as the static page's (`page/progress/HeadMenu.ts`): a button that opens a small popover under itself, closed by Esc,
+ * A chart-head menu, as the static page's was: a button that opens a small popover under itself, closed by Esc,
  * which hands the focus back to the button, by a choice, or by a click or focus outside. An item closes it by its `data-closes-menu`:
  * `return-focus` hands the focus back to the button, `keep-focus` leaves it to whatever the item opened; an item without one, a toggle,
  * leaves the menu open.
