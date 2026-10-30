@@ -60,7 +60,6 @@ function newBoard(storedLogRecords: readonly LogRecord[] = []): Board {
     nextTaskId:       1,
     concurrencyLimit: 2,
     dispatcherState:  'running',
-    checkCommand:     'bun run verify',
     tasks:            [],
   };
   const ticket: Ticket = {
@@ -82,7 +81,12 @@ function newBoard(storedLogRecords: readonly LogRecord[] = []): Board {
     filePath: '/example-agency/.agent-progress/tickets/001-example.md',
   };
   return new Board({
-    progress, tickets: [ticket], epics: [], logger: createLogger((record) => logRecords.push(record)), storedLogRecords
+    progress,
+    tickets:  [ticket],
+    epics:    [],
+    logger:   createLogger((record) => logRecords.push(record)),
+    storedLogRecords,
+    pipeline: { prepare: [], gates: [{ name: 'verify', run: 'bun run verify' }] },
   });
 }
 

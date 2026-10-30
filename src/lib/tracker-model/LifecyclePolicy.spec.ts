@@ -345,13 +345,13 @@ const CLAIMS: PolicyClaim[] = [
   },
   {
     name:   'with no checks line nothing launches and one checks-not-set decision opens',
-    facts:  factsWith({ tickets: [ticketOf('001', 'pending')], checkCommandIsSet: false }),
+    facts:  factsWith({ tickets: [ticketOf('001', 'pending')], pipelineIsSet: false }),
     holds:  (steps) => stepKindsOf(steps).join(' ') === 'open-decision',
-    mutant: policyLine(' || !facts.checkCommandIsSet', ''),
+    mutant: policyLine(' || !facts.pipelineIsSet', ''),
   },
   {
     name:   'an open checks-not-set decision is not opened again',
-    facts:  factsWith({ checkCommandIsSet: false, decisions: [decisionOf('checks-not-set')] }),
+    facts:  factsWith({ pipelineIsSet: false, decisions: [decisionOf('checks-not-set')] }),
     holds:  (steps) => steps.length === 0,
     mutant: policyLine(' && !openDecisionOfKind(facts, \'checks-not-set\')', ''),
   },

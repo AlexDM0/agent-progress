@@ -7,6 +7,7 @@ import type { Incident }                        from './Incident.ts';
 import type { Job }                             from './Job.ts';
 import type { LifecycleStep }                   from './LifecycleStep.ts';
 import type { LogRecord, LogRecordFieldsOf }    from './LogRecord.ts';
+import type { Pipeline }                        from './Pipeline.ts';
 import type { Task, TaskStatus }                from './Task.ts';
 import type { AgentEffort, AgentModel, Ticket } from './Ticket.ts';
 import type { DispatcherState }                 from './TrackerProgress.ts';
@@ -202,25 +203,8 @@ export interface DispatcherStateSet extends Logged {
   previousState: DispatcherState;
 }
 
-export interface CheckCommandSet extends Logged {
-  previousCheckCommand: string | null;
-  restampedTicketIds:   readonly string[];
-}
-
-export interface InstallCommandSet extends Logged {
-  previousInstallCommand: string | null;
-}
-
-export interface ChecksDefinitionFilesSet extends Logged {
-  previousChecksDefinitionFiles: readonly string[] | null;
-}
-
-export interface GateKeyCommandSet extends Logged {
-  previousGateKeyCommand: string | null;
-}
-
-export interface GateCachePathsSet extends Logged {
-  previousGateCachePaths: readonly string[] | null;
+export interface PipelineChanged extends Logged {
+  pipeline: Pipeline;
 }
 
 export interface TrackerCleared extends Logged {

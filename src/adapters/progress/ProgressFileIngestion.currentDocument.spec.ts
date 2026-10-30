@@ -65,12 +65,11 @@ function currentDocumentText(): string {
       }),
       storedRow(nextId + 2, { name: 'Review 1 #3 — misnamed own row', ticket: '009' }),
       storedRow(nextId + 3, {
-        name: 'Example follow-up', ticket: '003', reviewOf: '3', checkCommand: 'bun run example-checks'
+        name: 'Example follow-up', ticket: '003', reviewOf: '3', pipelineHash: '0f871814e52ef878'
       }),
       storedRow(nextId + 4, { name: 'Review 2 #003 — Example known only by its name' }),
     ],
     concurrencyLimit: 3,
-    checkCommand:     'bun run example-checks',
     trailingKey:      { nested: true },
   }, null, 2);
 }

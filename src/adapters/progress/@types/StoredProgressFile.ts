@@ -39,7 +39,7 @@ export interface StoredTask {
   agent?:          string;
   reviewOf?:       string;
   reviewBarRound?: number;
-  checkCommand?:   string;
+  pipelineHash?:   string;
   mergeQueued?:    true;
 }
 
@@ -84,11 +84,6 @@ export interface StoredProgressFile {
   nextTaskId:              number;
   concurrencyLimit?:       number;
   dispatcherState?:        DispatcherState;
-  checkCommand?:           string;
-  installCommand?:         string;
-  checksDefinitionFiles?:  string[];
-  gateKeyCommand?:         string;
-  gateCachePaths?:         string[];
   nextDraftId?:            number;
   nextJobId?:              number;
   jobs?:                   StoredJob[];

@@ -6,12 +6,13 @@
  */
 import { expect, test } from 'bun:test';
 
-import { everyRecordKindTheBoardLogs } from '../../testing/EveryBoardLogRecord.ts';
-import type { LogRecord }              from './@types/LogRecord.ts';
+import { everyRecordKindTheBoardLogs }                 from '../../testing/EveryBoardLogRecord.ts';
+import type { LogRecord }                              from './@types/LogRecord.ts';
+import { LOG_RECORD_SCHEMA, RETIRED_LOG_RECORD_KINDS } from './constants/LogRecordSchema.ts';
 
 const LOGGED_AT = '2026-09-26T10:15:00+02:00';
 
-const RECORD_KIND_COUNT = 76;
+const RECORD_KIND_COUNT = Object.keys(LOG_RECORD_SCHEMA).length - RETIRED_LOG_RECORD_KINDS.length;
 
 /**
  * Three kinds are logged twice: `draft-claimed`, plainly and as a forced takeover, since the two store different fields, `draft-opened`,
@@ -52,12 +53,10 @@ const FROZEN_STORED_LINES = [
   '{"at":"2026-09-26T10:15:00+02:00","kind":"draft-opened","draftId":"D2","fields":{"title":"Example import","owner":"opus"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"draft-abandoned","draftId":"D2","fields":{"reason":"folded into D1"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-started","ticketId":"001","fields":{}}',
-  '{"at":"2026-09-26T10:15:00+02:00","kind":"check-command-set","fields":{"command":"bun run example-checks"}}',
-  '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-check-command-restamped","ticketId":"001","fields":{"command":"bun run example-checks"}}',
-  '{"at":"2026-09-26T10:15:00+02:00","kind":"install-command-set","fields":{"command":"bun install --frozen-lockfile"}}',
-  '{"at":"2026-09-26T10:15:00+02:00","kind":"checks-definition-files-set","fields":{"patterns":["pyproject.toml","noxfile.py"]}}',
-  '{"at":"2026-09-26T10:15:00+02:00","kind":"gate-key-command-set","fields":{"command":"bun --version"}}',
-  '{"at":"2026-09-26T10:15:00+02:00","kind":"gate-cache-paths-set","fields":{"paths":["~/.bun/install/cache"]}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"pipeline-prepare-step-set","fields":{"name":"install","run":"bun install --frozen-lockfile"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"pipeline-gate-added","fields":{"name":"checks","run":"bun run example-checks"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"pipeline-gate-removed","fields":{"name":"checks"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"pipeline-gates-none","fields":{}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"gate-ran","fields":{"tree":"4b825dc642cb6eb9a060e54bf8d69288fbee4904","outcome":"passed","cached":true}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-body-changed-after-claim","ticketId":"001","fields":{}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-finished","ticketId":"001","fields":{}}',
@@ -129,10 +128,12 @@ function storedLinesOf(records: readonly LogRecord[]): string[] {
   return records.map((record) => JSON.stringify(record));
 }
 
-test('the scenario logs every record kind there is, two draft kinds twice, the two opening kinds three times and every other once', () => {
+test('the scenario logs every record kind but the retired ones, two draft kinds twice, the two opening kinds three times and every other once', () => {
   const records = everyRecordKindTheBoardLogs(LOGGED_AT);
+  const kinds   = new Set<string>(records.map((record) => record.kind));
   expect(records.length).toBe(RECORD_COUNT);
-  expect(new Set(records.map((record) => record.kind)).size).toBe(RECORD_KIND_COUNT);
+  expect(kinds.size).toBe(RECORD_KIND_COUNT);
+  expect(RETIRED_LOG_RECORD_KINDS.filter((kind) => kinds.has(kind))).toEqual([]);
 });
 
 test('every record the Board logs is stored byte for byte as the frozen table says', () => {

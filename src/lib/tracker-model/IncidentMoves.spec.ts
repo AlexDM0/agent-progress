@@ -108,7 +108,7 @@ describe('ticket park', () => {
 describe('each kind\'s default', () => {
   function defaulted(kind: IncidentKind, defaultMove: IncidentMove, priorDefaults = 0): Board {
     const { board } = boardFixture({ tickets: [ticketFixture({ id: '001', status: 'in-progress', task: 1 })] });
-    board.setCheckCommand('bun test', false, AT);
+    board.addGate({ name: 'test', run: 'bun test' }, AT);
     for (let i = 0; i <= priorDefaults; i += 1) {
       const { incident } = board.openIncident({
         kind, ticketIds: ['001'], jobId: null, facts: { round: String(i) }, defaultMove

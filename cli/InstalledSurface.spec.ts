@@ -273,8 +273,8 @@ describeWhenGitIsPresent('the guard, planted in memory', () => {
   });
 
   test('a command and a status field the installed files name, removed from the CLI, fail the same way', () => {
-    const withoutChecks = cliSurfaceWithHelpReplaced('\n  checks', '\n  recount');
-    expect(sentencesWith(INSTALLED_TEXTS, withoutChecks).some((sentence) => sentence.includes('name the command checks, which the CLI no longer has'))).toBe(true);
+    const withoutRange = cliSurfaceWithHelpReplaced('\n  range', '\n  recount');
+    expect(sentencesWith(INSTALLED_TEXTS, withoutRange).some((sentence) => sentence.includes('name the command range, which the CLI no longer has'))).toBe(true);
     const withoutJobs = { ...cliSurface, statusJsonFields: new Set([...cliSurface.statusJsonFields].filter((field) => field !== 'jobs')) };
     expect(sentencesWith(INSTALLED_TEXTS, withoutJobs)).toEqual([`the files installed at INSTALL_VERSION ${INSTALL_VERSION} name the \`status --json\` field `
       + 'jobs, which the CLI no longer has: an installed file became wrong, so bump INSTALL_VERSION in cli/constants/InstallVersion.ts '

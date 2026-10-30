@@ -110,7 +110,6 @@ export class LifecycleWorld {
     nextTaskId:       1,
     concurrencyLimit: WORLD_CONCURRENCY_LIMIT,
     dispatcherState:  'running',
-    checkCommand:     'bun run verify',
     tasks:            [],
   };
 
@@ -135,7 +134,11 @@ export class LifecycleWorld {
   constructor(seed: number) {
     this.random = randomSourceOf(seed);
     this.board  = new Board({
-      progress: this.progress, tickets: this.tickets, epics: [], logger: createLogger((record) => this.logRecords.push(record))
+      progress: this.progress,
+      tickets:  this.tickets,
+      epics:    [],
+      logger:   createLogger((record) => this.logRecords.push(record)),
+      pipeline: { prepare: [], gates: [{ name: 'verify', run: 'bun run verify' }] },
     });
   }
 

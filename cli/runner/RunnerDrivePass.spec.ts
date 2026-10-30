@@ -252,7 +252,7 @@ beforeEach(async () => {
   repositoryDirectory = await createInitializedScratchRepository('drive-pass', ['--project', 'Example Agency'], SPEC_CLOCK);
   monitorFolder = createScratchDirectory('h');
   runnerLog = [];
-  await run(['checks', 'true']);
+  await run(['gate', 'add', 'checks', '--', 'true']);
   await run(['run', 'resume']);
   await fileReadyTicket(run, ['ticket', 'add', '--type', 'ticket', 'Export the example roles']);
 });
