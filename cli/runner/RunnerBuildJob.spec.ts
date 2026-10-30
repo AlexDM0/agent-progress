@@ -26,6 +26,7 @@ import type { HostLaunch }                             from '../../src/lib/agent
 import type { HostRecord }                             from '../../src/lib/agent-host/HostRecord.ts';
 import type { AgentAdapter }                           from '../../src/lib/agent-launch/AgentAdapter.ts';
 import type { AgentLaunchRequest }                     from '../../src/lib/agent-launch/AgentLaunchRequest.ts';
+import { processIsGone }                               from '../../src/lib/process-identity/ProcessIdentity.ts';
 import type { Job, JobState }                          from '../../src/lib/tracker-model/@types/Job.ts';
 import type { PipelineReview }                         from '../../src/lib/tracker-model/@types/Pipeline.ts';
 import type { Board }                                  from '../../src/lib/tracker-model/Board.ts';
@@ -350,6 +351,10 @@ describe('a build job end to end', () => {
       expect(readFileSync(join(jobFolder, folder, 'process-sandbox.sb'), 'utf8').includes('(deny network-outbound')).toBe(networkDenied);
     }
     expect(HostFleet.livenessOf(jobFolder, 1)).toMatchObject({ verdict: 'ended', end: { reason: 'exited', exitCode: 0 } });
+    const endedHostProcessIds = [jobFolder, ...['install', 'gate-prepare', 'gate-1'].map((folder) => join(jobFolder, folder))]
+      .map((hostFolder) => HostFleet.hostRecordOf(hostFolder, 1)?.host?.processId ?? null);
+    expect(endedHostProcessIds).not.toContain(null);
+    await passUntil(drivePass, () => endedHostProcessIds.every((processId) => processId === null || processIsGone(processId)), 'the ended hosts reaped');
     expect(loggedEntries('gate-ran').map((entry) => entry.fields)).toEqual([expect.objectContaining({ outcome: 'passed', cached: false })]);
     expect(existsSync(join(requireWorkspace(repositoryDirectory).trackerDirectory, 'gates'))).toBe(false);
   }, BUILD_TEST_TIMEOUT_MILLISECONDS);

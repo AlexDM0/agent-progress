@@ -15,6 +15,7 @@ import {
 } from 'node:fs';
 import { delimiter, dirname, join } from 'node:path';
 
+import { HostFleet }       from '../../src/services/runner/HostFleet.ts';
 import {
   environmentCopy,
   FAKE_AGENT_VARIABLE,
@@ -64,6 +65,8 @@ const SETTLE_AFTER_REGROUPING_MILLISECONDS = 30_000;
 const SETTLE_AFTER_RESTART_MILLISECONDS = 20_000;
 const LOGGED_OUTPUT_CHARACTERS = 1_500;
 const MILLISECONDS_PER_MINUTE = 60_000;
+const STOPPING_JOB_TRIES = 60;
+const STOPPING_JOB_INTERVAL_MILLISECONDS = 1_000;
 
 const AGENT_QUESTION_TICKET = {
   title: 'Choose the palette colour',
@@ -377,14 +380,26 @@ function createSmoke(options: CutoverSmokeOptions, logPath: string) {
       ];
     },
 
+    /**
+     * Stops every job and waits, bounded, for the stopped ones to end before stopping the runner. A host of an ended job still running then
+     * is the leak this counts; a host of a job still live, such as the Assistant's, outlives the runner by design and is counted apart.
+     */
     async stopEverything(): Promise<void> {
       streamController?.abort();
       await program(['job', 'stop', '--all']);
+      for (let attempt = 0; attempt < STOPPING_JOB_TRIES && (await liveJobs()).some((liveJob) => liveJob.state === 'stopping'); attempt++) {
+        await sleep(STOPPING_JOB_INTERVAL_MILLISECONDS);
+      }
       await program(['run', 'stop', '--now']);
       const hostPattern = join(trackerDirectory, 'runner', 'host-');
-      const leftoverHosts = Bun.spawnSync(['pgrep', '-f', hostPattern]).stdout.toString().trim().split('\n').filter((line) => line !== '');
-      log(`${leftoverHosts.length} agent hosts were still running after the stop${leftoverHosts.length === 0 ? '' : '; killed'}`);
-      if (leftoverHosts.length > 0) Bun.spawnSync(['pkill', '-f', hostPattern]);
+      const leftoverHostLines = Bun.spawnSync(['pgrep', '-lf', hostPattern]).stdout.toString().trim().split('\n').filter((line) => line !== '');
+      const endedHostLines = leftoverHostLines.filter((line) => {
+        const [hostFolder = '', instance = ''] = line.trim().split(/\s+/).slice(-2);
+        return HostFleet.hostRecordOf(hostFolder, Number(instance))?.end !== undefined;
+      });
+      log(`${endedHostLines.length} hosts of ended jobs were still running after the stop${endedHostLines.length === 0 ? '' : `: ${endedHostLines.join('; ')}`}`);
+      log(`${leftoverHostLines.length - endedHostLines.length} hosts of jobs still live outlived the runner, as they do by design`);
+      if (leftoverHostLines.length > 0) Bun.spawnSync(['pkill', '-f', hostPattern]);
     },
 
     keepBoardLog(evidenceBase: string): void {
