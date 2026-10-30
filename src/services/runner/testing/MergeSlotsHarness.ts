@@ -5,7 +5,7 @@
 import { writeFileSync } from 'node:fs';
 import { join }          from 'node:path';
 
-import type { GateOutcome, Job }                   from '../../../lib/tracker-model/@types/Job.ts';
+import type { Job }                                from '../../../lib/tracker-model/@types/Job.ts';
 import type { TicketPriority }                     from '../../../lib/tracker-model/@types/Ticket.ts';
 import type { Board }                              from '../../../lib/tracker-model/Board.ts';
 import { MERGE_SLOT_LIMITS, type MergeSlotLimits } from '../../../shared/constants/MergeSlotLimits.ts';
@@ -21,6 +21,7 @@ import {
   createMergeSlots,
   type DeclinedCleanup,
   type MergeAgentReading,
+  type MergedTreeGate,
   type MergeSlots
 } from '../MergeSlots.ts';
 
@@ -56,7 +57,7 @@ export interface MergeSlotsHarness {
   /** The facts each merge job's Airlock incident left for the agent it launches, by merge job id. */
   keptAirlockFacts: Map<string, Readonly<Record<string, string>>>;
   settings:    {
-    gateOutcome:   GateOutcome;
+    gateOutcome:   MergedTreeGate['outcome'];
     reading:       MergeAgentReading;
     hostIsLive:    boolean;
     refDeniesHold: boolean;
@@ -129,7 +130,7 @@ export function createMergeSlotsHarness(tickets: readonly HarnessTicket[], limit
     gateMergedTree: (_worktreePath, treeId) => {
       gatedTrees.push(treeId);
       settings.beforeGate();
-      return Promise.resolve({ outcome: settings.gateOutcome, output: 'Example gate output\nexpected 2, received 3' });
+      return Promise.resolve({ outcome: settings.gateOutcome, step: settings.gateOutcome === 'passed' ? null : 'tests', output: 'Example gate output\nexpected 2, received 3' });
     },
     mergeAgentReadingOf: () => settings.reading,
     hostIsLive:          () => settings.hostIsLive,

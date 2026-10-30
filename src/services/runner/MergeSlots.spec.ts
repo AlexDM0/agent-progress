@@ -160,6 +160,45 @@ describeWhenGitIsPresent('a conflicting candidate', () => {
 });
 
 describeWhenGitIsPresent('the merged tree\'s gate', () => {
+  function recordPassOn(current: MergeSlotsHarness, revision: string): string {
+    const tree = gitOutputIn(current.repository, ['rev-parse', `${revision}^{tree}`]);
+    current.board.recordGateRan({ tree, outcome: 'passed', cached: false }, HARNESS_AT);
+    return tree;
+  }
+
+  test('runs no gate when the merged tree is the branch\'s own tree the gates last passed, and lands it', async () => {
+    harness = createMergeSlotsHarness([{ id: '001', change: ['checkout.ts', 'export const checkout = 1;\n'] }]);
+    recordPassOn(harness, 'ticket-001');
+
+    await harness.slots.sweep();
+
+    expect(harness.gatedTrees).toEqual([]);
+    expect(kindsLogged(harness, 'merge-landed')).toHaveLength(1);
+  });
+
+  test('gates a merged tree that differs from the tree the gates last passed', async () => {
+    harness = createMergeSlotsHarness([{ id: '001', change: ['checkout.ts', 'export const checkout = 1;\n'] }]);
+    const branchTree = recordPassOn(harness, 'ticket-001');
+    commitFile(harness.repository, 'cart.ts', 'export const cart = 1;\n');
+
+    await harness.slots.sweep();
+
+    expect(harness.gatedTrees).toHaveLength(1);
+    expect(harness.gatedTrees[0]).not.toBe(branchTree);
+  });
+
+  test('a failed prepare step opens setup-failed, never merge-gate-failed, and lands nothing', async () => {
+    harness = createMergeSlotsHarness([{ id: '001', change: ['checkout.ts', 'export const checkout = 1;\n'] }]);
+    harness.settings.gateOutcome = 'setup-failed';
+    const mainTip = harness.tipOf('main');
+
+    await harness.slots.sweep();
+
+    expect(harness.board.incidents().map((incident) => incident.kind)).toEqual(['setup-failed']);
+    expect(kindsLogged(harness, 'gate-ran')).toEqual([]);
+    expect(harness.tipOf('main')).toBe(mainTip);
+  });
+
   test('failing after the branch\'s own gate passed opens merge-gate-failed and lands nothing', async () => {
     harness = createMergeSlotsHarness([{ id: '001', change: ['checkout.ts', 'export const checkout = 1;\n'] }]);
     harness.settings.gateOutcome = 'failed';

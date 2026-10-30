@@ -5,8 +5,13 @@
  * operational failure opens its own incident or decision rather than a failed pass, while a missing report or an attribution trailer is
  * a failed pass with its cause.
  */
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join }                                  from 'node:path';
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  statSync
+} from 'node:fs';
+import { join } from 'node:path';
 import {
   afterEach,
   beforeEach,
@@ -235,7 +240,10 @@ function hostLaunchIn(hostFolder: string): HostLaunch {
 function endEveryHost(): void {
   const jobsFolder = join(requireWorkspace(repositoryDirectory).trackerDirectory, 'jobs');
   if (!existsSync(jobsFolder)) return;
-  const hostFolders = readdirSync(jobsFolder).flatMap((jobId) => ['', 'install', 'gate', 'gate-key'].map((folderName) => join(jobsFolder, jobId, folderName)));
+  const hostFolders = readdirSync(jobsFolder).flatMap((jobId) => {
+    const jobFolder = join(jobsFolder, jobId);
+    return [jobFolder, ...readdirSync(jobFolder).map((name) => join(jobFolder, name)).filter((path) => statSync(path).isDirectory())];
+  });
   for (const hostFolder of hostFolders.filter((folder) => existsSync(folder))) {
     for (const fileName of readdirSync(hostFolder).filter((name) => /^host-\d+\.json$/.test(name))) {
       const record = JSON.parse(readFileSync(join(hostFolder, fileName), 'utf8')) as HostRecord;
@@ -286,7 +294,7 @@ describe('a build job end to end', () => {
     expect((await Bun.$`git -C ${worktree} rev-parse HEAD~1`.quiet().text()).trim()).toBe(mainTipAtStart);
     const jobFolder = jobFolderOf(firstBuildJobId());
     const sandboxApplies = createProcessHostSandbox().isUsable();
-    for (const [folder, networkDenied] of [['install', false], ['gate', true]] as const) {
+    for (const [folder, networkDenied] of [['install', false], ['gate-prepare', false], ['gate-1', true]] as const) {
       const launch = hostLaunchIn(join(jobFolder, folder));
       expect(launch.kind).toBe('process');
       expect(launch.argv[0] === SANDBOX_EXEC_PATH).toBe(sandboxApplies);
@@ -294,8 +302,24 @@ describe('a build job end to end', () => {
     }
     expect(HostFleet.livenessOf(jobFolder, 1)).toMatchObject({ verdict: 'ended', end: { reason: 'exited', exitCode: 0 } });
     expect(loggedEntries('gate-ran').map((entry) => entry.fields)).toEqual([expect.objectContaining({ outcome: 'passed', cached: false })]);
-    const gatesFolder = join(requireWorkspace(repositoryDirectory).trackerDirectory, 'gates');
-    expect(existsSync(gatesFolder) && readdirSync(gatesFolder).length === 1).toBe(sandboxApplies);
+    expect(existsSync(join(requireWorkspace(repositoryDirectory).trackerDirectory, 'gates'))).toBe(false);
+  }, BUILD_TEST_TIMEOUT_MILLISECONDS);
+
+  test('runs the gates in order, the first red one stopping the rest, each in its in folder with its own network and writes', async () => {
+    await run(['gate', 'add', 'types', '--network', 'registry.example.com', '--writes', '~/.cache/example-types', '--', 'true']);
+    await run(['gate', 'add', 'tests', '--', 'echo expected 2, received 3; exit 1']);
+    await run(['gate', 'add', 'lint', '--', 'true']);
+    const drivePass = await drivePassPlaying(buildingSession());
+    await passUntil(drivePass, () => buildJobEnding() !== undefined, 'the build job ending');
+
+    expect(buildJobEnding()).toMatchObject({ outcome: 'failed', cause: 'gate-failed' });
+    const jobFolder = jobFolderOf(firstBuildJobId());
+    expect(readFileSync(join(jobFolder, 'gate.log'), 'utf8')).toBe('tests\nexpected 2, received 3\n');
+    expect(existsSync(join(jobFolder, 'gate-3'))).toBe(false);
+    const typesProfile = readFileSync(join(jobFolder, 'gate-1', 'process-sandbox.sb'), 'utf8');
+    expect(typesProfile.includes('(deny network-outbound')).toBe(false);
+    expect(typesProfile).toContain('.cache/example-types');
+    expect(readFileSync(join(jobFolder, 'gate-2', 'process-sandbox.sb'), 'utf8').includes('(deny network-outbound')).toBe(true);
   }, BUILD_TEST_TIMEOUT_MILLISECONDS);
 
   test('a changed pipeline is gated without a restart, and the row records the hash of the pipeline it was judged by', async () => {

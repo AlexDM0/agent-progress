@@ -5,7 +5,7 @@
  */
 import { createHash }                          from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
-import { join }                                from 'node:path';
+import { basename, join }                      from 'node:path';
 
 import { PipelineFile }                                                          from '../../adapters/pipeline/PipelineFile.ts';
 import { BUILDER_REPORT_SCHEMA, RESOLVER_REPORT_SCHEMA, REVIEWER_REPORT_SCHEMA } from '../../adapters/reports/ReportSchemas.ts';
@@ -23,27 +23,31 @@ import type { IncidentDefaultCause, IncidentMove }                              
 import type { InterruptionCause, Job, JobKind }                                  from '../../lib/tracker-model/@types/Job.ts';
 import type { DecisionDraft, DecisionWording }                                   from '../../lib/tracker-model/@types/LifecycleStep.ts';
 import type { Board }                                                            from '../../lib/tracker-model/Board.ts';
-import { PipelineUtil }                                                          from '../../lib/tracker-model/utils/PipelineUtil.ts';
 import { JOB_ID_VARIABLE, RELAY_DIRECTORY_VARIABLE }                             from '../../shared/Environment.ts';
 import { LIFECYCLE_LIMITS }                                                      from '../../shared/constants/LifecycleLimits.ts';
 import { MERGE_SLOT_LIMITS }                                                     from '../../shared/constants/MergeSlotLimits.ts';
 import { PRODUCT_NAMES }                                                         from '../../shared/constants/ProductNames.ts';
-import { QUIET_JOB_SWEEPS, SESSION_STOP_GRACE_MILLISECONDS }                     from '../../shared/constants/RunnerLimits.ts';
-import { createFolderGateResultCache, createMemoryGateResultCache }              from '../lifecycle/GateResultCache.ts';
-import { GateRun }                                                               from '../lifecycle/GateRun.ts';
-import { ReviewOutcome }                                                         from '../lifecycle/ReviewOutcome.ts';
-import type { RenderState }                                                      from '../render/RenderState.ts';
-import { writeTracker, type TrackerChange }                                      from '../tracker/TrackerPipeline.ts';
-import { requireProgressFile }                                                   from '../tracker/TrackerReader.ts';
-import type { Workspace }                                                        from '../tracker/Workspace.ts';
-import { AnswerDelivery }                                                        from './AnswerDelivery.ts';
-import { AssistantBoot, type AssistantFacts }                                    from './AssistantBoot.ts';
-import { type AssistantChatFacts, type AssistantReading, AssistantSession }      from './AssistantSession.ts';
-import { GroupWorktrees }                                                        from './GroupWorktrees.ts';
-import { HostFleet, type HostLiveness }                                          from './HostFleet.ts';
-import { type DefaultedIncident, IncidentRouter }                                from './IncidentRouter.ts';
-import { IntakeSessions, type IntakeFacts }                                      from './IntakeSessions.ts';
-import { JobControlDelivery }                                                    from './JobControlDelivery.ts';
+import {
+  GATE_RUNS_AT_ONCE,
+  GATE_SLOT_RETRY_MILLISECONDS,
+  QUIET_JOB_SWEEPS,
+  SESSION_STOP_GRACE_MILLISECONDS
+} from '../../shared/constants/RunnerLimits.ts';
+import { type GateConfinement, GateRun }                                    from '../lifecycle/GateRun.ts';
+import { ReviewOutcome }                                                    from '../lifecycle/ReviewOutcome.ts';
+import type { RenderState }                                                 from '../render/RenderState.ts';
+import { writeTracker, type TrackerChange }                                 from '../tracker/TrackerPipeline.ts';
+import { requireProgressFile }                                              from '../tracker/TrackerReader.ts';
+import type { Workspace }                                                   from '../tracker/Workspace.ts';
+import { AnswerDelivery }                                                   from './AnswerDelivery.ts';
+import { AssistantBoot, type AssistantFacts }                               from './AssistantBoot.ts';
+import { type AssistantChatFacts, type AssistantReading, AssistantSession } from './AssistantSession.ts';
+import { createGateRunSlots, gateRunHolderIsLive, inProcessHolderOf }       from './GateRunSlots.ts';
+import { GroupWorktrees }                                                   from './GroupWorktrees.ts';
+import { HostFleet, type HostLiveness }                                     from './HostFleet.ts';
+import { type DefaultedIncident, IncidentRouter }                           from './IncidentRouter.ts';
+import { IntakeSessions, type IntakeFacts }                                 from './IntakeSessions.ts';
+import { JobControlDelivery }                                               from './JobControlDelivery.ts';
 import {
   BUILD_JOB_CAUSES,
   type BuildJobObservation,
@@ -59,7 +63,7 @@ import { Reattachment, type ReattachmentReport }                   from './Reatt
 import { RelayInbox, type PendingRelayRequest }                    from './RelayInbox.ts';
 import { RunnerLease }                                             from './RunnerLease.ts';
 import { type UsageLimitHit, UsageLimits }                         from './UsageLimits.ts';
-import { WorkerProfiles }                                          from './WorkerProfiles.ts';
+import { NO_TOOLCHAIN, WorkerProfiles }                            from './WorkerProfiles.ts';
 
 /** What a session is told at launch; worded by the command line, since services hold no words. */
 export interface JobLaunchText {
@@ -201,6 +205,11 @@ interface Observation {
 
 export const GROUP_TARGET_PREFIX = 'group-';
 
+/** Under the monitor folder, so every Overseer of the machine shares the gate run slots. */
+const GATE_SLOTS_FOLDER = 'gate-slots';
+
+const MERGE_GATE_PROFILES_FOLDER = 'merge-gate-profiles';
+
 // T1b-P14's finding: the per-job ref denies hold, so a target moved by someone else requeues silently (owner answer Q38).
 const TARGET_REF_DENIES_HOLD = true;
 // T1-P1's finding: a live session takes the answer as the `control_response` allow with `updatedInput.answers`.
@@ -251,7 +260,10 @@ function fingerprintOf(
   digest.update(fileTextOrEmpty(workspace.progressFilePath)).update('\0').update(fileTextOrEmpty(workspace.logFilePath)).update('\0');
   digest.update(`usage ${JSON.stringify(usageMarker)}\n`);
   for (const request of pending) digest.update(`request ${request.jobId} ${request.requestId}\n`);
-  for (const buildJob of buildJobs) digest.update(`build ${buildJob.jobId} ${buildJob.setup} ${buildJob.calls} ${buildJob.gate.verdict}\n`);
+  for (const buildJob of buildJobs) {
+    const gateStep = buildJob.gate.verdict === 'running' ? buildJob.gate.stepIndex : '';
+    digest.update(`build ${buildJob.jobId} ${buildJob.setup} ${buildJob.calls} ${buildJob.gate.verdict} ${gateStep}\n`);
+  }
   for (const host of hosts) digest.update(`host ${host.jobId} ${host.instance} ${host.liveness.verdict} ${host.events.at(-1)?.sequence ?? 0}\n`);
   for (const [target, tip] of Object.entries(tips)) digest.update(`tip ${target} ${tip ?? '-'}\n`);
   return digest.digest('hex');
@@ -286,12 +298,7 @@ function observe(request: DrivePassRequest, jobLaunchContext: JobLaunchContext):
   const targetsHoldingManagedBlock = targets.filter((target) => targetHoldsManagedBlock(workspace.rootDirectory, target, request.managedBlockMarker));
   const pipelineReading = PipelineFile.read(workspace.pipelineFilePath);
   const pipeline        = pipelineReading.verdict === 'readable' ? pipelineReading.pipeline : null;
-  const gateLines       = {
-    checksLine:  pipeline === null ? null : PipelineUtil.checksLineOf(pipeline),
-    installLine: pipeline === null ? null : PipelineUtil.installLineOf(pipeline),
-    keyCommand:  null,
-  };
-  const buildJobs = JobLaunch.observeBuildJobs(jobLaunchContext, jobs, gateLines);
+  const buildJobs = JobLaunch.observeBuildJobs(jobLaunchContext, jobs, pipeline);
   const ticketIdsTouchingAgentConfig = JobLaunch.ticketIdsTouchingAgentConfigOf(jobLaunchContext, jobs);
   const usageMarker = UsageMarkerFile.read(request.monitorFolder);
   if (usageMarker.verdict === 'malformed') {
@@ -414,12 +421,11 @@ function profileOf(workspace: Workspace, job: Readonly<Job>, workingDirectory: s
  */
 function launchProfileOf(jobLaunchContext: JobLaunchContext, board: Board, job: Readonly<Job>, workingDirectory: string, relayDirectory: string): WorkerProfile {
   if (IntakeSessions.isIntakeJob(job)) return IntakeSessions.productOwnerProfileOf(profileOf(jobLaunchContext.workspace, job, workingDirectory, relayDirectory));
-  if (job.kind === 'merge-agent') return WorkerProfiles.profileOf('resolver', JobLaunch.sandboxFactsFor(jobLaunchContext, job, workingDirectory), [], []);
+  if (job.kind === 'merge-agent') return WorkerProfiles.profileOf('resolver', JobLaunch.sandboxFactsFor(jobLaunchContext, job, workingDirectory), NO_TOOLCHAIN);
   if (!JobLaunch.isWorktreeJob(job)) return profileOf(jobLaunchContext.workspace, job, workingDirectory, relayDirectory);
   const ticket = board.tickets().find((candidate) => candidate.frontmatter.id === job.ticketIds[0]);
   const role = job.kind === 'review' ? 'reviewer' : 'builder';
-  const toolchainLines = [board.checksLine(), board.installLine()].flatMap((line) => line ?? []);
-  return WorkerProfiles.profileOf(role, JobLaunch.sandboxFactsFor(jobLaunchContext, job), ticket?.frontmatter.network ?? [], toolchainLines);
+  return WorkerProfiles.profileOf(role, JobLaunch.sandboxFactsFor(jobLaunchContext, job), WorkerProfiles.workerToolchainOf(board.pipeline(), ticket?.frontmatter.network ?? []));
 }
 
 /** Kept in the merge job's folder when the Airlock opens its incident, which is closed by the time its agent launches. */
@@ -568,6 +574,9 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
   let declinedCleanups: DeclinedCleanup[] = [];
   const worktreesRoot = join(request.workspace.rootDirectory, PRODUCT_NAMES.WORKTREES_FOLDER);
   const sandbox = createProcessHostSandbox();
+  const gateSlots = createGateRunSlots({
+    folder: join(request.monitorFolder, GATE_SLOTS_FOLDER), limit: GATE_RUNS_AT_ONCE, holderIsLive: gateRunHolderIsLive, retryMilliseconds: GATE_SLOT_RETRY_MILLISECONDS,
+  });
   const jobLaunchContext: JobLaunchContext = {
     workspace:            request.workspace,
     agentAdapter:         request.agentAdapter,
@@ -579,12 +588,31 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     hostBundlePath:       request.hostBundlePath,
     codeVersion:          request.codeVersion,
     sandbox,
-    // Trusted on disk only while no gate can write the data folder; unsandboxed gates keep their passes in memory, lost on a restart.
-    gateCache:            sandbox.isUsable() ? createFolderGateResultCache(join(request.workspace.trackerDirectory, 'gates')) : createMemoryGateResultCache(),
+    gateSlots,
     windDownMessage:      request.windDownMessage,
     decisionWordingOf:    request.decisionWordingOf,
     log:                  request.log,
   };
+
+  /** A merge gate step under the profile a gate host gets, its own network and `writes`, in the slot's worktree; one profile file per worktree. */
+  function mergeGateArgvOf(worktreePath: string, argv: readonly string[], confinement: GateConfinement): readonly string[] {
+    const facts = WorkerProfiles.sandboxFactsOf({
+      repositoryRoot: request.workspace.rootDirectory,
+      dataFolder:     request.workspace.trackerDirectory,
+      monitorFolder:  request.monitorFolder,
+      homeDirectory:  request.homeDirectory,
+      worktree:       worktreePath,
+      ownBranch:      '',
+      mainLine:       request.mainLine,
+      groupPrefix:    GROUP_TARGET_PREFIX,
+      relayDirectory: '',
+    });
+    const profileFolder = join(request.workspace.trackerDirectory, 'runner', MERGE_GATE_PROFILES_FOLDER);
+    const profilePath   = join(profileFolder, `${basename(worktreePath)}.sb`);
+    mkdirSync(profileFolder, { recursive: true });
+    writeFileAtomically(profilePath, sandbox.profileTextOf(JobLaunch.processSandboxRequestOf(jobLaunchContext, facts, confinement)));
+    return sandbox.sandboxedArgvOf(profilePath, argv);
+  }
 
   const mergeSlots = createMergeSlots({
     repositoryRoot:    request.workspace.rootDirectory,
@@ -606,19 +634,18 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     })).result,
     gateMergedTree: async (worktreePath, treeId) => {
       // Read afresh at every gate run, so a pipeline changed by hand or by a `gate` verb gates the next tree without a restart.
-      const reading    = PipelineFile.read(request.workspace.pipelineFilePath);
-      const pipeline   = reading.verdict === 'readable' ? reading.pipeline : null;
-      const checksLine = pipeline === null ? '' : PipelineUtil.checksLineOf(pipeline);
-      const verdict    = await GateRun.gateTree({
-        argv:        GateRun.checksLineArgvOf(checksLine),
-        directory:   worktreePath,
-        treeId,
-        checksLine,
-        installLine: pipeline === null ? null : PipelineUtil.installLineOf(pipeline),
-        keyArgv:     null,
-        cache:       jobLaunchContext.gateCache,
+      const reading  = PipelineFile.read(request.workspace.pipelineFilePath);
+      const pipeline = reading.verdict === 'readable' ? reading.pipeline : null;
+      const holder   = inProcessHolderOf(`${worktreePath}@${treeId}`);
+      const verdict  = await GateRun.runPipeline({
+        prepare:         pipeline?.prepare ?? [],
+        gates:           pipeline?.gates ?? [],
+        directory:       worktreePath,
+        confinedArgvOf:  (argv, confinement) => mergeGateArgvOf(worktreePath, argv, confinement),
+        acquireGateSlot: () => gateSlots.acquire(holder),
       });
-      return { outcome: verdict.outcome, output: verdict.run?.output ?? '' };
+      if (verdict.outcome === 'passed') return { outcome: 'passed', step: null, output: '' };
+      return { outcome: verdict.outcome, step: 'step' in verdict ? verdict.step : verdict.gate, output: verdict.output };
     },
     mergeAgentReadingOf: (job) => JobLaunch.sessionReadingOf(jobLaunchContext, job),
     hostIsLive:          (job) => HostFleet.livenessOf(HostFleet.jobFolderOf(request.workspace.trackerDirectory, job.id), job.hostInstance).verdict === 'live',
