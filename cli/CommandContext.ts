@@ -12,11 +12,12 @@ import { createRenderState, type RenderState } from '../src/services/render/Rend
 import {
   executableSearchPath,
   fakeAgentIsOn,
+  fakeAgentKeepsWorking,
   relayDirectory,
   runnerJobId
 } from '../src/shared/Environment.ts';
 import { RELAY_REPLY_INTERVAL_MILLISECONDS, RELAY_REPLY_TRIES } from '../src/shared/constants/RunnerLimits.ts';
-import { fakeAgentAdapter }                                     from '../src/testing/FakeAgentAdapter.ts';
+import { fakeAgentAdapter, WORKING_FAKE_AGENT_STEPS }           from '../src/testing/FakeAgentAdapter.ts';
 
 export interface CommandContext {
   currentDirectory:        string;
@@ -51,7 +52,8 @@ export interface CommandContext {
 
 /** The one place outside `src/lib/claude-code/` the vendor's adapter is chosen; a spec-spawned binary always gets the fake. */
 export function agentAdapterOfThisProcess(): AgentAdapter {
-  return fakeAgentIsOn() ? fakeAgentAdapter() : CLAUDE_CODE_ADAPTER;
+  if (!fakeAgentIsOn()) return CLAUDE_CODE_ADAPTER;
+  return fakeAgentKeepsWorking() ? fakeAgentAdapter(WORKING_FAKE_AGENT_STEPS) : fakeAgentAdapter();
 }
 
 const STOP_SIGNALS: readonly NodeJS.Signals[] = ['SIGTERM', 'SIGINT'];

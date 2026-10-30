@@ -31,7 +31,7 @@ Pillow and the `diagrams` skill's renderer at `~/.claude/skills/diagrams/scripts
 |---|---|
 | `regenerate.sh` | The one command: seed → Overseer and shots → copy the images the root README.md references into `docs/images/`; the rest stay in `build/images/`. |
 | `seed-demo.sh` | Files the board through the CLI under a pinned clock in a throwaway repository with a home of its own: two epics, sixteen tickets whose dependencies make the waves (two chains meeting in the one-ticket wave of #012), one abandoned, two left as drafts for intake, the rest readied. |
-| `bridge-demo.sh` | Starts `run --port 0 --detach` on the seeded board with the fake agent switch on, resumes it so it launches builders, records an intake, waits for jobs and an incident to appear, shoots each view, and stops the Overseer. |
+| `bridge-demo.sh` | Starts `run --port 0 --detach` on the seeded board with the fake agent switch on, resumes it so it launches builders that keep working, records an intake, waits for the jobs to appear, shoots each view, and stops the Overseer. |
 | `demo-bodies/` | The mock ticket bodies, `NNN.md` filed with each ticket. |
 | `freeze-clock.js` | Preloaded into the CLI (`bun --preload`): every `Date` reads the story time in `STORY_CLOCK`. |
 | `shoot.js` | Headless Chrome over the DevTools protocol, from a JSON job list of files (`html`) or live pages (`url`): frozen clock, colour scheme, time zone, pre-seeded `localStorage`, an in-page action, clips by selector, and element measurements. |
@@ -56,7 +56,8 @@ The demo repository is always built in a temporary folder outside this checkout 
 folder inside it — and the root override variables are unset for every command. Both scripts set `HOME` to a folder
 inside the work folder for every CLI command and the Overseer, so the monitor registry, the Watcher sockets and the
 agent transcripts they write stay there; only Chrome keeps the user's home. The Overseer runs with the fake agent
-switch on, so it never launches a vendor's agent. Never run `agent-progress` against this checkout to make graphics:
+switch on, so it never launches a vendor's agent, and with its keeps-working switch on, so no session ends unreported
+and no outage pauses the board. Never run `agent-progress` against this checkout to make graphics:
 `init` there, with the variable pointing elsewhere, once replaced this repository's own board.
 
 ## The images and what each shows
