@@ -3,7 +3,9 @@
  * (id, size mark, priority, type, tokens, epics, waiting-on, hold, the draft labels) as text, a planted payload included; a draft's Ready,
  * the Drafts lane's multi-select Ready, and a ready card's Hold, Unhold and priority each post their `ControlCommand`; a refusal shows
  * verbatim; the controls are disabled while the stream is down; pressing an epic chip narrows the lanes and stores the choice under the
- * static page's key; and a card whose state moved on the next board is marked changed.
+ * static page's key; and a card whose state moved on the next board is marked changed. Ported from `page/kanban/`: "needed first" and
+ * `↦ N` on the cards, the hover marks and arrows (against stubbed card boxes, since happy-dom lays nothing out), the Ready lane by wave,
+ * a closed lane's pages and the Abandoned lane's fold, each choice stored under the static page's key.
  */
 import {
   act,
@@ -52,7 +54,7 @@ interface RenderedKanban {
   readonly rerender:   (boardState: KanbanBoardState) => void;
 }
 
-function renderKanban(availability: ControlAvailability = 'enabled', storedEntries: readonly [string, string][] = []): RenderedKanban {
+function renderKanban(availability: ControlAvailability = 'enabled', storedEntries: readonly [string, string][] = [], initialBoard: KanbanBoardState = BOARD): RenderedKanban {
   const sent: ControlCommandBody[] = [];
   const storage = new Map<string, string>(storedEntries);
   let nextOutcome: CommandOutcome = { verdict: 'applied', outcome: 'done', result: null };
@@ -76,7 +78,7 @@ function renderKanban(availability: ControlAvailability = 'enabled', storedEntri
       <KanbanView boardState={boardState} boardStore={boardStore} />
     </ControlSurroundingsContext.Provider>
   );
-  const rendered = render(tree(BOARD));
+  const rendered = render(tree(initialBoard));
   return {
     sent,
     storage,
@@ -252,5 +254,139 @@ describe('the change highlight', () => {
     });
     act(() => kanban.rerender(next));
     expect([...document.querySelectorAll('[data-changed]')].map((card) => card.getAttribute('data-card'))).toEqual(['ticket:003']);
+  });
+});
+
+const DEPENDENCY_BOARD = exampleBoard({
+  tickets: [
+    exampleTicket('110'),
+    exampleTicket('111', { status: 'in-progress' }),
+    exampleTicket('112', { dependsOn: ['110', '111'] }),
+    exampleTicket('113', { dependsOn: ['112'] }),
+  ],
+  readyTicketIds: ['110'],
+});
+
+describe('the dependency marks and arrows', () => {
+  const CARD_LEFT_BY_LANE: Readonly<Record<string, number>> = { ready: 0, building: 300 };
+  const originalBoundingBox = Element.prototype.getBoundingClientRect;
+
+  /** happy-dom lays nothing out, so each card gets a box: its lane's column, stacked by its place in the lane. */
+  function layOutCards(): void {
+    Element.prototype.getBoundingClientRect = function boxOf(this: Element) {
+      const lane = this.closest('[data-lane]');
+      if (!this.hasAttribute('data-card') || lane === null) return DOMRect.fromRect({
+        x: 0, y: 0, width: 0, height: 0
+      });
+      const place = [...lane.querySelectorAll('[data-card]')].indexOf(this);
+      return DOMRect.fromRect({
+        x: CARD_LEFT_BY_LANE[lane.getAttribute('data-lane') ?? ''] ?? 0, y: place * 100, width: 200, height: 30
+      });
+    };
+  }
+
+  afterEach(() => {
+    Element.prototype.getBoundingClientRect = originalBoundingBox;
+  });
+
+  test('a ticket another depends on carries "needed first", shown only while a dependent is hovered, and ↦ N counts what waits on it', () => {
+    renderKanban('enabled', [], DEPENDENCY_BOARD);
+    expect(cardNamed('#110').querySelector('.bridge-kanban-needed-first')?.textContent).toBe('needed first');
+    expect(cardNamed('#113').querySelector('.bridge-kanban-needed-first')).toBeNull();
+    const heldCount = cardNamed('#110').querySelector('.bridge-kanban-held-count');
+    expect([heldCount?.textContent, heldCount?.getAttribute('title')]).toEqual(['↦ 2', '2 tickets wait on this one, directly or further down the chain']);
+    expect(cardNamed('#113').querySelector('.bridge-kanban-held-count')).toBeNull();
+    expect(document.querySelectorAll('[data-needed-first]').length).toBe(0);
+  });
+
+  test('hovering a card marks the cards it depends on needed first and draws an arrow from each, and leaving the board removes both', () => {
+    layOutCards();
+    renderKanban('enabled', [], DEPENDENCY_BOARD);
+    act(() => {
+      fireEvent.mouseOver(cardNamed('#112').querySelector('.bridge-kanban-title') ?? cardNamed('#112'));
+    });
+    expect([...document.querySelectorAll('[data-needed-first]')].map((card) => card.getAttribute('data-card'))).toEqual(['ticket:110', 'ticket:111']);
+    const arrows = [...document.querySelectorAll('.bridge-kanban-arrows g')];
+    expect(arrows.map((arrow) => arrow.getAttribute('data-route'))).toEqual(['same-lane', 'leftward']);
+    expect(arrows.every((arrow) => arrow.querySelector('.bridge-kanban-arrow-line')?.getAttribute('d')?.startsWith('M ') === true)).toBe(true);
+    act(() => {
+      fireEvent.mouseLeave(document.querySelector('.bridge-kanban-frame') ?? document.body);
+    });
+    expect(document.querySelector('.bridge-kanban-arrows')).toBeNull();
+    expect(document.querySelectorAll('[data-needed-first]').length).toBe(0);
+  });
+});
+
+describe('the Ready lane by wave', () => {
+  const STORAGE_KEY = `${PRODUCT_NAMES.STORAGE_PREFIX}:example-tracker:kanban-todo-order`;
+
+  test('a board without dependencies offers no order switch', () => {
+    renderKanban();
+    expect(screen.queryByRole('group', { name: 'Order Ready' })).toBeNull();
+  });
+
+  test('By wave divides the Ready lane into its waves, the one-ticket ones narrow, and stores the choice under the static page\'s key', async () => {
+    const kanban = renderKanban('enabled', [], DEPENDENCY_BOARD);
+    const order = screen.getByRole('group', { name: 'Order Ready' });
+    expect(within(order).getByRole('button', { name: 'Filed' }).getAttribute('aria-pressed')).toBe('true');
+    expect(laneNamed('Ready').querySelector('.bridge-lane-wave')).toBeNull();
+    await clicked(within(order).getByRole('button', { name: 'By wave' }));
+    const waves = [...laneNamed('Ready').querySelectorAll('.bridge-lane-wave')];
+    expect(waves.map((wave) => [
+      wave.querySelector('.bridge-lane-wave-head')?.textContent,
+      wave.hasAttribute('data-narrow'),
+      [...wave.querySelectorAll('.bridge-kanban-id')].map((id) => id.textContent),
+    ])).toEqual([
+      ['Now 1 ready · 2 side by side', false, ['#110']],
+      ['Wave 2 one at a time', true, ['#112']],
+      ['Wave 3 one at a time', true, ['#113']],
+    ]);
+    expect(kanban.storage.get(STORAGE_KEY)).toBe('by-wave');
+  });
+});
+
+describe('the closed lanes\' pages', () => {
+  const STORAGE_KEY = `${PRODUCT_NAMES.STORAGE_PREFIX}:example-tracker:kanban-done-shown`;
+  const deliveredStampOf = (minute: number) => `2026-10-01T10:${String(minute).padStart(2, '0')}:00+02:00`;
+  const deliveredTickets = Array.from({ length: 20 }, (_ticket, i) => exampleTicket(String(400 + i), { status: 'delivered', delivered: deliveredStampOf(i) }));
+  const DONE_BOARD = exampleBoard({ tickets: deliveredTickets });
+
+  test('a closed lane shows its first page and counts every card; Show more adds the rest and Latest goes back to the first page', async () => {
+    const kanban = renderKanban('enabled', [], DONE_BOARD);
+    const done = laneNamed('Done');
+    expect(done.querySelector('.bridge-lane-count')?.textContent).toBe('20');
+    expect(done.querySelectorAll('.bridge-kanban-card').length).toBe(15);
+    expect(done.querySelector('.bridge-lane-more span')?.textContent).toBe('15 of 20 shown');
+    await clicked(within(done).getByRole('button', { name: 'Show 5 more' }));
+    expect(done.querySelectorAll('.bridge-kanban-card').length).toBe(20);
+    expect(kanban.storage.get(STORAGE_KEY)).toBe('20');
+    await clicked(within(done).getByRole('button', { name: 'Latest 15' }));
+    expect(done.querySelectorAll('.bridge-kanban-card').length).toBe(15);
+    expect(kanban.storage.has(STORAGE_KEY)).toBe(false);
+  });
+});
+
+describe('the Abandoned lane\'s fold', () => {
+  const STORAGE_KEY = `${PRODUCT_NAMES.STORAGE_PREFIX}:example-tracker:kanban-abandoned`;
+  const ABANDONED_BOARD = exampleBoard({ tickets: [exampleTicket('500', { status: 'abandoned', abandonedAt: '2026-10-02T10:00:00+02:00' })] });
+
+  test('the Abandoned lane is folded to its head and count until opened, and the choice is stored under the static page\'s key', async () => {
+    const kanban = renderKanban('enabled', [], ABANDONED_BOARD);
+    const abandoned = laneNamed('Abandoned');
+    expect(abandoned.hasAttribute('data-collapsed')).toBe(true);
+    expect(abandoned.querySelector('.bridge-lane-count')?.textContent).toBe('1');
+    expect(abandoned.querySelector('.bridge-kanban-card')).toBeNull();
+    const toggle = within(abandoned).getByRole('button', { name: 'Show the abandoned tickets' });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    await clicked(toggle);
+    expect(abandoned.hasAttribute('data-collapsed')).toBe(false);
+    expect(abandoned.querySelectorAll('.bridge-kanban-card').length).toBe(1);
+    expect(within(abandoned).getByRole('button', { name: 'Collapse the abandoned tickets' }).getAttribute('aria-expanded')).toBe('true');
+    expect(kanban.storage.get(STORAGE_KEY)).toBe('open');
+  });
+
+  test('a stored open choice is read back on render', () => {
+    renderKanban('enabled', [[STORAGE_KEY, 'open']], ABANDONED_BOARD);
+    expect(laneNamed('Abandoned').querySelectorAll('.bridge-kanban-card').length).toBe(1);
   });
 });

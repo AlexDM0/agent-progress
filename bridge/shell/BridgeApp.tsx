@@ -13,13 +13,10 @@ import {
 
 import type { BoardStateDocument, OverseerIdentity }                                     from '../@types/BoardStateDocument.ts';
 import type { ConversationBoardDocument }                                                from '../@types/ConversationDocuments.ts';
-import type { KanbanBoardState }                                                         from '../@types/KanbanBoardState.ts';
 import type { PreferenceStorage }                                                        from '../@types/PreferenceStorage.ts';
-import type { ProgressBoardState }                                                       from '../@types/ProgressBoardState.ts';
-import type { TicketsBoardState }                                                        from '../@types/TicketsBoardState.ts';
 import type { CommandClient }                                                            from '../api/CommandClient.ts';
 import type { ConnectionState, EventStreamHandlers }                                     from '../api/EventStreamClient.ts';
-import { boardPreferenceStoreOf, sharedPreferenceStoreOf, type PreferenceStore }         from '../preferences/PreferenceStore.ts';
+import { boardPreferenceStoreOf, sharedPreferenceStoreOf }                               from '../preferences/PreferenceStore.ts';
 import { TimeUtil }                                                                      from '../utils/TimeUtil.ts';
 import { AgentsView, BROWSER_AGENTS_CLOCK, type AgentsClock }                            from '../views/agents/AgentsView.tsx';
 import { AssistantView }                                                                 from '../views/assistant/AssistantView.tsx';
@@ -45,15 +42,10 @@ import { BoardStateUpdate }                                                     
 import { ConnectionBanners }                                                             from './ConnectionBanners.tsx';
 import { ControlAvailabilityUtil, ControlSurroundingsContext, type ControlSurroundings } from './ControlAvailability.ts';
 import { EmbeddedChannel, type EmbeddedSurroundings }                                    from './EmbeddedChannel.ts';
-import {
-  DEFAULT_TAB,
-  HashRouter,
-  TAB_CHOICE_NAME,
-  type BridgeTab
-} from './HashRouter.ts';
-import { Header }                           from './Header.tsx';
-import { HeaderModelUtil }                  from './HeaderModel.ts';
-import { ThemeBootstrap, type ThemeChoice } from './ThemeBootstrap.ts';
+import { DEFAULT_TAB, HashRouter, TAB_CHOICE_NAME }                                      from './HashRouter.ts';
+import { Header }                                                                        from './Header.tsx';
+import { HeaderModelUtil }                                                               from './HeaderModel.ts';
+import { ThemeBootstrap, type ThemeChoice }                                              from './ThemeBootstrap.ts';
 
 export interface BridgeServices {
   readonly commandClient:        CommandClient;
@@ -66,77 +58,6 @@ export interface BridgeServices {
   readonly now:                  () => Date;
   readonly followTranscript:     TranscriptFollower;
   readonly questionNotifier:     QuestionNotifier;
-}
-
-interface SelectedViewProps {
-  readonly tab:                  BridgeTab;
-  readonly selectedItem:         string | null;
-  readonly boardState:           BoardStateDocument;
-  readonly services:             BridgeServices;
-  readonly agentsClock:          AgentsClock;
-  /** `null` when the board carries no page payload the Kanban can read: the tab then shows the counts. */
-  readonly kanbanBoardState:     KanbanBoardState | null;
-  readonly ticketsBoardState:    TicketsBoardState | null;
-  readonly progressBoardState:   ProgressBoardState | null;
-  readonly progressNow:          number;
-  readonly boardStore:           PreferenceStore | null;
-  readonly finishedWorkChoice:   FinishedWorkChoice;
-  readonly onFinishedWorkChoice: (choice: FinishedWorkChoice) => void;
-}
-
-function SelectedView({
-  tab, selectedItem, boardState, services, agentsClock, kanbanBoardState, ticketsBoardState, progressBoardState, progressNow, boardStore,
-  finishedWorkChoice, onFinishedWorkChoice
-}: SelectedViewProps) {
-  const conversationBoard = boardState as unknown as ConversationBoardDocument;
-  switch (tab) {
-    case 'agents':
-      return <AgentsView jobs={boardState.jobs} decisions={boardState.decisions} selectedJobId={selectedItem} clock={agentsClock} />;
-    case 'kanban':
-      if (selectedItem === MERGE_QUEUE_ITEM) {
-        return <MergeQueueView targets={MergeQueueModel.mergeQueueModelOf(boardState.mergeQueue, boardState.notices ?? [])} />;
-      }
-      if (kanbanBoardState !== null) {
-        return (
-          <>
-            <p><a href={HashRouter.fragmentOf({ tab: 'kanban', item: MERGE_QUEUE_ITEM })}>Merge queue</a></p>
-            <KanbanView boardState={kanbanBoardState} boardStore={boardStore} />
-          </>
-        );
-      }
-      break;
-    case 'tickets':
-      if (ticketsBoardState === null) break;
-      return (
-        <>
-          {selectedItem === null
-            ? null
-            : <DetailPanel boardState={ticketsBoardState} ticketId={selectedItem} todayCalendarDate={TimeUtil.calendarDateOf(services.now().getTime())} tab={tab} />}
-          <TicketsView boardState={ticketsBoardState} boardStore={boardStore} />
-        </>
-      );
-    case 'progress':
-      if (progressBoardState === null && boardState.page === undefined) break;
-      return (
-        <>
-          {progressBoardState === null
-            ? null
-            : <ProgressView boardState={progressBoardState} boardStore={boardStore} nowEpochMilliseconds={progressNow} todayCalendarDate={TimeUtil.calendarDateOf(progressNow)} />}
-          {boardState.page === undefined
-            ? null
-            : <FinishedWorkAndEpics page={boardState.page} finishedWorkChoice={finishedWorkChoice} onFinishedWorkChoice={onFinishedWorkChoice} now={services.now()} />}
-        </>
-      );
-    case 'questions':
-      return <QuestionsView board={conversationBoard} notifier={services.questionNotifier} />;
-    case 'assistant':
-      return <AssistantView board={conversationBoard} followTranscript={services.followTranscript} />;
-    case 'intake':
-      return <IntakeView board={conversationBoard} followTranscript={services.followTranscript} />;
-    default:
-      break;
-  }
-  return <BoardCounts boardState={boardState} tab={tab} />;
 }
 
 export interface BridgeAppProps {
@@ -162,9 +83,9 @@ export function BridgeApp({ services }: BridgeAppProps) {
   const boardStore = useMemo(() => (identity === null ? null : boardPreferenceStoreOf(identity.trackerId, services.storage)), [identity, services]);
   const storedTab = useCallback(() => boardStore?.readChoice(TAB_CHOICE_NAME) ?? null, [boardStore]);
   const route = HashRouter.useHashRoute(storedTab);
-  const openDecisions = (boardState as ConversationBoardDocument | null)?.decisions ?? null;
-  QuestionAlerts.useOpenQuestionAlerts(openDecisions, services.questionNotifier);
   const [finishedWorkChoice, chooseFinishedWork] = useFinishedWorkChoice(boardStore);
+  const conversationBoard = boardState as ConversationBoardDocument | null;
+  QuestionAlerts.useOpenQuestionAlerts(conversationBoard?.decisions ?? null, services.questionNotifier);
 
   useEffect(() => {
     let current = true;
@@ -232,6 +153,11 @@ export function BridgeApp({ services }: BridgeAppProps) {
   const progressBoardState = useMemo(() => ProgressModel.progressBoardStateOf(boardState), [boardState]);
   // The chart reads the clock once per board: its now line and Fit range move on with the next board, and are only shown.
   const progressNow = useMemo(() => (boardState === null ? 0 : services.now().getTime()), [boardState, services]);
+  const mergeQueueIsOpen = route.tab === 'kanban' && route.item === MERGE_QUEUE_ITEM;
+  const boardViewIsShown = route.tab === 'agents' || route.tab === 'questions' || route.tab === 'assistant' || route.tab === 'intake' || mergeQueueIsOpen
+    || (route.tab === 'kanban' && kanbanBoardState !== null)
+    || (route.tab === 'tickets' && ticketsBoardState !== null)
+    || (route.tab === 'progress' && (progressBoardState !== null || boardState?.page !== undefined));
 
   const chooseTheme = (choice: ThemeChoice): void => {
     ThemeBootstrap.chooseTheme(sharedStore, choice);
@@ -256,22 +182,45 @@ export function BridgeApp({ services }: BridgeAppProps) {
         <main className="bridge-panel" data-tab={route.tab}>
           {boardState === null
             ? <p className="bridge-empty">Waiting for the Overseer&apos;s first board.</p>
-            : (
-              <SelectedView
-                tab={route.tab}
-                selectedItem={route.item}
-                boardState={boardState}
-                services={services}
-                agentsClock={agentsClock}
-                kanbanBoardState={kanbanBoardState}
-                ticketsBoardState={ticketsBoardState}
-                progressBoardState={progressBoardState}
-                progressNow={progressNow}
-                boardStore={boardStore}
-                finishedWorkChoice={finishedWorkChoice}
-                onFinishedWorkChoice={chooseFinishedWork}
-              />
-            )}
+            : null}
+          {boardState !== null && route.tab === 'agents'
+            ? <AgentsView jobs={boardState.jobs} decisions={boardState.decisions} selectedJobId={route.item} clock={agentsClock} />
+            : null}
+          {conversationBoard !== null && route.tab === 'questions'
+            ? <QuestionsView board={conversationBoard} notifier={services.questionNotifier} />
+            : null}
+          {conversationBoard !== null && route.tab === 'assistant'
+            ? <AssistantView board={conversationBoard} followTranscript={services.followTranscript} />
+            : null}
+          {conversationBoard !== null && route.tab === 'intake'
+            ? <IntakeView board={conversationBoard} followTranscript={services.followTranscript} />
+            : null}
+          {boardState !== null && mergeQueueIsOpen
+            ? <MergeQueueView targets={MergeQueueModel.mergeQueueModelOf(boardState.mergeQueue, boardState.notices ?? [])} />
+            : null}
+          {kanbanBoardState !== null && route.tab === 'kanban' && !mergeQueueIsOpen
+            ? (
+              <>
+                <p><a href={HashRouter.fragmentOf({ tab: 'kanban', item: MERGE_QUEUE_ITEM })}>Merge queue</a></p>
+                <KanbanView boardState={kanbanBoardState} boardStore={boardStore} />
+              </>
+            )
+            : null}
+          {ticketsBoardState !== null && route.tab === 'tickets' && route.item !== null
+            ? <DetailPanel boardState={ticketsBoardState} ticketId={route.item} todayCalendarDate={TimeUtil.calendarDateOf(services.now().getTime())} tab={route.tab} />
+            : null}
+          {ticketsBoardState !== null && route.tab === 'tickets'
+            ? <TicketsView boardState={ticketsBoardState} boardStore={boardStore} />
+            : null}
+          {progressBoardState !== null && route.tab === 'progress'
+            ? <ProgressView boardState={progressBoardState} boardStore={boardStore} nowEpochMilliseconds={progressNow} todayCalendarDate={TimeUtil.calendarDateOf(progressNow)} />
+            : null}
+          {boardState?.page !== undefined && route.tab === 'progress'
+            ? <FinishedWorkAndEpics page={boardState.page} finishedWorkChoice={finishedWorkChoice} onFinishedWorkChoice={chooseFinishedWork} now={services.now()} />
+            : null}
+          {boardState !== null && !boardViewIsShown
+            ? <BoardCounts boardState={boardState} tab={route.tab} />
+            : null}
         </main>
       </div>
     </ControlSurroundingsContext.Provider>

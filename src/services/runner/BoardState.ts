@@ -229,5 +229,5 @@ function summaryOf(state: BoardState, project: string, readyTicketIds: readonly 
 }
 
 export const BoardStateAssembly = Object.freeze({
-  boardStateOf, summaryOf, questionHistoryOf, mergeQueueOf
+  boardStateOf, summaryOf, mergeQueueOf, questionHistoryOf
 });

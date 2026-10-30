@@ -18,13 +18,12 @@ import {
   test
 } from 'bun:test';
 
-import type { BoardStateDocument, OverseerIdentity }   from '../@types/BoardStateDocument.ts';
-import type { CommandOutcome, ControlCommandBody }     from '../api/CommandClient.ts';
-import type { EventStreamHandlers }                    from '../api/EventStreamClient.ts';
-import { exampleProgressBoard, exampleProgressTicket } from '../testing/ProgressBoardFixture.ts';
-import { exampleTicketsBoard, exampleTicketsTicket }   from '../testing/TicketsBoardFixture.ts';
-import { BridgeApp, type BridgeServices }              from './BridgeApp.tsx';
-import { BridgeErrorBoundary }                         from './BridgeErrorBoundary.tsx';
+import type { BoardStateDocument, OverseerIdentity } from '../@types/BoardStateDocument.ts';
+import type { CommandOutcome, ControlCommandBody }   from '../api/CommandClient.ts';
+import type { EventStreamHandlers }                  from '../api/EventStreamClient.ts';
+import { exampleTicketsBoard, exampleTicketsTicket } from '../testing/TicketsBoardFixture.ts';
+import { BridgeApp, type BridgeServices }            from './BridgeApp.tsx';
+import { BridgeErrorBoundary }                       from './BridgeErrorBoundary.tsx';
 
 const IDENTITY: OverseerIdentity = { trackerId: 'example-tracker', project: 'Example Agency', codeVersion: 'code-1' };
 
@@ -101,27 +100,7 @@ function fakeBridge(): FakeBridge {
   };
 }
 
-interface ViewBoardSlice {
-  readonly page: { readonly payload: { readonly boardFacts: object }; readonly tickets: readonly object[] };
-}
-
-/**
- * A view's fixture as the Overseer sends it: its page also carries what the header and the Progress tab's Epics view read, here no
- * epics and no ticket delivered.
- */
-function liveBoardWith<ViewBoard extends ViewBoardSlice>(viewBoard: ViewBoard): BoardStateDocument {
-  const { page } = viewBoard;
-  return {
-    ...BOARD,
-    ...viewBoard,
-    page: {
-      tickets: page.tickets.map((ticket) => ({ delivered: null, ...ticket })),
-      payload: { ...page.payload, epicDescriptions: [], boardFacts: { ...page.payload.boardFacts, epics: [] } },
-    },
-  } as unknown as BoardStateDocument;
-}
-
-async function renderedLive(bridge: FakeBridge, board: BoardStateDocument = BOARD): Promise<void> {
+async function renderedLive(bridge: FakeBridge, board: unknown = BOARD): Promise<void> {
   render(<BridgeApp services={bridge.services} />);
   await act(async () => {
     bridge.stream().onConnection('live');
@@ -213,23 +192,30 @@ describe('new code behind the same port', () => {
 });
 
 describe('the shell\'s routing', () => {
+  test('the questions and assistant tabs show their views, not the board counts', async () => {
+    window.location.hash = '#questions';
+    await renderedLive(fakeBridge());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByRole('heading', { name: 'Open questions (0)' })).not.toBeNull();
+    await act(async () => {
+      window.location.hash = '#assistant';
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+      await Promise.resolve();
+    });
+    expect(screen.getByRole('heading', { name: 'Open incidents (0)' })).not.toBeNull();
+    expect(document.querySelector('.bridge-empty')).toBeNull();
+  });
+
   test('the tickets tab shows the Tickets view, with the detail panel once a ticket is selected', async () => {
     window.location.hash = '#tickets/002';
-    await renderedLive(fakeBridge(), liveBoardWith(exampleTicketsBoard({ tickets: [exampleTicketsTicket('002')] })));
+    await renderedLive(fakeBridge(), { ...BOARD, ...exampleTicketsBoard({ tickets: [exampleTicketsTicket('002')] }) });
     await act(async () => {
       await Promise.resolve();
     });
     expect(screen.getByRole('link', { name: '#002' }).getAttribute('href')).toBe('#tickets/002');
     expect(screen.getByRole('link', { name: 'Close' }).getAttribute('href')).toBe('#tickets');
-  });
-
-  test('the progress tab shows the Progress chart', async () => {
-    window.location.hash = '#progress';
-    await renderedLive(fakeBridge(), liveBoardWith(exampleProgressBoard({ tickets: [exampleProgressTicket('5')] })));
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(document.querySelector('.bridge-progress-rows')).not.toBeNull();
   });
 });
 
