@@ -28,6 +28,13 @@ export function fakeAgentIsOn(): boolean {
   return switchIsOn(FAKE_AGENT_VARIABLE);
 }
 
+export const FAKE_AGENT_KEEPS_WORKING_VARIABLE = `${PRODUCT_NAMES.ENVIRONMENT_PREFIX}FAKE_AGENT_KEEPS_WORKING`;
+
+/** Under the fake-agent switch, keeps every fake session working until its stdin closes, as `.readme-graphics/bridge-demo.sh` shows a running board. */
+export function fakeAgentKeepsWorking(): boolean {
+  return switchIsOn(FAKE_AGENT_KEEPS_WORKING_VARIABLE);
+}
+
 export const ROOT_OVERRIDE_VARIABLE = rootOverrideVariableOf(PRODUCT_NAMES);
 
 export const EVERY_TOOL_REQUIRED_VARIABLE = everyToolRequiredVariableOf(PRODUCT_NAMES);
