@@ -14,8 +14,10 @@ import { BarPhaseUtil }                                  from '../../utils/BarPh
 import { DisplayStateWordingUtil }                       from '../../utils/DisplayStateWordingUtil.ts';
 import { GeometryUtil }                                  from '../../utils/GeometryUtil.ts';
 import { TimeUtil }                                      from '../../utils/TimeUtil.ts';
-import { FIT_RANGE_PRESET, RANGE_PRESET_BOUNDS }         from './constants/ProgressChart.ts';
+import { RANGE_PRESET_BOUNDS }                           from './constants/ProgressChart.ts';
+import type { StoredViewOverride }                       from './utils/ChartPreferenceUtil.ts';
 import { FitRangeUtil }                                  from './utils/FitRangeUtil.ts';
+import { RangePresetUtil }                               from './utils/RangePresetUtil.ts';
 
 /** The static page's choice name and values, so a viewer's review-rows choice keeps its key. */
 export const REVIEW_ROWS_CHOICE_NAME    = 'review-rows';
@@ -25,7 +27,8 @@ export const DEFAULT_REVIEW_ROWS_CHOICE = 'segments';
 export const RANGE_PRESET_KEYS = Object.keys(RANGE_PRESET_BOUNDS);
 
 export interface ProgressChartChoices {
-  readonly presetKey:            string;
+  /** The viewer's stored range, laid over the tracker's own. */
+  readonly override:             StoredViewOverride;
   readonly reviewRowsAreShown:   boolean;
   readonly nowEpochMilliseconds: number;
   readonly todayCalendarDate:    string;
@@ -49,6 +52,8 @@ export interface ProgressRowModel {
   readonly taskId:           number;
   /** The ticket a row's own label links to; a review bar and a ticketless row link nowhere. */
   readonly linkedTicketId:   string | null;
+  /** The ticket the row is or reviews, which the epic grouping files it under; null for a ticketless row. */
+  readonly groupTicketId:    string | null;
   readonly labelText:        string;
   readonly nameText:         string;
   readonly nameTitle:        string;
@@ -64,12 +69,17 @@ export interface ProgressRowModel {
 }
 
 export interface ProgressChartModel {
-  readonly ticks:          readonly TimelineTick[];
-  readonly nowPercent:     number | null;
-  readonly rows:           readonly ProgressRowModel[];
-  readonly rangeNoteText:  string;
+  readonly fromEpochMilliseconds: number;
+  readonly toEpochMilliseconds:   number;
+  /** The range preset the override presses, and the range button's word for it. */
+  readonly pressedPreset:         string;
+  readonly modeLabel:             string;
+  readonly ticks:                 readonly TimelineTick[];
+  readonly nowPercent:            number | null;
+  readonly rows:                  readonly ProgressRowModel[];
+  readonly rangeNoteText:         string;
   /** The note's ends in full, or null when nothing was shortened. */
-  readonly rangeNoteTitle: string | null;
+  readonly rangeNoteTitle:        string | null;
 }
 
 interface ChartRow {
@@ -108,23 +118,35 @@ function reviewRoundNamedBy(task: ProgressTaskDocument): number {
   return Number.isSafeInteger(round) ? round : Number.MAX_SAFE_INTEGER;
 }
 
-/** Fit spans the rows from their earliest start to now, unless the `range` command set the tracker's own range. */
-function viewRangeOf(state: ProgressBoardState, presetKey: string, nowEpochMilliseconds: number): ViewRange {
-  const bounds = Object.hasOwn(RANGE_PRESET_BOUNDS, presetKey) ? RANGE_PRESET_BOUNDS[presetKey] : undefined;
-  if (presetKey !== FIT_RANGE_PRESET && bounds !== undefined && bounds.fromText !== null && bounds.toText !== null) {
+/**
+ * The viewer's typed bounds when the override holds them; otherwise the tracker's own range when the `range` command set one, else Fit,
+ * which spans the rows from their earliest start to now. The override's tick size holds in each.
+ */
+function viewRangeOf(state: ProgressBoardState, override: StoredViewOverride, nowEpochMilliseconds: number): ViewRange {
+  if (override.fromText !== null && override.toText !== null) {
     return {
-      kind: 'relative', from: bounds.fromText, to: bounds.toText, tickMinutes: null
+      kind: 'relative', from: override.fromText, to: override.toText, tickMinutes: override.tickMinutes
     };
   }
   const { progress } = state.page.payload;
-  if (progress.view.kind !== 'auto') return progress.view;
+  if (progress.view.kind !== 'auto') {
+    return override.tickMinutes === null ? progress.view : {
+      kind: progress.view.kind, from: progress.view.from, to: progress.view.to, tickMinutes: override.tickMinutes
+    };
+  }
   const fitted = FitRangeUtil.fittedSpanOf(progress.tasks, nowEpochMilliseconds);
   return {
     kind:        'absolute',
     from:        new Date(fitted.fromEpochMilliseconds).toISOString(),
     to:          new Date(fitted.toEpochMilliseconds).toISOString(),
-    tickMinutes: null,
+    tickMinutes: override.tickMinutes,
   };
+}
+
+/** A typed bound's moment exactly as the axis reads it once applied, or null when it cannot be read. */
+function rangeBoundOf(state: ProgressBoardState, text: string, nowEpochMilliseconds: number): number | null {
+  const { progress, limits } = state.page.payload;
+  return GeometryUtil.resolveRangeBound(text, { startedAt: progress.startedAt, tasks: progress.tasks }, nowEpochMilliseconds, limits);
 }
 
 function chartRowsOf(state: ProgressBoardState, bars: readonly TimelineBar[]): ChartRow[] {
@@ -260,6 +282,7 @@ function rowModelOf(placed: PlacedRow, state: ProgressBoardState, todayCalendarD
   return {
     taskId:         task.id,
     linkedTicketId: task.ticket,
+    groupTicketId:  task.ticket ?? nestedWithTicket ?? task.reviewOf ?? null,
     labelText:      labelTicket === null ? TICKETLESS_ROW_LABEL : `#${labelTicket}`,
     nameText:       displayedNameOf(task),
     nameTitle:      nameTitleOf(row),
@@ -286,7 +309,7 @@ function progressChartOf(state: ProgressBoardState, choices: ProgressChartChoice
   const { progress, limits } = state.page.payload;
   const timeline = GeometryUtil.computeTimeline({
     progress:             { startedAt: progress.startedAt, tasks: progress.tasks },
-    range:                viewRangeOf(state, choices.presetKey, choices.nowEpochMilliseconds),
+    range:                viewRangeOf(state, choices.override, choices.nowEpochMilliseconds),
     nowEpochMilliseconds: choices.nowEpochMilliseconds,
     limits,
   });
@@ -298,7 +321,12 @@ function progressChartOf(state: ProgressBoardState, choices: ProgressChartChoice
   const fullEnds = `${TimeUtil.fullInstantText(fromEpochMilliseconds)} → ${TimeUtil.fullInstantText(toEpochMilliseconds)}`;
   const rangeNoteText = `${shortEnds} · ${step}`;
   const rangeNoteTitle = `${fullEnds} · ${step}`;
+  const pressedPreset = RangePresetUtil.pressedPresetOf(choices.override);
   return {
+    fromEpochMilliseconds,
+    toEpochMilliseconds,
+    pressedPreset,
+    modeLabel:      RangePresetUtil.modeLabelOf(pressedPreset),
     ticks:          timeline.ticks,
     nowPercent:     timeline.nowPercent,
     rows:           rows.map((placed) => rowModelOf(placed, state, choices.todayCalendarDate)),
@@ -323,4 +351,4 @@ function progressBoardStateOf(document: unknown): ProgressBoardState | null {
   return document as unknown as ProgressBoardState;
 }
 
-export const ProgressModel = Object.freeze({ progressChartOf, progressBoardStateOf });
+export const ProgressModel = Object.freeze({ progressChartOf, rangeBoundOf, progressBoardStateOf });

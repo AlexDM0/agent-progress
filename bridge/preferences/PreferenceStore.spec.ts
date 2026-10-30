@@ -1,6 +1,7 @@
 /**
- * The preference store over an in-memory storage. What matters: the keys keep the static page's form, `<STORAGE_PREFIX>:theme` and
- * `<STORAGE_PREFIX>:<trackerId>:<choice>`; a default choice removes its key; blocked storage reads nothing and never throws.
+ * The preference store over an in-memory storage. What matters: the keys keep the static page's form, `<STORAGE_PREFIX>:theme`,
+ * `<STORAGE_PREFIX>:<trackerId>:<choice>` and the bare `<STORAGE_PREFIX>:<trackerId>` the range is kept under; a default choice removes
+ * its key; blocked storage reads nothing and never throws.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -50,6 +51,16 @@ describe('the preference store', () => {
     expect(store.readTextList('kanban-epics')).toEqual(['checkout']);
   });
 
+  test('the text under the bare board prefix is where the static page stored its range, and null removes it', () => {
+    const { storage, entries } = memoryStorage();
+    const store = boardPreferenceStoreOf('example-tracker', () => storage);
+    store.writeText('{"presetKey":"4h"}');
+    expect([...entries]).toEqual([[`${PRODUCT_NAMES.STORAGE_PREFIX}:example-tracker`, '{"presetKey":"4h"}']]);
+    expect(store.readText()).toBe('{"presetKey":"4h"}');
+    store.writeText(null);
+    expect(entries.size).toBe(0);
+  });
+
   test('blocked storage reads nothing and drops a write without throwing', () => {
     const blocked = (): PreferenceStorage => {
       throw new Error('storage is blocked');
@@ -57,5 +68,7 @@ describe('the preference store', () => {
     const store = sharedPreferenceStoreOf(blocked);
     expect(store.readChoice('theme')).toBeNull();
     expect(() => store.writeChoice('theme', 'dark', 'auto')).not.toThrow();
+    expect(store.readText()).toBeNull();
+    expect(() => store.writeText('{}')).not.toThrow();
   });
 });

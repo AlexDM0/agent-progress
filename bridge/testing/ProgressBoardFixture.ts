@@ -3,6 +3,7 @@ import type { DisplayState } from '../../src/lib/tracker-model/@types/Task.ts';
 import type { ViewRange }    from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import type {
   ProgressBoardState,
+  ProgressEpicFacts,
   ProgressRowFacts,
   ProgressTaskDocument,
   ProgressTicketDocument
@@ -30,6 +31,12 @@ export function exampleProgressTicket(id: string, fields: Partial<ProgressTicket
   };
 }
 
+export function exampleProgressEpic(key: string, fields: Partial<ProgressEpicFacts> = {}): ProgressEpicFacts {
+  return {
+    key, title: `Example epic ${key}`, slot: 0, ticketIds: [], ticketCountByStatus: {}, span: null, ...fields
+  };
+}
+
 export interface ExampleProgressBoardFields {
   readonly tasks?:            readonly ProgressTaskDocument[];
   /** The Board's facts per row, by task id; a row left out is no review bar and shows its stored status. */
@@ -42,6 +49,7 @@ export interface ExampleProgressBoardFields {
   readonly readyTicketIds?:   readonly string[];
   readonly concurrencyLimit?: number;
   readonly dispatcherState?:  string;
+  readonly epics?:            readonly ProgressEpicFacts[];
   /** The tracker's own range, as the `range` command sets it; Fit when left out. */
   readonly view?:             ViewRange;
 }
@@ -82,6 +90,7 @@ export function exampleProgressBoard(fields: ExampleProgressBoardFields = {}): P
             waitingOnTicketIds: fields.waitingOn?.[ticket.id] ?? [],
           })),
           readyTickets: (fields.readyTicketIds ?? []).map((id) => ({ id })),
+          ...fields.epics === undefined ? {} : { epics: fields.epics },
         },
       },
     },
