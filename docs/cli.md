@@ -653,10 +653,14 @@ Every row carries a token count, shown beside the bar. Under the runner no hook 
 `SubagentStop` hook that added an agent's tokens to the row its brief named is retired, and `update`
 removes its entry. What a job has processed is read from its session instead: `GET /api/state` carries
 each job's `live.tokens`, the input, output and cache tokens of every assistant turn it took, keyed by
-message id so the live stream and a transcript replay count each call once. A row's own count
-changes only through `--tokens` on a task or ticket move, which replaces it, and the `agent-stopped`
-records an older log holds still read. A row without a figure (`null`) is not a row that cost nothing;
-it is a row nobody measured.
+message id so the live stream and a transcript replay count each call once. When a job working tickets
+ends, the runner reads every assistant turn of its event logs, its subagents' included, logs one
+`agent-stopped` record whose `agentId` is the job id, and adds its `totalInputTokens` (fresh input plus
+both cache figures) to the row of each ticket it worked, split evenly over a bundle's tickets with the
+remainder on the first; a review job's go to the ticket's newest review bar. A job already logged is
+credited only what its total grew by, so nothing is counted twice. `--tokens` on a task or ticket move
+replaces the figure. A row without a figure (`null`) is not a row that cost nothing; it is a row
+nobody measured.
 
 ## The dashboard
 

@@ -48,6 +48,7 @@ import type { Workspace }                                                   from
 import { AnswerDelivery }                                                   from './AnswerDelivery.ts';
 import { AssistantBoot, type AssistantFacts }                               from './AssistantBoot.ts';
 import { type AssistantChatFacts, type AssistantReading, AssistantSession } from './AssistantSession.ts';
+import { EndedJobTokens }                                                   from './EndedJobTokens.ts';
 import { createGateRunSlots, gateRunHolderIsLive, inProcessHolderOf }       from './GateRunSlots.ts';
 import { GroupWorktrees }                                                   from './GroupWorktrees.ts';
 import { HostFleet, type HostLiveness }                                     from './HostFleet.ts';
@@ -663,6 +664,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     decisionWordingOf:    request.decisionWordingOf,
     log:                  request.log,
   };
+  const endedJobTokensContext = { trackerDirectory: request.workspace.trackerDirectory, agentAdapter: request.agentAdapter };
 
   /** A merge gate step under the profile a gate host gets, its own network and `writes`, in the slot's worktree; one profile file per worktree. */
   function mergeGateArgvOf(worktreePath: string, argv: readonly string[], confinement: GateConfinement): readonly string[] {
@@ -698,7 +700,10 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
       now:       request.now,
       mutate:    (change) => {
         RunnerLease.requireNewestGeneration(request.runnerDirectory, request.generation);
-        return mutate({ board: change.board, at: change.at });
+        const jobsAtTheHoldStart = change.board.jobs();
+        const result = mutate({ board: change.board, at: change.at });
+        EndedJobTokens.creditJobsEndedInTheHold(change.board, endedJobTokensContext, jobsAtTheHoldStart, change.at);
+        return result;
       },
     })).result,
     gateMergedTree: async (worktreePath, treeId) => {
@@ -777,6 +782,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
       at,
       now:       request.now,
       mutate:    (change) => {
+        const jobsAtTheHoldStart = change.board.jobs();
         openLeftoverWorktreeDecisions(change, request.decisionWordingOf, leftoverWorktrees.splice(0));
         const replies = RelayInbox.applyPendingRequests(change, request.workspace.rootDirectory, observation.pendingRequests);
         request.afterHoldPhase?.('relayed-commands', change.board);
@@ -810,6 +816,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
           AssistantSession.deliverIncidentsWhenIdle(change.board, assistantReadings, request.workspace.trackerDirectory, change.at);
         }
         request.afterHoldPhase?.('lifecycle', change.board);
+        EndedJobTokens.creditJobsEndedInTheHold(change.board, endedJobTokensContext, jobsAtTheHoldStart, change.at);
         return {
           replies,
           endedAssistantJobs:       downAssistants.endedJobs,
