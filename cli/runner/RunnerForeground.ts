@@ -325,6 +325,7 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
         launchesHeld:     () => runnerState()?.runtimeState === 'held-by-install-change',
         notices:          () => runnerState()?.notices ?? [],
         overseer:         overseerFactsNow,
+        mainLine,
         silentSweepsOf:   (jobId: string) => current?.drivePass.silentSweepsOf(jobId) ?? 0,
         onRuntimeCommand: (command: RuntimeRunnerCommand) => {
           log(`${command.kind} received${command.now ? ' (now)' : ''}.`);
@@ -369,6 +370,7 @@ export async function runRunnerInTheForeground(request: ForegroundRunRequest): P
           notices:        () => runnerState()?.notices ?? [],
           overseer:       overseerFactsNow,
           silentSweepsOf: (jobId) => current?.drivePass.silentSweepsOf(jobId) ?? 0,
+          mainLine,
         }).state);
       } catch (thrown) {
         log(`The board state could not be read for the event stream: ${thrown instanceof Error ? thrown.message : String(thrown)}`);

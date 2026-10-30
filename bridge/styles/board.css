@@ -5,14 +5,18 @@
  * Containers
  *   #bridge-root            the React root
  *   .bridge-shell           the banners, the header and the selected view's panel
- *   .bridge-header          project, Overseer state, Pause or Resume, tabs and theme; hidden when [data-embedded="dashboard"]
+ *   .bridge-header          project, Overseer state and controls, new code, concurrency, usage, statistics, tabs, theme, and
+ *                           .bridge-alerts (warnings, notices); hidden when [data-embedded="dashboard"]
  *   .bridge-panel[data-tab] the selected view
- *   .bridge-view            a view's sections (.bridge-section, titled .bridge-section-title), each a .bridge-list of cards
+ *   .bridge-view           a view's sections (.bridge-section, titled .bridge-section-title), each a .bridge-list of cards
  *   .bridge-card[data-state] a decision, incident, intake session or triage entry: open | answered | handled | escalated | warning
  *                           (an applied default) | notice | closed; with .bridge-card-title, -meta, -actions and .bridge-note lines
  *   .bridge-question        one question of a decision (.bridge-question-header, its .bridge-option choices)
  *   .bridge-form            a chat box, the New request box or an edit form: .bridge-textarea, .bridge-input and its controls
  *   .bridge-transcript      a session's transcript, one .bridge-transcript-entry[data-role] per line, its role a .bridge-mark
+ *   .bridge-epics          the Epics view's cards (.bridge-epic[data-epic-slot]), each description in .bridge-sandboxed-html
+ *   .bridge-finished        the finished-work tickets, under the .bridge-finished-menu choice
+ *   .bridge-merge-queue     the Merge queue detail, a .bridge-merge-target per target
  * Marks
  *   .bridge-banner          a full-width alert: -unreachable (event stream down), -install (launches held), -error (a render failed)
  *   .bridge-control         a command button and, beside it, the Overseer's refusal verbatim (.bridge-refusal)
@@ -423,10 +427,132 @@ body {
   list-style: none;
 }
 
+.bridge-new-code,
+.bridge-usage,
+.bridge-concurrency,
+.bridge-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-small);
+}
+
+.bridge-new-code {
+  color: var(--warn-ink);
+  font-weight: 600;
+}
+
+.bridge-usage {
+  color: var(--ink-muted);
+}
+
+.bridge-statistics,
+.bridge-warnings,
+.bridge-notices,
+.bridge-epic-tickets,
+.bridge-finished-list,
+.bridge-merge-lines,
+.bridge-merge-pairwise {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
 .bridge-card {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+}
+
+.bridge-statistics {
+  display: flex;
+  gap: var(--space-3);
+  font-size: var(--fs-small);
+}
+
+.bridge-statistic {
+  color: var(--ink-muted);
+}
+
+.bridge-alerts {
+  display: flex;
+  flex-basis: 100%;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--fs-small);
+}
+
+.bridge-warnings {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--warn-edge);
+  border-radius: var(--radius-control);
+  background: var(--warn-tint);
+  color: var(--warn-ink);
+}
+
+.bridge-notices {
+  color: var(--ink-muted);
+}
+
+.bridge-finished-menu {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  font-size: var(--fs-small);
+}
+
+.bridge-finished-line {
+  color: var(--ink-muted);
+}
+
+.bridge-finished-choice {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.bridge-finished-choice[aria-pressed="true"] {
+  border-color: var(--link);
+  background: var(--link-tint);
+}
+
+.bridge-finished-since {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.bridge-finished,
+.bridge-epics,
+.bridge-merge-queue {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.bridge-finished-ticket,
+.bridge-epic-ticket,
+.bridge-merge-line {
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.bridge-finished-ticket[data-state="abandoned"] {
+  color: var(--state-abandoned-ink);
+}
+
+.bridge-epic,
+.bridge-merge-target {
   padding: var(--space-3);
   border: 1px solid var(--line);
   border-radius: var(--radius-panel);
@@ -486,6 +612,16 @@ body {
   gap: var(--space-2);
 }
 
+.bridge-epic[data-live] {
+  border-color: var(--state-in-progress-edge);
+}
+
+.bridge-epic-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
 .bridge-form {
   display: flex;
   flex-direction: column;
@@ -532,6 +668,83 @@ body {
   color: var(--ink-muted);
   font-size: var(--fs-micro);
   text-transform: uppercase;
+}
+
+.bridge-epic-title,
+.bridge-merge-target-name {
+  margin: 0;
+  font-size: var(--fs-title);
+}
+
+.bridge-epic-key,
+.bridge-epic-done {
+  color: var(--ink-muted);
+  font-size: var(--fs-small);
+}
+
+.bridge-epic-progress {
+  display: flex;
+  height: var(--space-2);
+  margin: var(--space-2) 0;
+  overflow: hidden;
+  border-radius: var(--radius-control);
+  background: var(--line);
+}
+
+.bridge-epic-segment[data-state="delivered"] { background: var(--state-delivered-edge); }
+.bridge-epic-segment[data-state="reviewed"] { background: var(--state-reviewed-edge); }
+.bridge-epic-segment[data-state="in-review"] { background: var(--state-in-review-edge); }
+.bridge-epic-segment[data-state="in-progress"] { background: var(--state-in-progress-edge); }
+.bridge-epic-segment[data-state="pending"] { background: var(--state-pending-edge); }
+.bridge-epic-segment[data-state="abandoned"] { background: var(--state-abandoned-edge); }
+
+.bridge-epic-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-small);
+}
+
+.bridge-epic-fact {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.bridge-epic-fact dt {
+  color: var(--ink-muted);
+}
+
+.bridge-epic-fact dd {
+  margin: 0;
+}
+
+.bridge-sandboxed-html {
+  width: 100%;
+  border: 0;
+}
+
+.bridge-merge-order,
+.bridge-merge-holder {
+  margin: 0 0 var(--space-2);
+  color: var(--ink-muted);
+  font-size: var(--fs-small);
+}
+
+.bridge-merge-waiting {
+  margin: 0 0 var(--space-2);
+  color: var(--warn-ink);
+}
+
+.bridge-merge-line[data-forecast="conflicting"],
+.bridge-merge-line[data-forecast="prediction-failed"] {
+  color: var(--warn-ink);
+}
+
+.bridge-merge-pairwise {
+  margin-top: var(--space-2);
+  color: var(--ink-muted);
+  font-size: var(--fs-small);
 }
 
 /* The Agents view: the job table with its subagent rows, then the selected job's panel. */

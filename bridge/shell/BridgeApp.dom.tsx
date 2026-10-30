@@ -101,6 +101,26 @@ function fakeBridge(): FakeBridge {
   };
 }
 
+interface ViewBoardSlice {
+  readonly page: { readonly payload: { readonly boardFacts: object }; readonly tickets: readonly object[] };
+}
+
+/**
+ * A view's fixture as the Overseer sends it: its page also carries what the header and the Progress tab's Epics view read, here no
+ * epics and no ticket delivered.
+ */
+function liveBoardWith<ViewBoard extends ViewBoardSlice>(viewBoard: ViewBoard): BoardStateDocument {
+  const { page } = viewBoard;
+  return {
+    ...BOARD,
+    ...viewBoard,
+    page: {
+      tickets: page.tickets.map((ticket) => ({ delivered: null, ...ticket })),
+      payload: { ...page.payload, epicDescriptions: [], boardFacts: { ...page.payload.boardFacts, epics: [] } },
+    },
+  } as unknown as BoardStateDocument;
+}
+
 async function renderedLive(bridge: FakeBridge, board: BoardStateDocument = BOARD): Promise<void> {
   render(<BridgeApp services={bridge.services} />);
   await act(async () => {
@@ -195,7 +215,7 @@ describe('new code behind the same port', () => {
 describe('the shell\'s routing', () => {
   test('the tickets tab shows the Tickets view, with the detail panel once a ticket is selected', async () => {
     window.location.hash = '#tickets/002';
-    await renderedLive(fakeBridge(), { ...BOARD, ...exampleTicketsBoard({ tickets: [exampleTicketsTicket('002')] }) });
+    await renderedLive(fakeBridge(), liveBoardWith(exampleTicketsBoard({ tickets: [exampleTicketsTicket('002')] })));
     await act(async () => {
       await Promise.resolve();
     });
@@ -205,7 +225,7 @@ describe('the shell\'s routing', () => {
 
   test('the progress tab shows the Progress chart', async () => {
     window.location.hash = '#progress';
-    await renderedLive(fakeBridge(), { ...BOARD, ...exampleProgressBoard({ tickets: [exampleProgressTicket('5')] }) });
+    await renderedLive(fakeBridge(), liveBoardWith(exampleProgressBoard({ tickets: [exampleProgressTicket('5')] })));
     await act(async () => {
       await Promise.resolve();
     });
