@@ -549,7 +549,7 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
       now,
       mutate:    (change) => {
         change.board.addGate({ name: 'checks', run: 'true' }, change.at);
-        change.board.setDispatcherState('running', change.at);
+        change.board.setRunnerState('running', change.at);
       },
     });
   });
@@ -1177,7 +1177,7 @@ describeWhenGitIsPresent('the session, host, runner and reboot rows', () => {
     mkdirSync(join(worktreesRoot, 'ticket-999'), { recursive: true });
     gitOutputIn(repository, ['worktree', 'add', '-q', '-b', 'example-owned', join(worktreesRoot, 'example-owned')]);
     await writeTracker({
-      workspace: sessionWorkspace, at: CHANGED_AT, now, mutate: (change) => { change.board.setDispatcherState('stopped', change.at); },
+      workspace: sessionWorkspace, at: CHANGED_AT, now, mutate: (change) => { change.board.setRunnerState('paused', change.at); },
     });
     const adapter = recordingAdapter({ fresh: WAITING_STEPS, resumed: WAITING_STEPS });
 
@@ -1397,7 +1397,7 @@ describe('the product-owner bound row', () => {
         body: ''
       }]
     });
-    board.setDispatcherState('running', at);
+    board.setRunnerState('running', at);
     board.launchJob({
       kind: 'orchestrator', role: 'orchestrator', ticketIds: [], parentJobId: null, attempt: 1, target: null
     }, at);

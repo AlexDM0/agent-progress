@@ -74,7 +74,7 @@ export function factsWith(overrides: Partial<LifecycleFacts> = {}): LifecycleFac
     logRecords:                  [],
     readinessPositionByTicketId: new Map(),
     concurrencyLimit:            3,
-    dispatcherState:             'running',
+    runnerState:                 'running',
     pipelineIsSet:               true,
     observations:                FIXTURE_OBSERVATIONS,
     ...overrides,

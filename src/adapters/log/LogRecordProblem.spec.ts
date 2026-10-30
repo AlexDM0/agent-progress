@@ -24,6 +24,7 @@ const RETIRED_RECORDS: readonly LogRecord[] = [
   { at: RECORDED_AT, kind: 'checks-definition-files-set', fields: { patterns: ['pyproject.toml'] } },
   { at: RECORDED_AT, kind: 'gate-key-command-set', fields: { command: 'bun --version' } },
   { at: RECORDED_AT, kind: 'gate-cache-paths-set', fields: { paths: ['~/.bun/install/cache'] } },
+  { at: RECORDED_AT, kind: 'dispatcher-set', fields: { state: 'finished', runId: 'wf_example-run' } },
 ];
 
 const RECORDS_THE_BOARD_LOGS = [...everyRecordKindTheBoardLogs(RECORDED_AT), ...RETIRED_RECORDS];

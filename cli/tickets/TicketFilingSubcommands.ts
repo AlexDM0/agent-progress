@@ -10,7 +10,6 @@ import { openTrackerForWritingThenReadNextLine } from '../OpenTrackerForWriting.
 import { relayWhenUnderJob }                     from '../RelayUnderJob.ts';
 import { suppliedMarkdownBodyOf }                from '../SuppliedMarkdownBody.ts';
 import type { ArgumentParser }                   from '../arguments/ArgumentParser.ts';
-import { NextLineUtil }                          from '../utils/NextLineUtil.ts';
 import { OutputUtil }                            from '../utils/OutputUtil.ts';
 import type { TicketSubcommandHandler }          from './@types/TicketSubcommandHandler.ts';
 import { TICKET_USAGE }                          from './constants/TicketUsage.ts';
@@ -72,7 +71,7 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
     ...(commandArguments.flag('needs-user') ? { needsUser: true as const } : {}),
   };
   await relayWhenUnderJob(context, command);
-  const { result: filed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(
+  const { result: filed, nextLine } = await openTrackerForWritingThenReadNextLine(
     commandArguments,
     context,
     (change) => ControlService.apply(command, change).result,
@@ -83,7 +82,7 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
     context,
     TicketJsonUtil.ticketAsJson(filed.ticket),
     `${OutputUtil.loggedSentencesOf(filed.logged)}${draftFilingNoteOf(filed.ticket.frontmatter.id)}\n  ${filed.ticket.filePath}`,
-    NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState),
+    nextLine,
   );
 }
 

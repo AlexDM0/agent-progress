@@ -137,7 +137,7 @@ function keysOf(value: unknown): readonly string[] {
   return Object.entries(value).flatMap(([key, child]) => [key, ...keysOf(child)]);
 }
 
-/** Every kind of entry both documents can hold: ready, grouped, held, in progress, paused, waiting on review, under one, settled, a running dispatcher. */
+/** Every kind of entry both documents can hold: ready, grouped, held, in progress, paused, waiting on review, under one, settled, a running runner. */
 async function statusDocumentKeysOfAFullBoard(repositoryDirectory: string): Promise<ReadonlySet<string>> {
   const run = async (commandLineArguments: readonly string[]): Promise<string> => {
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
@@ -164,7 +164,7 @@ async function statusDocumentKeysOfAFullBoard(repositoryDirectory: string): Prom
   await run(['ticket', 'finish', '7']);
   await run(['ticket', 'approve', '7']);
   await run(['ticket', 'deliver', '7']);
-  await run(['dispatcher', 'running', '--run', 'example-run']);
+  await run(['run', 'resume']);
   await run(['log', 'Example milestone']);
   const documents = [await run(['status', '--json']), await run(['status', '--json', '--full'])].map((text) => JSON.parse(text) as unknown);
   const overseerState = readBoardState({
@@ -217,7 +217,7 @@ describeWhenGitIsPresent('the scan itself', () => {
     expect(namedSurface.flags.length, 'flags named').toBeGreaterThanOrEqual(15);
     expect(namedSurface.statusJsonFields.length, 'status fields named').toBeGreaterThanOrEqual(10);
     expect(cliSurface.commands).toContain('ticket deliver');
-    expect(cliSurface.statusJsonFields).toContain('dispatcherState');
+    expect(cliSurface.statusJsonFields).toContain('runnerState');
     expect(cliSurface.statusJsonFields, 'a top-level key of the Overseer\'s state document').toContain('mergeQueue');
     const namedCommandCount = Object.values(INSTALLED_TEXTS).flatMap((text) => [...text.matchAll(NAMED_COMMAND_PATTERN)]).length;
     expect(namedCommandCount, 'command mentions matched by the program-built pattern').toBeGreaterThanOrEqual(SMALLEST_NAMED_COMMAND_COUNT);

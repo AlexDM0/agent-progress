@@ -51,7 +51,7 @@ export type LifecycleStep =
   | { kind: 'open-decision'; decision: DecisionDraft }
   | { kind: 'open-incident'; incident: IncidentOpening }
   | { kind: 'default-incident'; incidentId: string; cause: IncidentDefaultCause }
-  | { kind: 'stop-dispatching'; cause: 'outage' };
+  | { kind: 'pause-runner'; cause: 'outage' };
 
 /** What the runner saw outside the board, passed in as values so the policy reaches no git, process or file. */
 export interface LifecycleObservations {

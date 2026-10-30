@@ -6,7 +6,6 @@ import type { CommandContext }                            from '../CommandContex
 import { openTrackerForWritingThenReadNextLine }          from '../OpenTrackerForWriting.ts';
 import type { ArgumentParser }                            from '../arguments/ArgumentParser.ts';
 import { SUBCOMMAND_WITH_TWO_ARGUMENTS_POSITIONAL_COUNT } from '../arguments/constants/SubcommandPositionalCounts.ts';
-import { NextLineUtil }                                   from '../utils/NextLineUtil.ts';
 import { OutputUtil }                                     from '../utils/OutputUtil.ts';
 import { TICKET_USAGE }                                   from './constants/TicketUsage.ts';
 import { TicketArgumentUtil }                             from './utils/TicketArgumentUtil.ts';
@@ -27,12 +26,11 @@ export async function setTicketIntroducedBy(commandArguments: ArgumentParser, co
   }
   const causeTicketId = TicketArgumentUtil.linkedTicketIdFrom(causeReference);
 
-  const { result: changed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(
+  const { result: changed, nextLine } = await openTrackerForWritingThenReadNextLine(
     commandArguments,
     context,
     (change) => change.board.setTicketIntroducedBy(TicketLookupUtil.requireTicket(change, reference).frontmatter.id, causeTicketId, change.at),
   );
 
-  const closingLines = NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState);
-  OutputUtil.printEntityThenNextLine(commandArguments, context, TicketJsonUtil.ticketAsJson(changed.ticket), OutputUtil.loggedSentencesOf(changed.logged), closingLines);
+  OutputUtil.printEntityThenNextLine(commandArguments, context, TicketJsonUtil.ticketAsJson(changed.ticket), OutputUtil.loggedSentencesOf(changed.logged), nextLine);
 }

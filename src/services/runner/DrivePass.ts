@@ -626,7 +626,7 @@ export function createDrivePass(request: DrivePassRequest): DrivePass {
     },
     decisionWordingOf:     request.decisionWordingOf,
     keepAirlockFacts:      (mergeJob, facts) => keepAirlockFacts(request.workspace.trackerDirectory, mergeJob, facts),
-    dispatchIsStopped:     () => requireProgressFile(request.workspace).dispatcherState === 'stopped',
+    dispatchIsStopped:     () => requireProgressFile(request.workspace).runnerState === 'paused',
     reportDeclinedCleanup: (declined) => {
       request.log(`Git declined the ${declined.cleanup} cleanup of ${declined.groupBranch}: ${declined.reason}`);
       declinedCleanups = [...declinedCleanups.filter((earlier) => earlier.cleanup !== declined.cleanup || earlier.groupBranch !== declined.groupBranch), declined];

@@ -8,7 +8,6 @@ import type { CommandContext }                   from '../CommandContext.ts';
 import { openTrackerForWritingThenReadNextLine } from '../OpenTrackerForWriting.ts';
 import { relayWhenUnderJob }                     from '../RelayUnderJob.ts';
 import type { ArgumentParser }                   from '../arguments/ArgumentParser.ts';
-import { NextLineUtil }                          from '../utils/NextLineUtil.ts';
 import { OptionValueUtil }                       from '../utils/OptionValueUtil.ts';
 import { OutputUtil }                            from '../utils/OutputUtil.ts';
 import { reviewBarStartedFor }                   from './ReviewBarRequest.ts';
@@ -37,7 +36,7 @@ export async function transitionOneTicket(
   };
   if (targetStatus === 'abandoned' && checksLegality) await relayWhenUnderJob(context, { kind: 'ticket-abandon', ticketReference: reference, ...moveDetails });
 
-  const { result: moved, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
+  const { result: moved, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
     const { board }   = change;
     // `ticket abandon` is a control command; `ticket status <id> abandoned` is the by-hand override that skips the legality matrix.
     const move = targetStatus === 'abandoned' && checksLegality
@@ -52,12 +51,10 @@ export async function transitionOneTicket(
 
   const { move, startedReviewBar } = moved;
   const { id }                     = move.ticket.frontmatter;
-  // A reopened ticket goes back into the queue a running dispatcher takes from, so it is intake like `ticket add`.
-  const closingLines = targetStatus === 'pending' ? NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState) : nextLine;
-  const humanText    = `${OutputUtil.loggedSentencesOf(move.logged.filter(ReviewBarOutputUtil.recordClosesNoBar))}`
+  const humanText   = `${OutputUtil.loggedSentencesOf(move.logged.filter(ReviewBarOutputUtil.recordClosesNoBar))}`
     + `${ReviewBarOutputUtil.closedReviewBarsText(move.closedReviewBars)}${ReviewBarOutputUtil.reviewBarText(startedReviewBar)}`;
   const document     = ReviewBarOutputUtil.ticketWithReviewBarAsJson(move.ticket, startedReviewBar, move.closedReviewBars);
-  OutputUtil.printEntityThenNextLine(commandArguments, context, document, humanText, closingLines);
+  OutputUtil.printEntityThenNextLine(commandArguments, context, document, humanText, nextLine);
 
   // A warning, not a refusal: the order is advice to whoever picks work up, and the user may know better.
   if (targetStatus !== 'in-progress') return;

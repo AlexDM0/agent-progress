@@ -15,7 +15,7 @@ import type { LifecycleLimits }                      from './@types/LifecycleLim
 import type { LifecycleObservations, LifecycleStep } from './@types/LifecycleStep.ts';
 import type { LogRecord }                            from './@types/LogRecord.ts';
 import type { TicketPriority, TicketStatus }         from './@types/Ticket.ts';
-import type { DispatcherState }                      from './@types/TrackerProgress.ts';
+import type { RunnerState }                          from './@types/TrackerProgress.ts';
 import { CRASH_INTERRUPTION_CAUSES }                 from './constants/JobStates.ts';
 import { FailedPassUtil }                            from './utils/FailedPassUtil.ts';
 import { TicketDefaultsUtil }                        from './utils/TicketDefaultsUtil.ts';
@@ -44,7 +44,7 @@ export interface LifecycleFacts {
   logRecords:                  readonly LogRecord[];
   readinessPositionByTicketId: ReadonlyMap<string, number>;
   concurrencyLimit:            number;
-  dispatcherState:             DispatcherState;
+  runnerState:                 RunnerState;
   pipelineIsSet:               boolean;
   observations:                LifecycleObservations;
 }
@@ -102,7 +102,7 @@ function outageIsDue(facts: LifecycleFacts, limits: LifecycleLimits): boolean {
   const launches = jobLaunchesByJobIdOf(facts.logRecords);
   let crashedTicketKeys: string[] = [];
   for (const record of facts.logRecords) {
-    if (record.kind === 'dispatcher-set' && record.fields.state === 'running') crashedTicketKeys = [];
+    if (record.kind === 'runner-set' && record.fields.state === 'running') crashedTicketKeys = [];
     if (record.kind === 'decision-opened' && record.fields.kind === 'outage') crashedTicketKeys = [];
     if (record.kind === 'job-ended' && VERIFIED_OUTCOMES.includes(record.fields.outcome)) crashedTicketKeys = [];
     if (record.kind !== 'job-interrupted' || !isCrash(record.fields.cause)) continue;
@@ -340,10 +340,10 @@ function ticketIdsOfStep(step: LifecycleStep): readonly string[] {
 }
 
 function nextStepsOf(facts: LifecycleFacts, limits: LifecycleLimits): LifecycleStep[] {
-  const outageNow               = facts.dispatcherState !== 'stopped' && outageIsDue(facts, limits);
+  const outageNow               = facts.runnerState !== 'paused' && outageIsDue(facts, limits);
   const versionOrUsageHolds     = usageLimitHolds(limits) || facts.observations.installVersionChanged;
   const resumesAreHeld          = versionOrUsageHolds || !facts.pipelineIsSet || outageNow || openDecisionOfKind(facts, 'outage');
-  const newWorkIsHeld           = resumesAreHeld || facts.dispatcherState === 'stopped';
+  const newWorkIsHeld           = resumesAreHeld || facts.runnerState === 'paused';
   const bootsKeepFailing        = failedOrchestratorBootsOf(facts) >= limits.FAILED_ORCHESTRATOR_BOOTS_BEFORE_DEFAULTING;
   const noOrchestratorCanComeUp = usageLimitHolds(limits) || (bootsKeepFailing && !facts.observations.orchestratorHasAnswered);
   const orchestratorMayBoot     = !usageLimitHolds(limits) && (!bootsKeepFailing || facts.observations.orchestratorBootRetryDue);
@@ -351,7 +351,7 @@ function nextStepsOf(facts: LifecycleFacts, limits: LifecycleLimits): LifecycleS
   const orchestratorIsRunning   = facts.jobs.some((job) => job.kind === 'orchestrator' && job.state === 'running');
 
   const steps: LifecycleStep[] = [];
-  if (outageNow) steps.push({ kind: 'stop-dispatching', cause: 'outage' }, boardDecisionStepOf('outage'));
+  if (outageNow) steps.push({ kind: 'pause-runner', cause: 'outage' }, boardDecisionStepOf('outage'));
   if (!facts.pipelineIsSet && !openDecisionOfKind(facts, 'checks-not-set')) steps.push(boardDecisionStepOf('checks-not-set'));
   steps.push(...crashBoundStepsOf(facts, limits, resumesAreHeld));
   if (!orchestratorIsLive && orchestratorMayBoot && !facts.observations.installVersionChanged) steps.push({ kind: 'boot-orchestrator' });

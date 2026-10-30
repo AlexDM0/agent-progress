@@ -278,27 +278,27 @@ const CLAIMS: PolicyClaim[] = [
     mutant: policyLine('!ticketIdsSettledThisPass.has(ticket.id) && !ticketHasAJob', '!ticketHasAJob'),
   },
   {
-    name:   'two crashed jobs on different tickets stop dispatching and open the outage decision',
+    name:   'two crashed jobs on different tickets pause the runner and open the outage decision',
     facts:  factsWith({ logRecords: CRASHES_ON_TWO_TICKETS }),
-    holds:  (steps) => stepKindsOf(steps).slice(0, 2).join(' ') === 'stop-dispatching open-decision',
+    holds:  (steps) => stepKindsOf(steps).slice(0, 2).join(' ') === 'pause-runner open-decision',
     mutant: policyLine('>= limits.CONSECUTIVE_DEAD_AGENTS_BEFORE_STOPPING', '> limits.CONSECUTIVE_DEAD_AGENTS_BEFORE_STOPPING'),
   },
   {
     name:   'two crashes on one ticket are no outage',
     facts:  factsWith({ logRecords: [launchedRecord('J1', 'build', ['001']), interruptedRecord('J1', 'host-lost'), interruptedRecord('J1', 'host-lost')] }),
-    holds:  (steps) => !stepKindsOf(steps).includes('stop-dispatching'),
+    holds:  (steps) => !stepKindsOf(steps).includes('pause-runner'),
     mutant: policyLine('crashedTicketKeys.at(-1) === ticketKey ? [ticketKey] : [...crashedTicketKeys, ticketKey]', '[...crashedTicketKeys, ticketKey]'),
   },
   {
     name:   'reboots are never counted toward an outage',
     facts:  factsWith({ logRecords: [...CRASHES_ON_TWO_TICKETS.slice(0, 2), interruptedRecord('J1', 'reboot'), interruptedRecord('J2', 'reboot')] }),
-    holds:  (steps) => !stepKindsOf(steps).includes('stop-dispatching'),
+    holds:  (steps) => !stepKindsOf(steps).includes('pause-runner'),
     mutant: policyLine('record.kind !== \'job-interrupted\' || !isCrash(record.fields.cause)', 'record.kind !== \'job-interrupted\''),
   },
   {
     name:   'a verified job ending between two crashes breaks the run',
     facts:  factsWith({ logRecords: [...CRASHES_ON_TWO_TICKETS.slice(0, 3), ...finishedJobRecords('J3', 'build', '003', 'built'), interruptedRecord('J2', 'host-lost')] }),
-    holds:  (steps) => !stepKindsOf(steps).includes('stop-dispatching'),
+    holds:  (steps) => !stepKindsOf(steps).includes('pause-runner'),
     mutant: policyLine('    if (record.kind === \'job-ended\' && VERIFIED_OUTCOMES.includes(record.fields.outcome)) crashedTicketKeys = [];\n', ''),
   },
   {
@@ -308,7 +308,7 @@ const CLAIMS: PolicyClaim[] = [
         kind: 'decision-opened', decisionId: 'E1', fields: { kind: 'outage', ticketIds: [] }, at: FIXTURE_AT
       }]
     }),
-    holds:  (steps) => !stepKindsOf(steps).includes('stop-dispatching'),
+    holds:  (steps) => !stepKindsOf(steps).includes('pause-runner'),
     mutant: policyLine('    if (record.kind === \'decision-opened\' && record.fields.kind === \'outage\') crashedTicketKeys = [];\n', ''),
   },
   {
@@ -318,10 +318,10 @@ const CLAIMS: PolicyClaim[] = [
     mutant: policyLine(' || openDecisionOfKind(facts, \'outage\')', ''),
   },
   {
-    name:   'a stopped board resumes interrupted jobs but launches nothing new',
-    facts:  factsWith({ tickets: [ticketOf('001', 'in-progress'), ticketOf('002', 'pending')], jobs: [LIVE_ORCHESTRATOR, INTERRUPTED_BUILD], dispatcherState: 'stopped' }),
+    name:   'a paused board resumes interrupted jobs but launches nothing new',
+    facts:  factsWith({ tickets: [ticketOf('001', 'in-progress'), ticketOf('002', 'pending')], jobs: [LIVE_ORCHESTRATOR, INTERRUPTED_BUILD], runnerState: 'paused' }),
     holds:  (steps) => stepKindsOf(steps).join(' ') === 'resume-job',
-    mutant: policyLine('resumesAreHeld || facts.dispatcherState === \'stopped\'', 'resumesAreHeld'),
+    mutant: policyLine('resumesAreHeld || facts.runnerState === \'paused\'', 'resumesAreHeld'),
   },
   {
     name:  'two replaced jobs in a row on one ticket open a job-lost incident defaulting to park',

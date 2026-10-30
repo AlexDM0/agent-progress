@@ -1,9 +1,9 @@
 /** Whether a parsed progress.json is a document in the current format this build can read, and if not, the reason naming the offending field. */
 import { JsonRecordUtil }                                    from '../../../lib/json-record/JsonRecordUtil.ts';
 import { LOWEST_CONCURRENCY_LIMIT_AGENTS }                   from '../../../lib/tracker-model/constants/ConcurrencyLimits.ts';
-import { DISPATCHER_STATES }                                 from '../../../lib/tracker-model/constants/DispatcherStates.ts';
 import { FIRST_DRAFT_NUMBER }                                from '../../../lib/tracker-model/constants/DraftFields.ts';
 import { FIRST_REPEAT_REVIEW_ROUND, FIRST_REVIEW_BAR_ROUND } from '../../../lib/tracker-model/constants/ReviewRounds.ts';
+import { RUNNER_STATES }                                     from '../../../lib/tracker-model/constants/RunnerStates.ts';
 import { TASK_STATUSES }                                     from '../../../lib/tracker-model/constants/Statuses.ts';
 import { FIRST_TASK_ID }                                     from '../../../lib/tracker-model/constants/TaskIds.ts';
 import { BoardSettingsUtil }                                 from '../../../lib/tracker-model/utils/BoardSettingsUtil.ts';
@@ -109,8 +109,8 @@ function documentHeaderProblemOf(candidate: unknown): string | null {
   if (candidate['concurrencyLimit'] !== undefined && !BoardSettingsUtil.concurrencyLimitIsWellFormed(candidate['concurrencyLimit'])) {
     return `concurrencyLimit is ${JSON.stringify(candidate['concurrencyLimit'])}, and when present it has to be a whole number of at least ${LOWEST_CONCURRENCY_LIMIT_AGENTS}`;
   }
-  if (candidate['dispatcherState'] !== undefined && !BoardSettingsUtil.dispatcherStateIsKnown(candidate['dispatcherState'])) {
-    return `dispatcherState is ${JSON.stringify(candidate['dispatcherState'])}, and when present it has to be one of ${DISPATCHER_STATES.join(', ')}`;
+  if (candidate['runnerState'] !== undefined && !BoardSettingsUtil.runnerStateIsKnown(candidate['runnerState'])) {
+    return `runnerState is ${JSON.stringify(candidate['runnerState'])}, and when present it has to be one of ${RUNNER_STATES.join(', ')}`;
   }
   const retiredKey = RETIRED_PIPELINE_KEYS.find((key) => Object.hasOwn(candidate, key));
   if (retiredKey !== undefined) return `${retiredKey} is present, and the gate pipeline lives in pipeline.json; ${OLDER_FORMAT_ADVICE}`;

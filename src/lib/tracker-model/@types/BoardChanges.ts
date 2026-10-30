@@ -10,7 +10,7 @@ import type { LogRecord, LogRecordFieldsOf }    from './LogRecord.ts';
 import type { Pipeline }                        from './Pipeline.ts';
 import type { Task, TaskStatus }                from './Task.ts';
 import type { AgentEffort, AgentModel, Ticket } from './Ticket.ts';
-import type { DispatcherState }                 from './TrackerProgress.ts';
+import type { RunnerState }                     from './TrackerProgress.ts';
 
 export interface AgentChoice {
   model?:  AgentModel;
@@ -199,8 +199,8 @@ export interface ConcurrencyLimitSet extends Logged {
   concurrency:   Concurrency;
 }
 
-export interface DispatcherStateSet extends Logged {
-  previousState: DispatcherState;
+export interface RunnerStateSet extends Logged {
+  previousState: RunnerState;
 }
 
 export interface PipelineChanged extends Logged {
